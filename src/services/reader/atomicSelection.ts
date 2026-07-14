@@ -4,6 +4,12 @@ export type SelectedAtomicUnit = ReaderAtomicUnit & {
     element: HTMLElement;
 };
 
+export type RenderedAtomicUnit = {
+    kind: ReaderAtomicUnitKind;
+    mode: ReaderAtomicUnitMode;
+    element: HTMLElement;
+};
+
 const READER_ATOMIC_UNIT_KINDS = [
     'inline-math',
     'display-math',
@@ -18,6 +24,19 @@ const READER_ATOMIC_UNIT_KINDS = [
 ] as const satisfies readonly ReaderAtomicUnitKind[];
 
 const READER_ATOMIC_UNIT_KIND_SET = new Set<ReaderAtomicUnitKind>(READER_ATOMIC_UNIT_KINDS);
+const RENDERED_ATOMIC_UNIT_SELECTOR = '.katex-display, .katex, pre, table, code, img, h1, h2, h3, h4, h5, h6, li, blockquote, hr';
+const NON_CONTENT_TEXT_SELECTOR = [
+    'button',
+    '[role="button"]',
+    '[data-testid="webpage-citation-pill"]',
+    '[data-aimd-role]',
+    '.sr-only',
+    '.katex-mathml',
+    'script',
+    'style',
+    'noscript',
+    'svg',
+].join(',');
 
 export function isTextSelectableAtomicUnitKind(kind: ReaderAtomicUnitKind): boolean {
     return kind === 'inline-code' || kind === 'code-block' || kind === 'table';
@@ -66,7 +85,7 @@ function compareDocumentOrder(a: Element, b: Element): number {
 }
 
 function collectRenderedUnitElements(root: HTMLElement): Array<{ kind: ReaderAtomicUnitKind; mode: ReaderAtomicUnitMode; element: HTMLElement }> {
-    const elements = Array.from(root.querySelectorAll<HTMLElement>('.katex-display, .katex, pre, table, code, img, h1, h2, h3, h4, h5, h6, li, blockquote, hr'))
+    const elements = Array.from(root.querySelectorAll<HTMLElement>(RENDERED_ATOMIC_UNIT_SELECTOR))
         .filter((element) => {
             if (element.matches('.katex') && element.closest('.katex-display')) return false;
             if (element.matches('code') && element.closest('pre')) return false;
@@ -195,6 +214,106 @@ export function resolveSelectedAtomicUnits(range: Range, root: HTMLElement): Sel
             && candidate.element.contains(unit.element)
         )))
         .sort((left, right) => left.start - right.start);
+}
+
+export function resolveStrictRenderedAtomicUnits(range: Range, root: HTMLElement): RenderedAtomicUnit[] {
+    if (!root.contains(range.startContainer) || !root.contains(range.endContainer)) return [];
+
+    const selected = collectStrictCandidateElements(range, root)
+        .map((element) => {
+            const kind = resolveRenderedAtomicUnitKind(element);
+            if (!kind) return null;
+            return {
+                element,
+                kind,
+                mode: resolveRenderedAtomicUnitMode(element, kind),
+            };
+        })
+        .filter((unit): unit is RenderedAtomicUnit => Boolean(unit))
+        .filter((unit) => rangeIntersectsElement(range, unit.element) && rangeCoversStrictUnit(range, unit));
+
+    return selected
+        .filter((unit) => !selected.some((candidate) => (
+            candidate !== unit && candidate.element.contains(unit.element)
+        )))
+        .sort((left, right) => compareDocumentOrder(left.element, right.element));
+}
+
+function collectStrictCandidateElements(range: Range, root: HTMLElement): HTMLElement[] {
+    const candidates = new Set<HTMLElement>();
+    const addCandidate = (element: HTMLElement): void => {
+        if (!root.contains(element)) return;
+        if (!element.matches(RENDERED_ATOMIC_UNIT_SELECTOR)) return;
+        if (element.matches('.katex') && element.closest('.katex-display')) return;
+        if (element.matches('code') && element.closest('pre')) return;
+        candidates.add(element);
+    };
+    const commonElement = getElementForNode(range.commonAncestorContainer);
+    if (commonElement && root.contains(commonElement)) {
+        addCandidate(commonElement);
+        commonElement.querySelectorAll<HTMLElement>(RENDERED_ATOMIC_UNIT_SELECTOR).forEach(addCandidate);
+    }
+    for (const endpoint of [range.startContainer, range.endContainer]) {
+        let current = getElementForNode(endpoint);
+        while (current && root.contains(current)) {
+            addCandidate(current);
+            if (current === root) break;
+            current = current.parentElement;
+        }
+    }
+    return Array.from(candidates).sort(compareDocumentOrder);
+}
+
+function getElementForNode(node: Node): HTMLElement | null {
+    if (node instanceof HTMLElement) return node;
+    return node.parentElement;
+}
+
+function rangeIntersectsElement(range: Range, element: HTMLElement): boolean {
+    try {
+        return range.intersectsNode(element);
+    } catch {
+        return false;
+    }
+}
+
+function rangeCoversStrictUnit(range: Range, unit: RenderedAtomicUnit): boolean {
+    if (unit.kind === 'image' || unit.kind === 'thematic-break') {
+        return rangeCoversNode(range, unit.element);
+    }
+    if (unit.kind === 'inline-math' || unit.kind === 'display-math') {
+        const visualRoot = unit.element.querySelector<HTMLElement>('.katex-html') ?? unit.element;
+        return rangeCoversSemanticText(range, visualRoot) || rangeCoversNode(range, unit.element);
+    }
+    if (unit.kind === 'code-block') {
+        const codeRoot = unit.element.querySelector<HTMLElement>('code, .cm-content, [data-lexical-editor="true"]') ?? unit.element;
+        return rangeCoversSemanticText(range, codeRoot);
+    }
+    return rangeCoversSemanticText(range, unit.element);
+}
+
+function rangeCoversNode(range: Range, element: HTMLElement): boolean {
+    if (!element.parentNode) return false;
+    const elementRange = element.ownerDocument.createRange();
+    elementRange.selectNode(element);
+    return range.compareBoundaryPoints(Range.START_TO_START, elementRange) <= 0
+        && range.compareBoundaryPoints(Range.END_TO_END, elementRange) >= 0;
+}
+
+function rangeCoversSemanticText(range: Range, element: HTMLElement): boolean {
+    const textNodes = collectTextNodes(element).filter((node) => {
+        if (!node.data.trim()) return false;
+        return !node.parentElement?.closest(NON_CONTENT_TEXT_SELECTOR);
+    });
+    const first = textNodes[0];
+    const last = textNodes[textNodes.length - 1];
+    if (!first || !last) return false;
+
+    const elementRange = element.ownerDocument.createRange();
+    elementRange.setStart(first, 0);
+    elementRange.setEnd(last, last.data.length);
+    return range.compareBoundaryPoints(Range.START_TO_START, elementRange) <= 0
+        && range.compareBoundaryPoints(Range.END_TO_END, elementRange) >= 0;
 }
 
 function rangeCoversElementText(range: Range, element: HTMLElement): boolean {

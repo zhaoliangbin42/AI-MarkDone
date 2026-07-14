@@ -1,6 +1,11 @@
 import { describe, expect, it } from 'vitest';
 
-import { annotateRenderedAtomicUnits, resolveReaderSelectionRange, resolveSelectedAtomicUnits } from '@/services/reader/atomicSelection';
+import {
+    annotateRenderedAtomicUnits,
+    resolveReaderSelectionRange,
+    resolveSelectedAtomicUnits,
+    resolveStrictRenderedAtomicUnits,
+} from '@/services/reader/atomicSelection';
 
 function buildSelectionStub(range: Range, composedRange?: StaticRange): Selection {
     return {
@@ -12,6 +17,68 @@ function buildSelectionStub(range: Range, composedRange?: StaticRange): Selectio
 }
 
 describe('atomicSelection', () => {
+    it('requires complete visible coverage for every strict page atomic unit', () => {
+        const root = document.createElement('div');
+        root.innerHTML = '<p>Before <code>answer</code> after</p>';
+        const codeText = root.querySelector('code')!.firstChild as Text;
+
+        const partial = document.createRange();
+        partial.setStart(codeText, 1);
+        partial.setEnd(codeText, codeText.data.length);
+        expect(resolveStrictRenderedAtomicUnits(partial, root)).toHaveLength(0);
+
+        const full = document.createRange();
+        full.setStart(codeText, 0);
+        full.setEnd(codeText, codeText.data.length);
+        expect(resolveStrictRenderedAtomicUnits(full, root).map((unit) => unit.kind)).toEqual(['inline-code']);
+    });
+
+    it('uses the complete KaTeX visual layer instead of intersection-only matching', () => {
+        const root = document.createElement('div');
+        root.innerHTML = `
+          <p>
+            <span class="katex">
+              <span class="katex-mathml"><math><annotation encoding="application/x-tex">x+y</annotation></math></span>
+              <span class="katex-html" aria-hidden="true"><span>x</span><span>+</span><span>y</span></span>
+            </span>
+          </p>
+        `;
+        const visualText = Array.from(root.querySelector('.katex-html')!.querySelectorAll('span'))
+            .map((element) => element.firstChild as Text);
+
+        const partial = document.createRange();
+        partial.setStart(visualText[1]!, 0);
+        partial.setEnd(visualText[2]!, visualText[2]!.data.length);
+        expect(resolveStrictRenderedAtomicUnits(partial, root)).toHaveLength(0);
+
+        const full = document.createRange();
+        full.setStart(visualText[0]!, 0);
+        full.setEnd(visualText[2]!, visualText[2]!.data.length);
+        expect(resolveStrictRenderedAtomicUnits(full, root).map((unit) => unit.kind)).toEqual(['inline-math']);
+    });
+
+    it('collapses nested strict units into the fully selected outer unit', () => {
+        const root = document.createElement('div');
+        root.innerHTML = '<table><tbody><tr><td><code>answer</code></td><td>result</td></tr></tbody></table>';
+        const first = root.querySelector('code')!.firstChild as Text;
+        const last = root.querySelectorAll('td')[1]!.firstChild as Text;
+        const range = document.createRange();
+        range.setStart(first, 0);
+        range.setEnd(last, last.data.length);
+
+        expect(resolveStrictRenderedAtomicUnits(range, root).map((unit) => unit.kind)).toEqual(['table']);
+    });
+
+    it('requires node-level containment for strict non-text units', () => {
+        const root = document.createElement('div');
+        root.innerHTML = '<p>Before<img src="https://example.com/image.png" alt="Example">After</p>';
+        const image = root.querySelector('img')!;
+        const range = document.createRange();
+        range.selectNode(image);
+
+        expect(resolveStrictRenderedAtomicUnits(range, root).map((unit) => unit.kind)).toEqual(['image']);
+    });
+
     it('prefers composed ranges inside the reader shadow root', () => {
         const host = document.createElement('div');
         const shadow = host.attachShadow({ mode: 'open' });

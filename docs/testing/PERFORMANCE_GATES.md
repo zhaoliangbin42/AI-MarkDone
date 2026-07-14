@@ -8,6 +8,7 @@ This document is the execution contract for the 2026 ChatGPT content-runtime per
 - Run `npm run perf:chatgpt` three times on the same machine without interacting with the benchmark browser window.
 - Use the median of the three runs for timing, long-task, and heap comparisons.
 - The fixture contains 200 user/assistant rounds, 200 frame-paced streaming text mutations, and replacement of every tenth official action row.
+- The first assistant round also contains one direct-selection inline-code atom. The benchmark dispatches the configured selection-event count against the same Range, verifies one selected block and a clean collapse, and records a dedicated selection phase.
 - The benchmark uses the built Chrome extension in real Chromium. It does not access a live ChatGPT account or network content.
 - Each phase reports a mutation breakdown by DOM mutation type and attribute name so self-authored extension writes can be distinguished from host streaming changes.
 - Before reading `usedJsHeapBytes`, the benchmark explicitly requests a renderer garbage collection through the Chromium DevTools Protocol. This makes heap medians comparable instead of depending on incidental browser GC timing.
@@ -21,6 +22,7 @@ The benchmark must always satisfy all of these invariants:
 - all replaced official action rows recover within 500 ms.
 - no content feature module is requested before the explicit Bookmarks trigger; after the trigger the panel mounts within 500 ms and every feature URL remains on the extension origin rather than the host page origin.
 - no phase may increase an already accepted bundle or runtime median captured under the same measurement protocol by more than 10% without an explicit documented reason.
+- the direct-selection phase must produce no long task and no more than one `data-aimd-page-atomic-state` set plus one clear, regardless of repeated unchanged `selectionchange` events.
 - `npm run test:core` and `npm run build` remain green at every phase boundary.
 
 ## Phase 0 baseline
@@ -139,10 +141,19 @@ If a phase misses a threshold, work stays in that phase. The implementation may 
 - Final automated closeout passed 1,234/1,234 core tests, 36/36 smoke tests, 120/120 acceptance tests, TypeScript checking, and complete Chrome/Firefox/Safari WebExtension builds with every entry-format, facade-export, resource, and bundle-size gate green.
 - The automated browser fixture deliberately avoids a live ChatGPT account and network content. Safari parity here means source/manifest/build/module verification; signed Safari wrapper and real Safari hardware remain release-stage checks under the existing Safari runbook, not performance-program blockers.
 
+### Direct page atomic selection — 2026-07-14
+
+- Added a selection-exit-only ChatGPT path that recognizes fully covered rendered atoms within one completed assistant message. It uses one document `selectionchange` listener, one bubbling `copy` listener, animation-frame coalescing, and no page observer, overlay, selection rewrite, or idle scan.
+- Three final 200-event runs selected and then cleared exactly one inline-code atom. Every run produced exactly two `data-aimd-page-atomic-state` writes, zero selection-phase long tasks, and no residual selected state. Median selection-phase duration was 192.4 ms including four animation frames and the fixed 50 ms observation tail.
+- Existing runtime invariants stayed green on every run: 200/200 toolbars, zero duplicates, zero idle mutations, exactly 200 streaming host mutations, and zero streaming long tasks. Median toolbar readiness was 289.4 ms and median replacement recovery was 163.4 ms.
+- `content.js` is 712,681 raw bytes / 190,556 gzip bytes and remains inside the Phase 7 startup budget. The complete Chrome and Firefox builds, entry-format checks, and bundle-size gates passed.
+- The boundary passed 1,395/1,395 core tests, 36/36 smoke tests, and 122/122 acceptance tests. Unit and real-trigger-path coverage includes full versus partial atoms, mixed text, nested atoms, host-preempted clipboard ownership, reversible versus visual-only formula source, cross-message and streaming fallback, budget fallback, state cleanup, and runtime disposal.
+
 ## Scope protections
 
 - Do not use viewport-lazy toolbars; users must retain immediate actions on every hydrated official action row.
 - Do not reintroduce conversation DOM virtualization as part of this program.
 - Toolbar placement remains anchored to ChatGPT's official `copy-turn-action-button` row. There is no content-body fallback.
 - Official navigation hiding must fail open when the exact official selector no longer matches.
+- Direct atomic selection must remain a single document-level event path with no MutationObserver, per-message listener, overlay, selection rewrite, or idle DOM writes; unsupported and over-budget selections must fail open to native copy.
 - Bundle splitting may use only the documented `browser.runtime.getURL()` feature facade exception in classic `content.js`; all emitted ES modules must pass module parsing, callable-export, manifest-resource, extension-origin, and bundle-budget gates.

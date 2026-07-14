@@ -2,6 +2,7 @@ import { logger } from '../../core/logger';
 import type { SiteAdapter } from '../../drivers/content/adapters/base';
 import { enhanceUnrenderedMath } from './preprocess/math-extractor';
 import { createMarkdownParser } from '../markdown-parser/createMarkdownParser';
+import type { ParserOptions } from '../markdown-parser/core/types';
 
 export type CopyMarkdownResult =
     | { ok: true; markdown: string }
@@ -49,15 +50,14 @@ function resolveContentRoot(adapter: SiteAdapter, messageElement: HTMLElement): 
     return contentElement instanceof HTMLElement ? contentElement : messageElement;
 }
 
-export function copyMarkdownFromMessage(adapter: SiteAdapter, messageElement: HTMLElement): CopyMarkdownResult {
+function copyMarkdownFromElementInternal(
+    adapter: SiteAdapter,
+    root: HTMLElement,
+    options: ParserOptions = {},
+): CopyMarkdownResult {
     const parserAdapter = adapter.getMarkdownParserAdapter();
     if (!parserAdapter) {
         return { ok: false, error: { code: 'UNSUPPORTED_SITE', message: 'Unsupported platform.' } };
-    }
-
-    const root = resolveContentRoot(adapter, messageElement);
-    if (!root) {
-        return { ok: false, error: { code: 'NO_MESSAGE', message: 'No message content found.' } };
     }
 
     try {
@@ -69,13 +69,32 @@ export function copyMarkdownFromMessage(adapter: SiteAdapter, messageElement: HT
             enhanceUnrenderedMath(clone);
         }
 
-        const parser = createMarkdownParser(parserAdapter, { enablePerformanceLogging: false });
+        const parser = createMarkdownParser(parserAdapter, { enablePerformanceLogging: false, ...options });
         const markdown = adapter.cleanMarkdown(parser.parse(clone));
+        if (markdown.startsWith('<!-- Parser Max nodes') || markdown.startsWith('<!-- Parser Time budget')) {
+            return { ok: false, error: { code: 'INTERNAL_ERROR', message: 'Markdown fragment budget exceeded.' } };
+        }
         return { ok: true, markdown };
     } catch (err) {
         logger.error('[AI-MarkDone][Copy] copyMarkdownFromMessage failed', err);
         return { ok: false, error: { code: 'INTERNAL_ERROR', message: 'Failed to build markdown.' } };
     }
+}
+
+export function copyMarkdownFromElement(
+    adapter: SiteAdapter,
+    element: HTMLElement,
+    options: ParserOptions = {},
+): CopyMarkdownResult {
+    return copyMarkdownFromElementInternal(adapter, element, options);
+}
+
+export function copyMarkdownFromMessage(adapter: SiteAdapter, messageElement: HTMLElement): CopyMarkdownResult {
+    const root = resolveContentRoot(adapter, messageElement);
+    if (!root) {
+        return { ok: false, error: { code: 'NO_MESSAGE', message: 'No message content found.' } };
+    }
+    return copyMarkdownFromElementInternal(adapter, root);
 }
 
 export function copyMarkdownFromPage(adapter: SiteAdapter): CopyMarkdownResult {

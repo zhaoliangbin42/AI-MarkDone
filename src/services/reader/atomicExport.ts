@@ -4,8 +4,9 @@ export function buildAtomicSelectionExport(params: {
     range: Range;
     root: HTMLElement;
     selectedUnits: SelectedAtomicUnit[];
+    shouldSkipElement?: (element: HTMLElement) => boolean;
 }): string {
-    const { range, root, selectedUnits } = params;
+    const { range, root, selectedUnits, shouldSkipElement } = params;
     if (selectedUnits.length < 1) return range.toString().trim();
 
     const selectedUnitMap = new Map(selectedUnits.map((unit) => [unit.element, unit]));
@@ -25,6 +26,7 @@ export function buildAtomicSelectionExport(params: {
         if (node instanceof HTMLElement) {
             const unit = selectedUnitMap.get(node);
             if (unit) return isBlockUnit(unit) ? `${unit.source}\n\n` : unit.source;
+            if (shouldSkipElement?.(node)) return '';
 
             const childParts: string[] = [];
             node.childNodes.forEach((child) => {

@@ -25,6 +25,7 @@ type RuntimeMetrics = {
     usedJsHeapBytes: number | null;
     cold: PhaseMetrics;
     idle: PhaseMetrics;
+    selection: PhaseMetrics;
     streaming: PhaseMetrics;
     recovery: PhaseMetrics;
 };
@@ -64,7 +65,7 @@ function createFixtureHtml(rounds: number): string {
       </div>
       <div data-testid="conversation-turn-${index * 2 + 2}" data-turn="assistant">
         <div data-message-author-role="assistant" data-message-id="assistant-${index + 1}">
-          <div class="markdown prose"><p>Answer ${index + 1}</p></div>
+          <div class="markdown prose"><p>Answer ${index + 1}</p>${index === 0 ? '<p data-aimd-perf-atomic-selection>Before <code>atomic selection</code> after</p>' : ''}</div>
         </div>
         <div class="z-0 flex"><div><button data-testid="copy-turn-action-button">Copy</button></div></div>
       </div>
@@ -217,6 +218,50 @@ async function runRuntimeBenchmark(extensionPath: string, rounds: number, mutati
         console.error('[perf] idle phase complete');
 
         await resetPhase(page);
+        const selectionContract = await page.evaluate(async (eventCount) => {
+            const code = document.querySelector<HTMLElement>('[data-aimd-perf-atomic-selection] code');
+            const text = code?.firstChild;
+            const selection = window.getSelection();
+            if (!code || !(text instanceof Text) || !selection) {
+                throw new Error('Atomic selection fixture is missing');
+            }
+            const range = document.createRange();
+            range.setStart(text, 0);
+            range.setEnd(text, text.data.length);
+            selection.removeAllRanges();
+            selection.addRange(range);
+            for (let index = 0; index < eventCount; index += 1) {
+                document.dispatchEvent(new Event('selectionchange'));
+            }
+            await new Promise<void>((resolveFrame) => requestAnimationFrame(() => resolveFrame()));
+            await new Promise<void>((resolveFrame) => requestAnimationFrame(() => resolveFrame()));
+            const selectedCount = document.querySelectorAll('[data-aimd-page-atomic-state="selected"]').length;
+
+            selection.removeAllRanges();
+            document.dispatchEvent(new Event('selectionchange'));
+            await new Promise<void>((resolveFrame) => requestAnimationFrame(() => resolveFrame()));
+            await new Promise<void>((resolveFrame) => requestAnimationFrame(() => resolveFrame()));
+            return {
+                selectedCount,
+                clearedCount: document.querySelectorAll('[data-aimd-page-atomic-state="selected"]').length,
+            };
+        }, mutations);
+        await page.waitForTimeout(50);
+        const selection = await collectPhase(page);
+        const selectionAttributeWrites = selection.mutationBreakdown['attributes:data-aimd-page-atomic-state'] ?? 0;
+        if (
+            selectionContract.selectedCount !== 1
+            || selectionContract.clearedCount !== 0
+            || selectionAttributeWrites > 2
+            || selection.longTaskCount > 0
+        ) {
+            throw new Error(
+                `Atomic selection performance gate failed: selected=${selectionContract.selectedCount}, cleared=${selectionContract.clearedCount}, writes=${selectionAttributeWrites}, longTasks=${selection.longTaskCount}`,
+            );
+        }
+        console.error('[perf] atomic selection phase complete');
+
+        await resetPhase(page);
         await page.evaluate(async (mutationCount) => {
             const target = document.querySelector<HTMLElement>('[data-message-id="assistant-1"] .markdown p');
             if (!target) throw new Error('Streaming target is missing');
@@ -323,6 +368,7 @@ async function runRuntimeBenchmark(extensionPath: string, rounds: number, mutati
             ...finalMetrics,
             cold,
             idle,
+            selection,
             streaming,
             recovery,
         };

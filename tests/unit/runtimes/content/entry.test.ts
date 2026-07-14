@@ -208,6 +208,14 @@ const pageWidthCtor = vi.fn(function () {
         setScale: pageWidthSetScale,
     };
 });
+const atomicSelectionInit = vi.fn();
+const atomicSelectionDispose = vi.fn();
+const atomicSelectionCtor = vi.fn(function () {
+    return {
+        init: atomicSelectionInit,
+        dispose: atomicSelectionDispose,
+    };
+});
 const engineInit = vi.fn();
 const engineSubscribe = vi.fn();
 const engineGetSnapshot = vi.fn(async () => null);
@@ -403,6 +411,10 @@ vi.mock('@/ui/content/controllers/ChatGPTPromptAutocompleteController', () => ({
 
 vi.mock('@/ui/content/controllers/ChatGPTPageWidthController', () => ({
     ChatGPTPageWidthController: pageWidthCtor,
+}));
+
+vi.mock('@/ui/content/controllers/ChatGPTAtomicSelectionController', () => ({
+    ChatGPTAtomicSelectionController: atomicSelectionCtor,
 }));
 
 vi.mock('@/drivers/content/chatgpt/ChatGPTConversationEngine', () => ({
@@ -633,6 +645,8 @@ describe('content runtime entry', () => {
         expect(pageWidthCtor).toHaveBeenCalledTimes(1);
         expect(pageWidthInit).toHaveBeenCalledTimes(1);
         expect(pageWidthSetScale).toHaveBeenCalledWith(130);
+        expect(atomicSelectionCtor).toHaveBeenCalledTimes(1);
+        expect(atomicSelectionInit).toHaveBeenCalledTimes(1);
         expect(directorySetEnabled).toHaveBeenCalledWith(false);
         expect(directorySetDisplayMode).toHaveBeenCalledWith('expanded');
         expect(directorySetPromptLabelMode).toHaveBeenCalledWith('headTail');
@@ -833,6 +847,7 @@ describe('content runtime entry', () => {
         expect(composerEnterDispose).toHaveBeenCalledTimes(1);
         expect(messageStepperDispose).toHaveBeenCalledTimes(1);
         expect(pageWidthDispose).toHaveBeenCalledTimes(1);
+        expect(atomicSelectionDispose).toHaveBeenCalledTimes(1);
         expect(directoryCtor).toHaveBeenCalledTimes(1);
         expect(directoryDispose).toHaveBeenCalledTimes(1);
         expect(officialNavigationDispose).toHaveBeenCalledTimes(1);

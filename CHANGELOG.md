@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+- ChatGPT: Selecting a complete formula, code span or block, table, image, heading, list item, quote, or divider directly in an assistant response now highlights the whole unit and copies its Markdown source, while partial and unsupported selections keep ChatGPT's native behavior.
+
+### Fixed
+- ChatGPT: Complete atomic selections now overwrite the host page's rendered-text clipboard result with canonical Markdown source, and formula selection reuses the shared reversible TeX extractor instead of guessing from visual glyph text.
+
 ### Changed
 - Performance: Production extension scripts are now safely minified with enforced bundle budgets, substantially reducing installed code size without changing toolbar behavior.
 - Performance: Reduced ChatGPT idle-page work and large bookmark batch costs by replacing repeated full scans, removing official-navigation DOM write loops, and cancelling deferred scans during teardown.

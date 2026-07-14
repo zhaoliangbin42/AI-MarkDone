@@ -20,4 +20,13 @@ describe('ChatGPT performance benchmark contract', () => {
         expect(source).toContain('Feature chunk resolved against the host page origin');
         expect(source).toContain('featureLoadMs');
     });
+
+    it('measures direct atomic selection without allowing repeated DOM writes or long tasks', () => {
+        const source = readFileSync(resolve('scripts/benchmark-chatgpt-runtime.ts'), 'utf8');
+
+        expect(source).toContain('data-aimd-perf-atomic-selection');
+        expect(source).toContain('data-aimd-page-atomic-state');
+        expect(source).toContain('Atomic selection performance gate failed');
+        expect(source).toContain('selection: PhaseMetrics');
+    });
 });

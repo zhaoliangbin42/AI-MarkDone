@@ -23,6 +23,7 @@ import { ChatGPTMessageStepperController } from '../../ui/content/controllers/Ch
 import { ChatGPTPromptAutocompleteController } from '../../ui/content/controllers/ChatGPTPromptAutocompleteController';
 import { ChatGPTOfficialNavigationVisibilityController } from '../../ui/content/controllers/ChatGPTOfficialNavigationVisibilityController';
 import { ChatGPTPageWidthController } from '../../ui/content/controllers/ChatGPTPageWidthController';
+import { ChatGPTAtomicSelectionController } from '../../ui/content/controllers/ChatGPTAtomicSelectionController';
 import { createPromptLibraryClient } from '../../drivers/content/prompts/promptLibraryClient';
 import { OverlaySession } from '../../ui/content/overlay/OverlaySession';
 import { ViewportResizeSuspendController } from '../../ui/content/controllers/ViewportResizeSuspendController';
@@ -165,6 +166,9 @@ if (adapter) {
         : null;
     const chatGptPageWidth = adapter.getPlatformId() === 'chatgpt'
         ? new ChatGPTPageWidthController()
+        : null;
+    const chatGptAtomicSelection = adapter.getPlatformId() === 'chatgpt'
+        ? new ChatGPTAtomicSelectionController(adapter)
         : null;
     const messageToolbars = new MessageToolbarOrchestrator(adapter, {
         readerPanel,
@@ -309,6 +313,7 @@ if (adapter) {
         chatGptPromptAutocomplete?.init();
         chatGptMessageStepper?.init();
         chatGptPageWidth?.init();
+        chatGptAtomicSelection?.init();
         syncChatGptBehaviorSettings(settingsClient.getCached()?.chatgptBehavior);
         if (!chatGptDirectory) {
             writeDebugState({ ChatGptInit: 'directory-disabled' });
@@ -389,6 +394,7 @@ if (adapter) {
         chatGptPromptAutocomplete?.dispose();
         chatGptMessageStepper?.dispose();
         chatGptPageWidth?.dispose();
+        chatGptAtomicSelection?.dispose();
         contentAdapter.dispose?.();
     };
 
