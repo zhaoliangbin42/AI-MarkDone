@@ -23,6 +23,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - ChatGPT: The right-side directory now updates when the conversation view is replaced after adding a new message.
 
 ### Changed
+- Export: Save Messages now combines selected messages into one long PNG whenever the image fits the safe export budget. Oversized exports keep at least 1x clarity and fall back to a ZIP containing the fewest necessary PNG parts.
+- Export: Copy PNG, Save Messages PNG, and trusted-TeX formula assets now share an on-demand cross-browser renderer and one high-memory scheduler. Message PNGs stream into the encoder without a final full-height canvas, while the existing controls, clipboard behavior, and download behavior stay unchanged.
+- Formula: PNG, SVG, and MathML assets now use one consistent formula renderer when trusted TeX source is available. Formulas whose source cannot be recovered keep a compatible PNG path instead of producing misleading vector or MathML files.
 - Settings: Consolidated the former ChatGPT Markdown and Enter-newline switches into one Input Enhancement availability setting. Existing choices migrate without loss, while detailed preferences remain in the composer popover.
 - ChatGPT: Refined the Input Enhancement popover into a compact grouped tool panel with a clearer master state, lightweight editing and formula sections, and space-efficient list-type controls.
 - Performance: Production extension scripts are now safely minified with enforced bundle budgets, substantially reducing installed code size without changing toolbar behavior.

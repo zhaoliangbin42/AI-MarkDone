@@ -33,6 +33,19 @@
   - `src/core/*`
 - 禁止依赖 `src/ui/*`
 
+### Export renderer runtime
+
+- 入口位于 `src/runtimes/export-renderer/*`，由按需 extension-origin `export-renderer.html` iframe 与 static PNG worker 承载
+- 只允许依赖：
+  - `src/services/export/*` 的版本化协议、profile 与纯 planner
+  - `src/core/*` 的纯编码/数学逻辑
+  - 渲染所需的本地 Markdown/KaTeX/MathJax capability
+- Renderer capability 只负责编译、布局、band 栅格化与编码；禁止读取 settings/storage、访问网络、调用 clipboard/download/browser runtime messaging 或依赖 UI shell
+- 消息与公式 capability 必须保持动态拆包；消息 job 不得加载公式 MathJax capability，公式 job 不得加载 Markdown/highlight capability
+- 所有高内存图片任务必须先进入 `exportTaskScheduler`。可序列化任务必须复用 renderer host/protocol；只有无法跨 iframe 传递 Element 的 `dom-only` 公式 PNG 可以使用现有唯一 content-side compatibility adapter，且不得绕过 scheduler 或复制第二套 TeX/Markdown renderer
+- PNG worker 只消费 `start/writeBand/finish/cancel`，必须校验等宽和连续 Y；禁止创建总高度 Canvas 或接收 DOM/HTML
+- 只有 `export-renderer.html` 可作为 host-facing web-accessible resource；entry、capability chunks 与 worker 只能从 extension origin 内部解析
+
 ---
 
 ## 2. Logical Layer Rules
@@ -78,6 +91,12 @@
 - `src/contracts/platform.ts`
 - `src/contracts/storage.ts`
 
+Content ↔ export renderer 的私有协议不经过 background runtime message，必须单点定义在：
+
+- `src/services/export/exportRenderHostProtocol.ts`
+
+该协议必须版本化，只传语义 job、进度、稳定错误码、artifact metadata 与 transferable `ArrayBuffer` chunk；禁止 base64、大型 JSON 二进制、DOM、HTML/CSS 或 renderer function。
+
 禁止：
 
 - 在 content 与 background 两侧重复定义协议常量
@@ -111,11 +130,13 @@
 例外：
 
 - 如果某项副作用必须在 content 侧执行，必须在 `BLUEPRINT.md` 与 `REFACTOR_CHECKLIST.md` 中明确记录原因与边界
+- 图片 clipboard 与下载必须留在 content driver，因为它们需要真实用户激活与页面侧交付；export renderer 只能返回 artifact，不得反向执行这些副作用
 
 禁止：
 
 - UI 或 Service 直接 import `src/drivers/background/cloudBackup/*`
 - Google Drive Backup 凭据、OAuth token、WebDAV/app password 等进入 `storage.sync`、书签 snapshot 或导出 payload
+- Export renderer 读取 storage、联网、写 clipboard/download，或通过 background runtime message 传输大 PNG
 
 ---
 

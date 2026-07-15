@@ -12,7 +12,7 @@
 - **按契约驱动**：协议（protocol）、适配器契约（adapter contract）、存储契约（storage contract）必须有独立测试
 - **可回归**：关键能力（bookmarks、reader、parse/render、settings、i18n）必须有可重复回归套件
 - **可定位**：失败能快速映射到模块（而不是“全局 E2E 才能发现”）
-- **兼容性**：Chrome MV3 / Firefox MV2 的差异点必须被测试锁定（至少 release gates）
+- **兼容性**：Chrome MV3 / Firefox MV2 / Safari WebExtension 的差异点必须被测试锁定（至少 release gates）
 - **可视验收**：UI 模块在并入插件前必须先完成 mock-first 浏览器视觉验证，而不是只依赖 build 或 jsdom
 
 ---
@@ -107,9 +107,10 @@ tests/
 要求：
 
 - manifest 直接执行的 classic entry bundle 不得包含 top-level `import`，并必须能作为 classic script 解析
-- `background.js` / `formula-renderer.js` 不得包含运行时 chunk 加载；`content.js` 只允许一个受控例外：用 `browser.runtime.getURL()` 生成固定 `content-features.js` URL 的动态 import。不得出现 bundler 自动生成的 host-relative `./assets/*` chunk、任意脚本文本执行或 host page URL
+- `background.js` 不得包含运行时 chunk 加载；`content.js` 只允许用 `browser.runtime.getURL()` 生成固定 `content-features.js` URL。真实图片动作进入 lazy feature 后，host client 才允许用同一固定 asset contract 解析 `export-renderer.html`；不得出现 bundler 自动生成的 host-relative `./assets/*` chunk、任意脚本文本执行或 host page URL
 - `reader.js`、`content-features.js` 与 `content-feature-chunks/*.js` 必须作为 ES modules 解析；feature facade 必须保留约定的 callable exports，preload/chunk URL 必须以 `import.meta.url` 解析到 extension origin
-- 三端 manifest 必须从共享 asset contract 暴露 facade/chunk resources；门禁同时作用于 Chrome MV3、Firefox MV2 与 Safari WebExtension 产物
+- `export-renderer.js` 与 `export-renderer-chunks/*.js` 必须作为 ES modules 解析，`png-encoder-worker.js` 必须可独立执行；只有 `export-renderer.html` 对 host 暴露，renderer chunks/worker 由 extension page 内部解析
+- 三端 manifest 必须从共享 asset contract 暴露 facade/chunk/renderer host resources；门禁同时作用于 Chrome MV3、Firefox MV2 与 Safari WebExtension 产物
 
 原因：
 
@@ -120,3 +121,17 @@ tests/
 
 - 保持 `scripts/verify-extension-entry-format.sh` 作为 release gate，并执行 facade export 校验
 - 每次引入新的 markdown/runtime enhancement、懒加载库或 content-side UI enhancement 时，必须重新验证 classic startup entry 独立可执行、启动期没有 feature module 请求、真实 UI trigger 能加载对应 module 且没有 host-origin chunk 请求
+
+---
+
+## 8. Image Export Verification Blueprint
+
+图片导出测试必须按五层拆开，避免只在 jsdom 中 mock 掉 Canvas/iframe/clipboard 后宣称链路完成：
+
+1. **语义层**：`ReaderItem[] -> ChatTurn[] -> ExportDocumentV1` 的顺序、去重、空选择、标题/label 与 Markdown canonical 语义。
+2. **规划层**：倍率阶梯、硬预算、最少 part 数、文件名、消息/block band 边界、超宽 code/table/formula/image policy。
+3. **编码层**：已知 RGBA 的真实 PNG decode、CRC/IDAT/IEND、单一 zlib stream、取消、backpressure 与 band 连续性。
+4. **运行时层**：built-renderer browser harness 验证真实 Chromium/Firefox 引擎中的 iframe + MessageChannel + worker、PNG decode 与 capability 产物；installed-extension/真实入口 gate 另行验证 extension-origin lazy façade、FIFO/cache/reconnect、WAR 和 Clipboard/Download。两者不得互相替代。
+5. **产品层**：Toolbar Copy PNG、Save Messages 多选、公式 hover、Safari policy、Clipboard/Download fallback、Chromium/Firefox visual golden 与 12k/30k/60k benchmark。
+
+Release gate 不允许用单一 unit suite 替代真实 renderer harness，也不允许用最后一张 mock canvas 证明“没有总高度 Canvas”。固定阈值、fixture、命令与三端验收见 `docs/testing/IMAGE_EXPORT_GATES.md`。

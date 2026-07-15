@@ -5,6 +5,7 @@ This document defines the **current executable test and verification gates** for
 For long-term testing direction, see `docs/testing/TESTING_BLUEPRINT.md`.
 For full manual regression, see `docs/testing/E2E_REGRESSION_GUIDE.md`.
 For ChatGPT runtime and bundle performance work, see `docs/testing/PERFORMANCE_GATES.md`.
+For message PNG and formula asset export, see `docs/testing/IMAGE_EXPORT_GATES.md`.
 
 ---
 
@@ -16,6 +17,8 @@ For ChatGPT runtime and bundle performance work, see `docs/testing/PERFORMANCE_G
   - target testing architecture and future structure
 - `E2E_REGRESSION_GUIDE.md`
   - full manual regression checklist for release or major refactor
+- `IMAGE_EXPORT_GATES.md`
+  - executable image-export correctness, visual, budget, performance, bundle, and three-browser contract
 
 ---
 
@@ -55,6 +58,8 @@ Use targeted tests in addition when the failure mode is local and well defined.
 For performance refactors, also run the phase-specific gates in `PERFORMANCE_GATES.md`. A phase may not advance when its correctness, reliability, bundle, or runtime threshold is red.
 
 If the change affects lazy content feature loading, also run `tests/unit/governance/content-feature-boundary.test.ts`, `tests/unit/runtimes/content/lazyContentFeatures.test.ts`, the affected real trigger-path tests, `npm run build:all:webext`, and `npm run perf:chatgpt`. The benchmark must prove no feature module request before a real trigger, a successful BookmarksPanel mount after the lower-right button click, and zero host-origin feature chunk requests. Build verification must execute `content-features.js` and retain all callable facade exports.
+
+If the change affects message PNG, formula assets, the export renderer protocol/lifecycle, renderer build resources, PNG worker, ZIP compression, or image-export settings delivery, apply the complete gate in `IMAGE_EXPORT_GATES.md`. At minimum, run the focused semantic document/profile/planner/protocol/client/encoder/host/delivery tests, the real Toolbar Copy PNG and Save Messages triggers, formula hover and Safari surface-policy tests, `npm run test:core`, `npm run test:smoke`, `npm run test:acceptance`, and `npm run build:all:webext`. The closeout must prove budget-safe multi-selection produces one long PNG, message effective ratio never drops below 1x, only hard overflow produces the minimum-part ZIP, no final full-height canvas exists, startup loads no renderer capability, and artifact chunks decode exactly.
 
 For large structural refactors, the minimum acceptable closing gate is:
 
@@ -142,6 +147,7 @@ Manual regression is required when:
 - preparing a release
 - adding or expanding platform support
 - changing UI injection, toolbar behavior, reader behavior, bookmarks flows, or browser compatibility boundaries
+- changing image-export rendering, clipboard/download fallback, visual output, long-image budgets, formula assets, or renderer lifecycle
 - changing style-system rules, external style-library boundaries, or overlay/toolbar UI architecture
 
 Use:
@@ -177,6 +183,9 @@ For new UI modules or major UI refactors, manual regression now also includes th
   - add `npm run test:acceptance` when the change also updates governance/docs about the active gate
 - High-risk or cross-module change
   - `npm run test:core` + `npm run build`
+- Image-export architecture or output change
+  - the full focused/visual/performance/browser matrix in `docs/testing/IMAGE_EXPORT_GATES.md`
+  - `npm run test:core` + `npm run test:smoke` + `npm run test:acceptance` + `npm run build:all:webext`
 - Release preparation
   - `npm run release:verify` + `npm run package:safari:xcode` + Safari DMG packaging from a signed `.app` + App Store Connect readiness check + relevant manual regression
   - add `npm run test:core` for broad behavior changes, risky refactors, or release-candidate hardening runs where the full fixture set is available

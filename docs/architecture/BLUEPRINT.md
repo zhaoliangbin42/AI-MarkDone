@@ -27,12 +27,13 @@
 - Page Side（Content Script）：负责页面 DOM 交互与 UI 注入
 - Background Side（Service Worker / background script）：负责副作用能力中心
 - Extension UI（Popup/Options）：负责全局 UI 与设置入口（当前较薄）
+- Export Renderer（按需 extension page iframe + static worker）：负责消息/公式的编译、布局、band 栅格化与编码，不持有用户副作用
 
 ### 2.1.1 前后端分离定义（Extension Frontend vs Backend）
 
 为避免“浏览器扩展只有前端”的误区，这里给出项目内的明确术语约定：
 
-- **扩展前端（Frontend）**：Content Script + 页面内 UI（Shadow DOM/overlay）+ Popup/Options
+- **扩展前端（Frontend）**：Content Script + 页面内 UI（Shadow DOM/overlay）+ Popup/Options + 隔离的 Export Renderer
   - 负责：与页面交互、采集数据、呈现 UI、收集用户意图
   - 禁止：成为敏感副作用的权威执行者（例如任意写存储/任意网络/跨 tab 广播）
 - **扩展后端（Backend）**：Background（Chrome MV3 service worker / Firefox MV2 background）
@@ -106,6 +107,16 @@ Detached Reader 是 Reader 闭环的跨 runtime 形态，而不是第三套 Read
 6. Build config 由 `config/extension/cloudBackup.ts` 与 `config/extension/chromeWebStore.ts` 驱动：Chrome/Chromium build 同时包含 Chrome Extension OAuth client ID、manifest `oauth2`、Web OAuth client ID、`identity` 与 Google host permissions；Google Chrome 使用 Chrome Extension client，WebAuth-compatible browser 使用 Web OAuth client；Chrome 默认注入 Chrome Web Store public key 固定 extension ID；Firefox 使用 Web OAuth client ID、`launchWebAuthFlow` 和 `identity.getRedirectURL()` 的实际返回值；Safari v1 保持入口关闭
 7. OAuth client ID 是公开的应用身份，不是共享 Google 账号。Provider 不请求 `identity.email`，不把 refresh token/cookie/account id 写入 extension storage；账号展示只来自 Drive `about.get` 的邮箱、显示名与头像 URL 摘要。浏览器 identity cache 管理长期授权体验；provider 只把短期 access token 缓存在 extension local storage，过期前用于抗 service worker 重启。
 
+### 2.3.5 Image Export 闭环（消息长图 + 公式资产）
+
+1. UI 只保留当前消息 Copy PNG、Save Messages PNG、公式资产三个入口；入口不持有 HTML/CSS/renderer function，也不自行决定 Markdown、KaTeX、highlight 或分片算法。
+2. 消息路径从 fresh `ReaderItem[]` 转换为 `ChatTurn[]`，再构建版本化 `ExportDocumentV1`；authoritative TeX 提交结构化 spec。`dom-only` source 不能跨 iframe 传递，因此只允许由 `renderFormulaAsset()` 背后的唯一 content-side compatibility adapter 消费。Markdown 文件导出保持现有 formatter，不因图片重构改变 canonical 内容语义。
+3. Service 以每 tab 一个 FIFO scheduler 串行化全部高内存任务。可传输 job 通过 lazy `export-renderer.html` iframe 与私有 `MessageChannel` 执行；host 支持取消/进度、每次消息任务 120 秒 timeout、500ms stuck-cancel watchdog、120 秒 idle teardown、一次重建重试、in-flight 去重与 bounded byte-LRU；启动期不得加载。
+4. Renderer capability 只执行编译、布局、受控 band 栅格化和编码。消息 capability 不加载 MathJax 资产模块，公式 capability 不加载 Markdown/highlight 模块；renderer 不读 storage、不联网、不写 clipboard、不触发 download。
+5. 消息 PNG 在预算内始终生成一张长图；effective ratio 最低 1x，1x 仍超过 65,535px/64,000,000 pixels 时才按语义边界生成最少 part 数。worker 用一条 `fflate` zlib stream 输出 PNG chunks，不创建总高度 Canvas。
+6. authoritative TeX 的 SVG/PNG/MathML 共享同一 MathJax 语义资产；`dom-only` 只允许兼容 PNG，SVG/MathML 返回 `SOURCE_UNAVAILABLE`。公式 PNG 保持单图，可等比降低到 1x 以下，SVG 保持无损出口。
+7. Content driver 继续独占 clipboard、download 与 ZIP 交付；Safari surface policy 只隐藏 binary copy，不改变 renderer 或 Save 行为。三端共用同一 primary host、协议、scheduler、DOM compatibility adapter 和 `fflate`，不新增 offscreen document、background renderer、权限、服务端或远程资源代理。
+
 ---
 
 ## 3. 契约（Contracts）与可审计边界
@@ -159,6 +170,18 @@ Detached Reader 是 Reader 闭环的跨 runtime 形态，而不是第三套 Read
 - Background 作为“写入权威（write authority）”
 - Content/UI 只提交 intent，不直接写入敏感存储
 
+### 3.4 Export Renderer Contract（Content ↔ Extension Page）
+
+目标：让消息图片与公式资产共享一个版本化、可取消、可流式交付的隔离渲染边界，同时避免把二进制塞进 background runtime protocol。
+
+- 命令只允许 `start(jobId, RenderHostJob)` 与 `cancel(jobId)`；job 只允许 `message-png` 或 `formula-asset`
+- 事件固定为 progress、artifact-start、零基连续 artifact-chunk、artifact-complete、failed；二进制必须用 transferable `ArrayBuffer`
+- 同一 artifact 的 metadata、chunk sequence、part number/count 必须严格连续；未知版本、乱序、重叠 completion 或不稳定错误码属于 protocol failure
+- Host client 负责队列、生命周期、一次重建重试、取消与 bounded cache；renderer runtime 负责 capability dispatch 与纯渲染，不得反向拥有 clipboard/download/storage/network
+- `ExportDocumentV1` 与 `message-card-v1` 是消息图片语义/样式 SSOT；调用方不得绕过 profile 传入 HTML、CSS 或自定义 renderer
+- 公式 source confidence 是资产正确性边界；只有 authoritative TeX 能请求 SVG/MathML，DOM compatibility 不得被扩张为默认公式主链
+- 详细可执行门禁见 `docs/testing/IMAGE_EXPORT_GATES.md`
+
 ---
 
 ## 4. 目标模块边界（按功能域拆分）
@@ -169,6 +192,7 @@ Detached Reader 是 Reader 闭环的跨 runtime 形态，而不是第三套 Read
 - Reader（Preview/Panel）：仅消费 `ReaderItem[]` 与 Service 提供的数据
 - Bookmarks：数据模型/迁移/导入导出/面板 UI（与 Reader 解耦）
 - Parse/Render：parser v3 与 renderer 的纯逻辑能力
+- Image Export：版本化语义文档、host protocol、message/formula capability、band planner 与 streaming encoder
 - Settings：schema、迁移、默认值、cache、与 UI/Service 的边界
 - Background Capabilities：storage/network/permissions/tab routing（intent 执行者）
 
@@ -217,6 +241,7 @@ Surface profile / motion ownership 规则补充：
 - `src/services/settings/*`、`src/services/bookmarks/*` 更接近 `pure/domain service`
 - `src/services/cloudBackup/*` 属于 `pure/domain service` 的用例编排层：可复用 core/bookmarks 纯逻辑，但不得依赖 Chrome identity、Google Drive provider、browser storage implementation 或 UI
 - `src/services/copy/*`、`src/services/reader/*`、`src/services/export/*`、`src/services/sending/*` 当前更接近 `content-facing feature service`
+- `src/services/export/*` 持有 `ExportDocumentV1`、profile、预算/文件名 planner、host client 与交付编排；入口只提交语义数据，不得重新持有页面截图算法或 capability CSS
 - `saveMessagesPdf.ts` 属于明确允许的导出例外：service 生成最终文档并消费样式 token
 
 ### Driver 层（目标：站点差异与基础设施能力中心）
@@ -226,6 +251,7 @@ Surface profile / motion ownership 规则补充：
 - Site adapters：`src/drivers/content/adapters/*`
 - Injection / conversation / clipboard / theme / sending bridges：`src/drivers/content/*`
 - Browser abstraction：`src/drivers/shared/browser.ts`
+- Image export runtime：`src/runtimes/export-renderer/*`；只实现 capability dispatch、band rasterization 与 worker encoding，content driver 继续持有 clipboard/download
 - Background capabilities：`src/drivers/background/storage/*`, `src/drivers/background/cloudBackup/*`, `src/runtimes/background/handlers/*`
 - Google Drive provider 属于 background-only driver；UI/service 只能通过 `src/contracts/protocol.ts` 与 background handler 间接触发
 
@@ -236,6 +262,7 @@ Surface profile / motion ownership 规则补充：
 - runtime protocol：`src/contracts/protocol.ts`
 - platform contract：`src/contracts/platform.ts`
 - storage contract：`src/contracts/storage.ts`
+- export renderer protocol：`src/services/export/exportRenderHostProtocol.ts`（extension page 私有协议，不属于 content ↔ background runtime message）
 
 ---
 
