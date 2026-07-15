@@ -221,6 +221,17 @@ describe('ReaderPanel presentation', () => {
             const host = document.querySelector('#aimd-reader-panel-host') as HTMLElement;
             const shadow = (host as any).shadowRoot as ShadowRoot;
             const secondDot = shadow.querySelectorAll<HTMLButtonElement>('.reader-dots .reader-dot')[1]!;
+            vi.spyOn(secondDot, 'getBoundingClientRect').mockReturnValue({
+                x: 320,
+                y: 240,
+                left: 320,
+                top: 240,
+                width: 30,
+                height: 30,
+                right: 350,
+                bottom: 270,
+                toJSON: () => ({}),
+            } as DOMRect);
 
             secondDot.dispatchEvent(new Event('pointerover', { bubbles: true }));
             vi.advanceTimersByTime(180);

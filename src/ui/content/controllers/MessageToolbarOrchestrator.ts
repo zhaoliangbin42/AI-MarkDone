@@ -111,22 +111,6 @@ type MessageToolbarBehaviorFlags = {
 
 const CHATGPT_TOOLBAR_RECOVERY_BASE_MS = 400;
 const CHATGPT_TOOLBAR_RECOVERY_MAX_MS = 4000;
-const unavailableSaveMessagesDialog: SaveMessagesDialogPort = {
-    open: async () => undefined,
-    setTheme: () => undefined,
-    setThemeOverrides: () => undefined,
-    setExportSettings: () => undefined,
-    setMarkdownFormulaFormat: () => undefined,
-};
-const unavailableBookmarkSaveDialog: BookmarkSaveDialogPort = {
-    open: async () => ({ ok: false, reason: 'cancel' }),
-    setTheme: () => undefined,
-    setThemeOverrides: () => undefined,
-};
-const unavailableCopyTurnsPng: typeof copyTurnsPng = async () => ({
-    ok: false,
-    error: { code: 'FEATURE_UNAVAILABLE', message: 'PNG copy is unavailable' },
-});
 
 export class MessageToolbarOrchestrator {
     private adapter: SiteAdapter;
@@ -136,7 +120,6 @@ export class MessageToolbarOrchestrator {
     private needsFullRescan = false;
     private theme: Theme = 'light';
     private themeOverrides: UserThemeOverrides = {};
-    private onMessageInjected: ((messageElement: HTMLElement) => void) | null = null;
     private scanScheduler: ScanScheduler | null = null;
     private routeWatcher: RouteWatcher | null = null;
     private unsubscribeLocale: (() => void) | null = null;
@@ -164,9 +147,9 @@ export class MessageToolbarOrchestrator {
     private chatGptToolbarRecoveryTimer: number | null = null;
     private currentReaderItemByMessageKey = new Map<string, Promise<ReaderItem | null>>();
     private intentionallyRemovedToolbarHosts = new WeakSet<HTMLElement>();
-    private readonly saveMessagesDialog: SaveMessagesDialogPort;
-    private readonly bookmarkSaveDialog: BookmarkSaveDialogPort;
-    private readonly copyTurnsPng: typeof copyTurnsPng;
+    private readonly saveMessagesDialog: SaveMessagesDialogPort | null;
+    private readonly bookmarkSaveDialog: BookmarkSaveDialogPort | null;
+    private readonly copyTurnsPng: typeof copyTurnsPng | null;
 
     private rebuildTurnIndex(): void {
         try {
@@ -339,7 +322,7 @@ export class MessageToolbarOrchestrator {
 
         if (!params.alreadyBookmarked) {
             const currentFolderPath = this.bookmarksController.getDefaultFolderPath();
-            const dialogRes = await this.bookmarkSaveDialog.open({
+            const dialogRes = await this.bookmarkSaveDialog!.open({
                 theme: this.theme,
                 userPrompt,
                 existingTitle: userPrompt,
@@ -552,7 +535,6 @@ export class MessageToolbarOrchestrator {
             saveMessagesDialog?: SaveMessagesDialogPort;
             bookmarkSaveDialog?: BookmarkSaveDialogPort;
             copyTurnsPng?: typeof copyTurnsPng;
-            onMessageInjected?: (messageElement: HTMLElement) => void;
         }
     ) {
         this.adapter = adapter;
@@ -560,10 +542,9 @@ export class MessageToolbarOrchestrator {
         this.sendController = opts.sendController ?? null;
         this.bookmarksController = opts.bookmarksController || null;
         this.chatGptConversationEngine = opts.chatGptConversationEngine ?? null;
-        this.saveMessagesDialog = opts.saveMessagesDialog ?? unavailableSaveMessagesDialog;
-        this.bookmarkSaveDialog = opts.bookmarkSaveDialog ?? unavailableBookmarkSaveDialog;
-        this.copyTurnsPng = opts.copyTurnsPng ?? unavailableCopyTurnsPng;
-        this.onMessageInjected = opts.onMessageInjected || null;
+        this.saveMessagesDialog = opts.saveMessagesDialog ?? null;
+        this.bookmarkSaveDialog = opts.bookmarkSaveDialog ?? null;
+        this.copyTurnsPng = opts.copyTurnsPng ?? null;
     }
 
     private getBookmarkPageUrl(): string {
@@ -729,7 +710,7 @@ export class MessageToolbarOrchestrator {
             record.toolbar.setTheme(theme);
         }
         this.readerPanel.setTheme(theme);
-        this.bookmarkSaveDialog.setTheme(theme);
+        this.bookmarkSaveDialog?.setTheme(theme);
     }
 
     setThemeOverrides(overrides: UserThemeOverrides): void {
@@ -738,7 +719,7 @@ export class MessageToolbarOrchestrator {
             record.toolbar.setThemeOverrides(this.themeOverrides);
         }
         this.readerPanel.setThemeOverrides(this.themeOverrides);
-        this.bookmarkSaveDialog.setThemeOverrides(this.themeOverrides);
+        this.bookmarkSaveDialog?.setThemeOverrides(this.themeOverrides);
     }
 
     setBehaviorFlags(flags: Partial<MessageToolbarBehaviorFlags>): void {
@@ -781,7 +762,7 @@ export class MessageToolbarOrchestrator {
     private getActionsForMessage(messageElement: HTMLElement, getToolbar: () => MessageToolbar | null): MessageToolbarAction[] {
         const actions: MessageToolbarAction[] = [];
 
-        if (this.bookmarksController) {
+        if (this.bookmarksController && this.bookmarkSaveDialog) {
             actions.push({
                 id: 'bookmark_toggle',
                 label: t('btnBookmark'),
@@ -838,7 +819,7 @@ export class MessageToolbarOrchestrator {
                 return ok ? { ok: true, message: t('btnCopied') } : { ok: false, message: t('clipboardWriteFailed') };
             },
         };
-        if (targetSurfacePolicy.binaryClipboardCopyActions) {
+        if (targetSurfacePolicy.binaryClipboardCopyActions && this.copyTurnsPng) {
             copyMarkdownAction.hoverAction = {
                 id: 'copy_png',
                 label: t('btnCopyAsPng'),
@@ -886,7 +867,7 @@ export class MessageToolbarOrchestrator {
                         selectedIndex: currentTurn.index,
                         turnCount: 1,
                     });
-                    const result = await this.copyTurnsPng([currentTurn], [0], metadata, {
+                    const result = await this.copyTurnsPng!([currentTurn], [0], metadata, {
                         t: (key: string, args?: unknown) => {
                             if (typeof args === 'string' || Array.isArray(args)) return t(key, args);
                             return t(key);
@@ -942,7 +923,7 @@ export class MessageToolbarOrchestrator {
             },
         });
 
-        if (this.behavior.showSaveMessages) {
+        if (this.behavior.showSaveMessages && this.saveMessagesDialog) {
             actions.push({
                 id: 'export',
                 label: t('btnExport'),
@@ -953,7 +934,7 @@ export class MessageToolbarOrchestrator {
                 onClick: async () => {
                     const guard = this.guardMessageReady(messageElement);
                     if (guard) return guard;
-                    await this.saveMessagesDialog.open(this.adapter, this.theme, {
+                    await this.saveMessagesDialog!.open(this.adapter, this.theme, {
                         chatGptConversationEngine: this.chatGptConversationEngine,
                         startMessageElement: messageElement,
                     });
@@ -1027,7 +1008,6 @@ export class MessageToolbarOrchestrator {
 
         this.refreshBookmarkStateForToolbar(toolbar, params.message, params.position);
         this.refreshWordCountForToolbar(toolbar, params.message, params.pending);
-        this.onMessageInjected?.(params.message);
         this.rememberChatGptToolbarState(params, 'injected', params.anchor);
         return record;
     }
@@ -1107,11 +1087,19 @@ export class MessageToolbarOrchestrator {
     }
 
     private buildFullScanSnapshot(): Map<string, ScanSnapshotItem> {
-        const selector = this.adapter.getMessageSelector();
-        const container = this.adapter.getObserverContainer() || document.body;
-        const nodes = discoverMessageElements(container, selector);
+        let nodes: HTMLElement[];
+        if (this.usesChatGptToolbarLifecycle()) {
+            this.rebuildTurnIndex();
+            nodes = this.turnRefs
+                .map((turn) => turn.primaryMessageEl)
+                .filter((message) => message.isConnected);
+        } else {
+            const selector = this.adapter.getMessageSelector();
+            const container = this.adapter.getObserverContainer() || document.body;
+            nodes = discoverMessageElements(container, selector);
+            this.rebuildTurnIndex();
+        }
         this.rebuildMessageCaches(nodes);
-        this.rebuildTurnIndex();
         return this.buildSnapshotFromNodes(nodes);
     }
 
@@ -1154,7 +1142,12 @@ export class MessageToolbarOrchestrator {
     }
 
     private buildIncrementalSnapshot(candidates: HTMLElement[]): Map<string, ScanSnapshotItem> | null {
-        const sortedCandidates = this.sortMessagesByDocumentOrder(Array.from(new Set(candidates)).filter((node) => node.isConnected));
+        const canonicalCandidates = this.usesChatGptToolbarLifecycle()
+            ? candidates.map((message) => this.getTurnRefForElement(message)?.primaryMessageEl ?? message)
+            : candidates;
+        const sortedCandidates = this.sortMessagesByDocumentOrder(
+            Array.from(new Set(canonicalCandidates)).filter((node) => node.isConnected),
+        );
         if (sortedCandidates.length === 0) return new Map<string, ScanSnapshotItem>();
 
         for (const messageElement of sortedCandidates) {
@@ -1749,10 +1742,7 @@ export class MessageToolbarOrchestrator {
     }
 
     private rebindObserverIfNeeded(force: boolean = false): void {
-        const adapterContainer = this.adapter.getObserverContainer() || document.body;
-        const nextContainer = this.usesChatGptToolbarLifecycle() && adapterContainer.matches('main')
-            ? adapterContainer.parentElement ?? adapterContainer
-            : adapterContainer;
+        const nextContainer = this.adapter.getObserverContainer() || document.body;
         if (!force && this.observedContainer === nextContainer && this.observer) return;
 
         this.disposeObserversOnly();

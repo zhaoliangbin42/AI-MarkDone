@@ -185,6 +185,32 @@ describe('ChatGPTPromptAutocompleteController', () => {
         controller.dispose();
     });
 
+    it('yields backslash completion to formula authoring while the caret is inside math', async () => {
+        const composer = createComposer('$\\re');
+        const client = {
+            listPrompts: vi.fn(async () => [createPrompt({ id: 'rewrite' })]),
+            recordUse: vi.fn(),
+            savePrompt: vi.fn(),
+            deletePrompt: vi.fn(),
+            restoreDefaults: vi.fn(),
+        };
+        const adapter = {
+            getPlatformId: () => 'chatgpt',
+            getComposerInputElement: () => composer,
+            getComposerKind: () => 'contenteditable',
+        } as any;
+
+        const controller = new ChatGPTPromptAutocompleteController(adapter, client);
+        controller.init();
+        controller.setFormulaAuthoringEnabled(true);
+        composer.dispatchEvent(new Event('input', { bubbles: true }));
+        await tick();
+
+        expect(client.listPrompts).not.toHaveBeenCalled();
+        expect(document.getElementById('aimd-chatgpt-prompt-popover-host')).toBeNull();
+        controller.dispose();
+    });
+
     it('positions autocomplete above the contenteditable caret using the rendered popover height', async () => {
         setViewport(800, 600);
         const restoreRange = installAutocompleteLayoutMock({

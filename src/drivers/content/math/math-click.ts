@@ -11,7 +11,7 @@ import {
 } from '../../../core/math/formulaSourceFormat';
 
 const STYLE_ID = 'aimd-math-click-style';
-const FORMULA_CANDIDATE_SELECTOR = [
+export const FORMULA_CANDIDATE_SELECTOR = [
     '.katex-display',
     '.math-block',
     'mjx-container[display="true"]',
@@ -78,6 +78,7 @@ export type MathClickHandlerOptions = {
 export class MathClickHandler {
     private activeElements = new Set<Element>();
     private containers = new Set<HTMLElement>();
+    private containerDiscovery = new Map<HTMLElement, string>();
     private observer: MutationObserver | null = null;
     private elementListeners = new Map<Element, ListenerRecord>();
     private pendingNodes = new Set<Element>();
@@ -102,6 +103,12 @@ export class MathClickHandler {
         this.ensureObserver();
     }
 
+    observeContainers(root: HTMLElement, selector: string): void {
+        this.containerDiscovery.set(root, selector);
+        this.discoverContainers(root, selector);
+        this.ensureObserver();
+    }
+
     private ensureObserver(): void {
         if (this.observer || typeof MutationObserver !== 'function') return;
         const root = document.body ?? document.documentElement;
@@ -113,6 +120,7 @@ export class MathClickHandler {
         this.observer?.disconnect();
         this.observer = null;
         this.containers.clear();
+        this.containerDiscovery.clear();
         for (const element of Array.from(this.elementListeners.keys())) this.detachHandlers(element);
         this.activeElements.clear();
         this.pendingNodes.clear();
@@ -128,13 +136,14 @@ export class MathClickHandler {
             }
             for (const node of Array.from(mutation.addedNodes)) {
                 if (!(node instanceof Element)) continue;
+                this.discoverContainersFromAddedNode(node);
                 if (!this.getEnabledContainer(node)) continue;
                 queued = true;
                 this.queueNodeForProcessing(node);
             }
         }
 
-        if (this.containers.size === 0) {
+        if (this.containers.size === 0 && this.containerDiscovery.size === 0) {
             this.observer?.disconnect();
             this.observer = null;
         }
@@ -144,6 +153,12 @@ export class MathClickHandler {
     private handleRemovedNode(node: Node): boolean {
         const removedElement = node instanceof Element ? node : null;
         if (!removedElement) return false;
+
+        for (const root of Array.from(this.containerDiscovery.keys())) {
+            if (!root.isConnected && (root === removedElement || removedElement.contains(root))) {
+                this.containerDiscovery.delete(root);
+            }
+        }
 
         for (const container of Array.from(this.containers)) {
             if (!container.isConnected && (container === removedElement || removedElement.contains(container))) {
@@ -164,6 +179,20 @@ export class MathClickHandler {
             }
         }
         return queued;
+    }
+
+    private discoverContainers(scope: ParentNode, selector: string): void {
+        if (scope instanceof HTMLElement && scope.matches(selector)) this.enable(scope);
+        scope.querySelectorAll(selector).forEach((element) => {
+            if (element instanceof HTMLElement) this.enable(element);
+        });
+    }
+
+    private discoverContainersFromAddedNode(node: Element): void {
+        for (const [root, selector] of this.containerDiscovery) {
+            if (node !== root && !root.contains(node)) continue;
+            this.discoverContainers(node, selector);
+        }
     }
 
     private getEnabledContainer(node: Node): HTMLElement | null {

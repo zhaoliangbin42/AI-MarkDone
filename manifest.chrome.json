@@ -63,6 +63,7 @@
                 "_locales/*/messages.json",
                 "vendor/katex/*.css",
                 "vendor/katex/fonts/*",
+                "vendor/latex-workshop/formula-snippets.json",
                 "page-bridges/*.js",
                 "formula-renderer.html",
                 "formula-renderer.js",

@@ -22,7 +22,7 @@ async function flushSelectionFrame(): Promise<void> {
     await new Promise<void>((resolve) => window.requestAnimationFrame(() => resolve()));
 }
 
-function dispatchCopy(): {
+function dispatchCopy(target: EventTarget = document.body): {
     event: ClipboardEvent;
     setData: ReturnType<typeof vi.fn>;
     readText: () => string;
@@ -36,7 +36,7 @@ function dispatchCopy(): {
         configurable: true,
         value: { setData },
     });
-    document.dispatchEvent(event);
+    target.dispatchEvent(event);
     return { event, setData, readText: () => text };
 }
 
@@ -159,6 +159,44 @@ describe('ChatGPTAtomicSelectionController', () => {
         expect(handled.event.defaultPrevented).toBe(true);
         expect(copiedText).toBe('`answer`');
         expect(laterListener).toHaveBeenCalledTimes(1);
+    });
+
+    it('wins when ChatGPT rewrites a selected formula after the document copy listener', async () => {
+        const message = mountMessage(`
+            <p>
+                <span class="katex-display">
+                    <span class="katex">
+                        <span class="katex-mathml">
+                            <math><annotation encoding="application/x-tex">\\frac{x}{y}</annotation></math>
+                        </span>
+                        <span class="katex-html" aria-hidden="true"><span>x/y</span></span>
+                    </span>
+                </span>
+            </p>
+        `);
+        const formula = message.querySelector<HTMLElement>('.katex-display')!;
+        const visualText = message.querySelector<HTMLElement>('.katex-html span')!.firstChild as Text;
+        const range = document.createRange();
+        range.setStart(visualText, 0);
+        range.setEnd(visualText, visualText.data.length);
+        selectRange(range);
+
+        const controller = new ChatGPTAtomicSelectionController(new ChatGPTAdapter());
+        controller.init();
+        const hostLateWrite = (event: Event) => {
+            const clipboardEvent = event as ClipboardEvent;
+            clipboardEvent.clipboardData?.setData('text/plain', 'x/y');
+            event.preventDefault();
+        };
+        document.addEventListener('copy', hostLateWrite);
+
+        const handled = dispatchCopy(formula);
+        const copiedText = handled.readText();
+        document.removeEventListener('copy', hostLateWrite);
+        controller.dispose();
+
+        expect(handled.event.defaultPrevented).toBe(true);
+        expect(copiedText).toBe('$$\n\\frac{x}{y}\n$$');
     });
 
     it('fails open for cross-message and streaming selections', async () => {

@@ -22,14 +22,15 @@ export class ChatGPTAtomicSelectionController {
         this.initialized = true;
         this.ensureStyle();
         document.addEventListener('selectionchange', this.handleSelectionChange);
-        document.addEventListener('copy', this.handleCopy);
+        // ChatGPT may rewrite formula clipboard data from a document-level React handler.
+        window.addEventListener('copy', this.handleCopy);
     }
 
     dispose(): void {
         if (!this.initialized) return;
         this.initialized = false;
         document.removeEventListener('selectionchange', this.handleSelectionChange);
-        document.removeEventListener('copy', this.handleCopy);
+        window.removeEventListener('copy', this.handleCopy);
         if (this.rafId !== null) {
             window.cancelAnimationFrame(this.rafId);
             this.rafId = null;

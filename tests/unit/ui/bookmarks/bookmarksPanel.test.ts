@@ -1105,6 +1105,17 @@ describe('BookmarksPanel', () => {
 
         expect(shadow.querySelector('style[data-aimd-tooltip-style]')).toBeTruthy();
         expect(exportButton?.dataset.tooltip).toBe('Export all bookmarks');
+        vi.spyOn(exportButton!, 'getBoundingClientRect').mockReturnValue({
+            x: 320,
+            y: 240,
+            left: 320,
+            top: 240,
+            width: 30,
+            height: 30,
+            right: 350,
+            bottom: 270,
+            toJSON: () => ({}),
+        } as DOMRect);
 
         exportButton?.dispatchEvent(new FocusEvent('focusin', { bubbles: true }));
         await Promise.resolve();

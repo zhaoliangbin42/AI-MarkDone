@@ -2,6 +2,7 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 import {
     applyPlainTextToContenteditable,
     getContenteditableCaretClientRect,
+    getContenteditablePlainTextOffsetFromPoint,
     parseContenteditableToPlainText,
     setContenteditablePlainTextSelection,
 } from '../../../../src/core/sending/contenteditable';
@@ -112,5 +113,35 @@ describe('sending/contenteditable', () => {
 
         expect(getContenteditableCaretClientRect(el)).toBeNull();
         restore();
+    });
+
+    it('maps a viewport point back to the ProseMirror plain-text offset', () => {
+        const el = document.createElement('div');
+        el.setAttribute('contenteditable', 'true');
+        applyPlainTextToContenteditable(el, 'first\nsecond');
+        document.body.appendChild(el);
+        const text = el.querySelectorAll('p')[1]!.firstChild!;
+        Object.defineProperty(document, 'caretPositionFromPoint', {
+            configurable: true,
+            value: vi.fn(() => ({ offsetNode: text, offset: 3 })),
+        });
+
+        expect(getContenteditablePlainTextOffsetFromPoint(el, 100, 200)).toBe(9);
+        delete (document as any).caretPositionFromPoint;
+    });
+
+    it('rejects a point whose caret boundary is outside the composer', () => {
+        const el = document.createElement('div');
+        const outside = document.createTextNode('outside');
+        el.setAttribute('contenteditable', 'true');
+        applyPlainTextToContenteditable(el, 'inside');
+        document.body.append(el, outside);
+        Object.defineProperty(document, 'caretPositionFromPoint', {
+            configurable: true,
+            value: vi.fn(() => ({ offsetNode: outside, offset: 2 })),
+        });
+
+        expect(getContenteditablePlainTextOffsetFromPoint(el, 100, 200)).toBeNull();
+        delete (document as any).caretPositionFromPoint;
     });
 });

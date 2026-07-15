@@ -72,6 +72,22 @@ describe('TooltipDelegate', () => {
         vi.useRealTimers();
     });
 
+    it('does not render a delayed tooltip after its anchor is detached', () => {
+        vi.useFakeTimers();
+        const target = createTarget({ left: 320, top: 240, width: 40, height: 40 });
+        const delegate = new TooltipDelegate(document, { delayMs: 150 });
+
+        target.dispatchEvent(new Event('pointerover', { bubbles: true }));
+        target.remove();
+        vi.advanceTimersByTime(150);
+
+        expect(document.body.querySelector('.aimd-tooltip')).toBeNull();
+
+        delegate.disconnect();
+        document.body.innerHTML = '';
+        vi.useRealTimers();
+    });
+
     it('flips tooltips below the target when there is not enough room above it', async () => {
         vi.useFakeTimers();
         window.innerWidth = 1440;
@@ -109,6 +125,24 @@ describe('TooltipDelegate', () => {
 
         const tooltip = document.querySelector<HTMLElement>('.aimd-tooltip');
         expect(tooltip?.textContent).toContain('Sort by time');
+
+        delegate.disconnect();
+        document.body.innerHTML = '';
+        vi.useRealTimers();
+    });
+
+    it('keeps the tooltip open when pointerout only moves into a child of the same target', () => {
+        vi.useFakeTimers();
+        const target = createTarget({ left: 200, top: 200, width: 40, height: 40 });
+        const child = document.createElement('span');
+        target.appendChild(child);
+        const delegate = new TooltipDelegate(document, { delayMs: 0 });
+
+        target.dispatchEvent(new Event('pointerover', { bubbles: true }));
+        vi.runAllTimers();
+        target.dispatchEvent(new MouseEvent('pointerout', { bubbles: true, relatedTarget: child }));
+
+        expect(document.body.querySelector('.aimd-tooltip')).not.toBeNull();
 
         delegate.disconnect();
         document.body.innerHTML = '';

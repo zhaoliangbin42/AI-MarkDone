@@ -13,12 +13,13 @@ import type {
 } from '../../ui/content/reader/ReaderPanel';
 import type { ReaderPanelPort } from '../../ui/content/reader/ReaderPanelPort';
 import type { AppSettings } from '../../core/settings/types';
-import type { ContentFeatureModule } from './contentFeatureContract';
 import type { BookmarkSaveDialogPort, SaveMessagesDialogPort } from '../../ui/content/ContentDialogPorts';
 import type { FormulaSourceFormat } from '../../core/math/formulaSourceFormat';
 import type { ExportSettings } from '../../core/settings/export';
 import type { copyTurnsPng } from '../../services/copy/copy-turn-png';
+import type * as ContentFeatureModuleExports from './contentFeatures';
 
+type ContentFeatureModule = typeof ContentFeatureModuleExports;
 type ContentFeatureImporter = () => Promise<ContentFeatureModule>;
 
 async function importContentFeatureModule(): Promise<ContentFeatureModule> {
@@ -44,62 +45,81 @@ export class ContentFeatureModuleLoader {
 
 const defaultLoader = new ContentFeatureModuleLoader();
 
+class LazyInstance<T> {
+    private instance: T | null = null;
+    private pending: Promise<T> | null = null;
+
+    constructor(
+        private readonly create: () => Promise<T>,
+        private readonly initialize: (instance: T) => void = () => undefined,
+    ) {}
+
+    get current(): T | null {
+        return this.instance;
+    }
+
+    resolve(): Promise<T> {
+        if (this.instance) return Promise.resolve(this.instance);
+        if (!this.pending) {
+            this.pending = this.create()
+                .then((instance) => {
+                    this.initialize(instance);
+                    this.instance = instance;
+                    return instance;
+                })
+                .catch((error) => {
+                    this.pending = null;
+                    throw error;
+                });
+        }
+        return this.pending;
+    }
+}
+
 class LazyReaderPanel implements ReaderPanelPort {
-    private instance: ReaderPanelPort | null = null;
-    private instancePromise: Promise<ReaderPanelPort> | null = null;
+    private readonly lazy: LazyInstance<ReaderPanelPort>;
     private theme: Theme = 'light';
     private themeOverrides: UserThemeOverrides = {};
     private readerSettings: AppSettings['reader'] | null = null;
     private settingsController: ReaderPanelSettingsController | null = null;
     private promptManagerController: ReaderPanelPromptManagerController | null = null;
 
-    constructor(private readonly loader: ContentFeatureModuleLoader) {}
-
-    private resolve(): Promise<ReaderPanelPort> {
-        if (this.instance) return Promise.resolve(this.instance);
-        if (!this.instancePromise) {
-            this.instancePromise = this.loader.load()
-                .then(async (module) => {
-                    const instance = await module.createReaderPanel();
-                    instance.setTheme(this.theme);
-                    instance.setThemeOverrides(this.themeOverrides);
-                    if (this.readerSettings) instance.setReaderSettings(this.readerSettings);
-                    instance.setReaderSettingsController(this.settingsController);
-                    instance.setPromptManagerController(this.promptManagerController);
-                    this.instance = instance;
-                    return instance;
-                })
-                .catch((error) => {
-                    this.instancePromise = null;
-                    throw error;
-                });
-        }
-        return this.instancePromise;
+    constructor(loader: ContentFeatureModuleLoader) {
+        this.lazy = new LazyInstance(
+            () => loader.load().then((module) => module.createReaderPanel()),
+            (instance) => {
+                instance.setTheme(this.theme);
+                instance.setThemeOverrides(this.themeOverrides);
+                if (this.readerSettings) instance.setReaderSettings(this.readerSettings);
+                instance.setReaderSettingsController(this.settingsController);
+                instance.setPromptManagerController(this.promptManagerController);
+            },
+        );
     }
 
     setTheme(theme: Theme): void {
         this.theme = theme;
-        this.instance?.setTheme(theme);
+        this.lazy.current?.setTheme(theme);
     }
 
     setThemeOverrides(overrides: UserThemeOverrides): void {
         this.themeOverrides = { ...overrides };
-        this.instance?.setThemeOverrides(this.themeOverrides);
+        this.lazy.current?.setThemeOverrides(this.themeOverrides);
     }
 
     setReaderSettings(settings: AppSettings['reader']): void {
         this.readerSettings = structuredClone(settings);
-        this.instance?.setReaderSettings(this.readerSettings);
+        this.lazy.current?.setReaderSettings(this.readerSettings);
     }
 
     setReaderSettingsController(controller: ReaderPanelSettingsController | null): void {
         this.settingsController = controller;
-        this.instance?.setReaderSettingsController(controller);
+        this.lazy.current?.setReaderSettingsController(controller);
     }
 
     setPromptManagerController(controller: ReaderPanelPromptManagerController | null): void {
         this.promptManagerController = controller;
-        this.instance?.setPromptManagerController(controller);
+        this.lazy.current?.setPromptManagerController(controller);
     }
 
     async show(
@@ -109,177 +129,139 @@ class LazyReaderPanel implements ReaderPanelPort {
         options?: ReaderPanelShowOptions,
     ): Promise<void> {
         this.theme = theme;
-        const instance = await this.resolve();
+        const instance = await this.lazy.resolve();
         await instance.show(items, startIndex, theme, options);
     }
 
     hide(): void {
-        this.instance?.hide();
+        this.lazy.current?.hide();
     }
 
     isShowingConversationReader(): boolean {
-        return this.instance?.isShowingConversationReader() ?? false;
+        return this.lazy.current?.isShowingConversationReader() ?? false;
     }
 
     getItemsSnapshot(): ReaderItem[] {
-        return this.instance?.getItemsSnapshot() ?? [];
+        return this.lazy.current?.getItemsSnapshot() ?? [];
     }
 
     async appendItem(item: ReaderItem): Promise<void> {
-        if (!this.instance) return;
-        await this.instance.appendItem(item);
+        if (!this.lazy.current) return;
+        await this.lazy.current.appendItem(item);
     }
 
     getCommentExportContext(): ReaderCommentExportContext | null {
-        return this.instance?.getCommentExportContext() ?? null;
+        return this.lazy.current?.getCommentExportContext() ?? null;
     }
 }
 
 class LazyBookmarksPanel implements BookmarksPanelPort {
-    private instance: BookmarksPanelPort | null = null;
-    private instancePromise: Promise<BookmarksPanelPort> | null = null;
+    private readonly lazy: LazyInstance<BookmarksPanelPort>;
 
     constructor(
-        private readonly controller: BookmarksPanelController,
-        private readonly readerPanel: ReaderPanelPort,
-        private readonly options: BookmarksPanelOptions,
-        private readonly loader: ContentFeatureModuleLoader,
-    ) {}
-
-    private resolve(): Promise<BookmarksPanelPort> {
-        if (this.instance) return Promise.resolve(this.instance);
-        if (!this.instancePromise) {
-            this.instancePromise = this.loader.load()
-                .then(async (module) => {
-                    const instance = await module.createBookmarksPanel(this.controller, this.readerPanel, this.options);
-                    this.instance = instance;
-                    return instance;
-                })
-                .catch((error) => {
-                    this.instancePromise = null;
-                    throw error;
-                });
-        }
-        return this.instancePromise;
+        controller: BookmarksPanelController,
+        readerPanel: ReaderPanelPort,
+        options: BookmarksPanelOptions,
+        loader: ContentFeatureModuleLoader,
+    ) {
+        this.lazy = new LazyInstance(() => loader.load().then(
+            (module) => module.createBookmarksPanel(controller, readerPanel, options),
+        ));
     }
 
     isVisible(): boolean {
-        return this.instance?.isVisible() ?? false;
+        return this.lazy.current?.isVisible() ?? false;
     }
 
     async toggle(): Promise<void> {
-        const instance = await this.resolve();
+        const instance = await this.lazy.resolve();
         await instance.toggle();
     }
 
     async show(): Promise<void> {
-        const instance = await this.resolve();
+        const instance = await this.lazy.resolve();
         await instance.show();
     }
 
     hide(): void {
-        this.instance?.hide();
+        this.lazy.current?.hide();
     }
 }
 
 class LazySaveMessagesDialog implements SaveMessagesDialogPort {
-    private instance: SaveMessagesDialogPort | null = null;
-    private instancePromise: Promise<SaveMessagesDialogPort> | null = null;
+    private readonly lazy: LazyInstance<SaveMessagesDialogPort>;
     private theme: Theme = 'light';
     private themeOverrides: UserThemeOverrides = {};
     private exportSettings: ExportSettings | null = null;
     private markdownFormulaFormat: FormulaSourceFormat | null = null;
 
-    constructor(private readonly loader: ContentFeatureModuleLoader) {}
-
-    private resolve(): Promise<SaveMessagesDialogPort> {
-        if (this.instance) return Promise.resolve(this.instance);
-        if (!this.instancePromise) {
-            this.instancePromise = this.loader.load()
-                .then(async (module) => {
-                    const instance = await module.getSaveMessagesDialog();
-                    instance.setTheme(this.theme);
-                    instance.setThemeOverrides(this.themeOverrides);
-                    if (this.exportSettings) instance.setExportSettings(this.exportSettings);
-                    if (this.markdownFormulaFormat) instance.setMarkdownFormulaFormat(this.markdownFormulaFormat);
-                    this.instance = instance;
-                    return instance;
-                })
-                .catch((error) => {
-                    this.instancePromise = null;
-                    throw error;
-                });
-        }
-        return this.instancePromise;
+    constructor(loader: ContentFeatureModuleLoader) {
+        this.lazy = new LazyInstance(
+            () => loader.load().then((module) => module.getSaveMessagesDialog()),
+            (instance) => {
+                instance.setTheme(this.theme);
+                instance.setThemeOverrides(this.themeOverrides);
+                if (this.exportSettings) instance.setExportSettings(this.exportSettings);
+                if (this.markdownFormulaFormat) instance.setMarkdownFormulaFormat(this.markdownFormulaFormat);
+            },
+        );
     }
 
     setTheme(theme: Theme): void {
         this.theme = theme;
-        this.instance?.setTheme(theme);
+        this.lazy.current?.setTheme(theme);
     }
 
     setThemeOverrides(overrides: UserThemeOverrides): void {
         this.themeOverrides = { ...overrides };
-        this.instance?.setThemeOverrides(this.themeOverrides);
+        this.lazy.current?.setThemeOverrides(this.themeOverrides);
     }
 
     setExportSettings(settings: ExportSettings): void {
         this.exportSettings = structuredClone(settings);
-        this.instance?.setExportSettings(this.exportSettings);
+        this.lazy.current?.setExportSettings(this.exportSettings);
     }
 
     setMarkdownFormulaFormat(format: FormulaSourceFormat): void {
         this.markdownFormulaFormat = format;
-        this.instance?.setMarkdownFormulaFormat(format);
+        this.lazy.current?.setMarkdownFormulaFormat(format);
     }
 
     async open(...args: Parameters<SaveMessagesDialogPort['open']>): Promise<void> {
         this.theme = args[1];
-        const instance = await this.resolve();
+        const instance = await this.lazy.resolve();
         await instance.open(...args);
     }
 }
 
 class LazyBookmarkSaveDialog implements BookmarkSaveDialogPort {
-    private instance: BookmarkSaveDialogPort | null = null;
-    private instancePromise: Promise<BookmarkSaveDialogPort> | null = null;
+    private readonly lazy: LazyInstance<BookmarkSaveDialogPort>;
     private theme: Theme = 'light';
     private themeOverrides: UserThemeOverrides = {};
 
-    constructor(private readonly loader: ContentFeatureModuleLoader) {}
-
-    private resolve(): Promise<BookmarkSaveDialogPort> {
-        if (this.instance) return Promise.resolve(this.instance);
-        if (!this.instancePromise) {
-            this.instancePromise = this.loader.load()
-                .then(async (module) => {
-                    const instance = await module.getBookmarkSaveDialog();
-                    instance.setTheme(this.theme);
-                    instance.setThemeOverrides(this.themeOverrides);
-                    this.instance = instance;
-                    return instance;
-                })
-                .catch((error) => {
-                    this.instancePromise = null;
-                    throw error;
-                });
-        }
-        return this.instancePromise;
+    constructor(loader: ContentFeatureModuleLoader) {
+        this.lazy = new LazyInstance(
+            () => loader.load().then((module) => module.getBookmarkSaveDialog()),
+            (instance) => {
+                instance.setTheme(this.theme);
+                instance.setThemeOverrides(this.themeOverrides);
+            },
+        );
     }
 
     setTheme(theme: Theme): void {
         this.theme = theme;
-        this.instance?.setTheme(theme);
+        this.lazy.current?.setTheme(theme);
     }
 
     setThemeOverrides(overrides: UserThemeOverrides): void {
         this.themeOverrides = { ...overrides };
-        this.instance?.setThemeOverrides(this.themeOverrides);
+        this.lazy.current?.setThemeOverrides(this.themeOverrides);
     }
 
     async open(...args: Parameters<BookmarkSaveDialogPort['open']>) {
         this.theme = args[0].theme;
-        const instance = await this.resolve();
+        const instance = await this.lazy.resolve();
         return instance.open(...args);
     }
 }

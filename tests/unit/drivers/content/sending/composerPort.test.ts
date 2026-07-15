@@ -1,6 +1,7 @@
 import { describe, expect, it, vi } from 'vitest';
 import type { SiteAdapter } from '../../../../../src/drivers/content/adapters/base';
 import {
+    applyComposerNativeTextEdit,
     clickSend,
     readComposer,
     replaceComposerTextRange,
@@ -12,6 +13,158 @@ import {
 import { parseContenteditableToPlainText } from '../../../../../src/core/sending/contenteditable';
 
 describe('composerPort', () => {
+    it('applies a native textarea range edit and restores the requested selection', () => {
+        const textarea = document.createElement('textarea');
+        textarea.value = 'hello';
+        const inputEvents: Event[] = [];
+        textarea.addEventListener('input', (event) => inputEvents.push(event));
+
+        const adapter = {
+            getComposerInputElement: () => textarea,
+            getComposerKind: () => 'textarea',
+        } as any as SiteAdapter;
+
+        const result = applyComposerNativeTextEdit(adapter, {
+            start: 0,
+            end: 5,
+            replacement: '**hello**',
+            selectionStart: 2,
+            selectionEnd: 7,
+        }, { focus: false });
+
+        expect(result).toEqual({ ok: true, kind: 'textarea', text: '**hello**' });
+        expect(textarea.value).toBe('**hello**');
+        expect(textarea.selectionStart).toBe(2);
+        expect(textarea.selectionEnd).toBe(7);
+        expect(inputEvents).toHaveLength(1);
+    });
+
+    it('edits contenteditable through the native command without rebuilding its block nodes', () => {
+        const editable = document.createElement('div');
+        editable.setAttribute('contenteditable', 'true');
+        editable.innerHTML = '<p>hello</p>';
+        document.body.appendChild(editable);
+        const paragraph = editable.firstElementChild;
+        const realExecCommand = document.execCommand;
+
+        (document as any).execCommand = vi.fn((command: string, _showUi: boolean, value?: string) => {
+            const selection = window.getSelection();
+            const range = selection?.rangeCount ? selection.getRangeAt(0) : null;
+            if (!range) return false;
+            if (command === 'insertText') {
+                range.deleteContents();
+                const inserted = document.createTextNode(value ?? '');
+                range.insertNode(inserted);
+                range.setStartAfter(inserted);
+                range.collapse(true);
+                selection!.removeAllRanges();
+                selection!.addRange(range);
+                editable.dispatchEvent(new InputEvent('input', {
+                    bubbles: true,
+                    inputType: 'insertText',
+                    data: value ?? '',
+                }));
+                return true;
+            }
+            return false;
+        });
+
+        try {
+            const adapter = {
+                getComposerInputElement: () => editable,
+                getComposerKind: () => 'contenteditable',
+            } as any as SiteAdapter;
+
+            const result = applyComposerNativeTextEdit(adapter, {
+                start: 0,
+                end: 5,
+                replacement: '**hello**',
+                selectionStart: 2,
+                selectionEnd: 7,
+            });
+
+            expect(result).toEqual({ ok: true, kind: 'contenteditable', text: '**hello**' });
+            expect(editable.firstElementChild).toBe(paragraph);
+            expect(parseContenteditableToPlainText(editable)).toBe('**hello**');
+        } finally {
+            (document as any).execCommand = realExecCommand;
+        }
+    });
+
+    it('leaves contenteditable untouched when the native command is rejected', () => {
+        const editable = document.createElement('div');
+        editable.setAttribute('contenteditable', 'true');
+        editable.innerHTML = '<p>hello</p>';
+        document.body.appendChild(editable);
+        const paragraph = editable.firstElementChild;
+        const realExecCommand = document.execCommand;
+        (document as any).execCommand = vi.fn(() => false);
+
+        try {
+            const adapter = {
+                getComposerInputElement: () => editable,
+                getComposerKind: () => 'contenteditable',
+            } as any as SiteAdapter;
+
+            expect(applyComposerNativeTextEdit(adapter, {
+                start: 5,
+                end: 5,
+                replacement: '!',
+            })).toEqual({
+                ok: false,
+                message: 'Native composer edit was rejected',
+                changed: false,
+            });
+            expect(editable.firstElementChild).toBe(paragraph);
+            expect(parseContenteditableToPlainText(editable)).toBe('hello');
+        } finally {
+            (document as any).execCommand = realExecCommand;
+        }
+    });
+
+    it('uses the host undo path when a rejected native command still mutates the draft', () => {
+        const editable = document.createElement('div');
+        editable.setAttribute('contenteditable', 'true');
+        editable.innerHTML = '<p>hello</p>';
+        document.body.appendChild(editable);
+        const paragraph = editable.firstElementChild as HTMLParagraphElement;
+        const realExecCommand = document.execCommand;
+        (document as any).execCommand = vi.fn((command: string) => {
+            if (command === 'insertText') {
+                paragraph.textContent = 'hello!';
+                return false;
+            }
+            if (command === 'undo') {
+                paragraph.textContent = 'hello';
+                return true;
+            }
+            return false;
+        });
+
+        try {
+            const adapter = {
+                getComposerInputElement: () => editable,
+                getComposerKind: () => 'contenteditable',
+            } as any as SiteAdapter;
+
+            expect(applyComposerNativeTextEdit(adapter, {
+                start: 5,
+                end: 5,
+                replacement: '!',
+            })).toEqual({
+                ok: false,
+                message: 'Native composer edit was rejected',
+                changed: false,
+            });
+            expect(editable.firstElementChild).toBe(paragraph);
+            expect(parseContenteditableToPlainText(editable)).toBe('hello');
+            expect(document.execCommand).toHaveBeenNthCalledWith(1, 'insertText', false, '!');
+            expect(document.execCommand).toHaveBeenNthCalledWith(2, 'undo');
+        } finally {
+            (document as any).execCommand = realExecCommand;
+        }
+    });
+
     it('writes to textarea via react-compatible value setter + input event', async () => {
         const textarea = document.createElement('textarea');
         const sendBtn = document.createElement('button');

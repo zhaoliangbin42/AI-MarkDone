@@ -1,14 +1,19 @@
 import type { ChatGPTDomRoundRef } from './domConversationDiscovery';
-
-export type ChatGPTPageSnapshot = {
-    revision: number;
-    rounds: ChatGPTDomRoundRef[];
-};
+import { logger } from '../../../core/logger';
 
 type ChatGPTPageIndexOptions = {
     resolveRoot: () => ParentNode;
     discover: () => ChatGPTDomRoundRef[];
 };
+
+const ROUND_STRUCTURE_SELECTOR = [
+    '[data-turn-id-container]',
+    '[data-turn="user"]',
+    '[data-turn="assistant"]',
+    '[data-message-author-role="user"]',
+    '[data-message-author-role="assistant"]',
+    '[data-testid^="conversation-turn-"]',
+].join(',');
 
 function getElementForOwnershipCheck(node: Node): Element | null {
     if (node.nodeType === 1) return node as Element;
@@ -33,37 +38,52 @@ function mutationAffectsHostPage(mutation: MutationRecord): boolean {
     return changedNodes.some((node) => !isExtensionOwnedNode(node));
 }
 
+function nodeMayContainRoundStructure(node: Node): boolean {
+    if (node.nodeType !== 1 && node.nodeType !== 11) return false;
+    const queryable = node as Element | DocumentFragment;
+    if (node.nodeType === 1 && (queryable as Element).matches(ROUND_STRUCTURE_SELECTOR)) return true;
+    return queryable.querySelector(ROUND_STRUCTURE_SELECTOR) !== null;
+}
+
+function mutationAffectsRoundStructure(mutation: MutationRecord): boolean {
+    if (mutation.type !== 'childList' || isExtensionOwnedNode(mutation.target)) return false;
+    return [...mutation.addedNodes, ...mutation.removedNodes].some((node) => (
+        !isExtensionOwnedNode(node) && nodeMayContainRoundStructure(node)
+    ));
+}
+
 export class ChatGPTPageIndex {
     private readonly options: ChatGPTPageIndexOptions;
     private observer: MutationObserver | null = null;
     private observedRoot: ParentNode | null = null;
-    private revision = 0;
-    private snapshot: ChatGPTPageSnapshot | null = null;
+    private snapshot: ChatGPTDomRoundRef[] | null = null;
+    private subscribers = new Set<() => void>();
 
     constructor(options: ChatGPTPageIndexOptions) {
         this.options = options;
     }
 
-    getSnapshot(): ChatGPTPageSnapshot {
+    getSnapshot(): ChatGPTDomRoundRef[] {
         this.ensureObservedRoot();
-        if (!this.snapshot) {
-            this.snapshot = {
-                revision: this.revision,
-                rounds: this.options.discover(),
-            };
-        }
+        if (!this.snapshot) this.snapshot = this.options.discover();
         return this.snapshot;
     }
 
     invalidate(): void {
-        this.revision += 1;
         this.snapshot = null;
+    }
+
+    subscribe(listener: () => void): () => void {
+        this.subscribers.add(listener);
+        this.ensureObservedRoot();
+        return () => this.subscribers.delete(listener);
     }
 
     dispose(): void {
         this.observer?.disconnect();
         this.observer = null;
         this.observedRoot = null;
+        this.subscribers.clear();
         this.invalidate();
     }
 
@@ -86,7 +106,17 @@ export class ChatGPTPageIndex {
 
         if (typeof MutationObserver !== 'function') return;
         this.observer = new MutationObserver((mutations) => {
-            if (mutations.some(mutationAffectsHostPage)) this.invalidate();
+            const hostMutations = mutations.filter(mutationAffectsHostPage);
+            if (hostMutations.length === 0) return;
+            this.invalidate();
+            if (!hostMutations.some(mutationAffectsRoundStructure)) return;
+            for (const listener of Array.from(this.subscribers)) {
+                try {
+                    listener();
+                } catch (error) {
+                    logger.warn('[AI-MarkDone][ChatGPTPageIndex] Round-change subscriber failed', error);
+                }
+            }
         });
         this.observer.observe(nextRoot, {
             attributes: true,

@@ -27,6 +27,7 @@
         "test:acceptance": "vitest run tests/unit/governance/manifest-resource-consistency.test.ts tests/unit/governance/manifest-generation.test.ts tests/unit/governance/release-scripts.test.ts tests/unit/governance/supported-hosts-consistency.test.ts tests/unit/governance/i18n-keys.test.ts tests/unit/ui/i18n/i18n.test.ts tests/unit/drivers/shared/browserApi.test.ts tests/unit/drivers/content/chatgpt/ChatGPTConversationEngine.test.ts tests/unit/ui/content/controllers/ChatGPTDirectoryController.test.ts tests/unit/ui/reader/readerPanel.bookmarkAction.test.ts tests/unit/runtimes/content/entry.test.ts",
         "test:core": "vitest run",
         "perf:chatgpt": "tsx scripts/benchmark-chatgpt-runtime.ts",
+        "generate:latex-snippets": "tsx scripts/generate-latex-formula-snippets.ts",
         "verify:bundle-size": "tsx scripts/verify-extension-bundle-size.ts chrome firefox",
         "verify:bundle-size:safari": "tsx scripts/verify-extension-bundle-size.ts safari",
         "verify:entry-format:chrome": "bash scripts/verify-extension-entry-format.sh chrome",
@@ -34,6 +35,7 @@
         "verify:entry-format:safari": "bash scripts/verify-extension-entry-format.sh safari"
     },
     "dependencies": {
+        "@lezer/markdown": "^1.6.3",
         "@mathjax/mathjax-mhchem-font-extension": "^4.1.1",
         "@mathjax/mathjax-newcm-font": "^4.1.1",
         "@mathjax/src": "^4.1.1",

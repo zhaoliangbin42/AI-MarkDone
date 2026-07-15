@@ -2,10 +2,16 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 
 const ensurePageTokens = vi.fn();
 const mathClickEnable = vi.fn();
+const mathClickObserveContainers = vi.fn();
 const mathClickDisable = vi.fn();
 const mathClickSetFormulaSettings = vi.fn();
 const mathClickCtor = vi.fn(function () {
-    return { enable: mathClickEnable, disable: mathClickDisable, setFormulaSettings: mathClickSetFormulaSettings };
+    return {
+        enable: mathClickEnable,
+        observeContainers: mathClickObserveContainers,
+        disable: mathClickDisable,
+        setFormulaSettings: mathClickSetFormulaSettings,
+    };
 });
 const themeInit = vi.fn();
 let themeListener: ((theme: 'light' | 'dark') => void) | null = null;
@@ -38,7 +44,7 @@ const sendControllerCtor = vi.fn(function () {
 const settingsInit = vi.fn();
 const settingsSubscribe = vi.fn();
 const settingsGetCached = vi.fn(() => null);
-const settingsSetCategory = vi.fn(async () => {});
+const settingsSetCategory = vi.fn(async () => true);
 let settingsSubscriber: ((snap: any) => void) | null = null;
 const settingsClientCtor = vi.fn(function () {
     return {
@@ -144,12 +150,18 @@ const sendPositionRestoreCtor = vi.fn(function () {
 });
 const composerEnterInit = vi.fn();
 const composerEnterDispose = vi.fn();
-const composerEnterSetEnabled = vi.fn();
-const composerEnterCtor = vi.fn(function () {
+const composerInputEnhancementSetSettings = vi.fn();
+const composerSetThemeOverrides = vi.fn();
+const composerSetTheme = vi.fn();
+let composerEditingOptions: { onInputEnhancementChange?: (settings: any) => Promise<boolean> } | null = null;
+const composerEnterCtor = vi.fn(function (_adapter: unknown, options: typeof composerEditingOptions) {
+    composerEditingOptions = options;
     return {
         init: composerEnterInit,
         dispose: composerEnterDispose,
-        setEnabled: composerEnterSetEnabled,
+        setInputEnhancementSettings: composerInputEnhancementSetSettings,
+        setThemeOverrides: composerSetThemeOverrides,
+        setTheme: composerSetTheme,
     };
 });
 const messageStepperInit = vi.fn();
@@ -189,6 +201,7 @@ const promptAutocompleteDispose = vi.fn();
 const promptAutocompleteOpenManager = vi.fn(async () => undefined);
 const promptAutocompleteSetThemeOverrides = vi.fn();
 const promptAutocompleteSetEnabled = vi.fn();
+const promptAutocompleteSetFormulaAuthoringEnabled = vi.fn();
 const promptAutocompleteCtor = vi.fn(function () {
     return {
         init: promptAutocompleteInit,
@@ -196,6 +209,7 @@ const promptAutocompleteCtor = vi.fn(function () {
         openManager: promptAutocompleteOpenManager,
         setThemeOverrides: promptAutocompleteSetThemeOverrides,
         setEnabled: promptAutocompleteSetEnabled,
+        setFormulaAuthoringEnabled: promptAutocompleteSetFormulaAuthoringEnabled,
     };
 });
 const pageWidthInit = vi.fn();
@@ -393,8 +407,8 @@ vi.mock('@/ui/content/controllers/ChatGPTSendPositionRestoreController', () => (
     ChatGPTSendPositionRestoreController: sendPositionRestoreCtor,
 }));
 
-vi.mock('@/ui/content/controllers/ChatGPTComposerEnterController', () => ({
-    ChatGPTComposerEnterController: composerEnterCtor,
+vi.mock('@/ui/content/controllers/ChatGPTComposerEditingController', () => ({
+    ChatGPTComposerEditingController: composerEnterCtor,
 }));
 
 vi.mock('@/ui/content/controllers/ChatGPTMessageStepperController', () => ({
@@ -474,6 +488,7 @@ afterEach(() => {
     adapterPlatformId = 'chatgpt';
     formulaOnlyProfile = null;
     settingsSubscriber = null;
+    composerEditingOptions = null;
     runtimeMessageListener = null;
     modalConfirmResult = true;
     document.documentElement.removeAttribute('data-aimd-theme');
@@ -503,7 +518,6 @@ describe('content runtime entry', () => {
             hostnames: ['gemini.google.com'],
             observerRootSelectors: ['main'],
             contentRootSelectors: ['model-response'],
-            formulaSelectors: ['.math-inline'],
         };
         vi.resetModules();
         await import('@/runtimes/content/entry');
@@ -539,6 +553,25 @@ describe('content runtime entry', () => {
             v: 1,
             type: 'content:ready',
             payload: { platform: 'chatgpt', url: 'https://chatgpt.com/c/mock' },
+        }));
+    });
+
+    it('persists the complete input enhancement snapshot through the existing ChatGPT behavior category', async () => {
+        const { DEFAULT_SETTINGS } = await import('@/core/settings/types');
+        adapterPlatformId = 'chatgpt';
+        settingsGetCached.mockReturnValue(structuredClone(DEFAULT_SETTINGS));
+        vi.resetModules();
+        await import('@/runtimes/content/entry');
+
+        expect(composerEditingOptions?.onInputEnhancementChange).toEqual(expect.any(Function));
+        const inputEnhancement = {
+            ...DEFAULT_SETTINGS.chatgptBehavior.inputEnhancement,
+            formulaPreview: false,
+        };
+        await composerEditingOptions!.onInputEnhancementChange!(inputEnhancement);
+
+        expect(settingsSetCategory).toHaveBeenCalledWith('chatgptBehavior', expect.objectContaining({
+            inputEnhancement,
         }));
     });
 
@@ -632,6 +665,11 @@ describe('content runtime entry', () => {
         expect(composerEnterInit).toHaveBeenCalledTimes(1);
         expect(sendPositionRestoreInit).toHaveBeenCalledTimes(1);
         expect(sendPositionRestoreSetEnabled).toHaveBeenCalledWith(true);
+        expect(composerInputEnhancementSetSettings).toHaveBeenCalledWith(expect.objectContaining({
+            available: true,
+            enabled: false,
+            enterKeyNewline: false,
+        }));
         expect(messageStepperCtor).toHaveBeenCalledTimes(1);
         expect(messageStepperInit).toHaveBeenCalledTimes(1);
         expect(messageStepperSetVisible).toHaveBeenCalledWith(true);
@@ -903,7 +941,10 @@ describe('content runtime entry', () => {
         expect(sendPositionRestoreInit).toHaveBeenCalledTimes(2);
         expect(sendPositionRestoreSetEnabled).toHaveBeenLastCalledWith(false);
         expect(composerEnterInit).toHaveBeenCalledTimes(2);
-        expect(composerEnterSetEnabled).toHaveBeenLastCalledWith(false);
+        expect(composerInputEnhancementSetSettings).toHaveBeenLastCalledWith(expect.objectContaining({
+            enabled: false,
+            enterKeyNewline: false,
+        }));
         expect(promptAutocompleteSetEnabled).toHaveBeenCalledWith(false);
         expect(promptAutocompleteSetEnabled).toHaveBeenLastCalledWith(true);
         expect(messageStepperInit).toHaveBeenCalledTimes(2);
@@ -916,7 +957,7 @@ describe('content runtime entry', () => {
         expect(directorySetDisplayMode).toHaveBeenLastCalledWith('preview');
         expect(directorySetPromptLabelMode).toHaveBeenLastCalledWith('head');
         expect(officialNavigationSetEnabled).toHaveBeenLastCalledWith(true);
-        expect(mathClickEnable).toHaveBeenCalledTimes(2);
+        expect(mathClickObserveContainers).toHaveBeenCalledTimes(1);
         expect(reader?.setReaderSettings).toHaveBeenLastCalledWith(expect.objectContaining({
             renderCodeInReader: true,
         }));
@@ -950,9 +991,9 @@ describe('content runtime entry', () => {
         };
 
         settingsSubscriber!({ settings });
-        const enableCount = mathClickEnable.mock.calls.length;
+        const observeCount = mathClickObserveContainers.mock.calls.length;
         const disableCount = mathClickDisable.mock.calls.length;
-        expect(enableCount).toBe(2);
+        expect(observeCount).toBe(1);
 
         settingsSubscriber!({
             settings: {
@@ -961,7 +1002,7 @@ describe('content runtime entry', () => {
             },
         });
 
-        expect(mathClickEnable).toHaveBeenCalledTimes(enableCount);
+        expect(mathClickObserveContainers).toHaveBeenCalledTimes(observeCount);
         expect(mathClickDisable).toHaveBeenCalledTimes(disableCount);
     });
 
@@ -1098,6 +1139,7 @@ describe('content runtime entry', () => {
                 chatgptBehavior: {
                     restorePositionAfterSend: false,
                     enterKeyNewline: true,
+                    markdownComposerEnabled: true,
                     showMessageStepper: false,
                     showPageBookmarkControl: false,
                     showDetachedReaderControl: false,
@@ -1115,7 +1157,16 @@ describe('content runtime entry', () => {
         expect(messageStepperSetPromptControlVisible).toHaveBeenLastCalledWith(false);
         expect(messageStepperSetKeyboardEnabled).toHaveBeenLastCalledWith(false);
         expect(sendPositionRestoreSetEnterKeyNewlineEnabled).toHaveBeenLastCalledWith(true);
-        expect(composerEnterSetEnabled).toHaveBeenLastCalledWith(true);
+        expect(composerInputEnhancementSetSettings).toHaveBeenLastCalledWith({
+            available: true,
+            enabled: true,
+            enterKeyNewline: true,
+            boldShortcut: true,
+            lists: { enabled: true, ordered: true, unordered: true },
+            formulaSuggestions: true,
+            formulaPreview: true,
+        });
+        expect(promptAutocompleteSetFormulaAuthoringEnabled).toHaveBeenLastCalledWith(true);
         expect(directoryCtor).toHaveBeenCalledTimes(1);
         expect(directorySetEnabled).toHaveBeenLastCalledWith(true);
         expect(directorySetDisplayMode).toHaveBeenLastCalledWith('expanded');

@@ -59,17 +59,32 @@ function readPositiveIntegerArg(name: string, fallback: number): number {
 }
 
 function createFixtureHtml(rounds: number): string {
-    const turns = Array.from({ length: rounds }, (_, index) => `
+    const turns = Array.from({ length: rounds }, (_, index) => {
+        const atomicSelectionFixture = index === 0
+            ? '<p data-aimd-perf-atomic-selection>Before <code>atomic selection</code> after</p>'
+            : '';
+        const extraAssistantSegments = index === rounds - 1
+            ? `
+        <div data-message-author-role="assistant" data-message-id="assistant-${index + 1}-segment-2">
+          <div class="markdown prose"><p>Answer ${index + 1} continuation 2</p></div>
+        </div>
+        <div data-message-author-role="assistant" data-message-id="assistant-${index + 1}-segment-3">
+          <div class="markdown prose"><p>Answer ${index + 1} continuation 3</p></div>
+        </div>`
+            : '';
+        return `
       <div data-testid="conversation-turn-${index * 2 + 1}" data-turn="user">
         <div data-message-author-role="user"><div class="whitespace-pre-wrap">Prompt ${index + 1}</div></div>
       </div>
       <div data-testid="conversation-turn-${index * 2 + 2}" data-turn="assistant">
         <div data-message-author-role="assistant" data-message-id="assistant-${index + 1}">
-          <div class="markdown prose"><p>Answer ${index + 1}</p>${index === 0 ? '<p data-aimd-perf-atomic-selection>Before <code>atomic selection</code> after</p>' : ''}</div>
+          <div class="markdown prose"><p>Answer ${index + 1}</p>${atomicSelectionFixture}</div>
         </div>
+        ${extraAssistantSegments}
         <div class="z-0 flex"><div><button data-testid="copy-turn-action-button">Copy</button></div></div>
       </div>
-    `).join('');
+    `;
+    }).join('');
 
     return `<!doctype html>
 <html lang="en">
@@ -209,6 +224,21 @@ async function runRuntimeBenchmark(extensionPath: string, rounds: number, mutati
             const state = (window as unknown as { __AIMD_PERF_HARNESS__: HarnessState }).__AIMD_PERF_HARNESS__;
             return performance.now() - state.phaseStartedAt;
         });
+        await page.evaluate(async (expectedToolbars) => {
+            const initialHosts = Array.from(document.querySelectorAll<HTMLElement>('[data-turn="assistant"] div.z-0.flex'))
+                .map((row) => row.querySelector<HTMLElement>('[data-aimd-role="message-toolbar"]'));
+            if (initialHosts.length !== expectedToolbars || initialHosts.some((host) => !host)) {
+                throw new Error('Stable-toolbar gate could not capture one host per action row');
+            }
+            for (let sample = 0; sample < 8; sample += 1) {
+                await new Promise<void>((resolveSample) => window.setTimeout(resolveSample, 125));
+                const currentHosts = Array.from(document.querySelectorAll<HTMLElement>('[data-turn="assistant"] div.z-0.flex'))
+                    .map((row) => row.querySelector<HTMLElement>('[data-aimd-role="message-toolbar"]'));
+                if (currentHosts.some((host, index) => host !== initialHosts[index])) {
+                    throw new Error('Toolbar host identity changed on an unchanged multi-segment page');
+                }
+            }
+        }, rounds);
         await page.waitForTimeout(500);
         const cold = await collectPhase(page);
 

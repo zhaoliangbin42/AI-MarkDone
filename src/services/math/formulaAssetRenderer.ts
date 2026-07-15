@@ -168,6 +168,11 @@ export async function renderFormulaMathmlAsset(options: Omit<FormulaRenderOption
     return pending;
 }
 
+export function prewarmFormulaRenderer(): void {
+    if (testTransport) return;
+    void getIframeFormulaRendererTransport().prewarm().catch(() => undefined);
+}
+
 class IframeFormulaRendererTransport {
     private iframe: HTMLIFrameElement | null = null;
     private iframeReady: Promise<HTMLIFrameElement> | null = null;
@@ -184,6 +189,10 @@ class IframeFormulaRendererTransport {
 
     renderMathml(request: FormulaRendererTransportRequest): Promise<FormulaMathmlAsset> {
         return this.render(request, 'mathml') as Promise<FormulaMathmlAsset>;
+    }
+
+    prewarm(): Promise<void> {
+        return this.ensureIframe().then(() => undefined);
     }
 
     private render(request: FormulaRendererTransportRequest, format: 'svg' | 'mathml'): Promise<FormulaSvgAsset | FormulaMathmlAsset> {

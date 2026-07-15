@@ -12,13 +12,13 @@ import { MessageToolbarOrchestrator } from '../../ui/content/controllers/Message
 import { BookmarksPanelController } from '../../ui/content/bookmarks/BookmarksPanelController';
 import { SettingsClient } from '../../drivers/content/settings/settingsClient';
 import { DEFAULT_SETTINGS } from '../../core/settings/types';
+import { resolveChatGPTInputEnhancement } from '../../core/settings/inputEnhancement';
 import { setLocale, t } from '../../ui/content/components/i18n';
 import { SendController } from '../../ui/content/sending/SendController';
-import { discoverMessageElements } from '../../drivers/content/injection/messageDiscovery';
 import { ChatGPTConversationEngine } from '../../drivers/content/chatgpt/ChatGPTConversationEngine';
 import { ChatGPTDirectoryController } from '../../ui/content/controllers/ChatGPTDirectoryController';
 import { ChatGPTSendPositionRestoreController } from '../../ui/content/controllers/ChatGPTSendPositionRestoreController';
-import { ChatGPTComposerEnterController } from '../../ui/content/controllers/ChatGPTComposerEnterController';
+import { ChatGPTComposerEditingController } from '../../ui/content/controllers/ChatGPTComposerEditingController';
 import { ChatGPTMessageStepperController } from '../../ui/content/controllers/ChatGPTMessageStepperController';
 import { ChatGPTPromptAutocompleteController } from '../../ui/content/controllers/ChatGPTPromptAutocompleteController';
 import { ChatGPTOfficialNavigationVisibilityController } from '../../ui/content/controllers/ChatGPTOfficialNavigationVisibilityController';
@@ -35,7 +35,11 @@ import { sendText } from '../../services/sending/sendService';
 import { readComposer, writeComposer } from '../../drivers/content/sending/composerPort';
 import { armChatGPTSendPositionRestore } from '../../drivers/content/chatgpt/sendPositionRestoreEvents';
 import { DEFAULT_GLOBAL_FONT_SIZE_PX } from '../../core/settings/types';
-import { normalizeGlobalFontSizePx, normalizeThemeAccentColor } from '../../core/settings/migrations';
+import {
+    normalizeChatGPTInputEnhancementSettings,
+    normalizeGlobalFontSizePx,
+    normalizeThemeAccentColor,
+} from '../../core/settings/migrations';
 import type { UserThemeOverrides } from '../../style/tokens';
 import { getFormulaOnlyPlatformProfile, startFormulaOnlyRuntime } from './formulaOnlyRuntime';
 import { resolveFormulaSettings, shouldEnableFormulaInteractions } from './formulaRuntimeSettings';
@@ -108,8 +112,19 @@ if (adapter) {
     const chatGptSendPositionRestore = adapter.getPlatformId() === 'chatgpt'
         ? new ChatGPTSendPositionRestoreController(adapter)
         : null;
-    const chatGptComposerEnter = adapter.getPlatformId() === 'chatgpt'
-        ? new ChatGPTComposerEnterController(adapter)
+    const chatGptComposerEditing = adapter.getPlatformId() === 'chatgpt'
+        ? new ChatGPTComposerEditingController(adapter, {
+            onInputEnhancementChange: async (inputEnhancement) => {
+                const current = {
+                    ...DEFAULT_SETTINGS.chatgptBehavior,
+                    ...settingsClient.getCached()?.chatgptBehavior,
+                };
+                return settingsClient.setCategory('chatgptBehavior', {
+                    ...current,
+                    inputEnhancement,
+                });
+            },
+        })
         : null;
     const promptLibraryClient = adapter.getPlatformId() === 'chatgpt'
         ? createPromptLibraryClient()
@@ -178,12 +193,6 @@ if (adapter) {
         bookmarkSaveDialog,
         copyTurnsPng,
         chatGptConversationEngine: chatGptConversationEngine ?? undefined,
-        onMessageInjected: (messageElement) => {
-            const formula = resolveFormulaSettings(settingsClient.getCached()?.formula);
-            if (shouldEnableFormulaInteractions(formula)) {
-                mathClick.enable(messageElement);
-            }
-        },
     });
 
     settingsClient.init();
@@ -209,9 +218,7 @@ if (adapter) {
             mathClick.disable();
             return;
         }
-        for (const messageElement of discoverMessageElements(document, adapter.getMessageSelector())) {
-            mathClick.enable(messageElement);
-        }
+        mathClick.observeContainers(document.body || document.documentElement, adapter.getMessageSelector());
     };
 
     const syncFormulaSettings = (
@@ -309,7 +316,7 @@ if (adapter) {
         if (!chatGptConversationEngine) return;
         viewportResizeSuspend?.init();
         chatGptSendPositionRestore?.init();
-        chatGptComposerEnter?.init();
+        chatGptComposerEditing?.init();
         chatGptPromptAutocomplete?.init();
         chatGptMessageStepper?.init();
         chatGptPageWidth?.init();
@@ -345,9 +352,17 @@ if (adapter) {
             ...DEFAULT_SETTINGS.chatgptBehavior,
             ...settings,
         };
+        const inputEnhancement = normalizeChatGPTInputEnhancementSettings(
+            (settings as any)?.inputEnhancement,
+            settings,
+        );
+        const effectiveInputEnhancement = resolveChatGPTInputEnhancement(inputEnhancement);
         chatGptSendPositionRestore?.setEnabled(Boolean(next.restorePositionAfterSend));
-        chatGptSendPositionRestore?.setEnterKeyNewlineEnabled(Boolean(next.enterKeyNewline));
-        chatGptComposerEnter?.setEnabled(Boolean(next.enterKeyNewline));
+        chatGptSendPositionRestore?.setEnterKeyNewlineEnabled(effectiveInputEnhancement.enterKeyNewline);
+        chatGptComposerEditing?.setInputEnhancementSettings(inputEnhancement);
+        chatGptPromptAutocomplete?.setFormulaAuthoringEnabled?.(
+            effectiveInputEnhancement.formulaSuggestions || effectiveInputEnhancement.formulaPreview,
+        );
         chatGptMessageStepper?.setVisible(Boolean(next.showMessageStepper));
         chatGptMessageStepper?.setPageBookmarkControlVisible(Boolean(next.showPageBookmarkControl));
         chatGptMessageStepper?.setDetachedReaderControlVisible(Boolean(next.showDetachedReaderControl));
@@ -369,6 +384,7 @@ if (adapter) {
         bookmarkSaveDialog.setThemeOverrides(currentThemeOverrides);
         chatGptDirectory?.setThemeOverrides?.(currentThemeOverrides);
         chatGptPromptAutocomplete?.setThemeOverrides?.(currentThemeOverrides);
+        chatGptComposerEditing?.setThemeOverrides?.(currentThemeOverrides);
         chatGptMessageStepper?.setThemeOverrides?.(currentThemeOverrides);
     };
 
@@ -390,7 +406,7 @@ if (adapter) {
         chatGptConversationEngine?.dispose?.();
         viewportResizeSuspend?.dispose();
         chatGptSendPositionRestore?.dispose();
-        chatGptComposerEnter?.dispose();
+        chatGptComposerEditing?.dispose();
         chatGptPromptAutocomplete?.dispose();
         chatGptMessageStepper?.dispose();
         chatGptPageWidth?.dispose();
@@ -457,6 +473,7 @@ if (adapter) {
         bookmarkSaveDialog.setTheme(theme);
         chatGptDirectory?.setTheme(theme);
         chatGptMessageStepper?.setTheme(theme);
+        chatGptComposerEditing?.setTheme?.(theme);
     });
 
     const handleDetachedReaderRequest = async (request: ExtRequest): Promise<ExtResponse> => {

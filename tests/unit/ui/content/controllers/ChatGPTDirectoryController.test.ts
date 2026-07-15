@@ -1,5 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { SiteAdapter, type ConversationGroupRef, type ThemeDetector } from '@/drivers/content/adapters/base';
+import { ChatGPTAdapter } from '@/drivers/content/adapters/sites/chatgpt';
 import { ChatGPTDirectoryController } from '@/ui/content/controllers/ChatGPTDirectoryController';
 import { ChatGPTDirectoryRail } from '@/ui/content/chatgptDirectory/ChatGPTDirectoryRail';
 import { AIMD_VIEWPORT_RESIZE_IDLE_EVENT } from '@/ui/content/controllers/ViewportResizeSuspendController';
@@ -669,6 +670,50 @@ describe('ChatGPTDirectoryController', () => {
 
         expect(engine.subscribe).toHaveBeenCalledWith(expect.any(Function), { live: false });
         controller.dispose();
+    });
+
+    it('refreshes the directory when ChatGPT replaces the conversation main before adding a new round', async () => {
+        window.history.replaceState({}, '', '/c/69e8d157-5fec-839c-9124-2179ba8b7d7c');
+        document.body.innerHTML = `
+          <div id="app">
+            <main>
+              <div data-turn-id-container id="user-1"><section data-turn="user">Question 1</section></div>
+              <div data-turn-id-container id="assistant-1"><section data-turn="assistant"></section></div>
+              <div data-turn-id-container id="user-2"><section data-turn="user">Question 2</section></div>
+              <div data-turn-id-container id="assistant-2"><section data-turn="assistant"></section></div>
+            </main>
+          </div>
+        `;
+        const adapter = new ChatGPTAdapter();
+        const engine = {
+            peekCurrentSnapshot: vi.fn(() => null),
+            forceRefreshCurrentConversation: vi.fn(async () => null),
+            subscribe: vi.fn(() => () => undefined),
+        } as any;
+        const controller = new ChatGPTDirectoryController(adapter, engine);
+
+        controller.init('light');
+        await (controller as any).refresh();
+
+        const railRoot = document.getElementById('aimd-chatgpt-directory-rail')?.shadowRoot;
+        expect(railRoot?.querySelectorAll('.rail__item')).toHaveLength(2);
+
+        const nextMain = document.createElement('main');
+        nextMain.innerHTML = Array.from({ length: 3 }, (_, index) => {
+            const position = index + 1;
+            return `
+              <div data-turn-id-container id="next-user-${position}"><section data-turn="user">Question ${position}</section></div>
+              <div data-turn-id-container id="next-assistant-${position}"><section data-turn="assistant"></section></div>
+            `;
+        }).join('');
+        document.querySelector('main')?.replaceWith(nextMain);
+
+        await Promise.resolve();
+        await vi.advanceTimersByTimeAsync(150);
+
+        expect(railRoot?.querySelectorAll('.rail__item')).toHaveLength(3);
+        controller.dispose();
+        adapter.dispose();
     });
 
     it('hydrates missing directory labels once when DOM rounds only expose fallback prompts', async () => {

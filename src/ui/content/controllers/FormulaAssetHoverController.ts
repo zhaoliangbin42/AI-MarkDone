@@ -39,6 +39,10 @@ export class FormulaAssetHoverController {
         this.mathClick.enable(container);
     }
 
+    observeContainers(root: HTMLElement, selector: string): void {
+        this.mathClick.observeContainers(root, selector);
+    }
+
     disable(): void {
         this.mathClick.disable();
     }

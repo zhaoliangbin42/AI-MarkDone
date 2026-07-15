@@ -3,6 +3,61 @@ import { DEFAULT_SETTINGS } from '../../../../src/core/settings/types';
 import { loadAndNormalize } from '../../../../src/services/settings/settingsService';
 
 describe('settings migrations', () => {
+    it('enables every ChatGPT input enhancement for a fresh install', () => {
+        const next = loadAndNormalize(null);
+
+        expect(next.chatgptBehavior.inputEnhancement).toEqual({
+            available: true,
+            enabled: true,
+            enterKeyNewline: true,
+            boldShortcut: true,
+            lists: {
+                enabled: true,
+                ordered: true,
+                unordered: true,
+            },
+            formulaSuggestions: true,
+            formulaPreview: true,
+        });
+    });
+
+    it.each([
+        { markdown: false, enter: false, enabled: false, enterEnabled: false, markdownFeatures: false },
+        { markdown: true, enter: false, enabled: true, enterEnabled: false, markdownFeatures: true },
+        { markdown: false, enter: true, enabled: true, enterEnabled: true, markdownFeatures: false },
+        { markdown: true, enter: true, enabled: true, enterEnabled: true, markdownFeatures: true },
+    ])('preserves legacy Markdown=$markdown and Enter=$enter behavior in the unified input enhancement settings', ({
+        markdown,
+        enter,
+        enabled,
+        enterEnabled,
+        markdownFeatures,
+    }) => {
+        const next = loadAndNormalize({
+            version: 4,
+            chatgptBehavior: {
+                markdownComposerEnabled: markdown,
+                enterKeyNewline: enter,
+            },
+        } as any);
+
+        expect(next.chatgptBehavior.inputEnhancement).toEqual({
+            available: true,
+            enabled,
+            enterKeyNewline: enterEnabled,
+            boldShortcut: markdownFeatures,
+            lists: {
+                enabled: markdownFeatures,
+                ordered: markdownFeatures,
+                unordered: markdownFeatures,
+            },
+            formulaSuggestions: markdownFeatures,
+            formulaPreview: markdownFeatures,
+        });
+        expect(next.chatgptBehavior).not.toHaveProperty('enterKeyNewline');
+        expect(next.chatgptBehavior).not.toHaveProperty('markdownComposerEnabled');
+    });
+
     it('returns defaults when stored is missing or invalid', () => {
         expect(loadAndNormalize(null)).toEqual(DEFAULT_SETTINGS);
         expect(loadAndNormalize(undefined)).toEqual(DEFAULT_SETTINGS);
@@ -29,7 +84,8 @@ describe('settings migrations', () => {
         expect(next.chatgptBehavior.showDetachedReaderControl).toBe(true);
         expect(next.chatgptBehavior.showPromptControl).toBe(true);
         expect(next.chatgptBehavior.promptAutocomplete).toBe(true);
-        expect(next.chatgptBehavior.enterKeyNewline).toBe(false);
+        expect(next.chatgptBehavior.inputEnhancement.enabled).toBe(false);
+        expect(next.chatgptBehavior.inputEnhancement.enterKeyNewline).toBe(false);
         expect(next.chatgptBehavior.enableArrowKeyMessageNavigation).toBe(true);
         expect(next.chatgptBehavior.pageWidthScale).toBe(100);
         expect(next).not.toHaveProperty('chatgpt');
@@ -166,7 +222,15 @@ describe('settings migrations', () => {
 
         expect(defaulted.chatgptBehavior).toEqual({
             restorePositionAfterSend: true,
-            enterKeyNewline: false,
+            inputEnhancement: {
+                available: true,
+                enabled: false,
+                enterKeyNewline: false,
+                boldShortcut: false,
+                lists: { enabled: false, ordered: false, unordered: false },
+                formulaSuggestions: false,
+                formulaPreview: false,
+            },
             showMessageStepper: true,
             showPageBookmarkControl: true,
             showDetachedReaderControl: true,
@@ -177,7 +241,15 @@ describe('settings migrations', () => {
         });
         expect(disabled.chatgptBehavior).toEqual({
             restorePositionAfterSend: false,
-            enterKeyNewline: true,
+            inputEnhancement: {
+                available: true,
+                enabled: true,
+                enterKeyNewline: true,
+                boldShortcut: false,
+                lists: { enabled: false, ordered: false, unordered: false },
+                formulaSuggestions: false,
+                formulaPreview: false,
+            },
             showMessageStepper: false,
             showPageBookmarkControl: false,
             showDetachedReaderControl: false,
@@ -187,6 +259,33 @@ describe('settings migrations', () => {
             pageWidthScale: 145,
         });
         expect(clamped.chatgptBehavior.pageWidthScale).toBe(200);
+    });
+
+    it('normalizes persisted input enhancement fields independently', () => {
+        const next = loadAndNormalize({
+            version: 4,
+            chatgptBehavior: {
+                inputEnhancement: {
+                    available: false,
+                    enabled: true,
+                    enterKeyNewline: false,
+                    boldShortcut: true,
+                    lists: { enabled: true, ordered: false, unordered: true },
+                    formulaSuggestions: false,
+                    formulaPreview: true,
+                },
+            },
+        } as any);
+
+        expect(next.chatgptBehavior.inputEnhancement).toEqual({
+            available: false,
+            enabled: true,
+            enterKeyNewline: false,
+            boldShortcut: true,
+            lists: { enabled: true, ordered: false, unordered: true },
+            formulaSuggestions: false,
+            formulaPreview: true,
+        });
     });
 
     it('migrates v2 settings without carrying retired ChatGPT folding settings forward', () => {

@@ -132,7 +132,7 @@ export abstract class SiteAdapter {
     abstract getMessageId(messageElement: HTMLElement): string | null;
 
     /**
-     * Container for MutationObserver to watch new messages.
+     * Stable container for MutationObserver to watch new messages, including replacement of the conversation root.
      */
     abstract getObserverContainer(): HTMLElement | null;
 

@@ -27,7 +27,9 @@ import {
     READER_CONTENT_MAX_WIDTH_STEP_PX,
     THEME_ACCENT_SWATCHES,
     DEFAULT_SETTINGS,
+    DEFAULT_CHATGPT_INPUT_ENHANCEMENT_SETTINGS,
     type AppSettings,
+    type ChatGPTInputEnhancementSettings,
     type ThemeAccentColor,
 } from './types';
 import { normalizeExportSettings } from './export';
@@ -122,11 +124,51 @@ export function normalizeChatGPTDirectoryRightInsetPx(value: unknown): number {
     return Math.round(clamped / CHATGPT_DIRECTORY_RIGHT_INSET_STEP_PX) * CHATGPT_DIRECTORY_RIGHT_INSET_STEP_PX;
 }
 
+export function normalizeChatGPTInputEnhancementSettings(
+    value: unknown,
+    legacyBehavior: unknown,
+): ChatGPTInputEnhancementSettings {
+    const record = isRecord(value) ? value : null;
+    if (record) {
+        const lists = isRecord(record.lists) ? record.lists : {};
+        return {
+            available: Boolean(record.available ?? DEFAULT_CHATGPT_INPUT_ENHANCEMENT_SETTINGS.available),
+            enabled: Boolean(record.enabled ?? DEFAULT_CHATGPT_INPUT_ENHANCEMENT_SETTINGS.enabled),
+            enterKeyNewline: Boolean(record.enterKeyNewline ?? DEFAULT_CHATGPT_INPUT_ENHANCEMENT_SETTINGS.enterKeyNewline),
+            boldShortcut: Boolean(record.boldShortcut ?? DEFAULT_CHATGPT_INPUT_ENHANCEMENT_SETTINGS.boldShortcut),
+            lists: {
+                enabled: Boolean(lists.enabled ?? DEFAULT_CHATGPT_INPUT_ENHANCEMENT_SETTINGS.lists.enabled),
+                ordered: Boolean(lists.ordered ?? DEFAULT_CHATGPT_INPUT_ENHANCEMENT_SETTINGS.lists.ordered),
+                unordered: Boolean(lists.unordered ?? DEFAULT_CHATGPT_INPUT_ENHANCEMENT_SETTINGS.lists.unordered),
+            },
+            formulaSuggestions: Boolean(record.formulaSuggestions ?? DEFAULT_CHATGPT_INPUT_ENHANCEMENT_SETTINGS.formulaSuggestions),
+            formulaPreview: Boolean(record.formulaPreview ?? DEFAULT_CHATGPT_INPUT_ENHANCEMENT_SETTINGS.formulaPreview),
+        };
+    }
+
+    const legacy = isRecord(legacyBehavior) ? legacyBehavior : {};
+    const markdownEnabled = Boolean(legacy.markdownComposerEnabled);
+    const enterKeyNewline = Boolean(legacy.enterKeyNewline);
+    return {
+        available: true,
+        enabled: markdownEnabled || enterKeyNewline,
+        enterKeyNewline,
+        boldShortcut: markdownEnabled,
+        lists: {
+            enabled: markdownEnabled,
+            ordered: markdownEnabled,
+            unordered: markdownEnabled,
+        },
+        formulaSuggestions: markdownEnabled,
+        formulaPreview: markdownEnabled,
+    };
+}
+
 export function normalizeChatGPTBehaviorSettings(value: unknown): AppSettings['chatgptBehavior'] {
     const record = isRecord(value) ? value : {};
     return {
         restorePositionAfterSend: Boolean((record as any).restorePositionAfterSend ?? DEFAULT_SETTINGS.chatgptBehavior.restorePositionAfterSend),
-        enterKeyNewline: Boolean((record as any).enterKeyNewline ?? DEFAULT_SETTINGS.chatgptBehavior.enterKeyNewline),
+        inputEnhancement: normalizeChatGPTInputEnhancementSettings(record.inputEnhancement, record),
         showMessageStepper: Boolean((record as any).showMessageStepper ?? DEFAULT_SETTINGS.chatgptBehavior.showMessageStepper),
         showPageBookmarkControl: Boolean((record as any).showPageBookmarkControl ?? DEFAULT_SETTINGS.chatgptBehavior.showPageBookmarkControl),
         showDetachedReaderControl: Boolean((record as any).showDetachedReaderControl ?? DEFAULT_SETTINGS.chatgptBehavior.showDetachedReaderControl),

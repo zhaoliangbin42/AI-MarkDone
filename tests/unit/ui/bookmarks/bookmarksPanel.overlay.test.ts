@@ -25,6 +25,7 @@ vi.mock('@/drivers/shared/clients/settingsClientRpc', () => ({
 
 import { BookmarksPanel } from '@/ui/content/bookmarks/BookmarksPanel';
 import { ChatGPTMessageStepperController } from '@/ui/content/controllers/ChatGPTMessageStepperController';
+import { ChatGPTAdapter } from '@/drivers/content/adapters/sites/chatgpt';
 
 describe('BookmarksPanel overlay surface', () => {
     beforeEach(() => {
@@ -77,11 +78,8 @@ describe('BookmarksPanel overlay surface', () => {
         } as any;
 
         const panel = new BookmarksPanel(controller, { show: vi.fn(), hide: vi.fn() } as any);
-        const stepper = new ChatGPTMessageStepperController({
-            getPlatformId: () => 'chatgpt',
-            getConversationGroupRefs: () => [],
-            getMessageSelector: () => '[data-no-message]',
-        } as any, {
+        const adapter = new ChatGPTAdapter();
+        const stepper = new ChatGPTMessageStepperController(adapter, {
             onOpenBookmarksPanel: () => panel.toggle(),
         });
         stepper.init();
@@ -106,5 +104,6 @@ describe('BookmarksPanel overlay surface', () => {
 
         panel.hide();
         stepper.dispose();
+        adapter.dispose();
     });
 });

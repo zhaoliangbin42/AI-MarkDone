@@ -37,9 +37,23 @@ export type ChatGPTDirectorySettings = {
     rightInsetPx: number;
 };
 
+export type ChatGPTInputEnhancementSettings = {
+    available: boolean;
+    enabled: boolean;
+    enterKeyNewline: boolean;
+    boldShortcut: boolean;
+    lists: {
+        enabled: boolean;
+        ordered: boolean;
+        unordered: boolean;
+    };
+    formulaSuggestions: boolean;
+    formulaPreview: boolean;
+};
+
 export type ChatGPTBehaviorSettings = {
     restorePositionAfterSend: boolean;
-    enterKeyNewline: boolean;
+    inputEnhancement: ChatGPTInputEnhancementSettings;
     showMessageStepper: boolean;
     showPageBookmarkControl: boolean;
     showDetachedReaderControl: boolean;
@@ -47,6 +61,20 @@ export type ChatGPTBehaviorSettings = {
     promptAutocomplete: boolean;
     enableArrowKeyMessageNavigation: boolean;
     pageWidthScale: number;
+};
+
+export const DEFAULT_CHATGPT_INPUT_ENHANCEMENT_SETTINGS: ChatGPTInputEnhancementSettings = {
+    available: true,
+    enabled: true,
+    enterKeyNewline: true,
+    boldShortcut: true,
+    lists: {
+        enabled: true,
+        ordered: true,
+        unordered: true,
+    },
+    formulaSuggestions: true,
+    formulaPreview: true,
 };
 
 export const DEFAULT_READER_CONTENT_MAX_WIDTH_PX = 1000;
@@ -155,7 +183,10 @@ export const DEFAULT_SETTINGS: AppSettings = {
     },
     chatgptBehavior: {
         restorePositionAfterSend: true,
-        enterKeyNewline: false,
+        inputEnhancement: {
+            ...DEFAULT_CHATGPT_INPUT_ENHANCEMENT_SETTINGS,
+            lists: { ...DEFAULT_CHATGPT_INPUT_ENHANCEMENT_SETTINGS.lists },
+        },
         showMessageStepper: true,
         showPageBookmarkControl: true,
         showDetachedReaderControl: true,

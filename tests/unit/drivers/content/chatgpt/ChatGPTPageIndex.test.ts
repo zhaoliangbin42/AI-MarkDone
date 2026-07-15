@@ -2,7 +2,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { ChatGPTAdapter } from '@/drivers/content/adapters/sites/chatgpt';
 import {
     collectChatGPTDomRoundRefs,
-    getChatGPTPageSnapshot,
+    subscribeChatGPTDomRoundChanges,
 } from '@/drivers/content/chatgpt/domConversationDiscovery';
 import { collectConversationTurnRefs } from '@/drivers/content/conversation/collectConversationTurnRefs';
 import { collectChatGPTRoundPositions } from '@/ui/content/chatgptDirectory/navigation';
@@ -43,21 +43,17 @@ describe('ChatGPTPageIndex', () => {
     });
 
     it('reuses one ordered DOM-round snapshot until the host page changes', async () => {
-        const firstSnapshot = getChatGPTPageSnapshot(adapter);
-        const first = firstSnapshot.rounds;
+        const first = collectChatGPTDomRoundRefs(adapter);
         const unchanged = collectChatGPTDomRoundRefs(adapter);
 
         expect(unchanged).toBe(first);
-        expect(getChatGPTPageSnapshot(adapter)).toBe(firstSnapshot);
         expect(first.map((round) => round.id)).toEqual(['assistant-1']);
 
         appendRound(2);
         await deliverMutations();
-        const changedSnapshot = getChatGPTPageSnapshot(adapter);
-        const changed = changedSnapshot.rounds;
+        const changed = collectChatGPTDomRoundRefs(adapter);
 
         expect(changed).not.toBe(first);
-        expect(changedSnapshot.revision).toBeGreaterThan(firstSnapshot.revision);
         expect(changed.map((round) => round.id)).toEqual(['assistant-1', 'assistant-2']);
     });
 
@@ -70,6 +66,50 @@ describe('ChatGPTPageIndex', () => {
         expect(positions.map((position) => position.assistantRoot)).toEqual(
             firstTurns.map((turn) => turn.assistantRootEl),
         );
+    });
+
+    it('notifies every navigation subscriber from one shared round-change source', async () => {
+        const firstListener = vi.fn();
+        const secondListener = vi.fn();
+        const unsubscribeFirst = subscribeChatGPTDomRoundChanges(adapter, firstListener);
+        const unsubscribeSecond = subscribeChatGPTDomRoundChanges(adapter, secondListener);
+
+        appendRound(2);
+        await deliverMutations();
+
+        expect(firstListener).toHaveBeenCalledTimes(1);
+        expect(secondListener).toHaveBeenCalledTimes(1);
+
+        unsubscribeFirst();
+        unsubscribeSecond();
+    });
+
+    it('does not notify navigation subscribers for streamed content changes inside an existing round', async () => {
+        const listener = vi.fn();
+        const unsubscribe = subscribeChatGPTDomRoundChanges(adapter, listener);
+        const content = document.querySelector('.markdown')?.firstChild;
+        if (!content) throw new Error('fixture content is missing');
+
+        content.textContent = 'Answer 1 streaming';
+        await deliverMutations();
+
+        expect(listener).not.toHaveBeenCalled();
+        unsubscribe();
+    });
+
+    it('keeps notifying navigation subscribers when another subscriber fails', async () => {
+        const survivingListener = vi.fn();
+        const unsubscribeFailing = subscribeChatGPTDomRoundChanges(adapter, () => {
+            throw new Error('directory render failed');
+        });
+        const unsubscribeSurviving = subscribeChatGPTDomRoundChanges(adapter, survivingListener);
+
+        appendRound(2);
+        await deliverMutations();
+
+        expect(survivingListener).toHaveBeenCalledTimes(1);
+        unsubscribeFailing();
+        unsubscribeSurviving();
     });
 
     it('does not issue more DOM queries when multiple callers read an unchanged 200-round page', () => {
@@ -122,7 +162,7 @@ describe('ChatGPTPageIndex', () => {
         expect(changed.map((round) => round.id)).toEqual(['assistant-updated']);
     });
 
-    it('rebinds when ChatGPT replaces the conversation root', () => {
+    it('rebinds when ChatGPT replaces the conversation root', async () => {
         const first = collectChatGPTDomRoundRefs(adapter);
         const oldMain = document.querySelector('main');
         if (!(oldMain instanceof HTMLElement)) throw new Error('fixture main is missing');
@@ -130,6 +170,7 @@ describe('ChatGPTPageIndex', () => {
         const nextMain = document.createElement('main');
         oldMain.replaceWith(nextMain);
         appendRound(2);
+        await deliverMutations();
 
         const changed = collectChatGPTDomRoundRefs(adapter);
         expect(changed).not.toBe(first);
@@ -139,11 +180,11 @@ describe('ChatGPTPageIndex', () => {
     it('disconnects and releases all snapshot layers when the adapter is disposed', () => {
         const disconnect = vi.spyOn(MutationObserver.prototype, 'disconnect');
         try {
-            const firstSnapshot = getChatGPTPageSnapshot(adapter);
+            const firstSnapshot = collectChatGPTDomRoundRefs(adapter);
             const firstTurns = collectConversationTurnRefs(adapter);
 
             adapter.dispose();
-            const rebuiltSnapshot = getChatGPTPageSnapshot(adapter);
+            const rebuiltSnapshot = collectChatGPTDomRoundRefs(adapter);
             const rebuiltTurns = collectConversationTurnRefs(adapter);
 
             expect(disconnect).toHaveBeenCalled();

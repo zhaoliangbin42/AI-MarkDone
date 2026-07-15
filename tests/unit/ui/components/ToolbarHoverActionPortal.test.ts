@@ -138,4 +138,24 @@ describe('ToolbarHoverActionPortal', () => {
         portal.dispose();
         vi.useRealTimers();
     });
+
+    it('keeps the transparent hover bridge inside the gap without covering the trigger', () => {
+        const portal = new ToolbarHoverActionPortal('light');
+        const host = document.createElement('button');
+        document.body.appendChild(host);
+        portal.open({ anchorEl: host, label: 'Copy as PNG' });
+
+        const css = document
+            .querySelector<HTMLElement>('.aimd-toolbar-hover-action-host')!
+            .shadowRoot!
+            .querySelector<HTMLStyleElement>('style[data-aimd-style-id="aimd-toolbar-hover-action-base"]')!
+            .textContent ?? '';
+
+        expect(css).toContain('top: calc(-1 * var(--aimd-space-2));');
+        expect(css).toContain('height: var(--aimd-space-2);');
+        expect(css).not.toContain('top: calc(-1 * var(--aimd-space-3));');
+        expect(css).not.toContain('transform: translate(-50%, calc(-1 * var(--aimd-space-2)));');
+
+        portal.dispose();
+    });
 });

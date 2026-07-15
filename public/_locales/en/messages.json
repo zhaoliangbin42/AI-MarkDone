@@ -1031,13 +1031,193 @@
         "message": "When reading older messages, sending a new message brings you back to your reading position.",
         "description": "Message for chatgptRestorePositionAfterSendDesc"
     },
-    "chatgptEnterKeyNewlineLabel": {
-        "message": "Enter inserts a new line",
-        "description": "Message for chatgptEnterKeyNewlineLabel"
+    "chatgptInputEnhancementLabel": {
+        "message": "Input enhancement",
+        "description": "Settings label for making ChatGPT input enhancements available"
     },
-    "chatgptEnterKeyNewlineDesc": {
-        "message": "When enabled, pressing Enter in the ChatGPT input box inserts a new line. Send with the send button, or press Cmd + Enter on Mac and Ctrl + Enter on Windows.",
-        "description": "Message for chatgptEnterKeyNewlineDesc"
+    "chatgptInputEnhancementDesc": {
+        "message": "Show the input enhancement button in ChatGPT. Turning this off hides the button and pauses every enhancement without erasing its preferences.",
+        "description": "Settings description for ChatGPT input enhancement availability"
+    },
+    "chatgptInputEnhancementButton": {
+        "message": "Input enhancement",
+        "description": "Tooltip for the ChatGPT input enhancement button"
+    },
+    "chatgptInputEnhancementEnabledState": {
+        "message": "enabled",
+        "description": "Accessible enabled state for the input enhancement button"
+    },
+    "chatgptInputEnhancementDisabledState": {
+        "message": "paused",
+        "description": "Accessible paused state for the input enhancement button"
+    },
+    "chatgptInputEnhancementTitle": {
+        "message": "Input enhancement",
+        "description": "Title of the ChatGPT input enhancement popover"
+    },
+    "chatgptInputEnhancementAuthoringSection": {
+        "message": "Editing",
+        "description": "Heading for writing and Markdown authoring controls"
+    },
+    "chatgptInputEnhancementFormulaSection": {
+        "message": "Formulas",
+        "description": "Heading for formula assistance controls"
+    },
+    "chatgptInputEnhancementMasterLabel": {
+        "message": "Enable input enhancement",
+        "description": "Runtime master switch label"
+    },
+    "chatgptInputEnhancementMasterDesc": {
+        "message": "Pause or resume all enhancements while keeping the choices below.",
+        "description": "Runtime master switch description"
+    },
+    "chatgptInputEnhancementEnterLabel": {
+        "message": "Enter inserts a new line",
+        "description": "Enter key enhancement label"
+    },
+    "chatgptInputEnhancementEnterDesc": {
+        "message": "Send with the button or Cmd/Ctrl + Enter.",
+        "description": "Enter key enhancement description"
+    },
+    "chatgptInputEnhancementListsLabel": {
+        "message": "List enhancement",
+        "description": "List enhancement master label"
+    },
+    "chatgptInputEnhancementListsDesc": {
+        "message": "Continue, split, exit, and renumber Markdown lists.",
+        "description": "List enhancement description"
+    },
+    "chatgptInputEnhancementOrderedListLabel": {
+        "message": "Ordered lists",
+        "description": "Ordered-list enhancement label"
+    },
+    "chatgptInputEnhancementUnorderedListLabel": {
+        "message": "Unordered lists",
+        "description": "Unordered-list enhancement label"
+    },
+    "chatgptInputEnhancementBoldLabel": {
+        "message": "Bold shortcut",
+        "description": "Bold shortcut label"
+    },
+    "chatgptInputEnhancementBoldDesc": {
+        "message": "Cmd/Ctrl + B inserts or removes visible ** markers.",
+        "description": "Bold shortcut description"
+    },
+    "chatgptInputEnhancementFormulaSuggestionsLabel": {
+        "message": "Formula suggestions",
+        "description": "Formula suggestion label"
+    },
+    "chatgptInputEnhancementFormulaSuggestionsDesc": {
+        "message": "Suggest LaTeX snippets after \\ inside a formula.",
+        "description": "Formula suggestion description"
+    },
+    "chatgptInputEnhancementFormulaPreviewLabel": {
+        "message": "Formula preview",
+        "description": "Formula preview switch label"
+    },
+    "chatgptInputEnhancementFormulaPreviewDesc": {
+        "message": "Show a lightweight preview for inline and display formulas.",
+        "description": "Formula preview switch description"
+    },
+    "chatgptInputEnhancementGuideLabel": {
+        "message": "Syntax and shortcuts",
+        "description": "Input enhancement guide trigger"
+    },
+    "chatgptInputEnhancementGuideTitle": {
+        "message": "Syntax and shortcuts",
+        "description": "Input enhancement guide title"
+    },
+    "chatgptInputEnhancementGuideIntro": {
+        "message": "Markers stay visible while editing. Each behavior follows the switches in Input enhancement.",
+        "description": "Input enhancement guide introduction"
+    },
+    "chatgptInputEnhancementGuideSyntaxTitle": {
+        "message": "Supported syntax",
+        "description": "Syntax section title"
+    },
+    "chatgptInputEnhancementGuideBoldSyntax": {
+        "message": "Bold text with visible markers",
+        "description": "Bold syntax description"
+    },
+    "chatgptInputEnhancementGuideOrderedListSyntax": {
+        "message": "Ordered list item",
+        "description": "Ordered-list syntax description"
+    },
+    "chatgptInputEnhancementGuideUnorderedListSyntax": {
+        "message": "Unordered list item; + and * are also supported",
+        "description": "Unordered-list syntax description"
+    },
+    "chatgptInputEnhancementGuideInlineFormulaSyntax": {
+        "message": "Inline LaTeX formula",
+        "description": "Inline formula syntax description"
+    },
+    "chatgptInputEnhancementGuideDisplayFormulaSyntax": {
+        "message": "Display LaTeX formula",
+        "description": "Display formula syntax description"
+    },
+    "chatgptInputEnhancementGuideShortcutsTitle": {
+        "message": "Keyboard shortcuts",
+        "description": "Shortcut section title"
+    },
+    "chatgptInputEnhancementGuideBoldShortcut": {
+        "message": "Add or remove bold markers",
+        "description": "Bold shortcut behavior"
+    },
+    "chatgptInputEnhancementGuideEnterShortcut": {
+        "message": "New line, or continue an enabled list",
+        "description": "Enter shortcut behavior"
+    },
+    "chatgptInputEnhancementGuideShiftEnterShortcut": {
+        "message": "Keep ChatGPT's original behavior",
+        "description": "Shift Enter shortcut behavior"
+    },
+    "chatgptInputEnhancementGuideSendShortcut": {
+        "message": "Send the message",
+        "description": "Send shortcut behavior"
+    },
+    "chatgptInputEnhancementGuideFormulaNavigateShortcut": {
+        "message": "Move through formula suggestions",
+        "description": "Formula navigation shortcut behavior"
+    },
+    "chatgptInputEnhancementGuideFormulaAcceptShortcut": {
+        "message": "Insert the selected formula snippet",
+        "description": "Formula acceptance shortcut behavior"
+    },
+    "chatgptInputEnhancementGuideFormulaDismissShortcut": {
+        "message": "Close formula suggestions or this panel",
+        "description": "Formula dismissal shortcut behavior"
+    },
+    "chatgptInputEnhancementGuideEditingTitle": {
+        "message": "Editing behavior",
+        "description": "Editing behavior section title"
+    },
+    "chatgptInputEnhancementGuideBackspaceBehavior": {
+        "message": "At a list body boundary, remove or outdent the marker; press again to join the previous line.",
+        "description": "List Backspace behavior"
+    },
+    "chatgptInputEnhancementGuideFormulaTrigger": {
+        "message": "Inside $...$ or $$...$$, start a LaTeX command and show matching snippets.",
+        "description": "Formula suggestion trigger behavior"
+    },
+    "chatgptFormulaPreviewTitle": {
+        "message": "Formula preview",
+        "description": "Title of the lightweight formula preview"
+    },
+    "chatgptFormulaInlineKind": {
+        "message": "Inline $…$",
+        "description": "Label for an inline formula preview"
+    },
+    "chatgptFormulaDisplayKind": {
+        "message": "Display $$…$$",
+        "description": "Label for a display formula preview"
+    },
+    "chatgptFormulaPreviewLoading": {
+        "message": "Rendering formula…",
+        "description": "Formula preview loading state"
+    },
+    "chatgptFormulaPreviewError": {
+        "message": "Preview unavailable for this formula",
+        "description": "Formula preview error state"
     },
     "chatgptPromptAutocompleteLabel": {
         "message": "Prompt autocomplete",

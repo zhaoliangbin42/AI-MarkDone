@@ -55,7 +55,15 @@ const baseSettings = {
     },
     chatgptBehavior: {
         restorePositionAfterSend: true,
-        enterKeyNewline: false,
+        inputEnhancement: {
+            available: true,
+            enabled: true,
+            enterKeyNewline: true,
+            boldShortcut: true,
+            lists: { enabled: true, ordered: true, unordered: true },
+            formulaSuggestions: true,
+            formulaPreview: true,
+        },
         showMessageStepper: true,
         showPageBookmarkControl: true,
         showDetachedReaderControl: true,
@@ -113,7 +121,9 @@ describe('SettingsTabView', () => {
         const chatGptGroup = Array.from(root.querySelectorAll<HTMLElement>('.settings-group'))
             .find((group) => group.querySelector('.settings-group-title')?.textContent?.includes('chatgptReadingInputSettingsLabel'))!;
         expect(chatGptGroup.querySelector('[data-role="settings-chatgpt-restore-position-after-send"]')).toBeTruthy();
-        expect(chatGptGroup.querySelector('[data-role="settings-chatgpt-enter-key-newline"]')).toBeTruthy();
+        expect(chatGptGroup.querySelector('[data-role="settings-chatgpt-input-enhancement"]')).toBeTruthy();
+        expect(chatGptGroup.querySelector('[data-role="settings-chatgpt-enter-key-newline"]')).toBeNull();
+        expect(chatGptGroup.querySelector('[data-role="settings-chatgpt-markdown-composer-enabled"]')).toBeNull();
         expect(chatGptGroup.querySelector('[data-role="settings-chatgpt-prompt-autocomplete"]')).toBeTruthy();
         expect(chatGptGroup.querySelector('[data-role="settings-chatgpt-arrow-key-message-navigation"]')).toBeTruthy();
         expect(chatGptGroup.querySelector('[data-role="settings-chatgpt-page-width-scale"]')).toBeTruthy();
@@ -306,7 +316,7 @@ describe('SettingsTabView', () => {
         expect(onSetChatGptBehaviorSettings).toHaveBeenCalledWith({ restorePositionAfterSend: false });
     });
 
-    it('wires ChatGPT Enter-newline behavior to the scoped behavior category', () => {
+    it('wires only input enhancement availability while preserving its detailed preferences', () => {
         const modal = { confirm: vi.fn(async () => true) } as any;
         const onSetChatGptBehaviorSettings = vi.fn(async () => undefined);
 
@@ -320,14 +330,19 @@ describe('SettingsTabView', () => {
         });
 
         const root = view.getElement();
-        const toggle = root.querySelector<HTMLInputElement>('[data-role="settings-chatgpt-enter-key-newline"]')!;
+        const toggle = root.querySelector<HTMLInputElement>('[data-role="settings-chatgpt-input-enhancement"]')!;
 
-        expect(toggle.checked).toBe(false);
+        expect(toggle.checked).toBe(true);
 
-        toggle.checked = true;
+        toggle.checked = false;
         toggle.dispatchEvent(new Event('change', { bubbles: true }));
 
-        expect(onSetChatGptBehaviorSettings).toHaveBeenCalledWith({ enterKeyNewline: true });
+        expect(onSetChatGptBehaviorSettings).toHaveBeenCalledWith({
+            inputEnhancement: {
+                ...baseSettings.chatgptBehavior.inputEnhancement,
+                available: false,
+            },
+        });
     });
 
     it('wires Prompt autocomplete behavior to the scoped behavior category', () => {

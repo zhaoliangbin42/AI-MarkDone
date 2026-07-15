@@ -201,6 +201,26 @@ export function getContenteditableCaretClientRect(input: HTMLElement): DOMRect |
     return getPreviousCharacterCaretRect(input, range);
 }
 
+export function getContenteditablePlainTextOffsetFromPoint(
+    input: HTMLElement,
+    x: number,
+    y: number,
+): number | null {
+    const pointDocument = document as Document & {
+        caretPositionFromPoint?: (x: number, y: number) => { offsetNode: Node; offset: number } | null;
+        caretRangeFromPoint?: (x: number, y: number) => Range | null;
+    };
+    const position = pointDocument.caretPositionFromPoint?.(x, y);
+    if (position && containsSelectionBoundary(input, position.offsetNode)) {
+        return getPlainTextOffsetForBoundary(input, position.offsetNode, position.offset);
+    }
+    const range = pointDocument.caretRangeFromPoint?.(x, y);
+    if (range && containsSelectionBoundary(input, range.startContainer)) {
+        return getPlainTextOffsetForBoundary(input, range.startContainer, range.startOffset);
+    }
+    return null;
+}
+
 export function setContenteditablePlainTextSelection(input: HTMLElement, start: number, end: number = start): boolean {
     const selection = window.getSelection();
     if (!selection) return false;

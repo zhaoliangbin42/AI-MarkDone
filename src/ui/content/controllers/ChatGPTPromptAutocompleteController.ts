@@ -13,12 +13,17 @@ import {
     type PromptRecord,
 } from '../../../core/prompts/promptLibrary';
 import { findPromptTriggerToken, type PromptTriggerToken } from '../../../core/prompts/slashTrigger';
+import { findMarkdownMathAt } from '../../../core/sending/markdownMath';
 import type { PromptLibraryClient } from '../../../drivers/content/prompts/promptLibraryClient';
 import { getTokenCss, type UserThemeOverrides } from '../../../style/tokens';
 import { checkIcon, gripHorizontalIcon, messageSquareTextIcon, pencilIcon, plusIcon, trashIcon, xIcon } from '../../../assets/icons';
 import { installInputEventBoundary } from '../components/inputEventBoundary';
 import { installTransientOutsideDismissBoundary, markTransientRoot, type TransientOutsideDismissBoundaryHandle } from '../components/transientUi';
 import { t } from '../components/i18n';
+import {
+    COMPOSER_SUGGESTION_LIST_CSS,
+    renderComposerSuggestionList,
+} from '../components/ComposerSuggestionList';
 
 type ComposerInput = HTMLElement | HTMLTextAreaElement | HTMLInputElement;
 type Mode = 'autocomplete' | 'manager' | 'edit';
@@ -107,6 +112,7 @@ export class ChatGPTPromptAutocompleteController {
     private managerPanelDragCleanup: (() => void) | null = null;
     private managerViewportClampCleanup: (() => void) | null = null;
     private enabled = true;
+    private formulaAuthoringEnabled = false;
 
     constructor(
         private readonly adapter: SiteAdapter,
@@ -146,6 +152,11 @@ export class ChatGPTPromptAutocompleteController {
             return;
         }
         if (this.initialized) this.bindComposer();
+    }
+
+    setFormulaAuthoringEnabled(enabled: boolean): void {
+        this.formulaAuthoringEnabled = enabled;
+        if (enabled && this.mode === 'autocomplete') void this.refreshAutocomplete();
     }
 
     dispose(): void {
@@ -398,6 +409,11 @@ export class ChatGPTPromptAutocompleteController {
             if (this.mode === 'autocomplete') this.close();
             return;
         }
+        if (this.formulaAuthoringEnabled && findMarkdownMathAt(read.text, caret.start, { includeOpen: true })) {
+            this.dismissedTokenKey = null;
+            if (this.mode === 'autocomplete') this.close();
+            return;
+        }
         const token = findPromptTriggerToken(read.text, caret.start);
         if (!token) {
             this.dismissedTokenKey = null;
@@ -492,29 +508,36 @@ export class ChatGPTPromptAutocompleteController {
 
     private renderAutocomplete(): void {
         if (!this.root) return;
-        const rows = this.suggestions.map((prompt, index) => `
-            <button class="prompt-row ${index === this.selectedIndex ? 'is-active' : ''}" type="button" data-role="prompt-suggestion" data-index="${index}">
-              <span class="prompt-row__main">
-                <span class="prompt-row__title">${escapeHtml(prompt.title)}</span>
-                <span class="prompt-row__content">${escapeHtml(prompt.content.replace('{{cursor}}', '').trim())}</span>
-              </span>
-              ${prompt.triggerText ? `<span class="prompt-row__trigger">${escapeHtml(prompt.triggerText)}</span>` : ''}
-            </button>
-        `).join('');
         this.root.className = 'prompt-popover prompt-popover--autocomplete';
-        this.root.innerHTML = `<div class="prompt-list">${rows}</div>`;
-        this.root.querySelectorAll<HTMLButtonElement>('[data-role="prompt-suggestion"]').forEach((button) => {
-            button.addEventListener('mouseenter', () => {
-                this.selectedIndex = Number(button.dataset.index ?? 0);
+        this.root.replaceChildren();
+        const list = renderComposerSuggestionList({
+            root: this.root,
+            items: this.suggestions.map((prompt) => ({
+                title: prompt.title,
+                content: prompt.content.replace('{{cursor}}', '').trim(),
+                trailing: prompt.triggerText,
+            })),
+            selectedIndex: this.selectedIndex,
+            role: 'prompt-suggestion',
+            rowClassName: 'prompt-row',
+            mainClassName: 'prompt-row__main',
+            titleClassName: 'prompt-row__title',
+            contentClassName: 'prompt-row__content',
+            trailingClassName: 'prompt-row__trigger',
+            onHover: (index) => {
+                this.selectedIndex = index;
                 this.root?.querySelectorAll<HTMLButtonElement>('[data-role="prompt-suggestion"]').forEach((row) => {
-                    row.classList.toggle('is-active', row === button);
+                    const active = Number(row.dataset.index) === index;
+                    row.classList.toggle('is-active', active);
+                    row.setAttribute('aria-selected', active ? 'true' : 'false');
                 });
-            });
-            button.addEventListener('click', () => {
-                const prompt = this.suggestions[Number(button.dataset.index ?? 0)];
+            },
+            onSelect: (index) => {
+                const prompt = this.suggestions[index];
                 if (prompt && this.activeToken) void this.insertPrompt(prompt, this.activeToken);
-            });
+            },
         });
+        list.classList.add('prompt-list');
     }
 
     private renderManager(): void {
@@ -1147,6 +1170,7 @@ export class ChatGPTPromptAutocompleteController {
 * {
   box-sizing: border-box;
 }
+${COMPOSER_SUGGESTION_LIST_CSS}
 .prompt-popover {
   width: 100%;
   max-height: var(--aimd-prompt-popover-max-height, min(520px, calc(100vh - var(--aimd-space-8))));

@@ -8,17 +8,29 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
+- ChatGPT: Added a default-on Input Enhancement control center beside the composer attachment button. Settings can hide the entry entirely; its popover separately controls Enter-newline, ordered and unordered list authoring, visible bold markers, inline/display LaTeX preview, and formula-only `\\` completion from a 1,250-item LaTeX Workshop-derived catalog. The formula catalog deliberately excludes LaTeX Workshop `@` shortcuts.
 - ChatGPT: Selecting a complete formula, code span or block, table, image, heading, list item, quote, or divider directly in an assistant response now highlights the whole unit and copies its Markdown source, while partial and unsupported selections keep ChatGPT's native behavior.
 
 ### Fixed
-- ChatGPT: Complete atomic selections now overwrite the host page's rendered-text clipboard result with canonical Markdown source, and formula selection reuses the shared reversible TeX extractor instead of guessing from visual glyph text.
+- ChatGPT: Complete atomic selections now keep canonical Markdown source even when the host formula copy handler writes visual text later in the same event, and formula selection reuses the shared reversible TeX extractor instead of guessing from visual glyph text.
+- ChatGPT: Inserting or splitting a middle ordered-list item now shifts later continuous siblings, while exiting an empty numbered item closes the remaining numbering gap.
+- ChatGPT: Markdown list editing now confirms the active CommonMark structure before rewriting text, renumbers loose ordered lists across blank lines, supports blockquoted lists and explicit continuation indentation, exits valid empty markers without requiring trailing spaces, and falls back to a plain newline for indented code or marker-like non-list text.
+- ChatGPT: Removing a middle ordered-list marker now keeps its text aligned as a continuation, renumbers later continuous siblings, and lets a second Backspace join the text directly to the previous item.
+- ChatGPT: Kept the Input Enhancement button mounted and composer editing bound after ChatGPT replaces nested hydration shells during page startup.
+- ChatGPT: The Input Enhancement button now uses the AI-MarkDone tooltip and stays outside the official attachment tooltip trigger.
+- ChatGPT: Widening the ChatGPT conversation now widens the composer input bar by the same amount.
+- ChatGPT: Toolbar hover tooltips now stay anchored to their button; Copy Markdown labels open below the main Copy button while Copy PNG labels remain above the secondary hover button, and multi-part replies no longer rebuild the same toolbar.
+- ChatGPT: The right-side directory now updates when the conversation view is replaced after adding a new message.
 
 ### Changed
+- Settings: Consolidated the former ChatGPT Markdown and Enter-newline switches into one Input Enhancement availability setting. Existing choices migrate without loss, while detailed preferences remain in the composer popover.
+- ChatGPT: Refined the Input Enhancement popover into a compact grouped tool panel with a clearer master state, lightweight editing and formula sections, and space-efficient list-type controls.
 - Performance: Production extension scripts are now safely minified with enforced bundle budgets, substantially reducing installed code size without changing toolbar behavior.
 - Performance: Reduced ChatGPT idle-page work and large bookmark batch costs by replacing repeated full scans, removing official-navigation DOM write loops, and cancelling deferred scans during teardown.
-- Performance: Shared ChatGPT message discovery across toolbars, navigation, and directory controls, avoiding repeated unchanged-page scans and redundant message-position DOM writes.
+- Performance: Shared ChatGPT message discovery and navigation updates across the right-side directory and lower-right controls, avoiding duplicate observers, unchanged-page scans, and redundant message-position DOM writes.
 - ChatGPT: Made message-toolbar recovery event-driven across streaming updates, individual host removal, delayed action rows, and full conversation-root replacement without routine page-wide rescans.
 - Performance: Shared route and formula observers across ChatGPT runtime features, avoided unchanged-settings formula rescans, and invalidated cached message content only when its owning message changes.
+- Performance: Consolidated formula-content discovery into its existing shared controller and removed the formula-only runtime's duplicate observer and discovery pipeline.
 - Performance: Deferred per-message task-progress UI until it is used and removed inactive tooltip observers, cutting the 200-message toolbar shadow tree by about 21% without removing actions.
 - Performance: Moved Reader, bookmarks, save dialogs, and Copy PNG out of the ChatGPT startup bundle into feature-specific extension modules, while keeping their first-use triggers and cross-browser behavior intact.
 

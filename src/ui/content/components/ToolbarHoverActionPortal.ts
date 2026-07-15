@@ -49,6 +49,7 @@ export class ToolbarHoverActionPortal {
         this.themeOverrides = themeOverrides;
         this.host = document.createElement('div');
         this.host.className = 'aimd-toolbar-hover-action-host';
+        this.host.setAttribute('data-aimd-role', 'toolbar-hover-actions');
         this.host.dataset.open = '0';
         this.host.setAttribute('data-aimd-theme', theme);
         this.shadow = this.host.attachShadow({ mode: 'open' });
@@ -313,9 +314,9 @@ export class ToolbarHoverActionPortal {
 .toolbar-hover-bridge {
   position: absolute;
   left: var(--aimd-toolbar-hover-anchor-x, 50%);
-  top: calc(-1 * var(--aimd-space-3));
+  top: calc(-1 * var(--aimd-space-2));
   width: calc(var(--aimd-size-control-icon-toolbar) + var(--aimd-space-4));
-  height: var(--aimd-space-4);
+  height: var(--aimd-space-2);
   transform: translateX(-50%);
   pointer-events: auto;
   background: transparent;
@@ -327,7 +328,7 @@ export class ToolbarHoverActionPortal {
 
 :host([data-placement="bottom"]) .toolbar-hover-bridge {
   top: 0;
-  transform: translate(-50%, calc(-1 * var(--aimd-space-2)));
+  transform: translateX(-50%);
 }
 
 .toolbar-hover-action:hover {

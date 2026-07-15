@@ -13,6 +13,16 @@ export type ComposerTextRangeReplacement = {
     replacement: string;
     cursorIndex?: number;
 };
+export type ComposerNativeTextEdit = {
+    start: number;
+    end: number;
+    replacement: string;
+    selectionStart?: number;
+    selectionEnd?: number;
+};
+export type ComposerNativeTextEditResult =
+    | { ok: true; kind: ComposerKind; text: string }
+    | { ok: false; message: string; changed: boolean };
 type SendButtonWatchOptions = {
     pollMs?: number;
 };
@@ -140,6 +150,22 @@ function dispatchReplacementEvents(
     input.dispatchEvent(new Event('change', { bubbles: true }));
 }
 
+function dispatchNativeTextInputEvent(
+    input: HTMLElement | HTMLTextAreaElement | HTMLInputElement,
+    replacement: string,
+): void {
+    try {
+        input.dispatchEvent(new InputEvent('input', {
+            bubbles: true,
+            cancelable: false,
+            inputType: replacement.length > 0 ? 'insertText' : 'deleteContentBackward',
+            data: replacement.length > 0 ? replacement : null,
+        }));
+    } catch {
+        input.dispatchEvent(new Event('input', { bubbles: true }));
+    }
+}
+
 function tryInputEvent(input: HTMLElement | HTMLTextAreaElement | HTMLInputElement, kind: ComposerKind, text: string): boolean {
     try {
         applyTextToInput(input, kind, text);
@@ -199,6 +225,83 @@ export function readComposer(adapter: SiteAdapter): { ok: true; kind: ComposerKi
     const kind = detectComposerKind(adapter, input);
 
     return { ok: true, kind, text: readComposerTextFromInput(input, kind) };
+}
+
+export function applyComposerNativeTextEdit(
+    adapter: SiteAdapter,
+    edit: ComposerNativeTextEdit,
+    opts?: { focus?: boolean },
+): ComposerNativeTextEditResult {
+    const input = getComposerInput(adapter);
+    if (!input) return { ok: false, message: 'Composer input not found', changed: false };
+    const kind = detectComposerKind(adapter, input);
+    const focus = opts?.focus ?? true;
+    if (focus) (input as HTMLElement).focus?.();
+
+    const current = readComposerTextFromInput(input, kind);
+    const start = clampTextRangeIndex(edit.start, current);
+    const end = Math.max(start, clampTextRangeIndex(edit.end, current));
+    const next = `${current.slice(0, start)}${edit.replacement}${current.slice(end)}`;
+    const selectionStart = clampTextRangeIndex(
+        edit.selectionStart ?? start + edit.replacement.length,
+        next,
+    );
+    const selectionEnd = clampTextRangeIndex(edit.selectionEnd ?? selectionStart, next);
+
+    if (input instanceof HTMLTextAreaElement || input instanceof HTMLInputElement) {
+        try {
+            input.setRangeText(edit.replacement, start, end, 'end');
+            input.setSelectionRange(selectionStart, selectionEnd);
+            dispatchNativeTextInputEvent(input, edit.replacement);
+            return { ok: true, kind, text: input.value };
+        } catch (error) {
+            return {
+                ok: false,
+                message: error instanceof Error ? error.message : 'Native composer edit failed',
+                changed: input.value !== current,
+            };
+        }
+    }
+
+    if (kind === 'contenteditable' && input.getAttribute('contenteditable') === 'true') {
+        if (!setContenteditablePlainTextSelection(input, start, end)) {
+            return { ok: false, message: 'Composer selection could not be restored', changed: false };
+        }
+        try {
+            const applied = edit.replacement.length > 0
+                ? document.execCommand('insertText', false, edit.replacement)
+                : document.execCommand('delete');
+            let actual = readComposerTextFromInput(input, kind);
+            if (!applied || actual !== next) {
+                if (actual !== current) {
+                    try {
+                        document.execCommand('undo');
+                        actual = readComposerTextFromInput(input, kind);
+                    } catch {
+                        // Report the remaining mutation to the caller; never rebuild host-owned DOM.
+                    }
+                }
+                return {
+                    ok: false,
+                    message: applied
+                        ? 'Native composer edit produced unexpected text'
+                        : 'Native composer edit was rejected',
+                    changed: actual !== current,
+                };
+            }
+            setContenteditablePlainTextSelection(input, selectionStart, selectionEnd);
+            return { ok: true, kind, text: actual };
+        } catch (error) {
+            const actual = readComposerTextFromInput(input, kind);
+            return {
+                ok: false,
+                message: error instanceof Error ? error.message : 'Native composer edit failed',
+                changed: actual !== current,
+            };
+        }
+    }
+
+    return { ok: false, message: 'Native composer edit is unsupported', changed: false };
 }
 
 export async function clearComposer(

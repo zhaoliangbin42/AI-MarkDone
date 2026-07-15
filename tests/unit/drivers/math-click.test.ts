@@ -65,6 +65,34 @@ describe('MathClickHandler', () => {
         }
     });
 
+    it('discovers future matching content containers without a caller-owned observer', async () => {
+        vi.useFakeTimers();
+        const { writeText } = setClipboardMock();
+        const root = document.createElement('main');
+        document.body.appendChild(root);
+        const handler = new MathClickHandler();
+
+        try {
+            (handler as any).observeContainers(root, '.assistant-message');
+            const message = document.createElement('div');
+            message.className = 'assistant-message';
+            message.innerHTML = '<span class="katex-error">\\gamma_2</span>';
+            root.appendChild(message);
+            await Promise.resolve();
+            await vi.advanceTimersByTimeAsync(20);
+
+            const formula = message.querySelector<HTMLElement>('.katex-error')!;
+            formula.dispatchEvent(new MouseEvent('click', { bubbles: true, cancelable: true }));
+            await Promise.resolve();
+
+            expect(writeText).toHaveBeenCalledWith('$\\gamma_2$');
+        } finally {
+            handler.disable();
+            root.remove();
+            vi.useRealTimers();
+        }
+    });
+
     it('stops observing a message after its container leaves the page', async () => {
         vi.useFakeTimers();
         const { writeText } = setClipboardMock();

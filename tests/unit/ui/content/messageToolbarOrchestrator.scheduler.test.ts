@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { SiteAdapter, type ThemeDetector } from '@/drivers/content/adapters/base';
+import { SiteAdapter, type ConversationGroupRef, type ThemeDetector } from '@/drivers/content/adapters/base';
 import { ScanScheduler } from '@/drivers/content/injection/scanScheduler';
 import { MessageToolbarOrchestrator } from '@/ui/content/controllers/MessageToolbarOrchestrator';
 
@@ -67,13 +67,43 @@ class FakeScheduledToolbarAdapter extends SiteAdapter {
     }
 }
 
-class MainScopedToolbarAdapter extends FakeScheduledToolbarAdapter {
+class StableRootToolbarAdapter extends FakeScheduledToolbarAdapter {
     getPlatformId(): string {
         return 'chatgpt';
     }
 
     getObserverContainer(): HTMLElement | null {
-        return document.querySelector('main');
+        return document.querySelector('main')?.parentElement ?? null;
+    }
+}
+
+class GroupedChatGptToolbarAdapter extends StableRootToolbarAdapter {
+    getToolbarAnchorElement(messageElement: HTMLElement): HTMLElement | null {
+        const anchor = messageElement.closest('.turn')?.querySelector('.official-toolbar');
+        return anchor instanceof HTMLElement ? anchor : null;
+    }
+
+    getTurnRootElement(messageElement: HTMLElement): HTMLElement | null {
+        const turn = messageElement.closest('.turn');
+        return turn instanceof HTMLElement ? turn : null;
+    }
+
+    getConversationGroupRefs(): ConversationGroupRef[] {
+        return Array.from(document.querySelectorAll<HTMLElement>('.turn')).map((turn, assistantIndex) => {
+            const messages = Array.from(turn.querySelectorAll<HTMLElement>('.assistant-message'));
+            const primary = messages[messages.length - 1]!;
+            const anchor = turn.querySelector<HTMLElement>('.official-toolbar');
+            return {
+                id: `turn-${assistantIndex + 1}`,
+                assistantRootEl: turn,
+                assistantMessageEl: primary,
+                userRootEl: null,
+                barAnchorEl: anchor,
+                groupEls: [turn],
+                assistantIndex,
+                isStreaming: false,
+            };
+        });
     }
 }
 
@@ -209,6 +239,44 @@ describe('MessageToolbarOrchestrator scheduler integration', () => {
         }
     });
 
+    it('keeps one stable toolbar record when one ChatGPT turn contains multiple assistant segments', () => {
+        document.body.innerHTML = `
+          <main>
+            <div class="turn">
+              <div class="assistant-message" data-message-id="segment-1"><div class="content">One</div></div>
+              <div class="assistant-message" data-message-id="segment-2"><div class="content">Two</div></div>
+              <div class="assistant-message" data-message-id="segment-3"><div class="content">Three</div></div>
+              <div class="official-toolbar"></div>
+            </div>
+          </main>
+        `;
+
+        const adapter = new GroupedChatGptToolbarAdapter();
+        adapter.streaming = false;
+        const orchestrator = new MessageToolbarOrchestrator(adapter, {
+            readerPanel: { setTheme() {}, show: async () => undefined } as any,
+        });
+
+        try {
+            (orchestrator as any).scanAndInject();
+            const originalToolbar = getToolbar();
+            expect(originalToolbar).toBeTruthy();
+            expect((orchestrator as any).recordsByMessageKey.size).toBe(1);
+
+            for (const segment of document.querySelectorAll<HTMLElement>('.assistant-message')) {
+                (orchestrator as any).markMessageDirty(segment);
+            }
+            (orchestrator as any).scanAndInject(new Set(['mutation']));
+            (orchestrator as any).scanAndInject(new Set(['manual']));
+
+            expect(document.querySelectorAll('[data-aimd-role="message-toolbar"]')).toHaveLength(1);
+            expect(getToolbar()).toBe(originalToolbar);
+            expect((orchestrator as any).recordsByMessageKey.size).toBe(1);
+        } finally {
+            orchestrator.dispose();
+        }
+    });
+
     it('reconciles text replacement inside one message without falling back to a full scan', () => {
         document.body.innerHTML = `
           <div class="assistant-message" data-message-id="m1">
@@ -323,7 +391,7 @@ describe('MessageToolbarOrchestrator scheduler integration', () => {
           </main>
         `;
 
-        const adapter = new MainScopedToolbarAdapter();
+        const adapter = new StableRootToolbarAdapter();
         adapter.streaming = false;
         const orchestrator = new MessageToolbarOrchestrator(adapter, {
             readerPanel: { setTheme() {}, show: async () => undefined } as any,

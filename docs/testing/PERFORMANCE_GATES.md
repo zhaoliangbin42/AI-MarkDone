@@ -97,7 +97,7 @@ If a phase misses a threshold, work stays in that phase. The implementation may 
 
 - Kept the existing `dirtyMessages` / incremental snapshot / `anchor_pending -> stale -> injected` lifecycle as the single toolbar reconciler instead of introducing a parallel abstraction. Mutation classification now maps content changes to the owning message, ignores unrelated text, and reserves full scans for initialization, routes, message-structure changes, or unresolvable action-row changes.
 - Removed the post-scan global pending-state pass. Each scheduled reconcile now updates only its full or incremental snapshot once and runs Reader-tail synchronization once.
-- ChatGPT observes the stable parent of the current `main`, allowing a direct conversation-root replacement to trigger a full rebuild and observer continuation. A real user-trigger-path regression test verifies that the replacement root receives exactly one toolbar.
+- The ChatGPT adapter exposes the stable parent of the current `main` as the shared observer container. Directory and toolbar mutation paths now survive a direct conversation-root replacement without caller-specific parent promotion; real user-trigger-path tests verify the new directory round appears and the replacement root receives exactly one toolbar.
 - Unexpected removal of an individual toolbar host now targets its existing record for reconstruction. Intentional removals are tracked separately so disabling or deleting a record cannot trigger a self-recovery loop. Existing delayed-anchor and bounded stale-injection recovery remain intact.
 - Final three-run runtime medians: toolbar ready 488.4 ms; cold long-task total 135 ms; cold maximum 81 ms; idle mutation records 0 per 2 seconds; streaming long-task total 0 ms; streaming maximum 0 ms; streaming mutation records 200; official-row recovery 166.1 ms; post-GC used JS heap 7,599,347 bytes.
 - Toolbar reliability remained 200/200 with zero duplicates on every run; every run recovered all 20 replaced official action rows well under 500 ms. `content.js` remained within budget at 1,849,255 raw bytes and 486,402 gzip bytes.
@@ -141,13 +141,34 @@ If a phase misses a threshold, work stays in that phase. The implementation may 
 - Final automated closeout passed 1,234/1,234 core tests, 36/36 smoke tests, 120/120 acceptance tests, TypeScript checking, and complete Chrome/Firefox/Safari WebExtension builds with every entry-format, facade-export, resource, and bundle-size gate green.
 - The automated browser fixture deliberately avoids a live ChatGPT account and network content. Safari parity here means source/manifest/build/module verification; signed Safari wrapper and real Safari hardware remain release-stage checks under the existing Safari runbook, not performance-program blockers.
 
+### Multi-segment ownership correction — 2026-07-12
+
+- Live diagnosis found that multiple assistant segments in one ChatGPT logical turn shared one official action row but created competing toolbar records, repeatedly replacing the host and invalidating hover anchors. Full and incremental reconciliation now canonicalize every segment to the turn's `primaryMessageEl`.
+- The production benchmark now includes a three-segment reply and samples exact toolbar host identity for one second. The final 200-round run retained 200/200 toolbars, zero invalid action rows, zero idle mutations, zero streaming long tasks, 391.6 ms toolbar readiness, and 154.1 ms recovery.
+- ChatGPT full reconciliation now consumes the logical-turn snapshot directly instead of running a second message discovery pass. Formula discovery keeps one candidate-selector source, lazy surfaces share one retryable instance loader, and the unused dynamic-module contract plus production no-op feature implementations were removed.
+- The correction passed all 1,240 core tests plus Chrome and Firefox production builds and bundle budgets. `content.js` is 610,319 raw bytes / 158,686 gzip bytes; the current worktree production-source change is a net deletion of 130 lines.
+
+### Stable observer-root correction — 2026-07-13
+
+- Moved ChatGPT's stable `main`-parent observer contract into the adapter and removed the toolbar caller's duplicate parent promotion. Directory and lower-right stepper now subscribe to the existing page index's single structural-change source; their two controller-owned `MutationObserver`s and duplicated turn selectors were deleted. A completed initial directory refresh followed by full `main` replacement grows from two to three rounds through the real mutation path.
+- Navigation subscribers are notified only for round add/remove or root replacement. Streamed content still invalidates the shared snapshot but does not refresh navigation UI, and one failing subscriber cannot block the other.
+- Three final 200-round runs retained 200/200 toolbars and zero duplicates. Medians were 249.3 ms toolbar readiness, 152.9 ms replacement recovery, 53 ms cold long-task total/maximum, zero idle mutations, zero streaming long tasks, and exactly 200 streaming host mutations.
+- The correction passed all 1,245 core tests plus Chrome and Firefox production builds, entry-format checks, and bundle budgets. `content.js` is 609,087 raw bytes / 158,413 gzip bytes; the current worktree production-source change is a net deletion of 165 lines.
+
 ### Direct page atomic selection — 2026-07-14
 
-- Added a selection-exit-only ChatGPT path that recognizes fully covered rendered atoms within one completed assistant message. It uses one document `selectionchange` listener, one bubbling `copy` listener, animation-frame coalescing, and no page observer, overlay, selection rewrite, or idle scan.
+- Added a selection-exit-only ChatGPT path that recognizes fully covered rendered atoms within one completed assistant message. It uses one document `selectionchange` listener, one final window bubbling `copy` listener, animation-frame coalescing, and no page observer, overlay, selection rewrite, or idle scan.
 - Three final 200-event runs selected and then cleared exactly one inline-code atom. Every run produced exactly two `data-aimd-page-atomic-state` writes, zero selection-phase long tasks, and no residual selected state. Median selection-phase duration was 192.4 ms including four animation frames and the fixed 50 ms observation tail.
 - Existing runtime invariants stayed green on every run: 200/200 toolbars, zero duplicates, zero idle mutations, exactly 200 streaming host mutations, and zero streaming long tasks. Median toolbar readiness was 289.4 ms and median replacement recovery was 163.4 ms.
 - `content.js` is 712,681 raw bytes / 190,556 gzip bytes and remains inside the Phase 7 startup budget. The complete Chrome and Firefox builds, entry-format checks, and bundle-size gates passed.
 - The boundary passed 1,395/1,395 core tests, 36/36 smoke tests, and 122/122 acceptance tests. Unit and real-trigger-path coverage includes full versus partial atoms, mixed text, nested atoms, host-preempted clipboard ownership, reversible versus visual-only formula source, cross-message and streaming fallback, budget fallback, state cleanup, and runtime disposal.
+
+### Formula clipboard ownership correction — 2026-07-15
+
+- Live ChatGPT diagnosis proved that the extension generated and wrote reversible TeX successfully, but the host's document-level React formula copy handler rewrote visual glyph text later in the same event. The strict clipboard exit moved from document bubbling to the final window bubbling target; selection recognition, cleanup, budgets, listener count, and fail-open behavior did not change.
+- The real-order regression enters through a selected KaTeX formula, lets a later host document handler overwrite the clipboard, and proves the window exit restores canonical Markdown without stopping propagation. A complete inline-code atom remains unchanged and still copies its Markdown source.
+- Three final 200-event runs retained exactly two `data-aimd-page-atomic-state` writes, zero selection long tasks, zero idle mutations, 200/200 toolbars, and zero duplicates. Median selection duration was 171.2 ms, toolbar readiness 250.3 ms, and replacement recovery 152.4 ms.
+- The current worktree build passed 1,412/1,412 core tests, 36/36 smoke tests, 122/122 acceptance tests, TypeScript checking, Chrome/Firefox production builds, entry-format checks, and bundle gates. `content.js` is 734,353 raw bytes / 194,704 gzip bytes.
 
 ## Scope protections
 
@@ -155,5 +176,5 @@ If a phase misses a threshold, work stays in that phase. The implementation may 
 - Do not reintroduce conversation DOM virtualization as part of this program.
 - Toolbar placement remains anchored to ChatGPT's official `copy-turn-action-button` row. There is no content-body fallback.
 - Official navigation hiding must fail open when the exact official selector no longer matches.
-- Direct atomic selection must remain a single document-level event path with no MutationObserver, per-message listener, overlay, selection rewrite, or idle DOM writes; unsupported and over-budget selections must fail open to native copy.
+- Direct atomic selection must remain one document selection listener plus one final window copy listener, with no MutationObserver, per-message listener, overlay, selection rewrite, or idle DOM writes; unsupported and over-budget selections must fail open to native copy.
 - Bundle splitting may use only the documented `browser.runtime.getURL()` feature facade exception in classic `content.js`; all emitted ES modules must pass module parsing, callable-export, manifest-resource, extension-origin, and bundle-budget gates.

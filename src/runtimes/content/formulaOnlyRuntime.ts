@@ -13,6 +13,7 @@ import { getFormulaPlatformParserAdapter } from './formulaPlatformParsers';
 import type { MarkdownParserAdapter } from '../../drivers/content/adapters/parser/MarkdownParserAdapter';
 import { setReaderMarkdownCopyFormulaFormat } from '../../services/reader/readerMarkdownCopy';
 import { createLazyBookmarksPanel, createLazyReaderPanel } from './lazyContentFeatures';
+import { FORMULA_CANDIDATE_SELECTOR } from '../../drivers/content/math/math-click';
 
 export type FormulaOnlyPlatformId = 'gemini' | 'claude' | 'deepseek';
 
@@ -21,24 +22,8 @@ export type FormulaPlatformProfile = {
     hostnames: readonly string[];
     observerRootSelectors: readonly string[];
     contentRootSelectors: readonly string[];
-    formulaSelectors: readonly string[];
     parserAdapter: MarkdownParserAdapter;
 };
-
-const COMMON_FORMULA_SELECTORS = [
-    '.math-inline',
-    '.math-block',
-    '.katex-display',
-    '.katex',
-    '.katex-error',
-    'mjx-container',
-    '.MathJax',
-    '[data-latex-source]',
-    '[data-latex]',
-    '[data-tex]',
-    '[data-math]',
-    '[data-original-tex]',
-] as const;
 
 const FORMULA_ONLY_PROFILES: readonly FormulaPlatformProfile[] = [
     {
@@ -55,7 +40,6 @@ const FORMULA_ONLY_PROFILES: readonly FormulaPlatformProfile[] = [
             '#extended-response-markdown-content',
             '.markdown',
         ],
-        formulaSelectors: COMMON_FORMULA_SELECTORS,
         parserAdapter: getFormulaPlatformParserAdapter('gemini'),
     },
     {
@@ -71,7 +55,6 @@ const FORMULA_ONLY_PROFILES: readonly FormulaPlatformProfile[] = [
             '[data-testid="assistant-message"]',
             'div.group[style*="height: auto"]',
         ],
-        formulaSelectors: COMMON_FORMULA_SELECTORS,
         parserAdapter: getFormulaPlatformParserAdapter('claude'),
     },
     {
@@ -84,7 +67,6 @@ const FORMULA_ONLY_PROFILES: readonly FormulaPlatformProfile[] = [
         contentRootSelectors: [
             '.ds-markdown:not(.ds-think-content .ds-markdown)',
         ],
-        formulaSelectors: COMMON_FORMULA_SELECTORS,
         parserAdapter: getFormulaPlatformParserAdapter('deepseek'),
     },
 ];
@@ -196,8 +178,6 @@ export class FormulaOnlyRuntime {
     private readonly readerPanel: ReaderPanelPort;
     private readonly bookmarksController: BookmarksPanelController;
     private readonly bookmarksPanel: BookmarksPanelPort;
-    private readonly observer: MutationObserver;
-    private enabled = false;
     private started = false;
 
     constructor(private readonly profile: FormulaPlatformProfile) {
@@ -207,15 +187,6 @@ export class FormulaOnlyRuntime {
         this.bookmarksPanel = createLazyBookmarksPanel(this.bookmarksController, this.readerPanel);
         this.formulaController = new FormulaAssetHoverController({
             parserAdapter: profile.parserAdapter,
-        });
-        this.observer = new MutationObserver((mutations) => {
-            if (!this.enabled) return;
-            for (const mutation of mutations) {
-                for (const node of Array.from(mutation.addedNodes)) {
-                    if (node instanceof HTMLElement) this.enableFormulaRoots(node);
-                    else if (node instanceof DocumentFragment) this.enableFormulaRoots(node);
-                }
-            }
         });
     }
 
@@ -231,10 +202,8 @@ export class FormulaOnlyRuntime {
     }
 
     dispose(): void {
-        this.observer.disconnect();
         this.formulaController.disable();
         this.bookmarksPanel.hide();
-        this.enabled = false;
         this.started = false;
     }
 
@@ -257,115 +226,38 @@ export class FormulaOnlyRuntime {
         this.formulaController.setFormulaSettings(next);
         setReaderMarkdownCopyFormulaFormat(next.markdownCopyFormulaFormat);
         if (!platformEnabled || !shouldEnableFormulaInteractions(next)) {
-            this.observer.disconnect();
             this.formulaController.disable();
-            this.enabled = false;
             return;
         }
 
-        this.enabled = true;
-        this.enableCurrentFormulaRoots();
-        this.observeDocument();
+        this.observeFormulaContainers();
     }
 
-    private enableCurrentFormulaRoots(): void {
-        const roots = this.findContentRoots(document);
-        if (roots.length > 0) {
-            for (const root of roots) {
-                this.enableFormulaRoots(root);
-            }
-            return;
-        }
-
-        this.findFormulaElements(document).forEach((element) => this.formulaController.enable(element));
-    }
-
-    private observeDocument(): void {
-        this.observer.disconnect();
-        for (const root of this.findObserverRoots()) {
-            this.observer.observe(root, { childList: true, subtree: true });
-        }
-    }
-
-    private enableFormulaRoots(scope: ParentNode): void {
-        const roots = this.findContentRoots(scope);
-        if (roots.length > 0) {
-            roots.forEach((root) => this.enableFormulaContainer(root));
-            return;
-        }
-
-        if (scope instanceof HTMLElement && this.matchesFormula(scope)) {
-            this.formulaController.enable(scope);
-        }
-        if (scope instanceof DocumentFragment) {
-            this.findFormulaElements(scope).forEach((element) => this.formulaController.enable(element));
-        }
-    }
-
-    private enableFormulaContainer(root: HTMLElement): void {
-        if (this.findFormulaElements(root).length > 0 || this.matchesFormula(root)) {
-            this.formulaController.enable(root);
-        }
-    }
-
-    private findContentRoots(scope: ParentNode): HTMLElement[] {
+    private observeFormulaContainers(): void {
         const roots: HTMLElement[] = [];
-        const add = (element: Element | null) => {
-            if (element instanceof HTMLElement && !roots.includes(element)) roots.push(element);
-        };
-
-        if (scope instanceof Element) {
-            for (const selector of this.profile.contentRootSelectors) {
-                if (scope.matches(selector)) add(scope);
-            }
+        for (const root of this.findObserverRoots()) {
+            if (!roots.some((candidate) => candidate.contains(root))) roots.push(root);
         }
-
-        for (const selector of this.profile.contentRootSelectors) {
-            scope.querySelectorAll(selector).forEach(add);
-        }
-
-        return roots.filter((root) =>
-            !roots.some((candidate) => candidate !== root && candidate.contains(root))
-        );
+        if (roots.length === 0) roots.push(document.body || document.documentElement);
+        const contentSelector = this.profile.contentRootSelectors.join(',');
+        roots.forEach((root) => {
+            this.formulaController.observeContainers(root, contentSelector);
+            if (root.matches(contentSelector) || root.querySelector(contentSelector)) return;
+            if (root.matches(FORMULA_CANDIDATE_SELECTOR)) this.formulaController.enable(root);
+            root.querySelectorAll<HTMLElement>(FORMULA_CANDIDATE_SELECTOR).forEach((formula) => {
+                this.formulaController.enable(formula);
+            });
+        });
     }
 
     private findObserverRoots(): HTMLElement[] {
-        const roots: HTMLElement[] = [];
-        const add = (element: Element | null) => {
-            if (element instanceof HTMLElement && !roots.includes(element)) roots.push(element);
-        };
-
-        for (const selector of this.profile.observerRootSelectors) {
-            document.querySelectorAll(selector).forEach(add);
-        }
-
-        if (roots.length === 0) {
-            this.findContentRoots(document).forEach((root) => add(root.parentElement ?? root));
-        }
-
-        if (roots.length === 0) add(document.body || document.documentElement);
-
-        return roots.filter((root) =>
-            !roots.some((candidate) => candidate !== root && candidate.contains(root))
+        const roots = this.profile.observerRootSelectors.flatMap((selector) =>
+            Array.from(document.querySelectorAll<HTMLElement>(selector))
         );
-    }
-
-    private findFormulaElements(scope: ParentNode): HTMLElement[] {
-        const elements: HTMLElement[] = [];
-        const add = (element: Element | null) => {
-            if (element instanceof HTMLElement && !elements.includes(element)) elements.push(element);
-        };
-
-        if (scope instanceof Element && this.matchesFormula(scope)) add(scope);
-        for (const selector of this.profile.formulaSelectors) {
-            scope.querySelectorAll(selector).forEach(add);
-        }
-
-        return elements;
-    }
-
-    private matchesFormula(element: Element): boolean {
-        return this.profile.formulaSelectors.some((selector) => element.matches(selector));
+        return roots.filter((root, index) =>
+            roots.indexOf(root) === index
+            && !roots.some((candidate) => candidate !== root && candidate.contains(root))
+        );
     }
 }
 

@@ -13,6 +13,19 @@ function appendConversationNode(maxWidth = '800px'): HTMLElement {
     return target;
 }
 
+function appendComposerWidthNode(maxWidth = '800px'): HTMLElement {
+    const limiter = document.createElement('div');
+    limiter.className = 'mx-auto max-w-(--thread-content-max-width)';
+    limiter.style.maxWidth = maxWidth;
+    const form = document.createElement('form');
+    const composer = document.createElement('div');
+    composer.id = 'prompt-textarea';
+    form.appendChild(composer);
+    limiter.appendChild(form);
+    document.body.appendChild(limiter);
+    return limiter;
+}
+
 afterEach(() => {
     document.head.innerHTML = '';
     document.body.innerHTML = '';
@@ -40,6 +53,18 @@ describe('ChatGPTPageWidthController', () => {
         expect(style?.textContent).toContain('max-width: calc(720px * 125 / 100)');
         expect(style?.textContent).not.toContain('!important');
         expect(document.documentElement.dataset.aimdChatgptPageWidth).toBe('1');
+    });
+
+    it('expands the composer limiter with the same page-width scale', () => {
+        appendConversationNode('768px');
+        appendComposerWidthNode('768px');
+        const controller = new ChatGPTPageWidthController();
+
+        controller.setScale(150);
+
+        const css = document.getElementById('aimd-chatgpt-page-width-style')?.textContent ?? '';
+        expect(css).toContain('[class*="max-w-(--thread-content-max-width)"]');
+        expect(css).toContain('max-width: calc(768px * 150 / 100)');
     });
 
     it('clears the override when scale returns to normal', () => {

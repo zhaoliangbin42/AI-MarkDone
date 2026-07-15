@@ -5,6 +5,7 @@ const sharedNonIconWebAccessibleResources = [
     '_locales/*/messages.json',
     'vendor/katex/*.css',
     'vendor/katex/fonts/*',
+    'vendor/latex-workshop/formula-snippets.json',
     'page-bridges/*.js',
     'formula-renderer.html',
     'formula-renderer.js',
@@ -25,6 +26,7 @@ const safariWebAccessibleResources = [
 export const extensionAssets = {
     contentEntry: 'content.js',
     contentFeaturesEntry: 'content-features.js',
+    formulaSnippetCatalog: 'vendor/latex-workshop/formula-snippets.json',
     backgroundEntry: 'background.js',
     popupPath: 'src/popup/popup.html',
     icons: {

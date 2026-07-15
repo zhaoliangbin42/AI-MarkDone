@@ -35,6 +35,8 @@ These are transition-execution documents, not long-lived architecture authority:
 
 - `docs/FEATURES.md`
   - product capabilities, acceptance boundaries, and platform support policy
+- `CONTEXT.md`
+  - concise shared product vocabulary for Input Enhancement and other cross-document terms
 - `src/drivers/content/adapters/base.ts`
   - source-level site adapter contract
 - `docs/architecture/CURRENT_STATE.md`

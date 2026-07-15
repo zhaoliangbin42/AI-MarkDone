@@ -2,6 +2,20 @@ import { describe, expect, it } from 'vitest';
 import { MessageToolbar } from '@/ui/content/MessageToolbar';
 import { vi } from 'vitest';
 
+function rect(input: { left: number; top: number; width: number; height: number }): DOMRect {
+    return {
+        x: input.left,
+        y: input.top,
+        left: input.left,
+        top: input.top,
+        width: input.width,
+        height: input.height,
+        right: input.left + input.width,
+        bottom: input.top + input.height,
+        toJSON: () => ({}),
+    } as DOMRect;
+}
+
 describe('MessageToolbar', () => {
     it('defers task-progress DOM and styles until a secondary task actually starts', () => {
         const toolbar = new MessageToolbar('light', [
@@ -221,6 +235,7 @@ describe('MessageToolbar', () => {
 
         document.body.appendChild(toolbar.getElement());
         const trigger = toolbar.getElement().shadowRoot!.querySelector<HTMLButtonElement>('[data-action="copy_markdown"]')!;
+        vi.spyOn(trigger, 'getBoundingClientRect').mockReturnValue(rect({ left: 320, top: 240, width: 30, height: 30 }));
 
         trigger.dispatchEvent(new MouseEvent('mouseenter', { bubbles: true }));
         vi.advanceTimersByTime(100);
@@ -284,7 +299,7 @@ describe('MessageToolbar', () => {
         host.remove();
     });
 
-    it('uses the shared tooltip delegate for Copy Markdown and PNG hover tooltips', () => {
+    it('uses the shared tooltip delegate for the PNG hover tooltip without a concurrent trigger tooltip', () => {
         vi.useFakeTimers();
         const toolbar = new MessageToolbar('light', [
             {
@@ -310,12 +325,13 @@ describe('MessageToolbar', () => {
         vi.advanceTimersByTime(150);
 
         const triggerTooltip = document.body.querySelector<HTMLElement>('.aimd-tooltip');
-        expect(triggerTooltip?.textContent).toBe('Copy Markdown');
+        expect(triggerTooltip).toBeNull();
         expect(document.querySelector('.aimd-toolbar-tooltip-host')).toBeNull();
         expect(trigger.querySelector('[data-role="toolbar-tooltip"]')).toBeNull();
 
         const portalHost = document.querySelector<HTMLElement>('.aimd-toolbar-hover-action-host')!;
         const secondaryButton = portalHost.shadowRoot!.querySelector<HTMLButtonElement>('[data-role="toolbar-hover-action"]')!;
+        vi.spyOn(secondaryButton, 'getBoundingClientRect').mockReturnValue(rect({ left: 320, top: 200, width: 30, height: 30 }));
         expect(secondaryButton.dataset.tooltip).toBe('Copy as PNG');
 
         trigger.dispatchEvent(new Event('pointerout', { bubbles: true, composed: true }));
@@ -326,6 +342,39 @@ describe('MessageToolbar', () => {
         expect(secondaryTooltip?.textContent).toBe('Copy as PNG');
         expect(secondaryButton.querySelector('[data-role="toolbar-tooltip"]')).toBeNull();
         expect(portalHost.shadowRoot?.querySelector('.toolbar-hover-feedback')).toBeNull();
+
+        toolbar.dispose();
+        toolbar.getElement().remove();
+        vi.useRealTimers();
+    });
+
+    it('does not leave the trigger tooltip open behind its hover action surface', () => {
+        vi.useFakeTimers();
+        const toolbar = new MessageToolbar('light', [
+            {
+                id: 'copy_markdown',
+                label: 'Copy Markdown',
+                tooltip: 'Copy Markdown',
+                icon: '<svg viewBox="0 0 16 16"></svg>',
+                onClick: vi.fn(async () => ({ ok: true as const })),
+                hoverAction: {
+                    id: 'copy_png',
+                    label: 'Copy as PNG',
+                    icon: '<svg viewBox="0 0 16 16"></svg>',
+                    onClick: vi.fn(async () => ({ ok: true as const })),
+                },
+            },
+        ], { showStats: false });
+        document.body.appendChild(toolbar.getElement());
+        const trigger = toolbar.getElement().shadowRoot!
+            .querySelector<HTMLButtonElement>('[data-action="copy_markdown"]')!;
+
+        trigger.dispatchEvent(new MouseEvent('mouseenter', { bubbles: true }));
+        trigger.dispatchEvent(new Event('pointerover', { bubbles: true, composed: true }));
+        vi.advanceTimersByTime(150);
+
+        expect(document.querySelector('.aimd-toolbar-hover-action-host')).not.toBeNull();
+        expect(document.body.querySelector('.aimd-tooltip')).toBeNull();
 
         toolbar.dispose();
         toolbar.getElement().remove();

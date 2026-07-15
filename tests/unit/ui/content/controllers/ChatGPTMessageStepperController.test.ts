@@ -6,9 +6,17 @@ const navigationMocks = vi.hoisted(() => ({
     navigateChatGPTDirectoryTarget: vi.fn(async () => ({ ok: true })),
 }));
 
+const roundChangeMocks = vi.hoisted(() => ({
+    subscribe: vi.fn(),
+}));
+
 vi.mock('@/ui/content/chatgptDirectory/navigation', () => ({
     collectChatGPTRoundPositions: navigationMocks.collectChatGPTRoundPositions,
     navigateChatGPTDirectoryTarget: navigationMocks.navigateChatGPTDirectoryTarget,
+}));
+
+vi.mock('@/drivers/content/chatgpt/domConversationDiscovery', () => ({
+    subscribeChatGPTDomRoundChanges: roundChangeMocks.subscribe,
 }));
 
 function createRound(position: number, top: number, bottom: number) {
@@ -54,11 +62,20 @@ async function waitForAnimationFrame(): Promise<void> {
 describe('ChatGPTMessageStepperController', () => {
     const adapter = { getPlatformId: () => 'chatgpt' } as any;
     const controllers: ChatGPTMessageStepperController[] = [];
+    let roundChangeListener: (() => void) | null = null;
+    let unsubscribeRoundChanges = vi.fn();
 
     beforeEach(() => {
         setConversationUrl();
         navigationMocks.collectChatGPTRoundPositions.mockReset();
         navigationMocks.navigateChatGPTDirectoryTarget.mockClear();
+        roundChangeListener = null;
+        unsubscribeRoundChanges = vi.fn();
+        roundChangeMocks.subscribe.mockReset();
+        roundChangeMocks.subscribe.mockImplementation((_adapter, listener: () => void) => {
+            roundChangeListener = listener;
+            return unsubscribeRoundChanges;
+        });
         navigationMocks.collectChatGPTRoundPositions.mockReturnValue([
             createRound(1, -300, -100),
             createRound(2, 180, 420),
@@ -159,6 +176,31 @@ describe('ChatGPTMessageStepperController', () => {
 
         expect(host.querySelector<HTMLButtonElement>('[data-action="previous-message"]')?.disabled).toBe(false);
         expect(host.querySelector<HTMLButtonElement>('[data-action="next-message"]')?.disabled).toBe(true);
+    });
+
+    it('refreshes through the shared round-change subscription when a new final round appears', async () => {
+        navigationMocks.collectChatGPTRoundPositions.mockReturnValue([
+            createRound(1, -420, -120),
+            createRound(2, 120, 500),
+        ]);
+        const controller = new ChatGPTMessageStepperController(adapter);
+        controllers.push(controller);
+        controller.init();
+
+        const next = document.querySelector<HTMLButtonElement>('[data-action="next-message"]')!;
+        expect(next.disabled).toBe(true);
+
+        navigationMocks.collectChatGPTRoundPositions.mockReturnValue([
+            createRound(1, -420, -120),
+            createRound(2, 120, 500),
+            createRound(3, 720, 900),
+        ]);
+        roundChangeListener?.();
+        await waitForAnimationFrame();
+
+        expect(next.disabled).toBe(false);
+        controller.dispose();
+        expect(unsubscribeRoundChanges).toHaveBeenCalledTimes(1);
     });
 
     it('keeps the detached Reader button available when message step buttons are hidden', async () => {

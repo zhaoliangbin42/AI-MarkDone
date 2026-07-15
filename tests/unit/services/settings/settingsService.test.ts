@@ -191,9 +191,17 @@ describe('settingsService', () => {
     });
 
     it('writes scoped ChatGPT behavior settings without restoring retired ChatGPT category', () => {
+        const inputEnhancement = {
+            ...DEFAULT_SETTINGS.chatgptBehavior.inputEnhancement,
+            lists: {
+                ...DEFAULT_SETTINGS.chatgptBehavior.inputEnhancement.lists,
+                ordered: false,
+            },
+            formulaPreview: false,
+        };
         const next = planSetCategory(DEFAULT_SETTINGS, 'chatgptBehavior', {
             restorePositionAfterSend: true,
-            enterKeyNewline: true,
+            inputEnhancement,
             showMessageStepper: false,
             showPageBookmarkControl: false,
             showDetachedReaderControl: false,
@@ -206,7 +214,7 @@ describe('settingsService', () => {
 
         expect(next.chatgptBehavior).toEqual({
             restorePositionAfterSend: true,
-            enterKeyNewline: true,
+            inputEnhancement,
             showMessageStepper: false,
             showPageBookmarkControl: false,
             showDetachedReaderControl: false,
@@ -226,7 +234,19 @@ describe('settingsService', () => {
         }).next;
         expect(normalized.chatgptBehavior).toEqual({
             restorePositionAfterSend: true,
-            enterKeyNewline: false,
+            inputEnhancement: {
+                available: true,
+                enabled: false,
+                enterKeyNewline: false,
+                boldShortcut: false,
+                lists: {
+                    enabled: false,
+                    ordered: false,
+                    unordered: false,
+                },
+                formulaSuggestions: false,
+                formulaPreview: false,
+            },
             showMessageStepper: true,
             showPageBookmarkControl: true,
             showDetachedReaderControl: true,

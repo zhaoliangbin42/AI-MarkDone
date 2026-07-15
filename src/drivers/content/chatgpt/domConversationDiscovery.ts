@@ -1,5 +1,5 @@
 import type { SiteAdapter } from '../adapters/base';
-import { ChatGPTPageIndex, type ChatGPTPageSnapshot } from './ChatGPTPageIndex';
+import { ChatGPTPageIndex } from './ChatGPTPageIndex';
 
 export type ChatGPTDomRoundRef = {
     position: number;
@@ -513,19 +513,19 @@ function getChatGPTPageIndex(adapter: SiteAdapter): ChatGPTPageIndex {
     if (existing) return existing;
 
     const index = new ChatGPTPageIndex({
-        resolveRoot: () => getDiscoveryRoot(adapter),
+        resolveRoot: () => adapter.getObserverContainer() ?? document,
         discover: () => discoverChatGPTDomRoundRefs(adapter),
     });
     pageIndexByAdapter.set(adapter, index);
     return index;
 }
 
-export function getChatGPTPageSnapshot(adapter: SiteAdapter): ChatGPTPageSnapshot {
+export function collectChatGPTDomRoundRefs(adapter: SiteAdapter): ChatGPTDomRoundRef[] {
     return getChatGPTPageIndex(adapter).getSnapshot();
 }
 
-export function collectChatGPTDomRoundRefs(adapter: SiteAdapter): ChatGPTDomRoundRef[] {
-    return getChatGPTPageSnapshot(adapter).rounds;
+export function subscribeChatGPTDomRoundChanges(adapter: SiteAdapter, listener: () => void): () => void {
+    return getChatGPTPageIndex(adapter).subscribe(listener);
 }
 
 export function disposeChatGPTPageIndex(adapter: SiteAdapter): void {

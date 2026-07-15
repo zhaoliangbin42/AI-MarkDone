@@ -1031,13 +1031,193 @@
         "message": "阅读历史消息时，发送后会尽快回到原来的阅读位置。",
         "description": "Message for chatgptRestorePositionAfterSendDesc"
     },
-    "chatgptEnterKeyNewlineLabel": {
-        "message": "Enter 换行",
-        "description": "Message for chatgptEnterKeyNewlineLabel"
+    "chatgptInputEnhancementLabel": {
+        "message": "输入增强",
+        "description": "控制 ChatGPT 输入增强入口的设置标签"
     },
-    "chatgptEnterKeyNewlineDesc": {
-        "message": "开启后，在 ChatGPT 输入框中按 Enter 换行；发送请使用发送按钮，或在 Mac 按 Cmd + Enter、Windows 按 Ctrl + Enter。",
-        "description": "Message for chatgptEnterKeyNewlineDesc"
+    "chatgptInputEnhancementDesc": {
+        "message": "在 ChatGPT 中显示输入增强按钮。关闭后会隐藏按钮并暂停全部能力，但保留各项偏好。",
+        "description": "ChatGPT 输入增强入口设置说明"
+    },
+    "chatgptInputEnhancementButton": {
+        "message": "输入增强",
+        "description": "ChatGPT 输入增强按钮提示"
+    },
+    "chatgptInputEnhancementEnabledState": {
+        "message": "已启用",
+        "description": "输入增强按钮的无障碍启用状态"
+    },
+    "chatgptInputEnhancementDisabledState": {
+        "message": "已暂停",
+        "description": "输入增强按钮的无障碍暂停状态"
+    },
+    "chatgptInputEnhancementTitle": {
+        "message": "输入增强",
+        "description": "ChatGPT 输入增强弹层标题"
+    },
+    "chatgptInputEnhancementAuthoringSection": {
+        "message": "编辑",
+        "description": "编辑与 Markdown 辅助能力分组标题"
+    },
+    "chatgptInputEnhancementFormulaSection": {
+        "message": "公式",
+        "description": "公式辅助能力分组标题"
+    },
+    "chatgptInputEnhancementMasterLabel": {
+        "message": "启用输入增强",
+        "description": "输入增强运行总开关标签"
+    },
+    "chatgptInputEnhancementMasterDesc": {
+        "message": "暂停或恢复全部能力，并保留下方各项选择。",
+        "description": "输入增强运行总开关说明"
+    },
+    "chatgptInputEnhancementEnterLabel": {
+        "message": "Enter 换行",
+        "description": "Enter 换行能力标签"
+    },
+    "chatgptInputEnhancementEnterDesc": {
+        "message": "发送请使用发送按钮或 Cmd/Ctrl + Enter。",
+        "description": "Enter 换行能力说明"
+    },
+    "chatgptInputEnhancementListsLabel": {
+        "message": "列表增强",
+        "description": "列表增强总开关标签"
+    },
+    "chatgptInputEnhancementListsDesc": {
+        "message": "自动续写、拆分、退出和重排 Markdown 列表。",
+        "description": "列表增强说明"
+    },
+    "chatgptInputEnhancementOrderedListLabel": {
+        "message": "有序列表",
+        "description": "有序列表能力标签"
+    },
+    "chatgptInputEnhancementUnorderedListLabel": {
+        "message": "无序列表",
+        "description": "无序列表能力标签"
+    },
+    "chatgptInputEnhancementBoldLabel": {
+        "message": "粗体快捷键",
+        "description": "粗体快捷键标签"
+    },
+    "chatgptInputEnhancementBoldDesc": {
+        "message": "Cmd/Ctrl + B 插入或移除可见的 ** 标记。",
+        "description": "粗体快捷键说明"
+    },
+    "chatgptInputEnhancementFormulaSuggestionsLabel": {
+        "message": "公式联想",
+        "description": "公式联想标签"
+    },
+    "chatgptInputEnhancementFormulaSuggestionsDesc": {
+        "message": "仅在公式内输入 \\ 时显示 LaTeX 片段。",
+        "description": "公式联想说明"
+    },
+    "chatgptInputEnhancementFormulaPreviewLabel": {
+        "message": "公式预览",
+        "description": "公式预览开关标签"
+    },
+    "chatgptInputEnhancementFormulaPreviewDesc": {
+        "message": "轻量预览行内公式和行间公式。",
+        "description": "公式预览开关说明"
+    },
+    "chatgptInputEnhancementGuideLabel": {
+        "message": "语法与快捷键",
+        "description": "输入增强说明入口"
+    },
+    "chatgptInputEnhancementGuideTitle": {
+        "message": "语法与快捷键",
+        "description": "输入增强说明标题"
+    },
+    "chatgptInputEnhancementGuideIntro": {
+        "message": "编辑时 Markdown 标记保持可见；实际行为以输入增强中的开关为准。",
+        "description": "输入增强说明简介"
+    },
+    "chatgptInputEnhancementGuideSyntaxTitle": {
+        "message": "支持的语法",
+        "description": "语法分区标题"
+    },
+    "chatgptInputEnhancementGuideBoldSyntax": {
+        "message": "用可见标记表示粗体",
+        "description": "粗体语法说明"
+    },
+    "chatgptInputEnhancementGuideOrderedListSyntax": {
+        "message": "有序列表条目",
+        "description": "有序列表语法说明"
+    },
+    "chatgptInputEnhancementGuideUnorderedListSyntax": {
+        "message": "无序列表条目，也支持 + 和 *",
+        "description": "无序列表语法说明"
+    },
+    "chatgptInputEnhancementGuideInlineFormulaSyntax": {
+        "message": "行内 LaTeX 公式",
+        "description": "行内公式语法说明"
+    },
+    "chatgptInputEnhancementGuideDisplayFormulaSyntax": {
+        "message": "行间 LaTeX 公式",
+        "description": "行间公式语法说明"
+    },
+    "chatgptInputEnhancementGuideShortcutsTitle": {
+        "message": "键盘快捷键",
+        "description": "快捷键分区标题"
+    },
+    "chatgptInputEnhancementGuideBoldShortcut": {
+        "message": "添加或移除粗体标记",
+        "description": "粗体快捷键行为"
+    },
+    "chatgptInputEnhancementGuideEnterShortcut": {
+        "message": "换行，或续写已启用的列表",
+        "description": "Enter 快捷键行为"
+    },
+    "chatgptInputEnhancementGuideShiftEnterShortcut": {
+        "message": "保留 ChatGPT 原有行为",
+        "description": "Shift Enter 快捷键行为"
+    },
+    "chatgptInputEnhancementGuideSendShortcut": {
+        "message": "发送消息",
+        "description": "发送快捷键行为"
+    },
+    "chatgptInputEnhancementGuideFormulaNavigateShortcut": {
+        "message": "在公式联想中移动",
+        "description": "公式联想导航行为"
+    },
+    "chatgptInputEnhancementGuideFormulaAcceptShortcut": {
+        "message": "插入选中的公式片段",
+        "description": "公式联想确认行为"
+    },
+    "chatgptInputEnhancementGuideFormulaDismissShortcut": {
+        "message": "关闭公式联想或当前面板",
+        "description": "公式联想关闭行为"
+    },
+    "chatgptInputEnhancementGuideEditingTitle": {
+        "message": "编辑行为",
+        "description": "编辑行为分区标题"
+    },
+    "chatgptInputEnhancementGuideBackspaceBehavior": {
+        "message": "光标位于列表正文边界时，先移除或降级编号；再次按下则与上一行合并。",
+        "description": "列表退格行为"
+    },
+    "chatgptInputEnhancementGuideFormulaTrigger": {
+        "message": "在 $...$ 或 $$...$$ 中开始输入 LaTeX 命令并显示匹配片段。",
+        "description": "公式联想触发行为"
+    },
+    "chatgptFormulaPreviewTitle": {
+        "message": "公式预览",
+        "description": "Title of the lightweight formula preview"
+    },
+    "chatgptFormulaInlineKind": {
+        "message": "行内 $…$",
+        "description": "Label for an inline formula preview"
+    },
+    "chatgptFormulaDisplayKind": {
+        "message": "行间 $$…$$",
+        "description": "Label for a display formula preview"
+    },
+    "chatgptFormulaPreviewLoading": {
+        "message": "正在渲染公式…",
+        "description": "Formula preview loading state"
+    },
+    "chatgptFormulaPreviewError": {
+        "message": "当前公式暂时无法预览",
+        "description": "Formula preview error state"
     },
     "chatgptPromptAutocompleteLabel": {
         "message": "Prompt 联想",

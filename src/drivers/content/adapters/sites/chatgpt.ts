@@ -206,12 +206,11 @@ export class ChatGPTAdapter extends SiteAdapter {
     }
 
     getObserverContainer(): HTMLElement | null {
-        const selectors = ['main', 'main [role="presentation"]', 'main > div', '#__next', 'body'];
-        for (const selector of selectors) {
-            const container = document.querySelector(selector);
-            if (container instanceof HTMLElement) return container;
-        }
-        return null;
+        const main = document.querySelector('main');
+        if (main instanceof HTMLElement) return main.parentElement ?? main;
+
+        const appRoot = document.querySelector('#__next');
+        return appRoot instanceof HTMLElement ? appRoot : document.body;
     }
 
     getConversationScrollRoot(): HTMLElement | null {

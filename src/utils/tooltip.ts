@@ -159,6 +159,7 @@ function buildTooltipEl(root: ShadowRoot | Document, target: TooltipTarget): HTM
     const variant = target.dataset.tooltipVariant === 'preview' ? 'preview' : 'label';
     const tooltip = document.createElement('div');
     tooltip.className = 'aimd-tooltip';
+    tooltip.setAttribute('data-aimd-role', 'tooltip');
     tooltip.dataset.open = '0';
     tooltip.dataset.variant = variant;
     tooltip.dataset.placement = 'top';
@@ -283,7 +284,7 @@ export class TooltipDelegate {
     private handlePointerOut(e: Event): void {
         const target = findTooltipTarget(e.target, this.root);
         if (!target || target !== this.activeTarget) return;
-        const next = typeof PointerEvent !== 'undefined' && e instanceof PointerEvent ? (e.relatedTarget as Node | null) : null;
+        const next = 'relatedTarget' in e ? (e.relatedTarget as Node | null) : null;
         if (next && target.contains(next)) return;
         this.hide();
     }
@@ -309,11 +310,21 @@ export class TooltipDelegate {
 
     private show(target: TooltipTarget): void {
         this.hideTooltipOnly();
+        if (target !== this.activeTarget || !target.isConnected) return;
+        const rect = target.getBoundingClientRect();
+        if (
+            !Number.isFinite(rect.left)
+            || !Number.isFinite(rect.top)
+            || rect.width <= 0
+            || rect.height <= 0
+        ) {
+            this.activeTarget = null;
+            return;
+        }
         const tooltip = buildTooltipEl(this.root, target);
         if (!tooltip) return;
         this.tooltipEl = tooltip;
 
-        const rect = target.getBoundingClientRect();
         positionTooltipElement(tooltip, rect, resolvePreferredPlacement(target.dataset.tooltipPlacement));
 
         window.requestAnimationFrame(() => {

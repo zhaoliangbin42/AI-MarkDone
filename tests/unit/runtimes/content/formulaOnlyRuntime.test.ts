@@ -2,11 +2,13 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 
 const mocks = vi.hoisted(() => {
     const controllerEnable = vi.fn();
+    const controllerObserveContainers = vi.fn();
     const controllerDisable = vi.fn();
     const controllerSetFormulaSettings = vi.fn();
     const controllerCtor = vi.fn(function () {
         return {
             enable: controllerEnable,
+            observeContainers: controllerObserveContainers,
             disable: controllerDisable,
             setFormulaSettings: controllerSetFormulaSettings,
         };
@@ -33,6 +35,7 @@ const mocks = vi.hoisted(() => {
 
     return {
         controllerEnable,
+        controllerObserveContainers,
         controllerDisable,
         controllerSetFormulaSettings,
         controllerCtor,
@@ -191,7 +194,7 @@ describe('formula-only content runtime', () => {
         expect(deepseek.parserAdapter.name).toBe('Deepseek');
     });
 
-    it('enables existing formula containers through the shared FormulaAssetHoverController', () => {
+    it('registers existing formula containers with the shared FormulaAssetHoverController', () => {
         mocks.settingsCached = { formula: enabledFormulaSettings() };
         document.body.innerHTML = `
             <model-response>
@@ -206,8 +209,10 @@ describe('formula-only content runtime', () => {
 
         expect(mocks.settingsInit).toHaveBeenCalledTimes(1);
         expect(mocks.controllerSetFormulaSettings).toHaveBeenCalledWith(enabledFormulaSettings());
-        expect(mocks.controllerEnable).toHaveBeenCalledTimes(1);
-        expect(mocks.controllerEnable.mock.calls[0]?.[0]).toBe(document.querySelector('model-response'));
+        expect(mocks.controllerObserveContainers).toHaveBeenCalledWith(
+            document.body,
+            profile.contentRootSelectors.join(','),
+        );
     });
 
     it('opens the global bookmarks panel from the extension action message', async () => {
@@ -275,26 +280,22 @@ describe('formula-only content runtime', () => {
         expect(mocks.controllerEnable).not.toHaveBeenCalled();
     });
 
-    it('observes newly added formula content while enabled', async () => {
+    it('delegates future formula-content discovery to the shared controller', () => {
         mocks.settingsCached = { formula: enabledFormulaSettings() };
         const profile: FormulaPlatformProfile = {
             id: 'deepseek',
             hostnames: ['chat.deepseek.com'],
             observerRootSelectors: ['main'],
             contentRootSelectors: ['.ds-markdown'],
-            formulaSelectors: ['.katex'],
             parserAdapter: getFormulaOnlyPlatformProfile('https://chat.deepseek.com/a/chat/s/mock')!.parserAdapter,
         };
         const runtime = new FormulaOnlyRuntime(profile);
         runtime.start();
 
-        const message = document.createElement('div');
-        message.className = 'ds-markdown';
-        message.innerHTML = '<span class="katex"><annotation encoding="application/x-tex">a^2</annotation></span>';
-        document.body.appendChild(message);
-        await Promise.resolve();
-
-        expect(mocks.controllerEnable).toHaveBeenCalledWith(message);
+        expect(mocks.controllerObserveContainers).toHaveBeenCalledWith(
+            document.body,
+            profile.contentRootSelectors.join(','),
+        );
         runtime.dispose();
     });
 
@@ -330,11 +331,13 @@ describe('formula-only content runtime', () => {
             </main>
         `;
 
-        startFormulaOnlyRuntime(getFormulaOnlyPlatformProfile('https://chat.deepseek.com/a/chat/s/mock')!);
+        const profile = getFormulaOnlyPlatformProfile('https://chat.deepseek.com/a/chat/s/mock')!;
+        startFormulaOnlyRuntime(profile);
 
-        expect(mocks.controllerEnable).toHaveBeenCalledTimes(1);
-        expect(mocks.controllerEnable).toHaveBeenCalledWith(document.querySelector('.ds-message > .ds-markdown'));
-        expect(mocks.controllerEnable).not.toHaveBeenCalledWith(document.querySelector('.ds-message'));
+        const selector = profile.contentRootSelectors.join(',');
+        expect(mocks.controllerObserveContainers).toHaveBeenCalledWith(document.querySelector('main'), selector);
+        expect(document.querySelector('.ds-message > .ds-markdown')?.matches(selector)).toBe(true);
+        expect(document.querySelector('.ds-think-content .ds-markdown')?.matches(selector)).toBe(false);
     });
 
     it('does not observe newly added DeepSeek think-content formulas', async () => {
@@ -365,7 +368,8 @@ describe('formula-only content runtime', () => {
               <span class="katex"><annotation encoding="application/x-tex">x_1+y</annotation></span>
             </div>
         `;
-        const runtime = startFormulaOnlyRuntime(getFormulaOnlyPlatformProfile('https://claude.ai/chat/mock')!);
+        const profile = getFormulaOnlyPlatformProfile('https://claude.ai/chat/mock')!;
+        const runtime = startFormulaOnlyRuntime(profile);
 
         expect(mocks.controllerEnable).not.toHaveBeenCalled();
         expect(mocks.settingsSubscriber).toBeTypeOf('function');
@@ -373,7 +377,10 @@ describe('formula-only content runtime', () => {
         mocks.settingsSubscriber!({ settings: { formula: enabledFormulaSettings() } });
 
         expect(mocks.controllerSetFormulaSettings).toHaveBeenLastCalledWith(enabledFormulaSettings());
-        expect(mocks.controllerEnable).toHaveBeenCalledWith(document.querySelector('.font-claude-response'));
+        expect(mocks.controllerObserveContainers).toHaveBeenCalledWith(
+            document.body,
+            profile.contentRootSelectors.join(','),
+        );
         expect(mocks.controllerCtor).toHaveBeenCalledWith(expect.objectContaining({
             parserAdapter: expect.objectContaining({ name: 'Claude' }),
         }));

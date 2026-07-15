@@ -62,6 +62,11 @@ export function prepareExtensionTarget(target: ExtensionTarget): void {
     mkdirSync(join(distDir, 'vendor/katex'), { recursive: true });
     cpSync(resolve(process.cwd(), 'node_modules/katex/dist/katex.min.css'), join(distDir, 'vendor/katex/katex.min.css'));
     cpSync(resolve(process.cwd(), 'node_modules/katex/dist/fonts'), join(distDir, 'vendor/katex/fonts'), { recursive: true });
+    mkdirSync(join(distDir, 'vendor/latex-workshop'), { recursive: true });
+    cpSync(
+        resolve(process.cwd(), 'public/vendor/latex-workshop/formula-snippets.json'),
+        join(distDir, 'vendor/latex-workshop/formula-snippets.json'),
+    );
 }
 
 function runCli(): void {

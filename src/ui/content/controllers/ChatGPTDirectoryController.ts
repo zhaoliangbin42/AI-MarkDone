@@ -2,6 +2,7 @@ import type { Theme } from '../../../core/types/theme';
 import type { SiteAdapter } from '../../../drivers/content/adapters/base';
 import { RouteWatcher } from '../../../drivers/content/injection/routeWatcher';
 import type { ChatGPTConversationEngine } from '../../../drivers/content/chatgpt/ChatGPTConversationEngine';
+import { subscribeChatGPTDomRoundChanges } from '../../../drivers/content/chatgpt/domConversationDiscovery';
 import type { ChatGPTConversationRound, ChatGPTConversationSnapshot } from '../../../drivers/content/chatgpt/types';
 import type { ChatGPTDirectoryMode, ChatGPTDirectoryPromptLabelMode } from '../../../core/settings/types';
 import { ChatGPTDirectoryRail } from '../chatgptDirectory/ChatGPTDirectoryRail';
@@ -86,8 +87,6 @@ export class ChatGPTDirectoryController {
     private snapshot: ChatGPTConversationSnapshot | null = null;
     private routeWatcher: RouteWatcher | null = null;
     private scrollRoot: HTMLElement | null = null;
-    private mutationObserver: MutationObserver | null = null;
-    private observedContainer: HTMLElement | null = null;
     private skeletonAnchors: ChatGPTSkeletonAnchor[] = [];
     private roundPositions: ChatGPTRoundPosition[] = [];
     private activePosition = 0;
@@ -101,6 +100,7 @@ export class ChatGPTDirectoryController {
     private snapshotRetryCount = 0;
     private unsubscribeEngine: (() => void) | null = null;
     private unsubscribeBookmarks: (() => void) | null = null;
+    private unsubscribeRoundChanges: (() => void) | null = null;
     private initialized = false;
     private globalScrollFallbacksBound = false;
     private viewportResizeSuspendBound = false;
@@ -127,6 +127,9 @@ export class ChatGPTDirectoryController {
             this.refresh();
         }, { intervalMs: 500 });
         this.routeWatcher.start();
+        this.unsubscribeRoundChanges = subscribeChatGPTDomRoundChanges(this.adapter, () => {
+            this.scheduleIndexRebuild('mutation');
+        });
         this.unsubscribeEngine = this.engine.subscribe((snapshot) => {
             this.snapshot = snapshot;
             if (snapshot) this.snapshotRetryCount = 0;
@@ -161,9 +164,8 @@ export class ChatGPTDirectoryController {
         this.unsubscribeEngine = null;
         this.unsubscribeBookmarks?.();
         this.unsubscribeBookmarks = null;
-        this.mutationObserver?.disconnect();
-        this.mutationObserver = null;
-        this.observedContainer = null;
+        this.unsubscribeRoundChanges?.();
+        this.unsubscribeRoundChanges = null;
         this.scrollRoot?.removeEventListener('scroll', this.handleScroll, { capture: true } as EventListenerOptions);
         this.scrollRoot = null;
         this.unbindGlobalScrollFallbacks();
@@ -242,7 +244,7 @@ export class ChatGPTDirectoryController {
         }
         this.ensureRail();
         this.rail?.setVisible(true);
-        this.rebindObservers();
+        this.rebindScrollRoot();
         const conversationId = getChatGPTConversationId(window.location.href);
         const cachedSnapshot = this.engine.peekCurrentSnapshot?.() ?? null;
         if (cachedSnapshot) this.snapshot = cachedSnapshot;
@@ -319,7 +321,7 @@ export class ChatGPTDirectoryController {
         this.updateActivePosition({ followRail: false });
     };
 
-    private rebindObservers(): void {
+    private rebindScrollRoot(): void {
         const nextScrollRoot = this.adapter.getConversationScrollRoot?.() ?? document.scrollingElement ?? null;
         if (this.scrollRoot !== nextScrollRoot) {
             this.scrollRoot?.removeEventListener('scroll', this.handleScroll, { capture: true } as EventListenerOptions);
@@ -327,22 +329,6 @@ export class ChatGPTDirectoryController {
             this.scrollRoot?.addEventListener('scroll', this.handleScroll, { capture: true, passive: true } as AddEventListenerOptions);
         }
         this.bindGlobalScrollFallbacks();
-
-        const observerContainer = this.adapter.getObserverContainer();
-        if (this.mutationObserver && this.observedContainer === observerContainer) return;
-        this.mutationObserver?.disconnect();
-        this.mutationObserver = null;
-        this.observedContainer = observerContainer ?? null;
-        if (observerContainer) {
-            this.mutationObserver = new MutationObserver((mutations) => {
-                if (typeof document === 'undefined') return;
-                if (!this.shouldRebuildForMutations(mutations)) {
-                    return;
-                }
-                this.scheduleIndexRebuild('mutation');
-            });
-            this.mutationObserver.observe(observerContainer, { childList: true, subtree: true });
-        }
     }
 
     private scheduleIndexRebuild(reason: string): void {
@@ -359,37 +345,6 @@ export class ChatGPTDirectoryController {
             this.rebuildTimer = ric.call(window, run, { timeout: 500 });
         } else {
             this.rebuildTimer = window.setTimeout(run, 120);
-        }
-    }
-
-    private shouldRebuildForMutations(mutations: MutationRecord[]): boolean {
-        for (const mutation of mutations) {
-            if (this.isExtensionOwnedNode(mutation.target)) continue;
-            const added = Array.from(mutation.addedNodes || []);
-            const removed = Array.from(mutation.removedNodes || []);
-            for (const node of [...added, ...removed]) {
-                if (this.isExtensionOwnedNode(node)) continue;
-                if (this.nodeMayContainConversationTurn(node)) return true;
-            }
-        }
-        return false;
-    }
-
-    private isExtensionOwnedNode(node: Node | null | undefined): boolean {
-        if (!(node instanceof Element)) return false;
-        return Boolean(node.closest(
-            '[data-aimd-role], .aimd-message-toolbar-host, #aimd-chatgpt-directory-rail, #aimd-chatgpt-directory-preview'
-        ));
-    }
-
-    private nodeMayContainConversationTurn(node: Node): boolean {
-        if (!(node instanceof Element) && !(node instanceof DocumentFragment)) return false;
-        const selector = '[data-turn-id-container], [data-turn="user"], [data-turn="assistant"], [data-message-author-role="user"], [data-message-author-role="assistant"], [data-testid^="conversation-turn-"]';
-        try {
-            if (node instanceof Element && node.matches(selector)) return true;
-            return node.querySelector(selector) instanceof HTMLElement;
-        } catch {
-            return false;
         }
     }
 

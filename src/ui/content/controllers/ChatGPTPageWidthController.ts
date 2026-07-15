@@ -7,7 +7,7 @@ import {
 const CHATGPT_PAGE_WIDTH_STYLE_ID = 'aimd-chatgpt-page-width-style';
 const CHATGPT_PAGE_WIDTH_DATASET = 'aimdChatgptPageWidth';
 const CHATGPT_PAGE_WIDTH_SELECTORS = [
-    '.text-token-text-primary > div > div',
+    ':is([class*="max-w-(--thread-content-max-width)"], .text-token-text-primary > div > div)',
 ] as const;
 
 function normalizeScale(value: unknown): number {

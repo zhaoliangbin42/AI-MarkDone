@@ -3,6 +3,7 @@ import { bookmarkCheckIcon, bookmarkIcon, chevronRightIcon, Icons, messageSquare
 import { getTokenCss, type UserThemeOverrides } from '../../../style/tokens';
 import type { Theme } from '../../../core/types/theme';
 import { subscribeLocaleChange, t } from '../components/i18n';
+import { subscribeChatGPTDomRoundChanges } from '../../../drivers/content/chatgpt/domConversationDiscovery';
 import {
     collectChatGPTRoundPositions,
     navigateChatGPTDirectoryTarget,
@@ -92,7 +93,7 @@ export class ChatGPTMessageStepperController {
     private nextButton: HTMLButtonElement | null = null;
     private rounds: ChatGPTRoundPosition[] = [];
     private activePosition = 0;
-    private mutationObserver: MutationObserver | null = null;
+    private unsubscribeRoundChanges: (() => void) | null = null;
     private unsubscribeLocale: (() => void) | null = null;
     private refreshAnimationFrame: number | null = null;
     private navigationLockUntil = 0;
@@ -120,7 +121,7 @@ export class ChatGPTMessageStepperController {
         document.addEventListener('keydown', this.onKeyDownCapture, { capture: true });
         window.addEventListener('scroll', this.onScroll, { capture: true, passive: true });
         document.addEventListener('scroll', this.onScroll, { capture: true, passive: true });
-        this.bindMutationObserver();
+        this.unsubscribeRoundChanges = subscribeChatGPTDomRoundChanges(this.adapter, () => this.scheduleRefreshState());
     }
 
     dispose(): void {
@@ -129,8 +130,8 @@ export class ChatGPTMessageStepperController {
         document.removeEventListener('keydown', this.onKeyDownCapture, { capture: true } as any);
         window.removeEventListener('scroll', this.onScroll, { capture: true } as any);
         document.removeEventListener('scroll', this.onScroll, { capture: true } as any);
-        this.mutationObserver?.disconnect();
-        this.mutationObserver = null;
+        this.unsubscribeRoundChanges?.();
+        this.unsubscribeRoundChanges = null;
         this.unsubscribeLocale?.();
         this.unsubscribeLocale = null;
         if (this.refreshAnimationFrame !== null) {
@@ -351,39 +352,6 @@ export class ChatGPTMessageStepperController {
   transform: scaleX(-1);
 }
 `;
-    }
-
-    private bindMutationObserver(): void {
-        this.mutationObserver?.disconnect();
-        this.mutationObserver = new MutationObserver((mutations) => {
-            if (!this.shouldRefreshForMutations(mutations)) return;
-            this.scheduleRefreshState();
-        });
-        this.mutationObserver.observe(document.body, { childList: true, subtree: true });
-    }
-
-    private shouldRefreshForMutations(mutations: MutationRecord[]): boolean {
-        for (const mutation of mutations) {
-            if (isExtensionSurfaceElement(mutation.target)) continue;
-            for (const node of Array.from(mutation.addedNodes || [])) {
-                if (isExtensionSurfaceElement(node)) continue;
-                if (node instanceof Element && this.nodeMayContainConversationTurn(node)) return true;
-            }
-            for (const node of Array.from(mutation.removedNodes || [])) {
-                if (isExtensionSurfaceElement(node)) continue;
-                if (node instanceof Element && this.nodeMayContainConversationTurn(node)) return true;
-            }
-        }
-        return false;
-    }
-
-    private nodeMayContainConversationTurn(node: Element): boolean {
-        const selector = '[data-turn-id-container], [data-turn="user"], [data-turn="assistant"], [data-message-author-role="user"], [data-message-author-role="assistant"], [data-testid^="conversation-turn-"]';
-        try {
-            return node.matches(selector) || node.querySelector(selector) instanceof HTMLElement;
-        } catch {
-            return false;
-        }
     }
 
     private onScroll = (): void => {
