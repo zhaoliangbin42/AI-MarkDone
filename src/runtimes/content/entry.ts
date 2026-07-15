@@ -46,8 +46,10 @@ import { resolveFormulaSettings, shouldEnableFormulaInteractions } from './formu
 import {
     createLazyBookmarkSaveDialog,
     createLazyBookmarksPanel,
-    createLazyCopyTurnsPng,
+    createLazyCopyMessagePng,
+    createLazyRenderFormulaSvgAsset,
     createLazyReaderPanel,
+    createLazyRunFormulaAssetAction,
     createLazySaveMessagesDialog,
 } from './lazyContentFeatures';
 
@@ -91,11 +93,13 @@ const adapter = formulaOnlyProfile ? null : getAdapter();
 if (adapter) {
     const contentAdapter = adapter;
     const themeManager = new ThemeManager();
-    const mathClick = new FormulaAssetHoverController();
+    const mathClick = new FormulaAssetHoverController({
+        runFormulaAssetAction: createLazyRunFormulaAssetAction(),
+    });
     const readerPanel = createLazyReaderPanel();
     const saveMessagesDialog = createLazySaveMessagesDialog();
     const bookmarkSaveDialog = createLazyBookmarkSaveDialog();
-    const copyTurnsPng = createLazyCopyTurnsPng();
+    const copyMessagePng = createLazyCopyMessagePng();
     const sendController = new SendController();
     const settingsClient = new SettingsClient();
     const bookmarksController = new BookmarksPanelController(adapter);
@@ -114,6 +118,7 @@ if (adapter) {
         : null;
     const chatGptComposerEditing = adapter.getPlatformId() === 'chatgpt'
         ? new ChatGPTComposerEditingController(adapter, {
+            renderFormula: createLazyRenderFormulaSvgAsset(),
             onInputEnhancementChange: async (inputEnhancement) => {
                 const current = {
                     ...DEFAULT_SETTINGS.chatgptBehavior,
@@ -191,7 +196,7 @@ if (adapter) {
         bookmarksController,
         saveMessagesDialog,
         bookmarkSaveDialog,
-        copyTurnsPng,
+        copyMessagePng,
         chatGptConversationEngine: chatGptConversationEngine ?? undefined,
     });
 

@@ -7,8 +7,7 @@ const sharedNonIconWebAccessibleResources = [
     'vendor/katex/fonts/*',
     'vendor/latex-workshop/formula-snippets.json',
     'page-bridges/*.js',
-    'formula-renderer.html',
-    'formula-renderer.js',
+    'export-renderer.html',
     'content-features.js',
     'content-feature-chunks/*.js',
 ] as const;
@@ -26,6 +25,7 @@ const safariWebAccessibleResources = [
 export const extensionAssets = {
     contentEntry: 'content.js',
     contentFeaturesEntry: 'content-features.js',
+    exportRendererPath: 'export-renderer.html',
     formulaSnippetCatalog: 'vendor/latex-workshop/formula-snippets.json',
     backgroundEntry: 'background.js',
     popupPath: 'src/popup/popup.html',

@@ -1,5 +1,9 @@
 import { logger } from '../../../core/logger';
-import { extractLatexSource } from '../../../core/latex/extractLatexSource';
+import {
+    extractAuthoritativeLatexSource,
+    extractLatexSource,
+} from '../../../core/latex/extractLatexSource';
+import type { FormulaSource } from '../../../core/math/formulaAssetTypes';
 import { copyTextToClipboard } from '../clipboard/clipboard';
 import { getDocumentTooltipDelegate, showEphemeralTooltip } from '../../../utils/tooltip';
 import type { MarkdownParserAdapter } from '../adapters/parser/MarkdownParserAdapter';
@@ -52,7 +56,13 @@ type ListenerRecord = {
 export type MathFormulaHoverContext = {
     element: Element;
     anchor: HTMLElement;
-    source: string;
+    source: FormulaSource;
+    displayMode: boolean;
+};
+
+type ResolvedFormula = {
+    texSource: string;
+    assetSource: FormulaSource;
     displayMode: boolean;
 };
 
@@ -405,7 +415,7 @@ export class MathClickHandler {
         this.options.onFormulaHoverEnter({
             element,
             anchor,
-            source: formula.source,
+            source: formula.assetSource,
             displayMode: formula.displayMode,
         });
     }
@@ -418,7 +428,7 @@ export class MathClickHandler {
         }
 
         const success = await copyTextToClipboard(formatFormulaClickCopySource(
-            formula.source,
+            formula.texSource,
             formula.displayMode,
             normalizeFormulaSourceFormat(this.options.clickCopyFormulaFormat ?? DEFAULT_FORMULA_SOURCE_FORMAT),
         ));
@@ -430,7 +440,7 @@ export class MathClickHandler {
         }
     }
 
-    private resolveFormula(element: Element): { source: string; displayMode: boolean } | null {
+    private resolveFormula(element: Element): ResolvedFormula | null {
         const adapter = this.options.parserAdapter;
         if (adapter && element instanceof HTMLElement) {
             try {
@@ -438,7 +448,8 @@ export class MathClickHandler {
                 const source = result?.latex?.trim();
                 if (source) {
                     return {
-                        source,
+                        texSource: source,
+                        assetSource: this.resolveAssetSource(element, source),
                         displayMode: result?.isBlock ?? adapter.isBlockMath(element),
                     };
                 }
@@ -452,9 +463,17 @@ export class MathClickHandler {
         const source = extractLatexSource(element);
         if (!source) return null;
         return {
-            source,
+            texSource: source,
+            assetSource: this.resolveAssetSource(element, source),
             displayMode: isDisplayMathElement(element),
         };
+    }
+
+    private resolveAssetSource(element: Element, extractedSource: string): FormulaSource {
+        const authoritative = extractAuthoritativeLatexSource(element)?.trim();
+        return authoritative && authoritative === extractedSource.trim()
+            ? { kind: 'tex', value: authoritative, confidence: 'authoritative' }
+            : { kind: 'dom-only', sourceElement: element };
     }
 
     private showCopyFeedback(element: HTMLElement): void {

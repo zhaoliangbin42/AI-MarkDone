@@ -10,6 +10,8 @@ vi.mock('@/services/math/formulaAssetActions', () => ({
 import { FormulaAssetHoverController } from '@/ui/content/controllers/FormulaAssetHoverController';
 import { runFormulaAssetAction } from '@/services/math/formulaAssetActions';
 
+const createController = () => new FormulaAssetHoverController({ runFormulaAssetAction });
+
 describe('FormulaAssetHoverController', () => {
     afterEach(() => {
         document.querySelector('.aimd-toolbar-hover-action-host')?.remove();
@@ -29,7 +31,7 @@ describe('FormulaAssetHoverController', () => {
         `;
         document.body.appendChild(container);
 
-        const controller = new FormulaAssetHoverController();
+        const controller = createController();
         controller.enable(container);
 
         const target = container.querySelector('.katex') as HTMLElement;
@@ -55,7 +57,7 @@ describe('FormulaAssetHoverController', () => {
         `;
         document.body.appendChild(container);
 
-        const controller = new FormulaAssetHoverController();
+        const controller = createController();
         controller.setFormulaSettings({
             clickCopyMarkdown: true,
             clickCopyFormulaFormat: 'markdown-dollar',
@@ -105,10 +107,14 @@ describe('FormulaAssetHoverController', () => {
         await Promise.resolve();
         expect(runFormulaAssetAction).toHaveBeenCalledWith({
             action: 'copy_svg',
-            source: 'x_1 + y',
+            source: {
+                kind: 'tex',
+                value: 'x_1 + y',
+                confidence: 'authoritative',
+            },
             displayMode: false,
-            sourceElement: container.querySelector('.math-inline'),
             fontSizePx: 44,
+            foregroundColor: expect.any(String),
         });
         actionResolver?.({ ok: true, status: 'copied' });
         await Promise.resolve();
@@ -129,7 +135,7 @@ describe('FormulaAssetHoverController', () => {
         `;
         document.body.appendChild(container);
 
-        const controller = new FormulaAssetHoverController();
+        const controller = createController();
         controller.setFormulaSettings({
             clickCopyMarkdown: true,
             clickCopyFormulaFormat: 'markdown-dollar',
@@ -163,6 +169,46 @@ describe('FormulaAssetHoverController', () => {
         container.remove();
     });
 
+    it('passes heuristic formula text to the DOM-only compatibility path', async () => {
+        vi.useFakeTimers();
+        const container = document.createElement('div');
+        container.innerHTML = '<span class="katex-error">\\unknown{x}</span>';
+        document.body.appendChild(container);
+        const controller = createController();
+        controller.setFormulaSettings({
+            clickCopyMarkdown: true,
+            clickCopyFormulaFormat: 'markdown-dollar',
+            markdownCopyFormulaFormat: 'markdown-dollar',
+            assetFontSizePx: 36,
+            assetActions: {
+                copyPng: false,
+                copySvg: true,
+                copyMathml: false,
+                savePng: false,
+                saveSvg: false,
+            },
+        });
+        controller.enable(container);
+
+        const target = container.querySelector('.katex-error') as HTMLElement;
+        target.dispatchEvent(new MouseEvent('mouseenter', { bubbles: true }));
+        await vi.advanceTimersByTimeAsync(100);
+        document.querySelector<HTMLElement>('.aimd-toolbar-hover-action-host')
+            ?.shadowRoot
+            ?.querySelector<HTMLButtonElement>('[data-action="copy_formula_svg"]')
+            ?.click();
+        await Promise.resolve();
+
+        expect(runFormulaAssetAction).toHaveBeenCalledWith(expect.objectContaining({
+            action: 'copy_svg',
+            source: { kind: 'dom-only', sourceElement: target },
+        }));
+        actionResolver?.({ ok: false, code: 'SOURCE_UNAVAILABLE', message: 'Unavailable' });
+        await Promise.resolve();
+        controller.disable();
+        container.remove();
+    });
+
     it('filters hover actions through formula asset settings', async () => {
         vi.useFakeTimers();
         const container = document.createElement('div');
@@ -175,7 +221,7 @@ describe('FormulaAssetHoverController', () => {
         `;
         document.body.appendChild(container);
 
-        const controller = new FormulaAssetHoverController();
+        const controller = createController();
         controller.setFormulaSettings({
             clickCopyMarkdown: true,
             clickCopyFormulaFormat: 'markdown-dollar',
@@ -218,7 +264,7 @@ describe('FormulaAssetHoverController', () => {
         `;
         document.body.appendChild(container);
 
-        const controller = new FormulaAssetHoverController();
+        const controller = createController();
         controller.setFormulaSettings({
             clickCopyMarkdown: true,
             clickCopyFormulaFormat: 'markdown-dollar',

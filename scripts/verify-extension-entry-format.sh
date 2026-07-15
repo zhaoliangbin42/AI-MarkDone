@@ -18,14 +18,15 @@ else
   exit 1
 fi
 
-classic_files=("$dist_dir/background.js" "$dist_dir/content.js" "$dist_dir/formula-renderer.js")
-module_files=("$dist_dir/reader.js" "$dist_dir/content-features.js")
+classic_files=("$dist_dir/background.js" "$dist_dir/content.js" "$dist_dir/png-encoder-worker.js")
+module_files=("$dist_dir/reader.js" "$dist_dir/content-features.js" "$dist_dir/export-renderer.js")
 shopt -s nullglob
 module_files+=("$dist_dir"/content-feature-chunks/*.js)
+module_files+=("$dist_dir"/export-renderer-chunks/*.js)
 shopt -u nullglob
 
-if [[ "${#module_files[@]}" -lt 3 ]]; then
-  echo "Missing lazy content feature module graph in $dist_dir"
+if [[ "${#module_files[@]}" -lt 5 ]]; then
+  echo "Missing lazy content or export renderer module graph in $dist_dir"
   exit 1
 fi
 
@@ -78,7 +79,9 @@ const required_exports = [
   'createBookmarksPanel',
   'getSaveMessagesDialog',
   'getBookmarkSaveDialog',
-  'copyTurnsPng',
+  'copyMessagePng',
+  'runFormulaAssetAction',
+  'renderFormulaSvgAsset',
 ];
 for (const name of required_exports) {
   if (typeof featureModule[name] !== "function") {

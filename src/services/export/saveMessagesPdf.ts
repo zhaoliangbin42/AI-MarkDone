@@ -1,10 +1,11 @@
 import type { ChatTurn, ConversationMetadata, TranslateFn } from './saveMessagesTypes';
+import type { ExportDocumentV1 } from './imageExportContracts';
+import { buildMessageExportDocument } from './messageExportDocument';
 import {
     buildMessageDocument,
     buildScopedMarkdownCss,
     escapeExportHtml,
     renderMarkdownForPdfExport,
-    selectTurns,
     tokenCssAsScope,
     type ExportDocumentBuildOptions,
 } from './saveMessagesDocument';
@@ -25,9 +26,25 @@ export function buildPdfPrintPlan(
     t: TranslateFn,
     options?: BuildPdfPrintPlanOptions
 ): PdfPrintPlan | null {
-    const selected = selectTurns(turns, selectedIndices);
-    if (selected.length === 0) return null;
+    const document = buildMessageExportDocument(turns, selectedIndices, {
+        title: metadata.title,
+        labels: {
+            user: t('pdfUserLabel'),
+            assistant: t('pdfAssistantLabel'),
+        },
+        formatHeading: (ordinal) => t('pdfMessagePrefix', `${ordinal}`),
+    });
+    if (!document) return null;
 
+    return buildPdfPrintPlanFromDocument(document, metadata, t, options);
+}
+
+export function buildPdfPrintPlanFromDocument(
+    document: ExportDocumentV1,
+    metadata: ConversationMetadata,
+    t: TranslateFn,
+    options?: BuildPdfPrintPlanOptions,
+): PdfPrintPlan {
     const tokens = tokenCssAsScope('light', `#${CONTAINER_ID}`);
     const scopedMarkdownCss = buildScopedMarkdownCss(`#${CONTAINER_ID}`);
     const baseCss = `
@@ -114,17 +131,26 @@ ${scopedMarkdownCss}
 <style>${baseCss}</style>
 
 <div class="pdf-title-page">
-  <h1>${escapeExportHtml(metadata.title)}</h1>
+  <h1>${escapeExportHtml(document.title)}</h1>
   <div class="metadata">
     ${t('pdfExportedFrom', escapeExportHtml(metadata.platform))}<br>
     ${new Date(metadata.exportedAt).toLocaleString()}<br>
-    ${t('pdfMessagesCount', `${selected.length}`)}
+    ${t('pdfMessagesCount', `${document.sections.length}`)}
   </div>
 </div>
 `;
 
-    selected.forEach((msg, i) => {
-        html += buildMessageDocument(msg, i + 1, t, {
+    document.sections.forEach((section, index) => {
+        html += buildMessageDocument({
+            index: section.sourceIndex,
+            user: section.userText,
+            assistant: section.assistantMarkdown,
+        }, index + 1, (key, args) => {
+            if (key === 'pdfMessagePrefix') return section.heading;
+            if (key === 'pdfUserLabel') return document.labels.user;
+            if (key === 'pdfAssistantLabel') return document.labels.assistant;
+            return t(key, args);
+        }, {
             ...options,
             renderMarkdown: options?.renderMarkdown ?? renderMarkdownForPdfExport,
         }).html;

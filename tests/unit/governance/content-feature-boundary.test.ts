@@ -23,6 +23,8 @@ describe('content feature bundle boundary', () => {
             '../../ui/content/export/SaveMessagesDialog',
             '../../ui/content/bookmarks/save/bookmarkSaveDialogSingleton',
             '../../services/copy/copy-turn-png',
+            '../../../services/math/formulaAssetActions',
+            '../../../services/math/formulaAssetRenderer',
         ];
 
         for (const source of startupSources) {
@@ -49,6 +51,8 @@ describe('content feature bundle boundary', () => {
             '../../ui/content/export/SaveMessagesDialog',
             '../../ui/content/bookmarks/save/bookmarkSaveDialogSingleton',
             '../../services/copy/copy-turn-png',
+            '../../services/math/formulaAssetActions',
+            '../../services/math/formulaAssetRenderer',
         ];
 
         const imports = runtimeImportSpecifiers(source);
@@ -59,6 +63,8 @@ describe('content feature bundle boundary', () => {
         expect(source).toContain("await import('../../ui/content/bookmarks/BookmarksPanel')");
         expect(source).toContain("await import('../../ui/content/export/SaveMessagesDialog')");
         expect(source).toContain("await import('../../services/copy/copy-turn-png')");
+        expect(source).toContain("await import('../../services/math/formulaAssetActions')");
+        expect(source).toContain("await import('../../services/math/formulaAssetRenderer')");
     });
 
     it('makes the production entry gate execute and validate the feature facade exports', () => {
@@ -70,7 +76,9 @@ describe('content feature bundle boundary', () => {
             'createBookmarksPanel',
             'getSaveMessagesDialog',
             'getBookmarkSaveDialog',
-            'copyTurnsPng',
+            'copyMessagePng',
+            'runFormulaAssetAction',
+            'renderFormulaSvgAsset',
         ]) {
             expect(source).toContain(exportName);
         }

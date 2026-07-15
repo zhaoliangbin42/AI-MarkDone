@@ -60,7 +60,7 @@ import { SurfaceFocusLifecycle } from '../components/surfaceFocusLifecycle';
 import { TooltipDelegate, showEphemeralTooltip } from '../../../utils/tooltip';
 import { OverlaySession } from '../overlay/OverlaySession';
 import type { UserThemeOverrides } from '../../../style/tokens';
-import { getKatexCssWithRuntimeFontUrls, getKatexRuntimeFontFaceCss, hasKatexMarkup } from '../../../drivers/content/export/katexAssets';
+import { getKatexCssWithRuntimeFontUrls, getKatexRuntimeFontFaceCss, hasKatexMarkup } from '../../../core/export/katexAssets';
 import { ReaderCommentPopover } from './ReaderCommentPopover';
 import { ReaderCommentExportPopover } from './ReaderCommentExportPopover';
 import { ReaderCommentListPopover } from './ReaderCommentListPopover';

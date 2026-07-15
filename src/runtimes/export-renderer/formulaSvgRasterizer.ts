@@ -1,8 +1,15 @@
-import type { FormulaSvgAsset } from '../../../core/math/formulaAssetTypes';
+import type { FormulaSvgAsset } from '../../core/math/formulaAssetTypes';
 
 export type FormulaPngRasterizeOptions = {
     pixelRatio?: number;
     backgroundColor?: string;
+};
+
+export type FormulaPngRasterizeResult = {
+    blob: Blob;
+    widthPx: number;
+    heightPx: number;
+    effectivePixelRatio: number;
 };
 
 const DEFAULT_PIXEL_RATIO = 2;
@@ -51,22 +58,27 @@ function fitCanvasSize(width: number, height: number): RasterSize {
     return { width: nextWidth, height: nextHeight };
 }
 
-function resolveRasterSize(asset: FormulaSvgAsset, pixelRatio: number): RasterSize {
-    const sourceWidth = Math.max(1, asset.width);
-    const sourceHeight = Math.max(1, asset.height);
+function resolveRasterSize(width: number, height: number, pixelRatio: number): RasterSize {
+    const sourceWidth = Math.max(1, width);
+    const sourceHeight = Math.max(1, height);
     const dimensionRatio = SAFE_CANVAS_DIMENSION_LIMIT / Math.max(sourceWidth, sourceHeight);
     const areaRatio = Math.sqrt(SAFE_CANVAS_PIXEL_AREA_LIMIT / Math.max(1, sourceWidth * sourceHeight));
     const effectivePixelRatio = Math.min(pixelRatio, dimensionRatio, areaRatio);
-    const width = Math.ceil(sourceWidth * effectivePixelRatio);
-    const height = Math.ceil(sourceHeight * effectivePixelRatio);
-    return fitCanvasSize(width, height);
+    return fitCanvasSize(
+        Math.ceil(sourceWidth * effectivePixelRatio),
+        Math.ceil(sourceHeight * effectivePixelRatio),
+    );
 }
 
-export async function rasterizeFormulaSvgToPngBlob(
+export async function rasterizeFormulaSvgToPng(
     asset: FormulaSvgAsset,
     options: FormulaPngRasterizeOptions = {},
-): Promise<Blob> {
-    const { width, height } = resolveRasterSize(asset, requestedPixelRatio(options.pixelRatio));
+): Promise<FormulaPngRasterizeResult> {
+    const { width, height } = resolveRasterSize(
+        asset.width,
+        asset.height,
+        requestedPixelRatio(options.pixelRatio),
+    );
     const svgBlob = new Blob([asset.svg], { type: 'image/svg+xml' });
     const url = URL.createObjectURL(svgBlob);
 
@@ -84,8 +96,20 @@ export async function rasterizeFormulaSvgToPngBlob(
             context.clearRect(0, 0, width, height);
         }
         context.drawImage(image, 0, 0, width, height);
-        return await canvasToPngBlob(canvas);
+        return {
+            blob: await canvasToPngBlob(canvas),
+            widthPx: width,
+            heightPx: height,
+            effectivePixelRatio: Math.min(width / Math.max(1, asset.width), height / Math.max(1, asset.height)),
+        };
     } finally {
         URL.revokeObjectURL(url);
     }
+}
+
+export async function rasterizeFormulaSvgToPngBlob(
+    asset: FormulaSvgAsset,
+    options: FormulaPngRasterizeOptions = {},
+): Promise<Blob> {
+    return (await rasterizeFormulaSvgToPng(asset, options)).blob;
 }

@@ -1,4 +1,4 @@
-import { getKatexCssWithEmbeddedFonts, getKatexStylesheetHref, hasKatexMarkup } from './katexAssets';
+import { getKatexCssWithEmbeddedFonts, getKatexStylesheetHref, hasKatexMarkup } from '../../../core/export/katexAssets';
 
 export type PdfPrintPlan = {
     html: string;

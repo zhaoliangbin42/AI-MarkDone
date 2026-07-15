@@ -37,6 +37,29 @@ const BASIC_MARKDOWN_SAMPLE = [
 ].join('\n');
 
 describe('buildPdfPrintPlan (legacy parity structure)', () => {
+    it('applies the shared semantic selection contract before rendering PDF HTML', () => {
+        const turns: ChatTurn[] = [
+            { user: 'first-source-question', assistant: 'first answer', index: 10 },
+            { user: 'second-source-question', assistant: 'second answer', index: 11 },
+        ];
+        const meta: ConversationMetadata = {
+            url: 'https://chatgpt.com/c/1',
+            exportedAt: new Date('2026-03-01T00:00:00.000Z').toISOString(),
+            title: 'T',
+            count: 2,
+            platform: 'ChatGPT',
+        };
+
+        const plan = buildPdfPrintPlan(turns, [1, 0, 1], meta, t);
+
+        expect(plan).not.toBeNull();
+        expect(plan!.html.match(/class="message-section"/g)).toHaveLength(2);
+        expect(plan!.html.indexOf('first-source-question')).toBeLessThan(
+            plan!.html.indexOf('second-source-question'),
+        );
+        expect(plan!.html).toContain('pdfMessagesCount:2');
+    });
+
     it('includes cover page, per-message page breaks, and stable print container', () => {
         const turns: ChatTurn[] = [
             { user: '中文用户', assistant: '中文内容', index: 0 },

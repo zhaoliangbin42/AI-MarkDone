@@ -18,6 +18,7 @@ type RuntimeMetrics = {
     toolbarRecoveryMs: number;
     featureLoadMs: number;
     featureModuleRequestCount: number;
+    exportRendererRequestCount: number;
     toolbarCount: number;
     duplicateActionRows: number;
     shadowRootCount: number;
@@ -45,6 +46,13 @@ const FEATURE_LOAD_TIMEOUT_MS = 8_000;
 
 function isContentFeatureModuleUrl(url: string): boolean {
     return url.includes('/content-features.js') || url.includes('/content-feature-chunks/');
+}
+
+function isExportRendererUrl(url: string): boolean {
+    return url.includes('/export-renderer.html')
+        || url.includes('/export-renderer.js')
+        || url.includes('/export-renderer-chunks/')
+        || url.includes('/png-encoder-worker.js');
 }
 
 function readPositiveIntegerArg(name: string, fallback: number): number {
@@ -204,10 +212,12 @@ async function runRuntimeBenchmark(extensionPath: string, rounds: number, mutati
     try {
         const page = await preparePage(context, rounds);
         const featureModuleRequests = new Set<string>();
+        const exportRendererRequests = new Set<string>();
         featureNetworkSession = await context.newCDPSession(page);
         featureNetworkSession.on('Network.requestWillBeSent', (event) => {
             const url = event.request.url;
             if (isContentFeatureModuleUrl(url)) featureModuleRequests.add(url);
+            if (isExportRendererUrl(url)) exportRendererRequests.add(url);
         });
         await featureNetworkSession.send('Network.enable');
         page.on('pageerror', (error) => console.error(`[perf:pageerror] ${error.stack ?? error.message}`));
@@ -369,6 +379,9 @@ async function runRuntimeBenchmark(extensionPath: string, rounds: number, mutati
         if (featureModuleRequests.size > 0) {
             throw new Error(`Feature module loaded before an explicit user trigger: ${Array.from(featureModuleRequests).join(', ')}`);
         }
+        if (exportRendererRequests.size > 0) {
+            throw new Error(`Export renderer loaded without an image action: ${Array.from(exportRendererRequests).join(', ')}`);
+        }
 
         const featureLoadStartedAt = await page.evaluate(() => performance.now());
         await page.evaluate(() => {
@@ -389,12 +402,16 @@ async function runRuntimeBenchmark(extensionPath: string, rounds: number, mutati
         if (!requestedFeatureUrls.some((url) => url.includes('/content-features.js'))) {
             throw new Error('Explicit user trigger did not request content-features.js');
         }
+        if (exportRendererRequests.size > 0) {
+            throw new Error(`Bookmarks trigger loaded image-export assets: ${Array.from(exportRendererRequests).join(', ')}`);
+        }
 
         return {
             toolbarReadyMs,
             toolbarRecoveryMs,
             featureLoadMs,
             featureModuleRequestCount: featureModuleRequests.size,
+            exportRendererRequestCount: exportRendererRequests.size,
             ...finalMetrics,
             cold,
             idle,

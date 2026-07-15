@@ -19,11 +19,18 @@ vi.mock('html-to-image', () => ({
     toCanvas: mocks.toCanvas,
 }));
 
-vi.mock('@/drivers/content/export/katexAssets', () => ({
+vi.mock('@/core/export/katexAssets', () => ({
     getKatexCssWithEmbeddedFonts: mocks.getKatexCssWithEmbeddedFonts,
 }));
 
-import { renderFormulaDomPngBlob } from '@/drivers/content/export/renderFormulaDomAsset';
+import {
+    renderFormulaDomPngAsset,
+    type FormulaDomCaptureOptions,
+} from '@/drivers/content/export/renderFormulaDomAsset';
+
+async function renderFormulaDomPngBlob(options: FormulaDomCaptureOptions): Promise<Blob> {
+    return (await renderFormulaDomPngAsset(options)).blob;
+}
 
 describe('renderFormulaDomAsset', () => {
     beforeEach(() => {
@@ -47,9 +54,10 @@ describe('renderFormulaDomAsset', () => {
         expect(clone.style.fontSize).toBe('40px');
         expect(clone.innerHTML).toContain('中文');
         expect(clone.innerHTML).toContain('data-glyph="brace"');
+        expect((node as HTMLElement).parentElement?.querySelector('style')?.textContent).toContain('KaTeX_Main');
         expect(options).toMatchObject({
             cacheBust: true,
-            fontEmbedCSS: expect.stringContaining('KaTeX_Main'),
+            fontEmbedCSS: '',
         });
     });
 
@@ -68,7 +76,7 @@ describe('renderFormulaDomAsset', () => {
         expect(clone.style.fontSize).toBe('36px');
         expect(options).toMatchObject({
             cacheBust: true,
-            fontEmbedCSS: expect.stringContaining('KaTeX_Main'),
+            fontEmbedCSS: '',
             pixelRatio: 2,
         });
     });

@@ -33,6 +33,11 @@ const getAnnotationLatex = (element: Element): string | null => {
     return text || null;
 };
 
+export function extractAuthoritativeLatexSource(element: Element | null): string | null {
+    if (!element) return null;
+    return getClosestAttributeLatex(element) || getAnnotationLatex(element);
+}
+
 const getKatexErrorLatex = (element: Element): string | null => {
     const errorElement = element.classList.contains('katex-error')
         ? element
@@ -57,11 +62,8 @@ const getAccessibleLatex = (element: Element): string | null => {
 export function extractLatexSource(element: Element | null): string | null {
     if (!element) return null;
 
-    const attributeLatex = getClosestAttributeLatex(element);
-    if (attributeLatex) return attributeLatex;
-
-    const annotationLatex = getAnnotationLatex(element);
-    if (annotationLatex) return annotationLatex;
+    const authoritative = extractAuthoritativeLatexSource(element);
+    if (authoritative) return authoritative;
 
     const katexErrorLatex = getKatexErrorLatex(element);
     if (katexErrorLatex) return katexErrorLatex;

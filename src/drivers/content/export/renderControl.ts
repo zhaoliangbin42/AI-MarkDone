@@ -1,9 +1,3 @@
-export type RenderProgressEvent = {
-    phase: 'preparing' | 'loading_assets' | 'rendering' | 'rendering_chunk' | 'stitching' | 'encoding' | 'done';
-    completed?: number;
-    total?: number;
-};
-
 export class RenderAbortError extends Error {
     constructor(message = 'Operation cancelled.') {
         super(message);

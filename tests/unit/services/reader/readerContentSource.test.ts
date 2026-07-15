@@ -7,7 +7,8 @@ import {
 } from '@/services/reader/readerContentSource';
 import type { ReaderItem } from '@/services/reader/types';
 import { buildPdfPrintPlan } from '@/services/export/saveMessagesPdf';
-import { buildPngExportPlans } from '@/services/export/saveMessagesPng';
+import { buildMessageExportDocument } from '@/services/export/messageExportDocument';
+import { renderMessageCardProfile } from '@/services/export/messageCardProfile';
 
 vi.mock('@/services/reader/chatgptReaderItems', () => ({
     buildChatGPTReaderItems: vi.fn((snapshot: any, startTarget: any) => ({
@@ -272,7 +273,7 @@ describe('readerContentSource', () => {
         ]);
     });
 
-    it('keeps Reader markdown structures intact for PDF and PNG export plans', async () => {
+    it('keeps Reader markdown structures intact for PDF and the shared PNG profile', async () => {
         const turns = await readerItemsToChatTurns([
             {
                 id: 'r1',
@@ -301,14 +302,19 @@ describe('readerContentSource', () => {
         const t = (key: string, args?: unknown) => args == null ? key : `${key}:${String(args)}`;
 
         const pdfPlan = buildPdfPrintPlan(turns, [0], metadata, t);
-        const pngPlans = buildPngExportPlans(turns, [0], metadata, t);
+        const document = buildMessageExportDocument(turns, [0], {
+            title: metadata.title,
+            labels: { user: t('pdfUserLabel'), assistant: t('pdfAssistantLabel') },
+            formatHeading: (ordinal) => t('pdfMessagePrefix', `${ordinal}`),
+        });
+        const pngProfile = renderMessageCardProfile(document!, { widthCssPx: 800 });
 
         expect(pdfPlan?.html).toContain('<ul>');
         expect(pdfPlan?.html).toContain('<li>bullet');
         expect(pdfPlan?.html).toContain('<blockquote>');
         expect(pdfPlan?.html).toContain('class="tag"');
-        expect(pngPlans?.plans[0]?.html).toContain('<ul>');
-        expect(pngPlans?.plans[0]?.html).toContain('<li>nested</li>');
-        expect(pngPlans?.plans[0]?.html).toContain('class="tag"');
+        expect(pngProfile.html).toContain('<ul>');
+        expect(pngProfile.html).toContain('<li>nested</li>');
+        expect(pngProfile.html).toContain('class="tag"');
     });
 });

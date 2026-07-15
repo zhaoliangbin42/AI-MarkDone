@@ -39,11 +39,9 @@ import {
     type MarkdownTextSelection,
     type MarkdownListCapabilities,
 } from '../../../core/sending/markdownAuthoring';
-import {
-    prewarmFormulaRenderer,
-    renderFormulaSvgAsset,
-    type FormulaRenderOptions,
-    type FormulaSvgAsset,
+import type {
+    FormulaRenderOptions,
+    FormulaSvgAsset,
 } from '../../../services/math/formulaAssetRenderer';
 import { loadLatexSnippetCatalog } from '../../../services/math/latexSnippetCatalog';
 import type { UserThemeOverrides } from '../../../style/tokens';
@@ -586,7 +584,7 @@ export class ChatGPTComposerEditingController {
             return;
         }
         const requestId = ++this.formulaRequestId;
-        if (previewEnabled) (this.options.prewarmFormula ?? prewarmFormulaRenderer)();
+        if (previewEnabled) this.options.prewarmFormula?.();
 
         let suggestions: LatexSnippetItem[] = [];
         if (suggestionsEnabled && token) {
@@ -614,7 +612,8 @@ export class ChatGPTComposerEditingController {
         if (!previewEnabled) return;
 
         try {
-            const asset = await (this.options.renderFormula ?? renderFormulaSvgAsset)({
+            if (!this.options.renderFormula) throw new Error('Formula preview renderer is unavailable.');
+            const asset = await this.options.renderFormula({
                 source,
                 displayMode: math.kind === 'display',
             });

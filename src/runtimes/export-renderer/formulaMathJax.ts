@@ -31,14 +31,8 @@ import '@mathjax/src/js/input/tex/units/UnitsConfiguration.js';
 import '@mathjax/src/js/input/tex/upgreek/UpgreekConfiguration.js';
 import '@mathjax/src/js/input/tex/verb/VerbConfiguration.js';
 import type { FormulaMathmlAsset, FormulaSvgAsset } from '../../core/math/formulaAssetTypes';
-import {
-    FORMULA_RENDERER_REQUEST_TYPE,
-    FORMULA_RENDERER_RESPONSE_TYPE,
-    type FormulaRendererRequest,
-    type FormulaRendererResponse,
-} from '../../core/math/formulaRendererProtocol';
 
-type MathDocumentLike = {
+type MathJaxDocumentLike = {
     convert: (source: string, options: { display?: boolean; end?: number }) => Element | unknown;
     convertPromise: (source: string, options: { display?: boolean; end?: number }) => Promise<Element | unknown>;
 };
@@ -49,6 +43,13 @@ type NewcmDynamicFontFile = {
 
 type NewcmFontClassWithDynamicFiles = {
     dynamicFiles: Record<string, NewcmDynamicFontFile>;
+};
+
+export type FormulaCapabilityRenderRequest = {
+    source: string;
+    displayMode: boolean;
+    fontSizePx: number;
+    foregroundColor?: string;
 };
 
 const PRELOADED_NEWCM_DYNAMIC_FILES = ['calligraphic', 'double-struck', 'script'];
@@ -118,7 +119,7 @@ svg.measureText = (text, variant, cssFont) => {
 const html = mathjax.document('', {
     InputJax: tex,
     OutputJax: svg,
-}) as unknown as MathDocumentLike;
+}) as unknown as MathJaxDocumentLike;
 const mathmlVisitor = new SerializedMmlVisitor();
 
 function createMeasurementRoot(fontSizePx: number): HTMLElement {
@@ -262,7 +263,13 @@ function removeInvalidSvgNumbers(svgElement: SVGSVGElement): void {
     });
 }
 
-function sanitizeSvg(svgElement: SVGSVGElement, width: number, height: number, viewBox: string): string {
+function sanitizeSvg(
+    svgElement: SVGSVGElement,
+    width: number,
+    height: number,
+    viewBox: string,
+    foregroundColor: string,
+): string {
     const clone = svgElement.cloneNode(true) as SVGSVGElement;
     removeInvalidSvgNumbers(clone);
     clone.querySelectorAll('text').forEach((text) => {
@@ -270,7 +277,7 @@ function sanitizeSvg(svgElement: SVGSVGElement, width: number, height: number, v
     });
     clone.querySelectorAll<SVGElement>('[stroke="currentColor"], [fill="currentColor"], [color="currentColor"]').forEach((element) => {
         for (const attribute of ['stroke', 'fill', 'color']) {
-            if (element.getAttribute(attribute) === 'currentColor') element.setAttribute(attribute, '#000000');
+            if (element.getAttribute(attribute) === 'currentColor') element.setAttribute(attribute, foregroundColor);
         }
     });
     clone.removeAttribute('xmlns');
@@ -297,7 +304,7 @@ function getTopLevelSvgElement(root: HTMLElement): SVGSVGElement | null {
     return directSvgElements[0] ?? null;
 }
 
-async function renderFormulaSvgAsset(request: FormulaRendererRequest): Promise<FormulaSvgAsset> {
+export async function renderFormulaSvgAsset(request: FormulaCapabilityRenderRequest): Promise<FormulaSvgAsset> {
     const source = request.source.trim();
     if (!source) throw new Error('Formula source is empty.');
     const fontSizePx = Number.isFinite(request.fontSizePx) && request.fontSizePx > 0
@@ -324,7 +331,13 @@ async function renderFormulaSvgAsset(request: FormulaRendererRequest): Promise<F
             width: paddedViewport.width,
             height: paddedViewport.height,
             viewBox: paddedViewport.viewBox,
-            svg: sanitizeSvg(svgElement, paddedViewport.width, paddedViewport.height, paddedViewport.viewBox),
+            svg: sanitizeSvg(
+                svgElement,
+                paddedViewport.width,
+                paddedViewport.height,
+                paddedViewport.viewBox,
+                request.foregroundColor || '#000000',
+            ),
         };
     } finally {
         root.remove();
@@ -335,7 +348,7 @@ function ensureMathmlNamespace(mathml: string): string {
     return mathml.replace(/^<math\b(?![^>]*\sxmlns=)/, '<math xmlns="http://www.w3.org/1998/Math/MathML"');
 }
 
-async function renderFormulaMathmlAsset(request: FormulaRendererRequest): Promise<FormulaMathmlAsset> {
+export async function renderFormulaMathmlAsset(request: FormulaCapabilityRenderRequest): Promise<FormulaMathmlAsset> {
     const source = request.source.trim();
     if (!source) throw new Error('Formula source is empty.');
     const root = await html.convertPromise(source, { display: request.displayMode, end: STATE.COMPILED });
@@ -346,32 +359,3 @@ async function renderFormulaMathmlAsset(request: FormulaRendererRequest): Promis
         mathml,
     };
 }
-
-window.addEventListener('message', (event: MessageEvent) => {
-    const request = event.data as Partial<FormulaRendererRequest>;
-    if (request?.type !== FORMULA_RENDERER_REQUEST_TYPE || typeof request.id !== 'string') return;
-    const renderRequest = request as FormulaRendererRequest;
-    const requestId = request.id;
-
-    void (async () => {
-        let response: FormulaRendererResponse;
-        try {
-            response = {
-                type: FORMULA_RENDERER_RESPONSE_TYPE,
-                id: requestId,
-                ok: true,
-                asset: renderRequest.format === 'mathml'
-                    ? await renderFormulaMathmlAsset(renderRequest)
-                    : await renderFormulaSvgAsset(renderRequest),
-            };
-        } catch (error: any) {
-            response = {
-                type: FORMULA_RENDERER_RESPONSE_TYPE,
-                id: requestId,
-                ok: false,
-                message: error?.message || 'Formula render failed.',
-            };
-        }
-        event.source?.postMessage(response, { targetOrigin: event.origin || '*' });
-    })();
-});

@@ -113,6 +113,7 @@ vi.mock('@/runtimes/content/lazyContentFeatures', () => ({
         toggle: mocks.bookmarksPanelToggle,
         hide: mocks.bookmarksPanelHide,
     })),
+    createLazyRunFormulaAssetAction: vi.fn(() => vi.fn()),
 }));
 
 import {

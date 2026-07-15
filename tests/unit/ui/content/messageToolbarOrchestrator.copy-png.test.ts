@@ -1,7 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 vi.mock('@/services/copy/copy-turn-png', () => ({
-    copyTurnsPng: vi.fn(async () => ({ ok: true, noop: false })),
+    copyMessagePng: vi.fn(async () => ({ ok: true, noop: false })),
 }));
 
 vi.mock('@/drivers/content/clipboard/clipboard', () => ({
@@ -27,7 +27,7 @@ vi.mock('@/services/reader/readerContentSource', () => ({
 }));
 
 import { copyTextToClipboard } from '@/drivers/content/clipboard/clipboard';
-import { copyTurnsPng } from '@/services/copy/copy-turn-png';
+import { copyMessagePng } from '@/services/copy/copy-turn-png';
 import { collectFreshCurrentReaderItem } from '@/services/reader/readerContentSource';
 import { SiteAdapter, type ThemeDetector } from '@/drivers/content/adapters/base';
 import { MessageToolbarOrchestrator } from '@/ui/content/controllers/MessageToolbarOrchestrator';
@@ -106,7 +106,7 @@ describe('MessageToolbarOrchestrator Copy PNG', () => {
 
         const orchestrator = new MessageToolbarOrchestrator(new TestAdapter(), {
             readerPanel: { show: vi.fn(), setTheme: vi.fn(), isShowingConversationReader: vi.fn(() => false) } as any,
-            copyTurnsPng: vi.mocked(copyTurnsPng),
+            copyMessagePng: vi.mocked(copyMessagePng),
         }) as any;
         const assistant = document.querySelector('.assistant-message') as HTMLElement;
         const actions = orchestrator.getActionsForMessage(assistant, () => null);
@@ -119,9 +119,8 @@ describe('MessageToolbarOrchestrator Copy PNG', () => {
 
         expect(collectFreshCurrentReaderItem).toHaveBeenCalledTimes(1);
         expect(copyTextToClipboard).toHaveBeenCalledWith('Fresh answer');
-        expect(copyTurnsPng).toHaveBeenCalledWith(
-            [{ user: 'Prompt', assistant: 'Fresh answer', index: 0 }],
-            [0],
+        expect(copyMessagePng).toHaveBeenCalledWith(
+            { user: 'Prompt', assistant: 'Fresh answer', index: 0 },
             expect.any(Object),
             expect.any(Object),
         );
@@ -142,7 +141,7 @@ describe('MessageToolbarOrchestrator Copy PNG', () => {
 
         const orchestrator = new MessageToolbarOrchestrator(new TestAdapter(), {
             readerPanel: { show: vi.fn(), setTheme: vi.fn(), isShowingConversationReader: vi.fn(() => false) } as any,
-            copyTurnsPng: vi.mocked(copyTurnsPng),
+            copyMessagePng: vi.mocked(copyMessagePng),
         }) as any;
         const assistant = document.querySelector('.assistant-message') as HTMLElement;
         const content = assistant.querySelector('.content') as HTMLElement;
@@ -180,7 +179,7 @@ describe('MessageToolbarOrchestrator Copy PNG', () => {
 
         const orchestrator = new MessageToolbarOrchestrator(new TestAdapter(), {
             readerPanel: { show: vi.fn(), setTheme: vi.fn() } as any,
-            copyTurnsPng: vi.mocked(copyTurnsPng),
+            copyMessagePng: vi.mocked(copyMessagePng),
         }) as any;
         orchestrator.setExportSettings({ pngWidthPreset: 'tablet', pngCustomWidth: 920, pngPixelRatio: 2.5 });
         orchestrator.getUserPromptForElement = vi.fn(() => 'Prompt');
@@ -193,9 +192,8 @@ describe('MessageToolbarOrchestrator Copy PNG', () => {
         const onProgress = vi.fn();
         await copyAction.hoverAction.onClick({ signal: abort.signal, onProgress });
 
-        expect(copyTurnsPng).toHaveBeenCalledWith(
-            [{ user: 'Prompt', assistant: 'Fresh answer', index: 0 }],
-            [0],
+        expect(copyMessagePng).toHaveBeenCalledWith(
+            { user: 'Prompt', assistant: 'Fresh answer', index: 0 },
             expect.objectContaining({ title: 'PNG Width Test', count: 1 }),
             expect.objectContaining({
                 png: { width: 640, pixelRatio: 2.5 },
@@ -217,14 +215,14 @@ describe('MessageToolbarOrchestrator Copy PNG', () => {
           </div>
         `;
 
-        vi.mocked(copyTurnsPng).mockImplementationOnce(async (_turns, _selected, _metadata, options: any) => {
-            options.onProgress({ phase: 'rendering_chunk', completed: 2, total: 4 });
+        vi.mocked(copyMessagePng).mockImplementationOnce(async (_turn, _metadata, options: any) => {
+            options.onProgress({ phase: 'rasterizing', completed: 2, total: 4 });
             return { ok: true, noop: false };
         });
 
         const orchestrator = new MessageToolbarOrchestrator(new TestAdapter(), {
             readerPanel: { show: vi.fn(), setTheme: vi.fn() } as any,
-            copyTurnsPng: vi.mocked(copyTurnsPng),
+            copyMessagePng: vi.mocked(copyMessagePng),
         }) as any;
         orchestrator.getUserPromptForElement = vi.fn(() => 'Prompt');
 
@@ -252,7 +250,7 @@ describe('MessageToolbarOrchestrator Copy PNG', () => {
           </div>
         `;
 
-        vi.mocked(copyTurnsPng).mockResolvedValueOnce({
+        vi.mocked(copyMessagePng).mockResolvedValueOnce({
             ok: false,
             cancelled: true,
             error: {
@@ -263,7 +261,7 @@ describe('MessageToolbarOrchestrator Copy PNG', () => {
 
         const orchestrator = new MessageToolbarOrchestrator(new TestAdapter(), {
             readerPanel: { show: vi.fn(), setTheme: vi.fn() } as any,
-            copyTurnsPng: vi.mocked(copyTurnsPng),
+            copyMessagePng: vi.mocked(copyMessagePng),
         }) as any;
         orchestrator.getUserPromptForElement = vi.fn(() => 'Prompt');
 

@@ -1,5 +1,3 @@
-import { browser } from '../../shared/browser';
-
 export type KatexEmbeddedCssResult = {
     mode: 'none' | 'data-url';
     css: string;
@@ -29,13 +27,9 @@ function getRuntimeUrl(path: string): string {
         const url = runtime?.getURL?.(path);
         if (typeof url === 'string' && url) return url;
     } catch {
-        // Fall through to the shared browser adapter.
+        // Relative extension-origin paths remain valid inside the renderer and content bundles.
     }
-    try {
-        return browser.runtime.getURL(path);
-    } catch {
-        return path;
-    }
+    return path;
 }
 
 export function getKatexStylesheetHref(): string {

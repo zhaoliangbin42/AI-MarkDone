@@ -355,7 +355,9 @@ vi.mock('@/runtimes/content/lazyContentFeatures', () => ({
         setTheme: bookmarkSaveDialogSetTheme,
         setThemeOverrides: bookmarkSaveDialogSetThemeOverrides,
     })),
-    createLazyCopyTurnsPng: vi.fn(() => vi.fn(async () => ({ ok: true, noop: false }))),
+    createLazyCopyMessagePng: vi.fn(() => vi.fn(async () => ({ ok: true, noop: false }))),
+    createLazyRunFormulaAssetAction: vi.fn(() => vi.fn(async () => ({ ok: true, status: 'copied' }))),
+    createLazyRenderFormulaSvgAsset: vi.fn(() => vi.fn()),
 }));
 
 vi.mock('@/ui/content/bookmarks/save/bookmarkSaveDialogSingleton', () => ({

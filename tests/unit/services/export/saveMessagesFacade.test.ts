@@ -6,10 +6,20 @@ vi.mock('../../../../src/drivers/content/export/downloadFile', () => ({
 vi.mock('../../../../src/drivers/content/export/printPdf', () => ({
     printPdf: vi.fn(),
 }));
-vi.mock('../../../../src/drivers/content/export/renderPng', () => ({
-    renderPngBlob: vi.fn(async (plan: any) => {
-        plan.onProgress?.({ phase: 'rendering_chunk', completed: 1, total: 3 });
-        return new Blob([plan.filename], { type: 'image/png' });
+vi.mock('../../../../src/services/export/messagePngRenderer', () => ({
+    renderMessageDocumentPng: vi.fn(async (_document: any, _settings: any, execution: any) => {
+        execution.onProgress?.({ phase: 'rasterizing', completed: 1, total: 3 });
+        return [{
+            metadata: {
+                mimeType: 'image/png',
+                widthPx: 800,
+                heightPx: 1200,
+                effectivePixelRatio: 1,
+                partNumber: 1,
+                partCount: 1,
+            },
+            blob: new Blob(['png'], { type: 'image/png' }),
+        }];
     }),
 }));
 vi.mock('../../../../src/drivers/content/export/downloadBlob', () => ({
@@ -21,9 +31,9 @@ vi.mock('../../../../src/drivers/content/export/zipBlobs', () => ({
 
 import { downloadText } from '../../../../src/drivers/content/export/downloadFile';
 import { downloadBlob } from '../../../../src/drivers/content/export/downloadBlob';
-import { renderPngBlob } from '../../../../src/drivers/content/export/renderPng';
 import { zipBlobs } from '../../../../src/drivers/content/export/zipBlobs';
 import { exportTurnsMarkdown, exportTurnsPng } from '../../../../src/services/export/saveMessagesFacade';
+import { renderMessageDocumentPng } from '../../../../src/services/export/messagePngRenderer';
 import type { ChatTurn, ConversationMetadata } from '../../../../src/services/export/saveMessagesTypes';
 
 function t(key: string, args?: any): string {
@@ -96,21 +106,51 @@ describe('exportTurnsPng', () => {
         expect(zipBlobs).not.toHaveBeenCalled();
     });
 
-    it('packages multiple selected PNG files into a ZIP download', async () => {
+    it('renders multiple selected messages once and downloads one long PNG', async () => {
         vi.mocked(downloadBlob).mockClear();
         vi.mocked(zipBlobs).mockClear();
+        vi.mocked(renderMessageDocumentPng).mockClear();
 
         const res = await exportTurnsPng(turns, [0, 1], metadata, { t });
 
         expect(res.ok).toBe(true);
         expect(res.noop).toBe(false);
-        expect(zipBlobs).toHaveBeenCalledTimes(1);
-        expect(vi.mocked(zipBlobs).mock.calls[0][0].files).toHaveLength(2);
+        expect(renderMessageDocumentPng).toHaveBeenCalledTimes(1);
+        expect(vi.mocked(renderMessageDocumentPng).mock.calls[0][0].sections).toHaveLength(2);
+        expect(zipBlobs).not.toHaveBeenCalled();
         expect(downloadBlob).toHaveBeenCalledTimes(1);
-        expect(vi.mocked(downloadBlob).mock.calls[0][0].filename).toBe('PNG_Export-png.zip');
+        expect(vi.mocked(downloadBlob).mock.calls[0][0].filename).toBe('PNG_Export-messages.png');
     });
 
-    it('reports PNG progress across plan preparation, rendering, zipping, and download', async () => {
+    it('packages only hard-limit multipart artifacts into a ZIP download', async () => {
+        vi.mocked(downloadBlob).mockClear();
+        vi.mocked(zipBlobs).mockClear();
+        vi.mocked(renderMessageDocumentPng).mockResolvedValueOnce([1, 2].map((partNumber) => ({
+            metadata: {
+                mimeType: 'image/png' as const,
+                widthPx: 800,
+                heightPx: 60_000,
+                effectivePixelRatio: 1,
+                partNumber,
+                partCount: 2,
+            },
+            blob: new Blob([`part-${partNumber}`], { type: 'image/png' }),
+        })));
+
+        const res = await exportTurnsPng(turns, [0, 1], metadata, { t });
+
+        expect(res.ok).toBe(true);
+        expect(zipBlobs).toHaveBeenCalledWith({
+            files: [
+                expect.objectContaining({ filename: 'PNG_Export-part-001-of-2.png' }),
+                expect.objectContaining({ filename: 'PNG_Export-part-002-of-2.png' }),
+            ],
+            signal: undefined,
+        });
+        expect(downloadBlob).toHaveBeenCalledWith(expect.objectContaining({ filename: 'PNG_Export-png.zip' }));
+    });
+
+    it('reports one render job followed by the final download', async () => {
         vi.mocked(downloadBlob).mockClear();
         vi.mocked(zipBlobs).mockClear();
         const progress: string[] = [];
@@ -122,20 +162,14 @@ describe('exportTurnsPng', () => {
 
         expect(res.ok).toBe(true);
         expect(progress).toEqual([
-            'preparing:0/2',
-            'rendering:0/2',
-            'rendering:0/2',
-            'rendering:1/2',
-            'rendering:1/2',
-            'rendering:1/2',
-            'rendering:2/2',
-            'zipping:2/2',
-            'downloading:2/2',
-            'done:2/2',
+            'preparing:0/1',
+            'rendering:1/3',
+            'downloading:1/1',
+            'done:1/1',
         ]);
     });
 
-    it('reports current message PNG render progress inside the total export progress event', async () => {
+    it('reports renderer progress without a second per-message progress model', async () => {
         const progress: any[] = [];
 
         const res = await exportTurnsPng(turns, [0], metadata, {
@@ -144,22 +178,31 @@ describe('exportTurnsPng', () => {
         });
 
         expect(res.ok).toBe(true);
-        expect(progress).toContainEqual(expect.objectContaining({
+        expect(progress).toContainEqual({
             phase: 'rendering',
-            completed: 0,
-            total: 1,
-            filename: 'PNG_Export-message-001.png',
-            current: { phase: 'rendering_chunk', completed: 1, total: 3 },
-        }));
+            completed: 1,
+            total: 3,
+        });
+        expect(progress.some((event) => 'current' in event)).toBe(false);
     });
 
     it('cancels PNG export before downloading when the abort signal fires', async () => {
         vi.mocked(downloadBlob).mockClear();
         const abort = new AbortController();
-        vi.mocked(renderPngBlob).mockImplementationOnce(async (plan: any) => {
-            plan.onProgress?.({ phase: 'rendering_chunk', completed: 1, total: 2 });
+        vi.mocked(renderMessageDocumentPng).mockImplementationOnce(async (_document, _settings, execution) => {
+            execution.onProgress?.({ phase: 'rasterizing', completed: 1, total: 2 });
             abort.abort();
-            return new Blob([plan.filename], { type: 'image/png' });
+            return [{
+                metadata: {
+                    mimeType: 'image/png',
+                    widthPx: 800,
+                    heightPx: 1200,
+                    effectivePixelRatio: 1,
+                    partNumber: 1,
+                    partCount: 1,
+                },
+                blob: new Blob(['png'], { type: 'image/png' }),
+            }];
         });
 
         const res = await exportTurnsPng(turns, [0], metadata, {

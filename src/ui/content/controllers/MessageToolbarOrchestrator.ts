@@ -14,7 +14,7 @@ import { ScanScheduler } from '../../../drivers/content/injection/scanScheduler'
 import { logger } from '../../../core/logger';
 import { copyMarkdownFromMessage } from '../../../services/copy/copy-markdown';
 import { copyMarkdownFromTurn } from '../../../services/copy/copy-turn-markdown';
-import type { copyTurnsPng } from '../../../services/copy/copy-turn-png';
+import type { copyMessagePng } from '../../../services/copy/copy-turn-png';
 import { buildConversationMetadata } from '../../../drivers/content/conversation/metadata';
 import {
     isCopyPngDebugEnabled,
@@ -22,7 +22,7 @@ import {
     nowMs,
     type CopyPngDebugEvent,
 } from '../../../services/copy/copy-png-debug';
-import type { RenderProgressEvent } from '../../../drivers/content/export/renderControl';
+import type { ImageExportProgressEvent } from '../../../services/export/imageExportContracts';
 import { collectConversationTurnRefs, type ConversationTurnRef } from '../../../drivers/content/conversation/collectConversationTurnRefs';
 import { buildReaderItemFromTurn, stripHash as stripReaderUrl } from '../../../services/reader/collectReaderItems';
 import { collectFreshCurrentReaderItem, collectFreshReaderContent } from '../../../services/reader/readerContentSource';
@@ -149,7 +149,7 @@ export class MessageToolbarOrchestrator {
     private intentionallyRemovedToolbarHosts = new WeakSet<HTMLElement>();
     private readonly saveMessagesDialog: SaveMessagesDialogPort | null;
     private readonly bookmarkSaveDialog: BookmarkSaveDialogPort | null;
-    private readonly copyTurnsPng: typeof copyTurnsPng | null;
+    private readonly copyMessagePng: typeof copyMessagePng | null;
 
     private rebuildTurnIndex(): void {
         try {
@@ -534,7 +534,7 @@ export class MessageToolbarOrchestrator {
             chatGptConversationEngine?: ChatGPTConversationEngine;
             saveMessagesDialog?: SaveMessagesDialogPort;
             bookmarkSaveDialog?: BookmarkSaveDialogPort;
-            copyTurnsPng?: typeof copyTurnsPng;
+            copyMessagePng?: typeof copyMessagePng;
         }
     ) {
         this.adapter = adapter;
@@ -544,7 +544,7 @@ export class MessageToolbarOrchestrator {
         this.chatGptConversationEngine = opts.chatGptConversationEngine ?? null;
         this.saveMessagesDialog = opts.saveMessagesDialog ?? null;
         this.bookmarkSaveDialog = opts.bookmarkSaveDialog ?? null;
-        this.copyTurnsPng = opts.copyTurnsPng ?? null;
+        this.copyMessagePng = opts.copyMessagePng ?? null;
     }
 
     private getBookmarkPageUrl(): string {
@@ -819,7 +819,7 @@ export class MessageToolbarOrchestrator {
                 return ok ? { ok: true, message: t('btnCopied') } : { ok: false, message: t('clipboardWriteFailed') };
             },
         };
-        if (targetSurfacePolicy.binaryClipboardCopyActions && this.copyTurnsPng) {
+        if (targetSurfacePolicy.binaryClipboardCopyActions && this.copyMessagePng) {
             copyMarkdownAction.hoverAction = {
                 id: 'copy_png',
                 label: t('btnCopyAsPng'),
@@ -867,7 +867,7 @@ export class MessageToolbarOrchestrator {
                         selectedIndex: currentTurn.index,
                         turnCount: 1,
                     });
-                    const result = await this.copyTurnsPng!([currentTurn], [0], metadata, {
+                    const result = await this.copyMessagePng!(currentTurn, metadata, {
                         t: (key: string, args?: unknown) => {
                             if (typeof args === 'string' || Array.isArray(args)) return t(key, args);
                             return t(key);
@@ -1591,7 +1591,7 @@ export class MessageToolbarOrchestrator {
         }
     }
 
-    private formatCopyPngProgress(event: RenderProgressEvent): {
+    private formatCopyPngProgress(event: ImageExportProgressEvent): {
         label: string;
         completed?: number;
         total?: number;
@@ -1605,9 +1605,11 @@ export class MessageToolbarOrchestrator {
         switch (event.phase) {
             case 'preparing':
                 return { label: t('pngExportPreparing', base), value: 0, indeterminate: false };
-            case 'loading_assets':
+            case 'queued':
+            case 'compiling':
+            case 'layout':
                 return { label: t('pngExportPreparing', base), value: 0, indeterminate: false };
-            case 'rendering':
+            case 'rasterizing':
                 return {
                     label: t('pngExportRendering', hasRatio ? base : '0/1'),
                     completed,
@@ -1615,23 +1617,9 @@ export class MessageToolbarOrchestrator {
                     value: hasRatio ? undefined : 0,
                     indeterminate: false,
                 };
-            case 'rendering_chunk':
-                return {
-                    label: t('pngExportRendering', base),
-                    completed,
-                    total,
-                    indeterminate: !hasRatio,
-                };
-            case 'stitching':
-                return {
-                    label: t('pngExportRendering', base),
-                    completed,
-                    total,
-                    indeterminate: !hasRatio,
-                };
             case 'encoding':
                 return { label: t('pngExportDownloading'), value: 95, indeterminate: false };
-            case 'done':
+            case 'finalizing':
                 return { label: t('pngExportDone', '1/1'), completed: 1, total: 1 };
             default:
                 return { label: t('btnCopyAsPng'), indeterminate: true };

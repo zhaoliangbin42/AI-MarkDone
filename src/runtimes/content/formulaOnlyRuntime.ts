@@ -12,7 +12,11 @@ import { resolveFormulaSettings, shouldEnableFormulaInteractions } from './formu
 import { getFormulaPlatformParserAdapter } from './formulaPlatformParsers';
 import type { MarkdownParserAdapter } from '../../drivers/content/adapters/parser/MarkdownParserAdapter';
 import { setReaderMarkdownCopyFormulaFormat } from '../../services/reader/readerMarkdownCopy';
-import { createLazyBookmarksPanel, createLazyReaderPanel } from './lazyContentFeatures';
+import {
+    createLazyBookmarksPanel,
+    createLazyReaderPanel,
+    createLazyRunFormulaAssetAction,
+} from './lazyContentFeatures';
 import { FORMULA_CANDIDATE_SELECTOR } from '../../drivers/content/math/math-click';
 
 export type FormulaOnlyPlatformId = 'gemini' | 'claude' | 'deepseek';
@@ -187,6 +191,7 @@ export class FormulaOnlyRuntime {
         this.bookmarksPanel = createLazyBookmarksPanel(this.bookmarksController, this.readerPanel);
         this.formulaController = new FormulaAssetHoverController({
             parserAdapter: profile.parserAdapter,
+            runFormulaAssetAction: createLazyRunFormulaAssetAction(),
         });
     }
 

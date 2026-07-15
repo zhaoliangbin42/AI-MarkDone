@@ -667,45 +667,9 @@
         "message": "PNG 导出已取消",
         "description": "Message shown when PNG export is cancelled"
     },
-    "pngExportCurrentProgressLabel": {
-        "message": "当前消息",
-        "description": "Accessible label for the current PNG message progress bar"
-    },
     "pngExportTotalProgressLabel": {
         "message": "总进度",
         "description": "Accessible label for the total PNG export progress bar"
-    },
-    "pngExportCurrentPreparing": {
-        "message": "当前消息 $1",
-        "description": "Message for current PNG preparation progress"
-    },
-    "pngExportCurrentPreparingWithFilename": {
-        "message": "当前消息 $1：$2",
-        "description": "Message for current PNG preparation progress with filename"
-    },
-    "pngExportCurrentRendering": {
-        "message": "当前消息 $1",
-        "description": "Message for current PNG rendering progress"
-    },
-    "pngExportCurrentRenderingWithFilename": {
-        "message": "当前消息 $1：$2",
-        "description": "Message for current PNG rendering progress with filename"
-    },
-    "pngExportCurrentEncoding": {
-        "message": "正在编码当前消息",
-        "description": "Message for current PNG encoding progress"
-    },
-    "pngExportCurrentEncodingWithFilename": {
-        "message": "正在编码当前消息：$1",
-        "description": "Message for current PNG encoding progress with filename"
-    },
-    "pngExportCurrentDone": {
-        "message": "当前消息已就绪",
-        "description": "Message for current PNG completion progress"
-    },
-    "pngExportCurrentDoneWithFilename": {
-        "message": "当前消息已就绪：$1",
-        "description": "Message for current PNG completion progress with filename"
     },
     "pngExportWidthPresetLabel": {
         "message": "PNG 图片宽度",

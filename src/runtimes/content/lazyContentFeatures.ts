@@ -16,7 +16,9 @@ import type { AppSettings } from '../../core/settings/types';
 import type { BookmarkSaveDialogPort, SaveMessagesDialogPort } from '../../ui/content/ContentDialogPorts';
 import type { FormulaSourceFormat } from '../../core/math/formulaSourceFormat';
 import type { ExportSettings } from '../../core/settings/export';
-import type { copyTurnsPng } from '../../services/copy/copy-turn-png';
+import type { copyMessagePng } from '../../services/copy/copy-turn-png';
+import type { runFormulaAssetAction } from '../../services/math/formulaAssetActions';
+import type { renderFormulaSvgAsset } from '../../services/math/formulaAssetRenderer';
 import type * as ContentFeatureModuleExports from './contentFeatures';
 
 type ContentFeatureModule = typeof ContentFeatureModuleExports;
@@ -291,11 +293,29 @@ export function createLazyBookmarkSaveDialog(
     return new LazyBookmarkSaveDialog(loader);
 }
 
-export function createLazyCopyTurnsPng(
+export function createLazyCopyMessagePng(
     loader: ContentFeatureModuleLoader = defaultLoader,
-): typeof copyTurnsPng {
+): typeof copyMessagePng {
     return async (...args) => {
         const module = await loader.load();
-        return module.copyTurnsPng(...args);
+        return module.copyMessagePng(...args);
+    };
+}
+
+export function createLazyRunFormulaAssetAction(
+    loader: ContentFeatureModuleLoader = defaultLoader,
+): typeof runFormulaAssetAction {
+    return async (...args) => {
+        const module = await loader.load();
+        return module.runFormulaAssetAction(...args);
+    };
+}
+
+export function createLazyRenderFormulaSvgAsset(
+    loader: ContentFeatureModuleLoader = defaultLoader,
+): typeof renderFormulaSvgAsset {
+    return async (...args) => {
+        const module = await loader.load();
+        return module.renderFormulaSvgAsset(...args);
     };
 }

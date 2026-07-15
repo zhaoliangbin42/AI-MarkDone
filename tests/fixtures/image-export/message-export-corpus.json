@@ -1,0 +1,25 @@
+{
+  "schemaVersion": 1,
+  "short": {
+    "schemaVersion": 1,
+    "profile": "message-card-v1",
+    "title": "Multilingual export fixture",
+    "labels": {
+      "user": "You",
+      "assistant": "Assistant"
+    },
+    "sections": [
+      {
+        "sourceIndex": 0,
+        "heading": "Message 1",
+        "userText": "请比较 English、中文、emoji 🧭 与 RTL 文本。",
+        "assistantMarkdown": "# Multilingual fixture\n\nEnglish and 中文 stay on the same card. Emoji: 🧭✨\n\nRTL text: مرحبا بالعالم — שלום עולם\n\n| Feature | Value |\n| --- | --- |\n| GFM table | supported |\n| task list | complete |\n\n- [x] rendered\n- [ ] pending\n\n```ts\nconst message = 'long PNG';\n```\n\nInline formula $E = mc^2$ and display formula:\n\n$$\n\\underbrace{a+b+\\cdots+z}_{中文注释}\n$$\n\n![broken fixture image](/broken-image.png)"
+      }
+    ]
+  },
+  "long": {
+    "title": "Long export fixture",
+    "repeat": 48,
+    "assistantBlock": "## Segment {{index}}\n\nA deterministic long-message paragraph with 中文、emoji 🧭, a long URL-like token `https://example.invalid/segment/{{index}}/abcdefghijklmnopqrstuvwxyz`, and RTL text: مرحبا بالعالم.\n\n1. ordered item {{index}}\n2. second item with formula $x_{{index}}^2 + y_{{index}}^2 = z_{{index}}^2$\n\n> Stable block quote {{index}} for semantic band boundaries."
+  }
+}

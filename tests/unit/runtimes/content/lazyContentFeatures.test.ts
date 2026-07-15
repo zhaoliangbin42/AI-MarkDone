@@ -4,8 +4,10 @@ import {
     ContentFeatureModuleLoader,
     createLazyBookmarkSaveDialog,
     createLazyBookmarksPanel,
-    createLazyCopyTurnsPng,
+    createLazyCopyMessagePng,
+    createLazyRenderFormulaSvgAsset,
     createLazyReaderPanel,
+    createLazyRunFormulaAssetAction,
     createLazySaveMessagesDialog,
 } from '@/runtimes/content/lazyContentFeatures';
 
@@ -105,18 +107,32 @@ describe('lazy content features', () => {
             setThemeOverrides: vi.fn(),
             open: vi.fn(async () => ({ ok: false as const })),
         };
-        const copyTurnsPng = vi.fn(async () => ({ ok: true as const, noop: false }));
+        const copyMessagePng = vi.fn(async () => ({ ok: true as const, noop: false }));
+        const runFormulaAssetAction = vi.fn(async () => ({ ok: true as const, status: 'copied' as const }));
+        const renderFormulaSvgAsset = vi.fn(async () => ({
+            source: 'x',
+            displayMode: false,
+            fontSizePx: 36,
+            width: 10,
+            height: 5,
+            viewBox: '0 0 10 5',
+            svg: '<svg/>',
+        }));
         const importer = vi.fn(async () => ({
             createReaderPanel: vi.fn(),
             createBookmarksPanel: vi.fn(),
             getSaveMessagesDialog: () => actualSaveMessages,
             getBookmarkSaveDialog: () => actualBookmarkSave,
-            copyTurnsPng,
+            copyMessagePng,
+            runFormulaAssetAction,
+            renderFormulaSvgAsset,
         }));
         const loader = new ContentFeatureModuleLoader(importer as any);
         const saveMessages = createLazySaveMessagesDialog(loader);
         const bookmarkSave = createLazyBookmarkSaveDialog(loader);
-        const lazyCopyTurnsPng = createLazyCopyTurnsPng(loader);
+        const lazyCopyMessagePng = createLazyCopyMessagePng(loader);
+        const lazyRunFormulaAssetAction = createLazyRunFormulaAssetAction(loader);
+        const lazyRenderFormulaSvgAsset = createLazyRenderFormulaSvgAsset(loader);
 
         saveMessages.setTheme('dark');
         saveMessages.setThemeOverrides({ accentColor: '#2563eb' });
@@ -134,7 +150,13 @@ describe('lazy content features', () => {
             currentFolderPath: 'Root',
             mode: 'create',
         });
-        await lazyCopyTurnsPng([], [], {} as any, { t: (key: string) => key });
+        await lazyCopyMessagePng({ user: '', assistant: '', index: 0 }, {} as any, { t: (key: string) => key });
+        await lazyRunFormulaAssetAction({
+            action: 'copy_svg',
+            source: { kind: 'tex', value: 'x', confidence: 'authoritative' },
+            displayMode: false,
+        });
+        await lazyRenderFormulaSvgAsset({ source: 'x', displayMode: false });
 
         expect(importer).toHaveBeenCalledTimes(1);
         expect(actualSaveMessages.setTheme).toHaveBeenCalledWith('dark');
@@ -144,6 +166,8 @@ describe('lazy content features', () => {
         expect(actualSaveMessages.open).toHaveBeenCalledWith({}, 'dark');
         expect(actualBookmarkSave.setTheme).toHaveBeenCalledWith('dark');
         expect(actualBookmarkSave.setThemeOverrides).toHaveBeenCalledWith({ accentColor: '#2563eb' });
-        expect(copyTurnsPng).toHaveBeenCalledTimes(1);
+        expect(copyMessagePng).toHaveBeenCalledTimes(1);
+        expect(runFormulaAssetAction).toHaveBeenCalledTimes(1);
+        expect(renderFormulaSvgAsset).toHaveBeenCalledTimes(1);
     });
 });

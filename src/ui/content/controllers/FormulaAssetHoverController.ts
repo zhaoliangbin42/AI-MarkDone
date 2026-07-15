@@ -2,7 +2,10 @@ import { MathClickHandler, type MathFormulaHoverContext } from '../../../drivers
 import { browser } from '../../../drivers/shared/browser';
 import { showEphemeralTooltip } from '../../../utils/tooltip';
 import { ToolbarHoverActionPortal } from '../components/ToolbarHoverActionPortal';
-import { runFormulaAssetAction, type FormulaAssetAction } from '../../../services/math/formulaAssetActions';
+import type {
+    FormulaAssetAction,
+    runFormulaAssetAction,
+} from '../../../services/math/formulaAssetActions';
 import { DEFAULT_FORMULA_SETTINGS, type FormulaSettings } from '../../../core/settings/formula';
 import { normalizeFormulaSourceFormat } from '../../../core/math/formulaSourceFormat';
 import type { UserThemeOverrides } from '../../../style/tokens';
@@ -12,6 +15,7 @@ import type { MarkdownParserAdapter } from '../../../drivers/content/adapters/pa
 
 export type FormulaAssetHoverControllerOptions = {
     parserAdapter?: Pick<MarkdownParserAdapter, 'isMathNode' | 'extractLatex' | 'isBlockMath'>;
+    runFormulaAssetAction?: typeof runFormulaAssetAction;
 };
 
 export class FormulaAssetHoverController {
@@ -25,8 +29,14 @@ export class FormulaAssetHoverController {
     private actionPending = false;
     private formulaSettings: FormulaSettings = structuredClone(DEFAULT_FORMULA_SETTINGS);
     private themeOverrides: UserThemeOverrides = {};
+    private readonly runFormulaAssetAction: typeof runFormulaAssetAction;
 
     constructor(options: FormulaAssetHoverControllerOptions = {}) {
+        this.runFormulaAssetAction = options.runFormulaAssetAction ?? (async () => ({
+            ok: false,
+            code: 'RENDER_FAILED',
+            message: 'Formula renderer is unavailable.',
+        }));
         this.mathClick = new MathClickHandler({
             onFormulaHoverEnter: (context) => this.scheduleHoverActionOpen(context),
             onFormulaHoverLeave: () => this.scheduleHoverActionClose(),
@@ -220,12 +230,12 @@ export class FormulaAssetHoverController {
         this.actionPending = true;
         showEphemeralTooltip({ anchor: context.anchor, text: getI18nLabel('formulaAssetRendering', 'Rendering...') });
         try {
-            const result = await runFormulaAssetAction({
+            const result = await this.runFormulaAssetAction({
                 action,
                 source: context.source,
                 displayMode: context.displayMode,
-                sourceElement: context.element,
                 fontSizePx: this.formulaSettings.assetFontSizePx,
+                foregroundColor: this.readFormulaForegroundColor(context),
             });
             const text = result.ok
                 ? getI18nLabel(result.status === 'saved' ? 'formulaAssetSaved' : 'btnCopied', result.status === 'saved' ? 'Saved' : 'Copied!')
@@ -235,6 +245,12 @@ export class FormulaAssetHoverController {
         } finally {
             this.actionPending = false;
         }
+    }
+
+    private readFormulaForegroundColor(context: MathFormulaHoverContext): string {
+        return getComputedStyle(context.element).color.trim()
+            || getComputedStyle(context.anchor).color.trim()
+            || '#000000';
     }
 }
 

@@ -1,8 +1,8 @@
 export type CopyPngDebugStage =
     | 'resolve_index'
     | 'collect_turns'
-    | 'build_plan'
-    | 'render_blob'
+    | 'build_document'
+    | 'render_artifacts'
     | 'clipboard_write'
     | 'copy_done'
     | 'copy_error';
@@ -14,21 +14,17 @@ export type CopyPngDebugEvent = {
     selectedIndex?: number | null;
     selectedCount?: number;
     turnCount?: number;
+    sectionCount?: number;
     assistantChars?: number;
     userChars?: number;
-    htmlChars?: number;
     width?: number;
     height?: number;
     pixelRatio?: number;
     requestedPixelRatio?: number;
     effectivePixelRatio?: number;
-    pixelArea?: number;
-    capReason?: string;
-    fontStatus?: string;
-    strategy?: string;
-    chunkCount?: number;
-    maxChunkHeight?: number;
-    fontEmbedMode?: string;
+    artifactCount?: number;
+    bandCount?: number;
+    encodedBytes?: number;
     blobBytes?: number;
     result?: string;
     errorCode?: string;

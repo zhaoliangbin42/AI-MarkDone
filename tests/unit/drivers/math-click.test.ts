@@ -175,7 +175,7 @@ describe('MathClickHandler', () => {
         expect(onFormulaHoverEnter).toHaveBeenCalledWith(expect.objectContaining({
             element: container.querySelector('.math-inline'),
             anchor: target,
-            source: 'x_1 + y',
+            source: { kind: 'tex', value: 'x_1 + y', confidence: 'authoritative' },
             displayMode: false,
         }));
 
@@ -299,7 +299,7 @@ describe('MathClickHandler', () => {
         await Promise.resolve();
 
         expect(onFormulaHoverEnter).toHaveBeenCalledWith(expect.objectContaining({
-            source: '\\sqrt{x}',
+            source: { kind: 'dom-only', sourceElement: target },
             displayMode: true,
         }));
         expect(writeText).toHaveBeenCalledWith('$$\n\\sqrt{x}\n$$');
@@ -381,7 +381,7 @@ describe('MathClickHandler', () => {
         await Promise.resolve();
 
         expect(onFormulaHoverEnter).toHaveBeenCalledWith(expect.objectContaining({
-            source: '\\sqrt{x}',
+            source: { kind: 'tex', value: '\\sqrt{x}', confidence: 'authoritative' },
             displayMode: false,
         }));
         expect(writeText).toHaveBeenCalledWith('$\\sqrt{x}$');

@@ -1,7 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { rasterizeFormulaSvgToPngBlob } from '@/drivers/content/export/renderFormulaPng';
+import { rasterizeFormulaSvgToPngBlob } from '@/runtimes/export-renderer/formulaSvgRasterizer';
 
-describe('rasterizeFormulaSvgToPngBlob', () => {
+describe('formula SVG rasterizer capability', () => {
     const originalImage = globalThis.Image;
     const originalCreateObjectUrl = URL.createObjectURL;
     const originalRevokeObjectUrl = URL.revokeObjectURL;

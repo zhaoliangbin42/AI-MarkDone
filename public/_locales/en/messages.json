@@ -667,45 +667,9 @@
         "message": "PNG export cancelled",
         "description": "Message shown when PNG export is cancelled"
     },
-    "pngExportCurrentProgressLabel": {
-        "message": "Current message",
-        "description": "Accessible label for the current PNG message progress bar"
-    },
     "pngExportTotalProgressLabel": {
         "message": "Total export",
         "description": "Accessible label for the total PNG export progress bar"
-    },
-    "pngExportCurrentPreparing": {
-        "message": "Current message $1",
-        "description": "Message for current PNG preparation progress"
-    },
-    "pngExportCurrentPreparingWithFilename": {
-        "message": "Current message $1: $2",
-        "description": "Message for current PNG preparation progress with filename"
-    },
-    "pngExportCurrentRendering": {
-        "message": "Current message $1",
-        "description": "Message for current PNG rendering progress"
-    },
-    "pngExportCurrentRenderingWithFilename": {
-        "message": "Current message $1: $2",
-        "description": "Message for current PNG rendering progress with filename"
-    },
-    "pngExportCurrentEncoding": {
-        "message": "Encoding current message",
-        "description": "Message for current PNG encoding progress"
-    },
-    "pngExportCurrentEncodingWithFilename": {
-        "message": "Encoding current message: $1",
-        "description": "Message for current PNG encoding progress with filename"
-    },
-    "pngExportCurrentDone": {
-        "message": "Current message ready",
-        "description": "Message for current PNG completion progress"
-    },
-    "pngExportCurrentDoneWithFilename": {
-        "message": "Current message ready: $1",
-        "description": "Message for current PNG completion progress with filename"
     },
     "pngExportWidthPresetLabel": {
         "message": "PNG image width",

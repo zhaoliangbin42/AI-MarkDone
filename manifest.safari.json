@@ -61,8 +61,7 @@
         "vendor/katex/fonts/*",
         "vendor/latex-workshop/formula-snippets.json",
         "page-bridges/*.js",
-        "formula-renderer.html",
-        "formula-renderer.js",
+        "export-renderer.html",
         "content-features.js",
         "content-feature-chunks/*.js"
     ]

@@ -12,7 +12,7 @@ vi.mock('@/config/targetSurface', () => ({
 }));
 
 vi.mock('@/services/copy/copy-turn-png', () => ({
-    copyTurnsPng: vi.fn(async () => ({ ok: true, noop: false })),
+    copyMessagePng: vi.fn(async () => ({ ok: true, noop: false })),
 }));
 
 vi.mock('@/services/reader/readerContentSource', () => ({

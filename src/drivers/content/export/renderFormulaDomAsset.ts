@@ -1,11 +1,18 @@
 import { toCanvas } from 'html-to-image';
-import { getKatexCssWithEmbeddedFonts } from './katexAssets';
+import { getKatexCssWithEmbeddedFonts } from '../../../core/export/katexAssets';
 
 export type FormulaDomCaptureOptions = {
     sourceElement?: Element | null;
     fontSizePx: number;
     pixelRatio?: number;
     backgroundColor?: string;
+};
+
+export type FormulaDomPngAsset = {
+    blob: Blob;
+    widthPx: number;
+    heightPx: number;
+    effectivePixelRatio: number;
 };
 
 const ROOT_ID = 'aimd-formula-dom-export-root';
@@ -242,7 +249,7 @@ ${fontCss.css}
     };
 }
 
-export async function renderFormulaDomPngBlob(options: FormulaDomCaptureOptions): Promise<Blob> {
+export async function renderFormulaDomPngAsset(options: FormulaDomCaptureOptions): Promise<FormulaDomPngAsset> {
     const prepared = await prepareFormulaNode(options);
     try {
         const size = { width: prepared.width, height: prepared.height };
@@ -250,14 +257,21 @@ export async function renderFormulaDomPngBlob(options: FormulaDomCaptureOptions)
         const canvas = await toCanvas(prepared.node, {
             backgroundColor: options.backgroundColor,
             cacheBust: true,
-            fontEmbedCSS: prepared.fontEmbedCss,
+            // The isolated capture root already contains the embedded KaTeX CSS once.
+            // Passing it again makes html-to-image inject a duplicate font/style payload.
+            fontEmbedCSS: '',
             width: size.width,
             height: size.height,
             canvasWidth: size.width,
             canvasHeight: size.height,
             pixelRatio,
         });
-        return await canvasToPngBlob(canvas);
+        return {
+            blob: await canvasToPngBlob(canvas),
+            widthPx: canvas.width,
+            heightPx: canvas.height,
+            effectivePixelRatio: pixelRatio,
+        };
     } finally {
         prepared.cleanup();
     }

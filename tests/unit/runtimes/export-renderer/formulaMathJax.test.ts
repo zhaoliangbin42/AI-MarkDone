@@ -1,70 +1,46 @@
 import { readFileSync } from 'node:fs';
-import { afterEach, beforeAll, describe, expect, it, vi } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
+import type { FormulaMathmlAsset, FormulaSvgAsset } from '@/core/math/formulaAssetTypes';
+import { rasterizeFormulaSvgToPngBlob } from '@/runtimes/export-renderer/formulaSvgRasterizer';
 import {
-    FORMULA_RENDERER_REQUEST_TYPE,
-    FORMULA_RENDERER_RESPONSE_TYPE,
-    type FormulaRendererResponse,
-} from '@/core/math/formulaRendererProtocol';
-import { rasterizeFormulaSvgToPngBlob } from '@/drivers/content/export/renderFormulaPng';
+    renderFormulaMathmlAsset,
+    renderFormulaSvgAsset,
+} from '@/runtimes/export-renderer/formulaMathJax';
 
-async function renderFormula(source: string, displayMode: boolean): Promise<FormulaRendererResponse> {
-    const id = `test-${Math.random().toString(36).slice(2)}`;
-    let resolveResponse!: (response: FormulaRendererResponse) => void;
-    const response = new Promise<FormulaRendererResponse>((resolve) => {
-        resolveResponse = resolve;
-    });
-    const sourceWindow = {
-        postMessage(data: FormulaRendererResponse) {
-            if (data?.type === FORMULA_RENDERER_RESPONSE_TYPE && data.id === id) {
-                resolveResponse(data);
-            }
-        },
-    };
+type FormulaRenderResponse<T> =
+    | { ok: true; asset: T }
+    | { ok: false; message: string };
 
-    window.dispatchEvent(new MessageEvent('message', {
-        data: {
-            type: FORMULA_RENDERER_REQUEST_TYPE,
-            id,
-            source,
-            displayMode,
-            fontSizePx: 36,
-            format: 'svg',
-        },
-        origin: window.location.origin,
-        source: sourceWindow as Window,
-    }));
-
-    return response;
+async function renderFormula(source: string, displayMode: boolean): Promise<FormulaRenderResponse<FormulaSvgAsset>> {
+    try {
+        return {
+            ok: true,
+            asset: await renderFormulaSvgAsset({
+                source,
+                displayMode,
+                fontSizePx: 36,
+                foregroundColor: '#000000',
+            }),
+        };
+    } catch (error) {
+        return { ok: false, message: error instanceof Error ? error.message : String(error) };
+    }
 }
 
-async function renderFormulaMathml(source: string, displayMode: boolean): Promise<FormulaRendererResponse> {
-    const id = `test-${Math.random().toString(36).slice(2)}`;
-    let resolveResponse!: (response: FormulaRendererResponse) => void;
-    const response = new Promise<FormulaRendererResponse>((resolve) => {
-        resolveResponse = resolve;
-    });
-    const sourceWindow = {
-        postMessage(data: FormulaRendererResponse) {
-            if (data?.type === FORMULA_RENDERER_RESPONSE_TYPE && data.id === id) {
-                resolveResponse(data);
-            }
-        },
-    };
-
-    window.dispatchEvent(new MessageEvent('message', {
-        data: {
-            type: FORMULA_RENDERER_REQUEST_TYPE,
-            id,
-            source,
-            displayMode,
-            fontSizePx: 36,
-            format: 'mathml',
-        },
-        origin: window.location.origin,
-        source: sourceWindow as Window,
-    }));
-
-    return response;
+async function renderFormulaMathml(source: string, displayMode: boolean): Promise<FormulaRenderResponse<FormulaMathmlAsset>> {
+    try {
+        return {
+            ok: true,
+            asset: await renderFormulaMathmlAsset({
+                source,
+                displayMode,
+                fontSizePx: 36,
+                foregroundColor: '#000000',
+            }),
+        };
+    } catch (error) {
+        return { ok: false, message: error instanceof Error ? error.message : String(error) };
+    }
 }
 
 function uniqueFormulaSourcesFromHtml(html: string): Array<{ source: string; displayMode: boolean }> {
@@ -116,12 +92,8 @@ function installFormulaPngMocks(): () => void {
     };
 }
 
-describe('formula renderer entry', () => {
+describe('export renderer Formula MathJax capability', () => {
     let restoreFormulaPngMocks: (() => void) | null = null;
-
-    beforeAll(async () => {
-        await import('@/runtimes/formula-renderer/entry');
-    });
 
     afterEach(() => {
         restoreFormulaPngMocks?.();

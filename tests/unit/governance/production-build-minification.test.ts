@@ -6,16 +6,21 @@ describe('production build minification', () => {
     it('keeps every extension runtime build on the same explicit esbuild minifier', () => {
         const repoRoot = process.cwd();
         const configFiles = readdirSync(repoRoot)
-            .filter((name) => /^vite\.config(?:\.(?:chrome|firefox|safari)(?:\.(?:background|reader|formula-renderer))?)?\.ts$/.test(name))
+            .filter((name) => /^vite\.config(?:\.(?:chrome|firefox|safari)(?:\.(?:background|reader))?)?\.ts$/.test(name))
             .sort();
 
-        expect(configFiles).toHaveLength(13);
+        expect(configFiles).toHaveLength(10);
         for (const configFile of configFiles) {
             const source = readFileSync(resolve(repoRoot, configFile), 'utf8');
             expect(source, configFile).toContain("minify: 'esbuild'");
             expect(source, configFile).toContain("charset: 'ascii'");
             expect(source, configFile).not.toContain('minify: false');
         }
+
+        const exportRendererBuild = readFileSync(resolve(repoRoot, 'scripts/build-export-renderer.ts'), 'utf8');
+        expect(exportRendererBuild).toContain("minify: 'esbuild'");
+        expect(exportRendererBuild).toContain("charset: 'ascii'");
+        expect(exportRendererBuild).not.toContain('minify: false');
     });
 
     it('enforces bundle budgets at the end of each browser build command', () => {

@@ -13,3 +13,7 @@ export type FormulaMathmlAsset = {
     displayMode: boolean;
     mathml: string;
 };
+
+export type FormulaSource =
+    | { kind: 'tex'; value: string; confidence: 'authoritative' }
+    | { kind: 'dom-only'; sourceElement: Element };

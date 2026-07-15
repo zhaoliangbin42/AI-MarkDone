@@ -25,7 +25,7 @@ vi.mock('@/drivers/shared/clients/bookmarksClient', () => ({
     },
 }));
 
-vi.mock('@/drivers/content/export/katexAssets', () => ({
+vi.mock('@/core/export/katexAssets', () => ({
     hasKatexMarkup: (html: string) => /\bkatex\b/.test(html || ''),
     getKatexCssWithRuntimeFontUrls: vi.fn(async () => ({
         mode: 'runtime-url',
@@ -37,7 +37,7 @@ vi.mock('@/drivers/content/export/katexAssets', () => ({
 import { ReaderPanel } from '@/ui/content/reader/ReaderPanel';
 import { bookmarksClient } from '@/drivers/shared/clients/bookmarksClient';
 import { DEFAULT_SETTINGS } from '@/core/settings/types';
-import { getKatexCssWithRuntimeFontUrls, getKatexRuntimeFontFaceCss } from '@/drivers/content/export/katexAssets';
+import { getKatexCssWithRuntimeFontUrls, getKatexRuntimeFontFaceCss } from '@/core/export/katexAssets';
 import { clearReaderCommentScope, saveReaderComment } from '@/services/reader/commentSession';
 
 async function flushMotionFrames(): Promise<void> {

@@ -15,7 +15,8 @@ const BUDGETS: BundleBudget[] = [
     { file: 'reader.js', maxRawBytes: 600_000, maxGzipBytes: 150_000 },
     { file: 'content-features.js', maxRawBytes: 150_000, maxGzipBytes: 50_000 },
     { file: 'background.js', maxRawBytes: 150_000, maxGzipBytes: 40_000 },
-    { file: 'formula-renderer.js', maxRawBytes: 1_700_000, maxGzipBytes: 600_000 },
+    { file: 'export-renderer.js', maxRawBytes: 80_000, maxGzipBytes: 30_000 },
+    { file: 'png-encoder-worker.js', maxRawBytes: 100_000, maxGzipBytes: 40_000 },
 ];
 
 function parseTargets(args: string[]): Target[] {
@@ -77,6 +78,33 @@ async function verifyTarget(target: Target): Promise<string[]> {
         if (rawBytes > maxRawBytes || gzipBytes > maxGzipBytes) {
             failures.push(
                 `${target}/content feature graph exceeded its bundle budget (raw ${rawBytes}/${maxRawBytes}, gzip ${gzipBytes}/${maxGzipBytes})`,
+            );
+        }
+    }
+
+    const rendererChunkDir = resolve(`dist-${target}`, 'export-renderer-chunks');
+    const rendererChunkFiles = (await readdir(rendererChunkDir))
+        .filter((file) => file.endsWith('.js'))
+        .sort();
+    if (rendererChunkFiles.length < 2) {
+        failures.push(`${target} did not emit separate message and formula renderer chunks`);
+    } else {
+        const rendererFiles = [
+            resolve(`dist-${target}`, 'export-renderer.js'),
+            resolve(`dist-${target}`, 'png-encoder-worker.js'),
+            ...rendererChunkFiles.map((file) => resolve(rendererChunkDir, file)),
+        ];
+        const rendererBuffers = await Promise.all(rendererFiles.map((file) => readFile(file)));
+        const rawBytes = rendererBuffers.reduce((total, content) => total + content.byteLength, 0);
+        const gzipBytes = rendererBuffers.reduce((total, content) => total + gzipSync(content).byteLength, 0);
+        const maxRawBytes = 3_500_000;
+        const maxGzipBytes = 1_200_000;
+        rows.push(
+            `${target}/export renderer graph: raw ${formatBytes(rawBytes)} / ${formatBytes(maxRawBytes)}, gzip ${formatBytes(gzipBytes)} / ${formatBytes(maxGzipBytes)}`,
+        );
+        if (rawBytes > maxRawBytes || gzipBytes > maxGzipBytes) {
+            failures.push(
+                `${target}/export renderer graph exceeded its bundle budget (raw ${rawBytes}/${maxRawBytes}, gzip ${gzipBytes}/${maxGzipBytes})`,
             );
         }
     }

@@ -1,5 +1,8 @@
 import { describe, expect, it } from 'vitest';
-import { extractLatexSource } from '@/core/latex/extractLatexSource';
+import {
+    extractAuthoritativeLatexSource,
+    extractLatexSource,
+} from '@/core/latex/extractLatexSource';
 
 describe('extractLatexSource', () => {
     it('extracts from data-latex-source on self', () => {
@@ -49,5 +52,24 @@ describe('extractLatexSource', () => {
         const plain = document.createElement('mjx-container');
         plain.setAttribute('aria-label', 'square root of x');
         expect(extractLatexSource(plain)).toBeNull();
+    });
+
+    it('marks only source attributes and TeX annotations as authoritative', () => {
+        const dataSource = document.createElement('span');
+        dataSource.setAttribute('data-math', String.raw`\frac{1}{2}`);
+        expect(extractAuthoritativeLatexSource(dataSource)).toBe(String.raw`\frac{1}{2}`);
+
+        const annotation = document.createElement('span');
+        annotation.innerHTML = '<annotation encoding="application/x-tex">x_1+y</annotation>';
+        expect(extractAuthoritativeLatexSource(annotation)).toBe('x_1+y');
+
+        const heuristic = document.createElement('span');
+        heuristic.className = 'katex-error';
+        heuristic.textContent = String.raw`\unknown{x}`;
+        expect(extractAuthoritativeLatexSource(heuristic)).toBeNull();
+
+        const accessible = document.createElement('mjx-container');
+        accessible.setAttribute('aria-label', String.raw`\sqrt{x}`);
+        expect(extractAuthoritativeLatexSource(accessible)).toBeNull();
     });
 });

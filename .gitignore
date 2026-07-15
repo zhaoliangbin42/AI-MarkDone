@@ -77,7 +77,9 @@ ExportOptions.plist
 .cache/
 .temp/
 tmp/
-tests/fixtures/
+tests/fixtures/*
+!tests/fixtures/image-export/
+!tests/fixtures/image-export/**
 mocks/
 
 # Tooling artifacts
