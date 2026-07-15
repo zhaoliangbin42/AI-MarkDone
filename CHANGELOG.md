@@ -36,6 +36,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Performance: Consolidated formula-content discovery into its existing shared controller and removed the formula-only runtime's duplicate observer and discovery pipeline.
 - Performance: Deferred per-message task-progress UI until it is used and removed inactive tooltip observers, cutting the 200-message toolbar shadow tree by about 21% without removing actions.
 - Performance: Moved Reader, bookmarks, save dialogs, and Copy PNG out of the ChatGPT startup bundle into feature-specific extension modules, while keeping their first-use triggers and cross-browser behavior intact.
+- Performance: Made long message PNG export render only the active band, copy a fixed safe set of visual styles, and omit bitmap-invisible MathML markup, substantially reducing long-image time without changing the approved Chromium or Firefox output pixels.
 
 ## [4.8.0] - 2026-07-11
 

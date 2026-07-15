@@ -3,7 +3,7 @@ import {
     buildMessageDocument,
     buildScopedMarkdownCss,
     renderMarkdownForPngExport,
-    tokenCssAsRoot,
+    tokenCssAsScope,
 } from './saveMessagesDocument';
 
 export const MESSAGE_CARD_PROFILE_ROOT_CLASS = 'aimd-png-export-card';
@@ -21,9 +21,9 @@ export type RenderedMessageCardProfile = {
 function buildMessageCardCss(widthCssPx: number, backgroundColor: string): string {
     const containerSelector = `.${MESSAGE_CARD_PROFILE_ROOT_CLASS}`;
     return `
-${tokenCssAsRoot('light')}
+${tokenCssAsScope('light', containerSelector)}
 
-:root {
+${containerSelector} {
   --aimd-bg-primary: ${backgroundColor};
   --aimd-bg-secondary: #f6f8fa;
   --aimd-text-primary: #000000;

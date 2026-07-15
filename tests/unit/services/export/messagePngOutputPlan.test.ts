@@ -44,4 +44,12 @@ describe('planMessagePngOutput', () => {
             requestedPixelRatio: 0.5,
         })).toThrow(expect.objectContaining({ code: 'INVALID_REQUEST' }));
     });
+
+    it('rejects a multipart job whose aggregate pixel work would exceed the renderer budget', () => {
+        expect(() => planMessagePngOutput({
+            widthCssPx: 500,
+            heightCssPx: 300_000,
+            requestedPixelRatio: 1,
+        })).toThrow(expect.objectContaining({ code: 'LIMIT_EXCEEDED' }));
+    });
 });

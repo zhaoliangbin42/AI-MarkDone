@@ -30,7 +30,7 @@
         "verify:image-export-structure": "tsx scripts/benchmark-image-export.ts",
         "benchmark:image-export": "tsx scripts/harness-image-export.ts",
         "benchmark:image-export:30k": "tsx scripts/harness-image-export.ts --long-repeat=88",
-        "benchmark:image-export:60k": "tsx scripts/harness-image-export.ts --long-repeat=174",
+        "benchmark:image-export:60k": "tsx scripts/harness-image-export.ts --long-repeat=171",
         "harness:image-export": "tsx scripts/harness-image-export.ts",
         "harness:image-export:update-goldens": "npm run harness:image-export -- --update-goldens",
         "generate:latex-snippets": "tsx scripts/generate-latex-formula-snippets.ts",

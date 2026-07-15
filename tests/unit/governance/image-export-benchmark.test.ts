@@ -32,6 +32,6 @@ describe('image export structural verification gate', () => {
         expect(packageJson.scripts['verify:image-export-structure']).toBe('tsx scripts/benchmark-image-export.ts');
         expect(packageJson.scripts['benchmark:image-export']).toBe('tsx scripts/harness-image-export.ts');
         expect(packageJson.scripts['benchmark:image-export:30k']).toContain('--long-repeat=88');
-        expect(packageJson.scripts['benchmark:image-export:60k']).toContain('--long-repeat=174');
+        expect(packageJson.scripts['benchmark:image-export:60k']).toContain('--long-repeat=171');
     });
 });

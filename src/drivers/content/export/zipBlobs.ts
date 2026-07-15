@@ -3,10 +3,17 @@ import { Zip, ZipPassThrough } from 'fflate';
 export type ZipBlobFile = {
     filename: string;
     blob: Blob;
+    chunks?: never;
+};
+
+export type ZipChunkFile = {
+    filename: string;
+    chunks: readonly ArrayBuffer[];
+    blob?: never;
 };
 
 export type ZipBlobsArgs = {
-    files: ZipBlobFile[];
+    files: Array<ZipBlobFile | ZipChunkFile>;
     signal?: AbortSignal;
 };
 
@@ -69,7 +76,21 @@ export async function zipBlobs(args: ZipBlobsArgs): Promise<Blob> {
                     throwIfAborted(args.signal);
                     const entry = new ZipPassThrough(file.filename);
                     zip.add(entry);
-                    entry.push(await readBlob(file.blob), true);
+                    if (file.chunks !== undefined) {
+                        if (file.chunks.length === 0) {
+                            entry.push(new Uint8Array(), true);
+                        } else {
+                            for (let index = 0; index < file.chunks.length; index += 1) {
+                                throwIfAborted(args.signal);
+                                entry.push(
+                                    new Uint8Array(file.chunks[index]!),
+                                    index === file.chunks.length - 1,
+                                );
+                            }
+                        }
+                    } else {
+                        entry.push(await readBlob(file.blob), true);
+                    }
                     throwIfAborted(args.signal);
                 }
                 zip.end();

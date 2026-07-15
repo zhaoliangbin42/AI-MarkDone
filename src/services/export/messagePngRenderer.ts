@@ -19,7 +19,8 @@ export type MessagePngRenderSettings = {
 
 export type RenderedMessagePngArtifact = {
     metadata: PngArtifactMetadata;
-    blob: Blob;
+    chunks: readonly ArrayBuffer[];
+    readonly blob: Blob;
 };
 
 export type RenderMessageDocumentPngOptions = {
@@ -51,9 +52,14 @@ export async function renderMessageDocumentPng(
         if (artifact.metadata.mimeType !== 'image/png') {
             throw new Error(`Unexpected message export artifact: ${artifact.metadata.mimeType}.`);
         }
+        let blob: Blob | null = null;
         return {
             metadata: artifact.metadata,
-            blob: new Blob(artifact.chunks, { type: 'image/png' }),
+            chunks: artifact.chunks,
+            get blob() {
+                blob ??= new Blob(artifact.chunks, { type: 'image/png' });
+                return blob;
+            },
         };
     });
 }

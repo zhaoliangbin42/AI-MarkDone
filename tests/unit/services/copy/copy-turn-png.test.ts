@@ -105,6 +105,7 @@ describe('copyMessagePng', () => {
 
     it('downloads a ZIP instead of copying only the first artifact when the hard budget requires parts', async () => {
         const artifacts = [1, 2].map((partNumber) => ({
+            chunks: [new TextEncoder().encode(`part-${partNumber}`).buffer],
             metadata: {
                 mimeType: 'image/png' as const,
                 widthPx: 1200,
@@ -123,8 +124,8 @@ describe('copyMessagePng', () => {
         expect(copyImageBlobToClipboard).not.toHaveBeenCalled();
         expect(zipBlobs).toHaveBeenCalledWith({
             files: [
-                { filename: 'PNG_Copy-part-001-of-2.png', blob: artifacts[0].blob },
-                { filename: 'PNG_Copy-part-002-of-2.png', blob: artifacts[1].blob },
+                { filename: 'PNG_Copy-part-001-of-2.png', chunks: artifacts[0].chunks },
+                { filename: 'PNG_Copy-part-002-of-2.png', chunks: artifacts[1].chunks },
             ],
             signal: undefined,
         });

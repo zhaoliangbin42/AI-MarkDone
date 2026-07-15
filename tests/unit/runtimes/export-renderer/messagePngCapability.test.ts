@@ -4,13 +4,35 @@ const renderedCanvasSizes: Array<{ width: number; height: number }> = [];
 const renderedCanvasText: string[] = [];
 const renderedViewportOffsets: Array<{ left: string; top: string }> = [];
 const renderedCanvases: Array<{ width: number; height: number }> = [];
+const renderedCanvasUsedFilter: boolean[] = [];
+const renderedSourceOffsets: string[] = [];
+const renderedCardHeights: string[] = [];
+const renderedMathMlCounts: number[] = [];
+const renderedKatexHtmlCounts: number[] = [];
+const renderedStylePropertyLists: string[][] = [];
+
+function filteredText(node: Node, filter?: (node: Node) => boolean): string {
+    if (filter && !filter(node)) return '';
+    if (node.nodeType === Node.TEXT_NODE) return node.textContent ?? '';
+    return Array.from(node.childNodes).map((child) => filteredText(child, filter)).join('');
+}
 
 vi.mock('html-to-image', () => ({
     toCanvas: vi.fn(async (_node: HTMLElement, options: any) => {
         const width = Math.trunc(options.canvasWidth * options.pixelRatio);
         const height = Math.trunc(options.canvasHeight * options.pixelRatio);
         renderedCanvasSizes.push({ width, height });
-        renderedCanvasText.push(_node.textContent || '');
+        renderedCanvasText.push(filteredText(_node, options.filter));
+        renderedCanvasUsedFilter.push(typeof options.filter === 'function');
+        renderedSourceOffsets.push(
+            _node.querySelector<HTMLElement>('#aimd-export-renderer-message-root')?.style.top ?? '',
+        );
+        renderedCardHeights.push(
+            _node.querySelector<HTMLElement>('.aimd-png-export-card')?.style.height ?? '',
+        );
+        renderedMathMlCounts.push(_node.querySelectorAll('.katex-mathml').length);
+        renderedKatexHtmlCounts.push(_node.querySelectorAll('.katex-html').length);
+        renderedStylePropertyLists.push([...(options.includeStyleProperties ?? [])]);
         renderedViewportOffsets.push({ left: _node.style.left, top: _node.style.top });
         const canvas = {
             width,
@@ -112,6 +134,12 @@ describe('renderMessagePngCapability', () => {
         renderedCanvasText.length = 0;
         renderedViewportOffsets.length = 0;
         renderedCanvases.length = 0;
+        renderedCanvasUsedFilter.length = 0;
+        renderedSourceOffsets.length = 0;
+        renderedCardHeights.length = 0;
+        renderedMathMlCounts.length = 0;
+        renderedKatexHtmlCounts.length = 0;
+        renderedStylePropertyLists.length = 0;
     });
 
     it('streams one tall artifact through bounded band canvases without a final tall canvas', async () => {
@@ -274,6 +302,65 @@ describe('renderMessagePngCapability', () => {
         expect(renderedCanvases[0]).toMatchObject({ width: 1, height: 1 });
         worker.releaseBand();
         await render;
+        expect(renderedCanvasUsedFilter).toEqual([false]);
+        expect(renderedStylePropertyLists[0]).toEqual(expect.arrayContaining([
+            'display',
+            'font-size',
+            'line-height',
+            'table-layout',
+            'transform',
+            'grid-template-columns',
+        ]));
+        expect(renderedStylePropertyLists[0]).toHaveLength(126);
+        expect(new Set(renderedStylePropertyLists[0]).size).toBe(126);
+    });
+
+    it('removes non-visual KaTeX MathML from PNG bands while preserving visual KaTeX HTML', async () => {
+        vi.spyOn(HTMLElement.prototype, 'scrollHeight', 'get').mockImplementation(function () {
+            return this.id === 'aimd-export-renderer-message-root' ? 1_000 : 0;
+        });
+        vi.spyOn(HTMLElement.prototype, 'getBoundingClientRect').mockReturnValue({
+            x: 0,
+            y: 0,
+            top: 0,
+            right: 360,
+            bottom: 1_000,
+            left: 0,
+            width: 360,
+            height: 1_000,
+            toJSON: () => ({}),
+        });
+        vi.stubGlobal('requestAnimationFrame', (callback: FrameRequestCallback) => {
+            callback(0);
+            return 1;
+        });
+
+        await renderMessagePngCapability({
+            kind: 'message-png',
+            document: {
+                schemaVersion: 1,
+                profile: 'message-card-v1',
+                title: 'Visual formula only',
+                labels: { user: 'You', assistant: 'Assistant' },
+                sections: [{
+                    sourceIndex: 0,
+                    heading: 'Message 1',
+                    userText: 'Question',
+                    assistantMarkdown: '$x^2 + y^2 = z^2$',
+                }],
+            },
+            options: { widthCssPx: 360, requestedPixelRatio: 1 },
+        }, {
+            onProgress: () => undefined,
+            onArtifactStart: () => undefined,
+            onArtifactChunk: () => undefined,
+            onArtifactComplete: () => undefined,
+        }, {
+            createWorker: () => new FakePngWorker() as unknown as Worker,
+        });
+
+        expect(renderedMathMlCounts).toEqual([0]);
+        expect(renderedKatexHtmlCounts[0]).toBeGreaterThan(0);
     });
 
     it('removes off-band Markdown block content before html-to-image traverses the band DOM', async () => {
@@ -282,29 +369,42 @@ describe('renderMessagePngCapability', () => {
         });
         vi.spyOn(HTMLElement.prototype, 'getBoundingClientRect').mockImplementation(function () {
             const text = this.textContent || '';
-            const top = text === 'first-band-block'
+            const originalTop = text === 'first-band-block'
                 ? 0
                 : text === 'second-band-block'
                     ? 6_000
                     : text === 'third-band-block'
                         ? 12_000
                         : 0;
-            const bottom = text === 'first-band-block'
+            const originalBottom = text === 'first-band-block'
                 ? 6_000
                 : text === 'second-band-block'
                     ? 12_000
                     : text === 'third-band-block'
                         ? 18_000
                         : 18_000;
+            const isProjected = this.id !== 'aimd-export-renderer-message-root'
+                && this.style.position === 'absolute';
+            const parentRect = isProjected
+                ? this.parentElement?.getBoundingClientRect()
+                : null;
+            const top = parentRect
+                ? parentRect.top + (Number.parseFloat(this.style.top) || 0)
+                : originalTop;
+            const left = parentRect
+                ? parentRect.left + (Number.parseFloat(this.style.left) || 0)
+                : 0;
+            const width = Number.parseFloat(this.style.width) || 360;
+            const height = Number.parseFloat(this.style.height) || originalBottom - originalTop;
             return {
-                x: 0,
+                x: left,
                 y: top,
                 top,
-                right: 360,
-                bottom,
-                left: 0,
-                width: 360,
-                height: bottom - top,
+                right: left + width,
+                bottom: top + height,
+                left,
+                width,
+                height,
                 toJSON: () => ({}),
             };
         });
@@ -338,6 +438,11 @@ describe('renderMessagePngCapability', () => {
         });
 
         expect(renderedCanvasText.length).toBeGreaterThanOrEqual(3);
+        expect(renderedCanvasUsedFilter.every(Boolean)).toBe(true);
+        expect(renderedSourceOffsets.every((offset) => offset === '0px')).toBe(true);
+        expect(renderedCardHeights.every((height, index) => (
+            Number.parseFloat(height) <= renderedCanvasSizes[index]!.height
+        ))).toBe(true);
         expect(renderedCanvasText.some((text) => text.includes('first-band-block'))).toBe(true);
         expect(renderedCanvasText.some((text) => text.includes('second-band-block'))).toBe(true);
         expect(renderedCanvasText.some((text) => text.includes('third-band-block'))).toBe(true);
@@ -347,7 +452,10 @@ describe('renderMessagePngCapability', () => {
                 'second-band-block',
                 'third-band-block',
             ].filter((block) => text.includes(block));
-            expect(visibleBlocks).toHaveLength(1);
+            // A one-device-pixel seam guard may retain the immediately adjacent block,
+            // but the rasterizer must never receive the whole document skeleton.
+            expect(visibleBlocks.length).toBeGreaterThan(0);
+            expect(visibleBlocks.length).toBeLessThanOrEqual(2);
         }
     });
 

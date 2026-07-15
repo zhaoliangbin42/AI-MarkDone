@@ -45,4 +45,28 @@ describe('messagePngRenderer', () => {
             timeoutMs: 120_000,
         });
     });
+
+    it('preserves transferable PNG chunks for multipart ZIP streaming', async () => {
+        const first = new TextEncoder().encode('part-').buffer;
+        const second = new TextEncoder().encode('one').buffer;
+        vi.mocked(renderExportHostJob).mockResolvedValueOnce({
+            artifacts: [{
+                metadata: {
+                    mimeType: 'image/png',
+                    widthPx: 480,
+                    heightPx: 1_000,
+                    effectivePixelRatio: 1,
+                    partNumber: 1,
+                    partCount: 1,
+                },
+                chunks: [first, second],
+            }],
+        });
+
+        const [artifact] = await renderMessageDocumentPng(document);
+
+        expect(artifact?.chunks).toEqual([first, second]);
+        expect(artifact?.blob).toBeInstanceOf(Blob);
+        expect(artifact?.blob.size).toBe(8);
+    });
 });

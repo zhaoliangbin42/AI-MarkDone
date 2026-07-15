@@ -9,6 +9,7 @@ describe('image export browser harness contract', () => {
             resolve('tests/fixtures/image-export/message-export-corpus.json'),
             'utf8',
         ));
+        const rendererHtml = readFileSync(resolve('public/export-renderer.html'), 'utf8');
 
         expect(source).toContain('export-renderer.html');
         expect(source).toContain('new MessageChannel()');
@@ -21,6 +22,18 @@ describe('image export browser harness contract', () => {
         expect(source).toContain('--long-repeat=');
         expect(source).toContain('nonWhitePixelCount');
         expect(source).toContain('artifact.nonWhitePixelCount > 0');
+        expect(source).toContain('parsePngStructure');
+        expect(source).toContain("type === 'IHDR'");
+        expect(source).toContain("type === 'IDAT'");
+        expect(source).toContain("type === 'IEND'");
+        expect(source).toContain('crc32');
+        expect(source).toContain('MAX_FOREGROUND_TILE_HEIGHT');
+        expect(source).not.toContain('canvas.height = image.naturalHeight');
+        expect(source).toContain('CANONICAL_60K_REPEAT = 171');
+        expect(source).not.toContain('MAX_60K_RENDER_DURATION_MS');
+        expect(source).toContain('bandRasterWallMs');
+        expect(rendererHtml).toContain("img-src 'self' data: blob:");
+        expect(rendererHtml).toContain("connect-src 'self'");
         expect(source).toContain("runJob('formula-png'");
         expect(source).toContain('\\ce{H2O + CO2}');
         expect(source).toContain('\\underbrace');

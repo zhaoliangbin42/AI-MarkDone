@@ -36,6 +36,11 @@ type BrowserArtifactResult = {
     decodedHeight: number;
     nonWhitePixelCount: number;
     byteLength: number;
+    pngChunkCount: number;
+    pngIdatChunkCount: number;
+    maxValidationCanvasWidth: number;
+    maxValidationCanvasHeight: number;
+    maxValidationCanvasPixels: number;
     base64?: string;
 };
 
@@ -43,6 +48,7 @@ type BrowserJobResult = {
     durationMs: number;
     validationDurationMs: number;
     progressPhases: string[];
+    bandRasterWallMs: number[];
     artifacts: BrowserArtifactResult[];
 };
 
@@ -83,6 +89,11 @@ type BrowserHarnessResult = {
         durationMs: number;
         validationDurationMs: number;
         foregroundPixelCount: number;
+        maxBandRasterWallMs: number;
+        p95BandRasterWallMs: number;
+        maxValidationCanvasHeight: number;
+        maxValidationCanvasPixels: number;
+        pngIdatChunkCount: number;
         metadata: BrowserArtifactMetadata[];
     };
     formula: {
@@ -96,6 +107,7 @@ type BrowserHarnessResult = {
 export type ImageExportBrowserHarnessReport = {
     schemaVersion: 1;
     updateGoldens: boolean;
+    longRepeat: number;
     visualLimits: typeof VISUAL_GOLDEN_LIMITS;
     browsers: BrowserHarnessResult[];
 };
@@ -104,6 +116,10 @@ const VISUAL_GOLDEN_LIMITS = {
     channelTolerance: 8,
     maxChangedPixelRatio: 0.005,
 } as const;
+
+const CANONICAL_60K_REPEAT = 171;
+const MIN_60K_ARTIFACT_HEIGHT_PX = 60_000;
+const MAX_60K_ARTIFACT_HEIGHT_PX = 65_535;
 
 const BROWSER_CONFIGS: Array<{
     name: BrowserName;
@@ -232,7 +248,11 @@ async function createHarnessServer(): Promise<HarnessServer> {
     };
 }
 
-async function loadCorpus(): Promise<{ short: ExportDocumentV1; long: ExportDocumentV1 }> {
+async function loadCorpus(): Promise<{
+    short: ExportDocumentV1;
+    long: ExportDocumentV1;
+    longRepeat: number;
+}> {
     const path = resolve('tests/fixtures/image-export/message-export-corpus.json');
     const corpus = JSON.parse(await readFile(path, 'utf8')) as Corpus;
     invariant(corpus.schemaVersion === 1, 'fixture schema version is unsupported');
@@ -246,6 +266,7 @@ async function loadCorpus(): Promise<{ short: ExportDocumentV1; long: ExportDocu
         corpus.long.assistantBlock.replaceAll('{{index}}', String(index + 1))
     )).join('\n\n');
     return {
+        longRepeat: requestedRepeat,
         short: corpus.short,
         long: {
             schemaVersion: 1,
@@ -283,12 +304,18 @@ async function executeRendererJobs(
             decodedHeight: number;
             nonWhitePixelCount: number;
             byteLength: number;
+            pngChunkCount: number;
+            pngIdatChunkCount: number;
+            maxValidationCanvasWidth: number;
+            maxValidationCanvasHeight: number;
+            maxValidationCanvasPixels: number;
             base64?: string;
         };
         type JobResult = {
             durationMs: number;
             validationDurationMs: number;
             progressPhases: string[];
+            bandRasterWallMs: number[];
             artifacts: Artifact[];
         };
         type ActiveJob = {
@@ -298,6 +325,8 @@ async function executeRendererJobs(
             current: { metadata: Metadata; chunks: ArrayBuffer[] } | null;
             artifactPromises: Array<Promise<Artifact>>;
             progressPhases: string[];
+            bandRasterWallMs: number[];
+            openBand: { index: number; total: number; startedAt: number } | null;
             resolve: (result: JobResult) => void;
             reject: (error: Error) => void;
             timeoutId: number;
@@ -328,12 +357,149 @@ async function executeRendererJobs(
             reader.readAsDataURL(blob);
         });
 
+        const MAX_FOREGROUND_TILE_PIXELS = 1_000_000;
+        const MAX_FOREGROUND_TILE_HEIGHT = 256;
+        const pngSignature = [137, 80, 78, 71, 13, 10, 26, 10] as const;
+        const crcTable = new Uint32Array(256);
+        for (let value = 0; value < crcTable.length; value += 1) {
+            let current = value;
+            for (let bit = 0; bit < 8; bit += 1) {
+                current = (current & 1) !== 0
+                    ? 0xedb88320 ^ (current >>> 1)
+                    : current >>> 1;
+            }
+            crcTable[value] = current >>> 0;
+        }
+
+        const readUint32 = (bytes: Uint8Array, offset: number): number => (
+            ((bytes[offset]! << 24)
+                | (bytes[offset + 1]! << 16)
+                | (bytes[offset + 2]! << 8)
+                | bytes[offset + 3]!) >>> 0
+        );
+
+        const crc32 = (bytes: Uint8Array, start: number, end: number): number => {
+            let crc = 0xffffffff;
+            for (let offset = start; offset < end; offset += 1) {
+                crc = crcTable[(crc ^ bytes[offset]!) & 0xff]! ^ (crc >>> 8);
+            }
+            return (crc ^ 0xffffffff) >>> 0;
+        };
+
+        const parsePngStructure = (bytes: Uint8Array, metadata: Metadata) => {
+            if (bytes.length < pngSignature.length
+                || pngSignature.some((value, index) => bytes[index] !== value)) {
+                throw new Error('Artifact does not have a valid PNG signature.');
+            }
+            let offset = pngSignature.length;
+            let chunkCount = 0;
+            let idatChunkCount = 0;
+            let idatEnded = false;
+            let widthPx = 0;
+            let heightPx = 0;
+            let sawIhdr = false;
+            let sawIend = false;
+
+            while (offset < bytes.length) {
+                if (offset + 12 > bytes.length) throw new Error('Artifact contains a truncated PNG chunk.');
+                const length = readUint32(bytes, offset);
+                const typeOffset = offset + 4;
+                const dataOffset = typeOffset + 4;
+                const dataEnd = dataOffset + length;
+                const chunkEnd = dataEnd + 4;
+                if (chunkEnd > bytes.length) throw new Error('Artifact PNG chunk length exceeds its payload.');
+                const type = String.fromCharCode(
+                    bytes[typeOffset]!,
+                    bytes[typeOffset + 1]!,
+                    bytes[typeOffset + 2]!,
+                    bytes[typeOffset + 3]!,
+                );
+                if (crc32(bytes, typeOffset, dataEnd) !== readUint32(bytes, dataEnd)) {
+                    throw new Error(`Artifact PNG ${type} chunk has an invalid CRC.`);
+                }
+                chunkCount += 1;
+
+                if (type === 'IHDR') {
+                    if (sawIhdr || chunkCount !== 1 || length !== 13) {
+                        throw new Error('Artifact PNG has an invalid IHDR chunk.');
+                    }
+                    sawIhdr = true;
+                    widthPx = readUint32(bytes, dataOffset);
+                    heightPx = readUint32(bytes, dataOffset + 4);
+                    if (bytes[dataOffset + 8] !== 8
+                        || bytes[dataOffset + 9] !== 6
+                        || bytes[dataOffset + 10] !== 0
+                        || bytes[dataOffset + 11] !== 0
+                        || bytes[dataOffset + 12] !== 0) {
+                        throw new Error('Artifact PNG is not RGBA8 non-interlaced data with standard compression and filtering.');
+                    }
+                } else if (type === 'IDAT') {
+                    if (!sawIhdr || idatEnded) throw new Error('Artifact PNG IDAT chunks are not contiguous.');
+                    idatChunkCount += 1;
+                } else {
+                    if (idatChunkCount > 0) idatEnded = true;
+                    if (type === 'IEND') {
+                        if (sawIend || length !== 0 || chunkEnd !== bytes.length) {
+                            throw new Error('Artifact PNG has an invalid IEND chunk.');
+                        }
+                        sawIend = true;
+                    }
+                }
+                offset = chunkEnd;
+            }
+
+            if (!sawIhdr || idatChunkCount === 0 || !sawIend || offset !== bytes.length) {
+                throw new Error('Artifact PNG is missing a required IHDR, IDAT, or IEND chunk.');
+            }
+            if (widthPx !== metadata.widthPx || heightPx !== metadata.heightPx) {
+                throw new Error('Artifact PNG dimensions disagree with its metadata.');
+            }
+            return { chunkCount, idatChunkCount };
+        };
+
+        const scanForegroundByTiles = (image: HTMLImageElement) => {
+            const width = image.naturalWidth;
+            const tileHeight = Math.max(1, Math.min(
+                MAX_FOREGROUND_TILE_HEIGHT,
+                Math.floor(MAX_FOREGROUND_TILE_PIXELS / Math.max(1, width)),
+            ));
+            const canvas = document.createElement('canvas');
+            canvas.width = width;
+            canvas.height = tileHeight;
+            const context = canvas.getContext('2d', { willReadFrequently: true });
+            if (!context) throw new Error('Artifact foreground tile canvas is unavailable.');
+            let nonWhitePixelCount = 0;
+            for (let y = 0; y < image.naturalHeight; y += tileHeight) {
+                const height = Math.min(tileHeight, image.naturalHeight - y);
+                context.clearRect(0, 0, width, tileHeight);
+                context.drawImage(image, 0, y, width, height, 0, 0, width, height);
+                const pixels = context.getImageData(0, 0, width, height).data;
+                for (let pixelOffset = 0; pixelOffset < pixels.length; pixelOffset += 4) {
+                    if (pixels[pixelOffset + 3]! > 0 && (
+                        pixels[pixelOffset]! < 250
+                        || pixels[pixelOffset + 1]! < 250
+                        || pixels[pixelOffset + 2]! < 250
+                    )) {
+                        nonWhitePixelCount += 1;
+                    }
+                }
+            }
+            return {
+                nonWhitePixelCount,
+                maxValidationCanvasWidth: width,
+                maxValidationCanvasHeight: tileHeight,
+                maxValidationCanvasPixels: width * tileHeight,
+            };
+        };
+
         const decodeArtifact = async (
             metadata: Metadata,
             chunks: ArrayBuffer[],
             captureBytes: boolean,
         ): Promise<Artifact> => {
             const blob = new Blob(chunks, { type: metadata.mimeType });
+            const bytes = new Uint8Array(await blob.arrayBuffer());
+            const pngStructure = parsePngStructure(bytes, metadata);
             const url = URL.createObjectURL(blob);
             const image = document.createElement('img');
             image.alt = 'Decoded renderer artifact';
@@ -343,29 +509,15 @@ async function executeRendererJobs(
             document.body.appendChild(image);
             try {
                 await image.decode();
-                const canvas = document.createElement('canvas');
-                canvas.width = image.naturalWidth;
-                canvas.height = image.naturalHeight;
-                const context = canvas.getContext('2d', { willReadFrequently: true });
-                if (!context) throw new Error('Artifact foreground canvas is unavailable.');
-                context.drawImage(image, 0, 0);
-                const pixels = context.getImageData(0, 0, canvas.width, canvas.height).data;
-                let nonWhitePixelCount = 0;
-                for (let offset = 0; offset < pixels.length; offset += 4) {
-                    if (pixels[offset + 3]! > 0 && (
-                        pixels[offset]! < 250
-                        || pixels[offset + 1]! < 250
-                        || pixels[offset + 2]! < 250
-                    )) {
-                        nonWhitePixelCount += 1;
-                    }
-                }
+                const foreground = scanForegroundByTiles(image);
                 return {
                     metadata,
                     decodedWidth: image.naturalWidth,
                     decodedHeight: image.naturalHeight,
-                    nonWhitePixelCount,
+                    ...foreground,
                     byteLength: blob.size,
+                    pngChunkCount: pngStructure.chunkCount,
+                    pngIdatChunkCount: pngStructure.idatChunkCount,
                     base64: captureBytes ? await blobToBase64(blob) : undefined,
                 };
             } finally {
@@ -387,7 +539,33 @@ async function executeRendererJobs(
             const state = active;
             if (!state || message?.jobId !== state.jobId) return;
             if (message.type === 'progress') {
-                state.progressPhases.push(String(message.phase));
+                const phase = String(message.phase);
+                state.progressPhases.push(phase);
+                if (phase === 'rasterizing'
+                    && Number.isInteger(message.completed)
+                    && Number.isInteger(message.total)) {
+                    if (state.openBand) {
+                        failActive(new Error('A new raster band started before the previous band reached encoding.'));
+                        return;
+                    }
+                    state.openBand = {
+                        index: message.completed,
+                        total: message.total,
+                        startedAt: performance.now(),
+                    };
+                } else if (phase === 'encoding'
+                    && Number.isInteger(message.completed)
+                    && Number.isInteger(message.total)) {
+                    const openBand = state.openBand;
+                    if (!openBand
+                        || openBand.index !== message.completed
+                        || openBand.total !== message.total) {
+                        failActive(new Error('Raster and encoding band progress is not contiguous.'));
+                        return;
+                    }
+                    state.bandRasterWallMs.push(performance.now() - openBand.startedAt);
+                    state.openBand = null;
+                }
                 return;
             }
             if (message.type === 'failed') {
@@ -433,6 +611,7 @@ async function executeRendererJobs(
                     durationMs: renderDurationMs,
                     validationDurationMs: performance.now() - state.startedAt - renderDurationMs,
                     progressPhases: state.progressPhases,
+                    bandRasterWallMs: state.bandRasterWallMs,
                     artifacts,
                 });
             }, (error) => failActive(error instanceof Error ? error : new Error(String(error))));
@@ -462,6 +641,8 @@ async function executeRendererJobs(
                 current: null,
                 artifactPromises: [],
                 progressPhases: [],
+                bandRasterWallMs: [],
+                openBand: null,
                 resolve: resolveJob,
                 reject: rejectJob,
                 timeoutId,
@@ -522,9 +703,30 @@ function validateJob(label: string, result: BrowserJobResult, requestedPixelRati
         invariant(artifact.decodedHeight === metadata.heightPx, `${label} decoded height disagrees with metadata`);
         invariant(artifact.nonWhitePixelCount > 0, `${label} artifact contains no visible foreground pixels`);
         invariant(artifact.byteLength > 0, `${label} artifact is empty`);
+        invariant(artifact.pngChunkCount >= 3, `${label} PNG structure is incomplete`);
+        invariant(artifact.pngIdatChunkCount > 0, `${label} PNG contains no IDAT chunks`);
+        invariant(
+            artifact.maxValidationCanvasHeight <= 256,
+            `${label} validation created a ${artifact.maxValidationCanvasHeight}px-tall canvas`,
+        );
+        invariant(
+            artifact.maxValidationCanvasPixels <= 1_000_000,
+            `${label} validation canvas exceeds its pixel budget`,
+        );
     }
     invariant(result.progressPhases.includes('rasterizing'), `${label} did not report rasterizing progress`);
     invariant(result.progressPhases.includes('encoding'), `${label} did not report encoding progress`);
+    invariant(
+        result.bandRasterWallMs.every((duration) => Number.isFinite(duration) && duration > 0),
+        `${label} contains an invalid band raster wall time`,
+    );
+}
+
+function percentile(values: readonly number[], percentileValue: number): number {
+    if (values.length === 0) return 0;
+    const sorted = [...values].sort((left, right) => left - right);
+    const index = Math.min(sorted.length - 1, Math.ceil(sorted.length * percentileValue) - 1);
+    return sorted[index]!;
 }
 
 async function comparePngs(page: Page, actualBase64: string, goldenBase64: string): Promise<VisualComparison> {
@@ -539,8 +741,10 @@ async function comparePngs(page: Page, actualBase64: string, goldenBase64: strin
             try {
                 await image.decode();
                 const canvas = document.createElement('canvas');
-                canvas.width = image.naturalWidth;
-                canvas.height = image.naturalHeight;
+                const decodedWidth = image.naturalWidth;
+                const decodedHeight = image.naturalHeight;
+                canvas.width = decodedWidth;
+                canvas.height = decodedHeight;
                 const context = canvas.getContext('2d', { willReadFrequently: true });
                 if (!context) throw new Error('Golden comparison canvas is unavailable.');
                 context.drawImage(image, 0, 0);
@@ -627,6 +831,7 @@ async function runBrowserHarness(
     config: typeof BROWSER_CONFIGS[number],
     server: HarnessServer,
     documents: { short: ExportDocumentV1; long: ExportDocumentV1 },
+    longRepeat: number,
     updateGoldens: boolean,
 ): Promise<BrowserHarnessResult> {
     const browser = await config.launcher.launch({ headless: true });
@@ -670,6 +875,15 @@ async function runBrowserHarness(
         validateJob(`${config.name} formula PNG`, result.formulaPng, 4);
         invariant(result.shortCold.artifacts.length === 1, `${config.name} short fixture was split`);
         invariant(result.shortWarm.artifacts.length === 1, `${config.name} warm short fixture was split`);
+        if (longRepeat === CANONICAL_60K_REPEAT) {
+            invariant(result.long.artifacts.length === 1, `${config.name} canonical 60k artifact was split`);
+            const heightPx = result.long.artifacts[0]!.metadata.heightPx;
+            invariant(
+                heightPx >= MIN_60K_ARTIFACT_HEIGHT_PX && heightPx <= MAX_60K_ARTIFACT_HEIGHT_PX,
+                `${config.name} canonical 60k artifact height ${heightPx}px is outside the locked range`,
+            );
+            invariant(result.long.bandRasterWallMs.length > 0, `${config.name} reported no 60k band timings`);
+        }
         invariant(remoteRequests.length === 0, `${config.name} requested remote resources: ${remoteRequests.join(', ')}`);
         invariant(pageErrors.length === 0, `${config.name} page errors: ${pageErrors.join('\n')}`);
 
@@ -699,6 +913,18 @@ async function runBrowserHarness(
                 validationDurationMs: Math.round(result.long.validationDurationMs * 100) / 100,
                 foregroundPixelCount: result.long.artifacts.reduce(
                     (total, artifact) => total + artifact.nonWhitePixelCount,
+                    0,
+                ),
+                maxBandRasterWallMs: Math.round(Math.max(0, ...result.long.bandRasterWallMs) * 100) / 100,
+                p95BandRasterWallMs: Math.round(percentile(result.long.bandRasterWallMs, 0.95) * 100) / 100,
+                maxValidationCanvasHeight: Math.max(
+                    ...result.long.artifacts.map((artifact) => artifact.maxValidationCanvasHeight),
+                ),
+                maxValidationCanvasPixels: Math.max(
+                    ...result.long.artifacts.map((artifact) => artifact.maxValidationCanvasPixels),
+                ),
+                pngIdatChunkCount: result.long.artifacts.reduce(
+                    (total, artifact) => total + artifact.pngIdatChunkCount,
                     0,
                 ),
                 metadata: result.long.artifacts.map((artifact) => artifact.metadata),
@@ -735,11 +961,18 @@ export async function runImageExportBrowserHarness(): Promise<ImageExportBrowser
     try {
         const browsers: BrowserHarnessResult[] = [];
         for (const config of configs) {
-            browsers.push(await runBrowserHarness(config, server, documents, updateGoldens));
+            browsers.push(await runBrowserHarness(
+                config,
+                server,
+                documents,
+                documents.longRepeat,
+                updateGoldens,
+            ));
         }
         return {
             schemaVersion: 1,
             updateGoldens,
+            longRepeat: documents.longRepeat,
             visualLimits: VISUAL_GOLDEN_LIMITS,
             browsers,
         };

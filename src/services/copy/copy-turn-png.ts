@@ -88,7 +88,7 @@ export async function copyMessagePng(
         if (artifacts.length > 1) {
             const files = artifacts.map((artifact, index) => ({
                 filename: filenames.artifactFilenames[index]!,
-                blob: artifact.blob,
+                chunks: artifact.chunks,
             }));
             const zip = await zipBlobs({ files, signal: options.signal });
             throwIfAborted(options.signal);

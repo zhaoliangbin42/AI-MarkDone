@@ -104,19 +104,21 @@ export async function exportTurnsPng(
         throwIfAborted(options.signal);
         if (artifacts.length === 0) throw new Error('PNG renderer returned no artifacts.');
         const filenames = planMessagePngFilenames(metadata.title, document.sections.length, artifacts.length);
-        const files = artifacts.map((artifact, index) => ({
-            filename: filenames.artifactFilenames[index]!,
-            blob: artifact.blob,
-        }));
-        const total = files.length;
-        if (files.length === 1) {
+        const total = artifacts.length;
+        if (artifacts.length === 1) {
+            const artifact = artifacts[0]!;
+            const filename = filenames.artifactFilenames[0]!;
             throwIfAborted(options.signal);
-            options.onProgress?.({ phase: 'downloading', completed: 1, total, filename: files[0].filename });
+            options.onProgress?.({ phase: 'downloading', completed: 1, total, filename });
             throwIfAborted(options.signal);
-            downloadBlob({ filename: files[0].filename, blob: files[0].blob });
-            options.onProgress?.({ phase: 'done', completed: 1, total, filename: files[0].filename });
+            downloadBlob({ filename, blob: artifact.blob });
+            options.onProgress?.({ phase: 'done', completed: 1, total, filename });
             return { ok: true, noop: false };
         }
+        const files = artifacts.map((artifact, index) => ({
+            filename: filenames.artifactFilenames[index]!,
+            chunks: artifact.chunks,
+        }));
         throwIfAborted(options.signal);
         options.onProgress?.({ phase: 'zipping', completed: files.length, total, filename: filenames.zipFilename });
         const zip = await zipBlobs({ files, signal: options.signal });

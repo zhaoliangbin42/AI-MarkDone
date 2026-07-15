@@ -9,9 +9,42 @@ import {
 } from '../../services/export/messagePngOutputPlan';
 import { getKatexCssWithEmbeddedFonts } from '../../core/export/katexAssets';
 import { WorkerPngEncoderClient } from './workerPngEncoderClient';
+import {
+    activateMessageBandScene,
+    indexMessageBandScene,
+    type MessageBandSceneIndex,
+} from './messageBandScene';
 
 const ROOT_ID = 'aimd-export-renderer-message-root';
 const DEFAULT_IMAGE_TIMEOUT_MS = 1_500;
+// html-to-image caches this list on first use, so it must stay fixed for the lifetime of the
+// message capability chunk. The closed message-card profile carries its own scoped stylesheet;
+// this set retains the computed properties that affect layout and paint without copying every
+// browser-specific property for every KaTeX span in every band.
+const MESSAGE_CAPTURE_STYLE_PROPERTIES: string[] = [
+    'display', 'position', 'inset', 'top', 'right', 'bottom', 'left', 'z-index',
+    'float', 'clear', 'box-sizing', 'width', 'height', 'min-width', 'min-height',
+    'max-width', 'max-height', 'margin', 'margin-top', 'margin-right', 'margin-bottom',
+    'margin-left', 'padding', 'padding-top', 'padding-right', 'padding-bottom', 'padding-left',
+    'border', 'border-width', 'border-style', 'border-color', 'border-top', 'border-right',
+    'border-bottom', 'border-left', 'border-radius', 'border-collapse', 'border-spacing',
+    'background', 'background-color', 'background-image', 'background-size',
+    'background-position', 'background-repeat', 'box-shadow', 'color', 'opacity', 'visibility',
+    'font', 'font-family', 'font-size', 'font-style', 'font-weight', 'font-stretch',
+    'font-variant', 'line-height', 'letter-spacing', 'word-spacing', 'text-align', 'text-indent',
+    'text-transform', 'text-decoration', 'text-shadow', 'white-space', 'overflow', 'overflow-x',
+    'overflow-y', 'overflow-wrap', 'word-break', 'hyphens', 'vertical-align', 'list-style',
+    'list-style-type', 'list-style-position', 'list-style-image', 'table-layout', 'caption-side',
+    'empty-cells', 'columns', 'column-count', 'column-gap', 'column-width', 'break-before',
+    'break-after', 'break-inside', 'page-break-before', 'page-break-after', 'page-break-inside',
+    'transform', 'transform-origin', 'transform-box', 'filter', 'clip-path', 'object-fit',
+    'object-position', 'aspect-ratio', 'flex', 'flex-grow', 'flex-shrink', 'flex-basis',
+    'flex-direction', 'flex-wrap', 'align-items', 'align-content', 'align-self',
+    'justify-content', 'justify-items', 'justify-self', 'order', 'gap', 'row-gap',
+    'grid', 'grid-template-columns', 'grid-template-rows', 'grid-column', 'grid-row',
+    'place-items', 'place-content', 'place-self', 'content', 'counter-increment', 'counter-reset',
+    'quotes', 'appearance', '-webkit-appearance', 'pointer-events',
+];
 // Real-browser benchmarks show that roughly 2M device pixels keeps html-to-image's
 // per-band DOM work bounded without multiplying the fixed serialization overhead.
 // This remains well below the 8M hard safety ceiling enforced by the output plan.
@@ -100,6 +133,15 @@ function replaceUnavailableImages(root: HTMLElement): void {
         placeholder.className = 'aimd-png-image-placeholder';
         placeholder.textContent = `Image unavailable: ${image.alt || image.getAttribute('src') || 'unknown image'}`;
         image.replaceWith(placeholder);
+    }
+}
+
+function removeNonVisualPngMarkup(root: HTMLElement): void {
+    // KaTeX emits a hidden MathML accessibility tree beside the visible HTML tree. A bitmap has
+    // no accessibility semantics, so retaining it only makes every band clone thousands of nodes.
+    // Reader, PDF, SVG, and MathML outputs keep their original semantic markup.
+    for (const mathMl of Array.from(root.querySelectorAll<HTMLElement>('.katex-mathml'))) {
+        mathMl.remove();
     }
 }
 
@@ -234,6 +276,7 @@ async function renderBand(
     endRow: number,
     widthCssPx: number,
     pixelRatio: number,
+    sceneIndex: MessageBandSceneIndex | null,
 ): Promise<HTMLCanvasElement> {
     const heightCssPx = (endRow - startRow) / pixelRatio;
     const canvasWidthCssPx = Math.ceil(widthCssPx * pixelRatio) / pixelRatio;
@@ -253,12 +296,22 @@ async function renderBand(
     const sourceParent = source.parentNode;
     const sourceNextSibling = source.nextSibling;
     const sourceStyle = source.style.cssText;
-    const restoreBlocks = pruneOffBandBlocks(source, startRow / pixelRatio, endRow / pixelRatio);
+    const activeScene = sceneIndex
+        ? activateMessageBandScene(
+            sceneIndex,
+            startRow / pixelRatio,
+            endRow / pixelRatio,
+            pixelRatio,
+        )
+        : null;
+    const restoreBlocks = activeScene
+        ? () => undefined
+        : pruneOffBandBlocks(source, startRow / pixelRatio, endRow / pixelRatio);
     (document.body || document.documentElement).appendChild(viewport);
     viewport.appendChild(source);
     source.style.position = 'absolute';
     source.style.left = '0';
-    source.style.top = `${-startRow / pixelRatio}px`;
+    source.style.top = `${activeScene?.sourceTopCssPx ?? -startRow / pixelRatio}px`;
     source.style.width = `${widthCssPx}px`;
 
     try {
@@ -273,6 +326,8 @@ async function renderBand(
             // The cloned root already carries the job-scoped KaTeX CSS and data fonts exactly once.
             fontEmbedCSS: '',
             skipAutoScale: true,
+            includeStyleProperties: MESSAGE_CAPTURE_STYLE_PROPERTIES,
+            ...(activeScene ? { filter: activeScene.filter } : {}),
         });
     } finally {
         source.style.cssText = sourceStyle;
@@ -280,6 +335,7 @@ async function renderBand(
             if (sourceNextSibling?.parentNode === sourceParent) sourceParent.insertBefore(source, sourceNextSibling);
             else sourceParent.appendChild(source);
         }
+        activeScene?.restore();
         restoreBlocks();
         viewport.remove();
     }
@@ -295,6 +351,7 @@ export async function renderMessagePngCapability(
     const rendered = renderMessageCardProfile(job.document, { widthCssPx: job.options.widthCssPx });
     const root = createRoot(job.options.widthCssPx);
     root.innerHTML = rendered.html;
+    removeNonVisualPngMarkup(root);
 
     try {
         const fontEmbed = await getKatexCssWithEmbeddedFonts(rendered.html);
@@ -317,9 +374,9 @@ export async function renderMessagePngCapability(
             requestedPixelRatio: job.options.requestedPixelRatio,
         });
         const boundaries = semanticBoundaryRows(root, output.effectivePixelRatio, output.pixelHeight);
-        // Small bands bound live canvas memory for normal exports. On ultra-long documents,
-        // real-browser measurements show that repeated foreignObject setup dominates, so use
-        // the existing 8M hard ceiling to reduce band count without exceeding the safety budget.
+        // Keep ordinary bands small for responsiveness. Ultra-long exports use the 8M hard
+        // ceiling because Firefox's repeated foreignObject setup becomes slower than the larger
+        // band raster; the built-renderer gate keeps this branch below the 20-second file target.
         const preferredBandPixels = output.pixelHeight >= ULTRA_LONG_DOCUMENT_HEIGHT_PX
             ? MESSAGE_PNG_LIMITS.maxBandPixels
             : PREFERRED_BAND_PIXELS;
@@ -333,6 +390,7 @@ export async function renderMessagePngCapability(
             boundaryPixelRows: boundaries,
         });
         const totalBands = parts.reduce((total, part) => total + part.bands.length, 0);
+        const sceneIndex = totalBands > 1 ? indexMessageBandScene(root) : null;
         let completedBands = 0;
 
         for (const part of parts) {
@@ -373,6 +431,7 @@ export async function renderMessagePngCapability(
                         band.endRow,
                         job.options.widthCssPx,
                         output.effectivePixelRatio,
+                        sceneIndex,
                     );
                     try {
                         const expectedHeight = band.endRow - band.startRow;

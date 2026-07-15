@@ -177,12 +177,15 @@ function writeCache(key: string, job: RenderHostJob, value: RenderHostJobResult)
     }
 }
 
-function withTimeout<T>(promise: Promise<T>, timeoutMs: number): Promise<T> {
+function withTimeout<T>(promise: Promise<T>, timeoutMs: number, onTimeout: () => void): Promise<T> {
     return new Promise((resolve, reject) => {
-        const timer = window.setTimeout(() => reject(new ExportRenderHostError(
-            'HOST_UNAVAILABLE',
-            'Export renderer timed out.',
-        )), timeoutMs);
+        const timer = window.setTimeout(() => {
+            onTimeout();
+            reject(new ExportRenderHostError(
+                'RENDER_FAILED',
+                'Export renderer timed out.',
+            ));
+        }, timeoutMs);
         promise.then(
             (value) => {
                 window.clearTimeout(timer);
@@ -202,7 +205,11 @@ async function executeOnce(job: RenderHostJob, options: RenderExportJobOptions):
     const cancel = () => handle.cancel();
     options.signal?.addEventListener('abort', cancel, { once: true });
     try {
-        return await withTimeout(handle.result, options.timeoutMs ?? DEFAULT_JOB_TIMEOUT_MS);
+        return await withTimeout(
+            handle.result,
+            options.timeoutMs ?? DEFAULT_JOB_TIMEOUT_MS,
+            handle.cancel,
+        );
     } finally {
         options.signal?.removeEventListener('abort', cancel);
     }

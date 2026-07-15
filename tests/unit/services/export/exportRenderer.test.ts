@@ -90,6 +90,34 @@ describe('renderExportHostJob', () => {
         expect(teardown).toHaveBeenCalledTimes(1);
     });
 
+    it('cancels a timed-out render without retrying the same expensive job', async () => {
+        let connections = 0;
+        const starts = vi.fn();
+        const cancels = vi.fn();
+        const connector: ExportRendererConnector = {
+            connect: async () => {
+                connections += 1;
+                const channel = new MessageChannel();
+                channel.port2.addEventListener('message', (event) => {
+                    if (event.data.type === 'start') starts();
+                    if (event.data.type === 'cancel') cancels();
+                });
+                channel.port2.start();
+                return { port: channel.port1 };
+            },
+            teardown: vi.fn(),
+        };
+        __setExportRendererConnectorForTests(connector);
+
+        await expect(renderExportHostJob(formulaJob, { timeoutMs: 5 })).rejects.toMatchObject({
+            code: 'RENDER_FAILED',
+        });
+        await vi.waitFor(() => expect(cancels).toHaveBeenCalledTimes(1));
+
+        expect(starts).toHaveBeenCalledTimes(1);
+        expect(connections).toBe(1);
+    });
+
     it('deduplicates concurrent jobs and reuses the completed byte cache', async () => {
         const starts = vi.fn();
         const connector: ExportRendererConnector = {

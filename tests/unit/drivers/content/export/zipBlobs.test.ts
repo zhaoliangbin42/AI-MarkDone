@@ -28,6 +28,19 @@ describe('zipBlobs', () => {
         expect(strFromU8(files['two.png']!)).toBe('two');
     });
 
+    it('streams already encoded artifact chunks directly into a ZIP entry', async () => {
+        const encoder = new TextEncoder();
+        const zip = await zipBlobs({
+            files: [{
+                filename: 'chunked.png',
+                chunks: [encoder.encode('part-').buffer, encoder.encode('one').buffer],
+            }],
+        });
+
+        const files = unzipSync(await readBlob(zip));
+        expect(strFromU8(files['chunked.png']!)).toBe('part-one');
+    });
+
     it('returns an empty ZIP blob for no files', async () => {
         const zip = await zipBlobs({ files: [] });
 

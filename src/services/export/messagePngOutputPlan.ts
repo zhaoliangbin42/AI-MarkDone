@@ -7,6 +7,7 @@ export const MESSAGE_PNG_LIMITS = {
     maxBandSidePx: 8_192,
     maxFileHeightPx: 65_535,
     maxFilePixels: 64_000_000,
+    maxJobPixels: 128_000_000,
     minPixelRatio: 1,
     maxPixelRatio: 3,
     pixelRatioStep: 0.5,
@@ -101,6 +102,16 @@ export function planMessagePngOutput(input: MessagePngOutputPlanInput): MessageP
 
     const effectivePixelRatio = MESSAGE_PNG_LIMITS.minPixelRatio;
     const { pixelWidth, pixelHeight } = dimensionsAtRatio(input, effectivePixelRatio);
+    const totalPixels = pixelWidth * pixelHeight;
+    if (!Number.isSafeInteger(pixelWidth)
+        || !Number.isSafeInteger(pixelHeight)
+        || !Number.isSafeInteger(totalPixels)
+        || totalPixels > MESSAGE_PNG_LIMITS.maxJobPixels) {
+        throw new ImageExportPlanningError(
+            'LIMIT_EXCEEDED',
+            'Message PNG exceeds the aggregate export budget.',
+        );
+    }
     const maxPartPixelHeight = Math.min(
         MESSAGE_PNG_LIMITS.maxFileHeightPx,
         Math.floor(MESSAGE_PNG_LIMITS.maxFilePixels / pixelWidth),

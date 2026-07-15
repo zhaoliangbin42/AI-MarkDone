@@ -126,6 +126,7 @@ describe('exportTurnsPng', () => {
         vi.mocked(downloadBlob).mockClear();
         vi.mocked(zipBlobs).mockClear();
         vi.mocked(renderMessageDocumentPng).mockResolvedValueOnce([1, 2].map((partNumber) => ({
+            chunks: [new TextEncoder().encode(`part-${partNumber}`).buffer],
             metadata: {
                 mimeType: 'image/png' as const,
                 widthPx: 800,
@@ -142,8 +143,14 @@ describe('exportTurnsPng', () => {
         expect(res.ok).toBe(true);
         expect(zipBlobs).toHaveBeenCalledWith({
             files: [
-                expect.objectContaining({ filename: 'PNG_Export-part-001-of-2.png' }),
-                expect.objectContaining({ filename: 'PNG_Export-part-002-of-2.png' }),
+                expect.objectContaining({
+                    filename: 'PNG_Export-part-001-of-2.png',
+                    chunks: expect.any(Array),
+                }),
+                expect.objectContaining({
+                    filename: 'PNG_Export-part-002-of-2.png',
+                    chunks: expect.any(Array),
+                }),
             ],
             signal: undefined,
         });
