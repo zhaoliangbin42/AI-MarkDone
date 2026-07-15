@@ -291,6 +291,45 @@
     return extractTextFromValue(message.content);
   }
 
+  function getDeepResearchReportMessage(message) {
+    const metadata = readRecord(message?.metadata);
+    const sdk = readRecord(metadata?.chatgpt_sdk);
+    const invokedResource = readRecord(metadata?.invoked_resource);
+    const resourceName = readString(sdk, 'resource_name');
+    const resourceUri = readString(invokedResource, 'resource_uri');
+    const isDeepResearch = resourceName === 'Deep Research App_start'
+      || resourceUri === '/connector_openai_deep_research/start';
+    if (!isDeepResearch) return null;
+
+    const rawWidgetState = sdk?.widget_state;
+    let widgetState = readRecord(rawWidgetState);
+    if (!widgetState && typeof rawWidgetState === 'string') {
+      try {
+        widgetState = readRecord(JSON.parse(rawWidgetState));
+      } catch {
+        return null;
+      }
+    }
+    if (!widgetState) return null;
+
+    const reportMessage = readRecord(widgetState.report_message);
+    if (!reportMessage || readAuthorRole(reportMessage) !== 'assistant') return null;
+    const reportMetadata = readRecord(reportMessage.metadata);
+    const isComplete = readString(widgetState, 'status') === 'completed'
+      || reportMetadata?.is_complete === true
+      || readString(reportMessage, 'status') === 'finished_successfully';
+    if (!isComplete || !getMessageContent(reportMessage)) return null;
+    return reportMessage;
+  }
+
+  function getDeepResearchReportMessageFromMessages(messages) {
+    for (const message of Array.isArray(messages) ? messages : []) {
+      const reportMessage = getDeepResearchReportMessage(message);
+      if (reportMessage) return reportMessage;
+    }
+    return null;
+  }
+
   function getDisplayableMessageContent(message, expectedRole) {
     if (!isDisplayableMessage(message, expectedRole)) return '';
     return getMessageContent(message);
@@ -397,7 +436,11 @@
 
       if (role !== 'assistant') continue;
       const assistantMessage = getLastDisplayableMessage(ref.turn, 'assistant');
-      const assistantContent = getDisplayableMessageContent(assistantMessage, 'assistant');
+      const deepResearchReport = getDeepResearchReportMessageFromMessages(ref.turn?.messages);
+      const assistantContent = deepResearchReport
+        ? getMessageContent(deepResearchReport)
+        : getDisplayableMessageContent(assistantMessage, 'assistant');
+      const assistantMessageId = getMessageId(assistantMessage) || getMessageId(deepResearchReport);
       const fallbackPrompt = getDisplayableMessageContent(ref.parentPromptMessage, 'user');
       const userPrompt = pendingUser?.userPrompt || fallbackPrompt || `Message ${rounds.length + 1}`;
       rounds.push({
@@ -406,9 +449,9 @@
         userPrompt,
         assistantContent,
         preview: truncatePreview(userPrompt || assistantContent),
-        messageId: getMessageId(assistantMessage),
+        messageId: assistantMessageId,
         userMessageId: pendingUser?.userMessageId || getMessageId(ref.parentPromptMessage),
-        assistantMessageId: getMessageId(assistantMessage),
+        assistantMessageId,
       });
       pendingUser = null;
     }
@@ -448,11 +491,26 @@
   function buildRoundsFromMessages(nodes) {
     const rounds = [];
     let pendingRound = null;
+    let pendingDeepResearchReport = false;
 
     for (const node of Array.isArray(nodes) ? nodes : []) {
       const message = getNodeMessage(node);
       if (!message) continue;
       const role = readAuthorRole(message);
+
+      const deepResearchReport = getDeepResearchReportMessage(message);
+      if (deepResearchReport && pendingRound) {
+        const reportContent = getMessageContent(deepResearchReport);
+        const reportMessageId = getMessageId(deepResearchReport);
+        pendingRound.assistantContent = reportContent;
+        pendingRound.assistantMessageId = reportMessageId;
+        pendingRound.messageId = reportMessageId || pendingRound.messageId || pendingRound.userMessageId;
+        pendingDeepResearchReport = true;
+        pendingRound.preview = truncatePreview(
+          pendingRound.userPrompt || reportContent || `Message ${pendingRound.position}`
+        );
+        continue;
+      }
 
       if (role === 'user') {
         if (!isDisplayableMessage(message, 'user')) continue;
@@ -469,6 +527,7 @@
           assistantMessageId: null,
         };
         rounds.push(pendingRound);
+        pendingDeepResearchReport = false;
         continue;
       }
 
@@ -477,7 +536,7 @@
       if (!isDisplayableMessage(message, 'assistant')) continue;
 
       const assistantContent = getDisplayableMessageContent(message, 'assistant');
-      if (assistantContent) {
+      if (assistantContent && !pendingDeepResearchReport) {
         pendingRound.assistantContent = pendingRound.assistantContent
           ? `${pendingRound.assistantContent}\n\n${assistantContent}`
           : assistantContent;
@@ -568,22 +627,30 @@
       if (!pendingRound) continue;
 
       const messages = Array.isArray(turn.messages) ? turn.messages : [];
-      const assistantContent = messages
-        .map((message) => getDisplayableMessageContent(message, 'assistant'))
-        .filter(Boolean)
-        .join('\n\n')
-        .trim();
+      const deepResearchReport = getDeepResearchReportMessageFromMessages(messages);
+      const assistantContent = deepResearchReport
+        ? getMessageContent(deepResearchReport)
+        : messages
+          .map((message) => getDisplayableMessageContent(message, 'assistant'))
+          .filter(Boolean)
+          .join('\n\n')
+          .trim();
       const assistantMessage = messages.find((message) => (
         isDisplayableMessage(message, 'assistant')
         && (getMessageId(message) || getMessageContent(message))
       )) || null;
+      const assistantMessageId = getMessageId(assistantMessage) || getMessageId(deepResearchReport);
 
       if (assistantContent) {
-        pendingRound.assistantContent = pendingRound.assistantContent
-          ? `${pendingRound.assistantContent}\n\n${assistantContent}`
-          : assistantContent;
+        if (deepResearchReport) {
+          pendingRound.assistantContent = assistantContent;
+        } else {
+          pendingRound.assistantContent = pendingRound.assistantContent
+            ? `${pendingRound.assistantContent}\n\n${assistantContent}`
+            : assistantContent;
+        }
       }
-      pendingRound.assistantMessageId = getMessageId(assistantMessage);
+      pendingRound.assistantMessageId = assistantMessageId;
       pendingRound.messageId = pendingRound.assistantMessageId || pendingRound.messageId || pendingRound.userMessageId;
       pendingRound.preview = truncatePreview(
         pendingRound.userPrompt || pendingRound.assistantContent || `Message ${pendingRound.position}`

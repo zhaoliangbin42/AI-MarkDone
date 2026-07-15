@@ -216,6 +216,81 @@ describe('MessageToolbarOrchestrator ChatGPT reader path', () => {
         await expect(shownItems[0].content()).resolves.toBe('Formula: $x = y + z$');
     });
 
+    it('opens a Deep Research report through the shared Reader source and cleans citation tokens', async () => {
+        document.body.innerHTML = `
+          <div id="thread">
+            <article data-turn="user">
+              <div data-message-author-role="user">
+                <div class="whitespace-pre-wrap">Research this topic</div>
+              </div>
+            </article>
+            <article data-turn="assistant">
+              <div data-message-author-role="assistant" data-message-id="assistant-shell">
+                <div class="markdown prose"></div>
+              </div>
+              <div class="z-0 flex">
+                <div><button data-testid="copy-turn-action-button">copy</button></div>
+              </div>
+            </article>
+          </div>
+        `;
+
+        const adapter = new ChatGPTAdapter();
+        let shownItems: any[] = [];
+        const readerPanel = {
+            show: vi.fn(async (items: any[]) => {
+                shownItems = items;
+            }),
+        } as any;
+        const snapshot = {
+            conversationId: 'conv-deep-research',
+            buildFingerprint: 'build-1',
+            capturedAt: Date.now(),
+            source: 'runtime-bridge',
+            rounds: [
+                {
+                    id: 'round-deep-research',
+                    position: 1,
+                    userPrompt: 'Research this topic',
+                    assistantContent: '# Deep Research Report\n\n## Findings\n\nFull report body. citeturn0search0',
+                    preview: 'Research this topic',
+                    messageId: 'assistant-shell',
+                    userMessageId: 'deep-user-message',
+                    assistantMessageId: 'assistant-shell',
+                },
+            ],
+        };
+        const chatGptConversationEngine = {
+            getSnapshot: vi.fn(),
+            forceRefreshCurrentConversation: vi.fn(async () => snapshot),
+        } as any;
+        const orchestrator = new MessageToolbarOrchestrator(adapter, { readerPanel, chatGptConversationEngine });
+
+        const assistant = document.querySelector('[data-message-author-role="assistant"][data-message-id]') as HTMLElement;
+        const actions = (orchestrator as any).getActionsForMessage(assistant, () => null);
+        const readerAction = actions.find((action: any) => action.id === 'reader');
+
+        await readerAction.onClick();
+
+        expect(chatGptConversationEngine.forceRefreshCurrentConversation).toHaveBeenCalledTimes(1);
+        expect(readerPanel.show).toHaveBeenCalledWith(
+            [expect.objectContaining({
+                userPrompt: 'Research this topic',
+                meta: expect.objectContaining({
+                    platformId: 'chatgpt',
+                    messageId: 'assistant-shell',
+                    position: 1,
+                }),
+            })],
+            0,
+            expect.any(String),
+            expect.objectContaining({ profile: 'conversation-reader' }),
+        );
+        await expect(shownItems[0].content()).resolves.toBe(
+            '# Deep Research Report\n\n## Findings\n\nFull report body.'
+        );
+    });
+
     it('adds the shared Reader refresh action to the in-page Reader and refreshes through the Reader source', async () => {
         document.body.innerHTML = `
           <div id="thread">

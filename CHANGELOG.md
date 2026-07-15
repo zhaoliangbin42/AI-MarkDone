@@ -12,6 +12,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - ChatGPT: Selecting a complete formula, code span or block, table, image, heading, list item, quote, or divider directly in an assistant response now highlights the whole unit and copies its Markdown source, while partial and unsupported selections keep ChatGPT's native behavior.
 
 ### Fixed
+- ChatGPT: Deep Research reports now open with their complete Markdown content in Reader and the shared copy, export, Save Messages, and bookmark flows, without collecting uploaded files or internal tool output.
 - ChatGPT: Complete atomic selections now keep canonical Markdown source even when the host formula copy handler writes visual text later in the same event, and formula selection reuses the shared reversible TeX extractor instead of guessing from visual glyph text.
 - ChatGPT: Inserting or splitting a middle ordered-list item now shifts later continuous siblings, while exiting an empty numbered item closes the remaining numbering gap.
 - ChatGPT: Markdown list editing now confirms the active CommonMark structure before rewriting text, renumbers loose ordered lists across blank lines, supports blockquoted lists and explicit continuation indentation, exits valid empty markers without requiring trailing spaces, and falls back to a plain newline for indented code or marker-like non-list text.

@@ -81,6 +81,36 @@ function attachStructuredTurns(): void {
     });
 }
 
+function attachDeepResearchStructuredTurn(reportMarkdown: string): void {
+    document.body.innerHTML = `
+      <main>
+        <div data-turn-id-container id="deep-user"></div>
+        <div data-turn-id-container id="deep-assistant"></div>
+      </main>
+    `;
+    const attachTurn = (id: string, turn: Record<string, unknown>) => {
+        const element = document.getElementById(id) as any;
+        element.__reactFiber$aimd = {
+            pendingProps: { value: { currentTurn: turn } },
+            return: null,
+        };
+    };
+    attachTurn('deep-user', {
+        id: 'turn-deep-user',
+        author: { role: 'user' },
+        messages: [message('deep-user-message', 'user', 'Research this topic')],
+    });
+    attachTurn('deep-assistant', {
+        id: 'turn-deep-assistant',
+        author: { role: 'assistant' },
+        messages: [
+            message('uploaded-file', 'tool', 'Private uploaded manuscript body'),
+            deepResearchToolMessage(reportMarkdown),
+            message('deep-assistant-shell', 'assistant', 'Research report ready.'),
+        ],
+    });
+}
+
 function message(id: string, role: string, text: string, extra: Record<string, unknown> = {}): Record<string, unknown> {
     return {
         id,
@@ -91,6 +121,42 @@ function message(id: string, role: string, text: string, extra: Record<string, u
         },
         ...extra,
     };
+}
+
+function deepResearchToolMessage(
+    reportMarkdown: string,
+    options: {
+        stateStatus?: string;
+        reportStatus?: string;
+        reportComplete?: boolean;
+        resourceName?: string;
+        resourceUri?: string;
+        widgetState?: string;
+    } = {},
+): Record<string, unknown> {
+    const reportMessage = message('deep-research-report', 'assistant', reportMarkdown, {
+        status: options.reportStatus ?? 'finished_successfully',
+        metadata: {
+            is_complete: options.reportComplete ?? true,
+            finish_details: { type: 'stop' },
+        },
+    });
+    const widgetState = options.widgetState ?? JSON.stringify({
+        status: options.stateStatus ?? 'completed',
+        report_message: reportMessage,
+    });
+
+    return message('deep-research-tool', 'tool', 'Internal tool shell', {
+        metadata: {
+            invoked_resource: {
+                resource_uri: options.resourceUri ?? '/connector_openai_deep_research/start',
+            },
+            chatgpt_sdk: {
+                resource_name: options.resourceName ?? 'Deep Research App_start',
+                widget_state: widgetState,
+            },
+        },
+    });
 }
 
 describe('ChatGPT conversation bridge', () => {
@@ -140,6 +206,163 @@ describe('ChatGPT conversation bridge', () => {
         expect(response.snapshot.rounds.map((round: any) => round.userPrompt)).toEqual(['Question 1', 'Question 2']);
         expect(response.snapshot.rounds.map((round: any) => round.assistantContent)).toEqual(['Answer 1', 'Answer 2']);
         expect(response.snapshot.rounds.map((round: any) => round.messageId)).toEqual(['a1', 'a2']);
+    });
+
+    it('uses a completed Deep Research report from the backend mapping as the assistant content', async () => {
+        const conversationId = '69e8d157-5fec-839c-9124-2179ba8b7d7c';
+        const reportMarkdown = '# Deep Research Report\n\n## Findings\n\nFull report body. citeturn0search0';
+        const payload = {
+            current_node: 'assistant-shell-node',
+            mapping: {
+                root: { id: 'root', parent: null, message: null },
+                'user-node': {
+                    id: 'user-node',
+                    parent: 'root',
+                    message: message('user-message', 'user', 'Research this topic'),
+                },
+                'upload-node': {
+                    id: 'upload-node',
+                    parent: 'user-node',
+                    message: message('uploaded-file', 'tool', 'Private uploaded manuscript body'),
+                },
+                'deep-research-node': {
+                    id: 'deep-research-node',
+                    parent: 'upload-node',
+                    message: deepResearchToolMessage(reportMarkdown),
+                },
+                'assistant-shell-node': {
+                    id: 'assistant-shell-node',
+                    parent: 'deep-research-node',
+                    message: message('assistant-shell', 'assistant', 'Research report ready.'),
+                },
+            },
+        };
+        const fetchMock = vi.fn(async () => new Response(JSON.stringify(payload), {
+            status: 200,
+            headers: { 'Content-Type': 'application/json' },
+        }));
+        Object.defineProperty(window, 'fetch', { configurable: true, value: fetchMock });
+        vi.stubGlobal('fetch', fetchMock);
+
+        installBridge();
+        const response = await requestSnapshot(conversationId);
+
+        expect(response.ok).toBe(true);
+        expect(response.snapshot.rounds).toHaveLength(1);
+        expect(response.snapshot.rounds[0]).toMatchObject({
+            userPrompt: 'Research this topic',
+            assistantContent: reportMarkdown,
+            messageId: 'assistant-shell',
+            assistantMessageId: 'assistant-shell',
+        });
+        expect(response.snapshot.rounds[0].assistantContent).not.toContain('Private uploaded manuscript body');
+        expect(response.snapshot.rounds[0].assistantContent).not.toContain('Internal tool shell');
+        expect(response.snapshot.rounds[0].assistantContent).not.toContain('Research report ready.');
+    });
+
+    it('fails closed for incomplete, unrelated, malformed, or empty embedded reports', async () => {
+        const conversationId = '69e8d157-5fec-839c-9124-2179ba8b7d7c';
+        const cases = [
+            deepResearchToolMessage('Partial report must stay hidden', {
+                stateStatus: 'in_progress',
+                reportStatus: 'in_progress',
+                reportComplete: false,
+            }),
+            deepResearchToolMessage('Unknown widget report must stay hidden', {
+                resourceName: 'Unknown App_start',
+                resourceUri: '/connector_unknown/start',
+            }),
+            deepResearchToolMessage('Malformed report must stay hidden', {
+                widgetState: '{not-json',
+            }),
+            deepResearchToolMessage('', {}),
+        ];
+        const mapping: Record<string, unknown> = {
+            root: { id: 'root', parent: null, message: null },
+        };
+        let parent = 'root';
+        cases.forEach((toolMessage, index) => {
+            const position = index + 1;
+            const userNode = `user-${position}`;
+            const toolNode = `tool-${position}`;
+            const assistantNode = `assistant-${position}`;
+            mapping[userNode] = {
+                id: userNode,
+                parent,
+                message: message(`user-message-${position}`, 'user', `Question ${position}`),
+            };
+            mapping[toolNode] = { id: toolNode, parent: userNode, message: toolMessage };
+            mapping[assistantNode] = {
+                id: assistantNode,
+                parent: toolNode,
+                message: message(`assistant-message-${position}`, 'assistant', `Fallback answer ${position}`),
+            };
+            parent = assistantNode;
+        });
+        const fetchMock = vi.fn(async () => new Response(JSON.stringify({
+            current_node: parent,
+            mapping,
+        }), {
+            status: 200,
+            headers: { 'Content-Type': 'application/json' },
+        }));
+        Object.defineProperty(window, 'fetch', { configurable: true, value: fetchMock });
+        vi.stubGlobal('fetch', fetchMock);
+
+        installBridge();
+        const response = await requestSnapshot(conversationId);
+
+        expect(response.ok).toBe(true);
+        expect(response.snapshot.rounds.map((round: any) => round.assistantContent)).toEqual([
+            'Fallback answer 1',
+            'Fallback answer 2',
+            'Fallback answer 3',
+            'Fallback answer 4',
+        ]);
+    });
+
+    it('uses the nested report id when a turn-array Deep Research shell has no message id', async () => {
+        const conversationId = '69e8d157-5fec-839c-9124-2179ba8b7d7c';
+        const reportMarkdown = '# Deep Research Report\n\nFull report body.';
+        const payload = {
+            turns: [
+                {
+                    id: 'turn-user',
+                    role: 'user',
+                    messages: [message('turn-user-message', 'user', 'Research this topic')],
+                },
+                {
+                    id: 'turn-assistant-status',
+                    role: 'assistant',
+                    messages: [message('assistant-status', 'assistant', 'Research underway.')],
+                },
+                {
+                    id: 'turn-assistant',
+                    role: 'assistant',
+                    messages: [
+                        deepResearchToolMessage(reportMarkdown),
+                        message('', 'assistant', ''),
+                    ],
+                },
+            ],
+        };
+        const fetchMock = vi.fn(async () => new Response(JSON.stringify(payload), {
+            status: 200,
+            headers: { 'Content-Type': 'application/json' },
+        }));
+        Object.defineProperty(window, 'fetch', { configurable: true, value: fetchMock });
+        vi.stubGlobal('fetch', fetchMock);
+
+        installBridge();
+        const response = await requestSnapshot(conversationId);
+
+        expect(response.ok).toBe(true);
+        expect(response.snapshot.rounds[0]).toMatchObject({
+            assistantContent: reportMarkdown,
+            messageId: 'deep-research-report',
+            assistantMessageId: 'deep-research-report',
+        });
+        expect(response.snapshot.rounds[0].assistantContent).not.toContain('Research underway.');
     });
 
     it('keeps object responses for object requests', async () => {
@@ -192,6 +415,29 @@ describe('ChatGPT conversation bridge', () => {
         expect(response.snapshot.rounds.map((round: any) => round.userPrompt)).toEqual(['Question 1', 'Question 2']);
         expect(response.snapshot.rounds.map((round: any) => round.assistantContent)).toEqual(['Answer 1', 'Answer 2']);
         expect(response.snapshot.rounds.map((round: any) => round.assistantMessageId)).toEqual(['a1-message', 'a2-message']);
+    });
+
+    it('prefers a completed Deep Research report over the assistant shell in structured React turns', async () => {
+        const conversationId = '69e8d157-5fec-839c-9124-2179ba8b7d7c';
+        const reportMarkdown = '# Deep Research Report\n\n## Findings\n\nFull report body.';
+        const fetchMock = vi.fn(async () => new Response('', { status: 404 }));
+        Object.defineProperty(window, 'fetch', { configurable: true, value: fetchMock });
+        vi.stubGlobal('fetch', fetchMock);
+        attachDeepResearchStructuredTurn(reportMarkdown);
+
+        installBridge();
+        const response = await requestSnapshot(conversationId);
+
+        expect(response.ok).toBe(true);
+        expect(response.snapshot.rounds).toHaveLength(1);
+        expect(response.snapshot.rounds[0]).toMatchObject({
+            userPrompt: 'Research this topic',
+            assistantContent: reportMarkdown,
+            messageId: 'deep-assistant-shell',
+            assistantMessageId: 'deep-assistant-shell',
+        });
+        expect(response.snapshot.rounds[0].assistantContent).not.toContain('Research report ready.');
+        expect(response.snapshot.rounds[0].assistantContent).not.toContain('Private uploaded manuscript body');
     });
 
     it('does not repeatedly request a backend payload after a 404 for the same conversation', async () => {
