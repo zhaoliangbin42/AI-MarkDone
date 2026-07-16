@@ -2,12 +2,12 @@ export function getModalMotionCss(): string {
     return `
 .mock-modal[data-motion-state="opening"]:not([data-motion-runtime]),
 .dialog[data-motion-state="opening"]:not([data-motion-runtime]) {
-  animation: aimd-modal-pop-in 280ms var(--aimd-ease-out) both;
+  animation: aimd-modal-pop-in var(--_surface-motion-open-duration, var(--aimd-duration-base)) var(--_surface-motion-open-easing, var(--aimd-ease-out)) both;
 }
 
 .mock-modal[data-motion-state="closing"],
 .dialog[data-motion-state="closing"] {
-  animation: aimd-modal-pop-out 220ms ease-in both;
+  animation: aimd-modal-pop-out var(--_surface-motion-close-duration, var(--aimd-duration-fast)) var(--_surface-motion-close-easing, var(--aimd-ease-in-out)) both;
 }
 
 @keyframes aimd-modal-pop-in {
@@ -42,11 +42,15 @@ export function getModalMotionCss(): string {
 
 @media (prefers-reduced-motion: reduce) {
   .mock-modal[data-motion-state="opening"]:not([data-motion-runtime]),
+  .dialog[data-motion-state="opening"]:not([data-motion-runtime]) {
+    animation-duration: var(--_surface-motion-open-duration, 0s);
+    animation-timing-function: var(--_surface-motion-open-easing, var(--aimd-ease-in-out));
+  }
+
   .mock-modal[data-motion-state="closing"],
-  .dialog[data-motion-state="opening"]:not([data-motion-runtime]),
   .dialog[data-motion-state="closing"] {
-    animation-duration: 80ms;
-    animation-timing-function: linear;
+    animation-duration: var(--_surface-motion-close-duration, 0s);
+    animation-timing-function: var(--_surface-motion-close-easing, var(--aimd-ease-in-out));
   }
 
   @keyframes aimd-modal-pop-in {

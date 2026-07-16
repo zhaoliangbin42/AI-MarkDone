@@ -1,11 +1,13 @@
 import { fileCodeIcon, messageSquareTextIcon, messageSquareTextIcon as commentTokenIcon } from '../../../assets/icons';
 import type { CommentTemplateSegment, CommentTemplateTokenKey } from '../../../core/settings/readerCommentExport';
 import { createIcon } from '../components/Icon';
+import { getDefaultSurfaceMotionProfile, SurfaceSession } from '../components/SurfaceRuntime';
 import { ReaderCommentTemplateEditor } from './ReaderCommentTemplateEditor';
 import { createReaderSettingsDialogShell } from './ReaderSettingsDialogShell';
 
 type OpenParams = {
     parent: HTMLElement;
+    opener?: HTMLElement;
     template: CommentTemplateSegment[];
     preview: string;
     labels: {
@@ -33,8 +35,8 @@ type OpenParams = {
 
 export class ReaderCommentTemplateSettingsPopover {
     private rootEl: HTMLElement | null = null;
+    private session: SurfaceSession | null = null;
     private editor: ReaderCommentTemplateEditor | null = null;
-    private onWindowKeyDown: ((event: KeyboardEvent) => void) | null = null;
     private placeholderMenuOpen = false;
 
     isOpen(): boolean {
@@ -43,9 +45,11 @@ export class ReaderCommentTemplateSettingsPopover {
 
     close(): void {
         if (!this.rootEl) return;
-        this.detachWindowKeyDown();
         this.rootEl.remove();
         this.rootEl = null;
+        this.session?.restoreFocus(document);
+        this.session?.destroy();
+        this.session = null;
         this.editor = null;
         this.placeholderMenuOpen = false;
     }
@@ -59,14 +63,6 @@ export class ReaderCommentTemplateSettingsPopover {
             panelClassNames: ['reader-settings-popover--template'],
         });
         const popover = shell.panel;
-        popover.addEventListener('keydown', (event) => {
-            if (event.key !== 'Escape') return;
-            event.preventDefault();
-            event.stopPropagation();
-            this.close();
-            params.onClose?.();
-        }, { capture: true });
-        popover.addEventListener('keydown', (event) => event.stopPropagation());
         const title = shell.title;
         title.textContent = '';
         const icon = document.createElement('span');
@@ -81,14 +77,6 @@ export class ReaderCommentTemplateSettingsPopover {
             params.onClose?.();
         });
         this.rootEl = shell.layer;
-        this.onWindowKeyDown = (event: KeyboardEvent) => {
-            if (event.key !== 'Escape') return;
-            event.preventDefault();
-            event.stopPropagation();
-            this.close();
-            params.onClose?.();
-        };
-        window.addEventListener('keydown', this.onWindowKeyDown, { capture: true });
 
         shell.body.innerHTML = `
           <div class="reader-settings-popover__field">
@@ -131,13 +119,27 @@ export class ReaderCommentTemplateSettingsPopover {
             this.close();
             params.onClose?.();
         };
-        const closeOnEscape = (event: KeyboardEvent) => {
-            if (event.key !== 'Escape') return;
-            event.preventDefault();
-            event.stopPropagation();
-            close();
-        };
-        editorRoot.addEventListener('keydown', closeOnEscape);
+        const session = new SurfaceSession({
+            profile: 'panel',
+            responsiveProfile: {
+                viewportGutterPx: 16,
+                maxWidthCss: 'min(920px, calc(100% - (var(--aimd-space-4) * 2)))',
+                maxHeightCss: 'calc(100% - (var(--aimd-space-4) * 2))',
+                collision: 'clamp',
+                scrollOwner: 'content',
+                narrowFallback: 'fullscreen',
+            },
+            motionProfile: getDefaultSurfaceMotionProfile('panel'),
+        });
+        this.session = session;
+        session.captureFocus(params.opener);
+        session.syncEscapeScope({
+            root: popover,
+            trapTabWithin: popover,
+            stopPropagationAll: true,
+            ignoreEscapeWhileComposing: true,
+            onEscape: close,
+        });
         this.editor = new ReaderCommentTemplateEditor({
             root: editorRoot,
             value: params.template,
@@ -195,11 +197,6 @@ export class ReaderCommentTemplateSettingsPopover {
             params.onSave(this.editor?.getValue() ?? params.template);
             close();
         });
-    }
-
-    private detachWindowKeyDown(): void {
-        if (!this.onWindowKeyDown) return;
-        window.removeEventListener('keydown', this.onWindowKeyDown, { capture: true } as any);
-        this.onWindowKeyDown = null;
+        session.scheduleInitialFocus({ surface: popover, selectors: ['[data-role="commentTemplate"]'] });
     }
 }

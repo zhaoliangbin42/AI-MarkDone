@@ -203,27 +203,22 @@ Files:
 
 - `src/runtimes/content/entry.ts`
 - `src/ui/content/controllers/ChatGPTFoldingController.ts`
-- possibly a new controller:
-  - `src/ui/content/controllers/ConversationVirtualizationController.ts`
+- `src/ui/content/controllers/ChatGPTStablePerformanceController.ts`
 
 Recommended controller split:
 
 - `ChatGPTFoldingController`
   - remains a ChatGPT feature policy/UI controller
   - owns fold bars, fold dock, fold state
-- `ConversationVirtualizationController`
-  - shared orchestration for trim/restore behavior
-  - activated only when adapter exposes required capabilities
+- `ChatGPTStablePerformanceController`
+  - successor prototype for trim/restore orchestration
+  - remains outside the current shipping runtime until the adapter contract and performance gate are accepted
 
 This avoids merging folding UI behavior with heavy DOM lifecycle code.
 
 #### Settings/core policy layer
 
-New proposal:
-
-- `src/core/conversationVirtualization/policy.ts`
-
-Owns normalized settings such as:
+A standalone core policy module was proposed but was not retained because no shipping runtime consumed it. Any future activation must first define normalized settings such as:
 
 - enabled
 - preserveRecentAssistantCount
@@ -508,13 +503,12 @@ ChatGPT-only additions:
 
 Shared additions:
 
-- `src/core/conversationVirtualization/policy.ts`
 - `src/drivers/content/virtualization/conversationWindow.ts`
 - `src/drivers/content/virtualization/offscreenPlaceholderStore.ts`
 - `src/drivers/content/virtualization/scrollAnchorManager.ts`
 - `src/drivers/content/virtualization/heavyMessageScore.ts`
 - `src/drivers/content/virtualization/earlyLoadGuard.ts`
-- `src/ui/content/controllers/ConversationVirtualizationController.ts`
+- `src/ui/content/controllers/ChatGPTStablePerformanceController.ts`
 
 Integration points:
 

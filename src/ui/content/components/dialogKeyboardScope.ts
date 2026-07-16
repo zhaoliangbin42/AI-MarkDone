@@ -37,14 +37,20 @@ function findFirstFocusable(root: HTMLElement): HTMLElement | null {
 
 export function attachDialogKeyboardScope(opts: {
     root: HTMLElement;
+    keydownTarget?: EventTarget;
     onEscape: () => void;
     stopPropagationAll?: boolean;
     ignoreEscapeWhileComposing?: boolean;
+    maintainFocus?: boolean;
+    capture?: boolean;
     trapTabWithin?: HTMLElement;
     focusFallback?: () => HTMLElement | null;
 }): DialogKeyboardScopeHandle {
     const stopPropagationAll = opts.stopPropagationAll ?? true;
     const ignoreEscapeWhileComposing = opts.ignoreEscapeWhileComposing ?? true;
+    const maintainFocus = opts.maintainFocus ?? true;
+    const capture = opts.capture ?? false;
+    const keydownTarget = opts.keydownTarget ?? opts.root;
 
     const focusFallback = () => {
         const explicit = opts.focusFallback?.() ?? null;
@@ -57,6 +63,7 @@ export function attachDialogKeyboardScope(opts: {
     };
 
     const ensureFocusInside = () => {
+        if (!maintainFocus) return;
         if (!opts.root.isConnected) return;
         // When focus is inside a shadow tree, `document.activeElement` will be the shadow host (i.e., `root`).
         const active = document.activeElement as HTMLElement | null;
@@ -70,6 +77,7 @@ export function attachDialogKeyboardScope(opts: {
     scopeStack.push(internalScope);
 
     const onKeyDown = (e: KeyboardEvent) => {
+        if (!isTopMost(internalScope)) return;
         if (stopPropagationAll) e.stopPropagation();
 
         if (e.key === 'Escape') {
@@ -100,6 +108,7 @@ export function attachDialogKeyboardScope(opts: {
     };
 
     const onPointerDownCapture = (e: PointerEvent) => {
+        if (!maintainFocus) return;
         if (!opts.root.isConnected) return;
         if (eventWithinTransientRoot(e)) return;
         const active = document.activeElement as HTMLElement | null;
@@ -124,6 +133,7 @@ export function attachDialogKeyboardScope(opts: {
     };
 
     const onDocumentFocusInCapture = (e: FocusEvent) => {
+        if (!maintainFocus) return;
         if (!opts.root.isConnected) return;
         if (!isTopMost(internalScope)) return;
         if (eventWithinTransientRoot(e)) return;
@@ -133,7 +143,7 @@ export function attachDialogKeyboardScope(opts: {
         focusFallback();
     };
 
-    const mutationObserver = new MutationObserver(() => {
+    const mutationObserver = maintainFocus ? new MutationObserver(() => {
         if (!opts.root.isConnected) return;
         if (!isTopMost(internalScope)) return;
         // If a focused element was removed by a sub-component ESC handler, focus may jump to <body> without
@@ -142,21 +152,25 @@ export function attachDialogKeyboardScope(opts: {
         if (elementInRoot(opts.root, active)) return;
         if (elementInTransientRoot(active)) return;
         focusFallback();
-    });
+    }) : null;
 
-    opts.root.addEventListener('keydown', onKeyDown);
+    keydownTarget.addEventListener('keydown', onKeyDown as EventListener, { capture });
     opts.root.addEventListener('pointerdown', onPointerDownCapture, { capture: true });
-    document.addEventListener('focusin', onDocumentFocusInCapture, { capture: true });
-    mutationObserver.observe(opts.root, { subtree: true, childList: true });
+    if (maintainFocus) {
+        document.addEventListener('focusin', onDocumentFocusInCapture, { capture: true });
+        mutationObserver?.observe(opts.root, { subtree: true, childList: true });
+    }
 
     // Initial focus: ensure ESC works even if the user clicks a non-focusable area first.
-    queueMicrotask(() => ensureFocusInside());
+    if (maintainFocus) queueMicrotask(() => ensureFocusInside());
     return {
         detach() {
-            opts.root.removeEventListener('keydown', onKeyDown);
+            keydownTarget.removeEventListener('keydown', onKeyDown as EventListener, { capture } as any);
             opts.root.removeEventListener('pointerdown', onPointerDownCapture, { capture: true } as any);
-            document.removeEventListener('focusin', onDocumentFocusInCapture, { capture: true } as any);
-            mutationObserver.disconnect();
+            if (maintainFocus) {
+                document.removeEventListener('focusin', onDocumentFocusInCapture, { capture: true } as any);
+                mutationObserver?.disconnect();
+            }
             const idx = scopeStack.indexOf(internalScope);
             if (idx >= 0) scopeStack.splice(idx, 1);
         },

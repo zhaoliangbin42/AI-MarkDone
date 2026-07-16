@@ -2,6 +2,20 @@
 
 This file defines the short, shared vocabulary used in product discussion, implementation, and documentation. Detailed behavior remains authoritative in `docs/FEATURES.md` and `docs/architecture/CURRENT_STATE.md`.
 
+## UI System
+
+- **Surface**: one user-visible AI-MarkDone work area with a defined entry, owner, DOM scope, lifecycle, and responsive behavior. A Surface may be a panel, modal, anchored popover, inline host control, or extension document.
+- **Surface family**: related Surfaces that share density, chrome, interaction, and responsive behavior, such as Reader, Bookmarks, Composer, or host-integrated controls.
+- **Chrome**: repeated interface structure around content, including headers, footers, rows, controls, dividers, focus treatment, and feedback states. Chrome does not own feature data or platform selectors.
+- **Transient UI**: short-lived contextual UI such as a popover, tooltip, toast, suggestion list, or hover action. It must have an explicit anchor, dismissal contract, focus behavior, and viewport fallback.
+- **Surface profile**: a named presentation contract (`panel`, `modal`, `anchored`, or `inline`) that supplies shared chrome and lifecycle behavior without exposing low-level style flags.
+- **Responsive contract**: the declared width, height, collision, scroll-owner, and narrow-viewport behavior for a Surface. It is owned by the Surface family rather than assembled from unrelated media queries.
+- **Appearance snapshot**: one immutable theme-and-global-appearance value distributed to UI roots. Reader content width and Reader body font size are Reader state, not global appearance.
+- **Appearance scope**: the token-injection target for an appearance snapshot: a page root, ShadowRoot, or documented light-DOM portal.
+- **Surface session**: the lifecycle owner for mounting, appearance and locale updates, focus, dismissal, positioning, motion, close, and destruction of one Surface.
+
+The complete Surface catalog, token ownership rules, and responsive contracts are authoritative in `docs/design.md`. The implementation history and current Phase 7 closeout record live in `docs/refactor/UI_SYSTEM_REFACTOR_PLAN.md`.
+
 ## ChatGPT Input Enhancement
 
 - **Input Enhancement**: the complete optional authoring layer attached to the official ChatGPT composer. It does not replace the composer or render rich text inside it.

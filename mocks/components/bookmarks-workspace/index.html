@@ -1,0 +1,57 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>AI-MarkDone Bookmarks Workspace</title>
+    <style>
+      :root { color-scheme: light dark; }
+      * { box-sizing: border-box; }
+      body {
+        margin: 0;
+        min-height: 100vh;
+        font-family: system-ui, sans-serif;
+        background: #f5f5f4;
+        color: #1c1917;
+      }
+      body[data-theme="dark"] { background: #171717; color: #f5f5f4; }
+      main {
+        min-height: 100vh;
+        padding: 24px;
+        display: grid;
+        place-items: center;
+      }
+      .host-context {
+        width: min(720px, 100%);
+        padding: 20px;
+        border: 1px solid currentColor;
+        border-radius: 18px;
+        opacity: 0.9;
+      }
+      .host-context h1 { margin: 0 0 8px; font-size: 22px; }
+      .host-context p { margin: 0; max-width: 58ch; opacity: 0.72; }
+      .mock-conversation { display: none; }
+      @media (max-width: 560px) {
+        main { padding: 12px; }
+        .host-context { padding: 16px; }
+      }
+    </style>
+  </head>
+  <body>
+    <main>
+      <section class="host-context">
+        <h1 data-role="fixture-title">Bookmarks workspace entry</h1>
+        <p data-role="fixture-description">The real page control opens the production Bookmarks panel.</p>
+        <div class="mock-conversation" data-role="conversation-root">
+          <article class="turn">
+            <div class="user-message" data-message-author-role="user">Plan a reusable interface architecture.</div>
+            <div class="assistant-message" data-message-id="assistant-1">
+              <div class="assistant-content">A compact architecture note for the fixture.</div>
+            </div>
+          </article>
+        </div>
+      </section>
+    </main>
+    <script type="module" src="./main.ts"></script>
+  </body>
+</html>

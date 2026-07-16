@@ -126,12 +126,13 @@ export class ChatGPTAtomicSelectionController {
 [data-message-author-role="assistant"][data-message-id] .markdown.prose [${STATE_ATTRIBUTE}="selected"] {
   border-radius: var(--aimd-radius-sm);
   background: color-mix(in srgb, var(--aimd-interactive-selected) 92%, transparent);
-  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--aimd-interactive-primary) 32%, transparent);
+  outline: 1px solid color-mix(in srgb, var(--aimd-interactive-primary) 32%, transparent);
+  outline-offset: -1px;
 }
 
 [data-message-author-role="assistant"][data-message-id] .markdown.prose :is(.katex, .katex-display, code, pre, table, img)[${STATE_ATTRIBUTE}="selected"] {
   background: color-mix(in srgb, var(--aimd-interactive-selected) 96%, transparent);
-  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--aimd-interactive-primary) 44%, transparent);
+  outline-color: color-mix(in srgb, var(--aimd-interactive-primary) 44%, transparent);
 }
 `;
         (document.head || document.documentElement).appendChild(style);

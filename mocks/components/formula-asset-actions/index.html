@@ -1,0 +1,92 @@
+<!doctype html>
+<html lang="en" data-aimd-theme="light">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <link rel="icon" href="data:," />
+    <title>AI-MarkDone Formula Asset Actions Mock</title>
+    <style>
+      * { box-sizing: border-box; }
+      body {
+        margin: 0;
+        min-height: 100vh;
+        color: #111827;
+        background: #f3f4f6;
+        font-family: ui-sans-serif, system-ui, sans-serif;
+      }
+      body[data-theme="dark"] { color: #f3f4f6; background: #171717; }
+      main { width: min(760px, calc(100% - 32px)); margin: 0 auto; padding: 36px 0 320px; }
+      header { margin-bottom: 24px; }
+      h1 { margin: 0 0 8px; font-size: 24px; }
+      p { margin: 0; color: #6b7280; line-height: 1.6; }
+      body[data-theme="dark"] p { color: #a3a3a3; }
+      .case {
+        min-width: 0;
+        padding: 22px;
+        border: 1px solid #d1d5db;
+        border-radius: 18px;
+        background: #fff;
+        box-shadow: 0 12px 30px rgba(15, 23, 42, 0.08);
+      }
+      body[data-theme="dark"] .case { border-color: #404040; background: #262626; box-shadow: none; }
+      .case h2 { margin: 0 0 6px; font-size: 16px; }
+      .formula-stage {
+        min-height: 170px;
+        display: grid;
+        place-items: center;
+        margin: 18px 0;
+        padding: 24px 16px;
+        border: 1px solid #d1d5db;
+        border-radius: 14px;
+        background: #f9fafb;
+      }
+      body[data-theme="dark"] .formula-stage { border-color: #525252; background: #1f1f1f; }
+      .math-inline { display: inline-flex; align-items: center; padding: 8px 10px; border-radius: 8px; }
+      .katex { font-family: Georgia, Cambria, serif; font-size: clamp(28px, 8vw, 48px); }
+      annotation { display: none; }
+      .settings {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 8px 16px;
+        padding-top: 16px;
+        border-top: 1px solid #e5e7eb;
+      }
+      body[data-theme="dark"] .settings { border-color: #404040; }
+      .settings label { display: inline-flex; align-items: center; gap: 7px; font-size: 13px; }
+      .settings input { accent-color: #2563eb; }
+      #fixture-status { margin-top: 14px; color: #2563eb; font-size: 13px; }
+      @media (max-width: 420px) {
+        main { width: min(100% - 24px, 760px); padding-top: 24px; }
+        .case { padding: 16px; }
+        .formula-stage { min-height: 150px; padding-inline: 8px; }
+      }
+    </style>
+  </head>
+  <body data-theme="light">
+    <main>
+      <header>
+        <h1 data-role="fixture-title">Formula asset actions</h1>
+        <p data-role="fixture-description">Hover the rendered formula to open the production asset-action portal.</p>
+      </header>
+      <article class="case" id="formula-container">
+        <h2 data-role="case-title">Settings-driven hover actions</h2>
+        <p data-role="case-description">The enabled formats below are passed through the real controller settings path.</p>
+        <div class="formula-stage">
+          <span class="math-inline">
+            <span class="katex" id="formula-target" tabindex="0">
+              <span aria-hidden="true">∑ᵢ₌₁ⁿ i = n(n+1) / 2</span>
+              <annotation encoding="application/x-tex">\sum_{i=1}^{n} i = \frac{n(n+1)}{2}</annotation>
+            </span>
+          </span>
+        </div>
+        <div class="settings" role="group" aria-label="Formula asset formats">
+          <label><input id="copy-svg" type="checkbox" checked /> <span data-role="copy-svg-label">Copy SVG</span></label>
+          <label><input id="copy-mathml" type="checkbox" checked /> <span data-role="copy-mathml-label">Copy MathML</span></label>
+          <label><input id="save-svg" type="checkbox" checked /> <span data-role="save-svg-label">Save SVG</span></label>
+        </div>
+        <div id="fixture-status" aria-live="polite">Hover actions are ready.</div>
+      </article>
+    </main>
+    <script type="module" src="./main.ts"></script>
+  </body>
+</html>

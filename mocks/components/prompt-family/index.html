@@ -1,0 +1,50 @@
+<!doctype html>
+<html lang="en" data-aimd-theme="light">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <link rel="icon" href="data:," />
+    <title>AI-MarkDone Prompt Family Mock</title>
+    <style>
+      * { box-sizing: border-box; }
+      body { margin: 0; min-height: 100vh; color: #111827; background: #f3f4f6; font-family: ui-sans-serif, system-ui, sans-serif; }
+      body[data-theme="dark"] { color: #f3f4f6; background: #171717; }
+      main { width: min(920px, calc(100% - 32px)); margin: 0 auto; padding: 36px 0 420px; }
+      header { display: flex; align-items: flex-start; justify-content: space-between; gap: 20px; margin-bottom: 24px; }
+      h1 { margin: 0 0 8px; font-size: 24px; }
+      p { margin: 0; color: #6b7280; line-height: 1.6; }
+      body[data-theme="dark"] p { color: #a3a3a3; }
+      button, textarea { font: inherit; }
+      .controls { display: flex; flex-wrap: wrap; gap: 8px; }
+      .controls button { border: 1px solid #d1d5db; border-radius: 10px; padding: 8px 12px; color: inherit; background: #fff; cursor: pointer; }
+      body[data-theme="dark"] .controls button { border-color: #525252; background: #262626; }
+      .case { min-height: 220px; padding: 20px; border: 1px solid #d1d5db; border-radius: 18px; background: #fff; box-shadow: 0 12px 30px rgba(15, 23, 42, 0.08); }
+      body[data-theme="dark"] .case { border-color: #404040; background: #262626; box-shadow: none; }
+      .case h2 { margin: 0 0 6px; font-size: 16px; }
+      .composer { width: 100%; min-height: 112px; margin-top: 18px; padding: 14px 16px; resize: none; border: 1px solid #d1d5db; border-radius: 22px; color: inherit; background: #f9fafb; line-height: 1.5; }
+      body[data-theme="dark"] .composer { border-color: #525252; background: #1f1f1f; }
+      @media (max-width: 620px) { header { flex-direction: column; } main { padding-top: 24px; } .case { padding: 14px; } }
+    </style>
+  </head>
+  <body data-theme="light">
+    <main>
+      <header>
+        <div>
+          <h1>Prompt family</h1>
+          <p>Real controller paths for composer completion and the editable Prompt manager.</p>
+          <span id="locale-status" hidden>Prompt completion</span>
+        </div>
+        <div class="controls">
+          <button id="autocomplete-trigger" type="button">Show autocomplete</button>
+          <button id="manager-trigger" type="button">Open manager</button>
+        </div>
+      </header>
+      <article class="case">
+        <h2>Official composer fixture</h2>
+        <p>Narrow viewports exercise caret completion; wider viewports exercise the full manager.</p>
+        <textarea id="composer" class="composer" aria-label="Prompt composer">\rewrite</textarea>
+      </article>
+    </main>
+    <script type="module" src="./main.ts"></script>
+  </body>
+</html>

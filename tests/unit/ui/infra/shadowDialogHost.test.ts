@@ -15,17 +15,31 @@ describe('mountShadowDialogHost', () => {
         });
 
         expect(document.getElementById('test-shadow-dialog-host')).toBeTruthy();
+        expect(h.host.style.pointerEvents).toBe('none');
         expect(h.shadow.querySelectorAll('style').length).toBe(1);
         expect(document.documentElement.style.overflow).toBe('hidden');
         expect(document.body.style.overflow).toBe('hidden');
 
         h.setCss(':host{color:blue;}');
-        expect(h.styleEl.textContent).toContain('color:blue');
+        expect(h.styleEl?.textContent).toContain('color:blue');
 
         h.unmount();
         expect(document.getElementById('test-shadow-dialog-host')).toBeFalsy();
         expect(document.documentElement.style.overflow).toBe('auto');
         expect(document.body.style.overflow).toBe('scroll');
     });
-});
 
+    it('does not inject an empty style element when the caller has no host css', () => {
+        const handle = mountShadowDialogHost({
+            id: 'test-shadow-dialog-host-without-css',
+            html: '<div data-role="content">Hello</div>',
+            lockScroll: false,
+        });
+
+        try {
+            expect(handle.shadow.querySelector('style')).toBeNull();
+        } finally {
+            handle.unmount();
+        }
+    });
+});

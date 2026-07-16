@@ -7,7 +7,7 @@ import { getSendPopoverCss } from '@/ui/content/sending/ui/styles/sendPopoverCss
 describe('shared input field css', () => {
     it('is included by the rebuilt overlay surfaces', () => {
         const bookmarksCss = getBookmarksPanelCss();
-        const bookmarkSaveCss = getBookmarkSaveDialogCss('light');
+        const bookmarkSaveCss = getBookmarkSaveDialogCss();
         const modalCss = getModalHostCss();
         const sendPopoverCss = getSendPopoverCss();
 
@@ -18,5 +18,14 @@ describe('shared input field css', () => {
 
         expect(bookmarksCss).toContain('.aimd-field-shell:focus-within');
         expect(bookmarkSaveCss).toContain('.aimd-field-control--standalone:focus');
+    });
+
+    it('emits the shared field contract only once in bookmark save', () => {
+        const css = getBookmarkSaveDialogCss();
+        const placeholderContract = css.match(/\.aimd-field-control::placeholder/g) ?? [];
+        const standaloneFocusContract = css.match(/\.aimd-field-control--standalone:focus,/g) ?? [];
+
+        expect(placeholderContract).toHaveLength(1);
+        expect(standaloneFocusContract).toHaveLength(1);
     });
 });

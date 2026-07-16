@@ -44,6 +44,37 @@ describe('fallback popup UI', () => {
         expect(html).toContain('href="https://claude.ai/"');
         expect(html).toContain('href="https://chat.deepseek.com/"');
         expect(html).toContain('Formula copy');
-        expect(html).toContain('Open ChatGPT, Gemini, Claude, or DeepSeek to use AI-MarkDone.');
+        expect(html).toContain('Open a supported site to use AI-MarkDone.');
+    });
+
+    it('localizes every user-facing popup label through extension i18n', () => {
+        const html = readPopupHtml();
+        const script = readFileSync(resolve(process.cwd(), 'src/popup/popup.js'), 'utf-8');
+
+        expect(html).toContain('data-i18n="popupSupportedSites"');
+        expect(html).toContain('data-i18n="popupChatGptHint"');
+        expect(html).toContain('data-i18n="popupFormulaCopyHint"');
+        expect(html).toContain('data-i18n="popupUnsupportedPageFooter"');
+        expect(html).toContain('data-i18n-attr="alt:popupLogoAlt"');
+        expect(script).toContain('i18n.getMessage');
+        expect(script).toContain("document.documentElement.lang");
+    });
+
+    it('keeps the popup usable at the documented 320px minimum width', () => {
+        const html = readPopupHtml();
+
+        expect(html).toContain('min-width: 320px');
+        expect(html).toContain('@media (max-width: 360px)');
+        expect(html).toContain('overflow-wrap: anywhere');
+    });
+
+    it('follows the browser color scheme without requiring the host page theme runtime', () => {
+        const html = readPopupHtml();
+        const script = readFileSync(resolve(process.cwd(), 'src/popup/popup.js'), 'utf-8');
+
+        expect(html).toContain(':root[data-aimd-theme="dark"]');
+        expect(script).toContain('globalThis.matchMedia');
+        expect(script).toContain('(prefers-color-scheme: dark)');
+        expect(script).toContain("data-aimd-theme");
     });
 });

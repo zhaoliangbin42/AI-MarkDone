@@ -5,7 +5,6 @@ export function getSendPopoverCss(): string {
 ${getInputFieldCss()}
 .send-popover {
   --_send-popover-arrow-size: calc(var(--aimd-space-3) + var(--aimd-space-1) / 2);
-  --_send-popover-edge-gap: calc(var(--aimd-space-6) + var(--aimd-space-4) + var(--aimd-space-3));
   --_send-popover-offset: calc(var(--aimd-space-2) + var(--aimd-space-1) / 2);
   position: absolute;
   left: 0;
@@ -18,10 +17,10 @@ ${getInputFieldCss()}
   display: flex;
   flex-direction: column;
   gap: var(--aimd-space-3);
-  min-width: 320px;
-  min-height: 220px;
-  max-width: min(680px, calc(100vw - var(--_send-popover-edge-gap)));
-  max-height: min(520px, calc(100vh - (var(--_send-popover-edge-gap) + var(--aimd-space-6))));
+  min-width: min(320px, calc(100vw - var(--aimd-space-4)));
+  min-height: min(220px, calc(100vh - var(--aimd-space-4) * 2));
+  max-width: min(680px, calc(100vw - var(--aimd-space-4)));
+  max-height: min(520px, calc(100vh - var(--aimd-space-4) * 2));
   overflow: hidden;
   z-index: var(--aimd-z-tooltip);
   color: var(--aimd-text-primary);
@@ -50,6 +49,7 @@ ${getInputFieldCss()}
 }
 
 .send-popover__head {
+  flex: 0 0 auto;
   justify-content: space-between;
 }
 
@@ -79,7 +79,7 @@ ${getInputFieldCss()}
   outline: none;
   overflow: auto;
   resize: none;
-  box-shadow: inset 0 1px 0 color-mix(in srgb, var(--aimd-bg-primary) 72%, transparent);
+  box-shadow: var(--aimd-shadow-field-inset);
 }
 
 .send-popover__input::placeholder {
@@ -100,12 +100,27 @@ ${getInputFieldCss()}
   margin-top: auto;
 }
 
+@media (max-width: 560px), (max-height: 568px) {
+  .send-popover {
+    padding: var(--aimd-space-3);
+    gap: var(--aimd-space-2);
+  }
+
+  .send-popover__foot .button-row {
+    flex-wrap: nowrap;
+  }
+}
+
 .send-popover__foot .status-line {
   flex: 1 1 100%;
   min-height: 18px;
   font-size: var(--aimd-text-xs);
   line-height: 1.4;
   color: var(--aimd-text-secondary);
+}
+
+.send-popover__foot .status-line[data-tone="error"] {
+  color: var(--aimd-interactive-danger);
 }
 
 .send-popover__foot .button-row {

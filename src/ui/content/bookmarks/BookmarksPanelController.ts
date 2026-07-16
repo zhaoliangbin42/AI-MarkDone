@@ -27,7 +27,11 @@ import {
     getSelectedFolderPaths,
     type FolderCheckboxState,
 } from './bookmarksPanelControllerSelection';
-import type { UserThemeOverrides } from '../../../style/tokens';
+import {
+    areAppearanceSnapshotsEqual,
+    createAppearanceSnapshot,
+    type AppearanceSnapshot,
+} from '../../../style/appearance';
 
 export type BookmarkIdentityKey = string; // `message:${urlWithoutProtocol}:${position}` or `page:${urlWithoutProtocol}`
 
@@ -66,8 +70,7 @@ export type BookmarksPanelSnapshot = {
 
 export class BookmarksPanelController {
     private adapter: SiteAdapter;
-    private theme: Theme = 'light';
-    private themeOverrides: UserThemeOverrides = {};
+    private appearance: AppearanceSnapshot = createAppearanceSnapshot('light');
 
     private bookmarks: Bookmark[] = [];
     private folders: Folder[] = [];
@@ -104,22 +107,18 @@ export class BookmarksPanelController {
         return this.adapter;
     }
 
-    setTheme(theme: Theme): void {
-        this.theme = theme;
-        this.emit();
-    }
-
     getTheme(): Theme {
-        return this.theme;
+        return this.appearance.theme;
     }
 
-    setThemeOverrides(overrides: UserThemeOverrides): void {
-        this.themeOverrides = { ...overrides };
+    getAppearance(): AppearanceSnapshot {
+        return this.appearance;
+    }
+
+    setAppearance(snapshot: AppearanceSnapshot): void {
+        if (areAppearanceSnapshotsEqual(this.appearance, snapshot)) return;
+        this.appearance = snapshot;
         this.emit();
-    }
-
-    getThemeOverrides(): UserThemeOverrides {
-        return this.themeOverrides;
     }
 
     subscribe(listener: (snapshot: BookmarksPanelSnapshot) => void): () => void {

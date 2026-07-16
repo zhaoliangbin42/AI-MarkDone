@@ -3,22 +3,35 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 const ensurePageTokens = vi.fn();
 const sendExtRequest = vi.fn();
 const setLocale = vi.fn(async () => undefined);
+const getLocale = vi.fn(() => 'en');
 const subscribeLocaleChange = vi.fn(() => undefined);
 const t = vi.fn((key: string) => key);
-const panelSetTheme = vi.fn();
-const panelSetThemeOverrides = vi.fn();
+const panelSetAppearance = vi.fn();
 const panelSetReaderSettings = vi.fn();
 const panelSetReaderSettingsController = vi.fn();
 const panelSetPromptManagerController = vi.fn();
 const panelGetCommentExportContext = vi.fn(() => null);
 const panelShow = vi.fn(async () => undefined);
 const bookmarkSaveDialogOpen = vi.fn(async () => ({ ok: true, title: 'Saved title', folderPath: 'Saved/Folder' }));
-const bookmarkSaveDialogSetTheme = vi.fn();
-const bookmarkSaveDialogSetThemeOverrides = vi.fn();
+const bookmarkSaveDialogSetAppearance = vi.fn();
+let settingsSnapshotListener: ((snapshot: { settings: any }) => void) | null = null;
+const settingsClientInit = vi.fn();
+const settingsClientUnsubscribe = vi.fn(() => {
+    settingsSnapshotListener = null;
+});
+const settingsClientSubscribe = vi.fn((listener: (snapshot: { settings: any }) => void) => {
+    settingsSnapshotListener = listener;
+    return settingsClientUnsubscribe;
+});
+const settingsClientCtor = vi.fn(function () {
+    return {
+        init: settingsClientInit,
+        subscribe: settingsClientSubscribe,
+    };
+});
 const readerPanelCtor = vi.fn(function () {
     return {
-        setTheme: panelSetTheme,
-        setThemeOverrides: panelSetThemeOverrides,
+        setAppearance: panelSetAppearance,
         setReaderSettings: panelSetReaderSettings,
         setReaderSettingsController: panelSetReaderSettingsController,
         setPromptManagerController: panelSetPromptManagerController,
@@ -36,7 +49,12 @@ vi.mock('@/drivers/shared/rpc', () => ({
     sendExtRequest,
 }));
 
+vi.mock('@/drivers/content/settings/settingsClient', () => ({
+    SettingsClient: settingsClientCtor,
+}));
+
 vi.mock('@/ui/content/components/i18n', () => ({
+    getLocale,
     subscribeLocaleChange,
     setLocale,
     t,
@@ -49,13 +67,14 @@ vi.mock('@/ui/content/reader/ReaderPanel', () => ({
 vi.mock('@/ui/content/bookmarks/save/bookmarkSaveDialogSingleton', () => ({
     bookmarkSaveDialog: {
         open: bookmarkSaveDialogOpen,
-        setTheme: bookmarkSaveDialogSetTheme,
-        setThemeOverrides: bookmarkSaveDialogSetThemeOverrides,
+        setAppearance: bookmarkSaveDialogSetAppearance,
     },
 }));
 
 afterEach(() => {
+    window.dispatchEvent(new Event('pagehide'));
     vi.clearAllMocks();
+    settingsSnapshotListener = null;
     panelGetCommentExportContext.mockReturnValue(null);
     vi.resetModules();
     document.documentElement.removeAttribute('data-aimd-theme');
@@ -64,7 +83,7 @@ afterEach(() => {
 });
 
 describe('detached reader runtime entry', () => {
-    it('syncs the extension page theme and token overrides from the reader session snapshot', async () => {
+    it('syncs page appearance without broadcasting Reader-owned layout settings', async () => {
         const { DEFAULT_SETTINGS } = await import('@/core/settings/types');
         const settings = {
             ...DEFAULT_SETTINGS,
@@ -138,14 +157,21 @@ describe('detached reader runtime entry', () => {
         expect(ensurePageTokens).toHaveBeenLastCalledWith(expect.objectContaining({
             accentColor: '#2563eb',
             baseFontScale: 18 / 16,
-            readerBodyFontSizePx: 19,
-            readerContentWidthPx: 1180,
         }));
-        expect(panelSetTheme).toHaveBeenCalledWith('dark');
-        expect(panelSetThemeOverrides).toHaveBeenLastCalledWith(expect.objectContaining({
-            accentColor: '#2563eb',
-            readerBodyFontSizePx: 19,
-            readerContentWidthPx: 1180,
+        expect(ensurePageTokens).toHaveBeenLastCalledWith(expect.not.objectContaining({
+            readerBodyFontSizePx: expect.anything(),
+            readerContentWidthPx: expect.anything(),
+        }));
+        expect(panelSetAppearance).toHaveBeenCalledTimes(1);
+        expect(panelSetAppearance).toHaveBeenLastCalledWith(expect.objectContaining({
+            theme: 'dark',
+            overrides: expect.objectContaining({ accentColor: '#2563eb' }),
+        }));
+        expect(panelSetAppearance).toHaveBeenLastCalledWith(expect.objectContaining({
+            overrides: expect.not.objectContaining({
+                readerBodyFontSizePx: expect.anything(),
+                readerContentWidthPx: expect.anything(),
+            }),
         }));
         expect(panelShow).toHaveBeenCalledWith(
             [{ id: 'item-1', userPrompt: 'Prompt', content: 'Answer', meta: undefined }],
@@ -153,6 +179,116 @@ describe('detached reader runtime entry', () => {
             'dark',
             expect.objectContaining({ profile: 'conversation-reader' }),
         );
+    });
+
+    it('applies storage-backed locale and appearance updates once per distinct snapshot', async () => {
+        const { DEFAULT_SETTINGS } = await import('@/core/settings/types');
+        const settings = {
+            ...structuredClone(DEFAULT_SETTINGS),
+            language: 'en' as const,
+            appearance: {
+                ...DEFAULT_SETTINGS.appearance,
+                fontSizePx: 16,
+                accentColor: '#2563eb',
+            },
+        };
+        const session = {
+            sessionId: 'session-1',
+            sourceTabId: 10,
+            readerTabId: 11,
+            sourceUrl: 'https://chatgpt.com/c/mock',
+            snapshot: {
+                items: [{ id: 'item-1', userPrompt: 'Prompt', content: 'Answer' }],
+                startIndex: 0,
+                sourceUrl: 'https://chatgpt.com/c/mock',
+                theme: 'dark' as const,
+                createdAt: 1,
+                updatedAt: 1,
+            },
+        };
+        window.location.hash = '#sessionId=session-1';
+        sendExtRequest.mockImplementation(async (request: any) => {
+            if (request.type === 'settings:getAll') return { ok: true, data: { settings } };
+            if (request.type === 'readerSession:get') return { ok: true, data: { session } };
+            return { ok: true, data: {} };
+        });
+
+        await import('@/runtimes/reader/entry');
+        await vi.waitFor(() => expect(panelShow).toHaveBeenCalledTimes(1));
+
+        const updatedSettings = {
+            ...structuredClone(settings),
+            language: 'zh_CN' as const,
+            appearance: {
+                ...settings.appearance,
+                fontSizePx: 20,
+                accentColor: '#e11d48',
+            },
+        };
+        settingsSnapshotListener?.({ settings: updatedSettings });
+
+        await vi.waitFor(() => {
+            expect(setLocale).toHaveBeenLastCalledWith('zh_CN');
+            expect(panelSetAppearance).toHaveBeenCalledTimes(2);
+        });
+        expect(document.documentElement.getAttribute('data-aimd-theme')).toBe('dark');
+        expect(panelSetAppearance).toHaveBeenLastCalledWith(expect.objectContaining({
+            theme: 'dark',
+            overrides: expect.objectContaining({
+                accentColor: '#e11d48',
+                baseFontScale: 20 / 16,
+            }),
+        }));
+
+        settingsSnapshotListener?.({ settings: structuredClone(updatedSettings) });
+        await Promise.resolve();
+
+        expect(panelSetAppearance).toHaveBeenCalledTimes(2);
+        expect(ensurePageTokens).toHaveBeenCalledTimes(3);
+        expect(setLocale).toHaveBeenCalledTimes(2);
+    });
+
+    it('unsubscribes settings backflow when the detached Reader page is disposed', async () => {
+        const { DEFAULT_SETTINGS } = await import('@/core/settings/types');
+        const settings = { ...structuredClone(DEFAULT_SETTINGS), language: 'en' as const };
+        const session = {
+            sessionId: 'session-1',
+            sourceTabId: 10,
+            readerTabId: 11,
+            sourceUrl: 'https://chatgpt.com/c/mock',
+            snapshot: {
+                items: [{ id: 'item-1', userPrompt: 'Prompt', content: 'Answer' }],
+                startIndex: 0,
+                sourceUrl: 'https://chatgpt.com/c/mock',
+                theme: 'light' as const,
+                createdAt: 1,
+                updatedAt: 1,
+            },
+        };
+        window.location.hash = '#sessionId=session-1';
+        sendExtRequest.mockImplementation(async (request: any) => {
+            if (request.type === 'settings:getAll') return { ok: true, data: { settings } };
+            if (request.type === 'readerSession:get') return { ok: true, data: { session } };
+            return { ok: true, data: {} };
+        });
+
+        await import('@/runtimes/reader/entry');
+        await vi.waitFor(() => expect(panelShow).toHaveBeenCalledTimes(1));
+
+        expect(settingsClientInit).toHaveBeenCalledTimes(1);
+        expect(settingsClientSubscribe).toHaveBeenCalledTimes(1);
+        window.dispatchEvent(new Event('pagehide'));
+
+        expect(settingsClientUnsubscribe).toHaveBeenCalledTimes(1);
+        const appearanceCallsAfterDispose = panelSetAppearance.mock.calls.length;
+        settingsSnapshotListener?.({
+            settings: {
+                ...structuredClone(settings),
+                appearance: { ...settings.appearance, fontSizePx: 20 },
+            },
+        });
+        await Promise.resolve();
+        expect(panelSetAppearance).toHaveBeenCalledTimes(appearanceCallsAfterDispose);
     });
 
     it('wires detached Reader Prompt settings to the shared Prompt manager', async () => {
@@ -359,12 +495,11 @@ describe('detached reader runtime entry', () => {
         input.value = '\\re';
         input.setSelectionRange(input.value.length, input.value.length);
         input.dispatchEvent(new Event('input', { bubbles: true }));
-        await Promise.resolve();
-        await Promise.resolve();
-        await Promise.resolve();
-        await Promise.resolve();
-        const promptHost = document.getElementById('aimd-chatgpt-prompt-popover-host');
-        expect(promptHost?.shadowRoot?.querySelector('[data-role="prompt-suggestion"]')?.textContent).toContain('Rewrite Clearly');
+        await vi.waitFor(() => {
+            const promptHost = document.getElementById('aimd-chatgpt-prompt-popover-host');
+            expect(promptHost?.shadowRoot?.querySelector('[data-role="prompt-suggestion"]')?.textContent)
+                .toContain('Rewrite Clearly');
+        });
 
         input.value = 'hello from detached';
         popover!.querySelector<HTMLButtonElement>('[data-action="send"]')!.click();

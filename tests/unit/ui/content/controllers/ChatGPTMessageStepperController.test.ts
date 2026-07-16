@@ -1,5 +1,8 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { readFileSync } from 'node:fs';
+import { resolve } from 'node:path';
 import { ChatGPTMessageStepperController } from '@/ui/content/controllers/ChatGPTMessageStepperController';
+import { setLocale } from '@/ui/content/components/i18n';
 
 const navigationMocks = vi.hoisted(() => ({
     collectChatGPTRoundPositions: vi.fn(),
@@ -119,9 +122,13 @@ describe('ChatGPTMessageStepperController', () => {
         expect(previous.getAttribute('aria-label')).toBe('Previous message');
         expect(next.getAttribute('aria-label')).toBe('Next message');
         const style = document.getElementById('aimd-chatgpt-message-stepper-style')?.textContent ?? '';
+        const tokens = document.getElementById('aimd-chatgpt-message-stepper-tokens')?.textContent ?? '';
+        expect(tokens).toContain('.aimd-chatgpt-message-stepper[data-aimd-theme="light"]');
+        expect(tokens).toContain('.aimd-chatgpt-message-stepper[data-aimd-theme="dark"]');
         expect(style).toContain('bottom: 0;');
         expect(style).toContain('border-radius: var(--aimd-radius-lg);');
         expect(style).toContain('background: var(--aimd-button-icon-hover);');
+        expect(style).not.toContain('--aimd-ref-color-neutral-0');
 
         bookmarksPanel.click();
         expect(onOpenBookmarksPanel).toHaveBeenCalledTimes(1);
@@ -152,6 +159,31 @@ describe('ChatGPTMessageStepperController', () => {
             adapter,
             { position: 3, messageId: 'message-3' },
         );
+    });
+
+    it('refreshes every page-control label after a locale change', async () => {
+        vi.stubGlobal('fetch', vi.fn(async (url: string) => {
+            const locale = String(url).includes('/zh_CN/') ? 'zh_CN' : 'en';
+            const messages = JSON.parse(readFileSync(resolve(process.cwd(), `public/_locales/${locale}/messages.json`), 'utf8'));
+            return { ok: true, json: async () => messages } as Response;
+        }));
+        await setLocale('en');
+        const controller = new ChatGPTMessageStepperController(adapter);
+        controllers.push(controller);
+        controller.init();
+
+        await setLocale('zh_CN');
+
+        const host = document.getElementById('aimd-chatgpt-message-stepper')!;
+        expect(host.querySelector('[data-action="open-bookmarks-panel"]')?.getAttribute('aria-label')).toBe('书签');
+        expect(host.querySelector('[data-action="toggle-page-bookmark"]')?.getAttribute('aria-label')).toBe('收藏当前页面');
+        expect(host.querySelector('[data-action="open-detached-reader"]')?.getAttribute('aria-label')).toBe('在分屏中打开阅读器');
+        expect(host.querySelector('[data-action="open-prompts"]')?.getAttribute('aria-label')).toBe('提示词');
+        expect(host.querySelector('[data-action="previous-message"]')?.getAttribute('aria-label')).toBe('上一条消息');
+        expect(host.querySelector('[data-action="next-message"]')?.getAttribute('aria-label')).toBe('下一条消息');
+
+        await setLocale('en');
+        vi.unstubAllGlobals();
     });
 
     it('keeps boundary buttons disabled at the first and last visible rounds', async () => {

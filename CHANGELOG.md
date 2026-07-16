@@ -12,7 +12,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - ChatGPT: Selecting a complete formula, code span or block, table, image, heading, list item, quote, or divider directly in an assistant response now highlights the whole unit and copies its Markdown source, while partial and unsupported selections keep ChatGPT's native behavior.
 
 ### Fixed
-- ChatGPT: Deep Research reports now open with their complete Markdown content in Reader and the shared copy, export, Save Messages, and bookmark flows, without collecting uploaded files or internal tool output.
+- ChatGPT: Prevented closed or rapidly reopened AI-MarkDone dialogs and panels from leaving an invisible full-viewport layer or page scroll lock behind, which could otherwise make the ChatGPT page stop responding to clicks until refresh.
+- ChatGPT: Centered the Input Enhancement switch thumb inside its track in both enabled and disabled states, including narrow layouts and 200% reflow.
+- Bookmarks: Prevented the mobile filter toolbar and bookmark metadata from clipping or overlapping, while keeping row actions reachable after selection or keyboard focus.
+- ChatGPT: Deep Research reports now show the standard message toolbar below the report and open with complete Markdown content in Reader and the shared copy, export, Save Messages, and bookmark flows, without collecting uploaded files or internal tool output.
 - ChatGPT: Complete atomic selections now keep canonical Markdown source even when the host formula copy handler writes visual text later in the same event, and formula selection reuses the shared reversible TeX extractor instead of guessing from visual glyph text.
 - ChatGPT: Inserting or splitting a middle ordered-list item now shifts later continuous siblings, while exiting an empty numbered item closes the remaining numbering gap.
 - ChatGPT: Markdown list editing now confirms the active CommonMark structure before rewriting text, renumbers loose ordered lists across blank lines, supports blockquoted lists and explicit continuation indentation, exits valid empty markers without requiring trailing spaces, and falls back to a plain newline for indented code or marker-like non-list text.
@@ -22,6 +25,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - ChatGPT: Widening the ChatGPT conversation now widens the composer input bar by the same amount.
 - ChatGPT: Toolbar hover tooltips now stay anchored to their button; Copy Markdown labels open below the main Copy button while Copy PNG labels remain above the secondary hover button, and multi-part replies no longer rebuild the same toolbar.
 - ChatGPT: The right-side directory now updates when the conversation view is replaced after adding a new message.
+- UI: Prevented panels, dialogs, popovers, and host-integrated controls from clipping, escaping the viewport, or hiding primary actions on narrow and short layouts, and aligned live theme and locale updates across transient surfaces.
 
 ### Changed
 - Export: Save Messages now combines selected messages into one long PNG whenever the image fits the safe export budget. Oversized exports keep at least 1x clarity and fall back to a ZIP containing the fewest necessary PNG parts.
@@ -29,6 +33,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Formula: PNG, SVG, and MathML assets now use one consistent formula renderer when trusted TeX source is available. Formulas whose source cannot be recovered keep a compatible PNG path instead of producing misleading vector or MathML files.
 - Settings: Consolidated the former ChatGPT Markdown and Enter-newline switches into one Input Enhancement availability setting. Existing choices migrate without loss, while detailed preferences remain in the composer popover.
 - ChatGPT: Refined the Input Enhancement popover into a compact grouped tool panel with a clearer master state, lightweight editing and formula sections, and space-efficient list-type controls.
+- UI: Refined the Reader, Bookmarks and Settings workspace, composer tools, Prompt and formula surfaces, save/send dialogs, toolbar controls, feedback, and unsupported-page popup with more consistent hierarchy, spacing, focus states, and responsive behavior while preserving existing workflows and visual identity.
 - Performance: Production extension scripts are now safely minified with enforced bundle budgets, substantially reducing installed code size without changing toolbar behavior.
 - Performance: Reduced ChatGPT idle-page work and large bookmark batch costs by replacing repeated full scans, removing official-navigation DOM write loops, and cancelling deferred scans during teardown.
 - Performance: Shared ChatGPT message discovery and navigation updates across the right-side directory and lower-right controls, avoiding duplicate observers, unchanged-page scans, and redundant message-position DOM writes.

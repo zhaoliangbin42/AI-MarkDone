@@ -26,14 +26,14 @@
 
 - Page Side（Content Script）：负责页面 DOM 交互与 UI 注入
 - Background Side（Service Worker / background script）：负责副作用能力中心
-- Extension UI（Popup/Options）：负责全局 UI 与设置入口（当前较薄）
+- Extension Pages（unsupported popup / Detached Reader）：承载宿主外的用户界面；设置继续由 Bookmarks Settings surface 持有
 - Export Renderer（按需 extension page iframe + static worker）：负责消息/公式的编译、布局、band 栅格化与编码，不持有用户副作用
 
 ### 2.1.1 前后端分离定义（Extension Frontend vs Backend）
 
 为避免“浏览器扩展只有前端”的误区，这里给出项目内的明确术语约定：
 
-- **扩展前端（Frontend）**：Content Script + 页面内 UI（Shadow DOM/overlay）+ Popup/Options + 隔离的 Export Renderer
+- **扩展前端（Frontend）**：Content Script + 页面内 UI（Shadow DOM/overlay）+ Extension Pages + 隔离的 Export Renderer
   - 负责：与页面交互、采集数据、呈现 UI、收集用户意图
   - 禁止：成为敏感副作用的权威执行者（例如任意写存储/任意网络/跨 tab 广播）
 - **扩展后端（Backend）**：Background（Chrome MV3 service worker / Firefox MV2 background）
@@ -198,18 +198,25 @@ Detached Reader 是 Reader 闭环的跨 runtime 形态，而不是第三套 Read
 
 ---
 
-## 4.1 现有代码到目标边界的映射（As-Is → To-Be）
+## 4.1 当前代码到模块边界的映射
 
-本节用于把“蓝图”落到当前仓库中可定位的模块，避免重构时讨论停留在抽象层面。
+本节把蓝图映射到当前仓库中的可定位模块，避免边界只停留在抽象描述。
 
-### UI 层（目标：仅渲染与交互）
+### UI 层（渲染、交互与 Surface 编排）
 
 当前主要落点：
 
 - 内容页组件与控制器：`src/ui/content/*`
 - ReaderPanel UI：`src/ui/content/reader/ReaderPanel.ts`
 - Bookmarks Panel UI：`src/ui/content/bookmarks/*`
-- React/Shadow foundation：`src/ui/foundation/*`
+- Appearance value/scope：`src/style/appearance.ts`、`src/style/appearanceScope.ts`
+- Surface lifecycle：`src/ui/content/components/SurfaceRuntime.ts`
+- 通用 overlay lifecycle：`src/ui/content/overlay/*`
+- 通用 chrome、motion 与输入样式：`src/ui/content/components/styles/*`
+- token 与 ShadowRoot style 注入：`src/style/*`
+- Prompt workflow / geometry / rendering：`src/ui/content/prompts/*`
+- Reader workflow / view-model / rendering / host adapter：`src/ui/content/reader/ReaderWorkflow.ts`、`ReaderViewModel.ts`、`ReaderRendering.ts`、`ReaderHostAdapter.ts`
+- Bookmarks tab / Cloud Backup workflows：`src/ui/content/bookmarks/workflows/*`
 
 Surface profile / motion ownership 规则补充：
 
@@ -226,9 +233,9 @@ Surface profile / motion ownership 规则补充：
 - 同一 surface 在首次打开后，外层 shell/backdrop 必须保持 stable ownership；后续异步数据刷新只能更新内部内容区，不能通过重建外层 DOM 重新消费 opening motion
 - Detached Reader 的首次实验性提示必须归入既有 modal/notice family，复用 tokenized chrome、focus restore、ESC/outside-click 语义和按钮样式；不能用 `window.confirm`、host page 原生 dialog 或自定义一次性 DOM。
 
-### Service 层（目标：统一用例编排，跨站一致）
+### Service 层（统一用例编排，跨站一致）
 
-当前主要落点（后续需“搬离 UI/driver 细节”）：
+当前主要落点：
 
 - Bookmarks use cases：`src/services/bookmarks/*`
 - Cloud Backup use cases：`src/services/cloudBackup/*`
@@ -244,7 +251,7 @@ Surface profile / motion ownership 规则补充：
 - `src/services/export/*` 持有 `ExportDocumentV1`、profile、预算/文件名 planner、host client 与交付编排；入口只提交语义数据，不得重新持有页面截图算法或 capability CSS
 - `saveMessagesPdf.ts` 属于明确允许的导出例外：service 生成最终文档并消费样式 token
 
-### Driver 层（目标：站点差异与基础设施能力中心）
+### Driver 层（站点差异与基础设施能力中心）
 
 当前主要落点：
 
@@ -257,7 +264,7 @@ Surface profile / motion ownership 规则补充：
 
 ### Contracts（非“层”，是协作面）
 
-当前落点（待升级为版本化协议）：
+当前落点：
 
 - runtime protocol：`src/contracts/protocol.ts`
 - platform contract：`src/contracts/platform.ts`
@@ -266,74 +273,97 @@ Surface profile / motion ownership 规则补充：
 
 ---
 
-## 5. 样式系统与主题（统一管理）
+## 5. UI Surface、样式系统与主题（统一管理）
 
-目标：跨站 UI 外观一致、与宿主样式隔离、可主题同步、可审计（禁止硬编码、禁止 `!important`）。
+合同：跨站 UI 外观一致、与宿主样式隔离、可主题同步、可审计（禁止硬编码、禁止 `!important`）。
 
 权威规范：
 
 - 设计与样式系统：`docs/design.md`
 
-工程落地要求：
+### 5.1 Appearance Token Runtime
 
-- 组件样式必须使用 `--aimd-*` token
-- `--aimd-*` 是唯一 canonical design token source；外部样式框架不得成为第二套样式真源
-- Overlay、toolbar 与高频注入 UI 均使用自定义 CSS + token，保持轻量实现
-- 高频重复 surface 的低频子功能必须按首次真实触发创建；调用方已提供结构化 tooltip 数据时，不得为禁用的 title-upgrade 路径保留空转 observer
-- overlay/panel family 的 header/footer/icon/action chrome 必须优先复用共享 primitive；不得在 Reader/Source/Bookmarks/Dialogs 内各自复制一套近似实现
-- 同一个 named surface 一旦拥有 2 个以上入口，baseline chrome 必须稳定；入口不得直接传 low-level layout/chrome flags，差异必须由 surface 自己声明 named profiles
-- shared overlay / modal motion 必须由正式 shared contract 持有；不得由 caller 自己注入 enter/exit chrome 或在单个 surface 私下复制一套近似动画
-- 一旦 overlay / transient dismiss contract 出现第二个明确消费者，就必须提升到共享 `components/*` 或 `overlay/*`；只有带明显业务假设的 primitive 才允许继续保持 family-scoped
-- `OverlaySession` 只约束 overlay surfaces；anchored popover 可以保留 local interaction boundary，但必须在 `CURRENT_STATE.md` 中明确标记为 intentional local，而不是共享 contract 缺口
-- toolbar component token 必须统一使用 `--aimd-toolbar-*`，禁止继续出现 `--aimd-tb-*` 这类未显式标明组件域的局部伪系统 token
-- 若未来重新评估外部样式库，必须先更新 `docs/design.md` 并通过治理测试证明其不会成为第二套样式真源
-- 页面内 UI 必须使用 Shadow DOM（或等效隔离容器）避免样式冲突
-- 主题同步必须通过稳定机制（如 `data-aimd-theme`）驱动 token 切换
-- 禁止把站点特化主题探测逻辑扩散到 UI：通过 driver 提供 ThemeDetector 或通过 ports 注入
-- 新 UI 模块在并入插件前，必须先通过 `mocks/components/<module>/index.html` 的 mock-first 浏览器视觉验收
+- 内部 `AppearanceSnapshot` 是 appearance 传播的唯一值对象，由 `Theme + UserThemeOverrides` 组成并按值比较。settings 中与外观无关的变化不得触发 token 重写。
+- `UserThemeOverrides` 只保留真实产品设置拥有的全局 appearance 值。Reader content width 与 Reader body font size 归 Reader state；未接入产品设置的 density/corner scale 不得继续作为伪全局合同。
+- 内部 `AppearanceScope` 统一 page、ShadowRoot、light-DOM portal 三种 scope 的 token 生成、应用、缓存与释放；`getTokenCss()`、`getPageTokenCss()`、`ensureStyle()` 保持为底层兼容实现，不再由每个 controller 自行拼接 scope CSS。
+- Reference、System、Public、Family、Private 五类 token 必须有唯一 owner。Reference 只能供 System 消费；Public 映射 System 或无环组合其它 Public alias；Family 由一个 UI family Module 暴露；单 Surface geometry 使用 `--_*`。
+- token graph gate 覆盖 shipped CSS 和运行时 CSS template，阻止未定义引用、重复定义、循环依赖、未消费 Public alias、不可达 foundation token 与未登记的 Family token owner。删除 token 前必须证明定义图和消费图都不可达。
+- page token 只生成 base-light 与 explicit dark override；不得保留内容相同的第二份 explicit-light block。
+- 相同 `AppearanceSnapshot` 的 ShadowRoot 优先共享 constructed stylesheet；Firefox 等不支持路径继续使用稳定 style-tag fallback。
+
+### 5.2 Surface Runtime
+
+- 内部 `SurfaceProfile` 固定为 `panel`、`modal`、`anchored`、`inline` 四类行为族；产品 Surface 可以在族内声明具名 profile，但调用方不能传低层 CSS、motion 或 geometry flags。
+- `ResponsiveProfile` 统一 viewport gutter、宽高 clamp、flip、collision、唯一 scroll owner 与窄屏降级。host selector 与 anchor rect 仍由 Platform Adapter 提供，Surface Runtime 不读取站点私有 DOM。
+- `SurfaceMotionProfile` 是 CSS animation 与 JS delayed-unmount timing 的共同数据源，并内建 reduced-motion 语义；同一时长不得在 CSS 与 TypeScript 中重复维护。
+- `SurfaceSession` 统一 appearance、locale、focus、Escape、outside-click、position、close 与 destroy。`OverlaySession` 是 modal/panel profile 的共享 Adapter；anchored Surface 直接或通过 family owner 组合同一个 session，不各自复制 window listeners 和 viewport clamp。
+- Surface 外壳在一次 session 内保持 stable ownership；异步数据、设置回流与错误状态只更新内容区，不重建 host/backdrop 或重复进入动画。
+- 当前实现没有为 UI 收敛保留长期 feature flag 或第二套 lifecycle。新增 Surface 必须在真实入口、双实例（适用时）和销毁验证完成后接入 catalog。
+
+### 5.3 Chrome Family Modules
+
+- panel/dialog、anchored popover、toolbar/compact control、form/settings row、feedback 五个 family 分别拥有自己的 chrome Module 和具名 profile。
+- header、footer、icon button、primary/secondary action、input、toggle、focus ring、pending/error/disabled 状态只在对应 family 定义一次；不得创建一个以大量 boolean flag 驱动的通用大组件。
+- 同一个 named Surface 一旦拥有 2 个以上入口，baseline chrome 必须由 Surface 自己持有；入口只选择 profile。
+- 高频重复 Surface 的低频子功能必须按首次真实触发创建；调用方已提供结构化 tooltip 数据时，不得为禁用的 title-upgrade 路径保留空转 observer。
+- toolbar family token 统一使用 `--aimd-toolbar-*`；跨文件消费必须由 toolbar family Module 明确导出，不得依赖某一实例恰好先注入 token。
+
+### 5.4 长期样式与响应式规则
+
+- 组件样式必须使用 `--aimd-*` token；`--aimd-*` 是唯一 canonical design token source，外部样式框架不得成为第二套样式真源。
+- 页面内 UI 使用 Shadow DOM；light-DOM 只允许记录在 Surface Catalog 中的宿主集成例外，并必须通过 `AppearanceScope` 获取 token。
+- 站点主题探测只存在于 driver；UI 只接收 `AppearanceSnapshot`。
+- 每个 Surface 必须登记 desktop、narrow-width、short-height、200% zoom、中文/英文长文案、reduced-motion、overflow 与 collision 行为。响应式优先按语义 profile 复用，不按 Surface 堆叠一次性 media query。
+- overlay、toolbar 与高频注入 UI 继续使用自定义 CSS + token，保持启动路径轻量；重型 Surface 继续通过现有 lazy feature graph 加载。
+- 若未来重新评估外部样式库，必须先更新 `docs/design.md` 并通过治理测试证明其不会成为第二套样式真源。
+- 新 UI Module 或高风险重构必须先通过真实组件、真实 token、真实 Shadow DOM 的 mock-first 浏览器视觉验收，再完成生产入口测试；视觉探索页不能替代产品 Surface mock。
 
 ---
 
-## 5. 大文件拆分蓝图（先结构后优化）
+## 6. UI 长链职责拆分（已落地边界）
 
-### 5.1 `BookmarksPanel.ts` 拆分方向（示例）
+### 6.1 Bookmarks
 
-拆分目标：把“UI / state / operations / infra”分离，并移除对 content/ReaderPanel 实现的反向依赖。
+Bookmarks 按 shell、tab workflow、data workflow 与 family styles 分责，而不是按文件长度机械切分：
 
-建议拆分子模块（示意命名）：
-
-- `src/ui/content/bookmarks/ui/*`：模板与 DOM 渲染（UI）
-- `src/ui/content/bookmarks/*Controller*`：交互状态机（selection/tab/keyboard）
-- `src/services/bookmarks/*`：导入合并/判重/分析（Service）
-- `src/drivers/content/bookmarks/*` 与 `src/drivers/background/storage/*`：导航与存储基础设施（Driver）
-
-当前实现约束：
-
-- `BookmarksPanel` 应继续向 shell/orchestrator 收缩，只保留 overlay lifecycle、tab orchestration、snapshot wiring、scroll memory
+- `BookmarksPanel` 保留 overlay lifecycle、tab orchestration、snapshot wiring 与 shell mounting
+- `BookmarksPanelTabWorkflow` 持有 tab model、选择与 scroll memory
+- `BookmarksCloudBackupWorkflow` 持有 Cloud Backup modal/RPC workflow
+- `bookmarksWorkspaceResponsiveCss` 持有 workspace family responsive contract
 - `BookmarksTabView`、`SettingsTabView`、`SponsorTabView` 是 tab 内容唯一 owner
 - 树的 inline / virtualized 渲染必须通过 `BookmarksTreeViewport` 收口，避免 shell 与 tab view 双重拥有树
-- Bookmarks family 的 overlay / modal / input-boundary 交互栈必须通过共享 session 收口，避免 `BookmarkSaveDialog` 再维护第二套 nested modal host
-- 在尚未泛化到全项目前，Bookmarks family 可以保留 family-scoped select / stepper primitive，但 shell 只能通过 transient-ui contract 与其交互，不能依赖具体 selector
+- Bookmarks family 的 overlay / modal / input-boundary 交互栈通过 `OverlaySession` 与 shared transient contract 收口；不存在 Bookmarks 私有 overlay session
+- family-scoped select / stepper primitive 通过 transient-ui contract 与 shell 协作，不成为全局 UI 系统
 
-### 5.2 `ReaderPanel.ts` 拆分方向
+### 6.2 Reader
 
-拆分目标：ReaderPanel UI 与数据采集/书签联动/发送逻辑解耦。
+ReaderPanel 是 orchestration owner，职责拆分为：
 
-建议拆分：
+- `ReaderWorkflow`：profile 与 workflow state
+- `ReaderViewModel`：展示模型构造
+- `ReaderRendering`：Markdown、代码与页面内容渲染协调
+- `ReaderHostAdapter`：window/document/browser host boundary
+- `ReaderPanelContracts` / `ReaderPanelPort`：调用方合同，不反向依赖 `ReaderPanel` 实现
+- `src/services/reader/*` 与 content conversation drivers：正文准备、缓存、bookmark intent 和 live-page 采集
 
-- `src/ui/content/reader/*`：Panel UI + navigation + styles
-- `src/services/reader/*`：数据准备、缓存策略、bookmark intent
-- `src/drivers/content/conversation/*`：从 live page 采集 `ReaderItem[]` 所需的页面引用
+### 6.3 Prompt
 
-### 5.3 `src/runtimes/content/entry.ts` 拆分方向
+`ChatGPTPromptAutocompleteController` 只做 orchestration：
 
-拆分目标：入口只做 bootstrap；把 platform gating、message handler、observer wiring、feature wiring 拆出模块。
+- `PromptWorkflow` 持有模式、候选、草稿与 library 调用
+- `PromptGeometryAdapter` 持有 contenteditable/textarea caret 和 anchor 定位
+- `PromptSurfaceRenderer` 持有 DOM 渲染
+- `promptSurfaceCss` 持有 Prompt family visual contract
+
+### 6.4 Content Runtime
+
+`src/runtimes/content/entry.ts` 仍是 bootstrap/wiring root；重型 Reader、Bookmarks、save dialogs、Copy PNG 与 formula assets 继续通过 `lazyContentFeatures.ts` 和固定 extension-origin feature facade 按真实触发加载。UI 收敛不得把这些模块重新拉回启动 chunk，也不得增加全局 observer。
 
 ---
 
-## 6. 演进策略（保证功能不变）
+## 7. 演进策略（保证功能不变）
 
-- 以“契约先行”的方式逐步替换内部实现：先立协议与 ports，再搬迁逻辑
-- 每阶段保持可回归：重构 checklist 里定义了每一步的验证门禁
+- 继续以“契约先行”更新内部实现：先调整协议、ports 或 Surface/family owner，再移动实现
+- 每次变更保持可回归；当前可执行门禁由 `docs/testing/CURRENT_TEST_GATES.md` 定义
 
-分阶段执行见：`docs/refactor/REFACTOR_CHECKLIST.md`
+全 UI 收敛的交付历史与 Phase 7 closeout 见：`docs/refactor/UI_SYSTEM_REFACTOR_PLAN.md`。

@@ -2,7 +2,6 @@ import type { Theme } from '../../core/types/theme';
 import { extensionAssets } from '../../../config/extension/assets';
 import { browser } from '../../drivers/shared/browser';
 import type { ReaderItem } from '../../services/reader/types';
-import type { UserThemeOverrides } from '../../style/tokens';
 import type { BookmarksPanelController } from '../../ui/content/bookmarks/BookmarksPanelController';
 import type { BookmarksPanelOptions, BookmarksPanelPort } from '../../ui/content/bookmarks/BookmarksPanelPort';
 import type {
@@ -20,6 +19,11 @@ import type { copyMessagePng } from '../../services/copy/copy-turn-png';
 import type { runFormulaAssetAction } from '../../services/math/formulaAssetActions';
 import type { renderFormulaSvgAsset } from '../../services/math/formulaAssetRenderer';
 import type * as ContentFeatureModuleExports from './contentFeatures';
+import {
+    areAppearanceSnapshotsEqual,
+    createAppearanceSnapshot,
+    type AppearanceSnapshot,
+} from '../../style/appearance';
 
 type ContentFeatureModule = typeof ContentFeatureModuleExports;
 type ContentFeatureImporter = () => Promise<ContentFeatureModule>;
@@ -80,8 +84,7 @@ class LazyInstance<T> {
 
 class LazyReaderPanel implements ReaderPanelPort {
     private readonly lazy: LazyInstance<ReaderPanelPort>;
-    private theme: Theme = 'light';
-    private themeOverrides: UserThemeOverrides = {};
+    private appearance: AppearanceSnapshot = createAppearanceSnapshot('light');
     private readerSettings: AppSettings['reader'] | null = null;
     private settingsController: ReaderPanelSettingsController | null = null;
     private promptManagerController: ReaderPanelPromptManagerController | null = null;
@@ -90,8 +93,7 @@ class LazyReaderPanel implements ReaderPanelPort {
         this.lazy = new LazyInstance(
             () => loader.load().then((module) => module.createReaderPanel()),
             (instance) => {
-                instance.setTheme(this.theme);
-                instance.setThemeOverrides(this.themeOverrides);
+                instance.setAppearance(this.appearance);
                 if (this.readerSettings) instance.setReaderSettings(this.readerSettings);
                 instance.setReaderSettingsController(this.settingsController);
                 instance.setPromptManagerController(this.promptManagerController);
@@ -99,14 +101,10 @@ class LazyReaderPanel implements ReaderPanelPort {
         );
     }
 
-    setTheme(theme: Theme): void {
-        this.theme = theme;
-        this.lazy.current?.setTheme(theme);
-    }
-
-    setThemeOverrides(overrides: UserThemeOverrides): void {
-        this.themeOverrides = { ...overrides };
-        this.lazy.current?.setThemeOverrides(this.themeOverrides);
+    setAppearance(snapshot: AppearanceSnapshot): void {
+        if (areAppearanceSnapshotsEqual(this.appearance, snapshot)) return;
+        this.appearance = snapshot;
+        this.lazy.current?.setAppearance(snapshot);
     }
 
     setReaderSettings(settings: AppSettings['reader']): void {
@@ -130,7 +128,7 @@ class LazyReaderPanel implements ReaderPanelPort {
         theme: Theme,
         options?: ReaderPanelShowOptions,
     ): Promise<void> {
-        this.theme = theme;
+        this.setAppearance(createAppearanceSnapshot(theme, this.appearance.overrides));
         const instance = await this.lazy.resolve();
         await instance.show(items, startIndex, theme, options);
     }
@@ -192,8 +190,7 @@ class LazyBookmarksPanel implements BookmarksPanelPort {
 
 class LazySaveMessagesDialog implements SaveMessagesDialogPort {
     private readonly lazy: LazyInstance<SaveMessagesDialogPort>;
-    private theme: Theme = 'light';
-    private themeOverrides: UserThemeOverrides = {};
+    private appearance: AppearanceSnapshot = createAppearanceSnapshot('light');
     private exportSettings: ExportSettings | null = null;
     private markdownFormulaFormat: FormulaSourceFormat | null = null;
 
@@ -201,22 +198,17 @@ class LazySaveMessagesDialog implements SaveMessagesDialogPort {
         this.lazy = new LazyInstance(
             () => loader.load().then((module) => module.getSaveMessagesDialog()),
             (instance) => {
-                instance.setTheme(this.theme);
-                instance.setThemeOverrides(this.themeOverrides);
+                instance.setAppearance(this.appearance);
                 if (this.exportSettings) instance.setExportSettings(this.exportSettings);
                 if (this.markdownFormulaFormat) instance.setMarkdownFormulaFormat(this.markdownFormulaFormat);
             },
         );
     }
 
-    setTheme(theme: Theme): void {
-        this.theme = theme;
-        this.lazy.current?.setTheme(theme);
-    }
-
-    setThemeOverrides(overrides: UserThemeOverrides): void {
-        this.themeOverrides = { ...overrides };
-        this.lazy.current?.setThemeOverrides(this.themeOverrides);
+    setAppearance(snapshot: AppearanceSnapshot): void {
+        if (areAppearanceSnapshotsEqual(this.appearance, snapshot)) return;
+        this.appearance = snapshot;
+        this.lazy.current?.setAppearance(snapshot);
     }
 
     setExportSettings(settings: ExportSettings): void {
@@ -230,7 +222,7 @@ class LazySaveMessagesDialog implements SaveMessagesDialogPort {
     }
 
     async open(...args: Parameters<SaveMessagesDialogPort['open']>): Promise<void> {
-        this.theme = args[1];
+        this.setAppearance(createAppearanceSnapshot(args[1], this.appearance.overrides));
         const instance = await this.lazy.resolve();
         await instance.open(...args);
     }
@@ -238,31 +230,25 @@ class LazySaveMessagesDialog implements SaveMessagesDialogPort {
 
 class LazyBookmarkSaveDialog implements BookmarkSaveDialogPort {
     private readonly lazy: LazyInstance<BookmarkSaveDialogPort>;
-    private theme: Theme = 'light';
-    private themeOverrides: UserThemeOverrides = {};
+    private appearance: AppearanceSnapshot = createAppearanceSnapshot('light');
 
     constructor(loader: ContentFeatureModuleLoader) {
         this.lazy = new LazyInstance(
             () => loader.load().then((module) => module.getBookmarkSaveDialog()),
             (instance) => {
-                instance.setTheme(this.theme);
-                instance.setThemeOverrides(this.themeOverrides);
+                instance.setAppearance(this.appearance);
             },
         );
     }
 
-    setTheme(theme: Theme): void {
-        this.theme = theme;
-        this.lazy.current?.setTheme(theme);
-    }
-
-    setThemeOverrides(overrides: UserThemeOverrides): void {
-        this.themeOverrides = { ...overrides };
-        this.lazy.current?.setThemeOverrides(this.themeOverrides);
+    setAppearance(snapshot: AppearanceSnapshot): void {
+        if (areAppearanceSnapshotsEqual(this.appearance, snapshot)) return;
+        this.appearance = snapshot;
+        this.lazy.current?.setAppearance(snapshot);
     }
 
     async open(...args: Parameters<BookmarkSaveDialogPort['open']>) {
-        this.theme = args[0].theme;
+        this.setAppearance(createAppearanceSnapshot(args[0].theme, this.appearance.overrides));
         const instance = await this.lazy.resolve();
         return instance.open(...args);
     }

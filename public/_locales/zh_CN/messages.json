@@ -7,6 +7,46 @@
         "message": "为 ChatGPT 工作流提速：阅读、书签、Prompts、备份与 Markdown/PDF/PNG 导出。",
         "description": "Message for extDescription"
     },
+    "popupSupportedSites": {
+        "message": "支持的网站",
+        "description": "Label above the supported-site list in the extension popup"
+    },
+    "popupChatGptHint": {
+        "message": "完整的 AI-MarkDone 工作区",
+        "description": "Capability hint for ChatGPT in the extension popup"
+    },
+    "popupFormulaCopyHint": {
+        "message": "复制公式",
+        "description": "Capability hint for formula-copy sites in the extension popup"
+    },
+    "popupUnsupportedPageFooter": {
+        "message": "打开支持的网站即可使用 AI-MarkDone。",
+        "description": "Footer guidance shown when the extension popup opens on an unsupported page"
+    },
+    "popupLogoAlt": {
+        "message": "AI-MarkDone 标志",
+        "description": "Alternative text for the extension popup logo"
+    },
+    "chatgptPageControlBookmark": {
+        "message": "收藏当前页面",
+        "description": "Accessible label for the ChatGPT page bookmark control"
+    },
+    "chatgptPageControlRemoveBookmark": {
+        "message": "移除当前页面书签",
+        "description": "Accessible label for removing the current ChatGPT page bookmark"
+    },
+    "chatgptPageControlSplitView": {
+        "message": "在分屏中打开阅读器",
+        "description": "Accessible label for the detached Reader page control"
+    },
+    "chatgptPageControlPrompts": {
+        "message": "提示词",
+        "description": "Accessible label for the Prompt manager page control"
+    },
+    "chatgptDirectoryMessageFallback": {
+        "message": "消息 $1",
+        "description": "Fallback label for a ChatGPT directory item before its prompt is available"
+    },
     "btnCopy": {
         "message": "复制 Markdown",
         "description": "Message for btnCopy"
@@ -398,6 +438,14 @@
     "readerSettingsLabel": {
         "message": "阅读器",
         "description": "Message for readerSettingsLabel"
+    },
+    "readerUserMessageLabel": {
+        "message": "用户消息",
+        "description": "Label for the user message section in Reader"
+    },
+    "readerAssistantMessageLabel": {
+        "message": "AI 回复",
+        "description": "Label for the assistant response section in Reader"
     },
     "readerDefaultOpenModeLabel": {
         "message": "阅读器默认大小",

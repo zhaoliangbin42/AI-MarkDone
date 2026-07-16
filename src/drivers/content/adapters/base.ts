@@ -65,10 +65,10 @@ export abstract class SiteAdapter {
     abstract getActionBarSelector(): string;
 
     /**
-     * Stable anchor element for the message's official bottom toolbar/action row.
+     * Stable anchor element for the message's official bottom action row or an adapter-verified embedded assistant surface.
      *
      * This is the sole source of truth for per-message toolbar injection.
-     * If the official toolbar is absent, return `null` and callers must not inject.
+     * If neither an official row nor an explicitly supported embedded anchor exists, return `null` and callers must not inject.
      */
     abstract getToolbarAnchorElement(_assistantMessageElement: HTMLElement): HTMLElement | null;
 
@@ -109,8 +109,8 @@ export abstract class SiteAdapter {
     /**
      * Platform-specific injection strategy for a per-message toolbar host element.
      *
-     * Implementations must inject only into the official toolbar/action row.
-     * If the official toolbar is absent, this must return `false` without fallback placement.
+     * Implementations must inject only into the official action row unless the platform adapter documents a verified embedded surface anchor.
+     * If neither anchor exists, this must return `false` without generic content fallback placement.
      */
     injectToolbar(messageElement: HTMLElement, toolbarHost: HTMLElement): boolean {
         const actionBar = this.getToolbarAnchorElement(messageElement);

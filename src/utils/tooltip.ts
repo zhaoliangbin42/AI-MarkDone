@@ -64,7 +64,7 @@ function getTooltipCss(): string {
   font-size: 18px;
   font-weight: var(--aimd-font-semibold);
   line-height: 1.1;
-  margin-bottom: 6px;
+  margin-bottom: calc(var(--aimd-space-1) + var(--aimd-space-1) / 2);
 }
 .aimd-tooltip__body {
   display: block;

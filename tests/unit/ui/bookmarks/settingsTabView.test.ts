@@ -949,13 +949,26 @@ describe('SettingsTabView', () => {
         expect(css).toContain('overflow-x: hidden;');
         expect(css).toContain('overflow-y: auto;');
         expect(css).toContain('scrollbar-gutter: stable;');
-        expect(css).toContain('padding-inline-end: var(--aimd-space-3);');
+        expect(css).toContain('padding: var(--aimd-space-5) calc(var(--aimd-space-5) + var(--aimd-space-3)) var(--aimd-space-5) var(--aimd-space-5);');
         expect(css).toContain('max-width: 100%;');
         expect(css).toContain('.toggle-row,');
         expect(css).toContain('grid-template-columns: minmax(0, 1fr) max-content;');
         expect(css).toContain('width: 100%;');
         expect(css).toContain('.settings-label {');
         expect(css).toContain('flex: 1 1 auto;');
+    });
+
+    it('uses one settings scroll owner and a 980/720/560 workspace responsive contract', () => {
+        const css = getBookmarksPanelCss();
+
+        expect(css).toMatch(/\.settings-panel\s*\{[^}]*overflow:\s*hidden;/s);
+        expect(css).toMatch(/\.settings-panel-scroll\s*\{[^}]*overflow-y:\s*auto;/s);
+        expect(css).toContain('@media (max-width: 980px)');
+        expect(css).toContain('@media (max-width: 720px)');
+        expect(css).toContain('@media (max-width: 560px)');
+        expect(css).toMatch(/@media \(max-width: 720px\)[\s\S]*?\.tab-btn span:last-child\s*\{[^}]*display:\s*none;/s);
+        expect(css).toMatch(/@media \(max-width: 560px\)[\s\S]*?\.toggle-row,[\s\S]*?\.settings-row\s*\{[^}]*grid-template-columns:\s*minmax\(0, 1fr\);/s);
+        expect(css).toMatch(/@media \(max-width: 560px\)[\s\S]*?\.settings-select-shell,[\s\S]*?\.settings-slider-field,[\s\S]*?\.settings-stepper-field\s*\{[^}]*width:\s*100%;/s);
     });
 
     it('lets settings selects size to their labels while shrinking inside narrow rows', () => {

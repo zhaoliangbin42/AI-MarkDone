@@ -410,9 +410,11 @@ describe('ChatGPTComposerEditingController behavior', () => {
             enabled: true,
         });
 
-        document.querySelector<HTMLElement>('[data-aimd-role="input-enhancement-popover"]')
-            ?.shadowRoot?.querySelector<HTMLButtonElement>('[data-role="input-enhancement-close"]')?.click();
+        const popoverHost = document.querySelector<HTMLElement>('[data-aimd-role="input-enhancement-popover"]');
+        popoverHost?.shadowRoot?.querySelector<HTMLButtonElement>('[data-role="input-enhancement-close"]')?.click();
         expect(button?.getAttribute('aria-expanded')).toBe('false');
+        popoverHost?.shadowRoot?.querySelector<HTMLElement>('.input-enhancement-popover')
+            ?.dispatchEvent(new Event('animationend'));
         expect(host?.shadowRoot?.activeElement).toBe(button);
 
         controller.dispose();
@@ -444,6 +446,52 @@ describe('ChatGPTComposerEditingController behavior', () => {
         expect(guideHost?.shadowRoot?.textContent).toContain('chatgptInputEnhancementGuideBoldSyntax');
         controller.dispose();
         expect(document.getElementById('aimd-input-enhancement-guide')).toBeNull();
+    });
+
+    it('unmounts the syntax guide host and releases page interaction locks when the user closes it', () => {
+        document.documentElement.style.overflow = 'auto';
+        document.body.style.overflow = 'scroll';
+        const form = document.createElement('form');
+        const buttonRow = document.createElement('span');
+        const plus = document.createElement('button');
+        const composer = document.createElement('div');
+        plus.dataset.testid = 'composer-plus-btn';
+        composer.setAttribute('contenteditable', 'true');
+        buttonRow.appendChild(plus);
+        form.append(buttonRow, composer);
+        document.body.appendChild(form);
+        const controller = new ChatGPTComposerEditingController(createAdapter({ current: composer }));
+        controller.setInputEnhancementSettings(DEFAULT_CHATGPT_INPUT_ENHANCEMENT_SETTINGS);
+        controller.init();
+
+        try {
+            for (let cycle = 0; cycle < 3; cycle += 1) {
+                const inputEnhancementButton = buttonRow
+                    .querySelector<HTMLElement>('[data-aimd-role="input-enhancement-button"]')
+                    ?.shadowRoot?.querySelector<HTMLButtonElement>('button');
+                inputEnhancementButton?.dispatchEvent(new MouseEvent('pointerdown', { bubbles: true, composed: true }));
+                inputEnhancementButton?.dispatchEvent(new MouseEvent('click', { bubbles: true, composed: true }));
+
+                const guideButton = document
+                    .querySelector<HTMLElement>('[data-aimd-role="input-enhancement-popover"]')
+                    ?.shadowRoot?.querySelector<HTMLButtonElement>('[data-role="input-enhancement-guide"]');
+                guideButton?.dispatchEvent(new MouseEvent('pointerdown', { bubbles: true, composed: true }));
+                guideButton?.dispatchEvent(new MouseEvent('click', { bubbles: true, composed: true }));
+
+                const guideHost = document.getElementById('aimd-input-enhancement-guide');
+                const closeButton = guideHost?.shadowRoot?.querySelector<HTMLButtonElement>('[data-action="modal-cancel"]');
+                closeButton?.dispatchEvent(new MouseEvent('pointerdown', { bubbles: true, composed: true }));
+                closeButton?.dispatchEvent(new MouseEvent('click', { bubbles: true, composed: true }));
+                guideHost?.shadowRoot?.querySelector<HTMLElement>('[role="dialog"]')
+                    ?.dispatchEvent(new Event('animationend'));
+
+                expect(document.getElementById('aimd-input-enhancement-guide')).toBeNull();
+                expect(document.documentElement.style.overflow).toBe('auto');
+                expect(document.body.style.overflow).toBe('scroll');
+            }
+        } finally {
+            controller.dispose();
+        }
     });
 
     it('rolls input enhancement settings back when persistence fails', async () => {
@@ -950,6 +998,46 @@ describe('ChatGPTComposerEditingController behavior', () => {
         controller.dispose();
     });
 
+    it('dismisses the formula assistant through the real composer trigger path after a complete outside click', async () => {
+        const composer = document.createElement('textarea');
+        composer.value = '$x';
+        composer.setSelectionRange(composer.value.length, composer.value.length);
+        const outside = document.createElement('button');
+        document.body.append(composer, outside);
+        const controller = new ChatGPTComposerEditingController(createAdapter({ current: composer }), {
+            renderFormula: async () => ({
+                source: 'x',
+                displayMode: false,
+                fontSizePx: 36,
+                width: 30,
+                height: 20,
+                viewBox: '0 0 30 20',
+                svg: '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 30 20"></svg>',
+            }),
+        });
+        controller.setInputEnhancementSettings({
+            ...DEFAULT_CHATGPT_INPUT_ENHANCEMENT_SETTINGS,
+            formulaSuggestions: false,
+            formulaPreview: true,
+        });
+        controller.init();
+        composer.dispatchEvent(new Event('input', { bubbles: true }));
+        await vi.advanceTimersByTimeAsync(160);
+        await Promise.resolve();
+        await Promise.resolve();
+
+        const host = document.querySelector<HTMLElement>('[data-aimd-role="formula-composer-assistant"]')!;
+        const root = host.shadowRoot!.querySelector<HTMLElement>('.formula-assistant')!;
+        outside.dispatchEvent(new Event('pointerdown', { bubbles: true, composed: true }));
+        expect(root.dataset.motionState).not.toBe('closing');
+
+        outside.dispatchEvent(new Event('click', { bubbles: true, composed: true }));
+        expect(root.dataset.motionState).toBe('closing');
+        root.dispatchEvent(new Event('animationend'));
+        expect(host.hidden).toBe(true);
+        controller.dispose();
+    });
+
     it('does not open formula completion for the same backslash token outside math', async () => {
         const composer = document.createElement('textarea');
         composer.value = '\\fra';
@@ -1046,6 +1134,13 @@ describe('ChatGPTComposerEditingController behavior', () => {
         expect(shadow?.querySelector('[data-role="formula-suggestion"]')).toBeNull();
         expect(loadFormulaSnippets).not.toHaveBeenCalled();
         expect(renderFormula).toHaveBeenCalledOnce();
+
+        const escape = new KeyboardEvent('keydown', { key: 'Escape', bubbles: true, cancelable: true });
+        composer.dispatchEvent(escape);
+        await vi.advanceTimersByTimeAsync(250);
+
+        expect(escape.defaultPrevented).toBe(true);
+        expect(document.querySelector<HTMLElement>('[data-aimd-role="formula-composer-assistant"]')?.hidden).toBe(true);
         controller.dispose();
     });
 

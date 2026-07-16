@@ -105,4 +105,84 @@ describe('FormulaComposerAssistantPopover', () => {
         expect(shadow.querySelector('[data-role="formula-suggestion"]')).not.toBeNull();
         popover.dispose();
     });
+
+    it('uses an anchored Surface session without stealing composer focus and dismisses on an outside click', async () => {
+        const composer = document.createElement('textarea');
+        const outside = document.createElement('button');
+        document.body.append(composer, outside);
+        composer.focus();
+        const onDismiss = vi.fn();
+        const popover = new FormulaComposerAssistantPopover({
+            onSelect: vi.fn(),
+            onDismiss,
+            getDismissRoots: () => [composer],
+        });
+        popover.show({
+            anchorRect: new DOMRect(100, 100, 0, 20),
+            mathKind: 'inline',
+            preview: null,
+            suggestions: [suggestion],
+            selectedIndex: 0,
+        });
+        await Promise.resolve();
+
+        const root = popover.host.shadowRoot!.querySelector<HTMLElement>('.formula-assistant')!;
+        expect(document.activeElement).toBe(composer);
+        expect(root.dataset.motionState).toBe('opening');
+        expect(root.style.getPropertyValue('--_surface-motion-open-duration')).toBe('180ms');
+
+        outside.dispatchEvent(new Event('pointerdown', { bubbles: true, composed: true }));
+        outside.dispatchEvent(new Event('click', { bubbles: true, composed: true }));
+
+        expect(popover.isOpen()).toBe(false);
+        expect(onDismiss).toHaveBeenCalledWith('outside');
+        popover.dispose();
+    });
+
+    it('handles Escape from the composer while the anchored preview keeps composer focus', () => {
+        const composer = document.createElement('textarea');
+        document.body.appendChild(composer);
+        composer.focus();
+        const onDismiss = vi.fn();
+        const popover = new FormulaComposerAssistantPopover({
+            onSelect: vi.fn(),
+            onDismiss,
+            getDismissRoots: () => [composer],
+        });
+        popover.show({
+            anchorRect: new DOMRect(100, 100, 0, 20),
+            mathKind: 'inline',
+            preview: { status: 'loading' },
+            suggestions: [],
+            selectedIndex: 0,
+        });
+
+        const escape = new KeyboardEvent('keydown', { key: 'Escape', bubbles: true, cancelable: true });
+        composer.dispatchEvent(escape);
+
+        expect(escape.defaultPrevented).toBe(true);
+        expect(popover.isOpen()).toBe(false);
+        expect(onDismiss).toHaveBeenCalledWith('escape');
+        expect(document.activeElement).toBe(composer);
+        popover.dispose();
+    });
+
+    it('updates an open preview without restarting the anchored enter motion', () => {
+        const popover = new FormulaComposerAssistantPopover({ onSelect: vi.fn() });
+        const view = {
+            anchorRect: new DOMRect(100, 100, 0, 20),
+            mathKind: 'inline' as const,
+            preview: null,
+            suggestions: [suggestion],
+            selectedIndex: 0,
+        };
+        popover.show(view);
+        const root = popover.host.shadowRoot!.querySelector<HTMLElement>('.formula-assistant')!;
+        root.dataset.motionState = 'open';
+
+        popover.show({ ...view, selectedIndex: 0 });
+
+        expect(root.dataset.motionState).toBe('open');
+        popover.dispose();
+    });
 });

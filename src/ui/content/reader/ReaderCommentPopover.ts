@@ -1,14 +1,19 @@
-import type { Theme } from '../../../core/types/theme';
 import { messageSquareTextIcon, xIcon } from '../../../assets/icons';
 import { createIcon } from '../components/Icon';
 import { installInputEventBoundary } from '../components/inputEventBoundary';
 import { markTransientRoot } from '../components/transientUi';
 import { ensureStyle } from '../../../style/shadow';
+import type { AppearanceSnapshot } from '../../../style/appearance';
+import {
+    getDefaultSurfaceMotionProfile,
+    SurfaceSession,
+} from '../components/SurfaceRuntime';
+import { getAnchoredMotionCss } from '../components/styles/anchoredMotionCss';
 
 type OpenParams = {
     shadow: ShadowRoot;
     container: HTMLElement;
-    theme: Theme;
+    appearance: AppearanceSnapshot;
     selectedSource: string;
     anchorRect: {
         left: number;
@@ -35,8 +40,16 @@ type OpenParams = {
     onDelete?: () => void;
 };
 
+type ActiveCommentSurface = {
+    layer: HTMLElement;
+    popover: HTMLElement;
+    session: SurfaceSession<AppearanceSnapshot>;
+    onCancel?: () => void;
+};
+
 function getCommentPopoverCss(): string {
     return `
+${getAnchoredMotionCss()}
 .reader-comment-popover-layer {
   position: absolute;
   inset: 0;
@@ -45,10 +58,14 @@ function getCommentPopoverCss(): string {
 
 .reader-comment-popover {
   --_reader-comment-arrow-size: var(--aimd-space-3);
+  --_reader-comment-input-inset-effect: inset 0 1px 0 color-mix(in srgb, var(--aimd-bg-primary) 72%, transparent);
+  --_reader-comment-input-focus-effect: inset 0 0 0 1px color-mix(in srgb, var(--aimd-interactive-primary) 32%, transparent);
   pointer-events: auto;
   position: absolute;
   width: min(380px, calc(100% - (var(--aimd-space-5) * 2)));
+  max-height: calc(100% - (var(--aimd-space-4) * 2));
   display: grid;
+  grid-template-rows: auto minmax(0, 1fr) auto;
   gap: var(--aimd-space-3);
   padding: var(--aimd-space-3);
   border-radius: var(--aimd-radius-2xl);
@@ -57,6 +74,7 @@ function getCommentPopoverCss(): string {
   box-shadow: var(--aimd-shadow-lg);
   color: var(--aimd-text-primary);
   z-index: var(--aimd-z-tooltip);
+  overflow: hidden;
 }
 
 .reader-comment-popover::after {
@@ -113,6 +131,15 @@ function getCommentPopoverCss(): string {
   gap: var(--aimd-space-2);
 }
 
+.reader-comment-popover__body {
+  min-height: 0;
+  display: grid;
+  align-content: start;
+  gap: var(--aimd-space-3);
+  overflow: auto;
+  overscroll-behavior: contain;
+}
+
 .reader-comment-popover__selection-label {
   font-size: var(--aimd-text-xs);
   line-height: 1.2;
@@ -149,13 +176,13 @@ function getCommentPopoverCss(): string {
   font: inherit;
   font-size: var(--aimd-text-sm);
   line-height: 1.55;
-  box-shadow: inset 0 1px 0 color-mix(in srgb, var(--aimd-bg-primary) 72%, transparent);
+  box-shadow: var(--_reader-comment-input-inset-effect);
 }
 
 .reader-comment-popover__input:focus-visible {
   outline: none;
   border-color: color-mix(in srgb, var(--aimd-interactive-primary) 58%, transparent);
-  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--aimd-interactive-primary) 32%, transparent);
+  box-shadow: var(--_reader-comment-input-focus-effect);
 }
 
 .reader-comment-popover__actions {
@@ -172,25 +199,56 @@ function getCommentPopoverCss(): string {
   opacity: 0.5;
   cursor: not-allowed;
 }
+
+@media (max-width: 560px) {
+  .reader-comment-popover {
+    width: calc(100% - (var(--aimd-space-2) * 2));
+    max-height: calc(100% - (var(--aimd-space-2) * 2));
+    gap: var(--aimd-space-2);
+    padding: var(--aimd-space-2);
+  }
+
+  .reader-comment-popover__body {
+    gap: var(--aimd-space-2);
+  }
+
+  .reader-comment-popover__btn {
+    min-width: 0;
+    flex: 1 1 0;
+  }
+}
+
+@media (max-height: 568px) {
+  .reader-comment-popover__selection-value {
+    min-height: var(--aimd-size-control-action-panel);
+    max-height: calc(var(--aimd-size-control-action-panel) * 2);
+  }
+
+  .reader-comment-popover__input {
+    min-height: calc(var(--aimd-size-control-action-panel) * 2);
+  }
+}
 `;
 }
 
 export class ReaderCommentPopover {
-    private rootEl: HTMLElement | null = null;
-    private onShadowPointerDown: ((event: Event) => void) | null = null;
-    private onDocumentPointerDown: ((event: Event) => void) | null = null;
+    private active: ActiveCommentSurface | null = null;
+    private readonly closing = new Set<ActiveCommentSurface>();
     private composing = false;
 
-    setTheme(theme: Theme): void {
-        if (this.rootEl) this.rootEl.setAttribute('data-aimd-theme', theme);
+    setAppearance(snapshot: AppearanceSnapshot): void {
+        this.active?.session.setAppearance(snapshot);
     }
 
     isOpen(): boolean {
-        return Boolean(this.rootEl);
+        return Boolean(this.active);
     }
 
     open(params: OpenParams): void {
-        this.close(params.shadow, false);
+        this.teardownCurrent(false);
+        this.teardownClosing();
+        this.composing = false;
+        const appearance = params.appearance;
         ensureStyle(params.shadow, getCommentPopoverCss(), { id: 'aimd-reader-comment-popover-style', cache: 'shared' });
         const labels = {
             addTitle: params.labels?.addTitle ?? 'Add comment',
@@ -209,17 +267,21 @@ export class ReaderCommentPopover {
 
         const popover = document.createElement('div');
         popover.className = 'reader-comment-popover';
-        popover.setAttribute('data-aimd-theme', params.theme);
+        popover.dataset.aimdSurfaceProfile = 'anchored';
+        popover.dataset.aimdRole = 'reader-comment-popover';
+        popover.setAttribute('data-aimd-theme', appearance.theme);
         popover.innerHTML = `
           <div class="reader-comment-popover__head">
             <h3 class="reader-comment-popover__title">${createIcon(messageSquareTextIcon).outerHTML}<span>${params.mode === 'edit' ? labels.editTitle : labels.addTitle}</span></h3>
             <button class="icon-btn reader-comment-popover__close" type="button" data-action="close" aria-label="${labels.close}">${createIcon(xIcon).outerHTML}</button>
           </div>
-          <div class="reader-comment-popover__selection">
-            <div class="reader-comment-popover__selection-label">${labels.selectedSource}</div>
-            <pre class="reader-comment-popover__selection-value" data-role="selected-source"></pre>
+          <div class="reader-comment-popover__body">
+            <div class="reader-comment-popover__selection">
+              <div class="reader-comment-popover__selection-label">${labels.selectedSource}</div>
+              <pre class="reader-comment-popover__selection-value" data-role="selected-source"></pre>
+            </div>
+            <textarea class="reader-comment-popover__input" data-role="input" placeholder="${labels.placeholder}"></textarea>
           </div>
-          <textarea class="reader-comment-popover__input" data-role="input" placeholder="${labels.placeholder}"></textarea>
           <div class="reader-comment-popover__actions">
             <button class="secondary-btn reader-comment-popover__btn" type="button" data-action="cancel">${secondaryActionLabel}</button>
             <button class="secondary-btn secondary-btn--primary reader-comment-popover__btn" type="button" data-action="save">${labels.save}</button>
@@ -228,9 +290,36 @@ export class ReaderCommentPopover {
 
         layer.appendChild(popover);
         params.container.appendChild(layer);
-        this.rootEl = layer;
-        this.setTheme(params.theme);
-        this.positionPopover(popover, params.container, params.anchorRect);
+        const session = new SurfaceSession<AppearanceSnapshot>({
+            profile: 'anchored',
+            responsiveProfile: {
+                viewportGutterPx: 16,
+                maxWidthCss: 'min(380px, calc(100% - (var(--aimd-space-4) * 2)))',
+                maxHeightCss: 'calc(100% - (var(--aimd-space-4) * 2))',
+                collision: 'flip-clamp',
+                scrollOwner: 'content',
+                narrowFallback: 'compact',
+            },
+            motionProfile: getDefaultSurfaceMotionProfile('anchored'),
+            appearance: {
+                currentValue: appearance,
+                apply: (snapshot) => popover.setAttribute('data-aimd-theme', snapshot.theme),
+            },
+        });
+        session.captureFocus();
+        this.active = { layer, popover, session, onCancel: params.onCancel };
+
+        const reposition = () => this.positionPopover(popover, params.container, params.anchorRect);
+        const onViewportChange = () => session.position();
+        window.addEventListener('resize', onViewportChange);
+        window.visualViewport?.addEventListener('resize', onViewportChange);
+        session.syncPositioner({
+            update: reposition,
+            destroy: () => {
+                window.removeEventListener('resize', onViewportChange);
+                window.visualViewport?.removeEventListener('resize', onViewportChange);
+            },
+        });
 
         const textarea = popover.querySelector<HTMLTextAreaElement>('[data-role="input"]');
         const selectedSource = popover.querySelector<HTMLElement>('[data-role="selected-source"]');
@@ -244,8 +333,26 @@ export class ReaderCommentPopover {
             textarea.addEventListener('compositionend', () => {
                 this.composing = false;
             });
-            setTimeout(() => textarea.focus(), 0);
         }
+
+        const cancelAndClose = () => {
+            params.onCancel?.();
+            this.close(params.shadow, false);
+        };
+        session.syncEscapeScope({
+            root: popover,
+            trapTabWithin: popover,
+            stopPropagationAll: true,
+            ignoreEscapeWhileComposing: true,
+            onEscape: cancelAndClose,
+        });
+        session.syncOutsideDismiss({
+            eventTarget: document,
+            roots: [layer],
+            onDismiss: cancelAndClose,
+        });
+        session.open({ surface: popover });
+        session.scheduleInitialFocus({ surface: popover, selectors: ['[data-role="input"]'] });
 
         const saveCurrentValue = () => {
             const value = textarea?.value.trim() ?? '';
@@ -263,13 +370,15 @@ export class ReaderCommentPopover {
         syncSaveState();
 
         popover.querySelector<HTMLButtonElement>('[data-action="close"]')?.addEventListener('click', () => {
-            params.onCancel?.();
-            this.close(params.shadow, false);
+            cancelAndClose();
         });
 
         popover.querySelector<HTMLButtonElement>('[data-action="cancel"]')?.addEventListener('click', () => {
             if (params.mode === 'edit') params.onDelete?.();
-            else params.onCancel?.();
+            else {
+                cancelAndClose();
+                return;
+            }
             this.close(params.shadow, false);
         });
 
@@ -279,10 +388,10 @@ export class ReaderCommentPopover {
 
         textarea?.addEventListener('keydown', (event) => {
             if (event.key === 'Escape') {
-                event.preventDefault();
                 event.stopPropagation();
-                params.onCancel?.();
-                this.close(params.shadow, false);
+                if (event.isComposing || this.composing) return;
+                event.preventDefault();
+                cancelAndClose();
                 return;
             }
             if (
@@ -299,40 +408,53 @@ export class ReaderCommentPopover {
                 saveCurrentValue();
             }
         });
-
-        this.onShadowPointerDown = (event: Event) => {
-            if (this.shouldIgnorePointerDown(event)) return;
-            params.onCancel?.();
-            this.close(params.shadow, false);
-        };
-        this.onDocumentPointerDown = (event: Event) => {
-            if (this.shouldIgnorePointerDown(event)) return;
-            params.onCancel?.();
-            this.close(params.shadow, false);
-        };
-
-        params.shadow.addEventListener('pointerdown', this.onShadowPointerDown, true);
-        document.addEventListener('pointerdown', this.onDocumentPointerDown, true);
     }
 
     close(shadow: ShadowRoot, callCancel: boolean): void {
-        if (!this.rootEl) return;
-        if (this.onShadowPointerDown) {
-            shadow.removeEventListener('pointerdown', this.onShadowPointerDown, true);
-            this.onShadowPointerDown = null;
-        }
-        if (this.onDocumentPointerDown) {
-            document.removeEventListener('pointerdown', this.onDocumentPointerDown, true);
-            this.onDocumentPointerDown = null;
-        }
-        this.rootEl.remove();
-        this.rootEl = null;
-        void callCancel;
+        void shadow;
+        this.composing = false;
+        const active = this.active;
+        if (!active) return;
+        this.active = null;
+        this.closing.add(active);
+        if (callCancel) active.onCancel?.();
+        active.session.clearEscapeScope();
+        active.session.clearOutsideDismiss();
+        active.session.clearPositioner();
+        const finalize = () => {
+            this.closing.delete(active);
+            active.layer.remove();
+            active.session.restoreFocus(document);
+            active.session.destroy();
+        };
+        if (!active.session.close({ surface: active.popover, onClosed: finalize })) finalize();
     }
 
-    private shouldIgnorePointerDown(event: Event): boolean {
-        const path = (event.composedPath?.() ?? []) as EventTarget[];
-        return path.includes(this.rootEl as EventTarget);
+    destroy(): void {
+        this.composing = false;
+        this.teardownCurrent(false);
+        this.teardownClosing();
+    }
+
+    private teardownCurrent(restoreFocus: boolean): void {
+        const active = this.active;
+        if (!active) return;
+        this.active = null;
+        active.session.clearEscapeScope();
+        active.session.clearOutsideDismiss();
+        active.session.clearPositioner();
+        active.layer.remove();
+        if (restoreFocus) active.session.restoreFocus(document);
+        active.session.destroy();
+    }
+
+    private teardownClosing(): void {
+        for (const active of this.closing) {
+            active.session.cancelClose();
+            active.layer.remove();
+            active.session.destroy();
+        }
+        this.closing.clear();
     }
 
     private positionPopover(

@@ -1,4 +1,3 @@
-import type { Theme } from '../../../core/types/theme';
 import {
     DEFAULT_EXPORT_SETTINGS,
     resolvePngExportPixelRatio,
@@ -43,7 +42,11 @@ import type { ChatGPTConversationEngine } from '../../../drivers/content/chatgpt
 import { buildChatGPTConversationTurns, resolveChatGPTConversationRound } from '../../../drivers/content/chatgpt/chatgptConversationSource';
 import type { ChatGPTConversationSnapshot } from '../../../drivers/content/chatgpt/types';
 import { navigateChatGPTDirectoryTarget, resolveChatGPTSkeletonPositionForMessage } from '../chatgptDirectory/navigation';
-import type { UserThemeOverrides } from '../../../style/tokens';
+import {
+    areAppearanceSnapshotsEqual,
+    createAppearanceSnapshot,
+    type AppearanceSnapshot,
+} from '../../../style/appearance';
 import { targetSurfacePolicy } from '../../../config/targetSurface';
 import { buildChatGPTReaderItems } from '../../../services/reader/chatgptReaderItems';
 
@@ -118,8 +121,7 @@ export class MessageToolbarOrchestrator {
     private recordsByMessageKey = new Map<string, ToolbarRecord>();
     private dirtyMessages = new Set<HTMLElement>();
     private needsFullRescan = false;
-    private theme: Theme = 'light';
-    private themeOverrides: UserThemeOverrides = {};
+    private appearance: AppearanceSnapshot = createAppearanceSnapshot('light');
     private scanScheduler: ScanScheduler | null = null;
     private routeWatcher: RouteWatcher | null = null;
     private unsubscribeLocale: (() => void) | null = null;
@@ -323,7 +325,7 @@ export class MessageToolbarOrchestrator {
         if (!params.alreadyBookmarked) {
             const currentFolderPath = this.bookmarksController.getDefaultFolderPath();
             const dialogRes = await this.bookmarkSaveDialog!.open({
-                theme: this.theme,
+                theme: this.appearance.theme,
                 userPrompt,
                 existingTitle: userPrompt,
                 currentFolderPath,
@@ -469,7 +471,7 @@ export class MessageToolbarOrchestrator {
         this.decorateReaderItems(items as Array<{ meta?: Record<string, unknown> }>);
         this.attachChatGptLiveTailReaderItem(items);
         const nextIndex = this.resolveRefreshedReaderIndex(items, ctx.item, ctx.index);
-        await this.readerPanel.show(items, nextIndex, this.theme, {
+        await this.readerPanel.show(items, nextIndex, this.appearance.theme, {
             profile: 'conversation-reader',
             actions: this.getReaderActions(messageElement),
         });
@@ -704,22 +706,12 @@ export class MessageToolbarOrchestrator {
         this.scheduleChatGptToolbarRecovery();
     }
 
-    setTheme(theme: Theme): void {
-        this.theme = theme;
+    setAppearance(snapshot: AppearanceSnapshot): void {
+        if (areAppearanceSnapshotsEqual(this.appearance, snapshot)) return;
+        this.appearance = snapshot;
         for (const record of this.recordsByMessageKey.values()) {
-            record.toolbar.setTheme(theme);
+            record.toolbar.setAppearance(snapshot);
         }
-        this.readerPanel.setTheme(theme);
-        this.bookmarkSaveDialog?.setTheme(theme);
-    }
-
-    setThemeOverrides(overrides: UserThemeOverrides): void {
-        this.themeOverrides = { ...overrides };
-        for (const record of this.recordsByMessageKey.values()) {
-            record.toolbar.setThemeOverrides(this.themeOverrides);
-        }
-        this.readerPanel.setThemeOverrides(this.themeOverrides);
-        this.bookmarkSaveDialog?.setThemeOverrides(this.themeOverrides);
     }
 
     setBehaviorFlags(flags: Partial<MessageToolbarBehaviorFlags>): void {
@@ -916,7 +908,7 @@ export class MessageToolbarOrchestrator {
                 const { items, startIndex } = itemsResult;
                 this.decorateReaderItems(items as Array<{ meta?: Record<string, unknown> }>);
                 this.attachChatGptLiveTailReaderItem(items);
-                await this.readerPanel.show(items, startIndex, this.theme, {
+                await this.readerPanel.show(items, startIndex, this.appearance.theme, {
                     profile: 'conversation-reader',
                     actions: this.getReaderActions(messageElement) as any,
                 });
@@ -934,7 +926,7 @@ export class MessageToolbarOrchestrator {
                 onClick: async () => {
                     const guard = this.guardMessageReady(messageElement);
                     if (guard) return guard;
-                    await this.saveMessagesDialog!.open(this.adapter, this.theme, {
+                    await this.saveMessagesDialog!.open(this.adapter, this.appearance.theme, {
                         chatGptConversationEngine: this.chatGptConversationEngine,
                         startMessageElement: messageElement,
                     });
@@ -974,9 +966,9 @@ export class MessageToolbarOrchestrator {
         }
         let recordRef: ToolbarRecord | null = null;
         const getToolbar = () => recordRef?.toolbar ?? null;
-        const toolbar = new MessageToolbar(this.theme, this.getActionsForMessage(params.message, getToolbar), {
+        const toolbar = new MessageToolbar(this.appearance.theme, this.getActionsForMessage(params.message, getToolbar), {
             showStats: this.behavior.showWordCount,
-            themeOverrides: this.themeOverrides,
+            themeOverrides: this.appearance.overrides,
         });
         const host = toolbar.getElement();
         host.setAttribute('data-aimd-role', 'message-toolbar');

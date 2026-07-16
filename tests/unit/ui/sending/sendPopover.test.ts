@@ -33,6 +33,7 @@ describe('SendPopover', () => {
 
     it('opens with the mock send-popover structure and closes on outside click / ESC', () => {
         const host = document.createElement('div');
+        document.body.appendChild(host);
         const shadow = host.attachShadow({ mode: 'open' });
 
         const panel = document.createElement('div');
@@ -96,8 +97,10 @@ describe('SendPopover', () => {
         expect(footerLeft.querySelector('.send-popover')).toBeTruthy();
         const outside = document.createElement('div');
         shadow.appendChild(outside);
-        outside.dispatchEvent(new MouseEvent('pointerdown', { bubbles: true }));
+        outside.dispatchEvent(new MouseEvent('pointerdown', { bubbles: true, composed: true }));
+        outside.dispatchEvent(new MouseEvent('click', { bubbles: true, composed: true }));
         expect(footerLeft.querySelector('.send-popover')).toBeNull();
+        host.remove();
     });
 
     it('closes when clicking outside the shadow surface on the page document', () => {
@@ -122,9 +125,50 @@ describe('SendPopover', () => {
         pop.open({ shadow, anchor: footerLeft, sendPort: createContentSendPort(adapter), theme: 'light', initialText: 'hi' });
         expect(footerLeft.querySelector('.send-popover')).toBeTruthy();
 
-        document.body.dispatchEvent(new MouseEvent('pointerdown', { bubbles: true }));
+        document.body.dispatchEvent(new MouseEvent('pointerdown', { bubbles: true, composed: true }));
+        document.body.dispatchEvent(new MouseEvent('click', { bubbles: true, composed: true }));
 
         expect(footerLeft.querySelector('.send-popover')).toBeNull();
+        host.remove();
+    });
+
+    it('uses the anchored Surface profile and clamps below its legacy minimum on narrow hosts', () => {
+        const host = document.createElement('div');
+        document.body.appendChild(host);
+        const shadow = host.attachShadow({ mode: 'open' });
+
+        const panel = document.createElement('div');
+        panel.className = 'panel-window panel-window--reader';
+        panel.style.width = '280px';
+        panel.style.height = '300px';
+        const footerLeft = document.createElement('div');
+        footerLeft.className = 'reader-footer__left';
+        footerLeft.setAttribute('data-role', 'footer-left-actions');
+        panel.appendChild(footerLeft);
+        shadow.appendChild(panel);
+
+        const pop = new SendPopover();
+        pop.open({
+            shadow,
+            anchor: footerLeft,
+            sendPort: createContentSendPort({
+                getComposerInputElement: () => null,
+                getComposerSendButtonElement: () => null,
+            } as any),
+            theme: 'light',
+            initialText: 'Narrow draft',
+        });
+
+        const surface = footerLeft.querySelector<HTMLElement>('.send-popover')!;
+        expect(surface.dataset.surfaceProfile).toBe('anchored');
+        expect(Number.parseFloat(surface.style.width)).toBeLessThan(320);
+        expect(Number.parseFloat(surface.style.height)).toBeLessThanOrEqual(268);
+
+        const css = shadow.querySelector<HTMLStyleElement>('style[data-aimd-send-popover-style]')!.textContent ?? '';
+        expect(css).toContain('min-width: min(320px, calc(100vw - var(--aimd-space-4)));');
+        expect(css).toContain('min-height: 0;');
+
+        pop.close(shadow, { syncBack: false });
         host.remove();
     });
 
@@ -245,6 +289,50 @@ describe('SendPopover', () => {
         await Promise.resolve();
 
         expect(submit).toHaveBeenCalledWith('hello detached');
+        pop.close(shadow, { syncBack: false });
+    });
+
+    it('exposes pending and error state without making the close action unreachable', async () => {
+        const host = document.createElement('div');
+        const shadow = host.attachShadow({ mode: 'open' });
+        const panel = document.createElement('div');
+        panel.className = 'panel-window panel-window--reader';
+        const footerLeft = document.createElement('div');
+        footerLeft.className = 'reader-footer__left';
+        panel.appendChild(footerLeft);
+        shadow.appendChild(panel);
+
+        let resolveSubmit!: (result: { ok: false; message: string }) => void;
+        const pop = new SendPopover();
+        pop.open({
+            shadow,
+            anchor: footerLeft,
+            sendPort: {
+                submit: () => new Promise((resolve) => {
+                    resolveSubmit = resolve;
+                }),
+            },
+            theme: 'light',
+            initialText: 'Draft',
+        });
+
+        const surface = footerLeft.querySelector<HTMLElement>('.send-popover')!;
+        const send = surface.querySelector<HTMLButtonElement>('[data-action="send"]')!;
+        const close = surface.querySelector<HTMLButtonElement>('[data-action="close"]')!;
+        send.click();
+        await Promise.resolve();
+
+        expect(surface.getAttribute('aria-busy')).toBe('true');
+        expect(send.disabled).toBe(true);
+        expect(close.disabled).toBe(false);
+
+        resolveSubmit({ ok: false, message: 'Network unavailable' });
+        await Promise.resolve();
+        await Promise.resolve();
+
+        expect(surface.getAttribute('aria-busy')).toBe('false');
+        expect(surface.querySelector<HTMLElement>('[data-role="status"]')?.dataset.tone).toBe('error');
+        expect(surface.querySelector<HTMLElement>('[data-role="status"]')?.textContent).toBe('Network unavailable');
         pop.close(shadow, { syncBack: false });
     });
 

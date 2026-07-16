@@ -1,0 +1,110 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>AI-MarkDone Host-integrated Controls</title>
+    <style>
+      :root { color-scheme: light dark; }
+      * { box-sizing: border-box; }
+      html { min-width: 0; overflow-x: clip; }
+      body {
+        margin: 0;
+        min-width: 0;
+        min-height: 100vh;
+        overflow-x: clip;
+        color: #202123;
+        background: #f7f7f8;
+        font-family: ui-sans-serif, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      }
+      body[data-theme="dark"] { color: #ececf1; background: #212121; }
+      .page {
+        width: min(760px, calc(100% - 112px));
+        min-width: 0;
+        margin: 0 auto;
+        padding: 28px 0 96px;
+      }
+      .fixture-header { margin-bottom: 24px; }
+      .fixture-header h1 { margin: 0 0 6px; font-size: 20px; line-height: 1.3; }
+      .fixture-header p { margin: 0; color: #6b7280; font-size: 13px; line-height: 1.55; }
+      body[data-theme="dark"] .fixture-header p { color: #a3a3a3; }
+      .conversation { display: grid; gap: 20px; }
+      .turn {
+        min-width: 0;
+        padding: 18px;
+        border: 1px solid rgba(127, 127, 127, 0.18);
+        border-radius: 18px;
+        background: rgba(255, 255, 255, 0.72);
+      }
+      body[data-theme="dark"] .turn { background: rgba(38, 38, 38, 0.88); }
+      .user-message {
+        width: fit-content;
+        max-width: 86%;
+        margin: 0 0 14px auto;
+        padding: 9px 12px;
+        border-radius: 14px 14px 4px 14px;
+        background: rgba(127, 127, 127, 0.12);
+        font-size: 13px;
+        line-height: 1.5;
+      }
+      .assistant-message { min-width: 0; }
+      .assistant-content { font-size: 14px; line-height: 1.65; }
+      .assistant-content p { margin: 0; }
+      .official-actions {
+        min-height: 36px;
+        margin-top: 13px;
+        display: flex;
+        align-items: center;
+        gap: 6px;
+      }
+      .progress-demo {
+        position: relative;
+        width: min(300px, 100%);
+        min-height: 42px;
+        margin-top: 14px;
+      }
+      @media (max-width: 720px) {
+        .page { width: min(100% - 72px, 640px); padding-top: 20px; }
+      }
+      @media (max-width: 560px) {
+        .page { width: calc(100% - 24px); padding: 14px 0 84px; }
+        .fixture-header { margin-bottom: 14px; }
+        .turn { padding: 14px; border-radius: 14px; }
+        .conversation { gap: 12px; }
+      }
+    </style>
+  </head>
+  <body>
+    <main class="page">
+      <header class="fixture-header">
+        <h1 data-role="fixture-title">Host-integrated controls</h1>
+        <p data-role="fixture-description">Real toolbar, transient progress, page controls, and conversation directory modules.</p>
+      </header>
+      <section class="conversation" data-role="conversation-root">
+        <article class="turn" data-turn-index="1">
+          <div class="user-message" data-message-author-role="user">Summarize the architecture decisions.</div>
+          <div class="assistant-message" data-message-author-role="assistant" data-message-id="assistant-1">
+            <div class="assistant-content"><p>The UI runtime now shares appearance, lifecycle, and responsive contracts.</p></div>
+            <div class="official-actions"></div>
+            <div class="progress-demo" data-role="progress-demo"></div>
+          </div>
+        </article>
+        <article class="turn" data-turn-index="2">
+          <div class="user-message" data-message-author-role="user">What happens on a narrow viewport?</div>
+          <div class="assistant-message" data-message-author-role="assistant" data-message-id="assistant-2">
+            <div class="assistant-content"><p>Anchored surfaces clamp first; auxiliary controls compact before they are hidden.</p></div>
+            <div class="official-actions"></div>
+          </div>
+        </article>
+        <article class="turn" data-turn-index="3">
+          <div class="user-message" data-message-author-role="user">Show the active and bookmarked states.</div>
+          <div class="assistant-message" data-message-author-role="assistant" data-message-id="assistant-3">
+            <div class="assistant-content"><p>The directory preserves the current position while visually distinguishing saved turns.</p></div>
+            <div class="official-actions"></div>
+          </div>
+        </article>
+      </section>
+    </main>
+    <script type="module" src="./main.ts"></script>
+  </body>
+</html>

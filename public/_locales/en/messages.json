@@ -7,6 +7,46 @@
         "message": "Supercharge your ChatGPT workflow: reader, bookmarks, Prompts, and Markdown/PDF/PNG export.",
         "description": "Message for extDescription"
     },
+    "popupSupportedSites": {
+        "message": "Supported sites",
+        "description": "Label above the supported-site list in the extension popup"
+    },
+    "popupChatGptHint": {
+        "message": "Full AI-MarkDone workspace",
+        "description": "Capability hint for ChatGPT in the extension popup"
+    },
+    "popupFormulaCopyHint": {
+        "message": "Formula copy",
+        "description": "Capability hint for formula-copy sites in the extension popup"
+    },
+    "popupUnsupportedPageFooter": {
+        "message": "Open a supported site to use AI-MarkDone.",
+        "description": "Footer guidance shown when the extension popup opens on an unsupported page"
+    },
+    "popupLogoAlt": {
+        "message": "AI-MarkDone logo",
+        "description": "Alternative text for the extension popup logo"
+    },
+    "chatgptPageControlBookmark": {
+        "message": "Bookmark current page",
+        "description": "Accessible label for the ChatGPT page bookmark control"
+    },
+    "chatgptPageControlRemoveBookmark": {
+        "message": "Remove page bookmark",
+        "description": "Accessible label for removing the current ChatGPT page bookmark"
+    },
+    "chatgptPageControlSplitView": {
+        "message": "Open Reader in split view",
+        "description": "Accessible label for the detached Reader page control"
+    },
+    "chatgptPageControlPrompts": {
+        "message": "Prompts",
+        "description": "Accessible label for the Prompt manager page control"
+    },
+    "chatgptDirectoryMessageFallback": {
+        "message": "Message $1",
+        "description": "Fallback label for a ChatGPT directory item before its prompt is available"
+    },
     "btnCopy": {
         "message": "Copy Markdown",
         "description": "Message for btnCopy"
@@ -398,6 +438,14 @@
     "readerSettingsLabel": {
         "message": "Reader",
         "description": "Message for readerSettingsLabel"
+    },
+    "readerUserMessageLabel": {
+        "message": "User message",
+        "description": "Label for the user message section in Reader"
+    },
+    "readerAssistantMessageLabel": {
+        "message": "AI response",
+        "description": "Label for the assistant response section in Reader"
     },
     "readerDefaultOpenModeLabel": {
         "message": "Default Reader size",

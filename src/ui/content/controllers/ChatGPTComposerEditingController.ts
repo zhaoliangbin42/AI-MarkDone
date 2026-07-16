@@ -1,5 +1,4 @@
 import type { SiteAdapter } from '../../../drivers/content/adapters/base';
-import type { Theme } from '../../../core/types/theme';
 import { armChatGPTSendPositionRestore } from '../../../drivers/content/chatgpt/sendPositionRestoreEvents';
 import {
     activateChatGPTComposerInputEnhancementMount,
@@ -44,7 +43,11 @@ import type {
     FormulaSvgAsset,
 } from '../../../services/math/formulaAssetRenderer';
 import { loadLatexSnippetCatalog } from '../../../services/math/latexSnippetCatalog';
-import type { UserThemeOverrides } from '../../../style/tokens';
+import {
+    areAppearanceSnapshotsEqual,
+    createAppearanceSnapshot,
+    type AppearanceSnapshot,
+} from '../../../style/appearance';
 import { FormulaComposerAssistantPopover } from '../components/FormulaComposerAssistantPopover';
 import { InputEnhancementButton } from '../components/InputEnhancementButton';
 import {
@@ -101,8 +104,7 @@ export class ChatGPTComposerEditingController {
     private formulaToken: LatexCommandToken | null = null;
     private formulaSnippetSession: FormulaSnippetSession | null = null;
     private applyingFormulaSnippet = false;
-    private themeOverrides: UserThemeOverrides = {};
-    private theme: Theme = 'light';
+    private appearance: AppearanceSnapshot = createAppearanceSnapshot('light');
 
     constructor(
         private readonly adapter: SiteAdapter,
@@ -114,7 +116,6 @@ export class ChatGPTComposerEditingController {
         this.initialized = true;
         this.bindComposer();
         this.observeComposerReplacements();
-        document.addEventListener('pointerdown', this.onDocumentPointerDownCapture, { capture: true });
     }
 
     dispose(): void {
@@ -123,7 +124,6 @@ export class ChatGPTComposerEditingController {
         this.detachComposer();
         this.observer?.disconnect();
         this.observer = null;
-        document.removeEventListener('pointerdown', this.onDocumentPointerDownCapture, { capture: true } as any);
         this.clearFormulaTimers();
         this.formulaAssistant?.dispose();
         this.formulaAssistant = null;
@@ -140,17 +140,12 @@ export class ChatGPTComposerEditingController {
         if (this.initialized) this.bindComposer();
     }
 
-    setThemeOverrides(overrides: UserThemeOverrides): void {
-        this.themeOverrides = { ...overrides };
-        this.formulaAssistant?.setThemeOverrides(overrides);
-        this.inputEnhancementPopover?.setThemeOverrides(overrides);
-    }
-
-    setTheme(theme: Theme): void {
-        this.theme = theme;
-        this.formulaAssistant?.refreshTheme();
-        this.inputEnhancementPopover?.setTheme(theme);
-        this.inputEnhancementGuideSession?.setTheme(theme);
+    setAppearance(snapshot: AppearanceSnapshot): void {
+        if (areAppearanceSnapshotsEqual(this.appearance, snapshot)) return;
+        this.appearance = snapshot;
+        this.formulaAssistant?.setAppearance(snapshot);
+        this.inputEnhancementPopover?.setAppearance(snapshot);
+        this.inputEnhancementGuideSession?.setAppearance(snapshot);
     }
 
     private bindComposer(): void {
@@ -234,14 +229,12 @@ export class ChatGPTComposerEditingController {
         if (!this.inputEnhancementPopover) {
             this.inputEnhancementPopover = new InputEnhancementPopover({
                 onChange: (settings) => void this.persistInputEnhancementSettings(settings),
-                onClose: (reason) => {
+                onClose: () => {
                     this.inputEnhancementButton?.setExpanded(false);
-                    if (reason !== 'outside') this.inputEnhancementButton?.focus();
                 },
                 onOpenGuide: () => this.openInputEnhancementGuide(),
             });
-            this.inputEnhancementPopover.setTheme(this.theme);
-            this.inputEnhancementPopover.setThemeOverrides(this.themeOverrides);
+            this.inputEnhancementPopover.setAppearance(this.appearance);
         }
         button.setExpanded(true);
         this.inputEnhancementPopover.open({
@@ -317,8 +310,8 @@ export class ChatGPTComposerEditingController {
         if (!this.inputEnhancementGuideSession) {
             this.inputEnhancementGuideSession = new OverlaySession({
                 id: 'aimd-input-enhancement-guide',
-                theme: this.theme,
-                themeOverrides: this.themeOverrides,
+                theme: this.appearance.theme,
+                themeOverrides: this.appearance.overrides,
                 surfaceCss: '',
                 overlayCss: INPUT_ENHANCEMENT_GUIDE_CSS,
                 surfaceStyleId: 'aimd-input-enhancement-guide-surface',
@@ -327,11 +320,17 @@ export class ChatGPTComposerEditingController {
                 zIndex: 'var(--aimd-z-tooltip)',
             });
         }
-        void this.inputEnhancementGuideSession.modalHost.showCustom({
+        const session = this.inputEnhancementGuideSession;
+        void session.modalHost.showCustom({
             kind: 'info',
             title: t('chatgptInputEnhancementGuideTitle'),
             body: createInputEnhancementGuideContent(),
             dialogClassName: 'input-enhancement-guide-dialog',
+            onClosed: () => {
+                if (this.inputEnhancementGuideSession !== session || session.modalHost.isOpen()) return;
+                session.unmount();
+                this.inputEnhancementGuideSession = null;
+            },
         });
     }
 
@@ -427,13 +426,6 @@ export class ChatGPTComposerEditingController {
             this.formulaHoverTimer = null;
             void this.refreshFormulaFromPoint(input, event.clientX, event.clientY);
         }, FORMULA_HOVER_DELAY_MS);
-    };
-
-    private onDocumentPointerDownCapture = (event: Event): void => {
-        if (!this.formulaAssistant || this.formulaAssistant.host.hidden) return;
-        const path = event.composedPath?.() ?? [];
-        if (path.includes(this.composer as EventTarget) || path.includes(this.formulaAssistant.host)) return;
-        this.closeFormulaAssistant();
     };
 
     private handleMarkdownDeletion(
@@ -647,8 +639,10 @@ export class ChatGPTComposerEditingController {
                 this.formulaSelectedIndex = index;
                 this.formulaAssistant?.updateSelectedIndex(index);
             },
+            onDismiss: () => this.closeFormulaAssistant(),
+            getDismissRoots: () => [this.composer],
         });
-        this.formulaAssistant.setThemeOverrides(this.themeOverrides);
+        this.formulaAssistant.setAppearance(this.appearance);
         return this.formulaAssistant;
     }
 

@@ -35,10 +35,13 @@ vi.mock('@/core/export/katexAssets', () => ({
 }));
 
 import { ReaderPanel } from '@/ui/content/reader/ReaderPanel';
+import { getReaderPanelCss } from '@/ui/content/reader/readerPanelTemplate';
 import { bookmarksClient } from '@/drivers/shared/clients/bookmarksClient';
 import { DEFAULT_SETTINGS } from '@/core/settings/types';
 import { getKatexCssWithRuntimeFontUrls, getKatexRuntimeFontFaceCss } from '@/core/export/katexAssets';
 import { clearReaderCommentScope, saveReaderComment } from '@/services/reader/commentSession';
+import { browser } from '@/drivers/shared/browser';
+import type { ReaderHostAdapter } from '@/ui/content/reader/ReaderHostAdapter';
 
 async function flushMotionFrames(): Promise<void> {
     await new Promise<void>((resolve) => {
@@ -178,6 +181,28 @@ describe('ReaderPanel presentation', () => {
         }
     });
 
+    it('localizes both conversation section labels through the Reader label contract', async () => {
+        const getMessage = vi.spyOn(browser.i18n, 'getMessage').mockImplementation((key: string) => ({
+            btnReader: '阅读器',
+            readerUserMessageLabel: '用户消息',
+            readerAssistantMessageLabel: 'AI 回复',
+        })[key] ?? '');
+        const panel = new ReaderPanel();
+
+        try {
+            await panel.show([{ id: 'a', userPrompt: '问题', content: '答案' }], 0, 'light');
+
+            const host = document.querySelector('#aimd-reader-panel-host') as HTMLElement;
+            const shadow = host.shadowRoot as ShadowRoot;
+
+            expect(shadow.querySelector('.reader-message--user .reader-message__label')?.textContent).toBe('用户消息');
+            expect(shadow.querySelector('.reader-message--assistant .reader-message__label')?.textContent).toBe('AI 回复');
+        } finally {
+            panel.hide();
+            getMessage.mockRestore();
+        }
+    });
+
     it('injects self-contained KaTeX styles when Reader content contains formulas', async () => {
         const panel = new ReaderPanel();
 
@@ -266,7 +291,7 @@ describe('ReaderPanel presentation', () => {
         }
     });
 
-    it('keeps the reader panel mounted in a closing state until the panel animation ends', async () => {
+    it('keeps one reader host and cancels its close when reopened before the animation ends', async () => {
         const panel = new ReaderPanel();
 
         await panel.show([{ id: 'a', userPrompt: 'Prompt', content: 'md1' }], 0, 'light');
@@ -280,9 +305,18 @@ describe('ReaderPanel presentation', () => {
         expect(document.querySelector('#aimd-reader-panel-host')).toBeTruthy();
         expect(shell?.dataset.motionState).toBe('closing');
 
+        await panel.show([{ id: 'b', userPrompt: 'Next prompt', content: 'md2' }], 0, 'light');
+
+        expect(document.querySelectorAll('#aimd-reader-panel-host')).toHaveLength(1);
+        expect(document.querySelector('#aimd-reader-panel-host')).toBe(host);
+        expect(shell?.dataset.motionState).not.toBe('closing');
         shell?.dispatchEvent(new Event('animationend', { bubbles: true }));
         await Promise.resolve();
 
+        expect(document.querySelector('#aimd-reader-panel-host')).toBe(host);
+
+        if (shell) shell.dataset.motionState = 'closing';
+        panel.hide();
         expect(document.querySelector('#aimd-reader-panel-host')).toBeNull();
     });
 
@@ -314,6 +348,36 @@ describe('ReaderPanel presentation', () => {
             const shadow = (host as any).shadowRoot as ShadowRoot;
 
             expect(shadow.querySelector('[data-action="reader-open-conversation"]')).toBeTruthy();
+        } finally {
+            panel.hide();
+        }
+    });
+
+    it('routes external conversation navigation through the Reader host adapter', async () => {
+        const openExternal = vi.fn();
+        const hostAdapter: ReaderHostAdapter = {
+            document,
+            window,
+            resolveAssetUrl: (assetPath) => assetPath,
+            openExternal,
+        };
+        const panel = new ReaderPanel(hostAdapter);
+
+        try {
+            await panel.show([{
+                id: 'a',
+                userPrompt: 'Prompt',
+                content: 'md1',
+                meta: { url: 'https://chatgpt.com/c/example' },
+            }], 0, 'light', { profile: 'bookmark-preview' });
+
+            const host = document.querySelector('#aimd-reader-panel-host') as HTMLElement;
+            const button = host.shadowRoot?.querySelector<HTMLButtonElement>('[data-action="reader-open-conversation"]');
+            button?.click();
+            await Promise.resolve();
+
+            expect(openExternal).toHaveBeenCalledOnce();
+            expect(openExternal).toHaveBeenCalledWith('https://chatgpt.com/c/example');
         } finally {
             panel.hide();
         }
@@ -431,6 +495,45 @@ describe('ReaderPanel presentation', () => {
             expect(styleText).toContain('.dialog-body--reader-settings {');
             expect(styleText).toContain('grid-auto-rows: max-content;');
             expect(styleText).toContain('align-content: start;');
+        } finally {
+            panel.hide();
+        }
+    });
+
+    it('owns Reader settings and template dialogs as nested surfaces with deterministic Escape focus return', async () => {
+        const panel = new ReaderPanel();
+        panel.setReaderSettings({
+            ...DEFAULT_SETTINGS.reader,
+            detachedNoticeConfirmed: true,
+        });
+
+        try {
+            await panel.show([{ id: 'a', userPrompt: 'Prompt', content: 'md1' }], 0, 'light');
+            const host = document.querySelector('#aimd-reader-panel-host') as HTMLElement;
+            const shadow = host.shadowRoot as ShadowRoot;
+            const settingsTrigger = shadow.querySelector<HTMLButtonElement>('[data-action="reader-settings"]')!;
+            settingsTrigger.focus();
+            settingsTrigger.click();
+
+            const settingsPanel = shadow.querySelector<HTMLElement>('.reader-settings-popover--display')!;
+            expect(settingsPanel.dataset.aimdSurfaceProfile).toBe('panel');
+            expect(settingsPanel.getAttribute('role')).toBe('dialog');
+            expect(settingsPanel.getAttribute('aria-modal')).toBe('true');
+
+            const templateTrigger = settingsPanel.querySelector<HTMLButtonElement>('[data-action="reader-settings-comment-template"]')!;
+            templateTrigger.focus();
+            templateTrigger.click();
+            const templatePanel = shadow.querySelector<HTMLElement>('.reader-settings-popover--template')!;
+            expect(templatePanel.dataset.aimdSurfaceProfile).toBe('panel');
+
+            templatePanel.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true, cancelable: true }));
+            expect(shadow.querySelector('.reader-settings-popover--template')).toBeNull();
+            expect(shadow.querySelector('.reader-settings-popover--display')).toBe(settingsPanel);
+            expect(shadow.activeElement).toBe(templateTrigger);
+
+            settingsPanel.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true, cancelable: true }));
+            expect(shadow.querySelector('.reader-settings-popover--display')).toBeNull();
+            expect(shadow.activeElement).toBe(settingsTrigger);
         } finally {
             panel.hide();
         }
@@ -693,7 +796,7 @@ describe('ReaderPanel presentation', () => {
         const stickyEnd = source.indexOf('.reader-body {', stickyStart);
         const stickyCss = source.slice(stickyStart, stickyEnd);
         const narrowStart = source.indexOf('@media (max-width: 900px)');
-        const narrowEnd = source.indexOf('@media (prefers-reduced-motion: reduce)', narrowStart);
+        const narrowEnd = source.indexOf('@media (max-width: 560px)', narrowStart);
         const narrowCss = source.slice(narrowStart, narrowEnd);
 
         expect(stickyCss).toContain('.reader-sticky-panel {');
@@ -738,5 +841,31 @@ describe('ReaderPanel presentation', () => {
         expect(outlineCss).not.toContain('!important');
         expect(outlineCss).not.toContain('#2563eb');
         expect(source).toContain('.panel-window--reader {');
+    });
+
+    it('keeps the Reader body as the main scroll owner and all chrome reachable at 320 by 568', () => {
+        const css = getReaderPanelCss();
+        const bodyWrap = css.slice(css.indexOf('.reader-body-wrap {'), css.indexOf('.reader-sticky-panel {'));
+        const body = css.slice(css.indexOf('.reader-body {'), css.indexOf('.reader-body-wrap[data-has-outline'));
+        const mobile = css.slice(css.indexOf('@media (max-width: 560px)'), css.indexOf('@media (max-height: 568px)'));
+        const shortViewportStart = css.indexOf('@media (max-height: 568px)');
+        const shortViewport = css.slice(shortViewportStart, css.indexOf('@media (prefers-reduced-motion: reduce)', shortViewportStart));
+
+        expect(css).toMatch(/\.panel-window \{[\s\S]*?overflow: hidden;/);
+        expect(bodyWrap).toContain('overflow: hidden;');
+        expect(body).toContain('overflow: auto;');
+        expect(body).toContain('overscroll-behavior: contain;');
+        expect(mobile).toContain('.panel-window--reader {');
+        expect(mobile).toContain('width: 100%;');
+        expect(mobile).toContain('height: 100%;');
+        expect(mobile).not.toContain('transform: none;');
+        expect(mobile).toContain('.panel-header__actions {');
+        expect(mobile).toContain('overflow-x: auto;');
+        expect(mobile).toContain('.reader-settings-row {');
+        expect(mobile).toContain('grid-template-columns: minmax(0, 1fr);');
+        expect(mobile).toContain('.reader-footer__meta {');
+        expect(mobile).toContain('grid-column: 1 / -1;');
+        expect(shortViewport).toContain('.reader-body {');
+        expect(shortViewport).toContain('.dialog-body--reader-settings {');
     });
 });

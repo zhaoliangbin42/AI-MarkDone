@@ -6,7 +6,6 @@ describe('mountOverlaySurfaceHost', () => {
     it('mounts a shared overlay surface with dedicated backdrop, surface, and modal slots', () => {
         const handle = mountOverlaySurfaceHost({
             id: 'test-overlay-surface-host',
-            themeCss: ':host{color:red;}',
             surfaceCss: '.surface { color: blue; }',
             overlayCss: '.extra-surface { background: var(--aimd-bg-primary); }',
             lockScroll: true,
@@ -16,12 +15,15 @@ describe('mountOverlaySurfaceHost', () => {
         expect(handle.backdropRoot.dataset.role).toBe('overlay-backdrop-root');
         expect(handle.surfaceRoot.dataset.role).toBe('overlay-surface-root');
         expect(handle.modalRoot.dataset.role).toBe('overlay-modal-root');
-        expect(handle.shadow.querySelector('style')?.textContent).toContain('color:red');
         expect(handle.shadow.querySelector('[data-aimd-style-id="aimd-overlay-surface-structure"]')?.textContent).toContain('.surface');
         expect(handle.shadow.querySelector('[data-aimd-style-id="aimd-overlay-surface-extra"]')).toBeTruthy();
-
-        handle.setThemeCss(':host{color:green;}');
-        expect(handle.shadow.querySelector('style')?.textContent).toContain('color:green');
+        const pointerSafetyCss = handle.shadow
+            .querySelector('[data-aimd-style-id="aimd-overlay-pointer-safety"]')?.textContent ?? '';
+        expect(pointerSafetyCss).toContain('[data-role="overlay-surface-root"] > *');
+        expect(pointerSafetyCss).toContain('pointer-events: auto');
+        expect(pointerSafetyCss).not.toContain('[data-role="overlay-modal-root"] > *');
+        expect(handle.shadow.querySelector('style:not([data-aimd-style-id])')).toBeNull();
+        expect(handle).not.toHaveProperty('setThemeCss');
 
         handle.unmount();
         expect(document.getElementById('test-overlay-surface-host')).toBeFalsy();
@@ -30,7 +32,6 @@ describe('mountOverlaySurfaceHost', () => {
     it('does not inject extra overlay css unless the caller provides it', () => {
         const handle = mountOverlaySurfaceHost({
             id: 'test-overlay-surface-host-no-extra',
-            themeCss: ':host{color:red;}',
             surfaceCss: '.surface { color: blue; }',
             lockScroll: true,
         });

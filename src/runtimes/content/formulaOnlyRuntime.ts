@@ -1,4 +1,4 @@
-import { DEFAULT_SETTINGS } from '../../core/settings/types';
+import { DEFAULT_GLOBAL_FONT_SIZE_PX, DEFAULT_SETTINGS } from '../../core/settings/types';
 import type { Theme } from '../../core/types/theme';
 import { PROTOCOL_VERSION, isExtRequest } from '../../contracts/protocol';
 import { SiteAdapter, type ThemeDetector } from '../../drivers/content/adapters/base';
@@ -6,6 +6,7 @@ import { BookmarksPanelController } from '../../ui/content/bookmarks/BookmarksPa
 import type { BookmarksPanelPort } from '../../ui/content/bookmarks/BookmarksPanelPort';
 import type { ReaderPanelPort } from '../../ui/content/reader/ReaderPanelPort';
 import { SettingsClient } from '../../drivers/content/settings/settingsClient';
+import { ThemeManager } from '../../drivers/content/theme/theme-manager';
 import { FormulaAssetHoverController } from '../../ui/content/controllers/FormulaAssetHoverController';
 import { browser } from '../../drivers/shared/browser';
 import { resolveFormulaSettings, shouldEnableFormulaInteractions } from './formulaRuntimeSettings';
@@ -18,6 +19,10 @@ import {
     createLazyRunFormulaAssetAction,
 } from './lazyContentFeatures';
 import { FORMULA_CANDIDATE_SELECTOR } from '../../drivers/content/math/math-click';
+import { normalizeGlobalFontSizePx, normalizeThemeAccentColor } from '../../core/settings/migrations';
+import { areAppearanceSnapshotsEqual, createAppearanceSnapshot, type AppearanceSnapshot } from '../../style/appearance';
+import { ensurePageTokens } from '../../style/pageTokens';
+import type { UserThemeOverrides } from '../../style/tokens';
 
 export type FormulaOnlyPlatformId = 'gemini' | 'claude' | 'deepseek';
 
@@ -175,13 +180,28 @@ export function getFormulaOnlyPlatformProfile(url: string = window.location.href
     ) ?? null;
 }
 
+function resolveAppearanceOverrides(
+    settings: typeof DEFAULT_SETTINGS | null | undefined,
+): UserThemeOverrides {
+    const fontSizePx = normalizeGlobalFontSizePx(settings?.appearance?.fontSizePx);
+    const accentColor = normalizeThemeAccentColor(settings?.appearance?.accentColor);
+    return {
+        ...(accentColor ? { accentColor } : {}),
+        baseFontScale: fontSizePx / DEFAULT_GLOBAL_FONT_SIZE_PX,
+    };
+}
+
 export class FormulaOnlyRuntime {
     private readonly settingsClient = new SettingsClient();
+    private readonly themeManager = new ThemeManager();
     private readonly formulaController: FormulaAssetHoverController;
     private readonly panelAdapter: FormulaOnlyPanelAdapter;
     private readonly readerPanel: ReaderPanelPort;
     private readonly bookmarksController: BookmarksPanelController;
     private readonly bookmarksPanel: BookmarksPanelPort;
+    private appearance: AppearanceSnapshot | null = null;
+    private unsubscribeSettings: (() => void) | null = null;
+    private unsubscribeTheme: (() => void) | null = null;
     private started = false;
 
     constructor(private readonly profile: FormulaPlatformProfile) {
@@ -200,13 +220,31 @@ export class FormulaOnlyRuntime {
         this.started = true;
         this.installRuntimeMessageBridge();
         this.settingsClient.init();
-        this.applySettings(this.settingsClient.getCached());
-        this.settingsClient.subscribe((snap) => {
+        const initialSettings = this.settingsClient.getCached();
+        const initialOverrides = resolveAppearanceOverrides(initialSettings);
+        this.applySettings(initialSettings);
+        this.themeManager.init(this.panelAdapter);
+        this.unsubscribeTheme = this.themeManager.subscribe((theme) => {
+            this.applyAppearance(createAppearanceSnapshot(
+                theme,
+                this.appearance?.overrides ?? initialOverrides,
+            ));
+        });
+        this.unsubscribeSettings = this.settingsClient.subscribe((snap) => {
             this.applySettings(snap.settings);
+            this.applyAppearance(createAppearanceSnapshot(
+                this.appearance?.theme ?? 'light',
+                resolveAppearanceOverrides(snap.settings),
+            ));
         });
     }
 
     dispose(): void {
+        this.unsubscribeSettings?.();
+        this.unsubscribeSettings = null;
+        this.unsubscribeTheme?.();
+        this.unsubscribeTheme = null;
+        this.themeManager.dispose();
         this.formulaController.disable();
         this.bookmarksPanel.hide();
         this.started = false;
@@ -236,6 +274,15 @@ export class FormulaOnlyRuntime {
         }
 
         this.observeFormulaContainers();
+    }
+
+    private applyAppearance(snapshot: AppearanceSnapshot): void {
+        if (this.appearance && areAppearanceSnapshotsEqual(this.appearance, snapshot)) return;
+        this.appearance = snapshot;
+        ensurePageTokens(snapshot.overrides);
+        this.formulaController.setAppearance(snapshot);
+        this.bookmarksController.setAppearance(snapshot);
+        this.readerPanel.setAppearance(snapshot);
     }
 
     private observeFormulaContainers(): void {

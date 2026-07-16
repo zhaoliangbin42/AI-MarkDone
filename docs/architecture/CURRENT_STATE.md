@@ -15,7 +15,7 @@
 - `src/services/*`
   - 用例编排与跨站共享逻辑
 - `src/ui/*`
-  - 页面内 UI、控制器、React/Shadow DOM UI foundation
+  - 页面内 UI、控制器与 Shadow DOM UI foundation
 - `src/contracts/*`
   - runtime 协议、平台契约、存储契约
 - `src/core/*`
@@ -92,7 +92,7 @@
 - ChatGPT 当前的专属增强能力已经改成 **payload/store-first**：
   - `ChatGPTConversationEngine` 负责通过 page bridge 优先读取 `/backend-api/conversation/<id>` payload，并从 `mapping/current_node` 还原完整轮次；payload 不可用时，会先尝试从 `main` 内的结构化 turn scope（旧 `[data-turn-id-container]` 或语义 `[data-turn="user"|"assistant"]` wrapper）读取 React turn 数据，并允许在该 turn scope 内查找承载 `turn/currentTurn/prevTurn` props 的 React carrier，最后才回退到内部 thread store 发现与可见 DOM fallback。React turn 读取必须始终由结构化 DOM container 限定，不允许变成全局文本或全局 fiber 猜测。
   - ChatGPT snapshot page bridge 是 Reader、Bookmark、Copy、Save Messages 共享的内容 SSOT；Chrome/Chromium 继续使用 object `CustomEvent.detail`，Firefox 使用 JSON string detail 规避 content/page script 隔离边界。该差异只能存在于 bridge transport encode/decode 层，上层 Reader、Bookmark、Copy 不得新增浏览器分支或 DOM fallback。
-  - 完成态 `Deep Research` 报告继续属于同一 snapshot SSOT：page bridge 只识别已验证的 Deep Research resource 标识，并从其 `widget_state.report_message` 读取完整 assistant Markdown；未完成、空白、未知或损坏的 widget 必须 fail closed，上传文件正文、工具调用参数与其他 tool 输出不得进入报告。报告随后复用既有 `normalizeChatGPTReaderMarkdown()` 与 `ReaderItem[]` 链路，不新增 iframe 采集、host permission、runtime protocol 或 Deep Research 专属 UI/导出分支。
+  - 完成态 `Deep Research` 报告继续属于同一 snapshot SSOT：page bridge 只识别已验证的 Deep Research resource 标识，并从其 `widget_state.report_message` 读取完整 assistant Markdown；未完成、空白、未知或损坏的 widget 必须 fail closed，上传文件正文、工具调用参数与其他 tool 输出不得进入报告。DOM 入口侧只把位于 `data-conversation-screenshot-content` 内的精确 `iframe[title="internal://deep-research"]` 视为已验证消息表面，并把既有消息工具栏挂到报告内容栈底部；iframe 延迟 hydration 继续复用 toolbar observer/scheduler，未知或无报告根的 iframe 不注入。iframe 只提供身份与锚点，报告正文仍复用既有 `normalizeChatGPTReaderMarkdown()` 与 `ReaderItem[]` 链路，不新增 iframe 正文采集、host permission、runtime protocol 或 Deep Research 专属 Reader/导出分支。
   - `ChatGPTPageIndex` 是 ChatGPT 当前页面 DOM 轮次/锚点投影的唯一 revision cache。它在 adapter/driver 层为每次相关宿主 DOM revision 只构建一份有序 `ChatGPTDomRoundRef[]`，并让 adapter group refs 与 `collectConversationTurnRefs()` 的映射结果按对象身份复用；工具栏、目录条、lower-right stepper、发送位置恢复和同页定位不得另做整页轮次扫描。directory 与 lower-right stepper 必须订阅该索引拥有的同一个轮次结构变化源，不得各自创建 `MutationObserver` 或复制 turn selector；新增/删除轮次和 conversation root 替换会通知两者，正文流式 child/text 变化只失效 snapshot，不触发导航 UI 刷新。AI-MarkDone toolbar 插入与 `data-aimd-*` bookkeeping 必须被过滤，避免自失效；runtime disable 时由 adapter `dispose()` 断开 observer 并清空缓存。该索引只包含当前 DOM 的位置/锚点，不替代 `ChatGPTConversationEngine` 的完整正文 snapshot。
   - content runtime 内的 toolbar、directory 与 conversation engine 继续各自拥有 route change 语义，但底层 `RouteWatcher` 共享唯一 poll timer 和唯一 `popstate` / `hashchange` listener pair；首个订阅者负责启动，最后一个订阅者停止后完整释放，不允许每个 controller 各自建立长期轮询。
   - `ChatGPTDirectoryController` + `ChatGPTDirectoryRail` 是默认开启、用户可关闭的 ChatGPT right-side surface，由 `chatgptDirectory.enabled` 控制。它继续复用 `collectChatGPTRoundPositions(adapter)`、active following 与 `navigateChatGPTDirectoryTarget(...)`，不得新增正文发现、Reader source 或第二套定位模型。rail 和 preview 的 right offset 由 viewport classic scrollbar 宽度加 `chatgptDirectory.rightInsetPx` 组成；用户边距默认 0px，只在滚动条覆盖目录条时由用户手动增加。仅当 `chatgptDirectory.enabled` 与 `chatgptDirectory.hideOfficialNavigation` 同时开启时，`ChatGPTOfficialNavigationVisibilityController` 才隐藏可确认的 ChatGPT 官方对话导航；隐藏链路以 ChatGPT conversation highlight root 的类名后缀 `_convSearchResultHighlightRoot` 作为容器锚点，只通过一条静态 CSS direct-child guard 隐藏该 root 下贴右侧的 fixed 直接子容器，不隐藏 root 本身，不读取布局，不改写官方 DOM，也不启动 observer 或 timer。选择器失配时必须 fail-open；左侧历史侧边栏与带 `data-aimd-role` 的自有节点必须明确排除。该能力不影响 ChatGPTConversationEngine、Reader、Save Messages、复制、书签存储或定位 helper。
@@ -183,7 +183,8 @@ flowchart TD
 - `src/ui/content/components/transientUi.ts` 现在是共享 outside-click / transient-root contract；Bookmarks family 只保留对它的 family-level 组合，而不再拥有私有实现
 - Bookmarks family 内部的 inline select / number-stepper 目前仍保持为 family-scoped primitive，并通过统一 transient-ui contract 与 panel shell 协作
 - `ModalHost` 现在只承担 dialog render、topmost modal ownership 与 focus restore；shared host boundary 与 keyboard scope 由 `OverlaySession` 负责
-- `ModalHost`、`BookmarksPanel`、`BookmarkSaveDialog`、`SaveMessagesDialog`、`ReaderPanel` 与 `SendModal` 现在都使用共享 motion contract：surface 先进入 `opening/open/closing` 状态，再在关闭动画结束后卸载，而不是立即从 DOM 移除
+- `ModalHost`、`BookmarksPanel`、`BookmarkSaveDialog`、`SaveMessagesDialog`、`ReaderPanel` 与 `SendPopover` 现在都使用共享 motion contract：surface 先进入 `opening/open/closing` 状态，再在关闭动画结束后卸载，而不是立即从 DOM 移除
+- 全屏 `OverlaySession` host 本身始终不接管 pointer；只有真实 backdrop 与 surface opt in。任何 close motion 无法启动时，owner 必须立即卸载 session 并释放 scroll lock；关闭中重开必须取消当前 close 并复用唯一 host，避免透明层、重复 host 或滚动锁残留导致宿主页面不可点击。
 - 当前 motion contract 明确分成两族：
   - `panel-window`
   - `modal-dialog`
@@ -203,7 +204,7 @@ flowchart TD
 - `pure/domain service` 负责纯逻辑与规则
 - `content-facing feature service` 负责数据准备和行为编排
 - content driver 负责 DOM 采集、剪贴板、导出、发送桥接
-- UI 层负责 Shadow DOM / React UI 呈现
+- UI 层负责 DOM / Shadow DOM 呈现；仓库当前不以 React 作为 UI runtime
 - `ReaderPanel` 当前通过 surface-owned named profiles 收口多入口差异；消息工具栏与书签预览不再直接传 low-level chrome flags，而是分别选择 `conversation-reader` 与 `bookmark-preview`
 - `readerContentSource` 是 Reader 正文供给的共享 service 入口；Reader、Save Messages 导出、当前消息 Copy Markdown / Copy PNG 与书签保存正文均消费同一份 fresh `ReaderItem[]` 语义。Reader header refresh 也复用该入口：官网内 Reader 直接刷新 fresh `ReaderItem[]`，detached Reader 通过 `readerSession:refresh` 回源页刷新同一来源，并按 position/messageId/id 尽量保留当前页。Reader Copy、Reader 选区源码复制、工具栏 Copy Markdown 与消息书签 Markdown copy 复用同一个 Reader markdown clipboard helper，并且只在写入剪贴板前按 `formula.markdownCopyFormulaFormat` 重写公式 wrapper；导出只将 `ReaderItem.content` resolve 为 `ChatTurn[]` 后交给既有 Markdown/PDF/PNG formatter，其中只有 Markdown formatter 会在写出文件前应用同一个 formula source format model。
 - ChatGPT 官网正文直选是一条严格限定的 selection exit，不是新的消息正文来源：`ChatGPTAtomicSelectionController` 只在同一条非流式 assistant `.markdown.prose` 内读取当前单 Range，用一个 document `selectionchange` listener + `requestAnimationFrame` 识别被完整覆盖的 rendered atomic unit，并仅对 selected-set 差分写入 tokenized `data-aimd-page-atomic-state`；最终复制由唯一的 window bubbling `copy` listener 持有。复制时才在 32ms/5000-node 总预算内把每个已知原子节点送入现有 adapter 的 clone/normalize/noise-removal/parser/cleanMarkdown 链，再与普通可见文本切片重建 canonical Markdown；公式必须复用共享 `extractLatexSource` 的可逆 TeX signal，不能从视觉文本猜测。该 canonical 输出保持源码语义，但不承诺恢复宿主未暴露的后端原始空白或字节串。严格原子清洗成功后，clipboard exit 会在 ChatGPT document-level React copy handler 完成后覆盖其视觉文本但不停止事件传播；普通/部分选区、跨消息、user/composer/control/custom widget、不可逆源码、超预算和任意 DOM/parser/clipboard 失败全部 fail open。该 controller 不建立 MutationObserver、逐消息 listener、overlay、选区改写或源码缓存，也不能被 Reader、toolbar、bookmark、Save Messages 或 export 当作 `ReaderItem[]` 替代链路。
@@ -249,30 +250,51 @@ flowchart TD
 - ChatGPT right-side directory rail 当前是默认开启、用户可关闭的 surface；content runtime 会创建 `ChatGPTDirectoryController`，实际显示由 `chatgptDirectory.enabled` 与 perf kill switch 控制。
 - `ChatGPTDirectoryController` / `ChatGPTDirectoryRail` 必须继续共享 active position、round discovery 与 `navigateChatGPTDirectoryTarget(...)`，不得新增第二套定位模型。
 - Directory rail 必须把 `window.innerWidth - document.documentElement.clientWidth` 测得的 classic scrollbar 宽度与 `chatgptDirectory.rightInsetPx` 用户边距相加后作为 right offset；默认用户边距为 0px，用于在 overlay scrollbar 或浏览器滚动条视觉入侵时手动兜底。该设置只调整 rail/preview 的右侧定位，不改变条目长度、目录发现、active following 或导航模型。
-- 右下角 page-control cluster 由独立 `ChatGPTMessageStepperController` 持有，不属于 directory rail；它承载书签面板入口、当前页面收藏、Detached Reader Split View、Prompts、Previous/Next。书签面板入口使用 AI-MarkDone 品牌 Logo、固定 `bottom: 0`，并替代 ChatGPT header 注入入口；页面收藏走 `bookmarks:page:*` 并与消息书签共用书签管理/文件夹/导入导出；Previous/Next 复用同一条 `navigateChatGPTDirectoryTarget(...)` 定位模型。该 cluster 是 `docs/design.md` 明确记录的 scoped light-DOM 例外：只在 `document.body` 持有唯一 fixed host，不修改 ChatGPT 官方 header 或 conversation DOM，只使用唯一前缀的 AI-MarkDone 选择器，并由 content runtime 的 `ThemeManager.subscribe(...)` 传入当前 theme、用共享 token CSS 刷新；不得通过一次性读取 document attribute、硬编码深色颜色或局部样式补丁来修复 light/dark 对比度问题。`chatgptBehavior.showPageBookmarkControl` 只控制页面收藏按钮；`chatgptBehavior.showDetachedReaderControl` 只控制 Split View；`chatgptBehavior.showPromptControl` 只控制 Prompts；`chatgptBehavior.showMessageStepper` 只控制 Previous/Next 按钮显示；`chatgptBehavior.enableArrowKeyMessageNavigation` 只控制左右方向键监听。
+- 右下角 page-control cluster 由独立 `ChatGPTMessageStepperController` 持有，不属于 directory rail；它承载书签面板入口、当前页面收藏、Detached Reader Split View、Prompts、Previous/Next。书签面板入口使用 AI-MarkDone 品牌 Logo、固定 `bottom: 0`，并替代 ChatGPT header 注入入口；页面收藏走 `bookmarks:page:*` 并与消息书签共用书签管理/文件夹/导入导出；Previous/Next 复用同一条 `navigateChatGPTDirectoryTarget(...)` 定位模型。该 cluster 是 `docs/design.md` 明确记录的 scoped light-DOM 例外：只在 `document.body` 持有唯一 fixed host，不修改 ChatGPT 官方 header 或 conversation DOM，只使用唯一前缀的 AI-MarkDone 选择器；content runtime 把 `ThemeManager` 与 settings 归一为一个 `AppearanceSnapshot`，controller 再通过 `AppearanceScope.forLightDomPortal(...)` 应用共享 token CSS。不得通过一次性读取 document attribute、硬编码深色颜色或局部样式补丁修复 light/dark 对比度。`chatgptBehavior.showPageBookmarkControl` 只控制页面收藏按钮；`chatgptBehavior.showDetachedReaderControl` 只控制 Split View；`chatgptBehavior.showPromptControl` 只控制 Prompts；`chatgptBehavior.showMessageStepper` 只控制 Previous/Next 按钮显示；`chatgptBehavior.enableArrowKeyMessageNavigation` 只控制左右方向键监听。
 - Rail hover preview 与 accordion 的历史约束保留：只能更新 UI 层缓存和邻近 marker 状态，preview 内容从 rail 内轮次缓存读取，preview 位置保持固定 body-level surface，避免 hover 期间触发 layout measurement 或 portal style 重写。
 - 浏览器 viewport 宽度变化超过 8px 时，页面级 resize suspend 会立即保护 action-row message toolbar chrome，并临时隐藏 directory rail、directory preview 与 lower-right message stepper；停止 resize 1 秒后恢复。
 
 ### ChatGPT Send Position Restore
 
 - 该能力属于 ChatGPT-only UI/page-behavior 层，设置为 `chatgptBehavior.restorePositionAfterSend`，默认开启。
-- 发送前 arm 的入口只有官方 composer 的 Enter / send button / form submit，以及 AI-MarkDone `SendModal` / `SendPopover` 在调用 `sendText()` 前派发的同一 arm event。
+- 发送前 arm 的入口只有官方 composer 的 Enter / send button / form submit，以及 AI-MarkDone `SendPopover` 在调用 `sendText()` 前派发的同一 arm event。
 - controller 只在 armed 后挂 MutationObserver、scroll listener 与 rAF schedule，并用 anchor delta 优先恢复视觉位置；anchor 丢失或水合延迟时 fallback 到 saved `scrollTop`，后续 anchor 出现后再校准。
 - 用户主动滚动、触摸、指针/键盘导航、官方滚到底部、Reader locate、Bookmark Go、超时或恢复次数上限都会 release；该链路只使用短生命周期 observer / rAF 恢复阅读位置，不读取消息正文，也不触发 snapshot。
 
 ### Style system
 
-- 主入口为 `src/style/reference-tokens.ts`
-- `src/style/system-tokens.ts`
-- `src/style/tokens.ts`
-- `src/style/pageTokens.ts`
+当前 token 与 appearance 链路是：
+
+1. `src/style/reference-tokens.ts` 生成 light/dark Reference token；`src/style/system-tokens.ts` 映射产品语义并应用全局 override；`src/style/public-tokens.ts` 单独暴露组件可消费的 Public alias；`src/style/tokens.ts` 负责三层组合。
+2. `UserThemeOverrides` 只包含 `accentColor` 与 `baseFontScale`。Reader content width 与 Reader body font size 由 Reader state 和 Reader family CSS 持有，不进入全局 appearance。
+3. `src/style/appearance.ts` 把 theme 与归一化 overrides 固化为带 fingerprint 的不可变 `AppearanceSnapshot`；content runtime 在生成首个 snapshot 前完成主题探测，避免暗色启动先广播浅色。formula-only runtime 通过可销毁的 `ThemeManager` 与 settings 订阅保持同步；detached Reader 通过 `SettingsClient` 实时回流 locale/appearance，同时保留 session theme。三条 runtime 都只在 fingerprint 改变时向已创建 Surface 广播一次 `setAppearance(snapshot)`，并在销毁时解除 observer、media-query 与 storage listener。
+4. `src/style/appearanceScope.ts` 统一 page、ShadowRoot 与 light-DOM portal 三类 scope。page CSS 只有 base-light 与 dark override；ShadowRoot 对相同 `id + cssText` 共享 constructed stylesheet，能力不可用时由 `src/style/shadow.ts` 回退为 root-local `<style>`，adoption 失败且尚无消费者的 shared cache entry 会立即释放；light-DOM portal 使用唯一 host/selector 和同一套 Public token 输出。
+5. `src/style/pageTokens.ts` 通过 page `AppearanceScope` 保留 `ensurePageTokens()` 合同；Message Toolbar、Directory preview 和 lower-right controls 分别使用 ShadowRoot 或 light-DOM scope，不再自行拼接另一套 token CSS。
+
+当前 Surface/runtime ownership 是：
+
+- `src/ui/content/components/SurfaceRuntime.ts` 定义 `panel`、`modal`、`anchored`、`inline` profile，以及 `ResponsiveProfile`、`SurfaceMotionProfile` 和 `SurfaceSession`。session 组合 appearance/locale binding、focus、Escape、outside dismiss、positioner、open/close/reduced-motion timing 与 destroy；CSS 与 JS close timing 由同一个 motion profile 驱动。
+- `OverlaySession` 是 modal/panel 路径的共享 adapter，继续组合 `OverlaySurfaceHost + ModalHost`；结构 CSS 在 host mount 时写入一次，后续 appearance/locale/内容更新不重复生成同一结构样式。Bookmarks、Reader、Bookmark Save、Save Messages、Input Enhancement guide 和 workflow dialogs 不建立第二套 overlay stack。
+- Input Enhancement、Formula Composer Assistant、Prompt autocomplete/manager、SendPopover、Reader comment/template settings 与 Toolbar hover portal 复用 anchored `SurfaceSession`。host selector、caret rect、rail geometry 等站点差异仍由 adapter 或 family geometry owner 提供。
+- `tests/support/uiSurfaceCoverage.ts` 是 `docs/design.md` catalog 的可执行镜像：每个用户可见 Surface 都登记 owner、production entry、profile、DOM scope、lifecycle owner、responsive contract、Chrome/Firefox 目标、真实 trigger test 与 tracked real-module fixture；family coverage 必须说明通过哪个真实 owner 触发。
+- `tests/support/uiStyleInventory.ts` 自动发现 shipped style source。token graph gate 阻止未定义引用、重复 non-isolated owner、循环、未消费 Public alias 与不可达的 foundation token；family token 由显式 registry 限定定义 owner 和消费者。style-value gate 同时检查 raw color、spacing、radius、shadow、z-index、motion 与非 print `!important`，静态 popup/export 例外按精确 signature、owner 与理由登记。
+- unsupported-page popup 是静态 extension document；Detached Reader 复用同一 `ReaderPanel` family 但拥有独立 extension-page runtime；隐藏的 export/formula renderer 是渲染基础设施，不进入产品 Surface catalog。
+
+当前长链职责拆分是：
+
+- Prompt：`PromptWorkflow` 持有数据/模式状态，`PromptGeometryAdapter` 持有 caret/anchor 定位，`PromptSurfaceRenderer` 持有 DOM 渲染，`ChatGPTPromptAutocompleteController` 只做 orchestration。
+- Reader：`ReaderWorkflow` 持有 profile/workflow state，`ReaderViewModel` 构造展示模型，`ReaderRendering` 负责渲染，`ReaderHostAdapter` 隔离 window/document/browser 行为，`ReaderPanel` 编排这些模块并继续实现 `ReaderPanelPort`。
+- Bookmarks：`BookmarksPanelTabWorkflow` 与 `BookmarksCloudBackupWorkflow` 持有相应流程，`bookmarksWorkspaceResponsiveCss` 持有 family responsive contract；`BookmarksPanel` 保留 shell、overlay、tab orchestration 与 snapshot wiring。
+- Bookmarks 的 phone contract 不复用桌面 overlay geometry：工具栏从 leading edge 换行，类型、标题、日期按可用宽度堆叠，行操作只在选中、hover 或 keyboard focus 后进入独立操作行；不得用绝对定位操作组覆盖 bookmark metadata，也不得通过隐藏操作来解决窄屏碰撞。
+- Markdown display CSS 的唯一 owner 是 `src/services/renderer/markdownTheme.ts`。生产中不存在并行的 UI compatibility shim。
+- production-dead `SendModal`、generic `Tabs`、no-op Markdown enhancer、空 `BookmarksOverlaySession` 与重绘型 Panel Studio 均已删除；Reader Send 只走 `SendController + SendPopover`。
 
 ---
 
-## 5. 当前仍需注意的历史遗留
+## 5. 历史文档边界
 
 - `docs/antigravity/*` 仍是活跃文档路径的一部分，但它表示历史命名空间，不代表当前依赖任何旧工具链
-- 一些较老的架构描述仍可能引用旧目录或旧实现形态，阅读时以本文件和实际代码路径为准
+- 已归档或较老的架构描述可能保留当时的目录或实现形态；当前事实以本文件和实际代码路径为准
 - 文档体系已经迁移到 `AGENTS.md` + `.codex/*` + `docs/*`，旧规范目录不再是活跃规范来源
 
 ---
@@ -282,4 +304,5 @@ flowchart TD
 - 想看目标架构：读 `docs/architecture/BLUEPRINT.md`
 - 想看依赖方向：读 `docs/architecture/DEPENDENCY_RULES.md`
 - 想看 runtime 协议：读 `docs/architecture/RUNTIME_PROTOCOL.md`
-- 想看重构阶段：读 `docs/refactor/REFACTOR_CHECKLIST.md`
+- 想看全 UI 收敛的阶段历史与 Phase 7 closeout：读 `docs/refactor/UI_SYSTEM_REFACTOR_PLAN.md`
+- 想看更早的通用重构 checklist：读 `docs/refactor/REFACTOR_CHECKLIST.md`

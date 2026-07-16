@@ -1,0 +1,96 @@
+<!doctype html>
+<html lang="en" data-aimd-theme="light">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <link rel="icon" href="data:," />
+    <title>AI-MarkDone Input Enhancement Mock</title>
+    <style>
+      * { box-sizing: border-box; }
+      body {
+        margin: 0;
+        min-height: 100vh;
+        color: #111827;
+        background: #f3f4f6;
+        font-family: ui-sans-serif, system-ui, sans-serif;
+      }
+      body[data-theme="dark"] { color: #f3f4f6; background: #171717; }
+      main { width: min(1120px, calc(100% - 32px)); margin: 0 auto; padding: 40px 0 520px; }
+      header { display: flex; align-items: flex-start; justify-content: space-between; gap: 24px; margin-bottom: 28px; }
+      h1 { margin: 0 0 8px; font-size: 24px; }
+      p { margin: 0; color: #6b7280; line-height: 1.6; }
+      body[data-theme="dark"] p { color: #a3a3a3; }
+      button { font: inherit; }
+      .controls { display: flex; flex-wrap: wrap; gap: 8px; }
+      .controls button {
+        border: 1px solid #d1d5db;
+        border-radius: 10px;
+        padding: 8px 12px;
+        color: inherit;
+        background: #fff;
+        cursor: pointer;
+      }
+      body[data-theme="dark"] .controls button { border-color: #525252; background: #262626; }
+      .grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 20px; }
+      .grid[data-narrow="1"] { width: 360px; max-width: 100%; grid-template-columns: 1fr; }
+      .case {
+        min-height: 184px;
+        display: grid;
+        align-content: space-between;
+        gap: 18px;
+        padding: 18px;
+        border: 1px solid #d1d5db;
+        border-radius: 18px;
+        background: #fff;
+        box-shadow: 0 12px 30px rgba(15, 23, 42, 0.08);
+      }
+      body[data-theme="dark"] .case { border-color: #404040; background: #262626; box-shadow: none; }
+      .case h2 { margin: 0 0 6px; font-size: 16px; }
+      .composer {
+        min-height: 94px;
+        display: grid;
+        align-content: space-between;
+        gap: 12px;
+        padding: 12px;
+        border: 1px solid #d1d5db;
+        border-radius: 24px;
+        background: #f9fafb;
+      }
+      body[data-theme="dark"] .composer { border-color: #525252; background: #1f1f1f; }
+      .draft { padding: 4px 8px; white-space: pre-wrap; }
+      .actions { display: flex; align-items: center; }
+      .plus {
+        display: inline-grid;
+        place-items: center;
+        width: 32px;
+        height: 32px;
+        border: 0;
+        border-radius: 999px;
+        color: inherit;
+        background: transparent;
+        font-size: 23px;
+      }
+      @media (max-width: 760px) {
+        header { align-items: stretch; flex-direction: column; }
+        .grid { grid-template-columns: 1fr; }
+      }
+    </style>
+  </head>
+  <body data-theme="light">
+    <main>
+      <header>
+        <div>
+          <h1>Input enhancement control center</h1>
+          <p>Real tokenized components: open and closed buttons, enabled and disabled hierarchy, pending persistence, two portals, locale changes, narrow layout, and reduced-motion media behavior.</p>
+        </div>
+        <div class="controls">
+          <button id="theme-toggle" type="button">Toggle theme</button>
+          <button id="locale-toggle" type="button">中文 / English</button>
+          <button id="width-toggle" type="button">Toggle narrow stage</button>
+        </div>
+      </header>
+      <section class="grid" id="stage"></section>
+    </main>
+    <script type="module" src="./main.ts"></script>
+  </body>
+</html>

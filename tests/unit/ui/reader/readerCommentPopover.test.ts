@@ -1,6 +1,7 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
 import { ReaderCommentPopover } from '@/ui/content/reader/ReaderCommentPopover';
+import { createAppearanceSnapshot } from '@/style/appearance';
 
 function createHost(): { host: HTMLElement; shadow: ShadowRoot; container: HTMLElement } {
     const host = document.createElement('div');
@@ -37,7 +38,7 @@ describe('ReaderCommentPopover', () => {
         popover.open({
             shadow,
             container,
-            theme: 'light',
+            appearance: createAppearanceSnapshot('light'),
             mode: 'create',
             initialText: '',
             selectedSource: 'Before `code` and $x+y$ after',
@@ -71,7 +72,7 @@ describe('ReaderCommentPopover', () => {
         popover.open({
             shadow,
             container,
-            theme: 'light',
+            appearance: createAppearanceSnapshot('light'),
             mode: 'create',
             initialText: 'seed',
             selectedSource: 'seed source',
@@ -112,7 +113,7 @@ describe('ReaderCommentPopover', () => {
         popover.open({
             shadow,
             container,
-            theme: 'light',
+            appearance: createAppearanceSnapshot('light'),
             mode: 'edit',
             initialText: 'seed',
             selectedSource: 'seed source',
@@ -136,6 +137,166 @@ describe('ReaderCommentPopover', () => {
         secondaryAction?.click();
 
         expect(onDelete).toHaveBeenCalledTimes(1);
+        expect(onCancel).not.toHaveBeenCalled();
+    });
+
+    it('uses an anchored Surface session for browser-like outside dismissal and focus return', () => {
+        const opener = document.createElement('button');
+        document.body.appendChild(opener);
+        opener.focus();
+        const { shadow, container } = createHost();
+        const popover = new ReaderCommentPopover();
+        const onCancel = vi.fn();
+
+        popover.open({
+            shadow,
+            container,
+            appearance: createAppearanceSnapshot('light'),
+            mode: 'create',
+            initialText: 'seed',
+            selectedSource: 'seed source',
+            anchorRect: {
+                left: 180,
+                top: 320,
+                width: 120,
+                height: 22,
+                right: 300,
+                bottom: 342,
+            },
+            labels: {},
+            onSave: vi.fn(),
+            onCancel,
+        } as any);
+
+        const surface = shadow.querySelector<HTMLElement>('.reader-comment-popover');
+        expect(surface?.dataset.aimdSurfaceProfile).toBe('anchored');
+        expect(surface?.dataset.aimdRole).toBe('reader-comment-popover');
+
+        document.body.dispatchEvent(new MouseEvent('pointerdown', { bubbles: true, composed: true }));
+        expect(popover.isOpen()).toBe(true);
+        document.body.dispatchEvent(new MouseEvent('click', { bubbles: true, composed: true }));
+
+        expect(onCancel).toHaveBeenCalledTimes(1);
+        expect(popover.isOpen()).toBe(false);
+        expect(surface?.dataset.motionState).toBe('closing');
+
+        surface?.dispatchEvent(new Event('animationend', { bubbles: true }));
+        expect(document.activeElement).toBe(opener);
+        expect(shadow.querySelector('.reader-comment-popover')).toBeNull();
+    });
+
+    it('keeps Escape inside an active IME composition and closes after composition ends', () => {
+        const { shadow, container } = createHost();
+        const popover = new ReaderCommentPopover();
+        const onCancel = vi.fn();
+
+        popover.open({
+            shadow,
+            container,
+            appearance: createAppearanceSnapshot('light'),
+            mode: 'create',
+            initialText: 'seed',
+            selectedSource: 'seed source',
+            anchorRect: {
+                left: 180,
+                top: 320,
+                width: 120,
+                height: 22,
+                right: 300,
+                bottom: 342,
+            },
+            labels: {},
+            onSave: vi.fn(),
+            onCancel,
+        });
+
+        const input = shadow.querySelector<HTMLTextAreaElement>('.reader-comment-popover__input')!;
+        input.dispatchEvent(new CompositionEvent('compositionstart', { bubbles: true }));
+        const composingEscape = new KeyboardEvent('keydown', { key: 'Escape', bubbles: true, cancelable: true });
+        Object.defineProperty(composingEscape, 'isComposing', { value: false });
+        input.dispatchEvent(composingEscape);
+        expect(popover.isOpen()).toBe(true);
+        expect(onCancel).not.toHaveBeenCalled();
+
+        input.dispatchEvent(new CompositionEvent('compositionend', { bubbles: true }));
+        const escape = new KeyboardEvent('keydown', { key: 'Escape', bubbles: true, cancelable: true });
+        Object.defineProperty(escape, 'isComposing', { value: false });
+        input.dispatchEvent(escape);
+        expect(popover.isOpen()).toBe(false);
+        expect(onCancel).toHaveBeenCalledTimes(1);
+    });
+
+    it('resets IME state between annotation sessions', () => {
+        const { shadow, container } = createHost();
+        const popover = new ReaderCommentPopover();
+        const open = (onCancel: () => void) => popover.open({
+            shadow,
+            container,
+            appearance: createAppearanceSnapshot('light'),
+            mode: 'create',
+            initialText: 'seed',
+            selectedSource: 'seed source',
+            anchorRect: {
+                left: 180,
+                top: 320,
+                width: 120,
+                height: 22,
+                right: 300,
+                bottom: 342,
+            },
+            labels: {},
+            onSave: vi.fn(),
+            onCancel,
+        });
+
+        open(vi.fn());
+        shadow.querySelector<HTMLTextAreaElement>('.reader-comment-popover__input')!
+            .dispatchEvent(new CompositionEvent('compositionstart', { bubbles: true }));
+        popover.close(shadow, false);
+
+        const onCancel = vi.fn();
+        open(onCancel);
+        const input = shadow.querySelector<HTMLTextAreaElement>('.reader-comment-popover__input')!;
+        input.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true, cancelable: true }));
+
+        expect(popover.isOpen()).toBe(false);
+        expect(onCancel).toHaveBeenCalledTimes(1);
+    });
+
+    it('updates active appearance and destroys all lifecycle work synchronously', () => {
+        const { shadow, container } = createHost();
+        const popover = new ReaderCommentPopover();
+        const onCancel = vi.fn();
+
+        popover.open({
+            shadow,
+            container,
+            appearance: createAppearanceSnapshot('light'),
+            mode: 'create',
+            initialText: 'seed',
+            selectedSource: 'seed source',
+            anchorRect: {
+                left: 180,
+                top: 320,
+                width: 120,
+                height: 22,
+                right: 300,
+                bottom: 342,
+            },
+            labels: {},
+            onSave: vi.fn(),
+            onCancel,
+        });
+
+        popover.setAppearance(createAppearanceSnapshot('dark', { accentColor: '#2563eb' }));
+        expect(shadow.querySelector('.reader-comment-popover')?.getAttribute('data-aimd-theme')).toBe('dark');
+
+        popover.destroy();
+        expect(popover.isOpen()).toBe(false);
+        expect(shadow.querySelector('.reader-comment-popover')).toBeNull();
+
+        document.body.dispatchEvent(new MouseEvent('pointerdown', { bubbles: true, composed: true }));
+        document.body.dispatchEvent(new MouseEvent('click', { bubbles: true, composed: true }));
         expect(onCancel).not.toHaveBeenCalled();
     });
 });

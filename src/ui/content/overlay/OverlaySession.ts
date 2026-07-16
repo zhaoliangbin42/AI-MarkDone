@@ -1,12 +1,21 @@
 import type { Theme } from '../../../core/types/theme';
-import { getTokenCss, type UserThemeOverrides } from '../../../style/tokens';
+import {
+    areAppearanceSnapshotsEqual,
+    createAppearanceSnapshot,
+    type AppearanceSnapshot,
+} from '../../../style/appearance';
+import { AppearanceScope } from '../../../style/appearanceScope';
+import type { UserThemeOverrides } from '../../../style/tokens';
 import { ModalHost } from '../components/ModalHost';
-import { attachDialogKeyboardScope, type DialogKeyboardScopeHandle } from '../components/dialogKeyboardScope';
 import { installInputEventBoundary } from '../components/inputEventBoundary';
 import {
-    installTransientOutsideDismissBoundary,
-    type TransientOutsideDismissBoundaryHandle,
-} from '../components/transientUi';
+    getDefaultSurfaceMotionProfile,
+    SurfaceSession,
+    type ResponsiveProfile,
+    type SurfaceMotionElements,
+    type SurfaceMotionProfile,
+    type SurfaceProfile,
+} from '../components/SurfaceRuntime';
 import { mountOverlaySurfaceHost, type OverlaySurfaceHostHandle } from './OverlaySurfaceHost';
 
 export type OverlaySessionOptions = {
@@ -20,25 +29,24 @@ export type OverlaySessionOptions = {
     overlayCss?: string;
     overlayStyleCache?: 'root' | 'shared';
     zIndex?: string;
+    profile?: Extract<SurfaceProfile, 'panel' | 'modal'>;
+    responsiveProfile?: ResponsiveProfile;
+    motionProfile?: SurfaceMotionProfile;
 };
 
 export class OverlaySession {
     readonly handle: OverlaySurfaceHostHandle;
     readonly modalHost: ModalHost;
 
-    private theme: Theme;
-    private themeOverrides: UserThemeOverrides;
-    private keyboardHandle: DialogKeyboardScopeHandle | null = null;
-    private backdropDismissHandle: TransientOutsideDismissBoundaryHandle | null = null;
+    private readonly surfaceSession: SurfaceSession<AppearanceSnapshot>;
+    private readonly appearanceScope: AppearanceScope;
     private readonly removeSurfaceBoundary: () => void;
     private readonly removeModalBoundary: () => void;
 
     constructor(options: OverlaySessionOptions) {
-        this.theme = options.theme;
-        this.themeOverrides = options.themeOverrides ?? {};
+        const appearance = createAppearanceSnapshot(options.theme, options.themeOverrides ?? {});
         this.handle = mountOverlaySurfaceHost({
             id: options.id,
-            themeCss: getTokenCss(this.theme, this.themeOverrides),
             surfaceCss: options.surfaceCss,
             overlayCss: options.overlayCss,
             overlayStyleCache: options.overlayStyleCache,
@@ -46,6 +54,19 @@ export class OverlaySession {
             lockScroll: options.lockScroll ?? true,
             surfaceStyleId: options.surfaceStyleId,
             overlayStyleId: options.overlayStyleId,
+        });
+        this.appearanceScope = AppearanceScope.forShadowRoot(this.handle.shadow);
+        this.appearanceScope.apply(appearance);
+        const profile = options.profile ?? 'panel';
+        this.surfaceSession = new SurfaceSession<AppearanceSnapshot>({
+            profile,
+            responsiveProfile: options.responsiveProfile,
+            motionProfile: options.motionProfile ?? getDefaultSurfaceMotionProfile(profile),
+            appearance: {
+                currentValue: appearance,
+                equals: areAppearanceSnapshotsEqual,
+                apply: (snapshot) => this.appearanceScope.apply(snapshot),
+            },
         });
         this.modalHost = new ModalHost(this.handle.modalRoot);
         this.removeSurfaceBoundary = installInputEventBoundary(this.handle.surfaceRoot);
@@ -72,18 +93,24 @@ export class OverlaySession {
         return this.handle.modalRoot;
     }
 
-    setTheme(theme: Theme): void {
-        this.theme = theme;
-        this.handle.setThemeCss(getTokenCss(this.theme, this.themeOverrides));
+    setAppearance(snapshot: AppearanceSnapshot): void {
+        this.surfaceSession.setAppearance(snapshot);
     }
 
-    setThemeOverrides(overrides: UserThemeOverrides): void {
-        this.themeOverrides = { ...overrides };
-        this.handle.setThemeCss(getTokenCss(this.theme, this.themeOverrides));
+    openSurface(elements: SurfaceMotionElements): void {
+        this.surfaceSession.open(elements);
     }
 
-    setSurfaceCss(cssText: string): void {
-        this.handle.setSurfaceCss(cssText);
+    syncSurfaceMotion(elements: SurfaceMotionElements): void {
+        this.surfaceSession.syncMotion(elements);
+    }
+
+    closeSurface(params: SurfaceMotionElements & { onClosed: () => void }): boolean {
+        return this.surfaceSession.close(params);
+    }
+
+    cancelSurfaceClose(): boolean {
+        return this.surfaceSession.cancelClose();
     }
 
     replaceBackdrop(node: HTMLElement | null): void {
@@ -110,8 +137,7 @@ export class OverlaySession {
         ignoreEscapeWhileComposing?: boolean;
         focusFallback?: () => HTMLElement | null;
     }): void {
-        this.keyboardHandle?.detach();
-        this.keyboardHandle = attachDialogKeyboardScope({
+        this.surfaceSession.syncEscapeScope({
             root: params.root,
             onEscape: params.onEscape,
             trapTabWithin: params.trapTabWithin,
@@ -122,31 +148,28 @@ export class OverlaySession {
     }
 
     clearKeyboardScope(): void {
-        this.keyboardHandle?.detach();
-        this.keyboardHandle = null;
+        this.surfaceSession.clearEscapeScope();
     }
 
     syncBackdropDismiss(onDismiss: () => void): void {
-        this.backdropDismissHandle?.detach();
-        this.backdropDismissHandle = installTransientOutsideDismissBoundary({
+        this.surfaceSession.syncOutsideDismiss({
             eventTarget: this.shadow,
             roots: [this.surfaceRoot, this.modalRoot],
-            onDismiss: (event) => {
+            shouldDismiss: (event) => {
                 const path = (event.composedPath?.() ?? []) as EventTarget[];
-                if (!path.includes(this.backdropRoot)) return;
-                onDismiss();
+                return path.includes(this.backdropRoot);
             },
+            onDismiss,
         });
     }
 
     clearBackdropDismiss(): void {
-        this.backdropDismissHandle?.detach();
-        this.backdropDismissHandle = null;
+        this.surfaceSession.clearOutsideDismiss();
     }
 
     unmount(): void {
-        this.clearKeyboardScope();
-        this.clearBackdropDismiss();
+        this.surfaceSession.destroy();
+        this.appearanceScope.dispose();
         this.removeSurfaceBoundary();
         this.removeModalBoundary();
         this.handle.unmount();

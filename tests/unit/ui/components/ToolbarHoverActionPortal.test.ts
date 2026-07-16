@@ -48,7 +48,7 @@ describe('ToolbarHoverActionPortal', () => {
 
         const host = document.querySelector<HTMLElement>('.aimd-toolbar-hover-action-host')!;
         expect(host.style.left).toBe('432px');
-        expect(host.style.getPropertyValue('--aimd-toolbar-hover-anchor-x')).toBe('348px');
+        expect(host.style.getPropertyValue('--_toolbar-hover-anchor-x')).toBe('348px');
         expect(host.dataset.placement).toBe('top');
         portal.dispose();
     });
@@ -76,7 +76,7 @@ describe('ToolbarHoverActionPortal', () => {
 
         const host = document.querySelector<HTMLElement>('.aimd-toolbar-hover-action-host')!;
         expect(host.style.left).toBe('8px');
-        expect(host.style.getPropertyValue('--aimd-toolbar-hover-anchor-x')).toBe('12px');
+        expect(host.style.getPropertyValue('--_toolbar-hover-anchor-x')).toBe('12px');
         expect(host.dataset.placement).toBe('top');
         portal.dispose();
     });
@@ -155,6 +155,34 @@ describe('ToolbarHoverActionPortal', () => {
         expect(css).toContain('height: var(--aimd-space-2);');
         expect(css).not.toContain('top: calc(-1 * var(--aimd-space-3));');
         expect(css).not.toContain('transform: translate(-50%, calc(-1 * var(--aimd-space-2)));');
+
+        portal.dispose();
+    });
+
+    it('uses the shared anchored lifecycle for outside-click, Escape, and teardown', () => {
+        const anchor = document.createElement('button');
+        const outside = document.createElement('button');
+        document.body.append(anchor, outside);
+        const onRequestClose = vi.fn();
+        const portal = new ToolbarHoverActionPortal('light');
+        portal.open({ anchorEl: anchor, label: 'Copy as PNG', onRequestClose });
+
+        anchor.dispatchEvent(new MouseEvent('pointerdown', { bubbles: true, composed: true }));
+        anchor.dispatchEvent(new MouseEvent('click', { bubbles: true, composed: true }));
+        expect(onRequestClose).not.toHaveBeenCalled();
+
+        outside.dispatchEvent(new MouseEvent('pointerdown', { bubbles: true, composed: true }));
+        outside.dispatchEvent(new MouseEvent('click', { bubbles: true, composed: true }));
+        expect(onRequestClose).toHaveBeenCalledTimes(1);
+
+        document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }));
+        expect(onRequestClose).toHaveBeenCalledTimes(2);
+
+        portal.close();
+        outside.dispatchEvent(new MouseEvent('pointerdown', { bubbles: true, composed: true }));
+        outside.dispatchEvent(new MouseEvent('click', { bubbles: true, composed: true }));
+        document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }));
+        expect(onRequestClose).toHaveBeenCalledTimes(2);
 
         portal.dispose();
     });

@@ -10,12 +10,12 @@ import {
     createLazyRunFormulaAssetAction,
     createLazySaveMessagesDialog,
 } from '@/runtimes/content/lazyContentFeatures';
+import { createAppearanceSnapshot } from '@/style/appearance';
 
 describe('lazy content features', () => {
     it('keeps Reader code unloaded until show and replays current configuration before rendering', async () => {
         const actualReader = {
-            setTheme: vi.fn(),
-            setThemeOverrides: vi.fn(),
+            setAppearance: vi.fn(),
             setReaderSettings: vi.fn(),
             setReaderSettingsController: vi.fn(),
             setPromptManagerController: vi.fn(),
@@ -36,8 +36,7 @@ describe('lazy content features', () => {
         const settingsController = { onChange: vi.fn() };
         const promptController = { onOpenManager: vi.fn(), listReaderPrompts: vi.fn(async () => []) };
 
-        reader.setTheme('dark');
-        reader.setThemeOverrides({ accentColor: '#2563eb' });
+        reader.setAppearance(createAppearanceSnapshot('dark', { accentColor: '#2563eb' }));
         reader.setReaderSettings({ contentMaxWidthPx: 900 } as any);
         reader.setReaderSettingsController(settingsController as any);
         reader.setPromptManagerController(promptController as any);
@@ -48,8 +47,10 @@ describe('lazy content features', () => {
 
         expect(importer).toHaveBeenCalledTimes(1);
         expect(createReaderPanel).toHaveBeenCalledTimes(1);
-        expect(actualReader.setTheme).toHaveBeenCalledWith('dark');
-        expect(actualReader.setThemeOverrides).toHaveBeenCalledWith({ accentColor: '#2563eb' });
+        expect(actualReader.setAppearance).toHaveBeenCalledWith(expect.objectContaining({
+            theme: 'dark',
+            overrides: { accentColor: '#2563eb' },
+        }));
         expect(actualReader.setReaderSettings).toHaveBeenCalledWith({ contentMaxWidthPx: 900 });
         expect(actualReader.setReaderSettingsController).toHaveBeenCalledWith(settingsController);
         expect(actualReader.setPromptManagerController).toHaveBeenCalledWith(promptController);
@@ -58,8 +59,7 @@ describe('lazy content features', () => {
 
     it('shares the imported feature module between Reader and Bookmarks triggers', async () => {
         const actualReader = {
-            setTheme: vi.fn(),
-            setThemeOverrides: vi.fn(),
+            setAppearance: vi.fn(),
             setReaderSettings: vi.fn(),
             setReaderSettingsController: vi.fn(),
             setPromptManagerController: vi.fn(),
@@ -96,15 +96,13 @@ describe('lazy content features', () => {
 
     it('defers export and bookmark dialogs while replaying their latest configuration on first use', async () => {
         const actualSaveMessages = {
-            setTheme: vi.fn(),
-            setThemeOverrides: vi.fn(),
+            setAppearance: vi.fn(),
             setExportSettings: vi.fn(),
             setMarkdownFormulaFormat: vi.fn(),
             open: vi.fn(async () => undefined),
         };
         const actualBookmarkSave = {
-            setTheme: vi.fn(),
-            setThemeOverrides: vi.fn(),
+            setAppearance: vi.fn(),
             open: vi.fn(async () => ({ ok: false as const })),
         };
         const copyMessagePng = vi.fn(async () => ({ ok: true as const, noop: false }));
@@ -134,12 +132,11 @@ describe('lazy content features', () => {
         const lazyRunFormulaAssetAction = createLazyRunFormulaAssetAction(loader);
         const lazyRenderFormulaSvgAsset = createLazyRenderFormulaSvgAsset(loader);
 
-        saveMessages.setTheme('dark');
-        saveMessages.setThemeOverrides({ accentColor: '#2563eb' });
+        const appearance = createAppearanceSnapshot('dark', { accentColor: '#2563eb' });
+        saveMessages.setAppearance(appearance);
         saveMessages.setExportSettings({ pngWidthPreset: 'desktop' } as any);
         saveMessages.setMarkdownFormulaFormat('raw');
-        bookmarkSave.setTheme('dark');
-        bookmarkSave.setThemeOverrides({ accentColor: '#2563eb' });
+        bookmarkSave.setAppearance(appearance);
         expect(importer).not.toHaveBeenCalled();
 
         await saveMessages.open({} as any, 'dark');
@@ -159,13 +156,11 @@ describe('lazy content features', () => {
         await lazyRenderFormulaSvgAsset({ source: 'x', displayMode: false });
 
         expect(importer).toHaveBeenCalledTimes(1);
-        expect(actualSaveMessages.setTheme).toHaveBeenCalledWith('dark');
-        expect(actualSaveMessages.setThemeOverrides).toHaveBeenCalledWith({ accentColor: '#2563eb' });
+        expect(actualSaveMessages.setAppearance).toHaveBeenCalledWith(appearance);
         expect(actualSaveMessages.setExportSettings).toHaveBeenCalledWith({ pngWidthPreset: 'desktop' });
         expect(actualSaveMessages.setMarkdownFormulaFormat).toHaveBeenCalledWith('raw');
         expect(actualSaveMessages.open).toHaveBeenCalledWith({}, 'dark');
-        expect(actualBookmarkSave.setTheme).toHaveBeenCalledWith('dark');
-        expect(actualBookmarkSave.setThemeOverrides).toHaveBeenCalledWith({ accentColor: '#2563eb' });
+        expect(actualBookmarkSave.setAppearance).toHaveBeenCalledWith(appearance);
         expect(copyMessagePng).toHaveBeenCalledTimes(1);
         expect(runFormulaAssetAction).toHaveBeenCalledTimes(1);
         expect(renderFormulaSvgAsset).toHaveBeenCalledTimes(1);

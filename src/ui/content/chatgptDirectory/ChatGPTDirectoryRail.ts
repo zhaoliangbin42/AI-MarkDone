@@ -1,5 +1,12 @@
 import type { Theme } from '../../../core/types/theme';
-import { getTokenCss, type UserThemeOverrides } from '../../../style/tokens';
+import {
+    areAppearanceSnapshotsEqual,
+    createAppearanceSnapshot,
+    type AppearanceSnapshot,
+} from '../../../style/appearance';
+import { AppearanceScope } from '../../../style/appearanceScope';
+import type { UserThemeOverrides } from '../../../style/tokens';
+import { ensureStyle } from '../../../style/shadow';
 import type { ChatGPTConversationRound } from '../../../drivers/content/chatgpt/types';
 import {
     CHATGPT_DIRECTORY_RIGHT_INSET_STEP_PX,
@@ -13,16 +20,11 @@ import {
 const RAIL_ID = 'aimd-chatgpt-directory-rail';
 const PREVIEW_ID = 'aimd-chatgpt-directory-preview';
 const PREVIEW_STYLE_ID = 'aimd-chatgpt-directory-preview-style';
+const PREVIEW_TOKEN_STYLE_ID = 'aimd-chatgpt-directory-preview-tokens';
 const HOVER_RADIUS = 3;
 const EXPANDED_LABEL_HEAD_LENGTH = 15;
 const EXPANDED_LABEL_HEAD_TAIL_MAX_LENGTH = 30;
 const USER_INTERACTION_IDLE_MS = 800;
-
-function getPortalTokenCss(selector: string, overrides: UserThemeOverrides = {}): string {
-    const light = getTokenCss('light', overrides).replace(/:host/g, `${selector}[data-aimd-theme="light"]`);
-    const dark = getTokenCss('dark', overrides).replace(/:host/g, `${selector}[data-aimd-theme="dark"]`);
-    return `${light}\n${dark}`;
-}
 
 function formatExpandedLabel(value: string, mode: ChatGPTDirectoryPromptLabelMode): string {
     const normalized = value.replace(/\s+/g, ' ').trim();
@@ -45,9 +47,11 @@ function normalizeRightInsetPx(value: unknown): number {
 export class ChatGPTDirectoryRail {
     private rootEl: HTMLElement;
     private shadowRoot: ShadowRoot;
-    private styleEl: HTMLStyleElement;
+    private railAppearanceScope: AppearanceScope;
     private listEl: HTMLDivElement;
     private previewEl: HTMLDivElement;
+    private previewAppearanceScope: AppearanceScope;
+    private appearance: AppearanceSnapshot;
     private rounds: ChatGPTConversationRound[] = [];
     private roundsSignature = '';
     private itemsByPosition = new Map<number, HTMLElement>();
@@ -64,13 +68,10 @@ export class ChatGPTDirectoryRail {
     private userInteracting = false;
     private interactionIdleTimer: number | null = null;
     private onSelect: (round: ChatGPTConversationRound) => void;
-    private theme: Theme;
-    private themeOverrides: UserThemeOverrides;
 
     constructor(theme: Theme, onSelect: (round: ChatGPTConversationRound) => void, themeOverrides: UserThemeOverrides = {}) {
         this.onSelect = onSelect;
-        this.theme = theme;
-        this.themeOverrides = themeOverrides;
+        this.appearance = createAppearanceSnapshot(theme, themeOverrides);
 
         const existing = document.getElementById(RAIL_ID);
         if (existing instanceof HTMLElement) existing.remove();
@@ -86,9 +87,14 @@ export class ChatGPTDirectoryRail {
         this.shadowRoot = this.rootEl.attachShadow({ mode: 'open' });
         this.applyRightOffsetVars();
 
-        this.styleEl = document.createElement('style');
-        this.styleEl.textContent = getTokenCss(theme, this.themeOverrides) + this.getCss();
-        this.shadowRoot.appendChild(this.styleEl);
+        this.railAppearanceScope = AppearanceScope.forShadowRoot(this.shadowRoot, {
+            styleId: 'aimd-chatgpt-directory-rail-tokens',
+        });
+        this.railAppearanceScope.apply(this.appearance);
+        ensureStyle(this.shadowRoot, this.getCss(), {
+            id: 'aimd-chatgpt-directory-rail-base',
+            cache: 'shared',
+        });
 
         const shell = document.createElement('div');
         shell.className = 'rail';
@@ -138,6 +144,11 @@ export class ChatGPTDirectoryRail {
         this.previewEl.dataset.open = '0';
         this.previewEl.setAttribute('data-aimd-theme', theme);
         this.previewEl.innerHTML = '<div class="aimd-chatgpt-directory-preview__title"></div><div class="aimd-chatgpt-directory-preview__body"></div>';
+        this.previewAppearanceScope = AppearanceScope.forLightDomPortal(this.previewEl, {
+            selector: '.aimd-chatgpt-directory-preview',
+            styleId: PREVIEW_TOKEN_STYLE_ID,
+        });
+        this.previewAppearanceScope.apply(this.appearance);
         this.applyRightOffsetVars();
         this.syncViewportScrollbarWidth();
         window.addEventListener('resize', this.handleViewportResize, { passive: true });
@@ -155,21 +166,18 @@ export class ChatGPTDirectoryRail {
             this.interactionIdleTimer = null;
         }
         window.removeEventListener('resize', this.handleViewportResize as any);
+        this.railAppearanceScope.dispose();
+        this.previewAppearanceScope.dispose();
         this.rootEl.remove();
         this.previewEl.remove();
     }
 
-    setTheme(theme: Theme): void {
-        this.theme = theme;
-        this.rootEl.setAttribute('data-aimd-theme', theme);
-        this.previewEl.setAttribute('data-aimd-theme', theme);
-        this.styleEl.textContent = getTokenCss(theme, this.themeOverrides) + this.getCss();
-    }
-
-    setThemeOverrides(overrides: UserThemeOverrides): void {
-        this.themeOverrides = { ...overrides };
-        this.styleEl.textContent = getTokenCss(this.theme, this.themeOverrides) + this.getCss();
-        this.ensurePreviewStyle({ force: true });
+    setAppearance(snapshot: AppearanceSnapshot): void {
+        if (areAppearanceSnapshotsEqual(this.appearance, snapshot)) return;
+        this.appearance = snapshot;
+        this.rootEl.setAttribute('data-aimd-theme', snapshot.theme);
+        this.railAppearanceScope.apply(snapshot);
+        this.previewAppearanceScope.apply(snapshot);
     }
 
     setVisible(visible: boolean): void {
@@ -298,10 +306,10 @@ export class ChatGPTDirectoryRail {
     private applyRightOffsetVars(): void {
         const inset = `${this.rightInsetPx}px`;
         const scrollbar = `${this.viewportScrollbarWidthPx}px`;
-        this.rootEl.style.setProperty('--aimd-chatgpt-directory-user-right-inset', inset);
-        this.rootEl.style.setProperty('--aimd-chatgpt-directory-scrollbar-width', scrollbar);
-        this.previewEl?.style.setProperty('--aimd-chatgpt-directory-user-right-inset', inset);
-        this.previewEl?.style.setProperty('--aimd-chatgpt-directory-scrollbar-width', scrollbar);
+        this.rootEl.style.setProperty('--_directory-user-right-inset', inset);
+        this.rootEl.style.setProperty('--_directory-scrollbar-width', scrollbar);
+        this.previewEl?.style.setProperty('--_directory-user-right-inset', inset);
+        this.previewEl?.style.setProperty('--_directory-scrollbar-width', scrollbar);
     }
 
     private renderBookmarkedState(): void {
@@ -407,6 +415,7 @@ export class ChatGPTDirectoryRail {
     }
 
     private ensurePreviewAttached(): void {
+        this.previewAppearanceScope.apply(this.appearance);
         this.ensurePreviewStyle();
         if (!this.previewEl.isConnected) document.body.appendChild(this.previewEl);
     }
@@ -438,11 +447,10 @@ export class ChatGPTDirectoryRail {
     }
 
     private getPreviewCss(): string {
-        return `${getPortalTokenCss('.aimd-chatgpt-directory-preview', this.themeOverrides)}
-.aimd-chatgpt-directory-preview {
+        return `.aimd-chatgpt-directory-preview {
   --_directory-preview-width: 280px;
   position: fixed;
-  right: calc(var(--aimd-space-2) + var(--aimd-space-4) + var(--aimd-space-6) + var(--aimd-chatgpt-directory-scrollbar-width, 0px) + var(--aimd-chatgpt-directory-user-right-inset, ${DEFAULT_CHATGPT_DIRECTORY_RIGHT_INSET_PX}px));
+  right: calc(var(--aimd-space-2) + var(--aimd-space-4) + var(--aimd-space-6) + var(--_directory-scrollbar-width, 0px) + var(--_directory-user-right-inset, ${DEFAULT_CHATGPT_DIRECTORY_RIGHT_INSET_PX}px));
   top: 50%;
   width: var(--_directory-preview-width);
   max-width: min(var(--_directory-preview-width), calc(100vw - (var(--aimd-space-3) * 2)));
@@ -484,6 +492,11 @@ export class ChatGPTDirectoryRail {
   line-height: 1.45;
   white-space: normal;
 }
+@media (max-width: 900px) {
+  .aimd-chatgpt-directory-preview {
+    display: none;
+  }
+}
 
 `;
     }
@@ -493,7 +506,7 @@ export class ChatGPTDirectoryRail {
 :host {
   position: fixed;
   top: 50%;
-  right: calc(var(--aimd-space-2) + var(--aimd-chatgpt-directory-scrollbar-width, 0px) + var(--aimd-chatgpt-directory-user-right-inset, ${DEFAULT_CHATGPT_DIRECTORY_RIGHT_INSET_PX}px));
+  right: calc(var(--aimd-space-2) + var(--_directory-scrollbar-width, 0px) + var(--_directory-user-right-inset, ${DEFAULT_CHATGPT_DIRECTORY_RIGHT_INSET_PX}px));
   transform: translateY(-50%);
   z-index: var(--aimd-z-panel);
   pointer-events: auto;
@@ -503,7 +516,7 @@ export class ChatGPTDirectoryRail {
 }
 :host([data-mode="expanded"][data-expanded="1"]) {
   width: fit-content;
-  max-width: calc(100vw - 32px - var(--aimd-chatgpt-directory-scrollbar-width, 0px) - var(--aimd-chatgpt-directory-user-right-inset, ${DEFAULT_CHATGPT_DIRECTORY_RIGHT_INSET_PX}px));
+  max-width: calc(100vw - 32px - var(--_directory-scrollbar-width, 0px) - var(--_directory-user-right-inset, ${DEFAULT_CHATGPT_DIRECTORY_RIGHT_INSET_PX}px));
 }
 .rail {
   display: flex;
@@ -514,7 +527,7 @@ export class ChatGPTDirectoryRail {
   display: flex;
   flex-direction: column;
   align-items: flex-end;
-  gap: 2px;
+  gap: calc(var(--aimd-space-1) / 2);
   width: 100%;
   padding: var(--aimd-space-1) 0;
   min-height: calc(var(--aimd-space-3) * 6);
@@ -546,7 +559,7 @@ export class ChatGPTDirectoryRail {
   justify-content: flex-end;
   width: 100%;
   height: 10px;
-  border-radius: 999px;
+  border-radius: var(--aimd-radius-full);
   padding-inline: 0;
   gap: var(--aimd-space-2);
   color: var(--aimd-text-secondary);
@@ -558,11 +571,11 @@ export class ChatGPTDirectoryRail {
   display: block;
   width: 36px;
   height: 3px;
-  border-radius: 999px;
+  border-radius: var(--aimd-radius-full);
   background: color-mix(in srgb, var(--aimd-border-default) 82%, transparent);
   transform: scaleX(0.39) scaleY(1);
   transform-origin: right center;
-  transition: transform 120ms var(--aimd-ease-out),
+  transition: transform calc(var(--aimd-duration-fast) * 0.8) var(--aimd-ease-out),
               background var(--aimd-duration-fast) var(--aimd-ease-in-out),
               box-shadow var(--aimd-duration-fast) var(--aimd-ease-in-out);
 }
@@ -594,16 +607,16 @@ export class ChatGPTDirectoryRail {
 }
 .rail__item[data-bookmarked="1"]::before {
   background: var(--aimd-bookmark-marker-gradient);
-  box-shadow: 0 0 0 2px var(--aimd-bookmark-marker-glow);
+  box-shadow: var(--aimd-shadow-bookmark-marker);
 }
 .rail__item[data-proximity="0"]::before {
   transform: scaleX(1) scaleY(1.33);
   background: var(--aimd-interactive-primary);
-  box-shadow: 0 0 0 3px color-mix(in srgb, var(--aimd-interactive-primary) 10%, transparent);
+  box-shadow: var(--aimd-shadow-interactive-halo);
 }
 .rail__item[data-bookmarked="1"][data-proximity="0"]::before {
   background: var(--aimd-bookmark-marker-gradient);
-  box-shadow: 0 0 0 3px var(--aimd-bookmark-marker-glow);
+  box-shadow: var(--aimd-shadow-bookmark-marker-strong);
 }
 .rail__item[data-proximity="1"]::before {
   transform: scaleX(0.83) scaleY(1.33);
@@ -641,7 +654,7 @@ export class ChatGPTDirectoryRail {
 .rail__list[data-mode="expanded"][data-expanded="1"] .rail__item[data-bookmarked="1"][data-hovered="1"]::before,
 .rail__list[data-mode="expanded"][data-expanded="1"] .rail__item[data-bookmarked="1"]:focus-visible::before {
   background: var(--aimd-bookmark-marker-gradient);
-  box-shadow: 0 0 0 2px var(--aimd-bookmark-marker-glow);
+  box-shadow: var(--aimd-shadow-bookmark-marker);
 }
 .rail__list[data-mode="expanded"][data-expanded="1"] .rail__label {
   grid-column: 2;
@@ -687,6 +700,19 @@ export class ChatGPTDirectoryRail {
   .rail__item[data-bookmarked="1"]:focus-visible::before {
     background: var(--aimd-interactive-primary);
   }
+}
+@media (max-width: 720px) {
+  :host([data-mode="expanded"][data-expanded="1"]) {
+    max-width: calc(100vw - (var(--aimd-space-3) * 2));
+  }
+  .rail__list[data-mode="expanded"][data-expanded="1"] .rail__label,
+  .rail__list[data-mode="expanded"][data-expanded="1"][data-prompt-label-mode="headTail"] .rail__label {
+    inline-size: 12em;
+    max-inline-size: 12em;
+  }
+}
+@media (max-width: 560px) {
+  :host { display: none; }
 }
 `;
     }

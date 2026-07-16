@@ -57,6 +57,7 @@ import { bookmarksClient } from '@/drivers/shared/clients/bookmarksClient';
 import { settingsClientRpc } from '@/drivers/shared/clients/settingsClientRpc';
 import { browser } from '@/drivers/shared/browser';
 import { markTransientRoot } from '@/ui/content/components/transientUi';
+import { createAppearanceSnapshot } from '@/style/appearance';
 
 function readLocaleJson(locale: 'en' | 'zh_CN'): any {
     const filePath = path.resolve(process.cwd(), `public/_locales/${locale}/messages.json`);
@@ -192,25 +193,25 @@ describe('BookmarksPanel', () => {
     });
 
     it('routes Google Drive restore through preview, explicit confirmation, and safe-merge apply', () => {
-        const source = fs.readFileSync(path.join(process.cwd(), 'src/ui/content/bookmarks/BookmarksPanel.ts'), 'utf8');
+        const source = fs.readFileSync(path.join(process.cwd(), 'src/ui/content/bookmarks/workflows/BookmarksCloudBackupWorkflow.ts'), 'utf8');
 
-        expect(source).toContain('cloudBackupClient.previewRestore({ provider, snapshotId: selected.snapshotId, strategy: \'safeMerge\' })');
+        expect(source).toContain("this.client.previewRestore({ provider, snapshotId: selected.snapshotId, strategy: 'safeMerge' })");
         expect(source).toContain('buildImportMergeReviewModalBody');
         expect(source).toContain('cloudBackupRestorePreviewKind');
         expect(source).toContain('cloudBackupApplyRestore');
-        expect(source).toContain('cloudBackupClient.applyRestore({ provider, snapshotId: selected.snapshotId, strategy: \'safeMerge\' })');
+        expect(source).toContain("this.client.applyRestore({ provider, snapshotId: selected.snapshotId, strategy: 'safeMerge' })");
     });
 
     it('keeps Google Drive settings on runtime status without exposing raw identity errors', () => {
-        const source = fs.readFileSync(path.join(process.cwd(), 'src/ui/content/bookmarks/BookmarksPanel.ts'), 'utf8');
+        const source = fs.readFileSync(path.join(process.cwd(), 'src/ui/content/bookmarks/workflows/BookmarksCloudBackupWorkflow.ts'), 'utf8');
 
-        expect(source).toContain("cloudBackupClient.status('googleDrive')");
+        expect(source).toContain("this.client.status('googleDrive')");
         expect(source).not.toContain('cloudBackupDiagnosticsButton');
         expect(source).not.toContain('AIMD_GOOGLE_CLIENT_ID');
     });
 
     it('uses a custom Google Drive restore chooser so long backup names do not force horizontal scrolling', () => {
-        const source = fs.readFileSync(path.join(process.cwd(), 'src/ui/content/bookmarks/BookmarksPanel.ts'), 'utf8');
+        const source = fs.readFileSync(path.join(process.cwd(), 'src/ui/content/bookmarks/workflows/BookmarksCloudBackupWorkflow.ts'), 'utf8');
         const css = getBookmarksPanelCss();
 
         expect(source).not.toContain("document.createElement('select')");
@@ -225,7 +226,7 @@ describe('BookmarksPanel', () => {
     });
 
     it('shows immediate Google Drive operation feedback instead of waiting silently for network work', () => {
-        const source = fs.readFileSync(path.join(process.cwd(), 'src/ui/content/bookmarks/BookmarksPanel.ts'), 'utf8');
+        const source = fs.readFileSync(path.join(process.cwd(), 'src/ui/content/bookmarks/workflows/BookmarksCloudBackupWorkflow.ts'), 'utf8');
 
         expect(source).toContain('showCloudBackupProgress');
         expect(source).toContain('cloudBackupProgressConfirmingAccess');
@@ -236,10 +237,10 @@ describe('BookmarksPanel', () => {
     });
 
     it('shows the same timeout budget countdown that the Google Drive RPC layer enforces', () => {
-        const source = fs.readFileSync(path.join(process.cwd(), 'src/ui/content/bookmarks/BookmarksPanel.ts'), 'utf8');
+        const source = fs.readFileSync(path.join(process.cwd(), 'src/ui/content/bookmarks/workflows/BookmarksCloudBackupWorkflow.ts'), 'utf8');
 
         expect(source).toContain('CLOUD_BACKUP_RPC_TIMEOUT_MS');
-        expect(source).toContain('formatCloudBackupProgressRemaining');
+        expect(source).toContain('formatProgressRemaining');
         expect(source).toContain('cloudBackupProgressTimeBudget');
         expect(source).toContain('window.setInterval');
         expect(source).toContain('timeoutBudgetMs: CLOUD_BACKUP_RPC_TIMEOUT_MS.backupNow');
@@ -248,7 +249,7 @@ describe('BookmarksPanel', () => {
     });
 
     it('keeps the Google Drive gear modal focused on connection, privacy, and backup management', () => {
-        const source = fs.readFileSync(path.join(process.cwd(), 'src/ui/content/bookmarks/BookmarksPanel.ts'), 'utf8');
+        const source = fs.readFileSync(path.join(process.cwd(), 'src/ui/content/bookmarks/workflows/BookmarksCloudBackupWorkflow.ts'), 'utf8');
         const method = source.slice(source.indexOf('private async showGoogleDriveBackupSettings'), source.indexOf('\n    }\n}', source.indexOf('private async showGoogleDriveBackupSettings')));
 
         expect(method).toContain('cloudBackupTestConnection');
@@ -270,7 +271,7 @@ describe('BookmarksPanel', () => {
     });
 
     it('confirms Google Drive authorization before starting OAuth', () => {
-        const source = fs.readFileSync(path.join(process.cwd(), 'src/ui/content/bookmarks/BookmarksPanel.ts'), 'utf8');
+        const source = fs.readFileSync(path.join(process.cwd(), 'src/ui/content/bookmarks/workflows/BookmarksCloudBackupWorkflow.ts'), 'utf8');
 
         expect(source).toContain('cloudBackupConnectConfirmTitle');
         expect(source).toContain('cloudBackupConnectConfirmDesc');
@@ -280,12 +281,12 @@ describe('BookmarksPanel', () => {
     });
 
     it('manages Google Drive backups through a trash-first remote list', () => {
-        const source = fs.readFileSync(path.join(process.cwd(), 'src/ui/content/bookmarks/BookmarksPanel.ts'), 'utf8');
+        const source = fs.readFileSync(path.join(process.cwd(), 'src/ui/content/bookmarks/workflows/BookmarksCloudBackupWorkflow.ts'), 'utf8');
         const css = getBookmarksPanelCss();
 
         expect(source).toContain('showCloudBackupManager');
-        expect(source).toContain("cloudBackupClient.listSnapshots('googleDrive')");
-        expect(source).toContain("cloudBackupClient.deleteSnapshot({ provider: 'googleDrive'");
+        expect(source).toContain("this.client.listSnapshots('googleDrive')");
+        expect(source).toContain("this.client.deleteSnapshot({ provider: 'googleDrive'");
         expect(source).toContain('cloudBackupMoveToTrash');
         expect(source).toContain('cloudBackupMoveToTrashConfirmTitle');
         expect(source).toContain('cloud-backup-manager-list');
@@ -328,6 +329,7 @@ describe('BookmarksPanel', () => {
             refreshPositionsForUrl: vi.fn(async () => undefined),
             refreshUiState: vi.fn(async () => undefined),
             getTheme: vi.fn(() => 'light'),
+            getAppearance: vi.fn(() => createAppearanceSnapshot('light')),
             getPlatforms: vi.fn(() => ['All', 'ChatGPT']),
             getFolderCheckboxState: vi.fn(() => ({ checked: false, indeterminate: false })),
             setQuery: vi.fn(),
@@ -588,6 +590,7 @@ describe('BookmarksPanel', () => {
             refreshPositionsForUrl: vi.fn(async () => undefined),
             refreshUiState: vi.fn(async () => undefined),
             getTheme: vi.fn(() => 'light'),
+            getAppearance: vi.fn(() => createAppearanceSnapshot('light')),
             getPlatforms: vi.fn(() => ['All', 'ChatGPT']),
             getFolderCheckboxState: vi.fn(() => ({ checked: false, indeterminate: false })),
             setQuery: vi.fn(),
@@ -657,6 +660,7 @@ describe('BookmarksPanel', () => {
             refreshPositionsForUrl: vi.fn(async () => undefined),
             refreshUiState: vi.fn(async () => undefined),
             getTheme: vi.fn(() => 'light'),
+            getAppearance: vi.fn(() => createAppearanceSnapshot('light')),
             getPlatforms: vi.fn(() => ['All', 'ChatGPT']),
             getFolderCheckboxState: vi.fn(() => ({ checked: false, indeterminate: false })),
             setQuery: vi.fn(),
@@ -749,6 +753,7 @@ describe('BookmarksPanel', () => {
             refreshPositionsForUrl: vi.fn(async () => undefined),
             refreshUiState: vi.fn(async () => undefined),
             getTheme: vi.fn(() => 'light'),
+            getAppearance: vi.fn(() => createAppearanceSnapshot('light')),
             getPlatforms: vi.fn(() => ['All', 'ChatGPT']),
             getFolderCheckboxState: vi.fn(() => ({ checked: false, indeterminate: false })),
             setQuery: vi.fn(),
@@ -784,6 +789,7 @@ describe('BookmarksPanel', () => {
             refreshPositionsForUrl: vi.fn(async () => undefined),
             refreshUiState: vi.fn(async () => undefined),
             getTheme: vi.fn(() => 'light'),
+            getAppearance: vi.fn(() => createAppearanceSnapshot('light')),
             getPlatforms: vi.fn(() => ['All', 'ChatGPT']),
             getFolderCheckboxState: vi.fn(() => ({ checked: false, indeterminate: false })),
             setQuery: vi.fn(),
@@ -841,6 +847,7 @@ describe('BookmarksPanel', () => {
             refreshPositionsForUrl: vi.fn(async () => undefined),
             refreshUiState: vi.fn(async () => undefined),
             getTheme: vi.fn(() => 'light'),
+            getAppearance: vi.fn(() => createAppearanceSnapshot('light')),
             getPlatforms: vi.fn(() => ['All', 'ChatGPT']),
             getFolderCheckboxState: vi.fn(() => ({ checked: false, indeterminate: false })),
             setQuery: vi.fn(),
@@ -898,6 +905,7 @@ describe('BookmarksPanel', () => {
             refreshPositionsForUrl: vi.fn(async () => undefined),
             refreshUiState: vi.fn(async () => undefined),
             getTheme: vi.fn(() => 'light'),
+            getAppearance: vi.fn(() => createAppearanceSnapshot('light')),
             getPlatforms: vi.fn(() => ['All', 'ChatGPT']),
             getFolderCheckboxState: vi.fn(() => ({ checked: false, indeterminate: false })),
             setQuery: vi.fn(),
@@ -971,6 +979,7 @@ describe('BookmarksPanel', () => {
             refreshPositionsForUrl: vi.fn(async () => undefined),
             refreshUiState: vi.fn(async () => undefined),
             getTheme: vi.fn(() => 'light'),
+            getAppearance: vi.fn(() => createAppearanceSnapshot('light')),
             getPlatforms: vi.fn(() => ['All', 'ChatGPT']),
             getFolderCheckboxState: vi.fn(() => ({ checked: false, indeterminate: false })),
             setQuery: vi.fn(),
@@ -1083,6 +1092,7 @@ describe('BookmarksPanel', () => {
             refreshPositionsForUrl: vi.fn(async () => undefined),
             refreshUiState: vi.fn(async () => undefined),
             getTheme: vi.fn(() => 'light'),
+            getAppearance: vi.fn(() => createAppearanceSnapshot('light')),
             getPlatforms: vi.fn(() => ['All', 'ChatGPT']),
             getFolderCheckboxState: vi.fn(() => ({ checked: false, indeterminate: false })),
             setQuery: vi.fn(),
@@ -1155,6 +1165,7 @@ describe('BookmarksPanel', () => {
             refreshPositionsForUrl: vi.fn(async () => undefined),
             refreshUiState: vi.fn(async () => undefined),
             getTheme: vi.fn(() => 'light'),
+            getAppearance: vi.fn(() => createAppearanceSnapshot('light')),
             getPlatforms: vi.fn(() => ['All', 'ChatGPT']),
             getFolderCheckboxState: vi.fn(() => ({ checked: false, indeterminate: false })),
             setQuery: vi.fn(),
@@ -1209,6 +1220,7 @@ describe('BookmarksPanel', () => {
             refreshPositionsForUrl: vi.fn(async () => undefined),
             refreshUiState: vi.fn(async () => undefined),
             getTheme: vi.fn(() => 'light'),
+            getAppearance: vi.fn(() => createAppearanceSnapshot('light')),
             getPlatforms: vi.fn(() => ['All', 'deepseek']),
             getFolderCheckboxState: vi.fn(() => ({ checked: false, indeterminate: false })),
             setQuery: vi.fn(),
@@ -1267,6 +1279,7 @@ describe('BookmarksPanel', () => {
             refreshPositionsForUrl: vi.fn(async () => undefined),
             refreshUiState: vi.fn(async () => undefined),
             getTheme: vi.fn(() => 'light'),
+            getAppearance: vi.fn(() => createAppearanceSnapshot('light')),
             getPlatforms: vi.fn(() => ['All', 'ChatGPT']),
             getFolderCheckboxState: vi.fn(() => ({ checked: false, indeterminate: false })),
             setQuery: vi.fn(),
@@ -1322,6 +1335,7 @@ describe('BookmarksPanel', () => {
             refreshPositionsForUrl: vi.fn(async () => undefined),
             refreshUiState: vi.fn(async () => undefined),
             getTheme: vi.fn(() => 'light'),
+            getAppearance: vi.fn(() => createAppearanceSnapshot('light')),
             getPlatforms: vi.fn(() => ['All', 'ChatGPT']),
             getFolderCheckboxState: vi.fn(() => ({ checked: false, indeterminate: false })),
             setQuery: vi.fn(),
@@ -1390,6 +1404,7 @@ describe('BookmarksPanel', () => {
             refreshPositionsForUrl: vi.fn(async () => undefined),
             refreshUiState: vi.fn(async () => undefined),
             getTheme: vi.fn(() => 'light'),
+            getAppearance: vi.fn(() => createAppearanceSnapshot('light')),
             getPlatforms: vi.fn(() => ['All', 'ChatGPT']),
             getFolderCheckboxState: vi.fn(() => ({ checked: false, indeterminate: false })),
             setQuery: vi.fn(),
@@ -1448,6 +1463,7 @@ describe('BookmarksPanel', () => {
             refreshPositionsForUrl: vi.fn(async () => undefined),
             refreshUiState: vi.fn(async () => undefined),
             getTheme: vi.fn(() => 'light'),
+            getAppearance: vi.fn(() => createAppearanceSnapshot('light')),
             getPlatforms: vi.fn(() => ['All', 'ChatGPT']),
             getFolderCheckboxState: vi.fn(() => ({ checked: false, indeterminate: false })),
             setQuery: vi.fn(),
@@ -1508,6 +1524,7 @@ describe('BookmarksPanel', () => {
             refreshPositionsForUrl: vi.fn(async () => undefined),
             refreshUiState: vi.fn(async () => undefined),
             getTheme: vi.fn(() => 'light'),
+            getAppearance: vi.fn(() => createAppearanceSnapshot('light')),
             getPlatforms: vi.fn(() => ['All', 'ChatGPT']),
             getFolderCheckboxState: vi.fn(() => ({ checked: false, indeterminate: false })),
             setQuery: vi.fn(),
@@ -1564,6 +1581,7 @@ describe('BookmarksPanel', () => {
             refreshPositionsForUrl: vi.fn(async () => undefined),
             refreshUiState: vi.fn(async () => undefined),
             getTheme: vi.fn(() => 'light'),
+            getAppearance: vi.fn(() => createAppearanceSnapshot('light')),
             getPlatforms: vi.fn(() => ['All', 'ChatGPT']),
             getFolderCheckboxState: vi.fn(() => ({ checked: false, indeterminate: false })),
             setQuery: vi.fn(),
@@ -1659,6 +1677,7 @@ describe('BookmarksPanel', () => {
             refreshPositionsForUrl: vi.fn(async () => undefined),
             refreshUiState: vi.fn(async () => undefined),
             getTheme: vi.fn(() => 'light'),
+            getAppearance: vi.fn(() => createAppearanceSnapshot('light')),
             getPlatforms: vi.fn(() => ['All', 'ChatGPT']),
             getFolderCheckboxState: vi.fn((path: string) => ({
                 checked: currentSnapshot.selectedKeys.has(`folder:${path}`),
@@ -1747,6 +1766,7 @@ describe('BookmarksPanel', () => {
             refreshPositionsForUrl: vi.fn(async () => undefined),
             refreshUiState: vi.fn(async () => undefined),
             getTheme: vi.fn(() => 'light'),
+            getAppearance: vi.fn(() => createAppearanceSnapshot('light')),
             getPlatforms: vi.fn(() => ['All', 'ChatGPT']),
             getFolderCheckboxState: vi.fn(() => ({ checked: false, indeterminate: false })),
             setQuery: vi.fn(),
@@ -1807,6 +1827,7 @@ describe('BookmarksPanel', () => {
             refreshPositionsForUrl: vi.fn(async () => undefined),
             refreshUiState: vi.fn(async () => undefined),
             getTheme: vi.fn(() => 'light'),
+            getAppearance: vi.fn(() => createAppearanceSnapshot('light')),
             getPlatforms: vi.fn(() => ['All', 'ChatGPT']),
             getFolderCheckboxState: vi.fn(() => ({ checked: false, indeterminate: false })),
             setQuery: vi.fn(),
@@ -1876,6 +1897,7 @@ describe('BookmarksPanel', () => {
             refreshPositionsForUrl: vi.fn(async () => undefined),
             refreshUiState: vi.fn(async () => undefined),
             getTheme: vi.fn(() => 'light'),
+            getAppearance: vi.fn(() => createAppearanceSnapshot('light')),
             getPlatforms: vi.fn(() => ['All', 'ChatGPT']),
             getFolderCheckboxState: vi.fn(() => ({ checked: false, indeterminate: false })),
             setQuery: vi.fn(),
@@ -1963,6 +1985,7 @@ describe('BookmarksPanel', () => {
             refreshPositionsForUrl: vi.fn(async () => undefined),
             refreshUiState: vi.fn(async () => undefined),
             getTheme: vi.fn(() => 'light'),
+            getAppearance: vi.fn(() => createAppearanceSnapshot('light')),
             getPlatforms: vi.fn(() => ['All', 'DeepSeek']),
             getFolderCheckboxState: vi.fn(() => ({ checked: false, indeterminate: false })),
             setQuery: vi.fn(),
@@ -2030,6 +2053,7 @@ describe('BookmarksPanel', () => {
             refreshPositionsForUrl: vi.fn(async () => undefined),
             refreshUiState: vi.fn(async () => undefined),
             getTheme: vi.fn(() => 'light'),
+            getAppearance: vi.fn(() => createAppearanceSnapshot('light')),
             getPlatforms: vi.fn(() => ['All', 'ChatGPT']),
             getFolderCheckboxState: vi.fn(() => ({ checked: false, indeterminate: false })),
             setQuery: vi.fn(),
@@ -2107,6 +2131,7 @@ describe('BookmarksPanel', () => {
             refreshPositionsForUrl: vi.fn(async () => undefined),
             refreshUiState: vi.fn(async () => undefined),
             getTheme: vi.fn(() => 'light'),
+            getAppearance: vi.fn(() => createAppearanceSnapshot('light')),
             getPlatforms: vi.fn(() => ['All', 'ChatGPT']),
             getFolderCheckboxState: vi.fn(() => ({ checked: false, indeterminate: false })),
             setQuery: vi.fn(),
@@ -2207,6 +2232,7 @@ describe('BookmarksPanel', () => {
             refreshPositionsForUrl: vi.fn(async () => undefined),
             refreshUiState: vi.fn(async () => undefined),
             getTheme: vi.fn(() => 'light'),
+            getAppearance: vi.fn(() => createAppearanceSnapshot('light')),
             getPlatforms: vi.fn(() => ['All', 'ChatGPT']),
             getFolderCheckboxState: vi.fn(() => ({ checked: false, indeterminate: false })),
             setQuery: vi.fn(),
@@ -2298,6 +2324,7 @@ describe('BookmarksPanel', () => {
             refreshPositionsForUrl: vi.fn(async () => undefined),
             refreshUiState: vi.fn(async () => undefined),
             getTheme: vi.fn(() => 'light'),
+            getAppearance: vi.fn(() => createAppearanceSnapshot('light')),
             getPlatforms: vi.fn(() => ['All', 'ChatGPT']),
             getFolderCheckboxState: vi.fn(() => ({ checked: false, indeterminate: false })),
             setQuery: vi.fn(),
@@ -2378,6 +2405,7 @@ describe('BookmarksPanel', () => {
             refreshPositionsForUrl: vi.fn(async () => undefined),
             refreshUiState: vi.fn(async () => undefined),
             getTheme: vi.fn(() => 'light'),
+            getAppearance: vi.fn(() => createAppearanceSnapshot('light')),
             getPlatforms: vi.fn(() => ['All', 'ChatGPT']),
             getFolderCheckboxState: vi.fn(() => ({ checked: false, indeterminate: false })),
             setQuery: vi.fn(),
@@ -2449,6 +2477,7 @@ describe('BookmarksPanel', () => {
             refreshPositionsForUrl: vi.fn(async () => undefined),
             refreshUiState: vi.fn(async () => undefined),
             getTheme: vi.fn(() => 'light'),
+            getAppearance: vi.fn(() => createAppearanceSnapshot('light')),
             getPlatforms: vi.fn(() => ['All', 'ChatGPT']),
             getFolderCheckboxState: vi.fn(() => ({ checked: false, indeterminate: false })),
             setQuery: vi.fn(),
@@ -2506,6 +2535,7 @@ describe('BookmarksPanel', () => {
             refreshPositionsForUrl: vi.fn(async () => undefined),
             refreshUiState: vi.fn(async () => undefined),
             getTheme: vi.fn(() => 'light'),
+            getAppearance: vi.fn(() => createAppearanceSnapshot('light')),
             getPlatforms: vi.fn(() => ['All', 'ChatGPT']),
             getFolderCheckboxState: vi.fn(() => ({ checked: false, indeterminate: false })),
             setQuery: vi.fn(),
@@ -2576,6 +2606,7 @@ describe('BookmarksPanel', () => {
             refreshPositionsForUrl: vi.fn(async () => undefined),
             refreshUiState: vi.fn(async () => undefined),
             getTheme: vi.fn(() => 'light'),
+            getAppearance: vi.fn(() => createAppearanceSnapshot('light')),
             getPlatforms: vi.fn(() => ['All', 'ChatGPT']),
             getFolderCheckboxState: vi.fn(() => ({ checked: false, indeterminate: false })),
             setQuery: vi.fn(),
@@ -2668,6 +2699,7 @@ describe('BookmarksPanel', () => {
             refreshPositionsForUrl: vi.fn(async () => undefined),
             refreshUiState: vi.fn(async () => undefined),
             getTheme: vi.fn(() => 'light'),
+            getAppearance: vi.fn(() => createAppearanceSnapshot('light')),
             getPlatforms: vi.fn(() => ['All', 'ChatGPT']),
             getFolderCheckboxState: vi.fn(() => ({ checked: false, indeterminate: false })),
             setQuery: vi.fn(),
@@ -2771,6 +2803,7 @@ describe('BookmarksPanel', () => {
             refreshPositionsForUrl: vi.fn(async () => undefined),
             refreshUiState: vi.fn(async () => undefined),
             getTheme: vi.fn(() => 'light'),
+            getAppearance: vi.fn(() => createAppearanceSnapshot('light')),
             getPlatforms: vi.fn(() => ['All', 'ChatGPT']),
             getFolderCheckboxState: vi.fn((path: string) => ({
                 checked: currentSnapshot.selectedKeys.has(`folder:${path}`),
@@ -2865,6 +2898,7 @@ describe('BookmarksPanel', () => {
             refreshPositionsForUrl: vi.fn(async () => undefined),
             refreshUiState: vi.fn(async () => undefined),
             getTheme: vi.fn(() => 'light'),
+            getAppearance: vi.fn(() => createAppearanceSnapshot('light')),
             getPlatforms: vi.fn(() => ['All', 'ChatGPT']),
             getFolderCheckboxState: vi.fn(() => ({ checked: false, indeterminate: false })),
             setQuery: vi.fn(),
@@ -2922,6 +2956,7 @@ describe('BookmarksPanel', () => {
             refreshPositionsForUrl: vi.fn(async () => undefined),
             refreshUiState: vi.fn(async () => undefined),
             getTheme: vi.fn(() => 'light'),
+            getAppearance: vi.fn(() => createAppearanceSnapshot('light')),
             getPlatforms: vi.fn(() => ['All']),
             getFolderCheckboxState: vi.fn((path: string) => ({
                 checked: currentSnapshot.selectedKeys.has(`folder:${path}`),
@@ -3025,6 +3060,7 @@ describe('BookmarksPanel', () => {
             refreshPositionsForUrl: vi.fn(async () => undefined),
             refreshUiState: vi.fn(async () => undefined),
             getTheme: vi.fn(() => 'light'),
+            getAppearance: vi.fn(() => createAppearanceSnapshot('light')),
             getPlatforms: vi.fn(() => ['All', 'ChatGPT']),
             getFolderCheckboxState: vi.fn(() => ({ checked: false, indeterminate: false })),
             toggleFolderExpanded: vi.fn((path: string) => {
@@ -3110,6 +3146,7 @@ describe('BookmarksPanel', () => {
             refreshPositionsForUrl: vi.fn(async () => undefined),
             refreshUiState: vi.fn(async () => undefined),
             getTheme: vi.fn(() => 'light'),
+            getAppearance: vi.fn(() => createAppearanceSnapshot('light')),
             getPlatforms: vi.fn(() => ['All', 'ChatGPT']),
             getFolderCheckboxState: vi.fn(() => ({ checked: false, indeterminate: false })),
             setQuery: vi.fn(),
@@ -3213,6 +3250,7 @@ describe('BookmarksPanel', () => {
                 refreshPositionsForUrl: vi.fn(async () => undefined),
                 refreshUiState: vi.fn(async () => undefined),
                 getTheme: vi.fn(() => 'light'),
+                getAppearance: vi.fn(() => createAppearanceSnapshot('light')),
                 getPlatforms: vi.fn(() => ['All', 'ChatGPT']),
                 getFolderCheckboxState: vi.fn(() => ({ checked: false, indeterminate: false })),
                 setQuery: vi.fn(),
@@ -3270,6 +3308,7 @@ describe('BookmarksPanel', () => {
             refreshPositionsForUrl: vi.fn(async () => undefined),
             refreshUiState: vi.fn(async () => undefined),
             getTheme: vi.fn(() => 'light'),
+            getAppearance: vi.fn(() => createAppearanceSnapshot('light')),
             getPlatforms: vi.fn(() => ['All', 'ChatGPT']),
             getFolderCheckboxState: vi.fn(() => ({ checked: false, indeterminate: false })),
             setQuery: vi.fn(),
@@ -3290,14 +3329,16 @@ describe('BookmarksPanel', () => {
         const shadow = document.getElementById('aimd-bookmarks-panel-host')!.shadowRoot!;
         shadow.querySelector<HTMLElement>('[data-action="set-bookmarks-tab"][data-tab="settings"]')!.click();
 
-        const settingsPanel = shadow.querySelector<HTMLElement>('.settings-panel');
-        expect(settingsPanel).toBeTruthy();
-        settingsPanel!.scrollTop = 180;
+        const settingsScrollOwner = shadow.querySelector<HTMLElement>('.settings-panel-scroll');
+        expect(settingsScrollOwner).toBeTruthy();
+        settingsScrollOwner!.scrollTop = 180;
 
-        shadow.querySelector<HTMLElement>('[data-action="toggle-settings-menu"][data-menu="language"]')!.click();
+        await setLocale('zh_CN');
+        await flushUi();
 
-        const refreshedSettingsPanel = shadow.querySelector<HTMLElement>('.settings-panel');
-        expect(refreshedSettingsPanel?.scrollTop).toBe(180);
+        const refreshedSettingsScrollOwner = shadow.querySelector<HTMLElement>('.settings-panel-scroll');
+        expect(refreshedSettingsScrollOwner).not.toBe(settingsScrollOwner);
+        expect(refreshedSettingsScrollOwner?.scrollTop).toBe(180);
 
         panel.hide();
     });
@@ -3328,6 +3369,7 @@ describe('BookmarksPanel', () => {
             refreshPositionsForUrl: vi.fn(async () => undefined),
             refreshUiState: vi.fn(async () => undefined),
             getTheme: vi.fn(() => 'light'),
+            getAppearance: vi.fn(() => createAppearanceSnapshot('light')),
             getPlatforms: vi.fn(() => ['All', 'ChatGPT']),
             getFolderCheckboxState: vi.fn(() => ({ checked: false, indeterminate: false })),
             setQuery: vi.fn(),

@@ -14,6 +14,12 @@ import { ChatGPTPromptAutocompleteController } from '../../ui/content/controller
 import type { ReaderItem } from '../../services/reader/types';
 import { setReaderMarkdownCopyFormulaFormat } from '../../services/reader/readerMarkdownCopy';
 import { bookmarkSaveDialog } from '../../ui/content/bookmarks/save/bookmarkSaveDialogSingleton';
+import { SettingsClient } from '../../drivers/content/settings/settingsClient';
+import {
+    areAppearanceSnapshotsEqual,
+    createAppearanceSnapshot,
+    type AppearanceSnapshot,
+} from '../../style/appearance';
 
 type ReaderSessionRecord = {
     sessionId: string;
@@ -44,8 +50,6 @@ function getThemeOverrides(settings: AppSettings | null | undefined): UserThemeO
     return {
         ...(accentColor ? { accentColor } : {}),
         baseFontScale: fontSizePx / DEFAULT_GLOBAL_FONT_SIZE_PX,
-        readerContentWidthPx: settings?.reader?.contentMaxWidthPx ?? DEFAULT_SETTINGS.reader.contentMaxWidthPx,
-        readerBodyFontSizePx: settings?.reader?.bodyFontSizePx ?? DEFAULT_SETTINGS.reader.bodyFontSizePx,
     };
 }
 
@@ -55,13 +59,6 @@ function renderStatus(message: string): void {
     root.className = 'detached-reader-status';
     root.textContent = message;
     document.body.appendChild(root);
-}
-
-function syncDetachedReaderTheme(theme: ReaderSessionSnapshot['theme'], settings: AppSettings): UserThemeOverrides {
-    document.documentElement.setAttribute('data-aimd-theme', theme);
-    const overrides = getThemeOverrides(settings);
-    ensurePageTokens(overrides);
-    return overrides;
 }
 
 async function loadSettings(): Promise<AppSettings> {
@@ -118,12 +115,11 @@ async function run(): Promise<void> {
         return;
     }
 
+    const settingsClient = new SettingsClient();
     let settings = await loadSettings();
     setReaderMarkdownCopyFormulaFormat(settings.formula.markdownCopyFormulaFormat);
-    await setLocale(settings.language ?? DEFAULT_SETTINGS.language);
-    let currentThemeOverrides = getThemeOverrides(settings);
-    ensurePageTokens(currentThemeOverrides);
-
+    let activeLocale = settings.language ?? DEFAULT_SETTINGS.language;
+    await setLocale(activeLocale);
     const panel = new ReaderPanel();
     const sendPopover = new SendPopover();
     const promptLibraryClient = createPromptLibraryClient();
@@ -132,6 +128,17 @@ async function run(): Promise<void> {
         getComposerInputElement: () => null,
         getComposerKind: () => 'contenteditable',
     } as any, promptLibraryClient);
+    let appliedAppearance: AppearanceSnapshot | null = null;
+    const applyAppearance = (snapshot: AppearanceSnapshot): void => {
+        document.documentElement.setAttribute('data-aimd-theme', snapshot.theme);
+        if (appliedAppearance && areAppearanceSnapshotsEqual(appliedAppearance, snapshot)) return;
+        appliedAppearance = snapshot;
+        ensurePageTokens(snapshot.overrides);
+        panel.setAppearance(snapshot);
+        promptManager.setAppearance(snapshot);
+        sendPopover.setAppearance(snapshot);
+        bookmarkSaveDialog.setAppearance(snapshot);
+    };
     const listReaderPromptsFromLibrary = async () => {
         const prompts = await promptLibraryClient.listPrompts({ context: 'readerComment' });
         return prompts.map((prompt) => ({
@@ -141,8 +148,6 @@ async function run(): Promise<void> {
         }));
     };
     sendPopover.setPromptAutocompleteController(promptManager);
-    panel.setThemeOverrides(currentThemeOverrides);
-    promptManager.setThemeOverrides(currentThemeOverrides);
     promptManager.setEnabled(Boolean(settings.chatgptBehavior?.promptAutocomplete ?? DEFAULT_SETTINGS.chatgptBehavior.promptAutocomplete));
     panel.setReaderSettings(settings.reader);
     panel.setReaderSettingsController({
@@ -155,9 +160,7 @@ async function run(): Promise<void> {
                     commentExport: patch.commentExport ?? settings.reader.commentExport,
                 },
             };
-            currentThemeOverrides = syncDetachedReaderTheme(session?.snapshot.theme ?? 'light', settings);
-            panel.setThemeOverrides(currentThemeOverrides);
-            promptManager.setThemeOverrides(currentThemeOverrides);
+            applyAppearance(createAppearanceSnapshot(session?.snapshot.theme ?? 'light', getThemeOverrides(settings)));
             await sendExtRequest({
                 v: PROTOCOL_VERSION,
                 id: createRequestId(),
@@ -176,6 +179,25 @@ async function run(): Promise<void> {
         renderStatus(t('detachedReaderSessionExpired'));
         return;
     }
+
+    const unsubscribeSettings = settingsClient.subscribe((snapshot) => {
+        settings = snapshot.settings;
+        const nextLocale = settings.language ?? DEFAULT_SETTINGS.language;
+        if (nextLocale !== activeLocale) {
+            activeLocale = nextLocale;
+            void setLocale(nextLocale);
+        }
+        applyAppearance(createAppearanceSnapshot(session?.snapshot.theme ?? 'light', getThemeOverrides(settings)));
+    });
+    let settingsDisposed = false;
+    const disposeSettingsBackflow = (): void => {
+        if (settingsDisposed) return;
+        settingsDisposed = true;
+        unsubscribeSettings();
+        window.removeEventListener('pagehide', disposeSettingsBackflow);
+    };
+    window.addEventListener('pagehide', disposeSettingsBackflow, { once: true });
+    settingsClient.init();
 
     const showSession = async (): Promise<void> => {
         if (!session) return;
@@ -234,8 +256,6 @@ async function run(): Promise<void> {
                         bookmarkedPositions.delete(position);
                         return { ok: true, bookmarked: false, message: t('removedStatus') };
                     }
-                    bookmarkSaveDialog.setTheme(session?.snapshot.theme ?? 'light');
-                    bookmarkSaveDialog.setThemeOverrides(currentThemeOverrides);
                     const dialogResult = await bookmarkSaveDialog.open({
                         theme: session?.snapshot.theme ?? 'light',
                         userPrompt,
@@ -295,13 +315,12 @@ async function run(): Promise<void> {
         });
 
         const snapshot = session.snapshot;
-        currentThemeOverrides = syncDetachedReaderTheme(snapshot.theme, settings);
-        panel.setTheme(snapshot.theme);
-        panel.setThemeOverrides(currentThemeOverrides);
+        applyAppearance(createAppearanceSnapshot(snapshot.theme, getThemeOverrides(settings)));
         await panel.show(items, snapshot.startIndex, snapshot.theme, {
             profile: 'conversation-reader',
             actions,
             onRequestClose: async () => {
+                disposeSettingsBackflow();
                 panel.hide();
                 await closeSession(sessionId);
                 window.close();

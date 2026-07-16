@@ -2,20 +2,20 @@ export function getPanelMotionCss(): string {
     return `
 .panel-window[data-motion-state="opening"]:not([data-motion-runtime]),
 .aimd-panel[data-motion-state="opening"]:not([data-motion-runtime]) {
-  animation: aimd-panel-pop-in 300ms var(--aimd-ease-out) both;
+  animation: aimd-panel-pop-in var(--_surface-motion-open-duration, var(--aimd-duration-base)) var(--_surface-motion-open-easing, var(--aimd-ease-out)) both;
 }
 
 .panel-window[data-motion-state="closing"],
 .aimd-panel[data-motion-state="closing"] {
-  animation: aimd-panel-pop-out 240ms ease-in both;
+  animation: aimd-panel-pop-out var(--_surface-motion-close-duration, var(--aimd-duration-fast)) var(--_surface-motion-close-easing, var(--aimd-ease-in-out)) both;
 }
 
 .panel-window--reader[data-fullscreen="1"][data-motion-state="opening"]:not([data-motion-runtime]) {
-  animation: aimd-reader-fullscreen-fade-in 300ms var(--aimd-ease-out) both;
+  animation: aimd-reader-fullscreen-fade-in var(--_surface-motion-open-duration, var(--aimd-duration-base)) var(--_surface-motion-open-easing, var(--aimd-ease-out)) both;
 }
 
 .panel-window--reader[data-fullscreen="1"][data-motion-state="closing"] {
-  animation: aimd-reader-fullscreen-fade-out 240ms ease-in both;
+  animation: aimd-reader-fullscreen-fade-out var(--_surface-motion-close-duration, var(--aimd-duration-fast)) var(--_surface-motion-close-easing, var(--aimd-ease-in-out)) both;
 }
 
 @keyframes aimd-panel-pop-in {
@@ -60,17 +60,25 @@ export function getPanelMotionCss(): string {
 
 @media (prefers-reduced-motion: reduce) {
   .panel-window[data-motion-state="opening"]:not([data-motion-runtime]),
-  .panel-window[data-motion-state="closing"],
-  .aimd-panel[data-motion-state="opening"]:not([data-motion-runtime]),
-  .aimd-panel[data-motion-state="closing"] {
-    animation-duration: 80ms;
-    animation-timing-function: linear;
+  .aimd-panel[data-motion-state="opening"]:not([data-motion-runtime]) {
+    animation-duration: var(--_surface-motion-open-duration, 0s);
+    animation-timing-function: var(--_surface-motion-open-easing, var(--aimd-ease-in-out));
   }
 
-  .panel-window--reader[data-fullscreen="1"][data-motion-state="opening"]:not([data-motion-runtime]),
+  .panel-window[data-motion-state="closing"],
+  .aimd-panel[data-motion-state="closing"] {
+    animation-duration: var(--_surface-motion-close-duration, 0s);
+    animation-timing-function: var(--_surface-motion-close-easing, var(--aimd-ease-in-out));
+  }
+
+  .panel-window--reader[data-fullscreen="1"][data-motion-state="opening"]:not([data-motion-runtime]) {
+    animation-duration: var(--_surface-motion-open-duration, 0s);
+    animation-timing-function: var(--_surface-motion-open-easing, var(--aimd-ease-in-out));
+  }
+
   .panel-window--reader[data-fullscreen="1"][data-motion-state="closing"] {
-    animation-duration: 80ms;
-    animation-timing-function: linear;
+    animation-duration: var(--_surface-motion-close-duration, 0s);
+    animation-timing-function: var(--_surface-motion-close-easing, var(--aimd-ease-in-out));
   }
 
   @keyframes aimd-panel-pop-in {

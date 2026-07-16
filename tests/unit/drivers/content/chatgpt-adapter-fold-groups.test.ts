@@ -194,9 +194,14 @@ describe('ChatGPTAdapter fold groups', () => {
                 <div data-testid="conversation-turn-1" id="turn-u1" data-turn="user">
                   <div data-message-author-role="user"><div class="whitespace-pre-wrap">Thesis prompt one</div></div>
                 </div>
-                <div data-testid="conversation-turn-2" id="turn-a1" data-turn="assistant">
-                  <div>internal://deep-research</div>
-                  <pre><code>h_{r,t}(\\tau,\\nu)</code></pre>
+                <div data-turn-id="turn-a1" data-testid="conversation-turn-2" id="turn-a1" data-turn="assistant">
+                  <div data-conversation-screenshot-content>
+                    <div class="report-stack">
+                      <div class="report-widget">
+                        <iframe title="internal://deep-research"></iframe>
+                      </div>
+                    </div>
+                  </div>
                 </div>
                 <div data-testid="conversation-turn-3" id="turn-u2" data-turn="user">
                   <div data-message-author-role="user"><div class="whitespace-pre-wrap">Thesis prompt two</div></div>
@@ -211,8 +216,14 @@ describe('ChatGPTAdapter fold groups', () => {
                 <div data-testid="conversation-turn-5" id="turn-u3" data-turn="user">
                   <div data-message-author-role="user"><div class="whitespace-pre-wrap">Thesis prompt three</div></div>
                 </div>
-                <div data-testid="conversation-turn-6" id="turn-a3" data-turn="assistant">
-                  <div>internal://deep-research</div>
+                <div data-turn-id="turn-a3" data-testid="conversation-turn-6" id="turn-a3" data-turn="assistant">
+                  <div data-conversation-screenshot-content>
+                    <div class="report-stack">
+                      <div class="report-widget">
+                        <iframe title="internal://deep-research"></iframe>
+                      </div>
+                    </div>
+                  </div>
                 </div>
               </main>
             </body>
@@ -229,9 +240,9 @@ describe('ChatGPTAdapter fold groups', () => {
         ]);
         expect(refs.map((ref) => ref.barAnchorEl?.id)).toEqual(['turn-u1', 'turn-u2', 'turn-u3']);
         expect(refs.map((ref) => ref.assistantRootEl.id)).toEqual(['turn-a1', 'turn-a2', 'turn-a3']);
-        expect(refs.map((ref) => ref.assistantMessageEl.id)).toEqual(['', '', '']);
-        expect(refs[0]?.assistantMessageEl).not.toBe(refs[0]?.assistantRootEl);
-        expect(refs[0]?.assistantMessageEl.getAttribute('data-aimd-empty-assistant-message')).toBe('true');
+        expect(refs.map((ref) => ref.assistantMessageEl.tagName)).toEqual(['IFRAME', 'DIV', 'IFRAME']);
+        expect(refs.every((ref) => ref.assistantMessageEl.isConnected)).toBe(true);
+        expect(refs[0]?.assistantMessageEl.getAttribute('title')).toBe('internal://deep-research');
         expect(refs.map((ref) => ref.id)).toEqual(['turn-a1', 'a2', 'turn-a3']);
 
         const turns = collectConversationTurnRefs(adapter);
@@ -246,6 +257,33 @@ describe('ChatGPTAdapter fold groups', () => {
         const realMarkdown = copyMarkdownFromTurn(adapter, turns[1]!.messageEls);
         expect(realMarkdown.ok).toBe(true);
         if (realMarkdown.ok) expect(realMarkdown.markdown).toContain('$w_k$');
+    });
+
+    it('fails closed for unknown or unanchored embedded assistant iframes', () => {
+        document.documentElement.innerHTML = `
+            <head></head>
+            <body>
+              <main>
+                <section data-turn-id="unknown-turn" data-testid="conversation-turn-1" data-turn="assistant">
+                  <div data-conversation-screenshot-content>
+                    <div id="unknown-stack"><iframe id="unknown-frame" title="internal://unknown-app"></iframe></div>
+                  </div>
+                </section>
+                <section data-turn-id="unanchored-turn" data-testid="conversation-turn-2" data-turn="assistant">
+                  <iframe id="unanchored-frame" title="internal://deep-research"></iframe>
+                </section>
+              </main>
+            </body>
+        `;
+
+        const adapter = new ChatGPTAdapter();
+        const unknownFrame = document.getElementById('unknown-frame') as HTMLElement;
+        const unanchoredFrame = document.getElementById('unanchored-frame') as HTMLElement;
+
+        expect(unknownFrame.matches(adapter.getMessageSelector())).toBe(false);
+        expect(adapter.getToolbarAnchorElement(unknownFrame)).toBeNull();
+        expect(unanchoredFrame.matches(adapter.getMessageSelector())).toBe(false);
+        expect(adapter.getToolbarAnchorElement(unanchoredFrame)).toBeNull();
     });
 
     it('extracts user prompts from the text body without file-card labels', () => {

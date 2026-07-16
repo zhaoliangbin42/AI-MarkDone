@@ -5,19 +5,24 @@ const mathClickEnable = vi.fn();
 const mathClickObserveContainers = vi.fn();
 const mathClickDisable = vi.fn();
 const mathClickSetFormulaSettings = vi.fn();
+const mathClickSetAppearance = vi.fn();
 const mathClickCtor = vi.fn(function () {
     return {
         enable: mathClickEnable,
         observeContainers: mathClickObserveContainers,
         disable: mathClickDisable,
         setFormulaSettings: mathClickSetFormulaSettings,
+        setAppearance: mathClickSetAppearance,
     };
 });
-const themeInit = vi.fn();
+let themeAtInit: 'light' | 'dark' = 'light';
+const themeInit = vi.fn(() => {
+    document.documentElement.setAttribute('data-aimd-theme', themeAtInit);
+});
 let themeListener: ((theme: 'light' | 'dark') => void) | null = null;
 const themeSubscribe = vi.fn((listener: (theme: 'light' | 'dark') => void) => {
     themeListener = listener;
-    listener('light');
+    listener(themeAtInit);
     return () => {
         if (themeListener === listener) themeListener = null;
     };
@@ -25,10 +30,10 @@ const themeSubscribe = vi.fn((listener: (theme: 'light' | 'dark') => void) => {
 const themeManagerCtor = vi.fn(function () {
     return { init: themeInit, subscribe: themeSubscribe };
 });
+const readerPanelSetAppearance = vi.fn();
 const readerPanelCtor = vi.fn(function () {
     return {
-        setTheme: vi.fn(),
-        setThemeOverrides: vi.fn(),
+        setAppearance: readerPanelSetAppearance,
         setRenderCodeInReader: vi.fn(),
         setShowOutlineInReader: vi.fn(),
         setContentMaxWidthPx: vi.fn(),
@@ -38,8 +43,12 @@ const readerPanelCtor = vi.fn(function () {
         setCommentExportSettings: vi.fn(),
     };
 });
+const sendControllerSetAppearance = vi.fn();
 const sendControllerCtor = vi.fn(function () {
-    return { setTheme: vi.fn(), setThemeOverrides: vi.fn(), setPromptAutocompleteController: vi.fn() };
+    return {
+        setAppearance: sendControllerSetAppearance,
+        setPromptAutocompleteController: vi.fn(),
+    };
 });
 const settingsInit = vi.fn();
 const settingsSubscribe = vi.fn();
@@ -64,7 +73,7 @@ const bookmarksControllerTogglePageBookmarkForCurrentPage = vi.fn(async () => ({
 const bookmarksControllerIsCurrentPageBookmarked = vi.fn(() => false);
 const bookmarksControllerGetDefaultFolderPath = vi.fn(() => 'Import');
 const bookmarksControllerSetPanelStatus = vi.fn();
-const bookmarksControllerSetTheme = vi.fn();
+const bookmarksControllerSetAppearance = vi.fn();
 const bookmarksControllerCtor = vi.fn(function () {
     return {
         refreshAll: bookmarksControllerRefreshAll,
@@ -74,8 +83,7 @@ const bookmarksControllerCtor = vi.fn(function () {
         isCurrentPageBookmarked: bookmarksControllerIsCurrentPageBookmarked,
         getDefaultFolderPath: bookmarksControllerGetDefaultFolderPath,
         setPanelStatus: bookmarksControllerSetPanelStatus,
-        setTheme: bookmarksControllerSetTheme,
-        setThemeOverrides: vi.fn(),
+        setAppearance: bookmarksControllerSetAppearance,
     };
 });
 const bookmarksToggle = vi.fn(async () => {});
@@ -84,18 +92,17 @@ const bookmarksPanelCtor = vi.fn(function () {
     return { toggle: bookmarksToggle, hide: bookmarksHide };
 });
 const bookmarkSaveDialogOpen = vi.fn(async () => ({ ok: true, title: 'Saved page title', folderPath: 'Saved/Pages' }));
-const bookmarkSaveDialogSetTheme = vi.fn();
-const bookmarkSaveDialogSetThemeOverrides = vi.fn();
+const bookmarkSaveDialogSetAppearance = vi.fn();
+const saveMessagesDialogSetAppearance = vi.fn();
 const messageToolbarsInit = vi.fn();
-const messageToolbarsSetTheme = vi.fn();
+const messageToolbarsSetAppearance = vi.fn();
 const messageToolbarsSetBehaviorFlags = vi.fn();
 const messageToolbarsSetExportSettings = vi.fn();
 const messageToolbarsDispose = vi.fn();
 const messageToolbarCtor = vi.fn(function () {
     return {
         init: messageToolbarsInit,
-        setTheme: messageToolbarsSetTheme,
-        setThemeOverrides: vi.fn(),
+        setAppearance: messageToolbarsSetAppearance,
         setBehaviorFlags: messageToolbarsSetBehaviorFlags,
         setExportSettings: messageToolbarsSetExportSettings,
         dispose: messageToolbarsDispose,
@@ -106,7 +113,7 @@ const directorySetEnabled = vi.fn();
 const directorySetDisplayMode = vi.fn();
 const directorySetPromptLabelMode = vi.fn();
 const directorySetRightInsetPx = vi.fn();
-const directorySetTheme = vi.fn();
+const directorySetAppearance = vi.fn();
 const directoryDispose = vi.fn();
 const directoryCtor = vi.fn(function () {
     return {
@@ -115,8 +122,7 @@ const directoryCtor = vi.fn(function () {
         setDisplayMode: directorySetDisplayMode,
         setPromptLabelMode: directorySetPromptLabelMode,
         setRightInsetPx: directorySetRightInsetPx,
-        setTheme: directorySetTheme,
-        setThemeOverrides: vi.fn(),
+        setAppearance: directorySetAppearance,
         dispose: directoryDispose,
     };
 });
@@ -151,8 +157,7 @@ const sendPositionRestoreCtor = vi.fn(function () {
 const composerEnterInit = vi.fn();
 const composerEnterDispose = vi.fn();
 const composerInputEnhancementSetSettings = vi.fn();
-const composerSetThemeOverrides = vi.fn();
-const composerSetTheme = vi.fn();
+const composerSetAppearance = vi.fn();
 let composerEditingOptions: { onInputEnhancementChange?: (settings: any) => Promise<boolean> } | null = null;
 const composerEnterCtor = vi.fn(function (_adapter: unknown, options: typeof composerEditingOptions) {
     composerEditingOptions = options;
@@ -160,8 +165,7 @@ const composerEnterCtor = vi.fn(function (_adapter: unknown, options: typeof com
         init: composerEnterInit,
         dispose: composerEnterDispose,
         setInputEnhancementSettings: composerInputEnhancementSetSettings,
-        setThemeOverrides: composerSetThemeOverrides,
-        setTheme: composerSetTheme,
+        setAppearance: composerSetAppearance,
     };
 });
 const messageStepperInit = vi.fn();
@@ -172,8 +176,7 @@ const messageStepperSetPageBookmarkControlVisible = vi.fn();
 const messageStepperSetDetachedReaderControlVisible = vi.fn();
 const messageStepperSetPromptControlVisible = vi.fn();
 const messageStepperSetPageBookmarked = vi.fn();
-const messageStepperSetTheme = vi.fn();
-const messageStepperSetThemeOverrides = vi.fn();
+const messageStepperSetAppearance = vi.fn();
 const messageStepperCtor = vi.fn(function () {
     return {
         init: messageStepperInit,
@@ -184,8 +187,7 @@ const messageStepperCtor = vi.fn(function () {
         setDetachedReaderControlVisible: messageStepperSetDetachedReaderControlVisible,
         setPromptControlVisible: messageStepperSetPromptControlVisible,
         setPageBookmarked: messageStepperSetPageBookmarked,
-        setTheme: messageStepperSetTheme,
-        setThemeOverrides: messageStepperSetThemeOverrides,
+        setAppearance: messageStepperSetAppearance,
     };
 });
 const promptLibraryClient = {
@@ -199,7 +201,7 @@ const createPromptLibraryClient = vi.fn(() => promptLibraryClient);
 const promptAutocompleteInit = vi.fn();
 const promptAutocompleteDispose = vi.fn();
 const promptAutocompleteOpenManager = vi.fn(async () => undefined);
-const promptAutocompleteSetThemeOverrides = vi.fn();
+const promptAutocompleteSetAppearance = vi.fn();
 const promptAutocompleteSetEnabled = vi.fn();
 const promptAutocompleteSetFormulaAuthoringEnabled = vi.fn();
 const promptAutocompleteCtor = vi.fn(function () {
@@ -207,7 +209,7 @@ const promptAutocompleteCtor = vi.fn(function () {
         init: promptAutocompleteInit,
         dispose: promptAutocompleteDispose,
         openManager: promptAutocompleteOpenManager,
-        setThemeOverrides: promptAutocompleteSetThemeOverrides,
+        setAppearance: promptAutocompleteSetAppearance,
         setEnabled: promptAutocompleteSetEnabled,
         setFormulaAuthoringEnabled: promptAutocompleteSetFormulaAuthoringEnabled,
     };
@@ -345,15 +347,13 @@ vi.mock('@/runtimes/content/lazyContentFeatures', () => ({
     createLazyBookmarksPanel: bookmarksPanelCtor,
     createLazySaveMessagesDialog: vi.fn(() => ({
         open: vi.fn(async () => undefined),
-        setTheme: vi.fn(),
-        setThemeOverrides: vi.fn(),
+        setAppearance: saveMessagesDialogSetAppearance,
         setExportSettings: vi.fn(),
         setMarkdownFormulaFormat: vi.fn(),
     })),
     createLazyBookmarkSaveDialog: vi.fn(() => ({
         open: bookmarkSaveDialogOpen,
-        setTheme: bookmarkSaveDialogSetTheme,
-        setThemeOverrides: bookmarkSaveDialogSetThemeOverrides,
+        setAppearance: bookmarkSaveDialogSetAppearance,
     })),
     createLazyCopyMessagePng: vi.fn(() => vi.fn(async () => ({ ok: true, noop: false }))),
     createLazyRunFormulaAssetAction: vi.fn(() => vi.fn(async () => ({ ok: true, status: 'copied' }))),
@@ -363,8 +363,7 @@ vi.mock('@/runtimes/content/lazyContentFeatures', () => ({
 vi.mock('@/ui/content/bookmarks/save/bookmarkSaveDialogSingleton', () => ({
     bookmarkSaveDialog: {
         open: bookmarkSaveDialogOpen,
-        setTheme: bookmarkSaveDialogSetTheme,
-        setThemeOverrides: bookmarkSaveDialogSetThemeOverrides,
+        setAppearance: bookmarkSaveDialogSetAppearance,
     },
 }));
 
@@ -463,6 +462,22 @@ vi.mock('@/contracts/protocol', async () => {
     return actual;
 });
 
+function appearanceConsumers() {
+    return [
+        mathClickSetAppearance,
+        messageToolbarsSetAppearance,
+        readerPanelSetAppearance,
+        sendControllerSetAppearance,
+        bookmarksControllerSetAppearance,
+        saveMessagesDialogSetAppearance,
+        bookmarkSaveDialogSetAppearance,
+        directorySetAppearance,
+        promptAutocompleteSetAppearance,
+        composerSetAppearance,
+        messageStepperSetAppearance,
+    ];
+}
+
 afterEach(() => {
     vi.clearAllMocks();
     runtimeSendMessage.mockImplementation(async () => ({ ok: true }));
@@ -486,6 +501,7 @@ afterEach(() => {
     }));
     readComposer.mockReturnValue({ ok: true, kind: 'contenteditable', text: 'source draft' });
     settingsGetCached.mockReturnValue(null);
+    themeAtInit = 'light';
     themeListener = null;
     adapterPlatformId = 'chatgpt';
     formulaOnlyProfile = null;
@@ -617,9 +633,132 @@ describe('content runtime entry', () => {
             accentColor: '#7c3aed',
             baseFontScale: 18 / 16,
         }));
-        expect(messageToolbarCtor.mock.results[0]?.value.setThemeOverrides).toHaveBeenCalledWith(expect.objectContaining({
-            accentColor: '#7c3aed',
+        expect(messageToolbarsSetAppearance).toHaveBeenCalledWith(expect.objectContaining({
+            theme: 'light',
+            overrides: expect.objectContaining({ accentColor: '#7c3aed' }),
         }));
+    });
+
+    it('distributes one complete appearance snapshot to every top-level consumer', async () => {
+        const { DEFAULT_SETTINGS } = await import('@/core/settings/types');
+        const settings = structuredClone(DEFAULT_SETTINGS);
+        settings.appearance.accentColor = '#7C3AED';
+        adapterPlatformId = 'chatgpt';
+        settingsGetCached.mockReturnValue(settings);
+
+        vi.resetModules();
+        await import('@/runtimes/content/entry');
+
+        for (const setAppearance of appearanceConsumers()) {
+            expect(setAppearance).toHaveBeenCalledTimes(1);
+            expect(setAppearance).toHaveBeenLastCalledWith(expect.objectContaining({
+                theme: 'light',
+                overrides: expect.objectContaining({
+                    accentColor: '#7c3aed',
+                    baseFontScale: 1,
+                }),
+            }));
+        }
+
+        themeListener?.('dark');
+        for (const setAppearance of appearanceConsumers()) {
+            expect(setAppearance).toHaveBeenCalledTimes(2);
+            expect(setAppearance).toHaveBeenLastCalledWith(expect.objectContaining({
+                theme: 'dark',
+                overrides: expect.objectContaining({ accentColor: '#7c3aed' }),
+            }));
+        }
+    });
+
+    it('broadcasts only the detected dark appearance during initial startup', async () => {
+        const { DEFAULT_SETTINGS } = await import('@/core/settings/types');
+        adapterPlatformId = 'chatgpt';
+        themeAtInit = 'dark';
+        settingsGetCached.mockReturnValue(structuredClone(DEFAULT_SETTINGS));
+
+        vi.resetModules();
+        await import('@/runtimes/content/entry');
+
+        for (const setAppearance of appearanceConsumers()) {
+            expect(setAppearance.mock.calls.map(([snapshot]) => snapshot.theme)).toEqual(['dark']);
+        }
+    });
+
+    it('deduplicates an identical appearance snapshot from the theme subscription', async () => {
+        const { DEFAULT_SETTINGS } = await import('@/core/settings/types');
+        adapterPlatformId = 'chatgpt';
+        settingsGetCached.mockReturnValue(structuredClone(DEFAULT_SETTINGS));
+
+        vi.resetModules();
+        await import('@/runtimes/content/entry');
+
+        ensurePageTokens.mockClear();
+        for (const setAppearance of appearanceConsumers()) setAppearance.mockClear();
+        themeListener?.('light');
+
+        expect(ensurePageTokens).not.toHaveBeenCalled();
+        for (const setAppearance of appearanceConsumers()) {
+            expect(setAppearance).not.toHaveBeenCalled();
+        }
+    });
+
+    it('broadcasts one incremental snapshot when appearance settings change', async () => {
+        const { DEFAULT_SETTINGS } = await import('@/core/settings/types');
+        const settings = structuredClone(DEFAULT_SETTINGS);
+        adapterPlatformId = 'chatgpt';
+        settingsGetCached.mockReturnValue(settings);
+
+        vi.resetModules();
+        await import('@/runtimes/content/entry');
+
+        ensurePageTokens.mockClear();
+        for (const setAppearance of appearanceConsumers()) setAppearance.mockClear();
+        settingsSubscriber?.({
+            settings: {
+                ...settings,
+                appearance: { fontSizePx: 18, accentColor: '#2563EB' },
+            },
+        });
+
+        expect(ensurePageTokens).toHaveBeenCalledTimes(1);
+        for (const setAppearance of appearanceConsumers()) {
+            expect(setAppearance).toHaveBeenCalledTimes(1);
+            expect(setAppearance).toHaveBeenCalledWith(expect.objectContaining({
+                theme: 'light',
+                overrides: expect.objectContaining({
+                    accentColor: '#2563eb',
+                    baseFontScale: 18 / 16,
+                }),
+            }));
+        }
+    });
+
+    it('does not rebroadcast appearance when an unrelated setting changes', async () => {
+        const { DEFAULT_SETTINGS } = await import('@/core/settings/types');
+        const settings = structuredClone(DEFAULT_SETTINGS);
+        adapterPlatformId = 'chatgpt';
+        settingsGetCached.mockReturnValue(settings);
+
+        vi.resetModules();
+        await import('@/runtimes/content/entry');
+
+        ensurePageTokens.mockClear();
+        for (const setAppearance of appearanceConsumers()) setAppearance.mockClear();
+
+        settingsSubscriber?.({
+            settings: {
+                ...settings,
+                behavior: {
+                    ...settings.behavior,
+                    showWordCount: !settings.behavior.showWordCount,
+                },
+            },
+        });
+
+        expect(ensurePageTokens).not.toHaveBeenCalled();
+        for (const setAppearance of appearanceConsumers()) {
+            expect(setAppearance).not.toHaveBeenCalled();
+        }
     });
 
     it('creates the ChatGPT conversation engine and hides official navigation only with the optional directory rail', async () => {
@@ -679,9 +818,9 @@ describe('content runtime entry', () => {
         expect(messageStepperSetDetachedReaderControlVisible).toHaveBeenCalledWith(true);
         expect(messageStepperSetPromptControlVisible).toHaveBeenCalledWith(true);
         expect(messageStepperSetKeyboardEnabled).toHaveBeenCalledWith(false);
-        expect(messageStepperSetTheme).toHaveBeenCalledWith('light');
+        expect(messageStepperSetAppearance).toHaveBeenCalledWith(expect.objectContaining({ theme: 'light' }));
         themeListener?.('dark');
-        expect(messageStepperSetTheme).toHaveBeenLastCalledWith('dark');
+        expect(messageStepperSetAppearance).toHaveBeenLastCalledWith(expect.objectContaining({ theme: 'dark' }));
         expect(pageWidthCtor).toHaveBeenCalledTimes(1);
         expect(pageWidthInit).toHaveBeenCalledTimes(1);
         expect(pageWidthSetScale).toHaveBeenCalledWith(130);
@@ -1219,8 +1358,7 @@ describe('content runtime entry', () => {
         const onTogglePageBookmark = messageStepperCtor.mock.calls[0]?.[1]?.onTogglePageBookmark;
         const result = await onTogglePageBookmark?.();
 
-        expect(bookmarkSaveDialogSetTheme).toHaveBeenCalledWith('light');
-        expect(bookmarkSaveDialogSetThemeOverrides).toHaveBeenCalled();
+        expect(bookmarkSaveDialogSetAppearance).toHaveBeenCalledWith(expect.objectContaining({ theme: 'light' }));
         expect(bookmarkSaveDialogOpen).toHaveBeenCalledWith(expect.objectContaining({
             theme: 'light',
             userPrompt: 'Research Notes',

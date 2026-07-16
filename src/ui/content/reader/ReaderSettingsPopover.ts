@@ -21,6 +21,7 @@ import { minusIcon, plusIcon, settingsIcon } from '../../../assets/icons';
 import { createIcon } from '../components/Icon';
 import { t } from '../components/i18n';
 import type { ModalHost } from '../components/ModalHost';
+import { getDefaultSurfaceMotionProfile, SurfaceSession } from '../components/SurfaceRuntime';
 import { createReaderSettingsDialogShell } from './ReaderSettingsDialogShell';
 import { ReaderCommentTemplateSettingsPopover } from './ReaderCommentTemplateSettingsPopover';
 
@@ -28,6 +29,7 @@ type ReaderSettingsPatch = Partial<AppSettings['reader']>;
 
 type OpenParams = {
     parent: HTMLElement;
+    opener?: HTMLElement;
     modalHost: ModalHost;
     settings: AppSettings['reader'];
     onChange: (patch: ReaderSettingsPatch) => Promise<void> | void;
@@ -38,9 +40,9 @@ type OpenParams = {
 
 export class ReaderSettingsPopover {
     private rootEl: HTMLElement | null = null;
+    private session: SurfaceSession | null = null;
     private params: OpenParams | null = null;
     private settings: AppSettings['reader'] | null = null;
-    private onWindowKeyDown: ((event: KeyboardEvent) => void) | null = null;
     private readonly templateSettingsPopover = new ReaderCommentTemplateSettingsPopover();
 
     isOpen(): boolean {
@@ -50,9 +52,11 @@ export class ReaderSettingsPopover {
     close(): void {
         this.templateSettingsPopover.close();
         if (!this.rootEl) return;
-        this.detachWindowKeyDown();
         this.rootEl.remove();
         this.rootEl = null;
+        this.session?.restoreFocus(document);
+        this.session?.destroy();
+        this.session = null;
         this.params = null;
         this.settings = null;
     }
@@ -82,16 +86,31 @@ export class ReaderSettingsPopover {
             params.onClose?.();
         };
         shell.closeButton.addEventListener('click', close);
-        shell.panel.addEventListener('keydown', (event) => event.stopPropagation());
-        this.onWindowKeyDown = (event: KeyboardEvent) => {
-            if (event.key !== 'Escape') return;
-            event.preventDefault();
-            event.stopPropagation();
-            close();
-        };
-        window.addEventListener('keydown', this.onWindowKeyDown, { capture: true });
+
+        const session = new SurfaceSession({
+            profile: 'panel',
+            responsiveProfile: {
+                viewportGutterPx: 16,
+                maxWidthCss: 'min(920px, calc(100% - (var(--aimd-space-4) * 2)))',
+                maxHeightCss: 'calc(100% - (var(--aimd-space-4) * 2))',
+                collision: 'clamp',
+                scrollOwner: 'content',
+                narrowFallback: 'fullscreen',
+            },
+            motionProfile: getDefaultSurfaceMotionProfile('panel'),
+        });
+        this.session = session;
+        session.captureFocus(params.opener);
+        session.syncEscapeScope({
+            root: shell.panel,
+            trapTabWithin: shell.panel,
+            stopPropagationAll: true,
+            ignoreEscapeWhileComposing: true,
+            onEscape: close,
+        });
 
         this.render(shell.body, shell.footer);
+        session.scheduleInitialFocus({ surface: shell.panel, selectors: ['[data-action="close"]'] });
     }
 
     updateSettings(settings: AppSettings['reader']): void {
@@ -147,7 +166,9 @@ export class ReaderSettingsPopover {
             this.createActionRow(
                 t('readerCommentTemplateSettingsLabel'),
                 this.formatTemplateSummary(settings.commentExport.template),
-                () => this.openTemplateSettings(),
+                (anchor) => this.openTemplateSettings(anchor),
+                t('btnEdit'),
+                'reader-settings-comment-template',
             ),
         );
 
@@ -321,11 +342,12 @@ export class ReaderSettingsPopover {
         }
     }
 
-    private openTemplateSettings(): void {
+    private openTemplateSettings(opener?: HTMLElement): void {
         if (!this.rootEl || !this.settings) return;
         const current = this.settings.commentExport;
         this.templateSettingsPopover.open({
             parent: this.rootEl,
+            opener,
             template: current.template,
             preview: this.buildTemplatePreview(current.template),
             labels: {
@@ -417,9 +439,4 @@ export class ReaderSettingsPopover {
         };
     }
 
-    private detachWindowKeyDown(): void {
-        if (!this.onWindowKeyDown) return;
-        window.removeEventListener('keydown', this.onWindowKeyDown, { capture: true } as any);
-        this.onWindowKeyDown = null;
-    }
 }

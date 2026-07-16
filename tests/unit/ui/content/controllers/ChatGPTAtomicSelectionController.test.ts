@@ -65,7 +65,10 @@ describe('ChatGPTAtomicSelectionController', () => {
         const copy = dispatchCopy();
         expect(copy.event.defaultPrevented).toBe(true);
         expect(copy.setData).toHaveBeenCalledWith('text/plain', '`answer`');
-        expect(document.getElementById('aimd-chatgpt-atomic-selection-style')?.textContent).not.toContain('!important');
+        const selectionCss = document.getElementById('aimd-chatgpt-atomic-selection-style')?.textContent ?? '';
+        expect(selectionCss).not.toContain('!important');
+        expect(selectionCss).not.toContain('box-shadow:');
+        expect(selectionCss).toContain('outline: 1px solid color-mix(in srgb, var(--aimd-interactive-primary) 32%, transparent);');
 
         controller.dispose();
         expect(code.hasAttribute('data-aimd-page-atomic-state')).toBe(false);

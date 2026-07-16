@@ -1,9 +1,8 @@
-import type { Theme } from '../../../../core/types/theme';
-import { getInputFieldCss } from '../../components/styles/inputFieldCss';
 import { getModalHostShellCss } from '../../components/styles/modalHostCss';
 import { getPanelChromeCss } from '../../components/styles/panelChromeCss';
+import { getWorkflowDialogChromeCss } from '../../components/styles/workflowDialogChromeCss';
 
-export function getBookmarkSaveDialogCss(_theme: Theme): string {
+export function getBookmarkSaveDialogCss(): string {
     return `
 :host {
   font-family: var(--aimd-font-family-sans);
@@ -18,9 +17,9 @@ button, input, select, textarea {
   color: inherit;
 }
 
-${getInputFieldCss()}
 ${getPanelChromeCss()}
 ${getModalHostShellCss()}
+${getWorkflowDialogChromeCss()}
 
 .panel-stage__overlay {
   position: fixed;
@@ -65,8 +64,6 @@ ${getModalHostShellCss()}
 }
 
 .dialog-body {
-  flex: 1;
-  overflow: auto;
   padding: calc(var(--aimd-space-5) + var(--aimd-space-2));
 }
 
@@ -100,7 +97,7 @@ ${getModalHostShellCss()}
   background: color-mix(in srgb, var(--aimd-bg-secondary) 42%, transparent);
   color: var(--aimd-text-primary);
   border-radius: var(--aimd-radius-lg);
-  padding: 10px 12px;
+  padding: calc(var(--aimd-space-2) + var(--aimd-space-1) / 2) var(--aimd-space-3);
   min-height: 44px;
   outline: none;
 }
@@ -136,7 +133,7 @@ ${getModalHostShellCss()}
   align-items: center;
   gap: var(--aimd-space-2);
   min-height: 40px;
-  padding: 6px 10px;
+  padding: calc(var(--aimd-space-1) + var(--aimd-space-1) / 2) calc(var(--aimd-space-2) + var(--aimd-space-1) / 2);
 }
 
 .picker-row[data-selected="1"] {
@@ -208,23 +205,22 @@ ${getModalHostShellCss()}
   display: grid;
   grid-template-columns: minmax(0, 1fr) auto auto;
   gap: var(--aimd-space-2);
-  padding: 8px 10px;
+  padding: var(--aimd-space-2) calc(var(--aimd-space-2) + var(--aimd-space-1) / 2);
 }
 
 .help-text,
 .error-text {
-  font-size: var(--aimd-text-xs);
-  line-height: 1.4;
+  min-width: 0;
 }
 
 .help-text {
   color: var(--aimd-text-secondary);
-  padding: 12px 10px;
+  padding: var(--aimd-space-3) calc(var(--aimd-space-2) + var(--aimd-space-1) / 2);
 }
 
 .help-text--inline,
 .error-text--inline {
-  padding: 0 10px 8px;
+  padding: 0 calc(var(--aimd-space-2) + var(--aimd-space-1) / 2) var(--aimd-space-2);
 }
 
 .error-text {

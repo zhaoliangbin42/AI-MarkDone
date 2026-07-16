@@ -14,7 +14,6 @@ import {
     type FormulaSourceFormat,
 } from '../../../core/math/formulaSourceFormat';
 
-const STYLE_ID = 'aimd-math-click-style';
 export const FORMULA_CANDIDATE_SELECTOR = [
     '.katex-display',
     '.math-block',
@@ -31,18 +30,6 @@ export const FORMULA_CANDIDATE_SELECTOR = [
     '[data-math]',
     '[data-original-tex]',
 ].join(', ');
-
-function ensureMathClickStyle(): void {
-    if (typeof document === 'undefined') return;
-    if (document.getElementById(STYLE_ID)) return;
-
-    const style = document.createElement('style');
-    style.id = STYLE_ID;
-    style.textContent = `
-`;
-
-    (document.head || document.documentElement).appendChild(style);
-}
 
 type ListenerRecord = {
     target: HTMLElement;
@@ -106,7 +93,6 @@ export class MathClickHandler {
 
     enable(container: HTMLElement): void {
         if (this.containers.has(container)) return;
-        ensureMathClickStyle();
         getDocumentTooltipDelegate();
         this.containers.add(container);
         this.processContainer(container);
@@ -348,7 +334,7 @@ export class MathClickHandler {
         const hoverBackground = this.getHoverBackground(element, targetEl);
 
         targetEl.style.cursor = 'pointer';
-        targetEl.style.transition = 'background-color 0.2s';
+        targetEl.style.transition = 'background-color var(--aimd-duration-fast) var(--aimd-ease-in-out)';
 
         const mouseenterHandler = () => {
             targetEl.style.backgroundColor = hoverBackground;

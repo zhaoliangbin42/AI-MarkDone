@@ -14,7 +14,7 @@ For message PNG and formula asset export, see `docs/testing/IMAGE_EXPORT_GATES.m
 - `CURRENT_TEST_GATES.md`
   - current required verification for active development
 - `TESTING_BLUEPRINT.md`
-  - target testing architecture and future structure
+  - long-lived testing architecture and extension rules
 - `E2E_REGRESSION_GUIDE.md`
   - full manual regression checklist for release or major refactor
 - `IMAGE_EXPORT_GATES.md`
@@ -117,6 +117,51 @@ Do not assume `npm run test:acceptance` covers this contract by itself. Shared m
 - affected surface-owner tests
 - manual browser verification of open/close feel on the touched surface families
 
+### UI System Gate
+
+The delivered UI system has executable appearance, token, Surface, coverage, style-value, architecture-closure, and visual-harness contracts. Any change to UI lifecycle, chrome, token ownership, responsive behavior, or a cataloged Surface must run the affected feature/trigger tests plus the relevant focused suites:
+
+- appearance and injection: `tests/unit/style/appearance.test.ts`, `appearanceOverrides.test.ts`, `appearanceScope.test.ts`, `pageTokens.test.ts`, and `tokens.test.ts`
+- Surface lifecycle: `tests/unit/ui/components/surfaceRuntime.test.ts` and the affected owner/real-trigger tests
+- catalog and style governance: `tests/unit/governance/uiSurfaceCoverage.test.ts`, `uiTokenGraph.test.ts`, `uiStyleBoundaries.test.ts`, and `uiVisualHarnessContract.test.ts`
+- closure after shared-boundary or long-chain changes: `tests/unit/governance/uiLegacySurfaceClosure.test.ts`, `uiReaderArchitecture.test.ts`, and `uiReaderStyleClosure.test.ts`
+
+The governance contract currently enforces:
+
+- auto-discovery of shipped style-bearing source rather than a historical file allowlist
+- one coverage entry per user-visible Surface with production owner/entry, profile, DOM scope, responsive contract, Chrome/Firefox targets, real trigger test, and tracked direct or family real-component fixture
+- token closure for undefined references, duplicate non-isolated owners, cycles, unconsumed Public aliases, unreachable foundation tokens, direct component consumption of Reference/System tokens, and registered Family-token ownership
+- raw color, spacing, radius, shadow, z-index, motion, and non-print `!important` checks across discovered shipped UI; only exact popup and static export/render-output signatures with an owner and reason are exceptions
+- absence of the production-dead Send modal, generic Tabs, Markdown compatibility shims, empty Bookmarks overlay subclass, and redrawn Panel Studio fixture
+- real-component geometry checks for switch-thumb centering plus Bookmarks filter clipping and bookmark type/title/date collisions
+
+`npm run test:ui:visual` is executable. The default run is a small Chromium smoke matrix over registered direct real-component fixtures. Use `npm run test:ui:visual -- --full` for the full registered matrix, or `npm run test:ui:visual -- --mock=<fixture-name>` for one direct fixture. The harness mounts real Modules with production token/Shadow DOM paths, applies variants through the visual bridge, stores evidence under the untracked `output/ui-visual/` directory, and fails on page/console errors, horizontal overflow, or fixed Surface viewport escape. Before capturing the matrix, Chromium also performs a production-host pointer hit test: an empty full-screen Shadow host must pass page clicks through, while its real surface must remain clickable.
+
+On a clean checkout, install the Playwright Chromium binary once with `npx playwright install chromium`; `npm install` installs the Playwright package but not that browser binary.
+
+The full UI visual matrix is:
+
+- widths: 320, 390, 768, 1024, and 1440 CSS pixels
+- heights: 568 and 900 CSS pixels where the Surface can be height-constrained
+- zoom: 100% and 200%
+- appearance: light and dark
+- locale: English, Chinese, and representative long labels
+- motion: default and reduced motion
+- state: default, hover, active, focus-visible, disabled, pending, error, empty, and two simultaneous instances
+
+Automated and manual evidence must reject horizontal overflow, clipped controls, overlapping metadata, unreachable actions, double scrolling, viewport escape, console errors, stale hosts after destroy, and duplicate hosts after hydration replacement. The Chromium visual harness does not replace the Chrome MV3 / Firefox MV2 installed-extension manual matrix.
+
+For a broad UI-system or multi-family refactor, the closing gate is:
+
+- focused suites above and affected real trigger-path tests
+- `npm run test:core`
+- `npm run test:smoke`
+- `npm run test:acceptance`
+- `npm run test:ui:visual -- --full`
+- `npm run build`
+- Chrome MV3 and Firefox MV2 manual checks from `E2E_REGRESSION_GUIDE.md`
+- `git diff --check`
+
 ### Bug Fixes
 
 For testable bugs:
@@ -172,6 +217,7 @@ For new UI modules or major UI refactors, manual regression now also includes th
 
 - Docs-only changes
   - no automated test gate required unless a test/document contract changes
+  - architecture or testing SSOT changes require the focused docs-governance test, `npm run test:acceptance`, and `git diff --check`
 - UI workflow or style-system policy changes
   - update the relevant docs and call out the new mock-first/browser validation expectation explicitly
 - Localized implementation change
@@ -202,8 +248,16 @@ Current acceptance gate includes:
 
 - `tests/unit/governance/manifest-resource-consistency.test.ts`
 - `tests/unit/governance/manifest-generation.test.ts`
+- `tests/unit/governance/release-scripts.test.ts`
 - `tests/unit/governance/supported-hosts-consistency.test.ts`
 - `tests/unit/governance/i18n-keys.test.ts`
+- `tests/unit/governance/uiSurfaceCoverage.test.ts`
+- `tests/unit/governance/uiTokenGraph.test.ts`
+- `tests/unit/governance/uiStyleBoundaries.test.ts`
+- `tests/unit/governance/uiVisualHarnessContract.test.ts`
+- `tests/unit/governance/uiLegacySurfaceClosure.test.ts`
+- `tests/unit/governance/uiReaderArchitecture.test.ts`
+- `tests/unit/governance/uiReaderStyleClosure.test.ts`
 - `tests/unit/ui/i18n/i18n.test.ts`
 - `tests/unit/drivers/shared/browserApi.test.ts`
 - `tests/unit/drivers/content/chatgpt/ChatGPTConversationEngine.test.ts`

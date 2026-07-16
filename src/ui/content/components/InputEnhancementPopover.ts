@@ -1,11 +1,22 @@
 import type { ChatGPTInputEnhancementSettings } from '../../../core/settings/types';
-import type { Theme } from '../../../core/types/theme';
 import { checkIcon, chevronRightIcon, fileCodeIcon, xIcon } from '../../../assets/icons';
 import { ensureStyle } from '../../../style/shadow';
-import { getTokenCss, type UserThemeOverrides } from '../../../style/tokens';
-import { subscribeLocaleChange, t } from './i18n';
+import {
+    areAppearanceSnapshotsEqual,
+    createAppearanceSnapshot,
+    type AppearanceSnapshot,
+} from '../../../style/appearance';
+import { AppearanceScope } from '../../../style/appearanceScope';
+import { getLocale, subscribeLocaleChange, t, type UiLocale } from './i18n';
 import { createIcon } from './Icon';
 import { markTransientRoot } from './transientUi';
+import {
+    getDefaultSurfaceMotionProfile,
+    SurfaceSession,
+    type ResponsiveProfile,
+    type SurfacePositioner,
+} from './SurfaceRuntime';
+import { getAnchoredMotionCss } from './styles/anchoredMotionCss';
 
 export type InputEnhancementPopoverCloseReason = 'escape' | 'outside' | 'programmatic';
 
@@ -29,7 +40,6 @@ const CSS = `
   border-radius: var(--aimd-radius-xl);
   background: var(--aimd-bg-surface);
   box-shadow: var(--aimd-shadow-panel);
-  animation: input-enhancement-enter var(--aimd-duration-base) var(--aimd-ease-out);
 }
 .input-enhancement-header {
   display: flex;
@@ -182,10 +192,12 @@ const CSS = `
   height: 100%;
   pointer-events: none;
   padding: calc(var(--aimd-space-1) / 2);
-  border: 1px solid var(--aimd-border-default);
+  border: 0;
   border-radius: var(--aimd-radius-full);
   background: var(--aimd-bg-secondary);
-  transition: background var(--aimd-duration-fast) var(--aimd-ease-in-out), border-color var(--aimd-duration-fast) var(--aimd-ease-in-out), box-shadow var(--aimd-duration-fast) var(--aimd-ease-in-out);
+  outline: 1px solid var(--aimd-border-default);
+  outline-offset: -1px;
+  transition: background var(--aimd-duration-fast) var(--aimd-ease-in-out), outline-color var(--aimd-duration-fast) var(--aimd-ease-in-out);
 }
 .input-enhancement-track::after {
   content: "";
@@ -199,13 +211,13 @@ const CSS = `
   transition: transform var(--aimd-duration-fast) var(--aimd-ease-in-out);
 }
 .input-enhancement-toggle input:checked + .input-enhancement-track {
-  border-color: var(--aimd-interactive-primary);
   background: var(--aimd-interactive-primary);
+  outline-color: var(--aimd-interactive-primary);
 }
 .input-enhancement-toggle input:checked + .input-enhancement-track::after {
   transform: translateX(calc(var(--aimd-size-control-action-panel) - var(--aimd-size-control-glyph-panel) - var(--aimd-space-1)));
 }
-.input-enhancement-toggle input:not(:disabled):hover + .input-enhancement-track { border-color: var(--aimd-border-strong); }
+.input-enhancement-toggle input:not(:disabled):hover + .input-enhancement-track { outline-color: var(--aimd-border-strong); }
 .input-enhancement-toggle input:disabled + .input-enhancement-track { opacity: 0.48; }
 .input-enhancement-list-types {
   min-width: 0;
@@ -306,10 +318,6 @@ const CSS = `
   width: var(--aimd-size-control-glyph-panel);
   height: var(--aimd-size-control-glyph-panel);
 }
-@keyframes input-enhancement-enter {
-  from { opacity: 0; transform: translateY(var(--aimd-space-2)) scale(0.98); }
-  to { opacity: 1; transform: translateY(0); }
-}
 @media (prefers-reduced-motion: reduce) {
   .input-enhancement-popover,
   .input-enhancement-close,
@@ -322,16 +330,27 @@ const CSS = `
 }
 `;
 
+const RESPONSIVE_PROFILE: ResponsiveProfile = {
+    viewportGutterPx: 16,
+    maxWidthCss: '328px',
+    maxHeightCss: 'calc(100vh - var(--aimd-space-4) * 2)',
+    collision: 'flip-clamp',
+    scrollOwner: 'content',
+    narrowFallback: 'compact',
+};
+
 export class InputEnhancementPopover {
     readonly host: HTMLElement;
     private readonly shadow: ShadowRoot;
     private readonly root: HTMLElement;
+    private readonly appearanceScope: AppearanceScope;
+    private readonly surfaceSession: SurfaceSession<AppearanceSnapshot, UiLocale>;
     private readonly unsubscribeLocale: () => void;
     private settings: ChatGPTInputEnhancementSettings | null = null;
     private anchor: HTMLElement | null = null;
     private pending = false;
-    private theme: Theme = 'light';
-    private themeOverrides: UserThemeOverrides = {};
+    private appearance: AppearanceSnapshot = createAppearanceSnapshot('light');
+    private openState = false;
 
     constructor(private readonly params: {
         onChange: (settings: ChatGPTInputEnhancementSettings) => void;
@@ -340,6 +359,7 @@ export class InputEnhancementPopover {
     }) {
         this.host = markTransientRoot(document.createElement('div'));
         this.host.dataset.aimdRole = 'input-enhancement-popover';
+        this.host.dataset.aimdTheme = this.appearance.theme;
         this.host.hidden = true;
         this.shadow = this.host.attachShadow({ mode: 'open' });
         this.root = document.createElement('section');
@@ -347,25 +367,71 @@ export class InputEnhancementPopover {
         this.root.className = 'input-enhancement-popover';
         this.root.setAttribute('role', 'dialog');
         this.root.setAttribute('aria-modal', 'false');
+        this.root.dataset.aimdSurfaceProfile = 'anchored';
         this.shadow.appendChild(this.root);
         document.body.appendChild(this.host);
-        this.unsubscribeLocale = subscribeLocaleChange(() => this.render());
+        this.appearanceScope = AppearanceScope.forShadowRoot(this.shadow, {
+            styleId: 'aimd-input-enhancement-tokens',
+        });
+        this.appearanceScope.apply(this.appearance);
+        ensureStyle(this.shadow, `${getAnchoredMotionCss()}\n${CSS}`, {
+            id: 'aimd-input-enhancement-popover-style',
+            cache: 'shared',
+        });
+        this.surfaceSession = new SurfaceSession<AppearanceSnapshot, UiLocale>({
+            profile: 'anchored',
+            responsiveProfile: RESPONSIVE_PROFILE,
+            motionProfile: getDefaultSurfaceMotionProfile('anchored'),
+            appearance: {
+                currentValue: this.appearance,
+                equals: areAppearanceSnapshotsEqual,
+                apply: (snapshot) => {
+                    this.appearance = snapshot;
+                    this.host.dataset.aimdTheme = snapshot.theme;
+                    this.appearanceScope.apply(snapshot);
+                    if (this.openState) this.render();
+                },
+            },
+            locale: {
+                currentValue: getLocale(),
+                apply: () => {
+                    if (this.openState) this.render();
+                },
+            },
+        });
+        this.unsubscribeLocale = subscribeLocaleChange((locale) => this.surfaceSession.setLocale(locale));
     }
 
     open(params: { anchor: HTMLElement; settings: ChatGPTInputEnhancementSettings; pending?: boolean }): void {
+        const wasOpen = this.openState;
+        this.surfaceSession.cancelClose();
         this.anchor = params.anchor;
         this.settings = this.cloneSettings(params.settings);
         this.pending = Boolean(params.pending);
+        this.openState = true;
         this.host.hidden = false;
+        this.host.style.pointerEvents = '';
+        this.root.inert = false;
+        if (!wasOpen) this.surfaceSession.captureFocus(params.anchor);
         this.render();
-        this.position();
-        document.addEventListener('pointerdown', this.onDocumentPointerDown, { capture: true });
-        document.addEventListener('keydown', this.onDocumentKeyDown, { capture: true });
-        window.addEventListener('resize', this.onViewportChange);
-        window.addEventListener('scroll', this.onViewportChange, { capture: true });
-        window.setTimeout(() => {
-            this.shadow.querySelector<HTMLInputElement>('[data-role="input-enhancement-enabled"]')?.focus();
-        }, 0);
+        this.surfaceSession.syncPositioner(this.createPositioner());
+        this.surfaceSession.syncOutsideDismiss({
+            eventTarget: document,
+            roots: () => [this.host, this.anchor],
+            onDismiss: () => this.close('outside'),
+        });
+        this.surfaceSession.syncEscapeScope({
+            root: this.host,
+            onEscape: () => this.close('escape'),
+            maintainFocus: false,
+        });
+        this.surfaceSession.open({ surface: this.root });
+        if (!wasOpen) {
+            this.surfaceSession.scheduleInitialFocus({
+                surface: this.root,
+                selectors: ['[data-role="input-enhancement-enabled"]'],
+            });
+        }
     }
 
     update(settings: ChatGPTInputEnhancementSettings, pending = this.pending): void {
@@ -374,40 +440,46 @@ export class InputEnhancementPopover {
         if (!this.host.hidden) this.render();
     }
 
-    setTheme(theme: Theme): void {
-        this.theme = theme;
-        if (!this.host.hidden) this.render();
-    }
-
-    setThemeOverrides(overrides: UserThemeOverrides): void {
-        this.themeOverrides = { ...overrides };
-        if (!this.host.hidden) this.render();
+    setAppearance(snapshot: AppearanceSnapshot): void {
+        this.surfaceSession.setAppearance(snapshot);
     }
 
     isOpen(): boolean {
-        return !this.host.hidden;
+        return this.openState;
     }
 
     close(reason: InputEnhancementPopoverCloseReason = 'programmatic'): void {
-        if (this.host.hidden) return;
-        this.host.hidden = true;
-        this.detachListeners();
+        if (!this.openState) return;
+        this.openState = false;
+        this.surfaceSession.clearOutsideDismiss();
+        this.surfaceSession.clearEscapeScope();
+        this.surfaceSession.clearPositioner();
+        this.root.inert = true;
+        this.host.style.pointerEvents = 'none';
         this.params.onClose(reason);
+        const finalize = () => {
+            if (this.openState) return;
+            this.host.hidden = true;
+            this.host.style.pointerEvents = '';
+            this.root.inert = false;
+            if (reason !== 'outside') this.surfaceSession.restoreFocus(this.anchor?.parentNode ?? document);
+        };
+        if (!this.surfaceSession.close({ surface: this.root, onClosed: finalize })) finalize();
     }
 
     dispose(): void {
-        this.detachListeners();
         this.unsubscribeLocale();
+        this.surfaceSession.destroy();
+        this.appearanceScope.dispose();
         this.host.remove();
         this.settings = null;
         this.anchor = null;
+        this.openState = false;
     }
 
     private render(): void {
         const settings = this.settings;
         if (!settings) return;
-        ensureStyle(this.shadow, getTokenCss(this.theme, this.themeOverrides), { id: 'aimd-input-enhancement-tokens' });
-        ensureStyle(this.shadow, CSS, { id: 'aimd-input-enhancement-popover-style', cache: 'shared' });
         this.root.replaceChildren();
         this.root.removeAttribute('aria-label');
         this.root.setAttribute('aria-labelledby', 'aimd-input-enhancement-title');
@@ -584,6 +656,7 @@ export class InputEnhancementPopover {
         input.addEventListener('change', () => params.onChange(input.checked));
         const track = document.createElement('span');
         track.className = 'input-enhancement-track';
+        track.setAttribute('data-aimd-switch-track', '');
         track.setAttribute('aria-hidden', 'true');
         toggle.append(input, track);
         row.append(copy, toggle);
@@ -635,41 +708,47 @@ export class InputEnhancementPopover {
     private position(): void {
         if (!this.anchor || this.host.hidden) return;
         const rect = this.anchor.getBoundingClientRect();
-        const viewportWidth = document.documentElement.clientWidth || window.innerWidth;
-        const viewportHeight = document.documentElement.clientHeight || window.innerHeight;
+        const visual = window.visualViewport;
+        const viewportLeft = Number.isFinite(visual?.offsetLeft) ? visual!.offsetLeft : 0;
+        const viewportTop = Number.isFinite(visual?.offsetTop) ? visual!.offsetTop : 0;
+        const viewportWidth = Math.max(0, Number.isFinite(visual?.width)
+            ? visual!.width
+            : (document.documentElement.clientWidth || window.innerWidth));
+        const viewportHeight = Math.max(0, Number.isFinite(visual?.height)
+            ? visual!.height
+            : (document.documentElement.clientHeight || window.innerHeight));
         const surface = this.root.getBoundingClientRect();
-        const width = surface.width || Math.min(328, viewportWidth - 32);
-        const height = surface.height || Math.min(520, viewportHeight - 32);
-        const margin = 16;
+        const margin = RESPONSIVE_PROFILE.viewportGutterPx;
+        const width = Math.min(surface.width || 328, Math.max(0, viewportWidth - (margin * 2)));
+        const height = Math.min(surface.height || 520, Math.max(0, viewportHeight - (margin * 2)));
         const gap = 8;
-        const left = Math.max(margin, Math.min(rect.left, viewportWidth - width - margin));
+        const minLeft = viewportLeft + margin;
+        const minTop = viewportTop + margin;
+        const maxLeft = Math.max(minLeft, viewportLeft + viewportWidth - width - margin);
+        const maxTop = Math.max(minTop, viewportTop + viewportHeight - height - margin);
+        const left = Math.max(minLeft, Math.min(rect.left, maxLeft));
         const above = rect.top - height - gap;
-        const top = above >= margin
+        const top = above >= minTop
             ? above
-            : Math.min(viewportHeight - height - margin, rect.bottom + gap);
+            : Math.min(maxTop, rect.bottom + gap);
         this.host.style.left = `${left}px`;
-        this.host.style.top = `${Math.max(margin, top)}px`;
+        this.host.style.top = `${Math.max(minTop, top)}px`;
     }
 
-    private onDocumentPointerDown = (event: Event): void => {
-        const path = event.composedPath?.() ?? [];
-        if (path.includes(this.host) || (this.anchor && path.includes(this.anchor))) return;
-        this.close('outside');
-    };
-
-    private onDocumentKeyDown = (event: KeyboardEvent): void => {
-        if (event.key !== 'Escape' || event.isComposing || event.keyCode === 229) return;
-        event.preventDefault();
-        event.stopPropagation();
-        this.close('escape');
-    };
-
-    private onViewportChange = (): void => this.position();
-
-    private detachListeners(): void {
-        document.removeEventListener('pointerdown', this.onDocumentPointerDown, { capture: true } as any);
-        document.removeEventListener('keydown', this.onDocumentKeyDown, { capture: true } as any);
-        window.removeEventListener('resize', this.onViewportChange);
-        window.removeEventListener('scroll', this.onViewportChange, { capture: true } as any);
+    private createPositioner(): SurfacePositioner {
+        const onViewportChange = () => this.surfaceSession.position();
+        window.addEventListener('resize', onViewportChange);
+        window.addEventListener('scroll', onViewportChange, { capture: true });
+        window.visualViewport?.addEventListener('resize', onViewportChange);
+        window.visualViewport?.addEventListener('scroll', onViewportChange);
+        return {
+            update: () => this.position(),
+            destroy: () => {
+                window.removeEventListener('resize', onViewportChange);
+                window.removeEventListener('scroll', onViewportChange, { capture: true } as any);
+                window.visualViewport?.removeEventListener('resize', onViewportChange);
+                window.visualViewport?.removeEventListener('scroll', onViewportChange);
+            },
+        };
     }
 }

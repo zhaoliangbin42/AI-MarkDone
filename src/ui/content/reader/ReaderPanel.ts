@@ -1,14 +1,11 @@
 import type { Theme } from '../../../core/types/theme';
-import { browser } from '../../../drivers/shared/browser';
 import {
     copyIcon,
     messageSquareTextIcon,
     pinIcon,
 } from '../../../assets/icons';
 import type { ReaderItem } from '../../../services/reader/types';
-import { resolveContent } from '../../../services/reader/types';
 import { copyReaderItemMarkdownToClipboard, formatReaderMarkdownForCopy } from '../../../services/reader/readerMarkdownCopy';
-import { formatReaderUserPromptDisplay, type ReaderUserPromptDisplay } from '../../../services/reader/userPromptDisplay';
 import type { AppSettings } from '../../../core/settings/types';
 import {
     DEFAULT_READER_BODY_FONT_SIZE_PX,
@@ -20,7 +17,6 @@ import {
     MIN_READER_PANEL_HEIGHT_RATIO,
     MIN_READER_PANEL_WIDTH_RATIO,
 } from '../../../core/settings/types';
-import { renderMarkdownForReader, type ReaderAtomicUnit, type ReaderOutlineItem } from '../../../services/renderer/renderMarkdown';
 import {
     normalizeReaderBodyFontSizePx,
     normalizeReaderContentMaxWidthPx,
@@ -54,77 +50,55 @@ import { listReaderComments, removeReaderComment, saveReaderComment, type Reader
 import { copyTextToClipboard } from '../../../drivers/content/clipboard/clipboard';
 import { createIcon } from '../components/Icon';
 import { subscribeLocaleChange, t } from '../components/i18n';
-import { beginSurfaceMotionClose, setSurfaceMotionOpening } from '../components/motionLifecycle';
 import { ensureBackdropElement, ensureStableElementFromHtml } from '../components/stableSurface';
 import { SurfaceFocusLifecycle } from '../components/surfaceFocusLifecycle';
 import { TooltipDelegate, showEphemeralTooltip } from '../../../utils/tooltip';
 import { OverlaySession } from '../overlay/OverlaySession';
-import type { UserThemeOverrides } from '../../../style/tokens';
+import {
+    areAppearanceSnapshotsEqual,
+    createAppearanceSnapshot,
+    type AppearanceSnapshot,
+} from '../../../style/appearance';
 import { getKatexCssWithRuntimeFontUrls, getKatexRuntimeFontFaceCss, hasKatexMarkup } from '../../../core/export/katexAssets';
 import { ReaderCommentPopover } from './ReaderCommentPopover';
 import { ReaderCommentExportPopover } from './ReaderCommentExportPopover';
 import { ReaderCommentListPopover } from './ReaderCommentListPopover';
 import { ReaderSettingsPopover } from './ReaderSettingsPopover';
-import { ensureShadowStylesheetLink, getReaderPanelCss, getReaderPanelHtml } from './readerPanelTemplate';
-import { decorateReaderCodeBlocksHtml, toggleReaderCodeWrap } from './readerCodeBlockEnhancer';
+import { toggleReaderCodeWrap } from './readerCodeBlockEnhancer';
 import { CommentPromptPickerPopover } from '../components/CommentPromptPickerPopover';
 import { showChangelogNoticeIfNeeded } from '../changelog/ChangelogNoticePresenter';
+import type {
+    ReaderCommentExportContext,
+    ReaderPanelActionContext,
+    ReaderPanelPromptManagerController,
+    ReaderPanelSettingsController,
+    ReaderPanelShowOptions,
+} from './ReaderPanelContracts';
+import { ReaderWorkflow } from './ReaderWorkflow';
+import { createReaderPanelViewModel } from './ReaderViewModel';
+import {
+    createEmptyReaderRenderResult,
+    ensureReaderStylesheetLink,
+    getReaderSurfaceCss,
+    renderReaderItem,
+    renderReaderStickyBlock,
+    renderReaderSurface,
+    type ReaderRenderResult,
+} from './ReaderRendering';
+import { BrowserReaderHostAdapter, type ReaderHostAdapter } from './ReaderHostAdapter';
 
-export type ReaderPanelActionContext = {
-    item: ReaderItem;
-    index: number;
-    items: ReaderItem[];
-    anchorEl?: HTMLElement;
-    shadow?: ShadowRoot;
-    notify: (text: string, timeoutMs?: number) => void;
-    rerender: () => void;
-};
-
-export type ReaderPanelAction = {
-    id: string;
-    label: string;
-    icon?: string;
-    tooltip?: string;
-    kind?: 'default' | 'primary' | 'danger';
-    placement?: 'header' | 'footer_left';
-    toggle?: boolean;
-    rerenderOnClick?: boolean;
-    isActive?: (ctx: ReaderPanelActionContext) => boolean;
-    onClick: (ctx: ReaderPanelActionContext) => void | Promise<void>;
-};
-
-export type ReaderPanelProfile = 'conversation-reader' | 'bookmark-preview';
-
-export type ReaderPanelShowOptions = {
-    profile?: ReaderPanelProfile;
-    onOpenConversation?: (ctx: ReaderPanelActionContext) => void | Promise<void>;
-    onRequestClose?: () => void | Promise<void>;
-    actions?: ReaderPanelAction[];
-};
-
-export type ReaderPanelSettingsController = {
-    onChange: (patch: Partial<AppSettings['reader']>) => Promise<void> | void;
-};
-
-export type ReaderCommentPromptProvider = () => Promise<ReaderCommentExportSettings['prompts']> | ReaderCommentExportSettings['prompts'];
-
-export type ReaderCommentExportContext = {
-    comments: ReaderCommentRecord[];
-    listReaderPrompts: ReaderCommentPromptProvider;
-    template: ReaderCommentExportSettings['template'];
-    promptPosition: ReaderCommentExportSettings['promptPosition'];
-    sortMode: ReaderCommentExportSettings['sortMode'];
-};
-
-export type ReaderPanelPromptManagerController = {
-    onOpenManager: (anchor: HTMLElement) => Promise<void> | void;
-    listReaderPrompts?: ReaderCommentPromptProvider;
-};
+export type {
+    ReaderCommentExportContext,
+    ReaderCommentPromptProvider,
+    ReaderPanelAction,
+    ReaderPanelActionContext,
+    ReaderPanelProfile,
+    ReaderPanelPromptManagerController,
+    ReaderPanelSettingsController,
+    ReaderPanelShowOptions,
+} from './ReaderPanelContracts';
 
 type ReaderPanelState = {
-    theme: Theme;
-    items: ReaderItem[];
-    index: number;
     visible: boolean;
     fullscreen: boolean;
     defaultOpenMode: AppSettings['reader']['defaultOpenMode'];
@@ -133,29 +107,19 @@ type ReaderPanelState = {
     detachedNoticeConfirmed: boolean;
     renderedHtml: string;
     renderedMarkdownSource: string;
-    renderedAtomicUnits: ReaderAtomicUnit[];
-    outlineItems: ReaderOutlineItem[];
+    renderedAtomicUnits: ReaderRenderResult['atomicUnits'];
+    outlineItems: ReaderRenderResult['outlineItems'];
     activeOutlineId: string;
     showOutlineInReader: boolean;
     selectedAtomicUnitIds: string[];
     selectionSourceText: string;
     selectionExport: string;
-    userPromptDisplay: ReaderUserPromptDisplay;
+    userPromptDisplay: ReaderRenderResult['userPromptDisplay'];
     statusText: string;
     contentMaxWidthPx: number;
     stickyOpen: boolean;
     stickyWidthPx: number;
     stickyBlocks: ReaderStickyBlock[];
-    options: {
-        profile: ReaderPanelProfile;
-        showNav: boolean;
-        showCopy: boolean;
-        showOpenConversation: boolean;
-        dotStyle: 'meta' | 'plain';
-        actions: ReaderPanelAction[];
-        onOpenConversation?: (ctx: ReaderPanelActionContext) => void | Promise<void>;
-        onRequestClose?: () => void | Promise<void>;
-    };
 };
 
 type ReaderStickyBlock = {
@@ -178,13 +142,6 @@ const STICKY_WIDTH_MIN_PX = 240;
 const STICKY_WIDTH_FALLBACK_MAX_PX = 460;
 const STICKY_WIDTH_MAX_RATIO = 2 / 3;
 
-function areThemeOverridesEqual(left: UserThemeOverrides, right: UserThemeOverrides): boolean {
-    const leftKeys = Object.keys(left) as Array<keyof UserThemeOverrides>;
-    const rightKeys = Object.keys(right) as Array<keyof UserThemeOverrides>;
-    if (leftKeys.length !== rightKeys.length) return false;
-    return leftKeys.every((key) => left[key] === right[key]);
-}
-
 export class ReaderPanel {
     private overlaySession: OverlaySession | null = null;
     private readonly commentPopover = new ReaderCommentPopover();
@@ -201,7 +158,7 @@ export class ReaderPanel {
     private katexCssToken = 0;
     private statusTimer: number | null = null;
     private renderCodeInReader = true;
-    private themeOverrides: UserThemeOverrides = {};
+    private appearance: AppearanceSnapshot = createAppearanceSnapshot('light');
     private closing = false;
     private motionNeedsOpen = false;
     private onSelectionChange: (() => void) | null = null;
@@ -224,10 +181,8 @@ export class ReaderPanel {
     private stickyDragCleanup: (() => void) | null = null;
     private commentExportSettings: ReaderCommentExportSettings = createDefaultReaderCommentExportSettings();
     private readonly focusLifecycle = new SurfaceFocusLifecycle();
+    private readonly workflow = new ReaderWorkflow();
     private state: ReaderPanelState = {
-        theme: 'light',
-        items: [],
-        index: 0,
         visible: false,
         fullscreen: false,
         defaultOpenMode: DEFAULT_READER_OPEN_MODE,
@@ -243,33 +198,21 @@ export class ReaderPanel {
         selectedAtomicUnitIds: [],
         selectionSourceText: '',
         selectionExport: '',
-        userPromptDisplay: formatReaderUserPromptDisplay(''),
+        userPromptDisplay: createEmptyReaderRenderResult().userPromptDisplay,
         statusText: '',
         contentMaxWidthPx: DEFAULT_READER_CONTENT_MAX_WIDTH_PX,
         stickyOpen: false,
         stickyWidthPx: STICKY_WIDTH_DEFAULT_PX,
         stickyBlocks: [],
-        options: {
-            profile: 'conversation-reader',
-            showNav: true,
-            showCopy: true,
-            showOpenConversation: false,
-            dotStyle: 'meta',
-            actions: [],
-        },
     };
 
-    setTheme(theme: Theme): void {
-        this.state.theme = theme;
-        this.overlaySession?.setTheme(theme);
-        this.render();
-    }
+    constructor(private readonly host: ReaderHostAdapter = new BrowserReaderHostAdapter()) {}
 
-    setThemeOverrides(overrides: UserThemeOverrides): void {
-        const next = { ...overrides };
-        if (areThemeOverridesEqual(this.themeOverrides, next)) return;
-        this.themeOverrides = next;
-        this.overlaySession?.setThemeOverrides(this.themeOverrides);
+    setAppearance(snapshot: AppearanceSnapshot): void {
+        if (areAppearanceSnapshotsEqual(this.appearance, snapshot)) return;
+        this.appearance = snapshot;
+        this.overlaySession?.setAppearance(snapshot);
+        this.commentPopover.setAppearance(snapshot);
         if (this.state.visible) this.render();
     }
 
@@ -278,11 +221,11 @@ export class ReaderPanel {
     }
 
     isShowingConversationReader(): boolean {
-        return this.state.visible && this.state.options.profile === 'conversation-reader';
+        return this.state.visible && this.workflow.options.profile === 'conversation-reader';
     }
 
     getItemsSnapshot(): ReaderItem[] {
-        return [...this.state.items];
+        return this.workflow.getItemsSnapshot();
     }
 
     setRenderCodeInReader(enabled: boolean): void {
@@ -367,10 +310,14 @@ export class ReaderPanel {
 
     async show(items: ReaderItem[], startIndex: number, theme: Theme, options?: ReaderPanelShowOptions): Promise<void> {
         this.focusLifecycle.capture();
-        const resolvedProfile = this.resolveProfileState(options?.profile);
-        this.state.items = items;
-        this.state.index = Math.max(0, Math.min(startIndex, Math.max(0, items.length - 1)));
-        this.state.theme = theme;
+        if (this.overlaySession && this.closing && !this.overlaySession.cancelSurfaceClose()) {
+            this.unmount();
+        }
+        this.workflow.open(items, startIndex, options);
+        if (this.appearance.theme !== theme) {
+            this.appearance = createAppearanceSnapshot(theme, this.appearance.overrides);
+            this.commentPopover.setAppearance(this.appearance);
+        }
         this.state.visible = true;
         this.state.fullscreen = this.state.defaultOpenMode === 'fullscreen';
         this.state.renderedHtml = '';
@@ -381,22 +328,15 @@ export class ReaderPanel {
         this.state.selectedAtomicUnitIds = [];
         this.state.selectionSourceText = '';
         this.state.selectionExport = '';
-        this.state.userPromptDisplay = formatReaderUserPromptDisplay(items[this.state.index]?.userPrompt ?? '');
+        this.state.userPromptDisplay = createEmptyReaderRenderResult(this.workflow.currentItem?.userPrompt ?? '').userPromptDisplay;
         this.state.statusText = '';
         this.state.panelSizeRatio = normalizeReaderPanelSizeRatio(this.state.panelSizeRatio);
         this.closing = false;
-        this.motionNeedsOpen = true;
-        this.state.options = {
-            ...resolvedProfile,
-            onOpenConversation: options?.onOpenConversation,
-            onRequestClose: options?.onRequestClose,
-            actions: options?.actions ?? [],
-        };
-
+        this.motionNeedsOpen = !this.overlaySession;
         this.mount();
         this.render(false);
         this.overlaySession?.syncKeyboardScope({
-            root: this.overlaySession?.host ?? document.body,
+            root: this.overlaySession?.host ?? this.host.document.body,
             onEscape: () => this.requestClose(),
             stopPropagationAll: true,
             ignoreEscapeWhileComposing: true,
@@ -404,17 +344,17 @@ export class ReaderPanel {
         });
 
         await this.renderCurrentContent();
-        if (this.state.options.profile === 'conversation-reader' && this.overlaySession) {
+        if (this.workflow.options.profile === 'conversation-reader' && this.overlaySession) {
             void showChangelogNoticeIfNeeded({
                 modalHost: this.overlaySession.modalHost,
                 loggerScope: 'ReaderPanel',
-                resolveAssetUrl: (assetPath) => browser.runtime.getURL(assetPath),
+                resolveAssetUrl: (assetPath) => this.host.resolveAssetUrl(assetPath),
             });
         }
     }
 
     async appendItem(item: ReaderItem): Promise<void> {
-        this.state.items = [...this.state.items, item];
+        this.workflow.append(item);
         this.render();
     }
 
@@ -425,19 +365,18 @@ export class ReaderPanel {
         const backdrop = this.overlaySession?.backdropRoot.querySelector<HTMLElement>('.panel-stage__overlay');
         if (this.overlaySession && panel) {
             this.closing = true;
-            beginSurfaceMotionClose({
-                shell: panel,
+            const closeStarted = this.overlaySession.closeSurface({
+                surface: panel,
                 backdrop,
                 onClosed: () => this.unmount(),
-                fallbackMs: 560,
             });
-            return;
+            if (closeStarted) return;
         }
         this.unmount();
     }
 
     private requestClose(): void {
-        const customClose = this.state.options.onRequestClose;
+        const customClose = this.workflow.options.onRequestClose;
         if (!customClose) {
             this.hide();
             return;
@@ -450,8 +389,8 @@ export class ReaderPanel {
 
     notify(text: string, timeoutMs: number = 1400): void {
         this.setStatus(text);
-        if (this.statusTimer) window.clearTimeout(this.statusTimer);
-        this.statusTimer = window.setTimeout(() => this.setStatus(''), timeoutMs);
+        if (this.statusTimer) this.host.window.clearTimeout(this.statusTimer);
+        this.statusTimer = this.host.window.setTimeout(() => this.setStatus(''), timeoutMs);
     }
 
     private mount(): void {
@@ -459,12 +398,21 @@ export class ReaderPanel {
 
         const session = new OverlaySession({
             id: 'aimd-reader-panel-host',
-            theme: this.state.theme,
-            themeOverrides: this.themeOverrides,
-            surfaceCss: getReaderPanelCss(),
+            theme: this.appearance.theme,
+            themeOverrides: this.appearance.overrides,
+            surfaceCss: getReaderSurfaceCss(),
             lockScroll: true,
             surfaceStyleId: 'aimd-reader-panel-structure',
             overlayStyleId: 'aimd-reader-panel-overlay-extra',
+            profile: 'panel',
+            responsiveProfile: {
+                viewportGutterPx: 24,
+                maxWidthCss: 'calc(100vw - (var(--aimd-space-6) * 2))',
+                maxHeightCss: 'calc(100vh - (var(--aimd-space-6) * 2))',
+                collision: 'clamp',
+                scrollOwner: 'content',
+                narrowFallback: 'fullscreen',
+            },
         });
 
         this.overlaySession = session;
@@ -504,12 +452,12 @@ export class ReaderPanel {
         this.onSelectionChange = () => this.syncAtomicSelection();
         this.onPointerUp = () => this.syncAtomicSelection();
         this.onShadowCopy = (event: Event) => this.handleAtomicCopy(event as ClipboardEvent);
-        document.addEventListener('selectionchange', this.onSelectionChange);
-        document.addEventListener('pointerup', this.onPointerUp);
+        this.host.document.addEventListener('selectionchange', this.onSelectionChange);
+        this.host.document.addEventListener('pointerup', this.onPointerUp);
         session.shadow.addEventListener('copy', this.onShadowCopy, true);
 
         const katexUrl = this.getKatexUrl();
-        if (katexUrl) ensureShadowStylesheetLink(session.shadow, katexUrl, 'aimd-reader-panel-katex');
+        if (katexUrl) ensureReaderStylesheetLink(session.shadow, katexUrl, 'aimd-reader-panel-katex');
 
         if (!this.unsubscribeLocale) {
             this.unsubscribeLocale = subscribeLocaleChange(() => this.render());
@@ -548,8 +496,8 @@ export class ReaderPanel {
         this.stickyDragCleanup?.();
         this.stickyDragCleanup = null;
         this.stickyDragBlockId = null;
-        if (this.onSelectionChange) document.removeEventListener('selectionchange', this.onSelectionChange);
-        if (this.onPointerUp) document.removeEventListener('pointerup', this.onPointerUp);
+        if (this.onSelectionChange) this.host.document.removeEventListener('selectionchange', this.onSelectionChange);
+        if (this.onPointerUp) this.host.document.removeEventListener('pointerup', this.onPointerUp);
         if (this.overlaySession?.shadow && this.onShadowCopy) {
             this.overlaySession.shadow.removeEventListener('copy', this.onShadowCopy, true);
         }
@@ -561,7 +509,7 @@ export class ReaderPanel {
         this.commentSelectionSnapshot = null;
         this.activeCommentId = null;
         if (this.overlaySession?.shadow) {
-            this.commentPopover.close(this.overlaySession.shadow, false);
+            this.commentPopover.destroy();
             this.commentExportPopover.close(this.overlaySession.shadow);
             this.commentListPopover.close();
             this.settingsPopover.close();
@@ -569,7 +517,7 @@ export class ReaderPanel {
         }
 
         if (this.statusTimer) {
-            window.clearTimeout(this.statusTimer);
+            this.host.window.clearTimeout(this.statusTimer);
             this.statusTimer = null;
         }
 
@@ -579,7 +527,7 @@ export class ReaderPanel {
         this.tooltipDelegate = null;
         this.unsubscribeLocale?.();
         this.unsubscribeLocale = null;
-        this.focusLifecycle.restore(document);
+        this.focusLifecycle.restore(this.host.document);
         this.overlaySession?.unmount();
         this.overlaySession = null;
         this.closing = false;
@@ -622,7 +570,7 @@ export class ReaderPanel {
                 void this.openCommentExportPopover();
                 return;
             case 'reader-settings':
-                this.openReaderSettingsPopover();
+                this.openReaderSettingsPopover(actionEl);
                 return;
             case 'reader-copy-code':
                 await this.copyCodeBlock(actionEl);
@@ -676,16 +624,16 @@ export class ReaderPanel {
             panel?.style.setProperty('--_reader-sticky-width', `${nextWidth}px`);
         };
         const onUp = () => {
-            document.removeEventListener('pointermove', onMove);
-            document.removeEventListener('pointerup', onUp);
+            this.host.document.removeEventListener('pointermove', onMove);
+            this.host.document.removeEventListener('pointerup', onUp);
             this.stickyResizeCleanup = null;
             this.render();
         };
 
         this.stickyResizeCleanup?.();
         this.stickyResizeCleanup = onUp;
-        document.addEventListener('pointermove', onMove);
-        document.addEventListener('pointerup', onUp, { once: true });
+        this.host.document.addEventListener('pointermove', onMove);
+        this.host.document.addEventListener('pointerup', onUp, { once: true });
     }
 
     private startPanelResize(event: PointerEvent, handle: HTMLElement): void {
@@ -708,16 +656,16 @@ export class ReaderPanel {
             const nextWidthPx = startWidth + ((moveEvent.clientX - startX) * 2);
             const nextHeightPx = startHeight + ((moveEvent.clientY - startY) * 2);
             nextRatio = this.clampPanelSizeRatio({
-                widthRatio: nextWidthPx / Math.max(1, window.innerWidth),
-                heightRatio: nextHeightPx / Math.max(1, window.innerHeight),
+                widthRatio: nextWidthPx / Math.max(1, this.host.window.innerWidth),
+                heightRatio: nextHeightPx / Math.max(1, this.host.window.innerHeight),
             });
             this.state.panelSizeRatio = nextRatio;
             panel.style.setProperty('--_reader-panel-width-ratio', String(nextRatio.widthRatio));
             panel.style.setProperty('--_reader-panel-height-ratio', String(nextRatio.heightRatio));
         };
         const onUp = () => {
-            document.removeEventListener('pointermove', onMove);
-            document.removeEventListener('pointerup', onUp);
+            this.host.document.removeEventListener('pointermove', onMove);
+            this.host.document.removeEventListener('pointerup', onUp);
             this.panelResizeCleanup = null;
             this.state.panelSizeRatio = nextRatio;
             void this.settingsController?.onChange({ panelSizeRatio: nextRatio });
@@ -727,8 +675,8 @@ export class ReaderPanel {
 
         this.panelResizeCleanup?.();
         this.panelResizeCleanup = onUp;
-        document.addEventListener('pointermove', onMove);
-        document.addEventListener('pointerup', onUp, { once: true });
+        this.host.document.addEventListener('pointermove', onMove);
+        this.host.document.addEventListener('pointerup', onUp, { once: true });
     }
 
     private clampPanelSizeRatio(ratio: AppSettings['reader']['panelSizeRatio']): AppSettings['reader']['panelSizeRatio'] {
@@ -758,18 +706,18 @@ export class ReaderPanel {
         };
         const onEnd = () => {
             const draggedId = this.stickyDragBlockId;
-            document.removeEventListener('pointermove', onMove);
-            document.removeEventListener('pointerup', onEnd);
-            document.removeEventListener('pointercancel', onEnd);
+            this.host.document.removeEventListener('pointermove', onMove);
+            this.host.document.removeEventListener('pointerup', onEnd);
+            this.host.document.removeEventListener('pointercancel', onEnd);
             this.stickyDragCleanup = null;
             this.stickyDragBlockId = null;
             if (draggedId) this.setStickyDragState(draggedId, false);
         };
 
         this.stickyDragCleanup = onEnd;
-        document.addEventListener('pointermove', onMove);
-        document.addEventListener('pointerup', onEnd, { once: true });
-        document.addEventListener('pointercancel', onEnd, { once: true });
+        this.host.document.addEventListener('pointermove', onMove);
+        this.host.document.addEventListener('pointerup', onEnd, { once: true });
+        this.host.document.addEventListener('pointercancel', onEnd, { once: true });
     }
 
     private findStickyBlockAtPointer(clientY: number): HTMLElement | null {
@@ -823,9 +771,7 @@ export class ReaderPanel {
     }
 
     private async go(delta: number): Promise<void> {
-        const next = this.state.index + delta;
-        if (next < 0 || next >= this.state.items.length) return;
-        this.state.index = next;
+        if (!this.workflow.move(delta)) return;
         this.state.renderedHtml = '';
         this.state.outlineItems = [];
         this.state.activeOutlineId = '';
@@ -834,45 +780,49 @@ export class ReaderPanel {
     }
 
     private jumpTo(index: number): void {
-        const next = Math.max(0, Math.min(index, this.state.items.length - 1));
-        if (next === this.state.index) return;
-        void this.go(next - this.state.index);
+        if (!this.workflow.jump(index)) return;
+        this.state.renderedHtml = '';
+        this.state.outlineItems = [];
+        this.state.activeOutlineId = '';
+        this.render(false);
+        void this.renderCurrentContent();
     }
 
     private async renderCurrentContent(): Promise<void> {
-        const item = this.state.items[this.state.index];
+        const item = this.workflow.currentItem;
         if (!item) {
-            this.state.renderedHtml = '';
-            this.state.renderedMarkdownSource = '';
-            this.state.renderedAtomicUnits = [];
-            this.state.outlineItems = [];
-            this.state.activeOutlineId = '';
+            const empty = createEmptyReaderRenderResult();
+            this.state.renderedHtml = empty.html;
+            this.state.renderedMarkdownSource = empty.markdownSource;
+            this.state.renderedAtomicUnits = empty.atomicUnits;
+            this.state.outlineItems = empty.outlineItems;
+            this.state.activeOutlineId = empty.activeOutlineId;
             this.state.selectedAtomicUnitIds = [];
             this.state.selectionSourceText = '';
             this.state.selectionExport = '';
             this.commentSelectionSnapshot = null;
-            this.state.userPromptDisplay = formatReaderUserPromptDisplay('');
+            this.state.userPromptDisplay = empty.userPromptDisplay;
             this.render(false);
             return;
         }
 
         const token = ++this.contentRenderToken;
-        this.state.userPromptDisplay = formatReaderUserPromptDisplay(item.userPrompt);
-        const markdown = await resolveContent(item.content);
+        const rendered = await renderReaderItem(item, {
+            highlightCode: this.renderCodeInReader,
+            labels: {
+                copyCode: this.getLabel('btnCopyText', 'Copy code'),
+                enableCodeWrap: this.getLabel('readerCodeWrapEnable', 'Enable word wrap'),
+                disableCodeWrap: this.getLabel('readerCodeWrapDisable', 'Disable word wrap'),
+            },
+        });
         if (token !== this.contentRenderToken) return;
 
-        const rendered = renderMarkdownForReader(markdown, {
-            highlightCode: this.renderCodeInReader,
-        });
         this.state.renderedMarkdownSource = rendered.markdownSource;
         this.state.renderedAtomicUnits = rendered.atomicUnits;
         this.state.outlineItems = rendered.outlineItems;
-        this.state.activeOutlineId = rendered.outlineItems[0]?.id ?? '';
-        this.state.renderedHtml = decorateReaderCodeBlocksHtml(rendered.html, {
-            copyLabel: this.getLabel('btnCopyText', 'Copy code'),
-            wrapLabel: this.getLabel('readerCodeWrapEnable', 'Enable word wrap'),
-            unwrapLabel: this.getLabel('readerCodeWrapDisable', 'Disable word wrap'),
-        });
+        this.state.activeOutlineId = rendered.activeOutlineId;
+        this.state.renderedHtml = rendered.html;
+        this.state.userPromptDisplay = rendered.userPromptDisplay;
         this.render(false);
         void this.ensureKatexStylesForHtml(this.state.renderedHtml, token);
         this.syncAtomicSelection();
@@ -884,7 +834,7 @@ export class ReaderPanel {
     }
 
     private async copyCurrent(): Promise<void> {
-        const item = this.state.items[this.state.index];
+        const item = this.workflow.currentItem;
         if (!item) return;
 
         const button = this.overlaySession?.surfaceRoot.querySelector<HTMLButtonElement>('[data-action="reader-copy"]');
@@ -894,7 +844,7 @@ export class ReaderPanel {
             button.disabled = true;
             const ok = await copyReaderItemMarkdownToClipboard(item);
             showEphemeralTooltip({
-                root: this.overlaySession?.shadow ?? document,
+                root: this.overlaySession?.shadow ?? this.host.document,
                 anchor: button,
                 text: ok ? t('btnCopied') : t('copyFailed'),
             });
@@ -936,7 +886,7 @@ export class ReaderPanel {
             const codeText = (code.textContent ?? '').replace(/\s+$/, '');
             const ok = await copyTextToClipboard(codeText);
             showEphemeralTooltip({
-                root: this.overlaySession?.shadow ?? document,
+                root: this.overlaySession?.shadow ?? this.host.document,
                 anchor: copyButton,
                 text: ok ? t('btnCopied') : t('copyFailed'),
             });
@@ -947,24 +897,25 @@ export class ReaderPanel {
 
     private openConversation(): void {
         const ctx = this.getActionContext();
-        if (ctx && this.state.options.onOpenConversation) {
-            void this.state.options.onOpenConversation(ctx);
+        if (ctx && this.workflow.options.onOpenConversation) {
+            void this.workflow.options.onOpenConversation(ctx);
             return;
         }
 
-        const item = this.state.items[this.state.index];
+        const item = this.workflow.currentItem;
         const url = item?.meta?.url?.trim();
         if (!url) {
             this.notify(this.getLabel('openConversationLabel', 'Conversation link unavailable'));
             return;
         }
-        window.open(url, '_blank', 'noopener,noreferrer');
+        this.host.openExternal(url);
     }
 
-    private openReaderSettingsPopover(): void {
+    private openReaderSettingsPopover(opener?: HTMLElement): void {
         if (!this.overlaySession) return;
         this.settingsPopover.open({
             parent: this.overlaySession.surfaceRoot,
+            opener,
             modalHost: this.overlaySession.modalHost,
             settings: this.getReaderSettingsSnapshot(),
             onPreview: (patch) => this.applyReaderSettingsPatch(patch),
@@ -994,20 +945,12 @@ export class ReaderPanel {
         }
         if (typeof patch.bodyFontSizePx !== 'undefined') {
             this.state.bodyFontSizePx = normalizeReaderBodyFontSizePx(patch.bodyFontSizePx);
-            this.overlaySession?.setThemeOverrides({
-                ...this.themeOverrides,
-                readerBodyFontSizePx: this.state.bodyFontSizePx,
-            });
         }
         if (typeof patch.detachedNoticeConfirmed !== 'undefined') {
             this.state.detachedNoticeConfirmed = Boolean(patch.detachedNoticeConfirmed);
         }
         if (typeof patch.contentMaxWidthPx !== 'undefined') {
             this.state.contentMaxWidthPx = normalizeReaderContentMaxWidthPx(patch.contentMaxWidthPx);
-            this.overlaySession?.setThemeOverrides({
-                ...this.themeOverrides,
-                readerContentWidthPx: this.state.contentMaxWidthPx,
-            });
         }
         if (typeof patch.commentExport !== 'undefined') {
             this.commentExportSettings = normalizeReaderCommentExportSettings(patch.commentExport);
@@ -1063,36 +1006,35 @@ export class ReaderPanel {
         const currentBody = this.overlaySession.surfaceRoot.querySelector<HTMLElement>('.reader-body');
         const scrollTop = preserveScrollTop ? currentBody?.scrollTop ?? 0 : 0;
         this.state.stickyWidthPx = this.clampStickyWidth(this.state.stickyWidthPx);
-
-        this.overlaySession.setSurfaceCss(getReaderPanelCss());
-        const { element: backdrop, isNew: isNewBackdrop } = ensureBackdropElement(this.overlaySession.backdropRoot, 'panel-stage__overlay');
-        const { element: panel, isNew: isNewPanel } = ensureStableElementFromHtml<HTMLElement>(
-            this.overlaySession.surfaceRoot,
-            '.panel-window--reader',
-            getReaderPanelHtml({
-            state: {
-                items: this.state.items,
-                index: this.state.index,
+        const viewModel = createReaderPanelViewModel({
+            workflow: this.workflow.snapshot(),
+            display: {
                 fullscreen: this.state.fullscreen,
                 panelSizeRatio: this.state.panelSizeRatio,
                 contentMaxWidthPx: this.state.contentMaxWidthPx,
                 bodyFontSizePx: this.state.bodyFontSizePx,
-                stickyEnabled: this.isStickyAvailable(),
                 stickyOpen: this.state.stickyOpen,
                 stickyWidthPx: this.state.stickyWidthPx,
                 stickyBlocks: this.state.stickyBlocks,
                 renderedHtml: this.state.renderedHtml,
                 outlineItems: this.state.outlineItems,
                 activeOutlineId: this.state.activeOutlineId,
-                showOutlineRail: this.state.showOutlineInReader,
+                showOutlineInReader: this.state.showOutlineInReader,
                 userPromptDisplay: this.state.userPromptDisplay,
                 statusText: this.state.statusText,
-                showCopy: this.state.options.showCopy,
-                showOpenConversation: this.state.options.showOpenConversation,
             },
+            stickyEnabled: this.isStickyAvailable(),
             canOpenConversation: this.canOpenConversation(),
-            getLabel: (key, fallback, substitutions) => this.getLabel(key, fallback, substitutions),
-        }),
+        });
+
+        const { element: backdrop, isNew: isNewBackdrop } = ensureBackdropElement(this.overlaySession.backdropRoot, 'panel-stage__overlay');
+        const { element: panel, isNew: isNewPanel } = ensureStableElementFromHtml<HTMLElement>(
+            this.overlaySession.surfaceRoot,
+            '.panel-window--reader',
+            renderReaderSurface(
+                viewModel,
+                (key, fallback, substitutions) => this.getLabel(key, fallback, substitutions),
+            ),
         );
         this.overlaySession.syncKeyboardScope({
             root: this.overlaySession.host,
@@ -1102,7 +1044,7 @@ export class ReaderPanel {
             trapTabWithin: panel ?? this.overlaySession.host,
         });
         if (this.motionNeedsOpen && (isNewBackdrop || isNewPanel)) {
-            setSurfaceMotionOpening([backdrop, panel]);
+            this.overlaySession.openSurface({ surface: panel, backdrop });
             this.focusLifecycle.scheduleInitialFocus({
                 surface: panel,
                 selectors: [
@@ -1142,9 +1084,9 @@ export class ReaderPanel {
         footerSlot.replaceChildren();
 
         const ctx = this.getActionContext();
-        for (const action of this.state.options.actions) {
+        for (const action of this.workflow.options.actions) {
             const active = ctx ? Boolean(action.isActive?.(ctx)) : false;
-            const button = document.createElement('button');
+            const button = this.host.document.createElement('button');
             button.type = 'button';
             if (action.icon) {
                 button.className = `icon-btn ${active && action.toggle ? 'icon-btn--active' : ''} ${action.kind === 'danger' ? 'icon-btn--danger' : ''}`.trim();
@@ -1184,11 +1126,11 @@ export class ReaderPanel {
         const dots = this.overlaySession.surfaceRoot.querySelector<HTMLElement>('.reader-dots');
         if (!dots) return;
 
-        const total = this.state.items.length;
-        const activeIndex = this.state.index;
+        const total = this.workflow.items.length;
+        const activeIndex = this.workflow.index;
         dots.replaceChildren();
 
-        if (!this.state.options.showNav || total <= 0) {
+        if (!this.workflow.options.showNav || total <= 0) {
             const footerCenter = this.overlaySession.surfaceRoot.querySelector<HTMLElement>('.reader-footer__center');
             if (footerCenter) footerCenter.style.display = 'none';
             return;
@@ -1197,8 +1139,8 @@ export class ReaderPanel {
         const footerCenter = this.overlaySession.surfaceRoot.querySelector<HTMLElement>('.reader-footer__center');
         if (footerCenter) footerCenter.style.display = '';
 
-        dots.style.setProperty('--aimd-dot-size', '10px');
-        dots.style.setProperty('--aimd-dot-gap', '10px');
+        dots.style.setProperty('--_reader-dot-size', '10px');
+        dots.style.setProperty('--_reader-dot-gap', '10px');
 
         const maxPageDots = 10;
         if (total <= maxPageDots) {
@@ -1246,9 +1188,9 @@ export class ReaderPanel {
     }
 
     private createDot(index: number, active: boolean): HTMLButtonElement {
-        const button = document.createElement('button');
-        const item = this.state.items[index];
-        const bookmarked = this.state.options.dotStyle === 'meta' && Boolean(item?.meta?.bookmarked);
+        const button = this.host.document.createElement('button');
+        const item = this.workflow.items[index];
+        const bookmarked = this.workflow.options.dotStyle === 'meta' && Boolean(item?.meta?.bookmarked);
         button.type = 'button';
         button.className = `reader-dot ${active ? 'reader-dot--active' : ''} ${bookmarked ? 'reader-dot--bookmarked' : ''}`.trim();
         button.dataset.action = 'reader-jump';
@@ -1261,11 +1203,11 @@ export class ReaderPanel {
     }
 
     private createEllipsis(): HTMLElement {
-        const span = document.createElement('span');
+        const span = this.host.document.createElement('span');
         span.className = 'reader-ellipsis';
         span.setAttribute('aria-hidden', 'true');
         for (let index = 0; index < 3; index += 1) {
-            const dot = document.createElement('span');
+            const dot = this.host.document.createElement('span');
             dot.className = 'reader-ellipsis__dot';
             span.appendChild(dot);
         }
@@ -1282,48 +1224,26 @@ export class ReaderPanel {
         this.render();
     }
 
-    private resolveProfileState(profile: ReaderPanelProfile | undefined): ReaderPanelState['options'] {
-        if (profile === 'bookmark-preview') {
-            return {
-                profile,
-                showNav: true,
-                showCopy: true,
-                showOpenConversation: true,
-                dotStyle: 'plain',
-                actions: [],
-            };
-        }
-
-        return {
-            profile: 'conversation-reader',
-            showNav: true,
-            showCopy: true,
-            showOpenConversation: false,
-            dotStyle: 'meta',
-            actions: [],
-        };
-    }
-
     private getActionContext(): ReaderPanelActionContext | null {
-        const item = this.state.items[this.state.index] ?? null;
+        const item = this.workflow.currentItem;
         if (!item) return null;
         return {
             item,
-            index: this.state.index,
-            items: this.state.items,
+            index: this.workflow.index,
+            items: this.workflow.getItemsSnapshot(),
             notify: (text, timeoutMs) => this.notify(text, timeoutMs),
             rerender: () => this.render(),
         };
     }
 
     private canOpenConversation(): boolean {
-        if (this.state.options.onOpenConversation) return true;
-        const item = this.state.items[this.state.index];
+        if (this.workflow.options.onOpenConversation) return true;
+        const item = this.workflow.currentItem;
         return Boolean(item?.meta?.url?.trim());
     }
 
     private isStickyAvailable(): boolean {
-        return this.state.options.profile === 'conversation-reader';
+        return this.workflow.options.profile === 'conversation-reader';
     }
 
     private clampStickyWidth(value: number): number {
@@ -1350,8 +1270,7 @@ export class ReaderPanel {
     private addStickyBlock(sourceMarkdown: string): void {
         const trimmed = sourceMarkdown.trim();
         if (!this.isStickyAvailable() || !trimmed) return;
-        const rendered = renderMarkdownForReader(trimmed, {
-            softBreaks: true,
+        const renderedHtml = renderReaderStickyBlock(trimmed, {
             highlightCode: this.renderCodeInReader,
         });
         this.state.stickyBlocks = [
@@ -1359,7 +1278,7 @@ export class ReaderPanel {
             {
                 id: `sticky-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
                 sourceMarkdown: trimmed,
-                renderedHtml: rendered.html,
+                renderedHtml,
                 createdAt: Date.now(),
             },
         ];
@@ -1393,7 +1312,7 @@ export class ReaderPanel {
         const markdownRoot = this.getMarkdownRoot();
         if (markdownRoot) clearRenderedAtomicSelection(markdownRoot);
         try {
-            window.getSelection()?.removeAllRanges();
+            this.host.window.getSelection()?.removeAllRanges();
         } catch {
             // ignore host selection cleanup failures
         }
@@ -1407,7 +1326,7 @@ export class ReaderPanel {
 
     private getKatexUrl(): string {
         try {
-            return browser.runtime.getURL('vendor/katex/katex.min.css');
+            return this.host.resolveAssetUrl('vendor/katex/katex.min.css');
         } catch {
             return '';
         }
@@ -1427,7 +1346,7 @@ export class ReaderPanel {
             if (result.mode !== 'runtime-url' || !result.css) return;
 
             const existing = shadow.querySelector<HTMLStyleElement>('style[data-aimd-style-link="aimd-reader-panel-katex-embedded"]');
-            const style = existing ?? document.createElement('style');
+            const style = existing ?? this.host.document.createElement('style');
             style.setAttribute('data-aimd-style-link', 'aimd-reader-panel-katex-embedded');
             style.textContent = result.css;
             if (!existing) shadow.appendChild(style);
@@ -1439,9 +1358,9 @@ export class ReaderPanel {
 
     private ensureGlobalKatexFontFaces(css: string): void {
         if (!css) return;
-        const root = document.head || document.documentElement;
+        const root = this.host.document.head || this.host.document.documentElement;
         const existing = root.querySelector<HTMLStyleElement>('style[data-aimd-style-link="aimd-reader-katex-font-faces"]');
-        const style = existing ?? document.createElement('style');
+        const style = existing ?? this.host.document.createElement('style');
         style.setAttribute('data-aimd-style-link', 'aimd-reader-katex-font-faces');
         style.textContent = css;
         if (!existing) root.appendChild(style);
@@ -1472,14 +1391,14 @@ export class ReaderPanel {
         this.readerBodyEl = null;
         this.onReaderBodyScroll = null;
         if (this.outlineScrollFrame !== null) {
-            window.cancelAnimationFrame(this.outlineScrollFrame);
+            this.host.window.cancelAnimationFrame(this.outlineScrollFrame);
             this.outlineScrollFrame = null;
         }
     }
 
     private scheduleOutlineActiveSync(): void {
         if (this.outlineScrollFrame !== null) return;
-        this.outlineScrollFrame = window.requestAnimationFrame(() => {
+        this.outlineScrollFrame = this.host.window.requestAnimationFrame(() => {
             this.outlineScrollFrame = null;
             this.syncActiveOutlineFromScroll();
         });
@@ -1561,7 +1480,7 @@ export class ReaderPanel {
     }
 
     private getCurrentItem(): ReaderItem | null {
-        return this.state.items[this.state.index] ?? null;
+        return this.workflow.currentItem;
     }
 
     private getCurrentComments(sortMode: ReaderCommentSortMode = this.commentExportSettings.sortMode): ReaderCommentRecord[] {
@@ -1610,7 +1529,7 @@ export class ReaderPanel {
     }
 
     private createCommentHighlight(rect: ReaderCommentRect, active: boolean): HTMLElement {
-        const element = document.createElement('div');
+        const element = this.host.document.createElement('div');
         element.className = `reader-comment-highlight${active ? ' reader-comment-highlight--active' : ''}`;
         element.style.left = `${rect.left}px`;
         element.style.top = `${rect.top}px`;
@@ -1620,7 +1539,7 @@ export class ReaderPanel {
     }
 
     private createCommentAction(unionRect: ReaderCommentRect, selection: ReaderCommentSelectionSnapshot): HTMLElement {
-        const group = document.createElement('div');
+        const group = this.host.document.createElement('div');
         group.className = 'reader-comment-action';
         const overlay = this.getCommentOverlay();
         const buttonSize = this.getTokenSize('--aimd-size-control-icon-panel', 32);
@@ -1642,7 +1561,7 @@ export class ReaderPanel {
         group.style.top = `${top}px`;
         this.installTransientButtonBoundary(group);
 
-        const copyButton = document.createElement('button');
+        const copyButton = this.host.document.createElement('button');
         copyButton.className = 'icon-btn reader-comment-action__button';
         copyButton.type = 'button';
         copyButton.dataset.action = 'reader-selection-copy';
@@ -1653,13 +1572,13 @@ export class ReaderPanel {
             if (!selection.sourceMarkdown.trim()) return;
             const ok = await copyTextToClipboard(formatReaderMarkdownForCopy(selection.sourceMarkdown));
             showEphemeralTooltip({
-                root: this.overlaySession?.shadow ?? document,
+                root: this.overlaySession?.shadow ?? this.host.document,
                 anchor: copyButton,
                 text: this.getLabel(ok ? 'btnCopied' : 'copyFailed', ok ? 'Copied!' : 'Copy failed'),
             });
         });
 
-        const commentButton = document.createElement('button');
+        const commentButton = this.host.document.createElement('button');
         commentButton.className = 'icon-btn reader-comment-action__button';
         commentButton.type = 'button';
         commentButton.dataset.action = 'reader-comment-add';
@@ -1704,7 +1623,7 @@ export class ReaderPanel {
             });
         });
         if (showStickyAction) {
-            const stickButton = document.createElement('button');
+            const stickButton = this.host.document.createElement('button');
             stickButton.className = 'icon-btn reader-comment-action__button';
             stickButton.type = 'button';
             stickButton.dataset.action = 'reader-selection-stick';
@@ -1728,7 +1647,7 @@ export class ReaderPanel {
         _rects: ReaderCommentRect[],
         occupiedAnchorTops: number[],
     ): HTMLElement {
-        const button = document.createElement('button');
+        const button = this.host.document.createElement('button');
         button.className = 'icon-btn reader-comment-anchor';
         button.type = 'button';
         button.dataset.action = 'reader-comment-open';
@@ -1822,7 +1741,7 @@ export class ReaderPanel {
         this.commentPopover.open({
             shadow: this.overlaySession.shadow,
             container,
-            theme: this.state.theme,
+            appearance: this.appearance,
             selectedSource: params.selectedSource,
             anchorRect: params.anchorRect,
             initialText: params.initialText,
@@ -1937,7 +1856,7 @@ export class ReaderPanel {
             container: pickerContainer,
             anchorEl: anchorButton,
             placement: 'center',
-            theme: this.state.theme,
+            theme: this.appearance.theme,
             prompts,
             labels: {
                 title: this.getLabel('readerCommentPromptPickerTitle', 'Choose prompt'),
@@ -1953,7 +1872,7 @@ export class ReaderPanel {
                 this.commentExportPopover.open({
                     shadow,
                     container,
-                    theme: this.state.theme,
+                    theme: this.appearance.theme,
                     preview: compiledExport,
                     canCopy: Boolean(compiledExport.trim()),
                     labels: {
@@ -2036,7 +1955,7 @@ export class ReaderPanel {
         const markdownRoot = this.getMarkdownRoot();
         if (!markdownRoot || !this.overlaySession) return;
 
-        const selection = window.getSelection();
+        const selection = this.host.window.getSelection();
         const range = resolveReaderSelectionRange(selection, this.overlaySession.shadow, markdownRoot);
         if (!range) {
             this.state.selectionSourceText = '';
@@ -2078,7 +1997,7 @@ export class ReaderPanel {
         if (!markdownRoot || !this.overlaySession) return;
 
         this.syncAtomicSelection();
-        const selection = window.getSelection();
+        const selection = this.host.window.getSelection();
         const range = resolveReaderSelectionRange(selection, this.overlaySession.shadow, markdownRoot);
         if (!range || !this.state.selectionExport) return;
 

@@ -1,0 +1,46 @@
+<!doctype html>
+<html lang="en" data-aimd-theme="light">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>AI-MarkDone Unsupported Page Popup</title>
+    <style>
+      * { box-sizing: border-box; }
+      body {
+        margin: 0;
+        min-height: 100vh;
+        display: grid;
+        place-items: start center;
+        gap: 16px;
+        padding: 24px 0;
+        background: #e5e7eb;
+        color: #111827;
+        font-family: ui-sans-serif, system-ui, sans-serif;
+      }
+      body[data-theme="dark"] { background: #0f0f0f; color: #f5f5f5; }
+      .fixture-note { width: min(352px, 100%); padding-inline: 16px; }
+      .fixture-note h1 { margin: 0 0 4px; font-size: 16px; }
+      .fixture-note p { margin: 0; color: #6b7280; font-size: 12px; line-height: 1.5; }
+      body[data-theme="dark"] .fixture-note p { color: #a3a3a3; }
+      iframe {
+        display: block;
+        width: min(352px, 100%);
+        height: 500px;
+        border: 0;
+        background: transparent;
+      }
+      @media (max-width: 360px) {
+        body { padding-top: 8px; }
+        .fixture-note { padding-inline: 8px; }
+      }
+    </style>
+  </head>
+  <body>
+    <header class="fixture-note">
+      <h1>Unsupported-page popup</h1>
+      <p>The iframe below is the shipped popup document, including its production localization, theme, and storage script.</p>
+    </header>
+    <iframe id="popup-frame" title="AI-MarkDone unsupported-page popup"></iframe>
+    <script type="module" src="./main.ts"></script>
+  </body>
+</html>

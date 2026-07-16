@@ -1,19 +1,8 @@
 import { DEFAULT_SETTINGS, type AppSettings } from '../../../core/settings/types';
 import { loadAndNormalize } from '../../../services/settings/settingsService';
 import { settingsClientRpc } from '../../../drivers/shared/clients/settingsClientRpc';
-import { CLOUD_BACKUP_RPC_TIMEOUT_MS, cloudBackupClient } from '../../../drivers/shared/clients/cloudBackupClient';
 import { browser, browserInfo } from '../../../drivers/shared/browser';
-import type { UserThemeOverrides } from '../../../style/tokens';
-import {
-    bookmarkIcon,
-    coffeeIcon,
-    fileTextIcon,
-    infoIcon,
-    messageSquareTextIcon,
-    sendIcon,
-    settingsIcon,
-    xIcon,
-} from '../../../assets/icons';
+import { xIcon } from '../../../assets/icons';
 import { getBookmarksPanelCss } from './ui/styles/bookmarksPanelCss';
 import type { BookmarksPanelController, BookmarksPanelSnapshot } from './BookmarksPanelController';
 import { BookmarksTabView } from './ui/tabs/BookmarksTabView';
@@ -24,18 +13,14 @@ import { FeedbackTabView } from './ui/tabs/FeedbackTabView';
 import { AboutTabView } from './ui/tabs/AboutTabView';
 import { FaqTabView } from './ui/tabs/FaqTabView';
 import { SponsorTabView } from './ui/tabs/SponsorTabView';
-import { createBookmarksPanelShell, type BookmarksPanelTabSpec } from './ui/BookmarksPanelShell';
-import { buildImportMergeReviewModalBody } from './ui/importMergeReview';
+import { createBookmarksPanelShell } from './ui/BookmarksPanelShell';
 import { OverlaySession } from '../overlay/OverlaySession';
 import type { ReaderPanelPort } from '../reader/ReaderPanelPort';
 import type { BookmarksPanelOptions } from './BookmarksPanelPort';
 import { TooltipDelegate } from '../../../utils/tooltip';
 import { subscribeLocaleChange, t } from '../components/i18n';
 import { logger } from '../../../core/logger';
-import type { CloudBackupProviderId } from '../../../contracts/protocol';
-import type { CloudBackupSnapshotSummary } from '../../../core/cloudBackup/types';
 import { eventWithinTransientRoot } from '../components/transientUi';
-import { beginSurfaceMotionClose, setSurfaceMotionOpening } from '../components/motionLifecycle';
 import { SurfaceFocusLifecycle } from '../components/surfaceFocusLifecycle';
 import { showChangelogNoticeIfNeeded } from '../changelog/ChangelogNoticePresenter';
 import {
@@ -43,11 +28,13 @@ import {
     TARGET_SURFACE_SPONSOR_TAB_ENABLED,
 } from '../../../config/targetSurface';
 import { GOOGLE_DRIVE_WEB_AUTH_CLIENT_ID } from '../../../../config/extension/cloudBackup';
-
-type PanelTabId = 'bookmarks' | 'settings' | 'changelog' | 'about' | 'faq' | 'sponsor' | 'feedback';
+import {
+    BookmarksPanelTabWorkflow,
+    type BookmarksPanelTabId,
+} from './workflows/BookmarksPanelTabWorkflow';
+import { BookmarksCloudBackupWorkflow } from './workflows/BookmarksCloudBackupWorkflow';
 
 type UiState = {
-    bookmarksTab: PanelTabId;
     settings: AppSettings;
 };
 
@@ -59,33 +46,6 @@ type BookmarksPanelTabView = {
     consumeEscape?(): boolean;
     destroy?(): void;
 };
-
-type CloudBackupProgressController = {
-    update(message: string): void;
-    close(): void;
-};
-
-type CloudBackupProgressOptions = {
-    timeoutBudgetMs?: number;
-};
-
-function isPanelTabId(value: string): value is PanelTabId {
-    return value === 'bookmarks'
-        || value === 'settings'
-        || value === 'changelog'
-        || value === 'about'
-        || value === 'faq'
-        || value === 'sponsor'
-        || value === 'feedback';
-}
-
-function isEnabledPanelTab(tab: PanelTabId): boolean {
-    return tab !== 'sponsor' || TARGET_SURFACE_SPONSOR_TAB_ENABLED;
-}
-
-function normalizePanelTab(tab: PanelTabId): PanelTabId {
-    return isEnabledPanelTab(tab) ? tab : 'bookmarks';
-}
 
 function shouldLogBookmarksPerf(): boolean {
     try {
@@ -128,31 +88,6 @@ function downloadJson(filename: string, data: unknown): void {
     }
 }
 
-function formatCloudBackupSnapshotCreatedAt(value: string): string {
-    if (Number.isNaN(Date.parse(value))) return value || 'Unknown time';
-    return new Date(value).toLocaleString();
-}
-
-function formatCloudBackupSnapshotSize(value: number): string {
-    if (!Number.isFinite(value) || value <= 0) return tr('cloudBackupSnapshotSizeUnknown', 'Unknown size');
-    const units = ['B', 'KB', 'MB', 'GB'];
-    let size = value;
-    let unitIndex = 0;
-    while (size >= 1024 && unitIndex < units.length - 1) {
-        size /= 1024;
-        unitIndex += 1;
-    }
-    const digits = unitIndex === 0 || size >= 10 ? 0 : 1;
-    return `${size.toFixed(digits)} ${units[unitIndex]}`;
-}
-
-function formatCloudBackupProgressRemaining(milliseconds: number): string {
-    const totalSeconds = Math.max(0, Math.ceil(milliseconds / 1000));
-    const minutes = Math.floor(totalSeconds / 60);
-    const seconds = totalSeconds % 60;
-    return `${String(minutes).padStart(2, '0')}:${String(seconds).padStart(2, '0')}`;
-}
-
 function mergeSettings(input: unknown): AppSettings {
     return loadAndNormalize(input);
 }
@@ -169,18 +104,10 @@ export class BookmarksPanel {
     private readonly controller: BookmarksPanelController;
     private readonly readerPanel: ReaderPanelPort;
     private readonly uiState: UiState = {
-        bookmarksTab: 'bookmarks',
         settings: structuredClone(DEFAULT_SETTINGS),
     };
-    private readonly panelScrollTops: Record<PanelTabId, number> = {
-        bookmarks: 0,
-        settings: 0,
-        changelog: 0,
-        about: 0,
-        faq: 0,
-        sponsor: 0,
-        feedback: 0,
-    };
+    private readonly tabWorkflow: BookmarksPanelTabWorkflow;
+    private readonly cloudBackupWorkflow: BookmarksCloudBackupWorkflow;
 
     private visible = false;
     private overlaySession: OverlaySession | null = null;
@@ -233,6 +160,12 @@ export class BookmarksPanel {
     ) {
         this.controller = controller;
         this.readerPanel = readerPanel;
+        this.tabWorkflow = new BookmarksPanelTabWorkflow({
+            sponsorEnabled: TARGET_SURFACE_SPONSOR_TAB_ENABLED,
+        });
+        this.cloudBackupWorkflow = new BookmarksCloudBackupWorkflow({
+            getModalHost: () => this.modalHost,
+        });
     }
 
     private get hostHandle() {
@@ -241,11 +174,6 @@ export class BookmarksPanel {
 
     private get modalHost() {
         return this.overlaySession?.modalHost ?? null;
-    }
-
-    private resolveThemeOverrides(): UserThemeOverrides {
-        const getThemeOverrides = this.controller.getThemeOverrides;
-        return typeof getThemeOverrides === 'function' ? getThemeOverrides.call(this.controller) : {};
     }
 
     isVisible(): boolean {
@@ -264,14 +192,25 @@ export class BookmarksPanel {
         if (this.visible) return;
 
         this.focusLifecycle.capture();
+        if (this.overlaySession && this.closing) {
+            if (this.overlaySession.cancelSurfaceClose()) {
+                this.visible = true;
+                this.closing = false;
+                this.motionNeedsOpen = false;
+                this.render();
+                return;
+            }
+            this.finishHide();
+        }
         this.visible = true;
         this.closing = false;
         this.motionNeedsOpen = true;
         this.changelogNoticeCheckedForSession = false;
+        const appearance = this.controller.getAppearance();
         this.overlaySession = new OverlaySession({
             id: 'aimd-bookmarks-panel-host',
-            theme: this.controller.getTheme(),
-            themeOverrides: this.resolveThemeOverrides(),
+            theme: appearance.theme,
+            themeOverrides: appearance.overrides,
             surfaceCss: getBookmarksPanelCss(),
             lockScroll: true,
             surfaceStyleId: 'aimd-bookmarks-panel-structure',
@@ -281,7 +220,7 @@ export class BookmarksPanel {
         this.tooltipDelegate = new TooltipDelegate(this.overlaySession.shadow);
         logBookmarksPerf('panel:perf-logging-enabled', {
             visible: true,
-            tab: this.uiState.bookmarksTab,
+            tab: this.tabWorkflow.getActiveTab(),
         });
         this.unsubscribeLocale = subscribeLocaleChange(() => {
             if (!this.visible) return;
@@ -304,8 +243,7 @@ export class BookmarksPanel {
         });
 
         this.unsubscribeSnapshot = this.controller.subscribe((snapshot) => {
-            this.overlaySession?.setTheme(this.controller.getTheme());
-            this.overlaySession?.setThemeOverrides(this.resolveThemeOverrides());
+            this.overlaySession?.setAppearance(this.controller.getAppearance());
             const previousSnapshot = this.snapshot;
             this.snapshot = snapshot;
             if (!this.applySnapshotUpdate(previousSnapshot, snapshot)) {
@@ -342,13 +280,12 @@ export class BookmarksPanel {
         if (this.overlaySession && panel) {
             this.visible = false;
             this.closing = true;
-            beginSurfaceMotionClose({
-                shell: panel,
+            const closeStarted = this.overlaySession.closeSurface({
+                surface: panel,
                 backdrop,
                 onClosed: () => this.finishHide(),
-                fallbackMs: 560,
             });
-            return;
+            if (closeStarted) return;
         }
 
         this.visible = false;
@@ -492,49 +429,9 @@ export class BookmarksPanel {
             exportAllBookmarks: async () => {
                 await this.exportAll();
             },
-            cloudBackup: hasGoogleDriveBackupCapability() ? {
-                status: async (provider) => {
-                    const result = await cloudBackupClient.status(provider);
-                    if (!result.ok) return { connected: false, lastError: result.message };
-                    return result.data ?? { connected: false };
-                },
-                connect: async (provider) => {
-                    const confirmed = await this.modalHost?.confirm({
-                        kind: 'info',
-                        title: tr('cloudBackupConnectConfirmTitle', 'Connect Google Drive?'),
-                        message: tr(
-                            'cloudBackupConnectConfirmDesc',
-                            'AI-MarkDone will open Google authorization so you can choose your own Drive. This feature is experimental; before backing up to Google Drive, we recommend exporting a local copy first. AI-MarkDone does not collect your Google account, token, password, or bookmarks.',
-                        ),
-                        confirmText: tr('cloudBackupConnectConfirmAction', 'Continue'),
-                        cancelText: tr('btnCancel', 'Cancel'),
-                    });
-                    if (!confirmed) return { connected: false };
-                    const result = await cloudBackupClient.connect(provider);
-                    if (!result.ok) {
-                        await this.modalHost?.alert({ kind: 'error', title: tr('cloudBackupErrorTitle', 'Google Drive backup failed'), message: result.message, confirmText: tr('btnOk', 'OK') });
-                        return { connected: false };
-                    }
-                    return { connected: true };
-                },
-                disconnect: async (provider) => {
-                    const result = await cloudBackupClient.disconnect(provider);
-                    if (!result.ok) {
-                        await this.modalHost?.alert({ kind: 'error', title: tr('cloudBackupErrorTitle', 'Google Drive backup failed'), message: result.message, confirmText: tr('btnOk', 'OK') });
-                        return { connected: true };
-                    }
-                    return { connected: false };
-                },
-                openSettings: async () => {
-                    await this.showGoogleDriveBackupSettings();
-                },
-                backupNow: async (provider) => {
-                    await this.backupToCloud(provider);
-                },
-                restore: async (provider) => {
-                    await this.previewCloudRestore(provider);
-                },
-            } : undefined,
+            cloudBackup: hasGoogleDriveBackupCapability()
+                ? this.cloudBackupWorkflow.createSettingsActions()
+                : undefined,
         };
     }
 
@@ -543,12 +440,10 @@ export class BookmarksPanel {
         const startedAt = performance.now();
         this.captureScrollTops();
         this.recreateTabViews();
-        this.uiState.bookmarksTab = normalizePanelTab(this.uiState.bookmarksTab);
 
         const bookmarksPanel = this.bookmarksView?.getElement() ?? document.createElement('section');
         bookmarksPanel.classList.add('tab-panel--bookmarks');
         const settingsPanel = this.settingsView?.getElement() ?? document.createElement('section');
-        settingsPanel.classList.add('settings-panel');
         const changelogPanel = this.changelogView?.getElement() ?? document.createElement('section');
         changelogPanel.classList.add('changelog-panel');
         const aboutPanel = this.aboutView?.getElement() ?? document.createElement('section');
@@ -558,48 +453,35 @@ export class BookmarksPanel {
         const feedbackPanel = this.feedbackView?.getElement() ?? document.createElement('section');
         feedbackPanel.classList.add('feedback-panel');
 
-        const titleText = this.uiState.bookmarksTab === 'bookmarks'
-            ? tr('tabBookmarks', 'Bookmarks')
-            : this.uiState.bookmarksTab === 'settings'
-                ? tr('tabSettings', 'Settings')
-                : this.uiState.bookmarksTab === 'changelog'
-                    ? tr('tabChangelog', 'Changelog')
-                    : this.uiState.bookmarksTab === 'faq'
-                        ? tr('tabFaq', 'FAQ')
-                        : this.uiState.bookmarksTab === 'about'
-                            ? tr('tabAbout', 'About')
-                            : this.uiState.bookmarksTab === 'feedback'
-                                ? tr('tabFeedback', 'Feedback')
-                                : TARGET_SURFACE_SPONSOR_TAB_ENABLED
-                                    ? tr('tabSponsor', 'Buy Me Coffee')
-                                    : tr('tabBookmarks', 'Bookmarks');
-        const tabs: BookmarksPanelTabSpec[] = [
-            { id: 'bookmarks', label: tr('tabBookmarks', 'Bookmarks'), icon: bookmarkIcon, content: bookmarksPanel, panelClassName: 'tab-panel--bookmarks' },
-            { id: 'settings', label: tr('tabSettings', 'Settings'), icon: settingsIcon, content: settingsPanel, panelClassName: 'settings-panel' },
-            { id: 'changelog', label: tr('tabChangelog', 'Changelog'), icon: fileTextIcon, content: changelogPanel, panelClassName: 'changelog-panel' },
-            { id: 'faq', label: tr('tabFaq', 'FAQ'), icon: messageSquareTextIcon, content: faqPanel, panelClassName: 'faq-panel' },
-            { id: 'about', label: tr('tabAbout', 'About'), icon: infoIcon, content: aboutPanel, panelClassName: 'about-panel' },
-        ];
-        if (TARGET_SURFACE_SPONSOR_TAB_ENABLED) {
-            const sponsorPanel = this.sponsorView?.getElement() ?? document.createElement('section');
-            sponsorPanel.classList.add('sponsor-panel');
-            tabs.push({ id: 'sponsor', label: tr('tabSponsor', 'Buy Me Coffee'), icon: coffeeIcon, content: sponsorPanel, panelClassName: 'sponsor-panel' });
-        }
-        tabs.push({ id: 'feedback', label: tr('tabFeedback', 'Feedback'), icon: sendIcon, content: feedbackPanel, panelClassName: 'feedback-panel' });
+        const sponsorPanel = this.sponsorView?.getElement() ?? document.createElement('section');
+        sponsorPanel.classList.add('sponsor-panel');
+        const shellModel = this.tabWorkflow.createShellModel({
+            contents: {
+                bookmarks: bookmarksPanel,
+                settings: settingsPanel,
+                changelog: changelogPanel,
+                faq: faqPanel,
+                about: aboutPanel,
+                sponsor: sponsorPanel,
+                feedback: feedbackPanel,
+            },
+            translate: tr,
+        });
 
         const shell = createBookmarksPanelShell({
-            titleText,
+            titleText: shellModel.titleText,
             closeIcon: xIcon,
             closeLabel: tr('btnClose', 'Close panel'),
-            defaultTabId: this.uiState.bookmarksTab,
-            tabs,
+            defaultTabId: this.tabWorkflow.getActiveTab(),
+            tabs: shellModel.tabs,
         });
         const panel = shell.panel;
 
         this.overlaySession.replaceBackdrop(shell.overlay);
         this.overlaySession.replaceSurface(panel);
+        this.overlaySession.syncSurfaceMotion({ surface: panel, backdrop: shell.overlay });
         if (this.motionNeedsOpen) {
-            setSurfaceMotionOpening([shell.overlay, panel]);
+            this.overlaySession.openSurface({ surface: panel, backdrop: shell.overlay });
             this.focusLifecycle.scheduleInitialFocus({
                 surface: panel,
                 selectors: ['input', '.tab-btn', '[data-action="close"]'],
@@ -609,7 +491,7 @@ export class BookmarksPanel {
         shell.closeBtn.addEventListener('click', () => this.hide());
         shell.tabs.getElement().addEventListener('aimd:tabs-change', (event) => {
             const nextTab = (event as CustomEvent<{ id: string }>).detail.id;
-            if (isPanelTabId(nextTab) && isEnabledPanelTab(nextTab)) {
+            if (this.tabWorkflow.isEnabled(nextTab)) {
                 this.switchToTab(nextTab);
             }
         });
@@ -644,7 +526,7 @@ export class BookmarksPanel {
         this.tooltipDelegate?.refresh(this.overlaySession.shadow);
         logBookmarksPerf('panel:full-render', {
             durationMs: Number((performance.now() - startedAt).toFixed(2)),
-            tab: this.uiState.bookmarksTab,
+            tab: this.tabWorkflow.getActiveTab(),
             virtualized: panel.querySelector('.tree-panel')?.getAttribute('data-virtualized') === '1',
             visibleBookmarks: this.snapshot?.vm.bookmarks.length ?? 0,
         });
@@ -793,9 +675,8 @@ export class BookmarksPanel {
         });
     }
 
-    private switchToTab(nextTab: PanelTabId): void {
-        if (!isEnabledPanelTab(nextTab)) return;
-        if (this.uiState.bookmarksTab === nextTab) return;
+    private switchToTab(nextTab: BookmarksPanelTabId): void {
+        if (!this.tabWorkflow.select(nextTab)) return;
         this.bookmarksView?.dismissTransientUi?.();
         this.settingsView?.dismissTransientUi?.();
         this.changelogView?.dismissTransientUi?.();
@@ -803,7 +684,6 @@ export class BookmarksPanel {
         this.faqView?.dismissTransientUi?.();
         this.sponsorView?.dismissTransientUi?.();
         this.feedbackView?.dismissTransientUi?.();
-        this.uiState.bookmarksTab = nextTab;
         this.render();
     }
 
@@ -827,7 +707,7 @@ export class BookmarksPanel {
         const target = event.target as HTMLElement | null;
         if (target?.closest('.aimd-settings')) return;
         if (target?.closest('.bookmarks-tab-content')) return;
-        if (TARGET_SURFACE_SPONSOR_TAB_ENABLED && this.uiState.bookmarksTab === 'sponsor' && (target?.closest('.aimd-sponsor') || target?.closest('.sponsor-panel'))) {
+        if (TARGET_SURFACE_SPONSOR_TAB_ENABLED && this.tabWorkflow.getActiveTab() === 'sponsor' && (target?.closest('.aimd-sponsor') || target?.closest('.sponsor-panel'))) {
             this.emitSponsorBurst(event as MouseEvent);
             return;
         }
@@ -837,7 +717,7 @@ export class BookmarksPanel {
         const action = actionEl.dataset.action;
         logBookmarksPerf('panel:action', {
             action,
-            tab: this.uiState.bookmarksTab,
+            tab: this.tabWorkflow.getActiveTab(),
             bookmarkId: actionEl.dataset.bookmarkId ?? null,
             path: actionEl.dataset.path ?? null,
         });
@@ -866,58 +746,18 @@ export class BookmarksPanel {
 
     private captureScrollTops(): void {
         if (!this.hostHandle) return;
-        const bookmarksPanel = this.bookmarksView && 'getTreeScrollTop' in this.bookmarksView
-            ? (this.bookmarksView as BookmarksTabView).getTreeScrollTop()
+        const bookmarksView = this.bookmarksView && 'getTreeScrollTop' in this.bookmarksView
+            ? this.bookmarksView as BookmarksTabView
             : null;
-        const settingsPanel = this.hostHandle.surfaceRoot.querySelector<HTMLElement>('.settings-panel');
-        const changelogPanel = this.hostHandle.surfaceRoot.querySelector<HTMLElement>('.changelog-panel');
-        const aboutPanel = this.hostHandle.surfaceRoot.querySelector<HTMLElement>('.about-panel');
-        const faqPanel = this.hostHandle.surfaceRoot.querySelector<HTMLElement>('.faq-panel');
-        const sponsorPanel = this.hostHandle.surfaceRoot.querySelector<HTMLElement>('.sponsor-panel');
-        const feedbackPanel = this.hostHandle.surfaceRoot.querySelector<HTMLElement>('.feedback-panel');
-
-        if (typeof bookmarksPanel === 'number') this.panelScrollTops.bookmarks = bookmarksPanel;
-        if (settingsPanel) this.panelScrollTops.settings = settingsPanel.scrollTop;
-        if (changelogPanel) this.panelScrollTops.changelog = changelogPanel.scrollTop;
-        if (aboutPanel) this.panelScrollTops.about = aboutPanel.scrollTop;
-        if (faqPanel) this.panelScrollTops.faq = faqPanel.scrollTop;
-        if (sponsorPanel) this.panelScrollTops.sponsor = sponsorPanel.scrollTop;
-        if (feedbackPanel) this.panelScrollTops.feedback = feedbackPanel.scrollTop;
+        this.tabWorkflow.captureScrollPositions(this.hostHandle.surfaceRoot, bookmarksView);
     }
 
     private restoreScrollTop(): void {
         if (!this.hostHandle) return;
-
-        if (this.uiState.bookmarksTab === 'bookmarks') {
-            if (this.bookmarksView && 'restoreTreeScroll' in this.bookmarksView) {
-                (this.bookmarksView as BookmarksTabView).restoreTreeScroll(this.panelScrollTops.bookmarks);
-            }
-            return;
-        }
-
-        if (this.uiState.bookmarksTab === 'settings') {
-            const settingsPanel = this.hostHandle.surfaceRoot.querySelector<HTMLElement>('.settings-panel');
-            if (settingsPanel) settingsPanel.scrollTop = this.panelScrollTops.settings;
-            return;
-        }
-
-        const panelClass =
-            this.uiState.bookmarksTab === 'changelog'
-                ? '.changelog-panel'
-                : this.uiState.bookmarksTab === 'about'
-                    ? '.about-panel'
-                    : this.uiState.bookmarksTab === 'faq'
-                        ? '.faq-panel'
-                        : this.uiState.bookmarksTab === 'sponsor'
-                            ? '.sponsor-panel'
-                            : '.feedback-panel';
-        const panel = this.hostHandle.surfaceRoot.querySelector<HTMLElement>(panelClass);
-        if (!panel) return;
-        if (this.uiState.bookmarksTab === 'changelog') panel.scrollTop = this.panelScrollTops.changelog;
-        if (this.uiState.bookmarksTab === 'about') panel.scrollTop = this.panelScrollTops.about;
-        if (this.uiState.bookmarksTab === 'faq') panel.scrollTop = this.panelScrollTops.faq;
-        if (this.uiState.bookmarksTab === 'sponsor') panel.scrollTop = this.panelScrollTops.sponsor;
-        if (this.uiState.bookmarksTab === 'feedback') panel.scrollTop = this.panelScrollTops.feedback;
+        const bookmarksView = this.bookmarksView && 'restoreTreeScroll' in this.bookmarksView
+            ? this.bookmarksView as BookmarksTabView
+            : null;
+        this.tabWorkflow.restoreActiveScrollPosition(this.hostHandle.surfaceRoot, bookmarksView);
     }
 
     private emitSponsorBurst(event: MouseEvent): void {
@@ -960,553 +800,4 @@ export class BookmarksPanel {
         }
     }
 
-    private async backupToCloud(provider: CloudBackupProviderId): Promise<void> {
-        const progress = this.showCloudBackupProgress(
-            tr('cloudBackupBackupNow', 'Back up now'),
-            tr('cloudBackupProgressConfirmingAccess', 'Confirming Google Drive access...'),
-            [
-                tr('cloudBackupProgressConfirmingAccess', 'Confirming Google Drive access...'),
-                tr('cloudBackupProgressPreparingBookmarks', 'Preparing local bookmarks...'),
-                tr('cloudBackupProgressCreatingSnapshot', 'Creating a verified snapshot...'),
-                tr('cloudBackupProgressUploadingDrive', 'Uploading to Google Drive...'),
-                tr('cloudBackupProgressVerifyingUpload', 'Reading the file back for verification...'),
-                tr('cloudBackupProgressComplete', 'Finishing up...'),
-            ],
-            { timeoutBudgetMs: CLOUD_BACKUP_RPC_TIMEOUT_MS.backupNow },
-        );
-        progress?.update(tr('cloudBackupProgressUploadingDrive', 'Uploading to Google Drive...'));
-        let result: Awaited<ReturnType<typeof cloudBackupClient.backupNow>>;
-        try {
-            result = await cloudBackupClient.backupNow(provider);
-        } finally {
-            progress?.close();
-        }
-        await this.modalHost?.alert({
-            kind: result.ok ? 'info' : 'error',
-            title: result.ok ? tr('cloudBackupCompleteTitle', 'Backup complete') : tr('cloudBackupErrorTitle', 'Google Drive backup failed'),
-            message: result.ok
-                ? tr('cloudBackupCompleteDesc', 'A verified bookmark snapshot was saved to your Google Drive.')
-                : result.message,
-            confirmText: tr('btnOk', 'OK'),
-        });
-    }
-
-    private async previewCloudRestore(provider: CloudBackupProviderId): Promise<void> {
-        const listProgress = this.showCloudBackupProgress(
-            tr('cloudBackupRestore', 'Preview restore'),
-            tr('cloudBackupProgressConfirmingAccess', 'Confirming Google Drive access...'),
-            [
-                tr('cloudBackupProgressConfirmingAccess', 'Confirming Google Drive access...'),
-                tr('cloudBackupProgressReadingList', 'Reading Google Drive backups...'),
-                tr('cloudBackupProgressDownloadingSnapshot', 'Downloading the selected backup...'),
-                tr('cloudBackupProgressBuildingPreview', 'Generating a safe merge preview...'),
-                tr('cloudBackupProgressWaitingConfirmation', 'Waiting for confirmation...'),
-                tr('cloudBackupProgressApplyingMerge', 'Applying safe merge...'),
-            ],
-            { timeoutBudgetMs: CLOUD_BACKUP_RPC_TIMEOUT_MS.listSnapshots },
-        );
-        let list: Awaited<ReturnType<typeof cloudBackupClient.listSnapshots>>;
-        try {
-            list = await cloudBackupClient.listSnapshots(provider);
-        } finally {
-            listProgress?.close();
-        }
-        if (!list.ok) {
-            await this.modalHost?.alert({ kind: 'error', title: tr('cloudBackupErrorTitle', 'Google Drive backup failed'), message: list.message, confirmText: tr('btnOk', 'OK') });
-            return;
-        }
-        const snapshots = list.data.snapshots ?? [];
-        if (snapshots.length === 0) {
-            await this.modalHost?.alert({
-                kind: 'info',
-                title: tr('cloudBackupNoSnapshotsTitle', 'No Google Drive backups found'),
-                message: tr('cloudBackupNoSnapshotsDesc', 'Google Drive does not have any AI-MarkDone bookmark backups yet.'),
-                confirmText: tr('btnOk', 'OK'),
-            });
-            return;
-        }
-        const selected = await this.chooseCloudSnapshot(snapshots);
-        if (!selected) return;
-        const previewProgress = this.showCloudBackupProgress(
-            tr('cloudBackupRestore', 'Preview restore'),
-            tr('cloudBackupProgressConfirmingAccess', 'Confirming Google Drive access...'),
-            [
-                tr('cloudBackupProgressConfirmingAccess', 'Confirming Google Drive access...'),
-                tr('cloudBackupProgressDownloadingSnapshot', 'Downloading the selected backup...'),
-                tr('cloudBackupProgressBuildingPreview', 'Generating a safe merge preview...'),
-            ],
-            { timeoutBudgetMs: CLOUD_BACKUP_RPC_TIMEOUT_MS.previewRestore },
-        );
-        previewProgress?.update(tr('cloudBackupProgressBuildingPreview', 'Generating a safe merge preview...'));
-        let preview: Awaited<ReturnType<typeof cloudBackupClient.previewRestore>>;
-        try {
-            preview = await cloudBackupClient.previewRestore({ provider, snapshotId: selected.snapshotId, strategy: 'safeMerge' });
-        } finally {
-            previewProgress?.close();
-        }
-        if (!preview.ok) {
-            await this.modalHost?.alert({ kind: 'error', title: tr('cloudBackupErrorTitle', 'Google Drive backup failed'), message: preview.message, confirmText: tr('btnOk', 'OK') });
-            return;
-        }
-        const shouldApply = await this.confirmCloudBackupRestorePreview(preview.data);
-        if (!shouldApply) return;
-
-        const applyProgress = this.showCloudBackupProgress(
-            tr('cloudBackupApplyRestore', 'Apply safe merge'),
-            tr('cloudBackupProgressConfirmingAccess', 'Confirming Google Drive access...'),
-            [
-                tr('cloudBackupProgressConfirmingAccess', 'Confirming Google Drive access...'),
-                tr('cloudBackupProgressApplyingMerge', 'Applying safe merge...'),
-            ],
-            { timeoutBudgetMs: CLOUD_BACKUP_RPC_TIMEOUT_MS.applyRestore },
-        );
-        let applied: Awaited<ReturnType<typeof cloudBackupClient.applyRestore>>;
-        try {
-            applied = await cloudBackupClient.applyRestore({ provider, snapshotId: selected.snapshotId, strategy: 'safeMerge' });
-        } finally {
-            applyProgress?.close();
-        }
-        if (!applied.ok) {
-            await this.modalHost?.alert({ kind: 'error', title: tr('cloudBackupErrorTitle', 'Google Drive backup failed'), message: applied.message, confirmText: tr('btnOk', 'OK') });
-            return;
-        }
-        const result = applied.data ?? {};
-        await this.modalHost?.alert({
-            kind: 'info',
-            title: tr('cloudBackupRestoreCompleteTitle', 'Restore complete'),
-            message: tr('cloudBackupRestoreCompleteDesc', 'Added $1 bookmark(s). Kept $2 local-only item(s), skipped $3 duplicate(s), and left $4 conflict(s) unchanged.', [
-                String(result.restored ?? 0),
-                String(result.localOnly ?? 0),
-                String(result.skippedDuplicates ?? 0),
-                String(result.conflicts ?? 0),
-            ]),
-            confirmText: tr('btnOk', 'OK'),
-        });
-    }
-
-    private async confirmCloudBackupRestorePreview(previewData: any): Promise<boolean> {
-        const modal = this.modalHost;
-        if (!modal) return false;
-        const plan = previewData?.plan ?? {};
-        const warnings: string[] = [];
-        const localOnly = Number(plan.localOnlyCount ?? 0);
-        const conflicts = Number(plan.conflictCount ?? 0);
-        if (localOnly > 0) {
-            warnings.push(tr('cloudBackupRestoreLocalOnlyWarning', '$1 local-only bookmark(s) will stay untouched.', [String(localOnly)]));
-        }
-        if (conflicts > 0) {
-            warnings.push(tr('cloudBackupRestoreConflictWarning', '$1 conflict(s) will keep the local copy.', [String(conflicts)]));
-        }
-        const review = buildImportMergeReviewModalBody({
-            imported: Array.isArray(plan.bookmarksToUpsert) ? plan.bookmarksToUpsert.length : 0,
-            skippedDuplicates: Number(plan.duplicateCount ?? 0),
-            renamed: 0,
-            folderCreateFailures: 0,
-            warnings,
-        });
-
-        return new Promise((resolve) => {
-            void modal.showCustom({
-                kind: warnings.length > 0 ? 'warning' : review.kind,
-                title: tr('cloudBackupRestorePreviewKind', 'Safe merge preview'),
-                body: review.body,
-                footer: (footer, close) => {
-                    const cancel = document.createElement('button');
-                    cancel.type = 'button';
-                    cancel.className = 'mock-modal__button mock-modal__button--secondary';
-                    cancel.textContent = tr('btnCancel', 'Cancel');
-                    cancel.dataset.action = 'modal-cancel';
-                    cancel.addEventListener('click', () => {
-                        close();
-                        resolve(false);
-                    });
-
-                    const apply = document.createElement('button');
-                    apply.type = 'button';
-                    apply.className = 'mock-modal__button mock-modal__button--primary';
-                    apply.textContent = tr('cloudBackupApplyRestore', 'Apply safe merge');
-                    apply.dataset.action = 'modal-confirm';
-                    apply.addEventListener('click', () => {
-                        close();
-                        resolve(true);
-                    });
-
-                    footer.append(cancel, apply);
-                    window.setTimeout(() => apply.focus(), 0);
-                },
-                onDismiss: () => resolve(false),
-            });
-        });
-    }
-
-    private showCloudBackupProgress(
-        title: string,
-        initialMessage: string,
-        steps: string[] = [],
-        options: CloudBackupProgressOptions = {},
-    ): CloudBackupProgressController | null {
-        const modal = this.modalHost;
-        if (!modal) return null;
-
-        const body = document.createElement('div');
-        body.className = 'cloud-backup-progress';
-
-        const status = document.createElement('p');
-        status.className = 'cloud-backup-progress__status';
-        status.dataset.role = 'cloud-backup-progress-status';
-        status.textContent = initialMessage;
-
-        const budget = document.createElement('p');
-        budget.className = 'cloud-backup-progress__budget';
-        budget.dataset.role = 'cloud-backup-progress-budget';
-
-        const list = document.createElement('ol');
-        list.className = 'cloud-backup-progress__steps';
-        const renderedSteps = steps.length > 0 ? steps : [initialMessage];
-        renderedSteps.forEach((step, index) => {
-            const item = document.createElement('li');
-            item.textContent = step;
-            item.dataset.active = index === 0 ? '1' : '0';
-            list.appendChild(item);
-        });
-
-        const timeoutBudgetMs = options.timeoutBudgetMs;
-        const startedAt = Date.now();
-        const updateBudget = () => {
-            if (!timeoutBudgetMs) return;
-            const remaining = timeoutBudgetMs - (Date.now() - startedAt);
-            budget.textContent = tr('cloudBackupProgressTimeBudget', 'Timeout budget: $1 remaining', [
-                formatCloudBackupProgressRemaining(remaining),
-            ]);
-        };
-        updateBudget();
-
-        if (timeoutBudgetMs) body.append(status, budget, list);
-        else body.append(status, list);
-
-        let closeModal: (() => void) | null = null;
-        const budgetTimer = timeoutBudgetMs
-            ? window.setInterval(updateBudget, 1000)
-            : null;
-        void modal.showCustom({
-            kind: 'info',
-            title,
-            body,
-            footer: (footer, close) => {
-                closeModal = close;
-                const working = document.createElement('button');
-                working.type = 'button';
-                working.className = 'mock-modal__button mock-modal__button--secondary';
-                working.textContent = tr('cloudBackupProgressWorking', 'Working...');
-                working.disabled = true;
-                footer.appendChild(working);
-            },
-            onDismiss: () => {
-                if (budgetTimer !== null) window.clearInterval(budgetTimer);
-                closeModal = null;
-            },
-        });
-
-        return {
-            update: (message: string) => {
-                status.textContent = message;
-                Array.from(list.children).forEach((child) => {
-                    const item = child as HTMLElement;
-                    item.dataset.active = item.textContent === message ? '1' : '0';
-                });
-            },
-            close: () => {
-                const close = closeModal;
-                closeModal = null;
-                if (budgetTimer !== null) window.clearInterval(budgetTimer);
-                window.setTimeout(() => close?.(), 0);
-            },
-        };
-    }
-
-    private async chooseCloudSnapshot(snapshots: CloudBackupSnapshotSummary[]): Promise<CloudBackupSnapshotSummary | null> {
-        const modal = this.modalHost;
-        if (!modal) return snapshots[0] ?? null;
-        return new Promise((resolve) => {
-            const body = document.createElement('div');
-            body.className = 'cloud-backup-settings-modal';
-
-            const description = document.createElement('p');
-            description.textContent = tr(
-                'cloudBackupChooseSnapshotDesc',
-                'Choose the Google Drive backup to inspect. This step only previews a safe merge and does not change local bookmarks.',
-            );
-
-            let selectedId = snapshots[0]?.snapshotId ?? null;
-            const list = document.createElement('div');
-            list.className = 'cloud-backup-snapshot-list';
-            list.dataset.role = 'cloud-backup-snapshot-list';
-
-            const updateSelected = () => {
-                Array.from(list.querySelectorAll<HTMLElement>('.cloud-backup-snapshot-option')).forEach((option) => {
-                    const selected = option.dataset.snapshotId === selectedId;
-                    option.dataset.selected = selected ? '1' : '0';
-                    option.setAttribute('aria-checked', selected ? 'true' : 'false');
-                });
-            };
-
-            snapshots.forEach((snapshot, index) => {
-                const option = document.createElement('button');
-                option.type = 'button';
-                option.className = 'cloud-backup-snapshot-option';
-                option.dataset.snapshotId = snapshot.snapshotId;
-                option.dataset.selected = index === 0 ? '1' : '0';
-                option.setAttribute('role', 'radio');
-                option.setAttribute('aria-checked', index === 0 ? 'true' : 'false');
-
-                const radio = document.createElement('span');
-                radio.className = 'cloud-backup-snapshot-radio';
-                radio.setAttribute('aria-hidden', 'true');
-
-                const content = document.createElement('span');
-                content.className = 'cloud-backup-snapshot-content';
-
-                const createdAt = document.createElement('strong');
-                createdAt.className = 'cloud-backup-snapshot-time';
-                createdAt.textContent = formatCloudBackupSnapshotCreatedAt(snapshot.createdAt);
-
-                const name = document.createElement('span');
-                name.className = 'cloud-backup-snapshot-name';
-                name.textContent = snapshot.name;
-                name.title = snapshot.name;
-
-                const size = document.createElement('span');
-                size.className = 'cloud-backup-snapshot-size';
-                size.textContent = formatCloudBackupSnapshotSize(snapshot.size);
-
-                content.append(createdAt, name, size);
-                option.append(radio, content);
-                option.addEventListener('click', () => {
-                    selectedId = snapshot.snapshotId;
-                    updateSelected();
-                });
-                list.appendChild(option);
-            });
-
-            body.append(description, list);
-            void modal.showCustom({
-                kind: 'info',
-                title: tr('cloudBackupChooseSnapshotTitle', 'Choose Google Drive backup'),
-                body,
-                footer: (footer, close) => {
-                    const cancel = document.createElement('button');
-                    cancel.type = 'button';
-                    cancel.className = 'mock-modal__button mock-modal__button--secondary';
-                    cancel.textContent = tr('btnCancel', 'Cancel');
-                    cancel.dataset.action = 'modal-cancel';
-                    cancel.addEventListener('click', () => {
-                        close();
-                        resolve(null);
-                    });
-
-                    const confirm = document.createElement('button');
-                    confirm.type = 'button';
-                    confirm.className = 'mock-modal__button mock-modal__button--primary';
-                    confirm.textContent = tr('cloudBackupRestore', 'Preview restore');
-                    confirm.dataset.action = 'modal-confirm';
-                    confirm.addEventListener('click', () => {
-                        const selected = snapshots.find((snapshot) => snapshot.snapshotId === selectedId) ?? snapshots[0] ?? null;
-                        close();
-                        resolve(selected);
-                    });
-
-                    footer.append(cancel, confirm);
-                    window.setTimeout(() => list.querySelector<HTMLElement>('.cloud-backup-snapshot-option')?.focus(), 0);
-                },
-                onDismiss: () => resolve(null),
-            });
-        });
-    }
-
-    private async showGoogleDriveBackupSettings(): Promise<void> {
-        const modal = this.modalHost;
-        if (!modal) return;
-        const body = document.createElement('div');
-        body.className = 'cloud-backup-settings-modal';
-
-        const summary = document.createElement('div');
-        summary.className = 'settings-label settings-item-info';
-        const title = document.createElement('strong');
-        title.textContent = 'Google Drive';
-        const privacy = document.createElement('p');
-        privacy.className = 'cloud-backup-settings-modal__privacy';
-        privacy.textContent = tr('cloudBackupPrivacyNote', 'AI-MarkDone does not collect your Google account, token, password, or bookmarks.');
-        summary.append(title, privacy);
-        body.appendChild(summary);
-
-        const statusRow = document.createElement('div');
-        statusRow.className = 'settings-row settings-item cloud-backup-settings-modal__status-card';
-        const statusInfo = document.createElement('div');
-        statusInfo.className = 'settings-label settings-item-info';
-        const statusTitle = document.createElement('strong');
-        statusTitle.textContent = tr('cloudBackupStatusLabel', 'Status');
-        const status = document.createElement('p');
-        status.textContent = tr('cloudBackupStatusChecking', 'Checking Google Drive status...');
-        const account = document.createElement('p');
-        account.className = 'cloud-backup-settings-modal__account';
-        account.hidden = true;
-        statusInfo.append(statusTitle, status);
-        statusInfo.appendChild(account);
-        statusRow.appendChild(statusInfo);
-        body.appendChild(statusRow);
-
-        const actions = document.createElement('div');
-        actions.className = 'cloud-backup-settings-modal__actions';
-        body.appendChild(actions);
-
-        const formatAccount = (data: any): string => {
-            const accountData = data?.connectedAccount && typeof data.connectedAccount === 'object' ? data.connectedAccount : data;
-            const displayName = typeof accountData?.accountDisplayName === 'string' ? accountData.accountDisplayName.trim() : '';
-            const email = typeof accountData?.accountEmail === 'string' ? accountData.accountEmail.trim() : '';
-            return displayName && email ? `${displayName} · ${email}` : displayName || email;
-        };
-
-        const setStatus = async () => {
-            const result = await cloudBackupClient.status('googleDrive');
-            if (!result.ok) {
-                status.textContent = result.message;
-                account.hidden = true;
-                return;
-            }
-            const accountText = formatAccount(result.data);
-            if (result.data?.connected) {
-                status.textContent = accountText
-                    ? (() => {
-                        const translated = tr('cloudBackupConnectedAs', 'Connected as $1', [accountText]);
-                        return translated && translated !== 'cloudBackupConnectedAs' ? translated : `Connected as ${accountText}`;
-                    })()
-                    : tr('cloudBackupConnectedStatus', 'Connected');
-            } else {
-                status.textContent = tr('cloudBackupDisconnected', 'Not connected');
-            }
-            account.hidden = !accountText;
-            account.textContent = accountText;
-            account.title = accountText;
-        };
-
-        const list = document.createElement('button');
-        list.type = 'button';
-        list.className = 'secondary-btn';
-        list.textContent = tr('cloudBackupTestConnection', 'Test connection');
-        list.addEventListener('click', () => void (async () => {
-            list.disabled = true;
-            status.textContent = tr('cloudBackupProgressConfirmingAccess', 'Confirming Google Drive access...');
-            try {
-                const result = await cloudBackupClient.listSnapshots('googleDrive');
-                status.textContent = result.ok
-                    ? tr('cloudBackupSnapshotCount', '$1 Google Drive backup(s) found.', [String(result.data.snapshots?.length ?? 0)])
-                    : result.message;
-            } finally {
-                list.disabled = false;
-            }
-        })());
-
-        const manage = document.createElement('button');
-        manage.type = 'button';
-        manage.className = 'secondary-btn';
-        manage.textContent = tr('cloudBackupManageBackups', 'Manage cloud backups');
-        manage.addEventListener('click', () => void this.showCloudBackupManager());
-
-        actions.append(list, manage);
-        await setStatus();
-        await modal.showCustom({
-            kind: 'info',
-            title: tr('cloudBackupGoogleDriveSettingsTitle', 'Google Drive backup settings'),
-            body,
-        });
-    }
-
-    private async showCloudBackupManager(): Promise<void> {
-        const modal = this.modalHost;
-        if (!modal) return;
-        const body = document.createElement('div');
-        body.className = 'cloud-backup-settings-modal';
-        const description = document.createElement('p');
-        description.textContent = tr(
-            'cloudBackupManageBackupsDesc',
-            'These are backup files AI-MarkDone created in your Google Drive. Moving one to trash never changes local bookmarks.',
-        );
-        const listRoot = document.createElement('div');
-        listRoot.className = 'cloud-backup-manager-list';
-        listRoot.dataset.role = 'cloud-backup-manager-list';
-        body.append(description, listRoot);
-
-        const loadSnapshots = async () => {
-            listRoot.dataset.state = 'loading';
-            listRoot.textContent = tr('cloudBackupProgressConfirmingAccess', 'Confirming Google Drive access...');
-            const result = await cloudBackupClient.listSnapshots('googleDrive');
-            if (!result.ok) {
-                listRoot.dataset.state = 'error';
-                listRoot.textContent = result.message;
-                return;
-            }
-            const snapshots = result.data.snapshots ?? [];
-            if (snapshots.length === 0) {
-                listRoot.dataset.state = 'empty';
-                listRoot.textContent = tr('cloudBackupManageEmpty', 'No Google Drive backups yet.');
-                return;
-            }
-            listRoot.dataset.state = 'ready';
-            listRoot.replaceChildren(...snapshots.map((snapshot: CloudBackupSnapshotSummary) => {
-                const row = document.createElement('article');
-                row.className = 'cloud-backup-manager-item';
-                const info = document.createElement('div');
-                info.className = 'cloud-backup-manager-info';
-
-                const createdAt = document.createElement('strong');
-                createdAt.textContent = formatCloudBackupSnapshotCreatedAt(snapshot.createdAt);
-
-                const fileName = document.createElement('span');
-                fileName.className = 'cloud-backup-manager-name';
-                fileName.textContent = snapshot.name;
-                fileName.title = snapshot.name;
-
-                const size = document.createElement('span');
-                size.className = 'cloud-backup-manager-size';
-                size.textContent = formatCloudBackupSnapshotSize(snapshot.size);
-                info.append(createdAt, fileName, size);
-
-                const trash = document.createElement('button');
-                trash.type = 'button';
-                trash.className = 'secondary-btn secondary-btn--danger cloud-backup-manager-trash';
-                trash.textContent = tr('cloudBackupMoveToTrash', 'Move to trash');
-                trash.addEventListener('click', () => void (async () => {
-                    const confirmed = await modal.confirm({
-                        kind: 'warning',
-                        title: tr('cloudBackupMoveToTrashConfirmTitle', 'Move backup to trash?'),
-                        message: tr('cloudBackupMoveToTrashConfirmDesc', 'This moves "$1" to Google Drive trash. Local bookmarks will not be changed.', [snapshot.name]),
-                        confirmText: tr('cloudBackupMoveToTrash', 'Move to trash'),
-                        cancelText: tr('btnCancel', 'Cancel'),
-                        danger: true,
-                    });
-                    if (!confirmed) return;
-                    trash.disabled = true;
-                    trash.textContent = tr('cloudBackupProgressConfirmingAccess', 'Confirming Google Drive access...');
-                    const deleted = await cloudBackupClient.deleteSnapshot({ provider: 'googleDrive', snapshotId: snapshot.snapshotId });
-                    trash.disabled = false;
-                    trash.textContent = tr('cloudBackupMoveToTrash', 'Move to trash');
-                    if (!deleted.ok) {
-                        await modal.alert({ kind: 'error', title: tr('cloudBackupErrorTitle', 'Google Drive backup failed'), message: deleted.message, confirmText: tr('btnOk', 'OK') });
-                        return;
-                    }
-                    await loadSnapshots();
-                })());
-
-                row.append(info, trash);
-                return row;
-            }));
-        };
-
-        await loadSnapshots();
-        await modal.showCustom({
-            kind: 'info',
-            title: tr('cloudBackupManageBackups', 'Manage cloud backups'),
-            body,
-        });
-    }
 }

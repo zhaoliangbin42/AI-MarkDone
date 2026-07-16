@@ -21,19 +21,22 @@ export class SurfaceFocusLifecycle {
     private opener: HTMLElement | null = null;
     private focusTimer: number | null = null;
 
-    capture(): void {
-        this.opener = document.activeElement instanceof HTMLElement ? document.activeElement : null;
+    capture(opener?: HTMLElement | null): void {
+        this.opener = opener?.isConnected
+            ? opener
+            : (document.activeElement instanceof HTMLElement ? document.activeElement : null);
     }
 
     scheduleInitialFocus(params: {
         surface: HTMLElement | null | undefined;
         selectors?: string[];
+        delayMs?: number;
     }): void {
         this.clearPendingFocus();
         const surface = params.surface ?? null;
         if (!surface) return;
 
-        const delayMs = getSurfaceOpenDuration(surface);
+        const delayMs = params.delayMs ?? getSurfaceOpenDuration(surface);
         this.focusTimer = window.setTimeout(() => {
             if (!surface.isConnected) return;
             const target = findPreferredFocusable(surface, params.selectors ?? []) ?? findFocusable(surface);

@@ -27,10 +27,39 @@ local/
 Debug/
 .tmp*
 archive/
-mocks/
-!mocks/
+mocks/*
 !mocks/components/
-!mocks/components/**
+mocks/components/*
+!mocks/components/browserExtensionMock.ts
+!mocks/components/visualHarnessBridge.ts
+!mocks/components/design-system/
+!mocks/components/design-system/**
+!mocks/components/formula-composer-assistant/
+!mocks/components/formula-composer-assistant/**
+!mocks/components/formula-asset-actions/
+!mocks/components/formula-asset-actions/**
+!mocks/components/input-enhancement/
+!mocks/components/input-enhancement/**
+!mocks/components/prompt-family/
+!mocks/components/prompt-family/**
+!mocks/components/workflow-dialogs/
+!mocks/components/workflow-dialogs/**
+!mocks/components/overlay-host/
+!mocks/components/overlay-host/**
+!mocks/components/reader-comments/
+!mocks/components/reader-comments/**
+!mocks/components/reader-panel/
+!mocks/components/reader-panel/**
+!mocks/components/unsupported-popup/
+!mocks/components/unsupported-popup/**
+!mocks/components/host-integrated-controls/
+!mocks/components/host-integrated-controls/**
+!mocks/components/bookmarks-workspace/
+!mocks/components/bookmarks-workspace/**
+!mocks/pages/
+mocks/pages/*
+!mocks/pages/style-system/
+!mocks/pages/style-system/**
 
 # Logs
 *.log
@@ -80,7 +109,6 @@ tmp/
 tests/fixtures/*
 !tests/fixtures/image-export/
 !tests/fixtures/image-export/**
-mocks/
 
 # Tooling artifacts
 vite.config.ts.timestamp-*.mjs

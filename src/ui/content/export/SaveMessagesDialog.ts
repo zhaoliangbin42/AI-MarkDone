@@ -13,7 +13,6 @@ import {
 import type { SiteAdapter } from '../../../drivers/content/adapters/base';
 import type { ChatGPTConversationEngine } from '../../../drivers/content/chatgpt/ChatGPTConversationEngine';
 import { buildConversationMetadata } from '../../../drivers/content/conversation/metadata';
-import { getTokenCss, type UserThemeOverrides } from '../../../style/tokens';
 import { subscribeLocaleChange, t } from '../components/i18n';
 import type { ExportProgressEvent, TranslateFn, SaveFormat } from '../../../services/export/saveMessagesTypes';
 import {
@@ -27,13 +26,15 @@ import { xIcon, fileCodeIcon, fileTextIcon, imageIcon } from '../../../assets/ic
 import { OverlaySession } from '../overlay/OverlaySession';
 import { TooltipDelegate } from '../../../utils/tooltip';
 import { createIcon } from '../components/Icon';
-import { beginSurfaceMotionClose, setSurfaceMotionOpening } from '../components/motionLifecycle';
-import { cancelSurfaceMotionClose } from '../components/motionLifecycle';
 import { ensureBackdropElement, ensureStableElementFromHtml } from '../components/stableSurface';
 import { SurfaceFocusLifecycle } from '../components/surfaceFocusLifecycle';
+import {
+    areAppearanceSnapshotsEqual,
+    createAppearanceSnapshot,
+    type AppearanceSnapshot,
+} from '../../../style/appearance';
 
 type State = {
-    theme: Theme;
     format: SaveFormat;
     selected: Set<number>;
     saving: boolean;
@@ -57,10 +58,9 @@ export class SaveMessagesDialog {
     private resolvedPngWidth = resolvePngExportWidth(DEFAULT_EXPORT_SETTINGS);
     private resolvedPngPixelRatio = resolvePngExportPixelRatio(DEFAULT_EXPORT_SETTINGS);
     private markdownFormulaFormat: FormulaSourceFormat = DEFAULT_FORMULA_SOURCE_FORMAT;
-    private themeOverrides: UserThemeOverrides = {};
+    private appearance: AppearanceSnapshot = createAppearanceSnapshot('light');
 
     private state: State = {
-        theme: 'light',
         format: 'markdown',
         selected: new Set(),
         saving: false,
@@ -86,16 +86,10 @@ export class SaveMessagesDialog {
         this.markdownFormulaFormat = normalizeFormulaSourceFormat(format);
     }
 
-    setTheme(theme: Theme): void {
-        this.state.theme = theme;
-        this.overlaySession?.setTheme(theme);
-        this.overlaySession?.setSurfaceCss(this.getCss());
-    }
-
-    setThemeOverrides(overrides: UserThemeOverrides): void {
-        this.themeOverrides = { ...overrides };
-        this.overlaySession?.setThemeOverrides(this.themeOverrides);
-        this.overlaySession?.setSurfaceCss(this.getCss());
+    setAppearance(snapshot: AppearanceSnapshot): void {
+        if (areAppearanceSnapshotsEqual(this.appearance, snapshot)) return;
+        this.appearance = snapshot;
+        this.overlaySession?.setAppearance(snapshot);
     }
 
     async open(
@@ -108,7 +102,7 @@ export class SaveMessagesDialog {
     ): Promise<void> {
         this.focusLifecycle.capture();
         this.adapter = adapter;
-        this.state.theme = theme;
+        this.setAppearance(createAppearanceSnapshot(theme, this.appearance.overrides));
 
         const { items, startIndex } = await collectFreshReaderContent(adapter, options?.startMessageElement ?? null, {
             chatGptConversationEngine: options?.chatGptConversationEngine ?? null,
@@ -124,10 +118,7 @@ export class SaveMessagesDialog {
         this.state.progressText = '';
         this.state.progressValue = null;
         if (this.overlaySession && this.closing) {
-            cancelSurfaceMotionClose({
-                shell: this.overlaySession.surfaceRoot.querySelector<HTMLElement>('.panel-window'),
-                backdrop: this.overlaySession.backdropRoot.querySelector<HTMLElement>('.panel-stage__overlay'),
-            });
+            this.overlaySession.cancelSurfaceClose();
         }
         this.closing = false;
         this.motionNeedsOpen = !this.overlaySession;
@@ -143,13 +134,12 @@ export class SaveMessagesDialog {
         const backdrop = this.overlaySession?.backdropRoot.querySelector<HTMLElement>('.panel-stage__overlay');
         if (this.overlaySession && panel) {
             this.closing = true;
-            beginSurfaceMotionClose({
-                shell: panel,
+            const started = this.overlaySession.closeSurface({
+                surface: panel,
                 backdrop,
                 onClosed: () => this.finishClose(),
-                fallbackMs: 560,
             });
-            return;
+            if (started) return;
         }
         this.finishClose();
     }
@@ -175,12 +165,13 @@ export class SaveMessagesDialog {
 
         const session = new OverlaySession({
             id: 'aimd-save-messages-dialog-host',
-            theme: this.state.theme,
-            themeOverrides: this.themeOverrides,
+            theme: this.appearance.theme,
+            themeOverrides: this.appearance.overrides,
             surfaceCss: this.getCss(),
             lockScroll: true,
             surfaceStyleId: 'aimd-save-messages-dialog-structure',
             overlayStyleId: 'aimd-save-messages-dialog-overlay-extra',
+            profile: 'modal',
         });
 
         this.overlaySession = session;
@@ -203,13 +194,13 @@ export class SaveMessagesDialog {
     private render(): void {
         if (!this.overlaySession || this.closing) return;
 
-        this.overlaySession.setSurfaceCss(this.getCss());
         const { element: backdrop, isNew: isNewBackdrop } = ensureBackdropElement(this.overlaySession.backdropRoot, 'panel-stage__overlay');
         const { element: panel, isNew: isNewPanel } = ensureStableElementFromHtml<HTMLElement>(
             this.overlaySession.surfaceRoot,
             '.panel-window--save',
             this.getHtml(),
         );
+        this.overlaySession.syncSurfaceMotion({ surface: panel, backdrop });
         this.overlaySession.syncKeyboardScope({
             root: this.overlaySession.host,
             onEscape: () => this.close(),
@@ -218,7 +209,7 @@ export class SaveMessagesDialog {
             trapTabWithin: panel ?? this.overlaySession.host,
         });
         if (this.motionNeedsOpen && (isNewBackdrop || isNewPanel)) {
-            setSurfaceMotionOpening([backdrop, panel]);
+            this.overlaySession.openSurface({ surface: panel, backdrop });
             this.focusLifecycle.scheduleInitialFocus({
                 surface: panel,
                 selectors: ['[data-action="save-turns"]', '[data-action="close-panel"]'],
@@ -370,7 +361,7 @@ export class SaveMessagesDialog {
         const totalProgressValue = this.state.progressValue ?? 0;
 
         return `
-<div class="panel-window panel-window--dialog panel-window--save" role="dialog" aria-modal="true" aria-label="${escapeHtml(title)}">
+<div class="panel-window panel-window--dialog panel-window--save workflow-dialog" role="dialog" aria-modal="true" aria-label="${escapeHtml(title)}" aria-busy="${this.state.saving ? 'true' : 'false'}">
   <div class="panel-header">
     <div class="panel-header__meta">
       <h2>${escapeHtml(title)}</h2>
@@ -379,7 +370,7 @@ export class SaveMessagesDialog {
       <button class="icon-btn" data-action="close-panel" aria-label="${escapeHtml(closeLabel)}" data-tooltip="${escapeHtml(closeLabel)}">${iconMarkup(xIcon)}</button>
     </div>
   </div>
-  <div class="dialog-body">
+  <div class="dialog-body workflow-dialog__body">
     <div class="section-label">${escapeHtml(selectMessagesLabel)}</div>
     <div class="message-grid">
       ${this.turns.map((turn, index) => {
@@ -396,7 +387,7 @@ export class SaveMessagesDialog {
     ${showProgress ? `
     <div class="progress-panel">
       <div class="progress-row">
-        <div class="progress-label">${escapeHtml(this.state.progressText)}</div>
+        <div class="progress-label workflow-dialog__status" data-tone="muted" role="status" aria-live="polite">${escapeHtml(this.state.progressText)}</div>
         <div class="progress-track" role="progressbar" aria-label="${escapeHtml(this.getLabel('pngExportTotalProgressLabel', 'Total export'))}" aria-valuemin="0" aria-valuemax="100" aria-valuenow="${totalProgressValue}">
           <div class="progress-fill" style="width: ${totalProgressValue}%"></div>
         </div>
@@ -408,7 +399,7 @@ export class SaveMessagesDialog {
       <button class="secondary-btn secondary-btn--compact" data-action="select-all-turns">${escapeHtml(selectAllLabel)}</button>
       <button class="secondary-btn secondary-btn--compact secondary-btn--ghost" data-action="deselect-all-turns">${escapeHtml(deselectAllLabel)}</button>
     </div>
-    <div class="footer-cluster">
+    <div class="footer-cluster workflow-dialog__actions">
       <div class="counter">${escapeHtml(countLabel)}</div>
       ${showCancel ? `<button class="secondary-btn secondary-btn--compact secondary-btn--ghost" data-action="cancel-png-export">${escapeHtml(cancelLabel)}</button>` : ''}
       <button class="secondary-btn secondary-btn--compact secondary-btn--primary" data-action="save-turns" ${this.state.selected.size === 0 || this.state.saving ? 'disabled' : ''}>${escapeHtml(saveLabel)}</button>
@@ -419,10 +410,7 @@ export class SaveMessagesDialog {
     }
 
     private getCss(): string {
-        return `
-${getTokenCss(this.state.theme, this.themeOverrides)}
-${getSaveMessagesDialogCss(this.state.theme)}
-`;
+        return getSaveMessagesDialogCss();
     }
 
     private getLabel(key: string, fallback: string, substitutions?: string[]): string {

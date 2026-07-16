@@ -1,0 +1,63 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>AI-MarkDone Reader Panel</title>
+    <style>
+      :root { color-scheme: light dark; }
+      * { box-sizing: border-box; }
+      body {
+        margin: 0;
+        min-height: 100vh;
+        font-family: system-ui, sans-serif;
+        background: #f5f5f4;
+        color: #1c1917;
+      }
+      body[data-theme="dark"] { background: #171717; color: #f5f5f4; }
+      main {
+        min-height: 100vh;
+        padding: 24px;
+        display: grid;
+        place-items: center;
+      }
+      .conversation {
+        width: min(760px, 100%);
+        display: grid;
+        gap: 12px;
+      }
+      .conversation h1 { margin: 0; font-size: 22px; }
+      .conversation > p { margin: 0; opacity: 0.72; }
+      .turn {
+        min-width: 0;
+        padding: 18px;
+        border: 1px solid currentColor;
+        border-radius: 18px;
+        opacity: 0.9;
+      }
+      .user-message { margin-bottom: 12px; font-weight: 650; }
+      .assistant-content { line-height: 1.6; opacity: 0.8; }
+      .official-actions { min-height: 34px; margin-top: 12px; display: flex; align-items: center; }
+      @media (max-width: 560px) {
+        main { padding: 12px; }
+        .turn { padding: 14px; }
+      }
+    </style>
+  </head>
+  <body>
+    <main>
+      <section class="conversation" data-role="conversation-root">
+        <h1 data-role="fixture-title">Reader panel entry</h1>
+        <p data-role="fixture-description">The production toolbar and page control open the production Reader panel.</p>
+        <article class="turn">
+          <div class="user-message" data-message-author-role="user">Design a durable interface architecture for a browser extension.</div>
+          <div class="assistant-message" data-message-id="assistant-1">
+            <div class="assistant-content">A production Reader fixture with long-form Markdown, navigation, settings, comments, and responsive chrome.</div>
+            <div class="official-actions"></div>
+          </div>
+        </article>
+      </section>
+    </main>
+    <script type="module" src="./main.ts"></script>
+  </body>
+</html>

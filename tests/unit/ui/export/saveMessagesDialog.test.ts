@@ -450,7 +450,7 @@ describe('SaveMessagesDialog', () => {
 
     it('uses stronger semantic hover rules for chips and segmented buttons', async () => {
         const { getSaveMessagesDialogCss } = await import('@/ui/content/export/saveMessagesDialogCss');
-        const css = getSaveMessagesDialogCss('light');
+        const css = getSaveMessagesDialogCss();
 
         expect(css).not.toContain('background: color-mix(in srgb, var(--aimd-bg-secondary) 76%, transparent);');
         expect(css).toContain('.message-chip:hover');
@@ -458,9 +458,30 @@ describe('SaveMessagesDialog', () => {
         expect(css).toContain('.segmented button:hover');
     });
 
+    it('uses the modal Surface profile with one scrollable dialog body', async () => {
+        await setLocale('en');
+        const adapter = { getPlatformId: () => 'chatgpt' } as any;
+        const dlg = new SaveMessagesDialog();
+
+        await dlg.open(adapter, 'light');
+
+        const host = document.getElementById('aimd-save-messages-dialog-host')!;
+        const shadow = host.shadowRoot!;
+        const panel = shadow.querySelector<HTMLElement>('.panel-window--save')!;
+        const body = shadow.querySelector<HTMLElement>('.dialog-body')!;
+
+        expect(panel.style.getPropertyValue('--_surface-motion-open-duration')).toBe('280ms');
+        expect(panel.getAttribute('aria-busy')).toBe('false');
+        expect(body.classList.contains('workflow-dialog__body')).toBe(true);
+
+        dlg.close();
+        expect(panel.style.getPropertyValue('--_surface-motion-close-duration')).toBe('220ms');
+        panel.dispatchEvent(new Event('animationend', { bubbles: true }));
+    });
+
     it('keeps save-message chips at a uniform width regardless of label digits', async () => {
         const { getSaveMessagesDialogCss } = await import('@/ui/content/export/saveMessagesDialogCss');
-        const css = getSaveMessagesDialogCss('light');
+        const css = getSaveMessagesDialogCss();
 
         expect(css).toContain('width: 42px;');
         expect(css).toContain('min-width: 42px;');

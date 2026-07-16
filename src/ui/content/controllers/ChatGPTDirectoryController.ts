@@ -12,8 +12,13 @@ import {
     type ChatGPTRoundPosition,
     type ChatGPTSkeletonAnchor,
 } from '../chatgptDirectory/navigation';
-import type { UserThemeOverrides } from '../../../style/tokens';
+import {
+    areAppearanceSnapshotsEqual,
+    createAppearanceSnapshot,
+    type AppearanceSnapshot,
+} from '../../../style/appearance';
 import { AIMD_VIEWPORT_RESIZE_IDLE_EVENT } from './ViewportResizeSuspendController';
+import { subscribeLocaleChange, t } from '../components/i18n';
 
 type DirectoryBookmarksState = {
     refreshPositionsForUrl?: (url: string) => Promise<void>;
@@ -55,7 +60,13 @@ function writeDebugState(patch: Record<string, string | boolean | number | null 
 
 function isLowQualityPrompt(prompt: string | null | undefined): boolean {
     const normalized = (prompt ?? '').trim();
-    return !normalized || /^Message\s+\d+$/i.test(normalized);
+    return !normalized || /^(?:Message|消息)\s+\d+$/i.test(normalized);
+}
+
+function getDirectoryMessageFallback(position: number): string {
+    const key = 'chatgptDirectoryMessageFallback';
+    const label = t(key, String(position));
+    return !label || label === key ? `Message ${position}` : label;
 }
 
 function isLowQualityRoundPrompt(prompt: string | null | undefined, quality?: 'real' | 'fallback'): boolean {
@@ -79,8 +90,7 @@ export class ChatGPTDirectoryController {
     private engine: ChatGPTConversationEngine;
     private bookmarksState: DirectoryBookmarksState | null;
     private rail: ChatGPTDirectoryRail | null = null;
-    private theme: Theme = 'light';
-    private themeOverrides: UserThemeOverrides = {};
+    private appearance: AppearanceSnapshot = createAppearanceSnapshot('light');
     private enabled = true;
     private displayMode: ChatGPTDirectoryMode = 'preview';
     private promptLabelMode: ChatGPTDirectoryPromptLabelMode = 'head';
@@ -101,6 +111,7 @@ export class ChatGPTDirectoryController {
     private unsubscribeEngine: (() => void) | null = null;
     private unsubscribeBookmarks: (() => void) | null = null;
     private unsubscribeRoundChanges: (() => void) | null = null;
+    private unsubscribeLocale: (() => void) | null = null;
     private initialized = false;
     private globalScrollFallbacksBound = false;
     private viewportResizeSuspendBound = false;
@@ -113,11 +124,11 @@ export class ChatGPTDirectoryController {
 
     init(theme: Theme): void {
         if (this.adapter.getPlatformId() !== 'chatgpt') return;
-        this.theme = theme;
+        this.setAppearance(createAppearanceSnapshot(theme, this.appearance.overrides));
         this.ensureRail();
         this.bindViewportResizeSuspend();
         if (this.initialized) {
-            this.rail?.setTheme(theme);
+            this.rail?.setAppearance(this.appearance);
             void this.refresh();
             return;
         }
@@ -138,6 +149,7 @@ export class ChatGPTDirectoryController {
         this.unsubscribeBookmarks = this.bookmarksState?.subscribe?.(() => {
             this.render();
         }) ?? null;
+        this.unsubscribeLocale = subscribeLocaleChange(() => this.render());
         void this.refresh();
     }
 
@@ -166,6 +178,8 @@ export class ChatGPTDirectoryController {
         this.unsubscribeBookmarks = null;
         this.unsubscribeRoundChanges?.();
         this.unsubscribeRoundChanges = null;
+        this.unsubscribeLocale?.();
+        this.unsubscribeLocale = null;
         this.scrollRoot?.removeEventListener('scroll', this.handleScroll, { capture: true } as EventListenerOptions);
         this.scrollRoot = null;
         this.unbindGlobalScrollFallbacks();
@@ -175,14 +189,10 @@ export class ChatGPTDirectoryController {
         this.initialized = false;
     }
 
-    setTheme(theme: Theme): void {
-        this.theme = theme;
-        this.rail?.setTheme(theme);
-    }
-
-    setThemeOverrides(overrides: UserThemeOverrides): void {
-        this.themeOverrides = { ...overrides };
-        this.rail?.setThemeOverrides(this.themeOverrides);
+    setAppearance(snapshot: AppearanceSnapshot): void {
+        if (areAppearanceSnapshotsEqual(this.appearance, snapshot)) return;
+        this.appearance = snapshot;
+        this.rail?.setAppearance(snapshot);
     }
 
     setEnabled(enabled: boolean): void {
@@ -224,9 +234,9 @@ export class ChatGPTDirectoryController {
             }
             return;
         }
-        this.rail = new ChatGPTDirectoryRail(this.theme, (round) => {
+        this.rail = new ChatGPTDirectoryRail(this.appearance.theme, (round) => {
             void this.handleSelect(round);
-        }, this.themeOverrides);
+        }, this.appearance.overrides);
         this.rail.setDisplayMode(this.displayMode);
         this.rail.setPromptLabelMode(this.promptLabelMode);
         document.body.appendChild(this.rail.getElement());
@@ -465,9 +475,11 @@ export class ChatGPTDirectoryController {
             const snapshot = snapshotsByPosition.get(position.position);
             const domPrompt = position.userPromptText?.trim() ?? '';
             const snapshotPrompt = snapshot?.userPrompt?.trim() ?? '';
-            const userPrompt = !isLowQualityRoundPrompt(domPrompt, position.userPromptQuality)
-                ? domPrompt
-                : (!isLowQualityPrompt(snapshotPrompt) ? snapshotPrompt : (domPrompt || snapshotPrompt || `Message ${position.position}`));
+            const usableDomPrompt = isLowQualityRoundPrompt(domPrompt, position.userPromptQuality) ? '' : domPrompt;
+            const usableSnapshotPrompt = isLowQualityPrompt(snapshotPrompt) ? '' : snapshotPrompt;
+            const userPrompt = usableDomPrompt
+                || usableSnapshotPrompt
+                || getDirectoryMessageFallback(position.position);
 
             return {
                 id: snapshot?.id ?? position.id ?? `chatgpt-skeleton-${position.position}`,

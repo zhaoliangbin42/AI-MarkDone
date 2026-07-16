@@ -10,6 +10,7 @@ This guide is the long-term, repeatable end-to-end (E2E) checklist for each rele
   - bookmarks (import/move/delete/export/storage lifecycle)
   - reader rendering (markdown/code/math/table)
   - message boundaries and UI safety
+  - UI Surface lifecycle, appearance, responsive behavior, and real entrypoints
   - i18n/localization consistency
   - build/release artifact integrity
 
@@ -18,6 +19,8 @@ This guide is the long-term, repeatable end-to-end (E2E) checklist for each rele
    - `npm run type-check`
    - `npm run test:smoke`
    - `npm run test:core`
+   - `npm run test:acceptance`
+   - `npm run test:ui:visual -- --full` for a major UI refactor or release candidate with UI changes
    - `npm run build`
 2. Load extension:
    - Chrome: `dist-chrome/`
@@ -81,7 +84,7 @@ TypeScript, JavaScript, Python, Bash, SQL, JSON, YAML, HTML, CSS
 ## 5. Execution Checklist
 
 ### 5.1 Smoke
-- [ ] Toolbar appears on all supported sites
+- [ ] On ChatGPT, each eligible official message action row receives exactly one toolbar
 - [ ] Bookmark panel opens/closes repeatedly without error
 - [ ] Reader opens and navigation works
 - [ ] No raw i18n key shown (`btnDelete`, `btnCancel`, etc.)
@@ -115,18 +118,30 @@ TypeScript, JavaScript, Python, Bash, SQL, JSON, YAML, HTML, CSS
 - [ ] Tables render correctly
 - [ ] Markdown copy content is complete and ordered
 
-### 5.6 Performance Observation
+### 5.6 UI Surface And Responsive Matrix
+- [ ] Input Enhancement button remains unique after ChatGPT hydration replacement; popover and syntax guide open from the real composer button, close with Escape/outside click, and restore focus
+- [ ] Formula composer suggestions/preview and Prompt autocomplete/manager stay anchored, remain inside the visual viewport, and do not steal host Enter/IME behavior outside their active context
+- [ ] Toolbar hover action, task progress, tooltip, and toast preserve the official action-row layout and clean up after dismissal
+- [ ] Directory preview closes before compact/hide fallback; lower-right page controls remain one unwrapped icon-only cluster at narrow widths and do not cover the composer
+- [ ] In-page Reader and Detached Reader share navigation, fullscreen/panel, short-height, settings, comments, Prompt picker, and Send behavior; header/footer actions remain reachable and the body is the only panel scroll owner
+- [ ] Bookmarks workspace, Settings, Cloud Backup, Bookmark Save, Save Messages, shared dialogs, and Send keep pending/error/disabled states stable and never hide the primary/cancel action
+- [ ] Unsupported-page popup remains readable and operable at 320px with localized copy and no horizontal overflow
+- [ ] Validate widths 320/390/768/1024/1440px and height-constrained cases at 568/900px; repeat the narrowest reflow at 200% browser zoom
+- [ ] Validate light/dark, English/Chinese long copy, default/reduced motion, keyboard-only Tab/Shift+Tab/Escape/Enter, and two instances where the Surface supports them
+- [ ] No horizontal overflow, clipped control, unreachable action, double page/Surface scroll, viewport escape, duplicate host, stale scroll lock/listener, or console error
+
+### 5.7 Performance Observation
 - [ ] 3000 import operation remains responsive
 - [ ] 1000 batch move remains responsive
 - [ ] 1000 batch delete remains responsive
 - [ ] No prolonged frozen UI observed
 
-### 5.7 Cross-Browser
-- [ ] Full flow on Chrome
-- [ ] Full flow on Firefox
+### 5.8 Cross-Browser
+- [ ] Full product and UI Surface flow on Chrome MV3
+- [ ] Full product and UI Surface flow on Firefox MV2
 - [ ] Compare behavior parity (feature + text + resource)
 
-### 5.8 Build Artifact Integrity
+### 5.9 Build Artifact Integrity
 - [ ] `dist-chrome/manifest.json` equals `manifest.chrome.json`
 - [ ] `dist-firefox/manifest.json` equals `manifest.firefox.json`
 - [ ] KaTeX CSS + fonts present in both targets
@@ -139,6 +154,7 @@ A run is considered pass only if all below are true:
 3. Reader does not lose code blocks or break fenced rendering under long content.
 4. No raw i18n keys visible in user UI.
 5. Core automated gates and build gates are green.
+6. Cataloged Surfaces have no clipped or unreachable controls, viewport escape, duplicate/stale hosts, focus loss, or page/Surface double scrolling in the required responsive matrix.
 
 ## 7. Defect Logging Template
 For each failure, record:
@@ -153,5 +169,6 @@ For each failure, record:
 9. Suspected module
 
 ## 8. Recommended Run Cadence
-- Every feature merge affecting bookmarks/reader/settings: run Sections 5.1~5.6.
-- Before release tag: run full Sections 5.1~5.8 on both browsers.
+- Every feature merge affecting bookmarks/reader/settings: run Sections 5.1~5.7.
+- Every material UI-system change: run Sections 5.1, 5.2, 5.6, and the affected product flow on both browsers.
+- Before release tag: run full Sections 5.1~5.9 on both browsers.

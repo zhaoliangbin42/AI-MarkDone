@@ -23,10 +23,12 @@
 - `docs/architecture/RUNTIME_PROTOCOL.md`
 - `docs/architecture/BROWSER_COMPATIBILITY.md`
 
-### Refactor
+### Refactor And Closeout Records
 
-These are transition-execution documents, not long-lived architecture authority:
+These documents record bounded refactor execution and closeout evidence. They do not replace the long-lived architecture authority above:
 
+- `docs/refactor/UI_SYSTEM_REFACTOR_PLAN.md`
+  - delivered UI-system convergence, phase history, and Phase 7 closeout evidence
 - `docs/refactor/REFACTOR_CHECKLIST.md`
 - `docs/rewrite/PROGRAM.md`
 - `docs/rewrite/FEATURE_PARITY.md`
@@ -54,7 +56,7 @@ These are transition-execution documents, not long-lived architecture authority:
 ### Style
 
 - `docs/design.md`
-  - single authority for product feel, UI tokens, component rules, Shadow DOM style injection, and design-system migration
+  - single authority for product feel, UI tokens, component rules, Shadow DOM style injection, and UI-system governance
 
 ### Testing
 
@@ -105,3 +107,4 @@ These are transition-execution documents, not long-lived architecture authority:
   - `docs/testing/E2E_REGRESSION_GUIDE.md`
 - Style-system and UI workflow changes
   - `docs/design.md`
+  - `docs/refactor/UI_SYSTEM_REFACTOR_PLAN.md` for implementation history and closeout evidence

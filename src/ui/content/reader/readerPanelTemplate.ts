@@ -13,13 +13,13 @@ import {
     xIcon,
 } from '../../../assets/icons';
 import { getPanelChromeCss } from '../components/styles/panelChromeCss';
-import { getMarkdownThemeCss } from '../components/markdownTheme';
+import { getMarkdownThemeCss } from '../../../services/renderer/markdownTheme';
 import type { ReaderItem } from '../../../services/reader/types';
 import type { ReaderUserPromptDisplay } from '../../../services/reader/userPromptDisplay';
 import type { ReaderOutlineItem } from '../../../services/renderer/renderMarkdown';
 
 type ReaderTemplateState = {
-    items: ReaderItem[];
+    items: readonly ReaderItem[];
     index: number;
     fullscreen: boolean;
     panelSizeRatio: { widthRatio: number; heightRatio: number };
@@ -28,9 +28,9 @@ type ReaderTemplateState = {
     stickyEnabled: boolean;
     stickyOpen: boolean;
     stickyWidthPx: number;
-    stickyBlocks: ReaderStickyBlockTemplate[];
+    stickyBlocks: readonly ReaderStickyBlockTemplate[];
     renderedHtml: string;
-    outlineItems: ReaderOutlineItem[];
+    outlineItems: readonly ReaderOutlineItem[];
     activeOutlineId: string;
     showOutlineRail: boolean;
     userPromptDisplay: ReaderUserPromptDisplay;
@@ -71,7 +71,7 @@ function renderUserPromptMarkup(display: ReaderUserPromptDisplay): string {
 }
 
 function renderOutlineMarkup(params: {
-    outlineItems: ReaderOutlineItem[];
+    outlineItems: readonly ReaderOutlineItem[];
     activeOutlineId: string;
     getLabel: (key: string, fallback: string, substitutions?: string | string[]) => string;
 }): string {
@@ -103,7 +103,7 @@ function renderStickyMarkup(params: {
     enabled: boolean;
     open: boolean;
     widthPx: number;
-    blocks: ReaderStickyBlockTemplate[];
+    blocks: readonly ReaderStickyBlockTemplate[];
     getLabel: (key: string, fallback: string, substitutions?: string | string[]) => string;
 }): string {
     const { enabled, open, widthPx, blocks, getLabel } = params;
@@ -157,6 +157,8 @@ export function getReaderPanelHtml(params: {
         ? getLabel('exitFullscreen', 'Exit fullscreen')
         : getLabel('toggleFullscreen', 'Toggle fullscreen');
     const settingsLabel = getLabel('readerSettingsLabel', 'Reader settings');
+    const userMessageLabel = getLabel('readerUserMessageLabel', 'User message');
+    const assistantMessageLabel = getLabel('readerAssistantMessageLabel', 'AI response');
     const closeLabel = getLabel('btnClose', 'Close panel');
     const previousLabel = getLabel('previousMessage', 'Previous message');
     const nextLabel = getLabel('nextMessage', 'Next message');
@@ -192,11 +194,11 @@ export function getReaderPanelHtml(params: {
       <article class="reader-content" style="--_reader-content-max-width: ${Math.max(1, Math.round(state.contentMaxWidthPx))}px;">
         <div class="reader-thread">
           <section class="reader-message reader-message--user">
-            <div class="reader-message__label">User message</div>
+            <div class="reader-message__label">${escapeHtml(userMessageLabel)}</div>
             <div class="reader-message__body reader-message__body--prompt">${renderUserPromptMarkup(state.userPromptDisplay)}</div>
           </section>
           <section class="reader-message reader-message--assistant">
-            <div class="reader-message__label">AI response</div>
+            <div class="reader-message__label">${escapeHtml(assistantMessageLabel)}</div>
             <div class="reader-markdown-shell" data-role="reader-markdown-shell">
               <div class="reader-markdown markdown-body">${state.renderedHtml}</div>
               <div class="reader-comment-overlay" data-role="comment-overlay"></div>
@@ -234,7 +236,17 @@ export function getReaderPanelHtml(params: {
 
 export function getReaderPanelCss(): string {
     return `
-:host { font-family: var(--aimd-font-family-sans); }
+:host {
+  --_reader-code-block-flow: 0 0 1em;
+  --_reader-code-surface-effect: inset 0 1px 0 color-mix(in srgb, var(--aimd-bg-primary) 60%, transparent);
+  --_reader-formula-flow: 1em 0;
+  --_reader-pager-inset: 2px 6px 2px 0;
+  --_reader-control-border-effect: 0 0 0 1px color-mix(in srgb, var(--aimd-border-default) 72%, transparent);
+  --_reader-control-focus-effect: 0 0 0 3px var(--aimd-focus-ring);
+  --_reader-input-focus-effect: inset 0 0 0 1px color-mix(in srgb, var(--aimd-interactive-primary) 32%, transparent);
+  --_reader-template-token-flow: 0 0.2em;
+  font-family: var(--aimd-font-family-sans);
+}
 *, *::before, *::after { box-sizing: border-box; }
 button, input, select, textarea { font-family: inherit; font-size: inherit; line-height: inherit; color: inherit; }
 
@@ -362,6 +374,7 @@ ${getPanelChromeCss()}
   flex: 1;
   min-height: 0;
   display: flex;
+  overflow: hidden;
   --_reader-sticky-width: 320px;
 }
 
@@ -374,7 +387,7 @@ ${getPanelChromeCss()}
   border-right: 1px solid var(--aimd-border-subtle);
   background: color-mix(in srgb, var(--aimd-bg-secondary) 72%, var(--aimd-bg-primary));
   display: flex;
-  transition: flex-basis var(--aimd-motion-duration-fast) var(--aimd-motion-ease-standard), width var(--aimd-motion-duration-fast) var(--aimd-motion-ease-standard);
+  transition: flex-basis var(--aimd-duration-fast) var(--aimd-ease-in-out), width var(--aimd-duration-fast) var(--aimd-ease-in-out);
 }
 
 .reader-sticky-panel[data-open="0"] {
@@ -391,7 +404,7 @@ ${getPanelChromeCss()}
   display: grid;
   grid-template-rows: auto minmax(0, 1fr);
   opacity: 1;
-  transition: opacity var(--aimd-motion-duration-fast) var(--aimd-motion-ease-standard);
+  transition: opacity var(--aimd-duration-fast) var(--aimd-ease-in-out);
 }
 
 .reader-sticky-panel[data-open="0"] .reader-sticky-shell {
@@ -525,6 +538,7 @@ ${getPanelChromeCss()}
   flex: 1;
   min-width: 0;
   overflow: auto;
+  overscroll-behavior: contain;
   padding: calc(var(--aimd-space-6) + var(--aimd-space-1) / 2) calc(var(--aimd-space-6) + var(--aimd-space-1)) var(--aimd-space-5);
 }
 
@@ -590,6 +604,9 @@ ${getPanelChromeCss()}
   --_reader-atomic-selected-bg-strong: color-mix(in srgb, var(--aimd-interactive-selected) 96%, var(--aimd-bg-primary));
   --_reader-atomic-selected-border: color-mix(in srgb, var(--aimd-interactive-primary) 28%, transparent);
   --_reader-atomic-selected-border-strong: color-mix(in srgb, var(--aimd-interactive-primary) 42%, transparent);
+  --_reader-atomic-selection-effect: inset 0 0 0 1px var(--_reader-atomic-selected-border);
+  --_reader-atomic-selection-strong-effect: inset 0 0 0 1px var(--_reader-atomic-selected-border-strong);
+  --_reader-atomic-formula-effect: inset 0 -0.22em 0 var(--_reader-atomic-selected-bg-strong), inset 0 0 0 1px var(--_reader-atomic-selected-border-strong);
 }
 
 .reader-markdown-shell {
@@ -670,41 +687,39 @@ ${getMarkdownThemeCss('.reader-sticky-block__content')}
 .reader-markdown :where([data-aimd-unit-state="selected"]) {
   border-radius: var(--aimd-radius-sm);
   background: var(--_reader-atomic-selected-bg);
-  box-shadow: inset 0 0 0 1px var(--_reader-atomic-selected-border);
+  box-shadow: var(--_reader-atomic-selection-effect);
 }
 
 .reader-markdown :where(.katex[data-aimd-unit-state="selected"]) {
   border-radius: var(--aimd-radius-sm);
   background: var(--_reader-atomic-selected-bg-strong);
-  box-shadow:
-    inset 0 -0.22em 0 var(--_reader-atomic-selected-bg-strong),
-    inset 0 0 0 1px var(--_reader-atomic-selected-border-strong);
+  box-shadow: var(--_reader-atomic-formula-effect);
 }
 
 .reader-markdown :where(code[data-aimd-unit-state="selected"]) {
   border-radius: var(--aimd-radius-sm);
   background: var(--_reader-atomic-selected-bg-strong);
-  box-shadow: inset 0 0 0 1px var(--_reader-atomic-selected-border-strong);
+  box-shadow: var(--_reader-atomic-selection-strong-effect);
 }
 
 .reader-markdown :where(.katex-display[data-aimd-unit-state="selected"]) {
   border-radius: var(--aimd-radius-sm);
   background: var(--_reader-atomic-selected-bg-strong);
-  box-shadow: inset 0 0 0 1px var(--_reader-atomic-selected-border-strong);
+  box-shadow: var(--_reader-atomic-selection-strong-effect);
 }
 
 .reader-markdown :where(pre[data-aimd-unit-state="selected"], table[data-aimd-unit-state="selected"], img[data-aimd-unit-state="selected"]) {
   border-radius: var(--aimd-radius-sm);
   background: var(--_reader-atomic-selected-bg-strong);
-  box-shadow: inset 0 0 0 1px var(--_reader-atomic-selected-border-strong);
+  box-shadow: var(--_reader-atomic-selection-strong-effect);
 }
 
 .reader-code-block {
-  margin: 0 0 1em;
+  margin: var(--_reader-code-block-flow);
   border-radius: var(--aimd-radius-xl);
   border: 1px solid color-mix(in srgb, var(--aimd-border-default) 78%, transparent);
   background: color-mix(in srgb, var(--aimd-bg-secondary) 88%, var(--aimd-text-primary) 4%);
-  box-shadow: inset 0 1px 0 color-mix(in srgb, var(--aimd-bg-primary) 60%, transparent);
+  box-shadow: var(--_reader-code-surface-effect);
   overflow: hidden;
 }
 
@@ -771,7 +786,7 @@ ${getMarkdownThemeCss('.reader-sticky-block__content')}
 }
 
 .reader-markdown :where(.katex-display) {
-  margin: 1em 0;
+  margin: var(--_reader-formula-flow);
   padding: 0;
 }
 
@@ -843,12 +858,12 @@ ${getMarkdownThemeCss('.reader-sticky-block__content')}
   flex-wrap: nowrap;
   justify-content: center;
   align-items: center;
-  gap: var(--aimd-dot-gap);
+  gap: var(--_reader-dot-gap);
   max-width: 100%;
   overflow-x: auto;
   overflow-y: hidden;
   scrollbar-width: none;
-  padding: 2px 6px 2px 0;
+  padding: var(--_reader-pager-inset);
   white-space: nowrap;
 }
 
@@ -864,8 +879,8 @@ ${getMarkdownThemeCss('.reader-sticky-block__content')}
   border: 0;
   box-shadow: none;
   flex: none;
-  width: var(--aimd-dot-size);
-  height: var(--aimd-dot-size);
+  width: var(--_reader-dot-size);
+  height: var(--_reader-dot-size);
   border-radius: var(--aimd-radius-full);
   background: color-mix(in srgb, var(--aimd-border-strong) 82%, transparent);
 }
@@ -884,7 +899,7 @@ ${getMarkdownThemeCss('.reader-sticky-block__content')}
 }
 
 .reader-dot--active {
-  width: calc(var(--aimd-dot-size) * 2.2);
+  width: calc(var(--_reader-dot-size) * 2.2);
   background: var(--aimd-interactive-primary);
 }
 
@@ -901,14 +916,14 @@ ${getMarkdownThemeCss('.reader-sticky-block__content')}
   align-items: center;
   justify-content: center;
   flex: none;
-  min-width: calc((var(--aimd-dot-size) * 2.2) + (var(--aimd-dot-gap) * 0.8));
-  gap: calc(var(--aimd-dot-gap) * 0.4);
+  min-width: calc((var(--_reader-dot-size) * 2.2) + (var(--_reader-dot-gap) * 0.8));
+  gap: calc(var(--_reader-dot-gap) * 0.4);
 }
 
 .reader-ellipsis__dot {
   display: block;
-  width: calc(var(--aimd-dot-size) * 0.46);
-  height: calc(var(--aimd-dot-size) * 0.46);
+  width: calc(var(--_reader-dot-size) * 0.46);
+  height: calc(var(--_reader-dot-size) * 0.46);
   border-radius: var(--aimd-radius-full);
   background: color-mix(in srgb, var(--aimd-text-secondary) 70%, transparent);
 }
@@ -1098,7 +1113,7 @@ ${getMarkdownThemeCss('.reader-sticky-block__content')}
 .reader-outline-rail__item:focus-visible::after {
   transform: scaleX(1);
   background: var(--aimd-interactive-primary);
-  box-shadow: 0 0 0 3px color-mix(in srgb, var(--aimd-interactive-primary) 10%, transparent);
+  box-shadow: var(--aimd-shadow-interactive-halo);
 }
 
 .reader-outline-rail__item:focus-visible {
@@ -1258,7 +1273,7 @@ ${getMarkdownThemeCss('.reader-sticky-block__content')}
   border-radius: var(--aimd-radius-full);
   border: 2px solid var(--aimd-bg-surface);
   background: var(--aimd-interactive-primary);
-  box-shadow: 0 0 0 1px color-mix(in srgb, var(--aimd-border-default) 72%, transparent);
+  box-shadow: var(--_reader-control-border-effect);
 }
 
 .reader-settings-slider::-moz-range-thumb {
@@ -1267,16 +1282,16 @@ ${getMarkdownThemeCss('.reader-sticky-block__content')}
   border-radius: var(--aimd-radius-full);
   border: 2px solid var(--aimd-bg-surface);
   background: var(--aimd-interactive-primary);
-  box-shadow: 0 0 0 1px color-mix(in srgb, var(--aimd-border-default) 72%, transparent);
+  box-shadow: var(--_reader-control-border-effect);
   cursor: pointer;
 }
 
 .reader-settings-slider:focus-visible::-webkit-slider-thumb {
-  box-shadow: 0 0 0 3px var(--aimd-focus-ring);
+  box-shadow: var(--_reader-control-focus-effect);
 }
 
 .reader-settings-slider:focus-visible::-moz-range-thumb {
-  box-shadow: 0 0 0 3px var(--aimd-focus-ring);
+  box-shadow: var(--_reader-control-focus-effect);
 }
 
 .reader-settings-slider__value {
@@ -1423,7 +1438,7 @@ ${getMarkdownThemeCss('.reader-sticky-block__content')}
 .reader-settings-slider:focus-visible {
   outline: none;
   border-color: color-mix(in srgb, var(--aimd-interactive-primary) 58%, transparent);
-  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--aimd-interactive-primary) 32%, transparent);
+  box-shadow: var(--_reader-input-focus-effect);
 }
 
 .reader-settings-template__editor:empty::before {
@@ -1452,7 +1467,7 @@ ${getMarkdownThemeCss('.reader-sticky-block__content')}
 .reader-comment-template-editor__token {
   display: inline-flex;
   align-items: center;
-  margin: 0 0.2em;
+  margin: var(--_reader-template-token-flow);
   padding: 0 var(--aimd-space-2);
   min-height: 1.75em;
   border-radius: var(--aimd-radius-xl);
@@ -1478,8 +1493,8 @@ ${getMarkdownThemeCss('.reader-sticky-block__content')}
   .reader-sticky-panel {
     position: absolute;
     inset: 0 auto 0 0;
-    width: min(var(--_reader-sticky-width), calc(100vw - var(--aimd-space-8)));
-    max-width: calc(100vw - var(--aimd-space-8));
+    width: min(var(--_reader-sticky-width), calc(100vw - var(--aimd-space-4) * 2));
+    max-width: calc(100vw - var(--aimd-space-4) * 2);
     z-index: var(--aimd-z-panel);
     transform: translateX(0);
     box-shadow: var(--aimd-shadow-panel);
@@ -1513,6 +1528,122 @@ ${getMarkdownThemeCss('.reader-sticky-block__content')}
 
   .reader-body-wrap[data-has-outline="1"] .reader-body {
     padding-right: calc(var(--aimd-space-4) + var(--aimd-space-1) / 2);
+  }
+}
+
+@media (max-width: 560px) {
+  .panel-window--reader {
+    width: 100%;
+    height: 100%;
+    max-height: none;
+    border-radius: 0;
+  }
+
+  .reader-panel-resize {
+    display: none;
+  }
+
+  .panel-header {
+    display: grid;
+    grid-template-columns: minmax(0, auto) minmax(0, 1fr);
+  }
+
+  .reader-header-page {
+    display: none;
+  }
+
+  .panel-header__actions {
+    min-width: 0;
+    max-width: 100%;
+    justify-content: flex-end;
+    overflow-x: auto;
+    overflow-y: hidden;
+    overscroll-behavior-inline: contain;
+    scrollbar-width: none;
+  }
+
+  .panel-header__actions::-webkit-scrollbar,
+  .reader-footer__left::-webkit-scrollbar {
+    display: none;
+  }
+
+  .reader-body,
+  .reader-message {
+    padding: var(--aimd-space-4);
+  }
+
+  .reader-markdown-shell {
+    padding-right: calc(var(--aimd-space-4) + var(--aimd-size-control-icon-panel));
+  }
+
+  .reader-footer {
+    grid-template-columns: auto minmax(0, 1fr);
+  }
+
+  .reader-footer__left {
+    min-width: 0;
+    max-width: 100%;
+    overflow-x: auto;
+    overflow-y: hidden;
+    overscroll-behavior-inline: contain;
+    scrollbar-width: none;
+  }
+
+  .reader-footer__meta {
+    grid-column: 1 / -1;
+    width: 100%;
+    max-width: none;
+    justify-self: stretch;
+    text-align: left;
+  }
+
+  .reader-footer__meta .hint,
+  .reader-footer-page {
+    display: none;
+  }
+
+  .reader-settings-popover-layer {
+    padding: var(--aimd-space-2);
+  }
+
+  .panel-window--reader-settings {
+    width: 100%;
+    max-width: 100%;
+    max-height: 100%;
+  }
+
+  .reader-settings-row {
+    grid-template-columns: minmax(0, 1fr);
+    align-items: stretch;
+  }
+
+  .reader-settings-segmented,
+  .reader-settings-stepper,
+  .reader-settings-slider-field {
+    width: 100%;
+  }
+
+  .reader-settings-segmented__button {
+    flex: 1 1 0;
+    text-align: center;
+  }
+}
+
+@media (max-height: 568px) {
+  .reader-body {
+    padding-block: var(--aimd-space-3);
+  }
+
+  .reader-message {
+    padding-block: var(--aimd-space-4);
+  }
+
+  .dialog-body--reader-settings {
+    padding: var(--aimd-space-3);
+  }
+
+  .reader-settings-popover-layer {
+    padding-block: var(--aimd-space-2);
   }
 }
 
@@ -1556,7 +1687,7 @@ export function ensureShadowStylesheetLink(shadow: ShadowRoot, href: string, sty
         return existing;
     }
 
-    const link = document.createElement('link');
+    const link = shadow.ownerDocument.createElement('link');
     link.rel = 'stylesheet';
     link.href = href;
     link.setAttribute('data-aimd-style-link', styleId);

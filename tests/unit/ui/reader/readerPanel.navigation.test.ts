@@ -245,8 +245,8 @@ describe('ReaderPanel navigation', () => {
             const shadow = (host as any).shadowRoot as ShadowRoot;
             const dots = shadow.querySelector<HTMLElement>('.reader-dots');
 
-            expect(dots?.style.getPropertyValue('--aimd-dot-size')).toBe('10px');
-            expect(dots?.style.getPropertyValue('--aimd-dot-gap')).toBe('10px');
+            expect(dots?.style.getPropertyValue('--_reader-dot-size')).toBe('10px');
+            expect(dots?.style.getPropertyValue('--_reader-dot-gap')).toBe('10px');
         } finally {
             panel.hide();
         }

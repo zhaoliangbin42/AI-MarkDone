@@ -1,7 +1,9 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { ChatGPTPromptAutocompleteController } from '@/ui/content/controllers/ChatGPTPromptAutocompleteController';
+import { createAppearanceSnapshot } from '@/style/appearance';
 import { parseContenteditableToPlainText, setContenteditablePlainTextSelection } from '@/core/sending/contenteditable';
 import type { PromptRecord } from '@/core/prompts/promptLibrary';
+import { setLocale } from '@/ui/content/components/i18n';
 
 function createPrompt(patch: Partial<PromptRecord>): PromptRecord {
     return {
@@ -118,6 +120,8 @@ function setComposerText(composer: HTMLElement, text: string): void {
 async function tick(): Promise<void> {
     await Promise.resolve();
     await Promise.resolve();
+    await Promise.resolve();
+    await Promise.resolve();
 }
 
 describe('ChatGPTPromptAutocompleteController', () => {
@@ -152,7 +156,7 @@ describe('ChatGPTPromptAutocompleteController', () => {
 
         const controller = new ChatGPTPromptAutocompleteController(adapter, client);
         controller.init();
-        controller.setThemeOverrides({ baseFontScale: 1.1 });
+        controller.setAppearance(createAppearanceSnapshot('light', { baseFontScale: 1.1 }));
 
         expect(document.getElementById('aimd-chatgpt-prompt-popover-host')).toBeNull();
         controller.dispose();
@@ -732,6 +736,122 @@ describe('ChatGPTPromptAutocompleteController', () => {
         controller.dispose();
     });
 
+    it('rerenders an open prompt manager on locale changes without losing its search state or focus', async () => {
+        vi.stubGlobal('fetch', vi.fn(async (input: string | URL | Request) => {
+            const url = String(input);
+            const messages = url.includes('/zh_CN/')
+                ? { promptSearchPlaceholder: { message: '搜索 Prompt' } }
+                : { promptSearchPlaceholder: { message: 'Search prompts' } };
+            return { ok: true, json: async () => messages } as Response;
+        }));
+        await setLocale('en');
+        const composer = createComposer('');
+        const client = {
+            listPrompts: vi.fn(async () => [createPrompt({ id: 'rewrite' })]),
+            recordUse: vi.fn(),
+            savePrompt: vi.fn(),
+            deletePrompt: vi.fn(),
+            restoreDefaults: vi.fn(),
+        };
+        const adapter = {
+            getPlatformId: () => 'chatgpt',
+            getComposerInputElement: () => composer,
+            getComposerKind: () => 'contenteditable',
+        } as any;
+        const controller = new ChatGPTPromptAutocompleteController(adapter, client);
+        controller.init();
+        await controller.openManager();
+
+        const host = document.getElementById('aimd-chatgpt-prompt-popover-host')!;
+        let search = host.shadowRoot!.querySelector<HTMLInputElement>('[data-role="prompt-search"]')!;
+        search.value = 'rewrite';
+        search.dispatchEvent(new Event('input', { bubbles: true }));
+        search = host.shadowRoot!.querySelector<HTMLInputElement>('[data-role="prompt-search"]')!;
+        search.focus();
+
+        await setLocale('zh_CN');
+
+        const translatedSearch = host.shadowRoot!.querySelector<HTMLInputElement>('[data-role="prompt-search"]')!;
+        expect(translatedSearch.placeholder).toBe('搜索 Prompt');
+        expect(translatedSearch.value).toBe('rewrite');
+        expect(host.shadowRoot!.activeElement).toBe(translatedSearch);
+
+        controller.dispose();
+        await setLocale('auto');
+        vi.unstubAllGlobals();
+    });
+
+    it('opens the real prompt manager as an anchored Surface and restores its trigger on Escape', async () => {
+        const composer = createComposer('');
+        const anchor = document.createElement('button');
+        document.body.appendChild(anchor);
+        anchor.focus();
+        const client = {
+            listPrompts: vi.fn(async () => [createPrompt({ id: 'rewrite' })]),
+            recordUse: vi.fn(),
+            savePrompt: vi.fn(),
+            deletePrompt: vi.fn(),
+            restoreDefaults: vi.fn(),
+        };
+        const adapter = {
+            getPlatformId: () => 'chatgpt',
+            getComposerInputElement: () => composer,
+            getComposerKind: () => 'contenteditable',
+        } as any;
+        const controller = new ChatGPTPromptAutocompleteController(adapter, client);
+        controller.init();
+        await controller.openManager(anchor);
+
+        const host = document.getElementById('aimd-chatgpt-prompt-popover-host')!;
+        const root = host.shadowRoot!.querySelector<HTMLElement>('.prompt-popover')!;
+        expect(root.dataset.motionState).toBe('opening');
+        expect(root.style.getPropertyValue('--_surface-motion-open-duration')).toBe('180ms');
+
+        const escape = new KeyboardEvent('keydown', {
+            key: 'Escape',
+            bubbles: true,
+            composed: true,
+            cancelable: true,
+        });
+        host.shadowRoot!.querySelector<HTMLInputElement>('[data-role="prompt-search"]')!.dispatchEvent(escape);
+
+        expect(escape.defaultPrevented).toBe(true);
+        expect(document.getElementById('aimd-chatgpt-prompt-popover-host')).toBeNull();
+        expect(document.activeElement).toBe(anchor);
+        controller.dispose();
+    });
+
+    it('keeps the prompt manager within a 320px viewport without enforcing a wider minimum', async () => {
+        setViewport(320, 568);
+        const restoreRange = installAutocompleteLayoutMock({ popoverHeight: 500 });
+        const composer = createComposer('');
+        const anchor = document.createElement('button');
+        vi.spyOn(anchor, 'getBoundingClientRect').mockReturnValue(rect(280, 500, 32, 32));
+        document.body.appendChild(anchor);
+        const client = {
+            listPrompts: vi.fn(async () => [createPrompt({ id: 'rewrite' })]),
+            recordUse: vi.fn(),
+            savePrompt: vi.fn(),
+            deletePrompt: vi.fn(),
+            restoreDefaults: vi.fn(),
+        };
+        const adapter = {
+            getPlatformId: () => 'chatgpt',
+            getComposerInputElement: () => composer,
+            getComposerKind: () => 'contenteditable',
+        } as any;
+        const controller = new ChatGPTPromptAutocompleteController(adapter, client);
+        await controller.openManager(anchor);
+
+        const host = document.getElementById('aimd-chatgpt-prompt-popover-host')!;
+        expect(host.style.width).toBe('288px');
+        expect(Number.parseFloat(host.style.left)).toBeGreaterThanOrEqual(16);
+        expect(Number.parseFloat(host.style.left) + 288).toBeLessThanOrEqual(304);
+
+        controller.dispose();
+        restoreRange();
+    });
+
     it('opens the same editable manager from a settings shadow anchor', async () => {
         const composer = createComposer('');
         const prompt = createPrompt({ id: 'translate', title: 'Translate Naturally', triggerText: 'translate', content: 'Translate:\n{{cursor}}' });
@@ -857,7 +977,8 @@ describe('ChatGPTPromptAutocompleteController', () => {
         expect(host.style.width).toBe('520px');
         expect(host.style.top).toBe('214px');
         expect(host.style.zIndex).toBe('var(--aimd-z-tooltip)');
-        expect(host.style.getPropertyValue('--aimd-prompt-popover-max-height')).toBe('630px');
+        expect(host.style.getPropertyValue('--_prompt-popover-max-height')).toBe('630px');
+        expect(host.style.getPropertyValue('--aimd-prompt-popover-max-height')).toBe('');
         expect(styles).toContain('.prompt-popover--manager');
         expect(styles).toContain('grid-template-rows: auto auto auto minmax(0, 1fr);');
         expect(styles).toContain('.manager-list');
@@ -902,7 +1023,7 @@ describe('ChatGPTPromptAutocompleteController', () => {
         expect(styles).toContain('grid-template-rows: auto minmax(0, 1fr) auto;');
         expect(styles).toContain('.prompt-editor-body');
         expect(styles).toContain('overflow-y: auto;');
-        expect(styles).toContain('max-height: min(320px, calc(var(--aimd-prompt-popover-max-height, 630px) - 220px));');
+        expect(styles).toContain('max-height: min(320px, calc(var(--_prompt-popover-max-height, 630px) - 220px));');
 
         const textarea = shadow.querySelector<HTMLTextAreaElement>('[data-role="prompt-content"]')!;
         const insertCursorButton = shadow.querySelector<HTMLButtonElement>('[data-action="insert-cursor-placeholder"]')!;

@@ -7,14 +7,11 @@ export type OverlaySurfaceHostHandle = {
     backdropRoot: HTMLElement;
     surfaceRoot: HTMLElement;
     modalRoot: HTMLElement;
-    setThemeCss(cssText: string): void;
-    setSurfaceCss(cssText: string): void;
     unmount(): void;
 };
 
 type OverlaySurfaceHostOptions = {
     id: string;
-    themeCss: string;
     surfaceCss: string;
     overlayCss?: string;
     overlayStyleCache?: 'root' | 'shared';
@@ -34,11 +31,24 @@ function getOverlaySurfaceHtml(): string {
 `;
 }
 
+const OVERLAY_POINTER_SAFETY_CSS = `
+[data-role="overlay-root"],
+[data-role="overlay-backdrop-root"],
+[data-role="overlay-surface-root"],
+[data-role="overlay-modal-root"] {
+  pointer-events: none;
+}
+
+[data-role="overlay-backdrop-root"] > *,
+[data-role="overlay-surface-root"] > * {
+  pointer-events: auto;
+}
+`;
+
 export function mountOverlaySurfaceHost(opts: OverlaySurfaceHostOptions): OverlaySurfaceHostHandle {
     const handle: ShadowDialogHostHandle = mountShadowDialogHost({
         id: opts.id,
         html: getOverlaySurfaceHtml(),
-        cssText: opts.themeCss,
         zIndex: opts.zIndex,
         lockScroll: opts.lockScroll,
     });
@@ -51,6 +61,11 @@ export function mountOverlaySurfaceHost(opts: OverlaySurfaceHostOptions): Overla
         handle.unmount();
         throw new Error('Overlay surface host slots were not mounted.');
     }
+
+    ensureStyle(handle.shadow, OVERLAY_POINTER_SAFETY_CSS, {
+        id: 'aimd-overlay-pointer-safety',
+        cache: 'shared',
+    });
 
     ensureStyle(handle.shadow, opts.surfaceCss, {
         id: opts.surfaceStyleId ?? 'aimd-overlay-surface-structure',
@@ -69,14 +84,6 @@ export function mountOverlaySurfaceHost(opts: OverlaySurfaceHostOptions): Overla
         backdropRoot,
         surfaceRoot,
         modalRoot,
-        setThemeCss(cssText: string) {
-            handle.setCss(cssText);
-        },
-        setSurfaceCss(cssText: string) {
-            ensureStyle(handle.shadow, cssText, {
-                id: opts.surfaceStyleId ?? 'aimd-overlay-surface-structure',
-            });
-        },
         unmount() {
             handle.unmount();
         },

@@ -8,7 +8,7 @@ import type {
 } from '../../../services/math/formulaAssetActions';
 import { DEFAULT_FORMULA_SETTINGS, type FormulaSettings } from '../../../core/settings/formula';
 import { normalizeFormulaSourceFormat } from '../../../core/math/formulaSourceFormat';
-import type { UserThemeOverrides } from '../../../style/tokens';
+import { createAppearanceSnapshot, type AppearanceSnapshot } from '../../../style/appearance';
 import { targetSurfacePolicy } from '../../../config/targetSurface';
 import { copyIcon, downloadIcon } from '../../../assets/icons';
 import type { MarkdownParserAdapter } from '../../../drivers/content/adapters/parser/MarkdownParserAdapter';
@@ -28,7 +28,7 @@ export class FormulaAssetHoverController {
     private activeContext: MathFormulaHoverContext | null = null;
     private actionPending = false;
     private formulaSettings: FormulaSettings = structuredClone(DEFAULT_FORMULA_SETTINGS);
-    private themeOverrides: UserThemeOverrides = {};
+    private appearance: AppearanceSnapshot = createAppearanceSnapshot('light');
     private readonly runFormulaAssetAction: typeof runFormulaAssetAction;
 
     constructor(options: FormulaAssetHoverControllerOptions = {}) {
@@ -73,24 +73,16 @@ export class FormulaAssetHoverController {
         if (!this.hasEnabledAssetAction()) this.closeHoverAction();
     }
 
-    setThemeOverrides(overrides: UserThemeOverrides): void {
-        this.themeOverrides = { ...overrides };
-        this.hoverActionPortal?.setThemeOverrides(this.themeOverrides);
+    setAppearance(snapshot: AppearanceSnapshot): void {
+        this.appearance = snapshot;
+        this.hoverActionPortal?.setAppearance(snapshot);
     }
 
     private getHoverActionPortal(): ToolbarHoverActionPortal {
         if (!this.hoverActionPortal) {
-            this.hoverActionPortal = new ToolbarHoverActionPortal(this.readTheme(), this.themeOverrides);
+            this.hoverActionPortal = new ToolbarHoverActionPortal(this.appearance.theme, this.appearance.overrides);
         }
         return this.hoverActionPortal;
-    }
-
-    private readTheme(): 'light' | 'dark' {
-        const theme = document.documentElement.getAttribute('data-aimd-theme')
-            || document.body?.getAttribute('data-aimd-theme')
-            || document.documentElement.dataset.theme
-            || '';
-        return theme === 'dark' ? 'dark' : 'light';
     }
 
     private scheduleHoverActionOpen(context: MathFormulaHoverContext): void {

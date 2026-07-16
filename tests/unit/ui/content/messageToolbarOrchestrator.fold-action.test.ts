@@ -291,6 +291,129 @@ describe('MessageToolbarOrchestrator ChatGPT reader path', () => {
         );
     });
 
+    it('injects a usable message toolbar below a live-shaped Deep Research iframe', async () => {
+        document.body.innerHTML = `
+          <main>
+            <div data-turn-id-container="deep-user-turn">
+              <section data-turn-id="deep-user-turn" data-testid="conversation-turn-1" data-turn="user">
+                <div data-message-author-role="user">
+                  <div class="whitespace-pre-wrap">Research this topic</div>
+                </div>
+              </section>
+            </div>
+            <div data-turn-id-container="deep-assistant-turn">
+              <section data-turn-id="deep-assistant-turn" data-testid="conversation-turn-2" data-turn="assistant">
+                <div class="turn-layout">
+                  <div data-conversation-screenshot-content class="agent-turn">
+                    <div class="report-stack">
+                      <div class="report-badges"></div>
+                      <div class="report-widget">
+                        <iframe
+                          title="internal://deep-research"
+                          src="https://connector_openai_deep_research.web-sandbox.oaiusercontent.com?app=chatgpt"
+                        ></iframe>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </section>
+            </div>
+          </main>
+        `;
+
+        const adapter = new ChatGPTAdapter();
+        let shownItems: any[] = [];
+        const readerPanel = {
+            show: vi.fn(async (items: any[]) => {
+                shownItems = items;
+            }),
+        } as any;
+        const snapshot = {
+            conversationId: 'conv-deep-research',
+            buildFingerprint: 'build-1',
+            capturedAt: Date.now(),
+            source: 'runtime-bridge',
+            rounds: [
+                {
+                    id: 'deep-assistant-turn',
+                    position: 1,
+                    userPrompt: 'Research this topic',
+                    assistantContent: '# Deep Research Report\n\nFull report body. citeturn0search0',
+                    preview: 'Research this topic',
+                    messageId: 'deep-assistant-turn',
+                    userMessageId: 'deep-user-message',
+                    assistantMessageId: 'deep-assistant-turn',
+                },
+            ],
+        };
+        const chatGptConversationEngine = {
+            getSnapshot: vi.fn(),
+            forceRefreshCurrentConversation: vi.fn(async () => snapshot),
+        } as any;
+        const orchestrator = new MessageToolbarOrchestrator(adapter, { readerPanel, chatGptConversationEngine });
+
+        (orchestrator as any).scanAndInject();
+        (orchestrator as any).scanAndInject();
+
+        const reportStack = document.querySelector('.report-stack') as HTMLElement;
+        expect(reportStack.querySelectorAll(':scope > [data-aimd-role="message-toolbar"]')).toHaveLength(1);
+        const toolbarHost = reportStack.querySelector<HTMLElement>(':scope > [data-aimd-role="message-toolbar"]');
+        expect(toolbarHost).toBeInstanceOf(HTMLElement);
+        expect(toolbarHost?.previousElementSibling?.classList.contains('report-widget')).toBe(true);
+        expect(toolbarHost?.style.alignSelf).toBe('flex-end');
+
+        const readerButton = toolbarHost?.shadowRoot?.querySelector<HTMLButtonElement>('[data-action="reader"]');
+        expect(readerButton).toBeInstanceOf(HTMLButtonElement);
+        readerButton?.click();
+
+        await vi.waitFor(() => expect(readerPanel.show).toHaveBeenCalledTimes(1));
+        await expect(shownItems[0].content()).resolves.toBe('# Deep Research Report\n\nFull report body.');
+
+        orchestrator.dispose();
+        adapter.dispose();
+    });
+
+    it('mounts the Deep Research toolbar when the iframe hydrates after the assistant turn shell', async () => {
+        vi.useFakeTimers();
+        document.body.innerHTML = `
+          <main>
+            <div data-turn-id-container="deep-user-turn">
+              <section data-turn-id="deep-user-turn" data-testid="conversation-turn-1" data-turn="user">
+                <div data-message-author-role="user"><div class="whitespace-pre-wrap">Research this topic</div></div>
+              </section>
+            </div>
+            <div data-turn-id-container="deep-assistant-turn">
+              <section data-turn-id="deep-assistant-turn" data-testid="conversation-turn-2" data-turn="assistant">
+                <div data-conversation-screenshot-content class="agent-turn">
+                  <div class="report-stack"><div class="report-widget"></div></div>
+                </div>
+              </section>
+            </div>
+          </main>
+        `;
+
+        const adapter = new ChatGPTAdapter();
+        const readerPanel = { show: vi.fn(async () => undefined) } as any;
+        const orchestrator = new MessageToolbarOrchestrator(adapter, { readerPanel });
+
+        try {
+            orchestrator.init();
+            await vi.advanceTimersByTimeAsync(1_000);
+            expect(document.querySelector('[data-aimd-role="message-toolbar"]')).toBeNull();
+
+            const widget = document.querySelector('.report-widget') as HTMLElement;
+            widget.innerHTML = '<iframe title="internal://deep-research"></iframe>';
+            await Promise.resolve();
+            await vi.advanceTimersByTimeAsync(1_500);
+
+            expect(document.querySelectorAll('.report-stack > [data-aimd-role="message-toolbar"]')).toHaveLength(1);
+        } finally {
+            orchestrator.dispose();
+            adapter.dispose();
+            vi.useRealTimers();
+        }
+    });
+
     it('adds the shared Reader refresh action to the in-page Reader and refreshes through the Reader source', async () => {
         document.body.innerHTML = `
           <div id="thread">

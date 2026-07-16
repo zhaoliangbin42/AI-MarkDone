@@ -9,16 +9,23 @@ import type {
 import { DEFAULT_READER_COMMENT_SORT_MODE } from '../../../core/settings/readerCommentExport';
 import { createIcon } from '../components/Icon';
 import { messageSquarePlusIcon, sendIcon, xIcon } from '../../../assets/icons';
-import { subscribeLocaleChange, t } from '../components/i18n';
+import { subscribeLocaleChange, t, type UiLocale } from '../components/i18n';
 import { installInputEventBoundary } from '../components/inputEventBoundary';
 import { getSendPopoverCss } from './ui/styles/sendPopoverCss';
 import { buildCommentsExport, resolveReaderCommentExportPrompts } from '../../../services/reader/commentExport';
 import { CommentPromptPickerPopover } from '../components/CommentPromptPickerPopover';
-import { eventWithinTransientRoot } from '../components/transientUi';
-import type { UserThemeOverrides } from '../../../style/tokens';
+import {
+    areAppearanceSnapshotsEqual,
+    createAppearanceSnapshot,
+    type AppearanceSnapshot,
+} from '../../../style/appearance';
+import {
+    getDefaultSurfaceMotionProfile,
+    SurfaceSession,
+    type ResponsiveProfile,
+} from '../components/SurfaceRuntime';
 
 type State = {
-    theme: Theme;
     sendPort: SendPort | null;
     open: boolean;
     anchor: HTMLElement | null;
@@ -61,6 +68,14 @@ const MIN_WIDTH = 320;
 const MIN_HEIGHT = 220;
 const MAX_WIDTH = 680;
 const MAX_HEIGHT = 520;
+const SEND_POPOVER_RESPONSIVE_PROFILE: ResponsiveProfile = {
+    viewportGutterPx: 16,
+    maxWidthCss: 'min(680px, calc(100vw - var(--aimd-space-4)))',
+    maxHeightCss: 'calc(100vh - var(--aimd-space-4) * 2)',
+    collision: 'flip-clamp',
+    scrollOwner: 'content',
+    narrowFallback: 'compact',
+};
 function escapeHtml(value: string): string {
     return value
         .replace(/&/g, '&amp;')
@@ -72,7 +87,6 @@ function escapeHtml(value: string): string {
 
 export class SendPopover {
     private state: State = {
-        theme: 'light',
         sendPort: null,
         open: false,
         anchor: null,
@@ -80,25 +94,23 @@ export class SendPopover {
         height: DEFAULT_HEIGHT,
     };
     private popoverEl: HTMLElement | null = null;
-    private onShadowPointerDown: ((e: Event) => void) | null = null;
-    private onDocumentPointerDown: ((e: Event) => void) | null = null;
+    private appearance: AppearanceSnapshot = createAppearanceSnapshot('light');
+    private surfaceSession: SurfaceSession<AppearanceSnapshot, UiLocale | null> | null = null;
     private pending = false;
     private resizeState: ResizeState | null = null;
     private onWindowMouseMove: ((event: MouseEvent) => void) | null = null;
     private onWindowMouseUp: ((event: MouseEvent) => void) | null = null;
-    private anchorPositionReset: (() => void) | null = null;
     private unsubscribeLocale: (() => void) | null = null;
     private readonly promptPicker = new CommentPromptPickerPopover();
     private promptAutocompleteController: SendPopoverPromptAutocompleteController | null = null;
     private detachPromptAutocomplete: (() => void) | null = null;
 
-    setTheme(theme: Theme): void {
-        this.state.theme = theme;
-        this.applyTheme();
-    }
-
-    setThemeOverrides(_overrides: UserThemeOverrides): void {
-        // Anchored send popovers inherit token variables from the toolbar shadow root.
+    setAppearance(snapshot: AppearanceSnapshot): void {
+        if (areAppearanceSnapshotsEqual(this.appearance, snapshot)) return;
+        this.appearance = snapshot;
+        if (!this.surfaceSession?.setAppearance(snapshot)) {
+            this.applyTheme();
+        }
     }
 
     setPromptAutocompleteController(controller: SendPopoverPromptAutocompleteController | null): void {
@@ -130,18 +142,43 @@ export class SendPopover {
         this.ensureStyles(params.shadow);
 
         this.state.sendPort = params.sendPort;
-        this.state.theme = params.theme;
+        this.setAppearance(createAppearanceSnapshot(params.theme, this.appearance.overrides));
         this.state.open = true;
         this.state.anchor = params.anchor;
 
-        this.anchorPositionReset?.();
-        this.anchorPositionReset = this.ensureAnchorPositioning(params.anchor);
+        this.surfaceSession?.destroy();
+        const session = new SurfaceSession<AppearanceSnapshot, UiLocale | null>({
+            profile: 'anchored',
+            responsiveProfile: SEND_POPOVER_RESPONSIVE_PROFILE,
+            motionProfile: getDefaultSurfaceMotionProfile('anchored'),
+            appearance: {
+                currentValue: this.appearance,
+                equals: areAppearanceSnapshotsEqual,
+                apply: (snapshot) => {
+                    this.appearance = snapshot;
+                    this.applyTheme();
+                },
+            },
+            locale: {
+                currentValue: null,
+                apply: () => this.refreshLocalizedCopy(),
+            },
+        });
+        this.surfaceSession = session;
+        session.captureFocus();
+        const resetAnchorPosition = this.ensureAnchorPositioning(params.anchor);
+        session.syncPositioner({
+            update: () => undefined,
+            destroy: () => resetAnchorPosition?.(),
+        });
 
         const pop = document.createElement('div');
         pop.className = 'send-popover';
         pop.setAttribute('role', 'dialog');
         pop.setAttribute('aria-modal', 'false');
         pop.setAttribute('aria-label', t('send'));
+        pop.setAttribute('aria-busy', 'false');
+        pop.dataset.surfaceProfile = session.profile;
         this.applySize(pop, this.getClampedSize(params.shadow, this.state.width, this.state.height));
         pop.innerHTML = `
   <div class="send-popover__head">
@@ -158,7 +195,7 @@ export class SendPopover {
   </button>
   <textarea class="send-popover__input aimd-field-control aimd-field-control--standalone" data-role="text" rows="5" placeholder="${escapeHtml(t('typeYourMessage'))}"></textarea>
   <div class="send-popover__foot">
-    <div class="status-line" data-role="status"></div>
+    <div class="status-line" data-role="status" data-tone="muted" role="status" aria-live="polite"></div>
     <div class="button-row">
       <button class="studio-btn studio-btn--ghost" type="button" data-action="cancel" aria-label="${escapeHtml(t('btnCancel'))}">${escapeHtml(t('btnCancel'))}</button>
       <button class="studio-btn studio-btn--primary" type="button" data-action="send" aria-label="${escapeHtml(t('send'))}">${createIcon(sendIcon).outerHTML}<span>${escapeHtml(t('send'))}</span></button>
@@ -168,6 +205,7 @@ export class SendPopover {
 
         params.anchor.appendChild(pop);
         this.popoverEl = pop;
+        session.open({ surface: pop });
 
         const textarea = pop.querySelector<HTMLTextAreaElement>('[data-role="text"]');
         if (textarea) {
@@ -175,7 +213,10 @@ export class SendPopover {
             this.installDraftEventBoundary(textarea);
             this.attachPromptAutocomplete(textarea);
         }
-        window.setTimeout(() => textarea?.focus(), 0);
+        session.scheduleInitialFocus({
+            surface: pop,
+            selectors: ['[data-role="text"]', '[data-action="send"]', '[data-action="close"]'],
+        });
 
         const resizeHandle = pop.querySelector<HTMLButtonElement>('[data-action="resize"]');
         if (resizeHandle) resizeHandle.dataset.ready = '1';
@@ -196,7 +237,7 @@ export class SendPopover {
                     shadow: params.shadow,
                     container: this.getPopoverSurface(params.shadow, params.anchor),
                     anchorEl: button,
-                    theme: this.state.theme,
+                    theme: this.appearance.theme,
                     prompts,
                     labels: {
                         title: t('readerCommentPromptPickerTitle'),
@@ -222,26 +263,16 @@ export class SendPopover {
             event.stopPropagation();
         });
 
-        if (!this.onShadowPointerDown) {
-            this.onShadowPointerDown = (ev: Event) => {
-                if (this.shouldIgnorePointerDown(ev)) return;
-                this.close(params.shadow, { syncBack: true });
-            };
-            params.shadow.addEventListener('pointerdown', this.onShadowPointerDown, true);
-        }
-
-        if (!this.onDocumentPointerDown) {
-            this.onDocumentPointerDown = (ev: Event) => {
-                if (this.shouldIgnorePointerDown(ev)) return;
-                this.close(params.shadow, { syncBack: true });
-            };
-            document.addEventListener('pointerdown', this.onDocumentPointerDown, true);
-        }
+        session.syncOutsideDismiss({
+            eventTarget: document,
+            roots: () => [this.popoverEl, this.state.anchor],
+            onDismiss: () => this.close(params.shadow, { syncBack: true }),
+        });
 
         if (!this.unsubscribeLocale) {
-            this.unsubscribeLocale = subscribeLocaleChange(() => {
+            this.unsubscribeLocale = subscribeLocaleChange((locale) => {
                 if (!this.state.open || !this.popoverEl) return;
-                this.refreshLocalizedCopy();
+                this.surfaceSession?.setLocale(locale);
             });
         }
 
@@ -284,22 +315,14 @@ export class SendPopover {
         this.state.open = false;
         this.state.anchor = null;
         this.state.sendPort = null;
-        this.anchorPositionReset?.();
-        this.anchorPositionReset = null;
         this.unsubscribeLocale?.();
         this.unsubscribeLocale = null;
         this.promptPicker.close(shadow);
         this.detachPromptAutocomplete?.();
         this.detachPromptAutocomplete = null;
-
-        if (this.onShadowPointerDown) {
-            shadow.removeEventListener('pointerdown', this.onShadowPointerDown, true);
-            this.onShadowPointerDown = null;
-        }
-        if (this.onDocumentPointerDown) {
-            document.removeEventListener('pointerdown', this.onDocumentPointerDown, true);
-            this.onDocumentPointerDown = null;
-        }
+        this.surfaceSession?.restoreFocus(shadow);
+        this.surfaceSession?.destroy();
+        this.surfaceSession = null;
     }
 
     private ensureStyles(shadow: ShadowRoot): void {
@@ -322,17 +345,7 @@ export class SendPopover {
 
     private applyTheme(): void {
         if (!this.popoverEl) return;
-        this.popoverEl.setAttribute('data-aimd-theme', this.state.theme);
-    }
-
-    private shouldIgnorePointerDown(ev: Event): boolean {
-        if (!this.state.open) return true;
-        if (eventWithinTransientRoot(ev)) return true;
-        const path = (ev as MouseEvent & { composedPath?: () => Array<unknown> }).composedPath?.() as Array<unknown> | undefined;
-        const inPath = (node: unknown) => Array.isArray(path) && path.includes(node);
-        if (this.popoverEl && inPath(this.popoverEl)) return true;
-        if (this.state.anchor && inPath(this.state.anchor)) return true;
-        return false;
+        this.popoverEl.setAttribute('data-aimd-theme', this.appearance.theme);
     }
 
     private installDraftEventBoundary(textarea: HTMLTextAreaElement): void {
@@ -346,13 +359,16 @@ export class SendPopover {
         this.detachPromptAutocomplete = this.promptAutocompleteController.attachExternalComposer(textarea);
     }
 
-    private setStatus(text: string): void {
+    private setStatus(text: string, tone: 'muted' | 'error' = 'muted'): void {
         const el = this.popoverEl?.querySelector<HTMLElement>('[data-role="status"]');
-        if (el) el.textContent = text;
+        if (!el) return;
+        el.textContent = text;
+        el.dataset.tone = tone;
     }
 
     private setPending(pending: boolean): void {
         this.pending = pending;
+        this.popoverEl?.setAttribute('aria-busy', pending ? 'true' : 'false');
         const btn = this.popoverEl?.querySelector<HTMLButtonElement>('[data-action="send"]');
         if (btn) btn.disabled = pending;
     }
@@ -483,12 +499,15 @@ export class SendPopover {
         const surfaceHeight = rect?.height && rect.height > 0
             ? rect.height
             : Number.parseFloat(surface?.style.height || '') || window.innerHeight;
-        const maxWidth = Math.max(MIN_WIDTH, Math.min(MAX_WIDTH, surfaceWidth - 44));
-        const maxHeight = Math.max(MIN_HEIGHT, Math.min(MAX_HEIGHT, surfaceHeight - 120));
+        const horizontalGutter = SEND_POPOVER_RESPONSIVE_PROFILE.viewportGutterPx * 2;
+        const effectiveMinWidth = Math.min(MIN_WIDTH, Math.max(240, surfaceWidth - horizontalGutter));
+        const effectiveMinHeight = Math.min(MIN_HEIGHT, Math.max(160, surfaceHeight - horizontalGutter));
+        const maxWidth = Math.max(effectiveMinWidth, Math.min(MAX_WIDTH, surfaceWidth - horizontalGutter));
+        const maxHeight = Math.max(effectiveMinHeight, Math.min(MAX_HEIGHT, surfaceHeight - horizontalGutter));
 
         return {
-            width: Math.max(MIN_WIDTH, Math.min(maxWidth, Math.round(width))),
-            height: Math.max(MIN_HEIGHT, Math.min(maxHeight, Math.round(height))),
+            width: Math.max(effectiveMinWidth, Math.min(maxWidth, Math.round(width))),
+            height: Math.max(effectiveMinHeight, Math.min(maxHeight, Math.round(height))),
         };
     }
 
@@ -525,7 +544,7 @@ export class SendPopover {
             sendPort.beforeSubmit?.();
             const res = await sendPort.submit(text);
             if (!res.ok) {
-                this.setStatus(res.message || t('sendFailed'));
+                this.setStatus(res.message || t('sendFailed'), 'error');
                 return;
             }
             this.setStatus(t('sentStatus'));

@@ -1,5 +1,7 @@
 import type { Theme } from '../../core/types/theme';
-import { getTokenCss, type UserThemeOverrides } from '../../style/tokens';
+import { createAppearanceSnapshot, type AppearanceSnapshot } from '../../style/appearance';
+import { AppearanceScope } from '../../style/appearanceScope';
+import type { UserThemeOverrides } from '../../style/tokens';
 import { ensureStyle } from '../../style/shadow';
 import { TooltipDelegate } from '../../utils/tooltip';
 import { showToast } from '../../utils/toast';
@@ -45,8 +47,8 @@ export type MessageToolbarAction = {
 export class MessageToolbar {
     private host: HTMLElement;
     private shadow: ShadowRoot;
-    private theme: Theme;
-    private themeOverrides: UserThemeOverrides = {};
+    private appearance: AppearanceSnapshot;
+    private readonly appearanceScope: AppearanceScope;
     private actions: MessageToolbarAction[];
     private actionButtons = new Map<string, HTMLButtonElement>();
     private pending: boolean = false;
@@ -63,15 +65,15 @@ export class MessageToolbar {
     private activeTaskAbort: AbortController | null = null;
 
     constructor(theme: Theme, actions: MessageToolbarAction[], opts?: { showStats?: boolean; themeOverrides?: UserThemeOverrides }) {
-        this.theme = theme;
-        this.themeOverrides = opts?.themeOverrides ?? {};
+        this.appearance = createAppearanceSnapshot(theme, opts?.themeOverrides ?? {});
         this.actions = actions;
         this.showStats = opts?.showStats ?? false;
         this.host = document.createElement('div');
         this.host.className = 'aimd-message-toolbar-host';
-        this.host.setAttribute('data-aimd-theme', theme);
+        this.host.setAttribute('data-aimd-theme', this.appearance.theme);
         this.shadow = this.host.attachShadow({ mode: 'open' });
-        ensureStyle(this.shadow, getTokenCss(theme, this.themeOverrides), { id: 'aimd-toolbar-tokens' });
+        this.appearanceScope = AppearanceScope.forShadowRoot(this.shadow, { styleId: 'aimd-toolbar-tokens' });
+        this.appearanceScope.apply(this.appearance);
         ensureStyle(this.shadow, this.getCss(), { id: 'aimd-toolbar-base', cache: 'shared' });
         this.tooltipDelegate = new TooltipDelegate(this.shadow, { upgradeTitles: false });
         this.mount();
@@ -91,6 +93,7 @@ export class MessageToolbar {
         this.closeHoverAction();
         this.hoverActionPortal?.dispose();
         this.hoverActionPortal = null;
+        this.appearanceScope.dispose();
     }
 
     setPlacement(placement: 'actionbar' | 'content'): void {
@@ -98,17 +101,11 @@ export class MessageToolbar {
         this.syncNoteVisibility();
     }
 
-    setTheme(theme: Theme): void {
-        this.theme = theme;
-        this.host.setAttribute('data-aimd-theme', theme);
-        ensureStyle(this.shadow, getTokenCss(theme, this.themeOverrides), { id: 'aimd-toolbar-tokens' });
-        this.hoverActionPortal?.setTheme(theme);
-    }
-
-    setThemeOverrides(overrides: UserThemeOverrides): void {
-        this.themeOverrides = { ...overrides };
-        ensureStyle(this.shadow, getTokenCss(this.theme, this.themeOverrides), { id: 'aimd-toolbar-tokens' });
-        this.hoverActionPortal?.setThemeOverrides(this.themeOverrides);
+    setAppearance(snapshot: AppearanceSnapshot): void {
+        this.appearance = snapshot;
+        this.host.setAttribute('data-aimd-theme', snapshot.theme);
+        this.appearanceScope.apply(snapshot);
+        this.hoverActionPortal?.setAppearance(snapshot);
     }
 
     setPending(pending: boolean): void {
@@ -446,7 +443,7 @@ export class MessageToolbar {
 
     private getHoverActionPortal(): ToolbarHoverActionPortal {
         if (!this.hoverActionPortal) {
-            this.hoverActionPortal = new ToolbarHoverActionPortal(this.theme, this.themeOverrides);
+            this.hoverActionPortal = new ToolbarHoverActionPortal(this.appearance.theme, this.appearance.overrides);
         }
         return this.hoverActionPortal;
     }
@@ -562,13 +559,13 @@ export class MessageToolbar {
 :host([data-aimd-placement="actionbar"]) .wrap { margin-top: 0; justify-content: flex-start; }
 :host([data-aimd-placement="actionbar"]) .bar {
   /* Embedded into ChatGPT's official action area: no extra surface/shadow. */
-  padding: 3px;
-  gap: 4px;
+  padding: calc(var(--aimd-space-1) * 0.75);
+  gap: var(--aimd-space-1);
   box-shadow: none;
   background: var(--aimd-toolbar-surface);
   border: 1px solid var(--aimd-toolbar-outline);
 }
-:host([data-aimd-placement="actionbar"]) .icon-btn { width: var(--aimd-size-control-icon-toolbar); height: var(--aimd-size-control-icon-toolbar); border-radius: 10px; }
+:host([data-aimd-placement="actionbar"]) .icon-btn { width: var(--aimd-size-control-icon-toolbar); height: var(--aimd-size-control-icon-toolbar); border-radius: calc(var(--aimd-radius-lg) + var(--aimd-space-1) / 2); }
 :host([data-aimd-placement="actionbar"]) .sep { height: 18px; }
 :host([data-aimd-placement="actionbar"]) .note,
 :host([data-aimd-pending="1"]) .note,
@@ -578,8 +575,8 @@ export class MessageToolbar {
 }
 :host([data-aimd-placement="actionbar"]) .status {
   position: absolute;
-  right: 6px;
-  bottom: calc(100% + 8px);
+  right: calc(var(--aimd-space-1) + var(--aimd-space-1) / 2);
+  bottom: calc(100% + var(--aimd-space-2));
   background: var(--aimd-toolbar-menu-surface);
   border: 1px solid var(--aimd-toolbar-outline);
   box-shadow: var(--aimd-shadow-lg);
@@ -596,26 +593,26 @@ export class MessageToolbar {
 .bar {
   display: inline-flex;
   align-items: center;
-  gap: 4px;
-  padding: 4px;
-  border-radius: 12px;
+  gap: var(--aimd-space-1);
+  padding: var(--aimd-space-1);
+  border-radius: calc(var(--aimd-radius-lg) + var(--aimd-space-1));
   background: var(--aimd-toolbar-surface);
   border: 1px solid var(--aimd-toolbar-outline);
   color: var(--aimd-text-primary);
   position: relative;
-  transition: background 150ms ease, border-color 150ms ease;
+  transition: background var(--aimd-duration-fast) var(--aimd-ease-in-out), border-color var(--aimd-duration-fast) var(--aimd-ease-in-out);
 }
 .bar:hover {
   background: color-mix(in srgb, var(--aimd-toolbar-surface) 88%, var(--aimd-toolbar-hover));
   border-color: color-mix(in srgb, var(--aimd-border-strong) 72%, var(--aimd-interactive-primary) 20%);
 }
 
-.group { display: inline-flex; align-items: center; gap: 2px; }
+.group { display: inline-flex; align-items: center; gap: calc(var(--aimd-space-1) / 2); }
 .sep {
   width: 1px;
   height: 22px;
   background: color-mix(in srgb, var(--aimd-border-default) 75%, transparent);
-  margin: 0 2px;
+  margin: 0 calc(var(--aimd-space-1) / 2);
 }
 
 .stats {
@@ -627,7 +624,7 @@ export class MessageToolbar {
   line-height: 1.25;
   color: color-mix(in srgb, var(--aimd-text-secondary) 94%, transparent);
   white-space: nowrap;
-  padding: 0 6px;
+  padding: 0 calc(var(--aimd-space-1) + var(--aimd-space-1) / 2);
   min-width: 76px;
   user-select: none;
 }
@@ -645,13 +642,13 @@ export class MessageToolbar {
   user-select: none;
   width: var(--aimd-size-control-icon-toolbar);
   height: var(--aimd-size-control-icon-toolbar);
-  border-radius: 9px;
+  border-radius: calc(var(--aimd-radius-lg) + var(--aimd-space-1) / 4);
   background: transparent;
   color: var(--aimd-button-icon-text);
   font-size: var(--aimd-font-size-xs);
   display: grid;
   place-items: center;
-  transition: background 150ms ease, transform 120ms ease, box-shadow 150ms ease;
+  transition: background var(--aimd-duration-fast) var(--aimd-ease-in-out), transform calc(var(--aimd-duration-fast) * 0.8) var(--aimd-ease-in-out), box-shadow var(--aimd-duration-fast) var(--aimd-ease-in-out);
 }
 .icon-btn:hover {
   background: var(--aimd-toolbar-hover);
@@ -693,21 +690,21 @@ export class MessageToolbar {
   position: absolute;
   top: calc(100% + 8px);
   min-width: 180px;
-  padding: 6px;
-  border-radius: 14px;
+  padding: calc(var(--aimd-space-1) + var(--aimd-space-1) / 2);
+  border-radius: var(--aimd-radius-xl);
   background: var(--aimd-toolbar-menu-surface);
   border: 1px solid color-mix(in srgb, var(--aimd-border-strong) 72%, transparent);
   box-shadow: var(--aimd-shadow-lg);
   display: none;
   z-index: var(--aimd-z-tooltip);
 }
-.menu[data-open="1"] { display: grid; gap: 6px; }
+.menu[data-open="1"] { display: grid; gap: calc(var(--aimd-space-1) + var(--aimd-space-1) / 2); }
 .menu-item {
   all: unset;
   cursor: pointer;
   user-select: none;
-  padding: 10px 12px;
-  border-radius: 12px;
+  padding: calc(var(--aimd-space-2) + var(--aimd-space-1) / 2) var(--aimd-space-3);
+  border-radius: calc(var(--aimd-radius-lg) + var(--aimd-space-1));
   border: 1px solid transparent;
   color: var(--aimd-text-primary);
   font-size: var(--aimd-text-sm);

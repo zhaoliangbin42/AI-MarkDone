@@ -12,6 +12,11 @@ type MotionSpec = {
     toTransform: string;
 };
 
+export type SurfaceOpenMotionTiming = {
+    durationMs: number;
+    easing: string;
+};
+
 type OpeningMotionJob = {
     frameIds: number[];
     timer: number | null;
@@ -127,7 +132,10 @@ function clearOpeningMotion(element: HTMLElement): void {
     element.style.removeProperty('transform');
 }
 
-export function setSurfaceMotionOpening(elements: Array<HTMLElement | null | undefined>): void {
+export function setSurfaceMotionOpening(
+    elements: Array<HTMLElement | null | undefined>,
+    options?: { resolveTiming?: (element: HTMLElement) => SurfaceOpenMotionTiming | null },
+): void {
     const connectedElements = elements.filter((element): element is HTMLElement => Boolean(element?.isConnected));
     if (connectedElements.length === 0) return;
 
@@ -137,8 +145,26 @@ export function setSurfaceMotionOpening(elements: Array<HTMLElement | null | und
 
     const scheduleFrame = getFrameScheduler();
     for (const element of connectedElements) {
-        const spec = getEnterMotionSpec(element);
+        const baseSpec = getEnterMotionSpec(element);
+        const timing = options?.resolveTiming?.(element) ?? null;
+        const spec = baseSpec
+            ? (timing ? { ...baseSpec, duration: timing.durationMs, easing: timing.easing } : baseSpec)
+            : (timing
+                ? {
+                    duration: timing.durationMs,
+                    easing: timing.easing,
+                    fromOpacity: '0',
+                    toOpacity: '1',
+                    fromTransform: 'none',
+                    toTransform: 'none',
+                }
+                : null);
         if (!spec) continue;
+        if (spec.duration <= 0) {
+            clearOpeningMotion(element);
+            setMotionState(element, 'open');
+            continue;
+        }
 
         clearOpeningMotion(element);
         const job: OpeningMotionJob = { frameIds: [], timer: null };

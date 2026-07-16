@@ -17,6 +17,54 @@ function rect(input: { left: number; top: number; width: number; height: number 
 }
 
 describe('MessageToolbar', () => {
+    it('shares one constructed token stylesheet across message toolbar ShadowRoots', () => {
+        class FakeSheet {
+            cssText = '';
+
+            replaceSync(cssText: string): void {
+                this.cssText = cssText;
+            }
+        }
+
+        const originalSheet = (globalThis as any).CSSStyleSheet;
+        const originalDescriptor = Object.getOwnPropertyDescriptor(ShadowRoot.prototype, 'adoptedStyleSheets');
+        const sheetsByRoot = new WeakMap<ShadowRoot, FakeSheet[]>();
+        (globalThis as any).CSSStyleSheet = FakeSheet;
+        Object.defineProperty(ShadowRoot.prototype, 'adoptedStyleSheets', {
+            configurable: true,
+            get() {
+                return sheetsByRoot.get(this) ?? [];
+            },
+            set(value: FakeSheet[]) {
+                sheetsByRoot.set(this, value);
+            },
+        });
+
+        try {
+            const first = new MessageToolbar('dark', [], { themeOverrides: { accentColor: '#0A7' } });
+            const second = new MessageToolbar('dark', [], { themeOverrides: { accentColor: '#00aa77' } });
+            const firstTokens = (first.getElement().shadowRoot!.adoptedStyleSheets as unknown as FakeSheet[])
+                .find((sheet) => sheet.cssText.includes('--aimd-ref-color-neutral-0'));
+            const secondTokens = (second.getElement().shadowRoot!.adoptedStyleSheets as unknown as FakeSheet[])
+                .find((sheet) => sheet.cssText.includes('--aimd-ref-color-neutral-0'));
+
+            expect(firstTokens).toBeDefined();
+            expect(secondTokens).toBe(firstTokens);
+            expect(first.getElement().shadowRoot?.querySelector('style[data-aimd-style-id="aimd-toolbar-tokens"]')).toBeNull();
+            expect(second.getElement().shadowRoot?.querySelector('style[data-aimd-style-id="aimd-toolbar-tokens"]')).toBeNull();
+
+            first.dispose();
+            second.dispose();
+        } finally {
+            (globalThis as any).CSSStyleSheet = originalSheet;
+            if (originalDescriptor) {
+                Object.defineProperty(ShadowRoot.prototype, 'adoptedStyleSheets', originalDescriptor);
+            } else {
+                delete (ShadowRoot.prototype as any).adoptedStyleSheets;
+            }
+        }
+    });
+
     it('defers task-progress DOM and styles until a secondary task actually starts', () => {
         const toolbar = new MessageToolbar('light', [
             {

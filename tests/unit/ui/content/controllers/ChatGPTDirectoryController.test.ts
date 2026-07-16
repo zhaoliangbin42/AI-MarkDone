@@ -1,9 +1,12 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { readFileSync } from 'node:fs';
+import { resolve } from 'node:path';
 import { SiteAdapter, type ConversationGroupRef, type ThemeDetector } from '@/drivers/content/adapters/base';
 import { ChatGPTAdapter } from '@/drivers/content/adapters/sites/chatgpt';
 import { ChatGPTDirectoryController } from '@/ui/content/controllers/ChatGPTDirectoryController';
 import { ChatGPTDirectoryRail } from '@/ui/content/chatgptDirectory/ChatGPTDirectoryRail';
 import { AIMD_VIEWPORT_RESIZE_IDLE_EVENT } from '@/ui/content/controllers/ViewportResizeSuspendController';
+import { setLocale } from '@/ui/content/components/i18n';
 
 const navigationMocks = vi.hoisted(() => ({
     scrollToBookmarkTargetWithRetry: vi.fn(),
@@ -17,6 +20,12 @@ vi.mock('@/drivers/content/bookmarks/navigation', () => ({
 vi.mock('@/drivers/content/conversation/highlight', () => ({
     highlightNavigationTarget: navigationMocks.highlightNavigationTarget,
 }));
+
+function getRailCss(root: ShadowRoot | null | undefined): string {
+    return root
+        ?.querySelector<HTMLStyleElement>('style[data-aimd-style-id="aimd-chatgpt-directory-rail-base"]')
+        ?.textContent ?? '';
+}
 
 const detector: ThemeDetector = {
     detect: () => 'light',
@@ -225,6 +234,30 @@ describe('ChatGPTDirectoryController', () => {
         expect(items[1]?.dataset.position).toBe('2');
     });
 
+    it('rerenders fallback labels when the UI locale changes', async () => {
+        vi.stubGlobal('fetch', vi.fn(async (url: string) => {
+            const locale = String(url).includes('/zh_CN/') ? 'zh_CN' : 'en';
+            const messages = JSON.parse(readFileSync(resolve(process.cwd(), `public/_locales/${locale}/messages.json`), 'utf8'));
+            return { ok: true, json: async () => messages } as Response;
+        }));
+        await setLocale('en');
+        const adapter = new ChatGPTTestAdapter();
+        const engine = { getSnapshot: vi.fn(async () => null), subscribe: vi.fn(() => () => undefined) } as any;
+        const controller = new ChatGPTDirectoryController(adapter, engine);
+        controller.init('light');
+        await Promise.resolve();
+
+        await setLocale('zh_CN');
+
+        const items = Array.from(document.getElementById('aimd-chatgpt-directory-rail')?.shadowRoot?.querySelectorAll<HTMLButtonElement>('.rail__item') ?? []);
+        expect(items[0]?.getAttribute('aria-label')).toContain('消息 1');
+        expect(items[1]?.getAttribute('aria-label')).toContain('消息 2');
+
+        controller.dispose();
+        await setLocale('en');
+        vi.unstubAllGlobals();
+    });
+
     it('marks bookmarked rounds in the directory rail from the shared bookmarks controller state', async () => {
         window.history.replaceState({}, '', '/c/69e8d157-5fec-839c-9124-2179ba8b7d7c');
         const adapter = new ChatGPTTestAdapter();
@@ -408,11 +441,12 @@ describe('ChatGPTDirectoryController', () => {
         rail.setBookmarkedPositions(new Set([2]));
 
         const items = Array.from(rail.getElement().shadowRoot?.querySelectorAll<HTMLButtonElement>('.rail__item') ?? []);
-        const style = rail.getElement().shadowRoot?.querySelector('style')?.textContent ?? '';
+        const style = getRailCss(rail.getElement().shadowRoot);
 
         expect(items.map((item) => item.dataset.bookmarked)).toEqual(['0', '1']);
         expect(style).toContain('var(--aimd-bookmark-marker-gradient)');
-        expect(style).toContain('var(--aimd-bookmark-marker-glow)');
+        expect(style).toContain('var(--aimd-shadow-bookmark-marker)');
+        expect(style).toContain('var(--aimd-shadow-bookmark-marker-strong)');
 
         rail.dispose();
     });
@@ -424,16 +458,16 @@ describe('ChatGPTDirectoryController', () => {
         const host = rail.getElement();
         const preview = document.getElementById('aimd-chatgpt-directory-preview') as HTMLElement;
 
-        expect(host.style.getPropertyValue('--aimd-chatgpt-directory-scrollbar-width')).toBe('17px');
-        expect(host.style.getPropertyValue('--aimd-chatgpt-directory-user-right-inset')).toBe('0px');
-        expect(preview.style.getPropertyValue('--aimd-chatgpt-directory-scrollbar-width')).toBe('17px');
-        expect(preview.style.getPropertyValue('--aimd-chatgpt-directory-user-right-inset')).toBe('0px');
+        expect(host.style.getPropertyValue('--_directory-scrollbar-width')).toBe('17px');
+        expect(host.style.getPropertyValue('--_directory-user-right-inset')).toBe('0px');
+        expect(preview.style.getPropertyValue('--_directory-scrollbar-width')).toBe('17px');
+        expect(preview.style.getPropertyValue('--_directory-user-right-inset')).toBe('0px');
 
         rail.setRightInsetPx(57);
 
-        expect(host.style.getPropertyValue('--aimd-chatgpt-directory-user-right-inset')).toBe('40px');
-        expect(preview.style.getPropertyValue('--aimd-chatgpt-directory-user-right-inset')).toBe('40px');
-        expect(host.shadowRoot?.querySelector('style')?.textContent).toContain('var(--aimd-chatgpt-directory-scrollbar-width, 0px)');
+        expect(host.style.getPropertyValue('--_directory-user-right-inset')).toBe('40px');
+        expect(preview.style.getPropertyValue('--_directory-user-right-inset')).toBe('40px');
+        expect(getRailCss(host.shadowRoot)).toContain('var(--_directory-scrollbar-width, 0px)');
 
         rail.dispose();
     });
@@ -443,7 +477,7 @@ describe('ChatGPTDirectoryController', () => {
         rail.setRounds(buildSnapshot().rounds);
         rail.setBookmarkedPositions(new Set([2]));
 
-        const style = rail.getElement().shadowRoot?.querySelector('style')?.textContent ?? '';
+        const style = getRailCss(rail.getElement().shadowRoot);
         const bookmarkedRule = style.match(/\.rail__item\[data-bookmarked="1"\]::before\s*\{[^}]+\}/)?.[0] ?? '';
 
         expect(bookmarkedRule).toContain('background: var(--aimd-bookmark-marker-gradient)');
@@ -576,7 +610,7 @@ describe('ChatGPTDirectoryController', () => {
 
         const railRoot = document.getElementById('aimd-chatgpt-directory-rail')?.shadowRoot;
         const labels = Array.from(railRoot?.querySelectorAll<HTMLElement>('.rail__label') ?? []);
-        const style = railRoot?.querySelector('style')?.textContent ?? '';
+        const style = getRailCss(railRoot);
 
         expect(labels[0]?.textContent).toBe('Repeated prefix…e ending marker');
         expect(labels[1]?.textContent).toBe('Short prompt');
@@ -588,7 +622,7 @@ describe('ChatGPTDirectoryController', () => {
     it('keeps the directory rail scrollable while hiding its visual scrollbar', () => {
         const rail = new ChatGPTDirectoryRail('light', () => undefined);
 
-        const style = rail.getElement().shadowRoot?.querySelector('style')?.textContent ?? '';
+        const style = getRailCss(rail.getElement().shadowRoot);
         const listRule = style.match(/\.rail__list\s*\{[^}]+\}/)?.[0] ?? '';
         const expandedRule = style.match(/\.rail__list\[data-mode="expanded"\]\[data-expanded="1"\]\s*\{[^}]+\}/)?.[0] ?? '';
 
@@ -609,10 +643,26 @@ describe('ChatGPTDirectoryController', () => {
 
         (controller as any).ensureRail();
 
+        const tokens = document.getElementById('aimd-chatgpt-directory-preview-tokens');
         const style = document.getElementById('aimd-chatgpt-directory-preview-style');
-        expect(style?.textContent).toContain('.aimd-chatgpt-directory-preview[data-aimd-theme="light"]');
-        expect(style?.textContent).toContain('.aimd-chatgpt-directory-preview[data-aimd-theme="dark"]');
+        expect(tokens?.textContent).toContain('.aimd-chatgpt-directory-preview[data-aimd-theme="light"]');
+        expect(tokens?.textContent).toContain('.aimd-chatgpt-directory-preview[data-aimd-theme="dark"]');
         expect(style?.textContent).toContain('background: var(--aimd-bg-surface');
+        expect(style?.textContent).not.toContain('--aimd-ref-color-neutral-0');
+    });
+
+    it('ships the staged preview, compact-rail, and narrow-hide responsive contract', () => {
+        const rail = new ChatGPTDirectoryRail('light', () => undefined);
+        const railCss = getRailCss(rail.getElement().shadowRoot);
+        const previewCss = document.getElementById('aimd-chatgpt-directory-preview-style')?.textContent ?? '';
+
+        expect(previewCss).toContain('@media (max-width: 900px)');
+        expect(previewCss).toContain('display: none;');
+        expect(railCss).toContain('@media (max-width: 720px)');
+        expect(railCss).toContain('@media (max-width: 560px)');
+        expect(railCss).toContain(':host { display: none; }');
+
+        rail.dispose();
     });
 
     it('does not create the retired body-level step controls', () => {

@@ -2,7 +2,7 @@
 
 This document is the single source of truth for AI-MarkDone product UI design, style-system rules, and visual governance. It replaces the previous split style and token references.
 
-Runtime token values live in `src/style/reference-tokens.ts`, `src/style/system-tokens.ts`, and `src/style/tokens.ts`. This document defines what those values mean, how they may be used, and how future UI work should be judged.
+Runtime token values live in `src/style/reference-tokens.ts`, `src/style/system-tokens.ts`, and `src/style/public-tokens.ts`; `src/style/tokens.ts` composes those layers for callers. This document defines what those values mean, how they may be used, and how future UI work should be judged.
 
 ## 1. Product Feel
 
@@ -33,7 +33,7 @@ The product should avoid decorative weight. It should make long-form reading and
 ### 2.4 Minimal Palette
 
 - The system uses one brand accent, one neutral scale, and a small set of semantic state colors.
-- A multi-color treatment is only allowed when it represents a specific product state. The current approved exception is the ChatGPT directory bookmark marker, exposed through `--aimd-bookmark-marker-gradient` / `--aimd-bookmark-marker-glow`.
+- A multi-color treatment is only allowed when it represents a specific product state. The current approved exception is the ChatGPT directory bookmark marker, exposed through `--aimd-bookmark-marker-gradient` plus the semantic `--aimd-shadow-bookmark-marker*` rings.
 - New accent families require a product reason and design review.
 - Avoid multi-accent decoration, one-off gradients, and page-themed palettes.
 
@@ -49,18 +49,57 @@ The product should avoid decorative weight. It should make long-form reading and
 - Mock pages should use the real components, real token injection, and real Shadow DOM.
 - Validate light/dark themes, dense and empty states, long text, overflow, focus, hover, keyboard paths, and two independent instances.
 
-## 3. Surface Map
+## 3. UI Surface Architecture
 
-| Surface | Role | Density | Styling Owner | Required Checks |
-|:--|:--|:--|:--|:--|
-| Reader panel | Long-form reading, prompt/source rendering, export entry points | Comfortable reading density | Reader surface profile + shared chrome primitives | Markdown hierarchy, source blocks, prompt wrapping, scroll, panel width |
-| Bookmarks panel | Saved items, folders, metadata, actions | Operational density | Bookmarks surface profile + shared rows/buttons | Empty state, long titles, folder actions, selection, list virtualization risk |
-| Settings panel | Product configuration and advanced preferences | Form density | Shared form primitives | Label/help alignment, defaults, disabled states, validation copy |
-| Message toolbar | High-frequency inline actions in ChatGPT conversation flow | Compact | Toolbar component tokens and native CSS modules | Hydration, re-scan, icon alignment, hit target, host-page interference |
-| ChatGPT directory | Optional right-side conversation navigation | Compact navigation density | Directory surface profile | Default off; reuse shared ChatGPT position/navigation model; no lower-right step controls inside the rail |
-| Modal/dialog | Focused decision or blocking action | Compact, centered | Shared dialog primitive | Focus trap, escape, inert/backdrop behavior, z-index, reduced motion |
-| Popover/hover portal | Contextual actions or previews | Compact | Shared popover primitive or documented local boundary | Anchor position, viewport collision, hover delay, dismissal |
-| Save messages dialog | Selection and confirmation flow | Task density | Dialog primitive + save-flow body | Multi-select state, error state, keyboard flow, restore scroll |
+A Surface is a user-visible work area with one entry, one lifecycle owner, one DOM scope, and one responsive contract. A Surface family owns repeated product semantics. Shared chrome owns presentation and interaction mechanics, but never feature data, settings persistence, platform selectors, or host geometry.
+
+The named Surface profiles are:
+
+| Profile | Intended use | Lifecycle expectation |
+|:--|:--|:--|
+| `panel` | Persistent Reader or Bookmarks workspace | Own header/body/footer, one scroll owner, resize/fullscreen rules, focus entry, and deterministic teardown |
+| `modal` | Focused decision or blocking task | Own backdrop, focus containment and return, Escape policy, scroll lock, and close motion |
+| `anchored` | Contextual popover, preview, suggestion list, or hover action | Own anchor measurement, flip/clamp, visual-viewport collision, outside-click/Escape policy, and anchor-loss fallback |
+| `inline` | Compact controls integrated into a host layout | Preserve host geometry and interaction; no global focus trap or page scroll ownership |
+
+Extension documents such as the unsupported-page popup are documented exceptions. They use the same public visual tokens but own their document lifecycle instead of a Surface session.
+
+### 3.1 Complete Surface Catalog
+
+The catalog is normative for visual and interaction ownership. Appearance means theme plus approved global overrides. Locale means both initial translation and live locale refresh where the runtime supports it. The evidence column names the tracked real-module fixture; “family coverage” means the fixture opens the production child Surface through its owning family rather than redrawing it. `tests/support/uiSurfaceCoverage.ts` is the executable mirror of that distinction.
+
+| Surface / user entry | Owner / DOM scope / profile | Appearance | Locale | Focus, dismissal, motion | Overflow and responsive contract | Visual evidence owner |
+|:--|:--|:--|:--|:--|:--|:--|
+| Per-message toolbar; appears in the official message action row | Message Toolbar family; ShadowRoot; `inline` | Shared snapshot; toolbar family tokens | Live refresh required | Roving/normal button focus; host removal destroys; compact feedback only | Must not move or wrap the host action row; controls retain stable hit targets during hydration and viewport resize | `mocks/components/host-integrated-controls` |
+| Toolbar hover action and task progress; opened from a toolbar action | Message Toolbar family; page portal/ShadowRoot; `anchored` | Same snapshot as owning toolbar | Live refresh required | Hover/focus bridge, Escape where interactive, anchor loss closes; reduced motion | Flip/clamp to visual viewport; progress content must not resize the toolbar | `mocks/components/host-integrated-controls` (family coverage) |
+| Lower-right page-control cluster; fixed ChatGPT page entry | Page Controls family; documented light-DOM host; `inline` | Page appearance scope | Live refresh required | Button focus; no focus trap; each transient child owns dismissal | No wrapping; at `<=560px` use compact icon-only controls with tooltip and `aria-label`; never obscure the composer | `mocks/components/host-integrated-controls` (family coverage) |
+| ChatGPT directory rail and prompt preview; page navigation entry | Directory family; rail ShadowRoot plus contextual preview; `inline` + `anchored` | Shared snapshot | Live refresh required | Rail buttons remain keyboard reachable; preview closes on anchor loss/Escape/outside click | Close preview first, then compact the rail; if usable conversation width still cannot be preserved, hide the rail for that viewport without changing the saved setting | `mocks/components/host-integrated-controls` (family coverage) |
+| Input Enhancement control center and syntax guide; plus-adjacent composer button | Composer family; button ShadowRoot, page portal, shared modal host; `anchored` + `modal` | Shared snapshot | Live refresh required | Popover restores focus to trigger; Escape/outside click close; guide uses modal focus lifecycle; reduced motion | Portal avoids composer clipping; clamp to visual viewport and collapse to one readable column on narrow screens | `mocks/components/input-enhancement` |
+| Formula composer assistant; active formula caret | Composer family; ShadowRoot portal; `anchored` | Shared snapshot | Live refresh required | Keyboard selection precedes composer Enter handling; Escape closes without changing source | Follow caret when measurable, otherwise anchor to composer; preview/suggestion areas own internal max height | `mocks/components/formula-composer-assistant` |
+| Prompt autocomplete suggestion list; `\` token in a supported composer | Prompt family; page portal; `anchored` | Shared snapshot | Live refresh required | Arrow/Enter/Tab/Escape contract; selection returns focus/caret; anchor loss closes | Caret anchored with composer fallback; no viewport overflow or overlap with the input’s critical controls | `mocks/components/prompt-family` |
+| Prompt manager; page controls, Settings, Reader, or detached Reader entry | Prompt family; draggable ShadowRoot portal; `anchored` | Shared snapshot | Live refresh required | Dialog-like initial focus and Escape; outside-click policy is explicit; drag and item reorder remain isolated | Clamp after drag and viewport changes; body is the only scroll owner; footer remains reachable at short heights | `mocks/components/prompt-family` (family coverage) |
+| Formula asset hover actions and formula settings; formula hover/settings entry | Formula Asset family; page portal/ShadowRoot; `anchored` | Shared snapshot | Live refresh required | Hover/focus bridge, Escape, outside click, action-pending states | Clamp to viewport; settings owns internal scrolling; never cover the source formula when an alternate side is available | `mocks/components/formula-asset-actions` |
+| In-page Reader; per-message toolbar, bookmark preview, or workflow entry | Reader family; overlay ShadowRoot; `panel` | Shared snapshot plus Reader-scoped content state | Live refresh required | Focus entry/return, Escape policy, resize lifecycle, deterministic scroll-lock cleanup | Header/footer remain stable and body owns scroll; at `<=900px` auxiliary rails overlay or hide, at `<=560px` use one column; sticky content stays inside viewport | `mocks/components/reader-panel` and `mocks/components/reader-comments` |
+| Detached Reader extension page; lower-right Split View entry | Reader family; extension page plus Reader ShadowRoot; `panel` | Session snapshot plus Reader-scoped content state | Live refresh required | Same Reader focus/navigation contract; page close owns teardown | Full viewport by default; use the same short-height and narrow-width rules as in-page Reader | `mocks/components/reader-panel` (family coverage) |
+| Reader settings, comments, comment list/export, template editor, Prompt picker, and Send popover; Reader header/body actions | Reader family; modal or ShadowRoot portal; `modal` / `anchored` | Same snapshot as Reader | Live refresh required | Named modal/anchored lifecycle; focus returns to originating Reader control; close never mutates content implicitly | One internal body scroll owner; header/footer/actions remain reachable at `320px` width and `568px` height | `mocks/components/reader-comments` plus Reader panel transient states |
+| Bookmarks workspace, tree, preview, and primary tabs; extension action or page-control entry | Bookmarks family; overlay ShadowRoot; `panel` | Shared snapshot | Live refresh required | Focus entry/return, Escape policy, stable selection and inline editing focus | Workspace owns scrolling; `980/720/560px` profiles progressively reduce columns and chrome. Phone toolbars wrap from the leading edge, bookmark metadata stacks without collision, and selected/focused rows expose actions in their own row instead of overlaying content | `mocks/components/bookmarks-workspace` |
+| Settings, data management, Cloud Backup, formula settings, and information tabs; Bookmarks tab entry | Bookmarks/Settings family; panel body plus local anchored surfaces | Shared snapshot; settings values do not style controls directly | Live refresh required | Form focus order, pending/disabled/error states; local popovers return focus | Labels/help text keep intrinsic height; panel body scrolls; at narrow widths rows stack and destructive actions remain separated | `mocks/components/bookmarks-workspace` (family coverage) |
+| Bookmark Save dialog; toolbar/page bookmark action | Save family; shared overlay ShadowRoot; `modal` | Shared snapshot | Live refresh required | Initial field focus, Escape/cancel, pending lock, focus return | Dialog body scrolls when needed; actions remain visible at narrow width/short height | `mocks/components/workflow-dialogs` |
+| Save Messages dialog; toolbar action | Export/Save family; shared overlay ShadowRoot; `modal` | Shared snapshot | Live refresh required | Selection keyboard flow, Escape/cancel, pending/progress/error, focus return | Selection body owns scroll; footer remains visible; long titles truncate without hiding selection state | `mocks/components/workflow-dialogs` |
+| Send popover; Reader or detached Reader send action | Sending family; anchored ShadowRoot | Shared snapshot | Live refresh required | Draft focus, pending send blocks duplicates, focus returns | Text area and body share one declared scroll strategy; actions remain reachable under virtual keyboard/short viewport | `mocks/components/workflow-dialogs` |
+| Shared notices, confirm/prompt dialogs, changelog notice, and import review; workflow-owned trigger | Overlay family; shared ShadowRoot; `modal` | Shared snapshot | Live refresh required | Modal focus containment/return, Escape policy, backdrop, scroll lock, reduced motion | Centered with viewport gutters; body becomes the sole scroll owner; no dialog may exceed the visual viewport | `mocks/components/overlay-host` |
+| Tooltip and toast feedback; control hover/focus or operation result | Feedback family; page feedback layer or owning ShadowRoot preview | Shared snapshot | Live refresh required | Tooltip follows hover/focus and is non-interactive unless declared; toast never captures focus | Clamp to viewport; tooltip must not be clipped by host controls; toast must not block page interaction | `mocks/components/host-integrated-controls` (family coverage) |
+| Unsupported-page popup; extension toolbar icon on an unsupported page | Popup document; extension document exception | Minimal public-token fallback | Locale at document load | Normal document focus; no overlay lifecycle | Remains usable at `320px`; content wraps without horizontal overflow | `mocks/components/unsupported-popup` |
+
+Hidden export-renderer and formula-renderer documents are rendering infrastructure, not product Surfaces. Their visual output contracts belong to export testing and must not be changed as part of UI chrome convergence.
+
+### 3.2 Catalog Governance
+
+- Every new user-visible Surface must enter this catalog in the same change that introduces it.
+- One Surface has one lifecycle owner. Feature controllers may supply data and callbacks, but must not independently recreate theme, locale, focus, dismissal, motion, or viewport logic.
+- A real user-facing trigger test is required for every modal, popover, overlay, panel, and shared primitive regression path.
+- Visual evidence must instantiate the real Module, real token injection, and real Shadow DOM. Concept labs may explore alternatives but cannot satisfy a Surface’s required evidence.
+- The executable coverage manifest in `tests/support/uiSurfaceCoverage.ts` must mirror this catalog and remains test-only; this document is the semantic authority.
 
 ## 4. Color Tokens
 
@@ -97,7 +136,7 @@ Core palette:
 |:--|:--|:--|:--|
 | Canvas / surface | `--aimd-ref-color-neutral-0` | `#FFFFFF` | `#1E1E1E` |
 | Subtle surface | `--aimd-ref-color-neutral-50` | `#F6F7F9` | `#2D2D2D` |
-| Muted text | `--aimd-ref-color-neutral-500` | `#6B7280` | `#9CA3AF` |
+| Tertiary text | `--aimd-text-tertiary` | Derived from secondary text at 72% | Derived from secondary text at 72% |
 | Secondary text | `--aimd-ref-color-neutral-700` | `#374151` | `#D1D5DB` |
 | Primary text | `--aimd-ref-color-neutral-900` | `#111827` | `#F3F4F6` |
 | White / on-accent | `--aimd-ref-color-neutral-white` | `#ffffff` | `#ffffff` |
@@ -118,7 +157,7 @@ Alpha and interaction palette:
 
 | Intent | Token | Light | Dark |
 |:--|:--|:--|:--|
-| Quiet neutral | `--aimd-ref-color-neutral-alpha-06` | `rgba(0,0,0,0.06)` | `rgba(255,255,255,0.06)` |
+| Quiet interaction layer | `--aimd-sys-color-interactive-hover-layer` | `rgba(0,0,0,0.06)` | `rgba(255,255,255,0.16)` |
 | Subtle border | `--aimd-ref-color-neutral-alpha-08` | `rgba(0,0,0,0.08)` | `rgba(255,255,255,0.08)` |
 | Default border / hover | `--aimd-ref-color-neutral-alpha-12` | `rgba(0,0,0,0.12)` | `rgba(255,255,255,0.12)` |
 | Strong border / hover | `--aimd-ref-color-neutral-alpha-16` | `rgba(0,0,0,0.16)` | `rgba(255,255,255,0.16)` |
@@ -132,7 +171,6 @@ State palette:
 | Intent | Token | Light | Dark |
 |:--|:--|:--|:--|
 | Warning | `--aimd-sys-color-warning` | `#f59e0b` | `#fbbf24` |
-| Warning text | `--aimd-sys-color-warning-text` | `#b45309` | `#fbbf24` |
 | Danger | `--aimd-sys-color-danger` | `#ef4444` | `#ef4444` |
 | Success border | `--aimd-ref-color-green-alpha-35` | `rgba(16,185,129,0.35)` | `rgba(16,185,129,0.35)` |
 | Error border | `--aimd-ref-color-red-alpha-35` | `rgba(239,68,68,0.35)` | `rgba(239,68,68,0.35)` |
@@ -142,11 +180,10 @@ Overlay and shadow color values:
 | Intent | Token | Light | Dark |
 |:--|:--|:--|:--|
 | Overlay | `--aimd-ref-color-black-alpha-35` | `rgba(0,0,0,0.35)` | `rgba(0,0,0,0.55)` |
-| Heavy overlay | `--aimd-sys-color-overlay-heavy` | `rgba(148, 163, 184, 0.34)` | `rgba(0,0,0,0.60)` |
-| Floating shadow | `--aimd-ref-shadow-300` | `0 10px 24px rgba(0,0,0,0.18)` | `0 10px 24px rgba(0,0,0,0.45)` |
+| Floating shadow | `--aimd-ref-shadow-sm` | `0 4px 12px rgba(0,0,0,0.12)` | `0 6px 16px rgba(0,0,0,0.52)` |
 | Panel shadow | `--aimd-ref-shadow-500` | `0 18px 50px rgba(0,0,0,0.25)` | `0 18px 50px rgba(0,0,0,0.55)` |
 
-The target palette keeps the core neutral, brand, warning, danger, success/error border, focus, list-selection, and overlay values. Platform-scoped color tokens are not part of the active system.
+The current palette keeps the core neutral, brand, warning, danger, success/error border, focus, and overlay values. Platform-scoped color tokens are not part of the active system.
 
 ## 5. Typography Tokens
 
@@ -196,7 +233,6 @@ Rules:
 | Body | `--aimd-ref-type-size-200` | `16px` |
 | Title medium | `--aimd-ref-type-size-300` | `16px` |
 | Title large | `--aimd-sys-type-title-large-size` | `18px` |
-| Hero title | `--aimd-sys-type-title-hero-size` | `26px` |
 | Label line height | `--aimd-ref-type-line-100` | `1.25` |
 | Body line height | `--aimd-ref-type-line-200` | `1.5` |
 | Reading line height | `--aimd-ref-type-line-300` | `1.65` |
@@ -250,9 +286,8 @@ Shape:
 | `--aimd-sys-shape-corner-xs` | `4px` |
 | `--aimd-ref-radius-150` | `6px` |
 | `--aimd-ref-radius-200` | `8px` |
-| `--aimd-ref-radius-250` | `10px` |
-| `--aimd-ref-radius-300` | `12px` |
-| `--aimd-ref-radius-400` | `16px` |
+| `--aimd-sys-shape-corner-xl` | `14px` |
+| `--aimd-sys-shape-corner-2xl` | `18px` |
 | `--aimd-ref-radius-full` | `999px` |
 
 Core sizes and layers:
@@ -260,17 +295,14 @@ Core sizes and layers:
 | Intent | Token | Value |
 |:--|:--|:--|
 | Small icon | `--aimd-ref-size-160` | `16px` |
-| Medium icon | `--aimd-ref-size-260` | `26px` |
 | Toolbar icon control | `--aimd-ref-size-300` | `30px` |
 | Panel icon control | `--aimd-ref-size-320` | `32px` |
 | Action control | `--aimd-ref-size-360` | `36px` |
 | Panel header | `--aimd-ref-size-720` | `72px` |
 | Compact panel header | `--aimd-ref-size-640` | `64px` |
-| Source max height | `--aimd-ref-size-220` | `220px` |
 | Panel max width | `--aimd-ref-size-900` | `900px` |
-| Panel width | `--aimd-ref-size-fluid-viewport-92` | `92vw` |
+| Wide panel max width | `--aimd-panel-wide-max-width` | `1180px` |
 | Panel height | `--aimd-ref-size-fluid-viewport-82` | `82vh` |
-| Panel top offset | `--aimd-ref-size-fluid-viewport-10` | `10vh` |
 | Base layer | `--aimd-ref-z-base` | `1` |
 | Panel layer | `--aimd-ref-z-panel` | `9000` |
 | Tooltip layer | `--aimd-ref-z-tooltip` | `10000` |
@@ -282,7 +314,6 @@ Motion:
 |:--|:--|:--|
 | Fast duration | `--aimd-ref-motion-duration-fast` | `150ms` |
 | Enter/base duration | `--aimd-ref-motion-duration-enter` | `200ms` |
-| Slow duration | `--aimd-sys-motion-duration-slow` | `300ms` |
 | Standard easing | `--aimd-ref-motion-easing-standard` | `cubic-bezier(0.4, 0, 0.2, 1)` |
 | Emphasis easing | `--aimd-sys-motion-easing-emphasis` | `cubic-bezier(0.16, 1, 0.3, 1)` |
 
@@ -314,7 +345,7 @@ Motion:
 
 - Panels own their header, body, footer, scroll, and resize behavior through surface profiles.
 - Panel callers should not pass low-level chrome flags unless the profile does not yet exist and the exception is documented.
-- Reader and bookmarks panels should converge on shared shell structure while preserving their different density needs.
+- Reader and bookmarks panels use the shared panel lifecycle/chrome contracts while preserving family-owned density and workflow differences.
 
 ### 7.5 Rows and Cards
 
@@ -349,6 +380,27 @@ Motion:
 - Standard label tooltips render at the page feedback layer to avoid being clipped by Shadow DOM hosts or host-page controls; preview tooltips may stay inside their owning ShadowRoot.
 - Toasts render at the top center of the viewport, replace the previous toast, default to 3 seconds, and must not block page interaction.
 
+### 7.10 Shared Chrome Ownership
+
+- Shared chrome is organized by semantic family: panel shell, dialog shell, anchored shell, button/icon button, field/form row, feedback, and toolbar controls.
+- A shared chrome Module owns visual structure, state selectors, accessibility mechanics, and public/family tokens. It does not own feature data, persistence, copy, navigation, export, or platform DOM discovery.
+- Surface families select named profiles. Boolean style flags and caller-provided low-level dimensions must not grow into a second styling Interface.
+- A family may keep private geometry and density composition when it has a distinct workflow. Reusable meaning is promoted to shared chrome only after a second real consumer exists.
+
+### 7.11 Surface Runtime Ownership
+
+`src/ui/content/components/SurfaceRuntime.ts` is the shared lifecycle seam for user-visible page UI. A `SurfaceSession` owns appearance and locale propagation, focus entry and return, Escape/outside-click policy, positioning, reduced-motion handling, close completion, and cleanup. Feature controllers retain content, commands, mounting decisions, and adapter-owned anchor geometry.
+
+Rules:
+
+- Do not introduce another global observer to coordinate UI lifecycle.
+- Host geometry and platform selectors remain in Drivers/Adapters; the Surface runtime consumes normalized anchors and viewport inputs.
+- Modal and panel sessions reuse the current overlay host rather than creating a competing global overlay stack.
+- Full-viewport Shadow hosts are pointer-transparent infrastructure. Only an owned backdrop or interactive Surface may opt back into pointer events; an empty, closing, or accidentally retained host must never intercept the host page.
+- Anchored Surfaces use `SurfaceSession` directly or a family owner that composes it; they must not recreate a competing positioning, dismissal, appearance, locale, or teardown lifecycle.
+- CSS and JavaScript close timing must derive from one named motion profile. Reduced motion must not leave stale hosts or delayed focus restoration.
+- A close request that cannot start its motion lifecycle must synchronously unmount the owning session and release its scroll lock. Reopening during close must cancel and reuse that session rather than create a duplicate host.
+
 ## 8. Shadow DOM And Style Injection
 
 The style system must work when inserted into third-party pages and browser-extension environments.
@@ -374,6 +426,39 @@ Required tests for style-injection changes:
 - theme token propagation
 - host page CSS collision check when practical
 
+### 8.1 Appearance Scope Contract
+
+Appearance is distributed as one immutable snapshot containing the current theme and approved global overrides. A Surface must not independently read product settings to decide its colors, type scale, radius, or density.
+
+The supported injection scopes are:
+
+| Scope | Use | Contract |
+|:--|:--|:--|
+| Page | Extension pages and the smallest adapter-approved host-page token layer | One page-level token sheet per snapshot; never use page selectors to style Shadow DOM UI |
+| ShadowRoot | Normal product Surfaces | Reuse the same generated sheet for identical snapshots when supported; retain the idempotent `<style>` fallback |
+| Light-DOM portal | Documented host integration and page feedback layers | Use a uniquely identified AI-MarkDone host and prefixed selectors; consume the same public token output as ShadowRoot Surfaces |
+
+An `AppearanceSnapshot` change is meaningful only when its normalized values differ. Unrelated settings updates must not regenerate or rebroadcast token CSS. Reader content width and Reader body font size remain Reader-owned state and must not invalidate other appearance scopes.
+
+### 8.2 Responsive And Overflow Contract
+
+Responsive behavior is part of the Surface profile, not a collection of caller-specific media queries. Every Surface family must declare:
+
+- viewport gutter and maximum width/height;
+- the single element that owns scrolling;
+- anchored flip/clamp behavior and anchor-loss fallback where relevant;
+- narrow-width and short-height degradation order;
+- behavior at 200% browser zoom and with the visual viewport reduced by an on-screen keyboard.
+
+Global requirements:
+
+- `320px` and `390px` widths, `568px` and `900px` heights, and 200% zoom are minimum validation points.
+- Header and footer controls remain reachable. The Surface body becomes the sole scroll owner before content is clipped or controls are compressed.
+- A page and its Surface must not create competing vertical scroll owners. Nested scroll areas require a content-specific reason such as a code block or list viewport.
+- Anchored Surfaces first flip, then clamp, then use the family’s compact fallback. They never render beyond the visual viewport.
+- Inline host controls preserve the host layout. Responsive degradation hides secondary extension chrome before modifying or obscuring host-owned controls.
+- Breakpoints are owned by a Surface family and documented in the catalog. A component may use local container/geometry conditions inside that family contract but may not introduce an unrelated product breakpoint.
+
 ## 9. Pure CSS Contract
 
 AI-MarkDone shipped UI uses custom CSS plus `--aimd-*` tokens. External style frameworks, generated utility themes, and framework-prefixed utility classes are not part of the active runtime styling system.
@@ -387,38 +472,40 @@ Rules:
 
 ### 9.1 User Theme Override Contract
 
-Future user customization enters only through token generation, not through component-specific settings parsing.
+User customization enters only through token generation, not through component-specific settings parsing.
 
-The supported override shape is `UserThemeOverrides`:
+The global override shape is `UserThemeOverrides`:
 
 | Field | Purpose | Mapping |
 |:--|:--|:--|
 | `accentColor` | User theme color | Maps to accent, accent hover, accent soft, flash, focus, info border, and selected-state tokens. |
-| `density` | Compact or comfortable UI density | Maps to shared spacing, control size, and panel header tokens. |
 | `baseFontScale` | UI font scaling | Maps `appearance.fontSizePx / 16` to type-size system tokens, clamped to the public `12px`-`20px` setting range. |
-| `cornerScale` | Roundedness strength | Maps to shared radius system tokens. |
-| `readerContentWidthPx` | Reader measure | Emits a clamped custom property for reader surfaces. |
-| `readerBodyFontSizePx` | Reader body type size | Emits a Reader-scoped custom property for markdown/prompt reading content only. |
 
 Components may consume only the resulting public `--aimd-*` tokens or their local private geometry variables.
+
+Reader measure and Reader body type size are emitted by the Reader family from Reader state. They are not fields of the global appearance override and must not trigger appearance refreshes in unrelated Surfaces. `density` and `cornerScale` are not supported product customization fields and are not part of `UserThemeOverrides`.
 
 ## 10. CSS Variables Contract
 
 ### 10.1 Token Layers
 
-| Layer | Purpose | Examples |
+| Layer | Owner and purpose | Naming / consumers |
 |:--|:--|:--|
-| Reference tokens | Raw neutral, accent, state, and primitive scales | Source-owned only; not used directly by components |
-| System tokens | Semantic product decisions | Canvas, surface, text, border, focus, motion |
-| Component tokens | Surface-specific or component-specific contract | Toolbar, panel chrome, reader content |
-| Private component variables | Local implementation details | `--_reader-*`, `--_dialog-*` |
+| Reference tokens | Style foundation owns raw neutral, accent, state, spacing, shape, size, and motion scales | `--aimd-ref-*`; consumed only while defining System tokens |
+| System tokens | Style foundation owns semantic product decisions such as canvas, surface, text, border, focus, layer, and motion | `--aimd-sys-*`; consumed by the Public layer, never by component CSS |
+| Public tokens | Style foundation owns the stable component-facing aliases | `--aimd-*` from `src/style/public-tokens.ts`; map System tokens or compose other Public aliases without cycles |
+| Family/component tokens | One Surface family or shared chrome Module owns a reusable contract such as toolbar, panel chrome, Reader content, tooltip, or toast | `--aimd-<family>-*`; declared in one family source and consumed only by that family and its explicit children |
+| Private component variables | One implementation owns local composition, runtime geometry, measured offsets, and intermediate values | `--_<owner>-*`; scoped to the owning stylesheet/host and never consumed as a cross-file public contract |
 
 Rules:
 
-- Component CSS uses system or component tokens.
+- Component CSS uses public or family tokens; internal System tokens remain implementation details of the style foundation.
 - Private variables may be used for local composition but must not become public contracts.
 - New public tokens require naming review, usage documentation, and at least one real component consumer.
-- Remove dead tokens when removing the final consumer.
+- A family token is promoted to shared chrome only when a second real Surface shares the same semantic intent; visual similarity alone is insufficient.
+- Runtime geometry such as measured anchor offsets, dynamic max heights, dot sizes, and host gaps is private unless multiple implementations intentionally share one family contract.
+- Remove a token only after a complete reference graph proves that it has no direct consumer, alias consumer, generated CSS consumer, test fixture contract, or documented external use.
+- The token graph must reject undefined references, duplicate definitions at the same layer, cycles, and direct component consumption of reference tokens.
 
 ### 10.2 Naming
 
@@ -426,6 +513,7 @@ Rules:
 - Private component variables use a local private prefix such as `--_reader-*`.
 - Token names describe intent, not color values or current implementation.
 - Do not create platform-specific token names such as `--aimd-chatgpt-*` unless the token is truly platform scoped.
+- A private variable must not use the public prefix merely because JavaScript assigns its runtime value.
 
 ## 11. Do And Do Not
 
@@ -447,33 +535,36 @@ Do not:
 - Use external style frameworks or utility classes in shipped UI paths by default.
 - Keep old style references after moving a contract into this document.
 
-## 12. Migration Rules
+## 12. Style-System Change Workflow
 
 The style system should evolve in stable, reviewable steps.
 
 1. Document the contract in `docs/design.md`.
 2. Add or update a static/mock surface when the change affects visual output.
 3. Update tokens or shared primitives.
-4. Migrate product surfaces in small batches.
+4. Update product Surfaces in small, independently verifiable batches.
 5. Verify style injection, browser parity, and build gates.
 6. Remove dead tokens, duplicate CSS, and obsolete documentation.
 
-For this project, style-system migrations should prefer documentation and mock coverage before broad runtime refactors. This keeps the stable extension behavior intact while making the design language more consistent.
+Style-system changes update documentation and real-module mock coverage before broad runtime edits. This keeps extension behavior stable while the design language evolves.
+
+The delivered convergence history and Phase 7 closeout evidence live in `docs/refactor/UI_SYSTEM_REFACTOR_PLAN.md`. That record cannot redefine the long-lived contracts in this document.
 
 ## 13. Current Runtime Alignment Notes
 
-As of May 13, 2026, the active runtime style system is aligned to this document. The shipped UI is governed by custom CSS plus `--aimd-*` tokens; Tailwind, prefixed utility aliases, and external runtime style frameworks are not part of the product styling chain.
+As of July 16, 2026, the runtime is aligned to the appearance, lifecycle, coverage, and ownership contracts above. Final numeric and manual closeout evidence remains recorded separately in `docs/refactor/UI_SYSTEM_REFACTOR_PLAN.md` and must not be inferred from these structural facts.
 
-The Chrome production chain has been verified against the unpacked `dist-chrome` build after extension reload. The ChatGPT toolbar, bookmarks panel, settings surface, tree/list controls, and changelog info modal rendered through the tokenized Shadow DOM path without AI-MarkDone style-injection warnings.
+| Area | Delivered runtime contract |
+|:--|:--|
+| Token foundation | `reference-tokens.ts`, `system-tokens.ts`, and `public-tokens.ts` are distinct executable layers composed by `tokens.ts`. Auto-discovered shipped style sources feed closure checks for undefined references, duplicate non-isolated owners, cycles, unconsumed Public aliases, unreachable foundation tokens, and registered Family-token ownership. Components cannot consume Reference/System tokens directly. |
+| Appearance distribution | Immutable `AppearanceSnapshot` values carry theme plus normalized global overrides. `AppearanceScope` applies them to page, ShadowRoot, and light-DOM portal scopes, skips identical fingerprints, shares identical constructed stylesheets where supported, and retains a stable style-tag fallback. Reader width and Reader body type remain Reader state. |
+| Surface lifecycle | `SurfaceSession` supplies the `panel`, `modal`, `anchored`, and `inline` profiles and composes focus, Escape, outside-dismiss, positioner, motion, reduced-motion, close, and destroy behavior. `OverlaySession` is the modal/panel adapter over the same runtime; Composer, Prompt, Send, Reader contextual, and toolbar transient owners consume the anchored contract. |
+| Workflow ownership | Prompt is split across `PromptWorkflow`, `PromptGeometryAdapter`, and `PromptSurfaceRenderer`; Reader is split across `ReaderWorkflow`, `ReaderViewModel`, `ReaderRendering`, and `ReaderHostAdapter`; Bookmarks delegates tab and Cloud Backup flows to workflow modules and keeps family responsive CSS separate from shell orchestration. |
+| Legacy closure | The production-dead Send modal, generic Tabs component, no-op Markdown enhancer/theme compatibility shims, empty Bookmarks overlay subclass, and redrawn Panel Studio fixture are absent. Markdown display CSS has one service-layer owner. |
+| Responsive and visual coverage | The semantic catalog is mirrored by `tests/support/uiSurfaceCoverage.ts`. Every entry names a production owner, real trigger-path test, browser targets, responsive contract, and tracked real-module fixture, either directly or through an explicitly named family fixture. `npm run test:ui:visual` executes the registered real-component fixtures and keeps evidence outside Git. |
+| Static document exception | `src/popup/popup.html` is an extension document, so it owns a minimal Public-token fallback rather than ShadowRoot runtime injection. Static popup and export/render-output values are governed by exact owner-and-reason exceptions, not directory-wide exclusions. |
 
-| Area | Current Signal | Migration Direction |
-|:--|:--|:--|
-| `src/popup/popup.html` | The unsupported-page popup is a static extension document and cannot rely on Shadow DOM runtime injection. | Keep only the minimal public-token fallback subset; do not copy reference/system token tables. This is the lone documented raw color fallback in shipped UI. |
-| `src/ui/content/components/ModalHost.ts` + `modalHostCss.ts` | Alert, confirm, prompt, custom info modal, changelog notice, import review, and destructive confirmation flows share one dialog shell. | New modal-like UI must enter through this host or a documented shared primitive, not local dialog chrome. |
-| `src/ui/content/bookmarks/*` | Bookmarks remains the densest style surface, but it now consumes public tokens and keeps private `--_bookmarks-*` variables for local geometry, layering, and focus composition. | Reusable visual meaning belongs in shared tokens or primitives; private variables must not become color/font/shadow systems. |
-| Static visual coverage | Mock-first workflow exists and should stay aligned with real tokens/components. | Keep design-system and page-system mocks current whenever shared tokens or primitives change. |
-
-These notes are not permission to destabilize working UI. They define the current baseline and the boundaries for future cleanup once new customization work starts.
+These contracts are the baseline for new UI work. Changes must extend the existing owners and executable governance rather than reintroducing parallel lifecycle, token, or visual-fixture systems.
 
 ## 14. Review Rubric
 

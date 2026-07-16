@@ -210,7 +210,7 @@ ${getInputFieldCss()}
   border: 1px solid color-mix(in srgb, var(--aimd-border-default) 74%, transparent);
   background: color-mix(in srgb, var(--aimd-bg-secondary) 88%, transparent);
   display: grid;
-  gap: 4px;
+  gap: var(--aimd-space-1);
 }
 
 .merge-summary-item__label,

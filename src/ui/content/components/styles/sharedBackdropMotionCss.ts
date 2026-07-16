@@ -3,13 +3,13 @@ export function getSharedBackdropMotionCss(): string {
 .panel-stage__overlay[data-motion-state="opening"]:not([data-motion-runtime]),
 .aimd-panel-overlay[data-motion-state="opening"]:not([data-motion-runtime]),
 .mock-modal-overlay[data-motion-state="opening"]:not([data-motion-runtime]) {
-  animation: aimd-overlay-fade-in 180ms var(--aimd-ease-out) both;
+  animation: aimd-overlay-fade-in var(--_surface-motion-open-duration, var(--aimd-duration-fast)) var(--_surface-motion-open-easing, var(--aimd-ease-out)) both;
 }
 
 .panel-stage__overlay[data-motion-state="closing"],
 .aimd-panel-overlay[data-motion-state="closing"],
 .mock-modal-overlay[data-motion-state="closing"] {
-  animation: aimd-overlay-fade-out 150ms ease-in both;
+  animation: aimd-overlay-fade-out var(--_surface-motion-close-duration, var(--aimd-duration-fast)) var(--_surface-motion-close-easing, var(--aimd-ease-in-out)) both;
 }
 
 @keyframes aimd-overlay-fade-in {
@@ -26,13 +26,13 @@ export function getSharedBackdropMotionCss(): string {
   .panel-stage__overlay[data-motion-state="opening"]:not([data-motion-runtime]),
   .aimd-panel-overlay[data-motion-state="opening"]:not([data-motion-runtime]),
   .mock-modal-overlay[data-motion-state="opening"]:not([data-motion-runtime]) {
-    animation: aimd-overlay-fade-in 80ms linear both;
+    animation: aimd-overlay-fade-in var(--_surface-motion-open-duration, 0s) var(--_surface-motion-open-easing, var(--aimd-ease-in-out)) both;
   }
 
   .panel-stage__overlay[data-motion-state="closing"],
   .aimd-panel-overlay[data-motion-state="closing"],
   .mock-modal-overlay[data-motion-state="closing"] {
-    animation: aimd-overlay-fade-out 80ms linear both;
+    animation: aimd-overlay-fade-out var(--_surface-motion-close-duration, 0s) var(--_surface-motion-close-easing, var(--aimd-ease-in-out)) both;
   }
 }
 `;

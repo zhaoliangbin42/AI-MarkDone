@@ -129,4 +129,50 @@ describe('shadow style registry', () => {
             (globalThis as any).CSSStyleSheet = originalSheet;
         }
     });
+
+    it('does not retain an unreferenced shared sheet when adoption fails', () => {
+        class FakeSheet {
+            static replaceCount = 0;
+
+            replaceSync(): void {
+                FakeSheet.replaceCount += 1;
+            }
+        }
+
+        const originalSheet = (globalThis as any).CSSStyleSheet;
+        (globalThis as any).CSSStyleSheet = FakeSheet;
+        const rejectedShadow = document.createElement('div').attachShadow({ mode: 'open' });
+        Object.defineProperty(rejectedShadow, 'adoptedStyleSheets', {
+            configurable: true,
+            get: () => [],
+            set: () => {
+                throw new Error('adoption rejected');
+            },
+        });
+
+        try {
+            ensureStyle(rejectedShadow, '.shared-failure { color: red; }', {
+                id: 'shared-failure-a',
+                cache: 'shared',
+                sharedKey: 'shared-failure',
+            });
+            expect(rejectedShadow.querySelectorAll('style[data-aimd-style-id="shared-failure-a"]')).toHaveLength(1);
+
+            const healthyShadow = document.createElement('div').attachShadow({ mode: 'open' });
+            Object.defineProperty(healthyShadow, 'adoptedStyleSheets', {
+                configurable: true,
+                writable: true,
+                value: [],
+            });
+            ensureStyle(healthyShadow, '.shared-failure { color: red; }', {
+                id: 'shared-failure-b',
+                cache: 'shared',
+                sharedKey: 'shared-failure',
+            });
+
+            expect(FakeSheet.replaceCount).toBe(2);
+        } finally {
+            (globalThis as any).CSSStyleSheet = originalSheet;
+        }
+    });
 });

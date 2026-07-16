@@ -3,6 +3,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 
 import { createBookmarksPanelShell } from '@/ui/content/bookmarks/ui/BookmarksPanelShell';
+import { getBookmarksPanelCss } from '@/ui/content/bookmarks/ui/styles/bookmarksPanelCss';
 
 describe('BookmarksPanelShell', () => {
     it('creates dedicated header meta and actions wrappers instead of overloading the header element', () => {
@@ -85,10 +86,7 @@ describe('BookmarksPanelShell', () => {
     });
 
     it('keeps the mobile tab rail as three equal columns without stretching the whole rail vertically', () => {
-        const css = fs.readFileSync(
-            path.join(process.cwd(), 'src/ui/content/bookmarks/ui/styles/bookmarksPanelCss.ts'),
-            'utf8',
-        );
+        const css = getBookmarksPanelCss();
         const mobileSidebarBlock = Array.from(css.matchAll(/\.bookmarks-sidebar\s*\{([^}]*)\}/g))
             .map((match) => match[1] ?? '')
             .find((block) => block.includes('grid-template-columns: repeat(3, minmax(0, 1fr));'));

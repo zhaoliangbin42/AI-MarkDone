@@ -13,6 +13,25 @@ function setClipboardMock() {
 }
 
 describe('MathClickHandler', () => {
+    it('does not add an empty style element when math click handling is enabled', () => {
+        const container = document.createElement('div');
+        document.body.appendChild(container);
+        const handler = new MathClickHandler();
+        const stylesBeforeEnable = new Set(document.querySelectorAll('style'));
+
+        try {
+            handler.enable(container);
+
+            const addedEmptyStyles = Array.from(document.querySelectorAll('style')).filter((style) => (
+                !stylesBeforeEnable.has(style) && style.textContent?.trim() === ''
+            ));
+            expect(addedEmptyStyles).toEqual([]);
+        } finally {
+            handler.disable();
+            container.remove();
+        }
+    });
+
     it('uses one shared document observer instead of one observer per enabled message', () => {
         const originalMutationObserver = globalThis.MutationObserver;
         const observedTargets: Node[] = [];
@@ -200,6 +219,9 @@ describe('MathClickHandler', () => {
 
         const target = container.querySelector('.katex') as HTMLElement;
         expect(target).toBeTruthy();
+        expect(target.style.transition).toBe(
+            'background-color var(--aimd-duration-fast) var(--aimd-ease-in-out)',
+        );
 
         target.dispatchEvent(new MouseEvent('mouseenter', { bubbles: true }));
 

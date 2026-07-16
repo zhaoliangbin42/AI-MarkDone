@@ -170,6 +170,29 @@ If a phase misses a threshold, work stays in that phase. The implementation may 
 - Three final 200-event runs retained exactly two `data-aimd-page-atomic-state` writes, zero selection long tasks, zero idle mutations, 200/200 toolbars, and zero duplicates. Median selection duration was 171.2 ms, toolbar readiness 250.3 ms, and replacement recovery 152.4 ms.
 - The current worktree build passed 1,412/1,412 core tests, 36/36 smoke tests, 122/122 acceptance tests, TypeScript checking, Chrome/Firefox production builds, entry-format checks, and bundle gates. `content.js` is 734,353 raw bytes / 194,704 gzip bytes.
 
+### UI system closeout — 2026-07-15
+
+Confirmed structural facts:
+
+- Content and detached Reader runtimes normalize theme plus global overrides into an immutable `AppearanceSnapshot`; unchanged fingerprints do not rebroadcast appearance. `AppearanceScope` owns page, ShadowRoot, and documented light-DOM portal token application, with shared constructed stylesheets and a style-tag fallback.
+- `SurfaceRuntime` provides named panel/modal/anchored/inline profiles and one session contract for focus, dismissal, positioning, motion, reduced motion, close completion, and teardown. Heavy Reader, Bookmarks, save/export, Copy PNG, and formula-asset capabilities remain behind the existing extension-origin lazy feature boundary.
+- The test-only Surface manifest records production owner/entry, profile, scope, responsive contract, Chrome/Firefox targets, real trigger tests, and direct or family real-component fixture evidence. The Playwright/Vite visual harness discovers direct fixtures from that manifest and writes evidence outside Git.
+- Prompt, Reader, and Bookmarks have explicit workflow/rendering/geometry or host-responsibility seams. Production-dead Send modal, generic Tabs, Markdown compatibility shims, empty Bookmarks overlay subclass, and redrawn Panel Studio fixture are absent.
+
+Closeout evidence from the current worktree:
+
+| Evidence | Command / scope | Result |
+|:--|:--|:--|
+| Focused UI architecture and governance | Appearance, Surface Runtime, token/style, Surface coverage, visual-harness, legacy/Reader closure suites | Passed: 21 files and 108 tests, including documentation, token, coverage, harness, and legacy/Reader closure. |
+| Product test gates | `npm run test:core`, `npm run test:smoke`, `npm run test:acceptance` | Passed: 1,560 core, 45 smoke, and 188 acceptance tests. |
+| Full real-component visual matrix | `npm run test:ui:visual -- --full` | Passed: 451/451 cases and 0 failures; `output/ui-visual/full-2026-07-15T13-16-03-888Z`. |
+| Dual-browser build and bundle | `npm run build` | Passed Chrome MV3 and Firefox MV2. `content.js` is 723,421 raw / 190,520 gzip bytes; the complete content feature graph is 1,571,400 / 425,360 bytes. |
+| ChatGPT runtime median | three consecutive `npm run perf:chatgpt` runs under the measurement protocol above | Passed: 239.8 ms toolbar readiness, 152.1 ms recovery, 77 ms feature load, 4,986,554-byte heap, 1,752.7 ms cold duration, and 61 ms cold long-task total/max. Every run retained 200/200 toolbars, 0 duplicates, 0 idle mutations, and 0 streaming long tasks. |
+| Installed-extension UI matrix | Chrome MV3 and Firefox MV2 using `E2E_REGRESSION_GUIDE.md` | Partial, not passed. Existing installed Chrome smoke covered the real Input Enhancement/guide triggers, unique host, ARIA, clean close, draft preservation, and extension console errors. The exact current-build reload, extension-page inspection, and Firefox MV2 manual matrix were unavailable or deliberately skipped to protect the open user tab. |
+| Repository hygiene | `git diff --check` | Passed after the final SSOT update; temporary-index clean-checkout audit used a separate index and did not stage the working tree. |
+
+The automated counts, bundle sizes, and performance medians above were produced from this closeout worktree. The manual row stays explicitly partial rather than inferring Firefox or current-build installed behavior from automated evidence.
+
 ## Scope protections
 
 - Do not use viewport-lazy toolbars; users must retain immediate actions on every hydrated official action row.

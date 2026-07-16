@@ -1,5 +1,4 @@
 import { getAdapter } from '../../drivers/content/adapters/registry';
-import type { Theme } from '../../core/types/theme';
 import { ThemeManager } from '../../drivers/content/theme/theme-manager';
 import { FormulaAssetHoverController } from '../../ui/content/controllers/FormulaAssetHoverController';
 import { consumePendingNavigation, scrollToBookmarkTargetWithRetry } from '../../drivers/content/bookmarks/navigation';
@@ -41,6 +40,7 @@ import {
     normalizeThemeAccentColor,
 } from '../../core/settings/migrations';
 import type { UserThemeOverrides } from '../../style/tokens';
+import { areAppearanceSnapshotsEqual, createAppearanceSnapshot, type AppearanceSnapshot } from '../../style/appearance';
 import { getFormulaOnlyPlatformProfile, startFormulaOnlyRuntime } from './formulaOnlyRuntime';
 import { resolveFormulaSettings, shouldEnableFormulaInteractions } from './formulaRuntimeSettings';
 import {
@@ -153,10 +153,8 @@ if (adapter) {
                 let folderPath = bookmarksController.getDefaultFolderPath();
 
                 if (!alreadySaved) {
-                    bookmarkSaveDialog.setTheme(currentTheme);
-                    bookmarkSaveDialog.setThemeOverrides(currentThemeOverrides);
                     const dialogRes = await bookmarkSaveDialog.open({
-                        theme: currentTheme,
+                        theme: getCurrentAppearance().theme,
                         userPrompt: title,
                         existingTitle: title,
                         currentFolderPath: folderPath,
@@ -202,13 +200,18 @@ if (adapter) {
 
     settingsClient.init();
     const cachedSettings = settingsClient.getCached();
+    themeManager.init(adapter);
     let lastLocale = cachedSettings?.language ?? DEFAULT_SETTINGS.language;
     const platformKey = 'chatgpt' as const;
     let runtimeEnabled = adapter.getPlatformId() === 'chatgpt'
         ? cachedSettings?.platforms?.[platformKey] ?? true
         : false;
-    let currentTheme: Theme = document.documentElement.getAttribute('data-aimd-theme') === 'dark' ? 'dark' : 'light';
-    let currentThemeOverrides: UserThemeOverrides = getThemeOverrides(cachedSettings);
+    const initialAppearance = createAppearanceSnapshot(
+        document.documentElement.getAttribute('data-aimd-theme') === 'dark' ? 'dark' : 'light',
+        getThemeOverrides(cachedSettings),
+    );
+    let currentAppearance: AppearanceSnapshot | null = null;
+    const getCurrentAppearance = (): AppearanceSnapshot => currentAppearance ?? initialAppearance;
     let formulaInteractionsEnabled: boolean | null = null;
     writeDebugState({
         Content: 'loaded',
@@ -248,8 +251,8 @@ if (adapter) {
 
         const noticeSession = new OverlaySession({
             id: 'aimd-detached-reader-notice-host',
-            theme: currentTheme,
-            themeOverrides: currentThemeOverrides,
+            theme: getCurrentAppearance().theme,
+            themeOverrides: getCurrentAppearance().overrides,
             surfaceCss: '',
             lockScroll: true,
             surfaceStyleId: 'aimd-detached-reader-notice-surface',
@@ -291,7 +294,7 @@ if (adapter) {
             items: itemsResult.items,
             startIndex: itemsResult.startIndex,
             sourceUrl: window.location.href,
-            theme: currentTheme,
+            theme: getCurrentAppearance().theme,
         });
         const response = await sendExtRequest({
             v: PROTOCOL_VERSION,
@@ -334,7 +337,7 @@ if (adapter) {
         }
         writeDebugState({ ChatGptInit: 'start' });
         chatGptConversationEngine.init();
-        chatGptDirectory.init(currentTheme);
+        chatGptDirectory.init(getCurrentAppearance().theme);
         syncChatGptDirectorySettings(settingsClient.getCached()?.chatgptDirectory);
         writeDebugState({ ChatGptInit: 'done' });
     };
@@ -377,20 +380,27 @@ if (adapter) {
         chatGptPageWidth?.setScale(next.pageWidthScale);
     };
 
-    const syncThemeOverrides = (settings: typeof DEFAULT_SETTINGS | null | undefined) => {
-        currentThemeOverrides = getThemeOverrides(settings);
-        ensurePageTokens(currentThemeOverrides);
-        mathClick.setThemeOverrides?.(currentThemeOverrides);
-        messageToolbars.setThemeOverrides?.(currentThemeOverrides);
-        readerPanel.setThemeOverrides?.(currentThemeOverrides);
-        sendController.setThemeOverrides?.(currentThemeOverrides);
-        bookmarksController.setThemeOverrides?.(currentThemeOverrides);
-        saveMessagesDialog.setThemeOverrides?.(currentThemeOverrides);
-        bookmarkSaveDialog.setThemeOverrides(currentThemeOverrides);
-        chatGptDirectory?.setThemeOverrides?.(currentThemeOverrides);
-        chatGptPromptAutocomplete?.setThemeOverrides?.(currentThemeOverrides);
-        chatGptComposerEditing?.setThemeOverrides?.(currentThemeOverrides);
-        chatGptMessageStepper?.setThemeOverrides?.(currentThemeOverrides);
+    const applyAppearance = (nextSnapshot: AppearanceSnapshot) => {
+        if (currentAppearance && areAppearanceSnapshotsEqual(currentAppearance, nextSnapshot)) {
+            return;
+        }
+        currentAppearance = nextSnapshot;
+        ensurePageTokens(nextSnapshot.overrides);
+        mathClick.setAppearance(nextSnapshot);
+        messageToolbars.setAppearance(nextSnapshot);
+        readerPanel.setAppearance(nextSnapshot);
+        sendController.setAppearance(nextSnapshot);
+        bookmarksController.setAppearance(nextSnapshot);
+        saveMessagesDialog.setAppearance(nextSnapshot);
+        bookmarkSaveDialog.setAppearance(nextSnapshot);
+        chatGptDirectory?.setAppearance(nextSnapshot);
+        chatGptPromptAutocomplete?.setAppearance(nextSnapshot);
+        chatGptComposerEditing?.setAppearance(nextSnapshot);
+        chatGptMessageStepper?.setAppearance(nextSnapshot);
+    };
+
+    const syncAppearanceOverrides = (settings: typeof DEFAULT_SETTINGS | null | undefined) => {
+        applyAppearance(createAppearanceSnapshot(getCurrentAppearance().theme, getThemeOverrides(settings)));
     };
 
     const enableRuntime = () => {
@@ -421,7 +431,7 @@ if (adapter) {
 
     // Apply initial UI locale immediately (otherwise switching to a non-auto locale won't take effect until a change event).
     void setLocale(lastLocale);
-    syncThemeOverrides(cachedSettings);
+    applyAppearance(initialAppearance);
     if (cachedSettings?.reader) {
         readerPanel.setReaderSettings(cachedSettings.reader);
     }
@@ -459,7 +469,7 @@ if (adapter) {
         readerPanel.setReaderSettings(snap.settings.reader);
         saveMessagesDialog.setExportSettings(snap.settings.export ?? DEFAULT_SETTINGS.export);
         messageToolbars.setExportSettings(snap.settings.export ?? DEFAULT_SETTINGS.export);
-        syncThemeOverrides(snap.settings);
+        syncAppearanceOverrides(snap.settings);
         messageToolbars.setBehaviorFlags({
             showMessageToolbar: snap.settings.behavior?.showMessageToolbar ?? DEFAULT_SETTINGS.behavior.showMessageToolbar,
             showSaveMessages: snap.settings.behavior?.showSaveMessages ?? DEFAULT_SETTINGS.behavior.showSaveMessages,
@@ -467,18 +477,8 @@ if (adapter) {
         });
     });
 
-    themeManager.init(adapter);
     themeManager.subscribe((theme) => {
-        currentTheme = theme;
-        messageToolbars.setTheme(theme);
-        readerPanel.setTheme(theme);
-        sendController.setTheme(theme);
-        bookmarksController.setTheme(theme);
-        saveMessagesDialog.setTheme(theme);
-        bookmarkSaveDialog.setTheme(theme);
-        chatGptDirectory?.setTheme(theme);
-        chatGptMessageStepper?.setTheme(theme);
-        chatGptComposerEditing?.setTheme?.(theme);
+        applyAppearance(createAppearanceSnapshot(theme, getCurrentAppearance().overrides));
     });
 
     const handleDetachedReaderRequest = async (request: ExtRequest): Promise<ExtResponse> => {
@@ -492,7 +492,7 @@ if (adapter) {
                     items: result.items,
                     startIndex: result.startIndex,
                     sourceUrl: window.location.href,
-                    theme: currentTheme,
+                    theme: getCurrentAppearance().theme,
                 });
                 return { v: PROTOCOL_VERSION, id: request.id, ok: true, type: request.type, data: { snapshot } };
             }
@@ -655,7 +655,5 @@ function getThemeOverrides(settings: typeof DEFAULT_SETTINGS | null | undefined)
     return {
         ...(accentColor ? { accentColor } : {}),
         baseFontScale: fontSizePx / DEFAULT_GLOBAL_FONT_SIZE_PX,
-        readerContentWidthPx: settings?.reader?.contentMaxWidthPx ?? DEFAULT_SETTINGS.reader.contentMaxWidthPx,
-        readerBodyFontSizePx: settings?.reader?.bodyFontSizePx ?? DEFAULT_SETTINGS.reader.bodyFontSizePx,
     };
 }

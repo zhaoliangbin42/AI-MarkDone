@@ -3,7 +3,7 @@ import { acquireScrollLock, type ScrollLockHandle } from './scrollLock';
 export type ShadowDialogHostHandle = {
     host: HTMLElement;
     shadow: ShadowRoot;
-    styleEl: HTMLStyleElement;
+    readonly styleEl: HTMLStyleElement | null;
     setCss(cssText: string): void;
     unmount(): void;
 };
@@ -11,7 +11,7 @@ export type ShadowDialogHostHandle = {
 export function mountShadowDialogHost(opts: {
     id: string;
     html: string;
-    cssText: string;
+    cssText?: string;
     zIndex?: string;
     lockScroll?: boolean;
 }): ShadowDialogHostHandle {
@@ -24,13 +24,25 @@ export function mountShadowDialogHost(opts: {
     host.style.position = 'fixed';
     host.style.inset = '0';
     host.style.zIndex = zIndex;
+    host.style.pointerEvents = 'none';
 
     const shadow = host.attachShadow({ mode: 'open' });
     shadow.innerHTML = opts.html;
 
-    const styleEl = document.createElement('style');
-    styleEl.textContent = opts.cssText;
-    shadow.appendChild(styleEl);
+    let styleEl: HTMLStyleElement | null = null;
+    const setCss = (cssText: string): void => {
+        if (!cssText.trim()) {
+            styleEl?.remove();
+            styleEl = null;
+            return;
+        }
+        if (!styleEl) {
+            styleEl = document.createElement('style');
+            shadow.appendChild(styleEl);
+        }
+        styleEl.textContent = cssText;
+    };
+    setCss(opts.cssText ?? '');
 
     document.documentElement.appendChild(host);
 
@@ -47,11 +59,10 @@ export function mountShadowDialogHost(opts: {
     return {
         host,
         shadow,
-        styleEl,
-        setCss(cssText: string) {
-            styleEl.textContent = cssText;
+        get styleEl() {
+            return styleEl;
         },
+        setCss,
         unmount,
     };
 }
-

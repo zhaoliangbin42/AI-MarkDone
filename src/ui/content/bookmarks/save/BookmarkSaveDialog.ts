@@ -2,7 +2,6 @@ import type { Theme } from '../../../../core/types/theme';
 import { PathUtils } from '../../../../core/bookmarks/path';
 import type { ProtocolErrorCode } from '../../../../contracts/protocol';
 import { bookmarksClient } from '../../../../drivers/shared/clients/bookmarksClient';
-import { getTokenCss, type UserThemeOverrides } from '../../../../style/tokens';
 import {
     checkIcon,
     chevronDownIcon,
@@ -23,13 +22,17 @@ import { buildFolderPickerVm } from '../../../../services/bookmarks/saveDialog/f
 import type { BookmarkSaveDraftState, SaveDialogMode } from '../../../../services/bookmarks/saveDialog/types';
 import { subscribeLocaleChange, t } from '../../components/i18n';
 import { createIcon } from '../../components/Icon';
-import { beginSurfaceMotionClose, cancelSurfaceMotionClose, setSurfaceMotionOpening } from '../../components/motionLifecycle';
 import { ensureBackdropElement, ensureStableElementFromHtml } from '../../components/stableSurface';
 import { SurfaceFocusLifecycle } from '../../components/surfaceFocusLifecycle';
 import { OverlaySession } from '../../overlay/OverlaySession';
 import { TooltipDelegate } from '../../../../utils/tooltip';
 import { folderCreateBackendErrorMessage, titleValidationMessage, validateFolderSegmentName } from '../helpers/nameValidation';
 import { getBookmarkSaveDialogCss } from './bookmarkSaveDialogCss';
+import {
+    areAppearanceSnapshotsEqual,
+    createAppearanceSnapshot,
+    type AppearanceSnapshot,
+} from '../../../../style/appearance';
 
 type FolderLite = { path: string; name: string; depth: number };
 
@@ -56,8 +59,7 @@ export class BookmarkSaveDialog {
     private overlaySession: OverlaySession | null = null;
     private tooltipDelegate: TooltipDelegate | null = null;
     private unsubscribeLocale: (() => void) | null = null;
-    private theme: Theme = 'light';
-    private themeOverrides: UserThemeOverrides = {};
+    private appearance: AppearanceSnapshot = createAppearanceSnapshot('light');
     private resolve: ((res: BookmarkSaveDialogResult) => void) | null = null;
 
     private folders: FolderLite[] = [];
@@ -82,16 +84,13 @@ export class BookmarkSaveDialog {
         this.focusLifecycle.capture();
         this.resolve?.({ ok: false, reason: 'cancel' });
         this.resolve = null;
-        this.theme = params.theme;
+        this.setAppearance(createAppearanceSnapshot(params.theme, this.appearance.overrides));
         this.status = '';
         this.pending = false;
         this.rootFolderModal = null;
         this.subfolderInline = null;
         if (this.overlaySession && this.closing) {
-            cancelSurfaceMotionClose({
-                shell: this.overlaySession.surfaceRoot.querySelector<HTMLElement>('.panel-window'),
-                backdrop: this.overlaySession.backdropRoot.querySelector<HTMLElement>('.panel-stage__overlay'),
-            });
+            this.overlaySession.cancelSurfaceClose();
         }
         this.closing = false;
         this.motionNeedsOpen = !this.overlaySession;
@@ -124,16 +123,10 @@ export class BookmarkSaveDialog {
         });
     }
 
-    setTheme(theme: Theme): void {
-        this.theme = theme;
-        this.overlaySession?.setTheme(theme);
-        this.overlaySession?.setSurfaceCss(this.getCss());
-    }
-
-    setThemeOverrides(overrides: UserThemeOverrides): void {
-        this.themeOverrides = { ...overrides };
-        this.overlaySession?.setThemeOverrides(this.themeOverrides);
-        this.overlaySession?.setSurfaceCss(this.getCss());
+    setAppearance(snapshot: AppearanceSnapshot): void {
+        if (areAppearanceSnapshotsEqual(this.appearance, snapshot)) return;
+        this.appearance = snapshot;
+        this.overlaySession?.setAppearance(snapshot);
     }
 
     private close(result: BookmarkSaveDialogResult): void {
@@ -142,13 +135,12 @@ export class BookmarkSaveDialog {
         const backdrop = this.overlaySession?.backdropRoot.querySelector<HTMLElement>('.panel-stage__overlay');
         if (this.overlaySession && panel) {
             this.closing = true;
-            beginSurfaceMotionClose({
-                shell: panel,
+            const started = this.overlaySession.closeSurface({
+                surface: panel,
                 backdrop,
                 onClosed: () => this.finishClose(result),
-                fallbackMs: 560,
             });
-            return;
+            if (started) return;
         }
         this.finishClose(result);
     }
@@ -211,12 +203,13 @@ export class BookmarkSaveDialog {
         if (this.overlaySession) return;
         this.overlaySession = new OverlaySession({
             id: 'aimd-bookmark-save-dialog-host',
-            theme: this.theme,
-            themeOverrides: this.themeOverrides,
+            theme: this.appearance.theme,
+            themeOverrides: this.appearance.overrides,
             surfaceCss: this.getCss(),
             lockScroll: true,
             surfaceStyleId: 'aimd-bookmark-save-dialog-structure',
             overlayStyleId: 'aimd-bookmark-save-dialog-overlay-extra',
+            profile: 'modal',
         });
         this.tooltipDelegate = new TooltipDelegate(this.overlaySession.shadow);
         this.unsubscribeLocale = subscribeLocaleChange(() => {
@@ -238,15 +231,15 @@ export class BookmarkSaveDialog {
             return;
         }
         this.deferredRenderWhileComposing = false;
-        this.overlaySession.setSurfaceCss(this.getCss());
         const { element: backdrop, isNew: isNewBackdrop } = ensureBackdropElement(this.overlaySession.backdropRoot, 'panel-stage__overlay');
         const { element: panel, isNew: isNewPanel } = ensureStableElementFromHtml<HTMLElement>(
             this.overlaySession.surfaceRoot,
             '.panel-window--bookmark-save',
             this.getHtml(),
         );
+        this.overlaySession.syncSurfaceMotion({ surface: panel, backdrop });
         if (this.motionNeedsOpen && (isNewBackdrop || isNewPanel)) {
-            setSurfaceMotionOpening([backdrop, panel]);
+            this.overlaySession.openSurface({ surface: panel, backdrop });
             this.focusLifecycle.scheduleInitialFocus({
                 surface: panel,
                 selectors: [
@@ -479,9 +472,12 @@ export class BookmarkSaveDialog {
         input.setAttribute('data-role', 'root_folder_input');
 
         const error = document.createElement('div');
-        error.className = 'error-text';
+        error.className = 'error-text workflow-dialog__status';
+        error.dataset.tone = 'error';
+        error.setAttribute('role', 'alert');
         const hint = document.createElement('div');
-        hint.className = 'help-text';
+        hint.className = 'help-text workflow-dialog__status';
+        hint.dataset.tone = 'muted';
 
         const syncModalState = () => {
             if (!this.rootFolderModal) return;
@@ -585,7 +581,7 @@ export class BookmarkSaveDialog {
                 <button class="icon-btn" data-action="bookmark-save-inline-confirm" data-path="${escapeHtml(node.path)}" aria-label="${escapeHtml(this.getLabel('btnSave', 'Save'))}">${iconMarkup(checkIcon)}</button>
                 <button class="icon-btn" data-action="bookmark-save-inline-cancel" aria-label="${escapeHtml(this.getLabel('btnCancel', 'Cancel'))}">${iconMarkup(xIcon)}</button>
               </div>
-              ${inlineState.error ? `<div class="error-text error-text--inline">${escapeHtml(inlineState.error)}</div>` : inlineState.note ? `<div class="help-text help-text--inline">${escapeHtml(inlineState.note)}</div>` : ''}
+              ${inlineState.error ? `<div class="error-text error-text--inline workflow-dialog__status" data-tone="error" role="alert">${escapeHtml(inlineState.error)}</div>` : inlineState.note ? `<div class="help-text help-text--inline workflow-dialog__status" data-tone="muted">${escapeHtml(inlineState.note)}</div>` : ''}
             `
             : '';
 
@@ -630,7 +626,7 @@ export class BookmarkSaveDialog {
             : { nodes: [] };
 
         return `
-<div class="panel-window panel-window--dialog panel-window--bookmark-save" role="dialog" aria-modal="true" aria-label="${escapeHtml(title)}">
+<div class="panel-window panel-window--dialog panel-window--bookmark-save workflow-dialog" role="dialog" aria-modal="true" aria-label="${escapeHtml(title)}" aria-busy="${this.pending ? 'true' : 'false'}">
   <div class="panel-header">
     <div class="panel-header__meta panel-header__meta--reader">
       <h2>${escapeHtml(title)}</h2>
@@ -639,11 +635,11 @@ export class BookmarkSaveDialog {
       <button class="icon-btn" data-action="close-panel" aria-label="${escapeHtml(closeLabel)}" data-tooltip="${escapeHtml(closeLabel)}">${iconMarkup(xIcon)}</button>
     </div>
   </div>
-  <div class="dialog-body dialog-body--bookmark-save">
+  <div class="dialog-body dialog-body--bookmark-save workflow-dialog__body">
     ${isFolderSelect ? '' : `<div class="field-block">
       <label class="field-label">${escapeHtml(titleLabel)}</label>
       <input class="text-input text-input--bookmark-save-title aimd-field-control aimd-field-control--standalone" type="text" data-role="bookmark-save-title" value="${escapeHtml(this.state?.title ?? '')}" placeholder="${escapeHtml(titlePlaceholder)}" aria-invalid="${validation.titleError ? 'true' : 'false'}" />
-      <div class="error-text" data-role="bookmark-save-title-error" ${validation.titleError ? '' : 'hidden'}>${validation.titleError ? escapeHtml(titleValidationMessage(validation.titleError as any, this.state?.title ?? '')) : ''}</div>
+      <div class="error-text workflow-dialog__status" data-tone="error" role="alert" data-role="bookmark-save-title-error" ${validation.titleError ? '' : 'hidden'}>${validation.titleError ? escapeHtml(titleValidationMessage(validation.titleError as any, this.state?.title ?? '')) : ''}</div>
     </div>`}
     <div class="field-block">
       <div class="field-head">
@@ -656,7 +652,7 @@ export class BookmarkSaveDialog {
     </div>
   </div>
   <div class="panel-footer panel-footer--bookmark-save">
-    <div class="button-row">
+    <div class="button-row workflow-dialog__actions">
       <button class="secondary-btn" data-action="close-panel">${escapeHtml(cancelLabel)}</button>
       <button class="secondary-btn secondary-btn--primary" data-action="bookmark-save-submit" ${this.pending || !validation.canSubmit ? 'disabled' : ''}>${escapeHtml(saveLabel)}</button>
     </div>
@@ -665,7 +661,7 @@ export class BookmarkSaveDialog {
     }
 
     private getCss(): string {
-        return `${getTokenCss(this.theme, this.themeOverrides)}\n${getBookmarkSaveDialogCss(this.theme)}`;
+        return getBookmarkSaveDialogCss();
     }
 
     private captureRetainedInputFocus(target: HTMLElement | null | undefined): void {

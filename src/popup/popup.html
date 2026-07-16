@@ -6,6 +6,7 @@
     <title>AI-MarkDone</title>
     <style>
       :root {
+        color-scheme: light;
         --aimd-bg-primary: #f6f7f9;
         --aimd-bg-surface: #ffffff;
         --aimd-bg-secondary: color-mix(in srgb, var(--aimd-bg-primary) 82%, var(--aimd-bg-surface));
@@ -38,6 +39,18 @@
         --aimd-font-semibold: 600;
         --aimd-duration-fast: 150ms;
         --aimd-ease-in-out: cubic-bezier(0.4, 0, 0.2, 1);
+      }
+
+      :root[data-aimd-theme="dark"] {
+        color-scheme: dark;
+        --aimd-bg-primary: #171717;
+        --aimd-bg-surface: #262626;
+        --aimd-text-primary: #f5f5f5;
+        --aimd-text-secondary: #d4d4d4;
+        --aimd-border-default: rgba(255, 255, 255, 0.14);
+        --aimd-border-strong: rgba(255, 255, 255, 0.22);
+        --aimd-interactive-selected: rgba(96, 165, 250, 0.16);
+        --aimd-shadow-lg: 0 10px 24px rgba(0, 0, 0, 0.34);
       }
 
       * {
@@ -144,6 +157,7 @@
 
       .popup-link__meta {
         display: grid;
+        min-width: 0;
         gap: calc(var(--aimd-space-1) / 2);
       }
 
@@ -156,6 +170,7 @@
         color: var(--aimd-text-secondary);
         font-size: var(--aimd-text-xs);
         font-weight: 400;
+        overflow-wrap: anywhere;
       }
 
       .popup-link__arrow {
@@ -175,6 +190,23 @@
         color: var(--aimd-text-secondary);
         font-size: var(--aimd-text-xs);
         line-height: 1.6;
+        overflow-wrap: anywhere;
+      }
+
+      @media (max-width: 360px) {
+        body {
+          padding: var(--aimd-space-2);
+        }
+
+        .popup-shell {
+          gap: var(--aimd-space-4);
+          padding: var(--aimd-space-4);
+          border-radius: var(--aimd-radius-xl);
+        }
+
+        .popup-link {
+          padding-inline: var(--aimd-space-3);
+        }
       }
 
     </style>
@@ -182,9 +214,9 @@
   <body>
     <main class="popup-shell">
       <section class="popup-header">
-        <div class="popup-note">Supported sites</div>
+        <div class="popup-note" data-i18n="popupSupportedSites">Supported sites</div>
         <div class="popup-brand">
-          <img class="popup-logo" src="/icons/icon48.png" alt="AI-MarkDone logo" />
+          <img class="popup-logo" src="/icons/icon48.png" alt="AI-MarkDone logo" data-i18n-attr="alt:popupLogoAlt" />
           <div class="popup-brand__copy">
             <h1 class="popup-title">AI-MarkDone</h1>
           </div>
@@ -195,36 +227,36 @@
         <a class="popup-link" href="https://chatgpt.com/" target="_blank" rel="noreferrer">
           <span class="popup-link__meta">
             <span class="popup-link__label">ChatGPT</span>
-            <span class="popup-link__hint">Supported ChatGPT site</span>
+            <span class="popup-link__hint" data-i18n="popupChatGptHint">Full AI-MarkDone workspace</span>
           </span>
           <span class="popup-link__arrow" aria-hidden="true">→</span>
         </a>
         <a class="popup-link" href="https://gemini.google.com/" target="_blank" rel="noreferrer">
           <span class="popup-link__meta">
             <span class="popup-link__label">Gemini</span>
-            <span class="popup-link__hint">Formula copy</span>
+            <span class="popup-link__hint" data-i18n="popupFormulaCopyHint">Formula copy</span>
           </span>
           <span class="popup-link__arrow" aria-hidden="true">→</span>
         </a>
         <a class="popup-link" href="https://claude.ai/" target="_blank" rel="noreferrer">
           <span class="popup-link__meta">
             <span class="popup-link__label">Claude</span>
-            <span class="popup-link__hint">Formula copy</span>
+            <span class="popup-link__hint" data-i18n="popupFormulaCopyHint">Formula copy</span>
           </span>
           <span class="popup-link__arrow" aria-hidden="true">→</span>
         </a>
         <a class="popup-link" href="https://chat.deepseek.com/" target="_blank" rel="noreferrer">
           <span class="popup-link__meta">
             <span class="popup-link__label">DeepSeek</span>
-            <span class="popup-link__hint">Formula copy</span>
+            <span class="popup-link__hint" data-i18n="popupFormulaCopyHint">Formula copy</span>
           </span>
           <span class="popup-link__arrow" aria-hidden="true">→</span>
         </a>
       </section>
 
       <footer class="popup-footer">
-        <p class="popup-footer__text">
-          Open ChatGPT, Gemini, Claude, or DeepSeek to use AI-MarkDone.
+        <p class="popup-footer__text" data-i18n="popupUnsupportedPageFooter">
+          Open a supported site to use AI-MarkDone.
         </p>
       </footer>
     </main>

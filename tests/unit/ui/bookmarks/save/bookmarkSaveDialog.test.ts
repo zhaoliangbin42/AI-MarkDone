@@ -189,7 +189,7 @@ describe('BookmarkSaveDialog', () => {
 
     it('keeps primary save hover distinct from neutral secondary hover in the css contract', async () => {
         const { getBookmarkSaveDialogCss } = await import('@/ui/content/bookmarks/save/bookmarkSaveDialogCss');
-        const css = getBookmarkSaveDialogCss('light');
+        const css = getBookmarkSaveDialogCss();
 
         expect(css).not.toContain('.secondary-btn:hover,');
         expect(css).not.toContain('.icon-btn:hover,\n.secondary-btn:hover,');
@@ -198,6 +198,34 @@ describe('BookmarkSaveDialog', () => {
         expect(css).toContain('.picker-row[data-selected="1"]');
         expect(css).not.toContain('.modal-title');
         expect(css).toContain('.mock-modal__title-copy strong');
+    });
+
+    it('uses the modal Surface profile and keeps header and footer outside the scroll owner', async () => {
+        await setLocale('en');
+        const dialog = new BookmarkSaveDialog();
+        const promise = dialog.open({ theme: 'light', userPrompt: 'Hello world', currentFolderPath: 'Import' });
+
+        await new Promise((resolve) => setTimeout(resolve, 0));
+
+        const host = document.getElementById('aimd-bookmark-save-dialog-host')!;
+        const shadow = host.shadowRoot!;
+        const panel = shadow.querySelector<HTMLElement>('.panel-window--bookmark-save')!;
+        const body = shadow.querySelector<HTMLElement>('.dialog-body--bookmark-save')!;
+
+        expect(panel.style.getPropertyValue('--_surface-motion-open-duration')).toBe('280ms');
+        expect(panel.getAttribute('aria-busy')).toBe('false');
+        expect(body.classList.contains('workflow-dialog__body')).toBe(true);
+
+        const { getBookmarkSaveDialogCss } = await import('@/ui/content/bookmarks/save/bookmarkSaveDialogCss');
+        const css = getBookmarkSaveDialogCss();
+        expect(css).toContain('.workflow-dialog__body');
+        expect(css).toContain('min-height: 0;');
+        expect(css).toContain('overscroll-behavior: contain;');
+
+        shadow.querySelector<HTMLButtonElement>('[data-action="close-panel"]')!.click();
+        expect(panel.style.getPropertyValue('--_surface-motion-close-duration')).toBe('220ms');
+        panel.dispatchEvent(new Event('animationend', { bubbles: true }));
+        await expect(promise).resolves.toEqual({ ok: false, reason: 'cancel' });
     });
 
     it('keeps bookmark save inputs and nested new-folder modal interactions local to the dialog', async () => {

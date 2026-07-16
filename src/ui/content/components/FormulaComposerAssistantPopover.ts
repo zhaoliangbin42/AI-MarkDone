@@ -2,13 +2,25 @@ import type { LatexSnippetItem } from '../../../core/math/latexSnippets';
 import type { FormulaSvgAsset } from '../../../core/math/formulaAssetTypes';
 import type { MarkdownMathKind } from '../../../core/sending/markdownMath';
 import { ensureStyle } from '../../../style/shadow';
-import { getTokenCss, type UserThemeOverrides } from '../../../style/tokens';
-import { subscribeLocaleChange, t } from './i18n';
+import {
+    areAppearanceSnapshotsEqual,
+    createAppearanceSnapshot,
+    type AppearanceSnapshot,
+} from '../../../style/appearance';
+import { AppearanceScope } from '../../../style/appearanceScope';
+import { getLocale, subscribeLocaleChange, t, type UiLocale } from './i18n';
 import { markTransientRoot } from './transientUi';
 import {
     COMPOSER_SUGGESTION_LIST_CSS,
     renderComposerSuggestionList,
 } from './ComposerSuggestionList';
+import {
+    getDefaultSurfaceMotionProfile,
+    SurfaceSession,
+    type ResponsiveProfile,
+    type SurfacePositioner,
+} from './SurfaceRuntime';
+import { getAnchoredMotionCss } from './styles/anchoredMotionCss';
 
 export type FormulaPreviewState =
     | { status: 'loading' }
@@ -22,6 +34,8 @@ export type FormulaComposerAssistantView = {
     suggestions: readonly LatexSnippetItem[];
     selectedIndex: number;
 };
+
+export type FormulaComposerAssistantDismissReason = 'escape' | 'outside';
 
 const CSS = `
 :host {
@@ -39,7 +53,6 @@ const CSS = `
   border-radius: var(--aimd-radius-lg);
   background: var(--aimd-bg-surface);
   box-shadow: var(--aimd-shadow-panel);
-  animation: formula-assistant-enter var(--aimd-duration-fast) var(--aimd-ease-out);
 }
 .formula-preview-header {
   display: flex;
@@ -86,20 +99,19 @@ const CSS = `
   border-top: 1px solid var(--aimd-border-subtle);
 }
 ${COMPOSER_SUGGESTION_LIST_CSS}
-@keyframes formula-assistant-enter {
-  from { opacity: 0; transform: translateY(var(--aimd-space-1)); }
-  to { opacity: 1; transform: translateY(0); }
-}
 @media (prefers-reduced-motion: reduce) {
-  .formula-assistant { animation: none; }
+  .formula-assistant { transition: none; }
 }
 `;
 
-function resolveTheme(): 'light' | 'dark' {
-    const attr = document.documentElement.getAttribute('data-aimd-theme')
-        || document.documentElement.getAttribute('data-theme');
-    return attr === 'dark' || document.documentElement.classList.contains('dark') ? 'dark' : 'light';
-}
+const RESPONSIVE_PROFILE: ResponsiveProfile = {
+    viewportGutterPx: 16,
+    maxWidthCss: '520px',
+    maxHeightCss: 'calc(100vh - var(--aimd-space-4) * 2)',
+    collision: 'flip-clamp',
+    scrollOwner: 'content',
+    narrowFallback: 'compact',
+};
 
 function createPreviewSvg(asset: FormulaSvgAsset): SVGElement | null {
     const parsed = new DOMParser().parseFromString(asset.svg, 'image/svg+xml');
@@ -121,13 +133,22 @@ export class FormulaComposerAssistantPopover {
     readonly host: HTMLElement;
     private readonly shadow: ShadowRoot;
     private readonly root: HTMLElement;
+    private readonly appearanceScope: AppearanceScope;
+    private readonly surfaceSession: SurfaceSession<AppearanceSnapshot, UiLocale>;
     private readonly unsubscribeLocale: () => void;
-    private themeOverrides: UserThemeOverrides = {};
+    private appearance: AppearanceSnapshot = createAppearanceSnapshot('light');
     private view: FormulaComposerAssistantView | null = null;
+    private openState = false;
 
-    constructor(private readonly params: { onSelect: (index: number) => void; onHover?: (index: number) => void }) {
+    constructor(private readonly params: {
+        onSelect: (index: number) => void;
+        onHover?: (index: number) => void;
+        onDismiss?: (reason: FormulaComposerAssistantDismissReason) => void;
+        getDismissRoots?: () => ReadonlyArray<HTMLElement | null | undefined>;
+    }) {
         this.host = markTransientRoot(document.createElement('div'));
         this.host.dataset.aimdRole = 'formula-composer-assistant';
+        this.host.dataset.aimdTheme = this.appearance.theme;
         this.host.style.position = 'fixed';
         this.host.style.left = '0px';
         this.host.style.top = '0px';
@@ -137,25 +158,72 @@ export class FormulaComposerAssistantPopover {
         this.root = document.createElement('section');
         this.root.className = 'formula-assistant';
         this.root.setAttribute('role', 'region');
+        this.root.dataset.aimdSurfaceProfile = 'anchored';
         this.shadow.appendChild(this.root);
         document.body.appendChild(this.host);
-        this.unsubscribeLocale = subscribeLocaleChange(() => this.render());
+        this.appearanceScope = AppearanceScope.forShadowRoot(this.shadow, {
+            styleId: 'aimd-formula-assistant-tokens',
+        });
+        this.appearanceScope.apply(this.appearance);
+        ensureStyle(this.shadow, `${getAnchoredMotionCss()}\n${CSS}`, {
+            id: 'aimd-formula-assistant-base',
+            cache: 'shared',
+        });
+        this.surfaceSession = new SurfaceSession<AppearanceSnapshot, UiLocale>({
+            profile: 'anchored',
+            responsiveProfile: RESPONSIVE_PROFILE,
+            motionProfile: getDefaultSurfaceMotionProfile('anchored'),
+            appearance: {
+                currentValue: this.appearance,
+                equals: areAppearanceSnapshotsEqual,
+                apply: (snapshot) => {
+                    this.appearance = snapshot;
+                    this.host.dataset.aimdTheme = snapshot.theme;
+                    this.appearanceScope.apply(snapshot);
+                    if (this.openState) this.render();
+                },
+            },
+            locale: {
+                currentValue: getLocale(),
+                apply: () => {
+                    if (this.openState) this.render();
+                },
+            },
+        });
+        this.unsubscribeLocale = subscribeLocaleChange((locale) => this.surfaceSession.setLocale(locale));
     }
 
-    setThemeOverrides(overrides: UserThemeOverrides): void {
-        this.themeOverrides = { ...overrides };
-        if (this.view) this.render();
-    }
-
-    refreshTheme(): void {
-        if (this.view) this.render();
+    setAppearance(snapshot: AppearanceSnapshot): void {
+        this.surfaceSession.setAppearance(snapshot);
     }
 
     show(view: FormulaComposerAssistantView): void {
+        const wasOpen = this.openState;
+        this.surfaceSession.cancelClose();
         this.view = view;
+        this.openState = true;
         this.host.hidden = false;
+        this.host.style.pointerEvents = '';
+        this.root.inert = false;
         this.render();
-        this.position(view);
+        if (wasOpen) {
+            this.surfaceSession.position();
+            this.surfaceSession.syncMotion({ surface: this.root });
+            return;
+        }
+        this.surfaceSession.syncPositioner(this.createPositioner());
+        this.surfaceSession.syncOutsideDismiss({
+            eventTarget: document,
+            roots: () => [this.host, ...(this.params.getDismissRoots?.() ?? [])],
+            onDismiss: () => this.dismiss('outside'),
+        });
+        this.surfaceSession.syncEscapeScope({
+            root: this.host,
+            keydownTarget: this.getComposerEscapeTarget(),
+            onEscape: () => this.dismiss('escape'),
+            maintainFocus: false,
+        });
+        this.surfaceSession.open({ surface: this.root });
     }
 
     updateSelectedIndex(selectedIndex: number): void {
@@ -164,25 +232,41 @@ export class FormulaComposerAssistantPopover {
         this.render();
     }
 
+    isOpen(): boolean {
+        return this.openState;
+    }
+
     close(): void {
-        this.view = null;
-        this.host.hidden = true;
-        this.root.replaceChildren();
+        if (!this.openState) return;
+        this.openState = false;
+        this.surfaceSession.clearOutsideDismiss();
+        this.surfaceSession.clearEscapeScope();
+        this.surfaceSession.clearPositioner();
+        this.root.inert = true;
+        this.host.style.pointerEvents = 'none';
+        const finalize = () => {
+            if (this.openState) return;
+            this.view = null;
+            this.host.hidden = true;
+            this.host.style.pointerEvents = '';
+            this.root.inert = false;
+            this.root.replaceChildren();
+        };
+        if (!this.surfaceSession.close({ surface: this.root, onClosed: finalize })) finalize();
     }
 
     dispose(): void {
         this.unsubscribeLocale();
+        this.surfaceSession.destroy();
+        this.appearanceScope.dispose();
         this.host.remove();
         this.view = null;
+        this.openState = false;
     }
 
     private render(): void {
         const view = this.view;
         if (!view) return;
-        const theme = resolveTheme();
-        this.host.setAttribute('data-aimd-theme', theme);
-        ensureStyle(this.shadow, getTokenCss(theme, this.themeOverrides), { id: 'aimd-formula-assistant-tokens' });
-        ensureStyle(this.shadow, CSS, { id: 'aimd-formula-assistant-base', cache: 'shared' });
         this.root.replaceChildren();
         this.root.dataset.hasPreview = view.preview ? '1' : '0';
         this.root.setAttribute('aria-label', t('chatgptFormulaPreviewTitle'));
@@ -238,19 +322,66 @@ export class FormulaComposerAssistantPopover {
     }
 
     private position(view: FormulaComposerAssistantView): void {
-        const viewportWidth = document.documentElement.clientWidth || window.innerWidth;
-        const viewportHeight = document.documentElement.clientHeight || window.innerHeight;
-        const width = Math.min(view.mathKind === 'display' ? 520 : 440, Math.max(280, viewportWidth - 32));
+        const visual = window.visualViewport;
+        const viewportLeft = Number.isFinite(visual?.offsetLeft) ? visual!.offsetLeft : 0;
+        const viewportTop = Number.isFinite(visual?.offsetTop) ? visual!.offsetTop : 0;
+        const viewportWidth = Math.max(0, Number.isFinite(visual?.width)
+            ? visual!.width
+            : (document.documentElement.clientWidth || window.innerWidth));
+        const viewportHeight = Math.max(0, Number.isFinite(visual?.height)
+            ? visual!.height
+            : (document.documentElement.clientHeight || window.innerHeight));
+        const margin = RESPONSIVE_PROFILE.viewportGutterPx;
+        const availableWidth = Math.max(0, viewportWidth - (margin * 2));
+        const width = Math.min(view.mathKind === 'display' ? 520 : 440, availableWidth);
         this.host.style.width = `${width}px`;
-        const measuredHeight = Math.max(120, this.root.getBoundingClientRect().height || (view.suggestions.length > 0 ? 360 : 180));
+        const availableHeight = Math.max(0, viewportHeight - (margin * 2));
+        const measuredHeight = Math.min(
+            availableHeight,
+            Math.max(120, this.root.getBoundingClientRect().height || (view.suggestions.length > 0 ? 360 : 180)),
+        );
         const gap = 8;
-        const margin = 16;
-        const left = Math.max(margin, Math.min(view.anchorRect.left, viewportWidth - width - margin));
+        const minLeft = viewportLeft + margin;
+        const minTop = viewportTop + margin;
+        const maxLeft = Math.max(minLeft, viewportLeft + viewportWidth - width - margin);
+        const maxTop = Math.max(minTop, viewportTop + viewportHeight - measuredHeight - margin);
+        const left = Math.max(minLeft, Math.min(view.anchorRect.left, maxLeft));
         const above = view.anchorRect.top - measuredHeight - gap;
-        const top = above >= margin
+        const top = above >= minTop
             ? above
-            : Math.min(viewportHeight - measuredHeight - margin, view.anchorRect.bottom + gap);
+            : Math.min(maxTop, view.anchorRect.bottom + gap);
         this.host.style.left = `${left}px`;
-        this.host.style.top = `${Math.max(margin, top)}px`;
+        this.host.style.top = `${Math.max(minTop, top)}px`;
+    }
+
+    private dismiss(reason: FormulaComposerAssistantDismissReason): void {
+        if (!this.openState) return;
+        this.close();
+        this.params.onDismiss?.(reason);
+    }
+
+    private getComposerEscapeTarget(): EventTarget {
+        return this.params.getDismissRoots?.().find(
+            (root): root is HTMLElement => root instanceof HTMLElement,
+        ) ?? this.host;
+    }
+
+    private createPositioner(): SurfacePositioner {
+        const onViewportChange = () => this.surfaceSession.position();
+        window.addEventListener('resize', onViewportChange);
+        window.addEventListener('scroll', onViewportChange, { capture: true });
+        window.visualViewport?.addEventListener('resize', onViewportChange);
+        window.visualViewport?.addEventListener('scroll', onViewportChange);
+        return {
+            update: () => {
+                if (this.view) this.position(this.view);
+            },
+            destroy: () => {
+                window.removeEventListener('resize', onViewportChange);
+                window.removeEventListener('scroll', onViewportChange, { capture: true } as any);
+                window.visualViewport?.removeEventListener('resize', onViewportChange);
+                window.visualViewport?.removeEventListener('scroll', onViewportChange);
+            },
+        };
     }
 }

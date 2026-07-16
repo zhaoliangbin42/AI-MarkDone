@@ -4,6 +4,7 @@ import { DEFAULT_SETTINGS, type AppSettings } from '@/core/settings/types';
 import { resolveReaderCommentAnchor } from '@/services/reader/commentAnchoring';
 import { clearReaderCommentScope, listReaderComments, saveReaderComment, type ReaderCommentRecord } from '@/services/reader/commentSession';
 import { ReaderPanel } from '@/ui/content/reader/ReaderPanel';
+import { createAppearanceSnapshot } from '@/style/appearance';
 
 const scopeId = 'reader-panel-comments-v1';
 
@@ -432,16 +433,14 @@ describe('ReaderPanel comments', () => {
         const panel = new ReaderPanel();
         const themeOverrides = {
             baseFontScale: 1,
-            readerContentWidthPx: DEFAULT_SETTINGS.reader.contentMaxWidthPx,
-            readerBodyFontSizePx: DEFAULT_SETTINGS.reader.bodyFontSizePx,
         };
-        panel.setThemeOverrides(themeOverrides);
+        panel.setAppearance(createAppearanceSnapshot('light', themeOverrides));
         const onChange = vi.fn(async (patch: Partial<AppSettings['reader']>) => {
             panel.setReaderSettings({
                 ...DEFAULT_SETTINGS.reader,
                 commentExport: patch.commentExport ?? DEFAULT_SETTINGS.reader.commentExport,
             });
-            panel.setThemeOverrides(themeOverrides);
+            panel.setAppearance(createAppearanceSnapshot('light', themeOverrides));
         });
         panel.setReaderSettingsController({ onChange });
         panel.setCommentExportSettings({

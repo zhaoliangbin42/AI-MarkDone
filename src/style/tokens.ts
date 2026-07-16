@@ -1,4 +1,5 @@
 import type { Theme } from '../core/types/theme';
+import { getPublicTokenCss } from './public-tokens';
 import { getReferenceTokenCss } from './reference-tokens';
 import { getSystemTokenCss, type UserThemeOverrides } from './system-tokens';
 
@@ -9,12 +10,11 @@ function swapScope(css: string, scope: string): string {
 }
 
 export function getTokenCss(theme: Theme, overrides: UserThemeOverrides = {}): string {
-    return `${getReferenceTokenCss(theme)}\n${getSystemTokenCss(theme, overrides)}`;
+    return `${getReferenceTokenCss(theme)}\n${getSystemTokenCss(theme, overrides)}\n${getPublicTokenCss()}`;
 }
 
 export function getPageTokenCss(overrides: UserThemeOverrides = {}): string {
     const base = swapScope(getTokenCss('light', overrides), ':root');
-    const light = swapScope(getTokenCss('light', overrides), ':root[data-aimd-theme="light"]');
     const dark = swapScope(getTokenCss('dark', overrides), ':root[data-aimd-theme="dark"]');
-    return `${base}\n${light}\n${dark}`;
+    return `${base}\n${dark}`;
 }

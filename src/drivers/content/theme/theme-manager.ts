@@ -5,11 +5,13 @@ export type ThemeListener = (theme: Theme) => void;
 
 export class ThemeManager {
     private observer: MutationObserver | null = null;
+    private mediaQuery: MediaQueryList | null = null;
     private mediaQueryListener: ((e: MediaQueryListEvent) => void) | null = null;
     private theme: Theme = 'light';
     private listeners = new Set<ThemeListener>();
 
     init(adapter: SiteAdapter | null): void {
+        this.stopBindings();
         this.theme = this.detect(adapter);
         this.apply(this.theme);
         this.start(adapter);
@@ -19,6 +21,11 @@ export class ThemeManager {
         this.listeners.add(listener);
         listener(this.theme);
         return () => this.listeners.delete(listener);
+    }
+
+    dispose(): void {
+        this.stopBindings();
+        this.listeners.clear();
     }
 
     private detect(adapter: SiteAdapter | null): Theme {
@@ -43,7 +50,6 @@ export class ThemeManager {
     private start(adapter: SiteAdapter | null): void {
         const detector = adapter?.getThemeDetector();
 
-        if (this.observer) this.observer.disconnect();
         this.observer = new MutationObserver(() => {
             const next = this.detect(adapter);
             if (next !== this.theme) {
@@ -64,6 +70,7 @@ export class ThemeManager {
         }
 
         const mq = window.matchMedia('(prefers-color-scheme: dark)');
+        this.mediaQuery = mq;
         this.mediaQueryListener = () => {
             const next = this.detect(adapter);
             if (next !== this.theme) {
@@ -74,5 +81,14 @@ export class ThemeManager {
         };
         mq.addEventListener('change', this.mediaQueryListener);
     }
-}
 
+    private stopBindings(): void {
+        this.observer?.disconnect();
+        this.observer = null;
+        if (this.mediaQuery && this.mediaQueryListener) {
+            this.mediaQuery.removeEventListener('change', this.mediaQueryListener);
+        }
+        this.mediaQuery = null;
+        this.mediaQueryListener = null;
+    }
+}

@@ -9,7 +9,7 @@ export const COMPOSER_SUGGESTION_LIST_CSS = `
   display: grid;
   gap: var(--aimd-space-1);
   min-height: 0;
-  max-height: min(280px, calc(100vh - var(--aimd-space-12)));
+  max-height: min(280px, calc(100vh - var(--aimd-space-6) * 2));
   overflow: auto;
   overscroll-behavior: contain;
   padding: var(--aimd-space-2);

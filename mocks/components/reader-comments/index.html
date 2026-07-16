@@ -1,0 +1,131 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>AI-MarkDone Reader Comments Mock</title>
+    <style>
+      *, *::before, *::after { box-sizing: border-box; }
+      :root {
+        color-scheme: light;
+      }
+
+      body {
+        margin: 0;
+        min-height: 100vh;
+        font-family: system-ui, sans-serif;
+        background:
+          radial-gradient(circle at top left, rgba(56, 189, 248, 0.12), transparent 32%),
+          linear-gradient(180deg, #f8fafc 0%, #eef2ff 100%);
+        color: #0f172a;
+      }
+
+      main {
+        max-width: 1360px;
+        margin: 0 auto;
+        padding: 32px 20px 72px;
+        display: grid;
+        gap: 20px;
+      }
+
+      .card {
+        border-radius: 20px;
+        padding: 20px;
+        background: rgba(255, 255, 255, 0.82);
+        border: 1px solid rgba(148, 163, 184, 0.22);
+        box-shadow: 0 24px 60px rgba(15, 23, 42, 0.08);
+      }
+
+      .stage {
+        display: grid;
+        gap: 20px;
+      }
+      .stage { min-width: 0; }
+      .reader-comments-host,
+      .reader-comments-mock-host {
+        min-width: 0;
+        max-width: 100%;
+      }
+
+      .comment-export-controls {
+        display: grid;
+        gap: 14px;
+        margin-top: 18px;
+      }
+
+      .comment-export-field {
+        display: grid;
+        gap: 8px;
+        color: #334155;
+        font-size: 14px;
+      }
+
+      .comment-export-field span {
+        font-weight: 600;
+      }
+
+      .comment-export-field textarea,
+      .comment-export-field input {
+        width: 100%;
+        box-sizing: border-box;
+        border: 1px solid rgba(148, 163, 184, 0.42);
+        background: rgba(255, 255, 255, 0.9);
+        color: #0f172a;
+        padding: 10px 12px;
+        font: inherit;
+      }
+
+      .comment-export-field textarea {
+        resize: vertical;
+        min-height: 84px;
+        line-height: 1.5;
+      }
+
+      .comment-export-field textarea:focus,
+      .comment-export-field input:focus {
+        outline: 2px solid rgba(59, 130, 246, 0.18);
+        border-color: rgba(59, 130, 246, 0.5);
+      }
+
+      .copy-comments:disabled {
+        opacity: 0.5;
+        cursor: not-allowed;
+      }
+
+      body[data-theme="dark"] {
+        color-scheme: dark;
+        color: #f8fafc;
+        background:
+          radial-gradient(circle at top left, rgba(56, 189, 248, 0.12), transparent 32%),
+          linear-gradient(180deg, #111827 0%, #0f172a 100%);
+      }
+
+      body[data-theme="dark"] .card {
+        background: rgba(30, 41, 59, 0.9);
+        border-color: rgba(148, 163, 184, 0.24);
+        box-shadow: 0 24px 60px rgba(0, 0, 0, 0.24);
+      }
+
+      body[data-theme="dark"] .comment-export-field {
+        color: #cbd5e1;
+      }
+
+      body[data-theme="dark"] .comment-export-field textarea,
+      body[data-theme="dark"] .comment-export-field input {
+        border-color: rgba(148, 163, 184, 0.34);
+        background: rgba(15, 23, 42, 0.9);
+        color: #f8fafc;
+      }
+    </style>
+  </head>
+  <body>
+    <main>
+      <section class="card">
+        <h1>Reader Comments Mock</h1>
+        <p>Prototype for Word-style comments inside the Reader surface. Comments persist until page refresh, survive unmount/remount, and stay isolated inside Shadow DOM.</p>
+      </section>
+      <section class="stage" id="reader-comments-stage"></section>
+    </main>
+    <script type="module" src="./main.ts"></script>
+  </body>
+</html>

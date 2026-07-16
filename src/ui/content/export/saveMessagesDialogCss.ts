@@ -1,7 +1,7 @@
-import type { Theme } from '../../../core/types/theme';
 import { getPanelChromeCss } from '../components/styles/panelChromeCss';
+import { getWorkflowDialogChromeCss } from '../components/styles/workflowDialogChromeCss';
 
-export function getSaveMessagesDialogCss(_theme: Theme): string {
+export function getSaveMessagesDialogCss(): string {
     return `
 :host {
   font-family: var(--aimd-font-family-sans);
@@ -17,6 +17,7 @@ button, input, select, textarea {
 }
 
 ${getPanelChromeCss()}
+${getWorkflowDialogChromeCss()}
 
 .panel-stage__overlay {
   position: fixed;
@@ -48,8 +49,6 @@ ${getPanelChromeCss()}
 }
 
 .dialog-body {
-  flex: 1;
-  overflow: auto;
   padding: calc(var(--aimd-space-5) + var(--aimd-space-2));
 }
 
@@ -63,7 +62,7 @@ ${getPanelChromeCss()}
 .message-grid {
   display: flex;
   flex-wrap: wrap;
-  gap: 6px;
+  gap: calc(var(--aimd-space-1) + var(--aimd-space-1) / 2);
   margin-top: var(--aimd-space-2);
   margin-bottom: var(--aimd-space-5);
 }
@@ -161,10 +160,7 @@ ${getPanelChromeCss()}
 }
 
 .progress-label {
-  font-size: var(--aimd-text-xs);
-  line-height: 1.4;
   color: var(--aimd-text-secondary);
-  overflow-wrap: anywhere;
 }
 
 .progress-track {

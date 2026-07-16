@@ -113,7 +113,7 @@ export class TaskProgressPanel {
   transition: width var(--aimd-duration-fast) var(--aimd-ease-in-out);
 }
 .task-progress[data-indeterminate="1"] .task-progress__fill {
-  animation: taskProgressIndeterminate 1.1s var(--aimd-ease-in-out) infinite;
+  animation: taskProgressIndeterminate calc(var(--aimd-duration-base) * 5.5) var(--aimd-ease-in-out) infinite;
 }
 .task-progress__cancel {
   all: unset;

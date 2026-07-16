@@ -10,6 +10,9 @@ import {
     type ChatGPTDomRoundRef,
 } from '../../chatgpt/domConversationDiscovery';
 
+const DEEP_RESEARCH_SCREENSHOT_ROOT_SELECTOR = '[data-conversation-screenshot-content]';
+const DEEP_RESEARCH_IFRAME_SELECTOR = `${DEEP_RESEARCH_SCREENSHOT_ROOT_SELECTOR} iframe[title="internal://deep-research"]`;
+
 const detector: ThemeDetector = {
     detect(): Theme | null {
         const htmlTheme = document.documentElement.getAttribute('data-theme');
@@ -54,6 +57,27 @@ export class ChatGPTAdapter extends SiteAdapter {
         }
 
         return null;
+    }
+
+    private findDeepResearchFrame(messageElement: HTMLElement): HTMLIFrameElement | null {
+        const candidate = messageElement.matches(DEEP_RESEARCH_IFRAME_SELECTOR)
+            ? messageElement
+            : messageElement.querySelector(DEEP_RESEARCH_IFRAME_SELECTOR);
+        return candidate instanceof HTMLIFrameElement ? candidate : null;
+    }
+
+    private findDeepResearchToolbarAnchor(messageElement: HTMLElement): HTMLElement | null {
+        const frame = this.findDeepResearchFrame(messageElement);
+        if (!frame) return null;
+
+        const screenshotRoot = frame.closest(DEEP_RESEARCH_SCREENSHOT_ROOT_SELECTOR);
+        if (!(screenshotRoot instanceof HTMLElement)) return null;
+
+        let contentStack: HTMLElement = frame;
+        while (contentStack.parentElement && contentStack.parentElement !== screenshotRoot) {
+            contentStack = contentStack.parentElement;
+        }
+        return contentStack.parentElement === screenshotRoot ? contentStack : screenshotRoot;
     }
 
     matches(url: string): boolean {
@@ -124,8 +148,8 @@ export class ChatGPTAdapter extends SiteAdapter {
 
     getMessageSelector(): string {
         // Prefer the stable assistant message node; `article[data-turn]` has proven to be unstable across ChatGPT UI iterations.
-        // Using the role+id container keeps Copy/Reader/toolbars resilient even if the surrounding turn wrapper changes.
-        return '[data-message-author-role="assistant"][data-message-id]';
+        // Deep Research is the only verified embedded surface that lacks this node and therefore supplies its iframe as the message surface.
+        return `[data-message-author-role="assistant"][data-message-id], ${DEEP_RESEARCH_IFRAME_SELECTOR}`;
     }
 
     getMessageContentSelector(): string {
@@ -137,7 +161,8 @@ export class ChatGPTAdapter extends SiteAdapter {
     }
 
     getToolbarAnchorElement(assistantMessageElement: HTMLElement): HTMLElement | null {
-        return this.findOfficialActionAnchor(assistantMessageElement);
+        return this.findOfficialActionAnchor(assistantMessageElement)
+            ?? this.findDeepResearchToolbarAnchor(assistantMessageElement);
     }
 
     getTurnRootElement(assistantMessageElement: HTMLElement): HTMLElement | null {
@@ -147,9 +172,13 @@ export class ChatGPTAdapter extends SiteAdapter {
 
     injectToolbar(messageElement: HTMLElement, toolbarHost: HTMLElement): boolean {
         try {
-            const targetRow = this.findOfficialActionAnchor(messageElement);
+            const officialActionAnchor = this.findOfficialActionAnchor(messageElement);
+            const deepResearchAnchor = officialActionAnchor
+                ? null
+                : this.findDeepResearchToolbarAnchor(messageElement);
+            const targetRow = officialActionAnchor ?? deepResearchAnchor;
             if (!targetRow) return false;
-            const actionBarAnchor = targetRow.querySelector(this.getActionBarSelector());
+            const actionBarAnchor = officialActionAnchor?.querySelector(this.getActionBarSelector()) ?? null;
             const group = actionBarAnchor instanceof HTMLElement ? actionBarAnchor.parentElement as HTMLElement | null : null;
 
             toolbarHost.dataset.aimdPlacement = 'actionbar';
@@ -157,6 +186,13 @@ export class ChatGPTAdapter extends SiteAdapter {
             toolbarHost.style.pointerEvents = 'auto';
             toolbarHost.style.marginLeft = '0';
             toolbarHost.style.marginRight = '0';
+
+            if (deepResearchAnchor) {
+                toolbarHost.dataset.aimdSurface = 'deep-research';
+                toolbarHost.style.alignSelf = 'flex-end';
+                deepResearchAnchor.appendChild(toolbarHost);
+                return true;
+            }
 
             if (actionBarAnchor instanceof HTMLElement && group && group.parentElement === targetRow) {
                 targetRow.insertBefore(toolbarHost, group.nextSibling);
@@ -187,6 +223,14 @@ export class ChatGPTAdapter extends SiteAdapter {
     }
 
     getMessageId(element: HTMLElement): string | null {
+        if (this.findDeepResearchFrame(element)) {
+            const turnRoot = this.getTurnRootElement(element);
+            const turnId = turnRoot?.getAttribute('data-turn-id')
+                || turnRoot?.getAttribute('data-turn-id-container')
+                || turnRoot?.getAttribute('data-testid');
+            if (turnId) return turnId;
+        }
+
         const dataMessageId = element.getAttribute('data-message-id');
         if (dataMessageId) return dataMessageId;
 

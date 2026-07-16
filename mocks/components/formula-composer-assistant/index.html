@@ -1,0 +1,106 @@
+<!doctype html>
+<html lang="en" data-aimd-theme="light">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>AI-MarkDone Formula Composer Assistant Mock</title>
+    <style>
+      * { box-sizing: border-box; }
+      body {
+        margin: 0;
+        min-height: 100vh;
+        color: #111827;
+        background: #f3f4f6;
+        font-family: ui-sans-serif, system-ui, sans-serif;
+      }
+      body[data-theme="dark"] { color: #f3f4f6; background: #171717; }
+      main { width: min(1080px, calc(100% - 32px)); margin: 0 auto; padding: 40px 0 480px; }
+      header { display: flex; align-items: flex-start; justify-content: space-between; gap: 24px; margin-bottom: 28px; }
+      h1 { margin: 0 0 8px; font-size: 24px; }
+      p { margin: 0; color: #6b7280; line-height: 1.6; }
+      body[data-theme="dark"] p { color: #a3a3a3; }
+      button, input { font: inherit; }
+      #theme-toggle {
+        border: 1px solid #d1d5db;
+        border-radius: 10px;
+        padding: 8px 12px;
+        background: #fff;
+        color: inherit;
+        cursor: pointer;
+      }
+      body[data-theme="dark"] #theme-toggle { border-color: #525252; background: #262626; }
+      .grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 20px; }
+      .case {
+        min-height: 290px;
+        padding: 18px;
+        border: 1px solid #d1d5db;
+        border-radius: 18px;
+        background: #fff;
+        box-shadow: 0 12px 30px rgba(15, 23, 42, 0.08);
+      }
+      body[data-theme="dark"] .case { border-color: #404040; background: #262626; box-shadow: none; }
+      .case h2 { margin: 0 0 6px; font-size: 16px; }
+      .composer {
+        margin-top: 16px;
+        min-height: 96px;
+        display: grid;
+        align-content: space-between;
+        gap: 12px;
+        padding: 14px 16px;
+        border: 1px solid #d1d5db;
+        border-radius: 24px;
+        background: #f9fafb;
+      }
+      body[data-theme="dark"] .composer { border-color: #525252; background: #1f1f1f; }
+      .formula-source { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; white-space: pre-wrap; }
+      .anchor-row { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+      .preview-anchor { width: 2px; height: 20px; background: #2563eb; }
+      .focus-probe { width: 100%; border: 1px solid #d1d5db; padding: 8px 10px; background: transparent; color: inherit; }
+      #status { margin-top: 20px; color: #2563eb; font-size: 13px; }
+      @media (max-width: 760px) { .grid { grid-template-columns: 1fr; } }
+    </style>
+  </head>
+  <body>
+    <main>
+      <header>
+        <div>
+          <h1>Formula composer assistant</h1>
+          <p>Real Shadow DOM component: inline/display preview, dense suggestions, error/empty states, two simultaneous instances, light/dark, hover and focus isolation.</p>
+        </div>
+        <button id="theme-toggle" type="button">Toggle theme</button>
+      </header>
+      <section class="grid">
+        <article class="case">
+          <h2>Inline + dense completion</h2>
+          <p>Formula-only backslash suggestions with overflow.</p>
+          <div class="composer">
+            <div class="formula-source">Explain $\fra▌</div>
+            <div class="anchor-row"><input class="focus-probe" value="Focus remains here" /><span class="preview-anchor" id="inline-anchor"></span></div>
+          </div>
+        </article>
+        <article class="case">
+          <h2>Display preview</h2>
+          <p>A wider surface for a closed multiline block.</p>
+          <div class="composer">
+            <div class="formula-source">$$\sum_{i=1}^{n} i = \frac{n(n+1)}{2}$$</div>
+            <div class="anchor-row"><span>Hover-equivalent state</span><span class="preview-anchor" id="display-anchor"></span></div>
+          </div>
+        </article>
+        <article class="case">
+          <h2>Error + no suggestions</h2>
+          <p>Preview failure is compact and does not damage the draft.</p>
+          <div class="composer">
+            <div class="formula-source">$\unsupportedCommand{x}$</div>
+            <div class="anchor-row"><button id="error-toggle" type="button">Show real error state</button><span class="preview-anchor" id="error-anchor"></span></div>
+          </div>
+        </article>
+        <article class="case">
+          <h2>Interaction notes</h2>
+          <p>Use Arrow keys and Tab/Enter in the real composer. This mock verifies pointer selection without moving focus.</p>
+          <div id="status">No snippet selected.</div>
+        </article>
+      </section>
+    </main>
+    <script type="module" src="./main.ts"></script>
+  </body>
+</html>

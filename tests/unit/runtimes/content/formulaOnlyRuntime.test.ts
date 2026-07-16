@@ -5,16 +5,19 @@ const mocks = vi.hoisted(() => {
     const controllerObserveContainers = vi.fn();
     const controllerDisable = vi.fn();
     const controllerSetFormulaSettings = vi.fn();
+    const controllerSetAppearance = vi.fn();
     const controllerCtor = vi.fn(function () {
         return {
             enable: controllerEnable,
             observeContainers: controllerObserveContainers,
             disable: controllerDisable,
             setFormulaSettings: controllerSetFormulaSettings,
+            setAppearance: controllerSetAppearance,
         };
     });
 
     const settingsInit = vi.fn();
+    const settingsUnsubscribe = vi.fn();
     let settingsCached: any = null;
     let settingsSubscriber: ((snap: any) => void) | null = null;
     const settingsCtor = vi.fn(function () {
@@ -23,27 +26,67 @@ const mocks = vi.hoisted(() => {
             getCached: () => settingsCached,
             subscribe: (fn: (snap: any) => void) => {
                 settingsSubscriber = fn;
+                return settingsUnsubscribe;
             },
+        };
+    });
+    let currentTheme: 'light' | 'dark' = 'light';
+    let themeSubscriber: ((theme: 'light' | 'dark') => void) | null = null;
+    const themeInit = vi.fn();
+    const themeDispose = vi.fn();
+    const themeUnsubscribe = vi.fn();
+    const themeSubscribe = vi.fn((fn: (theme: 'light' | 'dark') => void) => {
+        themeSubscriber = fn;
+        fn(currentTheme);
+        return themeUnsubscribe;
+    });
+    const themeManagerCtor = vi.fn(function () {
+        return {
+            init: themeInit,
+            subscribe: themeSubscribe,
+            dispose: themeDispose,
         };
     });
     let runtimeMessageListener: ((msg: unknown, sender: unknown, sendResponse?: (response: unknown) => void) => void | boolean) | null = null;
     const runtimeAddListener = vi.fn((fn: typeof runtimeMessageListener) => {
         runtimeMessageListener = fn;
     });
-    const bookmarksPanelToggle = vi.fn(async () => undefined);
+    const bookmarksPanelToggle = vi.fn(async (_appearance?: unknown) => undefined);
     const bookmarksPanelHide = vi.fn();
+    let bookmarksAppearance: unknown = null;
+    const bookmarksSetAppearance = vi.fn((snapshot: unknown) => {
+        bookmarksAppearance = snapshot;
+    });
+    const readerSetAppearance = vi.fn();
+    const ensurePageTokens = vi.fn();
 
     return {
         controllerEnable,
         controllerObserveContainers,
         controllerDisable,
         controllerSetFormulaSettings,
+        controllerSetAppearance,
         controllerCtor,
         settingsInit,
+        settingsUnsubscribe,
         settingsCtor,
+        themeInit,
+        themeDispose,
+        themeSubscribe,
+        themeUnsubscribe,
+        themeManagerCtor,
         runtimeAddListener,
         bookmarksPanelToggle,
         bookmarksPanelHide,
+        bookmarksSetAppearance,
+        readerSetAppearance,
+        ensurePageTokens,
+        get bookmarksAppearance() {
+            return bookmarksAppearance;
+        },
+        set bookmarksAppearance(value: unknown) {
+            bookmarksAppearance = value;
+        },
         get settingsCached() {
             return settingsCached;
         },
@@ -55,6 +98,18 @@ const mocks = vi.hoisted(() => {
         },
         set settingsSubscriber(value: ((snap: any) => void) | null) {
             settingsSubscriber = value;
+        },
+        get currentTheme() {
+            return currentTheme;
+        },
+        set currentTheme(value: 'light' | 'dark') {
+            currentTheme = value;
+        },
+        get themeSubscriber() {
+            return themeSubscriber;
+        },
+        set themeSubscriber(value: ((theme: 'light' | 'dark') => void) | null) {
+            themeSubscriber = value;
         },
         get runtimeMessageListener() {
             return runtimeMessageListener;
@@ -71,6 +126,14 @@ vi.mock('@/ui/content/controllers/FormulaAssetHoverController', () => ({
 
 vi.mock('@/drivers/content/settings/settingsClient', () => ({
     SettingsClient: mocks.settingsCtor,
+}));
+
+vi.mock('@/drivers/content/theme/theme-manager', () => ({
+    ThemeManager: mocks.themeManagerCtor,
+}));
+
+vi.mock('@/style/pageTokens', () => ({
+    ensurePageTokens: mocks.ensurePageTokens,
 }));
 
 vi.mock('@/drivers/shared/browser', () => ({
@@ -92,8 +155,8 @@ vi.mock('@/ui/content/reader/ReaderPanel', () => ({
 vi.mock('@/ui/content/bookmarks/BookmarksPanelController', () => ({
     BookmarksPanelController: vi.fn(function () {
         return {
-            getTheme: () => 'light',
-            getThemeOverrides: () => ({}),
+            getAppearance: () => mocks.bookmarksAppearance,
+            setAppearance: mocks.bookmarksSetAppearance,
         };
     }),
 }));
@@ -108,9 +171,11 @@ vi.mock('@/ui/content/bookmarks/BookmarksPanel', () => ({
 }));
 
 vi.mock('@/runtimes/content/lazyContentFeatures', () => ({
-    createLazyReaderPanel: vi.fn(() => ({})),
-    createLazyBookmarksPanel: vi.fn(() => ({
-        toggle: mocks.bookmarksPanelToggle,
+    createLazyReaderPanel: vi.fn(() => ({
+        setAppearance: mocks.readerSetAppearance,
+    })),
+    createLazyBookmarksPanel: vi.fn((controller: { getAppearance: () => unknown }) => ({
+        toggle: () => mocks.bookmarksPanelToggle(controller.getAppearance()),
         hide: mocks.bookmarksPanelHide,
     })),
     createLazyRunFormulaAssetAction: vi.fn(() => vi.fn()),
@@ -163,12 +228,126 @@ afterEach(() => {
     vi.clearAllMocks();
     mocks.settingsCached = null;
     mocks.settingsSubscriber = null;
+    mocks.currentTheme = 'light';
+    mocks.themeSubscriber = null;
+    mocks.bookmarksAppearance = null;
     mocks.runtimeMessageListener = null;
     setReaderMarkdownCopyFormulaFormat('markdown-dollar');
     document.body.innerHTML = '';
 });
 
 describe('formula-only content runtime', () => {
+    it('distributes one normalized dark appearance to formula, bookmarks, Reader, and page tokens on startup', () => {
+        mocks.currentTheme = 'dark';
+        mocks.settingsCached = {
+            formula: enabledFormulaSettings(),
+            appearance: {
+                accentColor: '#7C3AED',
+                fontSizePx: 18,
+            },
+        };
+
+        const runtime = startFormulaOnlyRuntime(getFormulaOnlyPlatformProfile('https://gemini.google.com/app')!);
+
+        const expectedAppearance = expect.objectContaining({
+            theme: 'dark',
+            overrides: {
+                accentColor: '#7c3aed',
+                baseFontScale: 18 / 16,
+            },
+        });
+        expect(mocks.controllerSetAppearance).toHaveBeenCalledTimes(1);
+        expect(mocks.controllerSetAppearance).toHaveBeenLastCalledWith(expectedAppearance);
+        expect(mocks.bookmarksSetAppearance).toHaveBeenCalledTimes(1);
+        expect(mocks.bookmarksSetAppearance).toHaveBeenLastCalledWith(expectedAppearance);
+        expect(mocks.readerSetAppearance).toHaveBeenCalledTimes(1);
+        expect(mocks.readerSetAppearance).toHaveBeenLastCalledWith(expectedAppearance);
+        expect(mocks.ensurePageTokens).toHaveBeenCalledTimes(1);
+        expect(mocks.ensurePageTokens).toHaveBeenLastCalledWith({
+            accentColor: '#7c3aed',
+            baseFontScale: 18 / 16,
+        });
+
+        runtime.dispose();
+    });
+
+    it('propagates a host theme change while preserving the current appearance overrides', () => {
+        mocks.settingsCached = {
+            formula: enabledFormulaSettings(),
+            appearance: {
+                accentColor: '#2563EB',
+                fontSizePx: 17,
+            },
+        };
+        const runtime = startFormulaOnlyRuntime(getFormulaOnlyPlatformProfile('https://claude.ai/chat/mock')!);
+
+        mocks.themeSubscriber?.('dark');
+
+        const expectedAppearance = expect.objectContaining({
+            theme: 'dark',
+            overrides: {
+                accentColor: '#2563eb',
+                baseFontScale: 17 / 16,
+            },
+        });
+        expect(mocks.controllerSetAppearance).toHaveBeenCalledTimes(2);
+        expect(mocks.controllerSetAppearance).toHaveBeenLastCalledWith(expectedAppearance);
+        expect(mocks.bookmarksSetAppearance).toHaveBeenCalledTimes(2);
+        expect(mocks.bookmarksSetAppearance).toHaveBeenLastCalledWith(expectedAppearance);
+        expect(mocks.readerSetAppearance).toHaveBeenCalledTimes(2);
+        expect(mocks.readerSetAppearance).toHaveBeenLastCalledWith(expectedAppearance);
+
+        runtime.dispose();
+    });
+
+    it('does not rebroadcast appearance for an unrelated settings update', () => {
+        const settings = {
+            formula: enabledFormulaSettings(),
+            appearance: {
+                accentColor: '#2563eb',
+                fontSizePx: 16,
+            },
+            behavior: {
+                showWordCount: true,
+            },
+        };
+        mocks.settingsCached = settings;
+        const runtime = startFormulaOnlyRuntime(getFormulaOnlyPlatformProfile('https://gemini.google.com/app')!);
+        mocks.controllerSetAppearance.mockClear();
+        mocks.bookmarksSetAppearance.mockClear();
+        mocks.readerSetAppearance.mockClear();
+        mocks.ensurePageTokens.mockClear();
+
+        mocks.settingsSubscriber?.({
+            settings: {
+                ...settings,
+                behavior: {
+                    showWordCount: false,
+                },
+            },
+        });
+
+        expect(mocks.controllerSetAppearance).not.toHaveBeenCalled();
+        expect(mocks.bookmarksSetAppearance).not.toHaveBeenCalled();
+        expect(mocks.readerSetAppearance).not.toHaveBeenCalled();
+        expect(mocks.ensurePageTokens).not.toHaveBeenCalled();
+
+        runtime.dispose();
+    });
+
+    it('unsubscribes appearance inputs when the formula-only runtime is disposed', () => {
+        mocks.settingsCached = { formula: enabledFormulaSettings() };
+        const runtime = startFormulaOnlyRuntime(
+            getFormulaOnlyPlatformProfile('https://chat.deepseek.com/a/chat/s/mock')!,
+        );
+
+        runtime.dispose();
+
+        expect(mocks.settingsUnsubscribe).toHaveBeenCalledTimes(1);
+        expect(mocks.themeUnsubscribe).toHaveBeenCalledTimes(1);
+        expect(mocks.themeDispose).toHaveBeenCalledTimes(1);
+    });
+
     it('detects only Gemini, Claude, and DeepSeek formula-only hosts', () => {
         expect(getFormulaOnlyPlatformProfile('https://gemini.google.com/app')?.id).toBe('gemini');
         expect(getFormulaOnlyPlatformProfile('https://claude.ai/chat/mock')?.id).toBe('claude');
@@ -217,7 +396,14 @@ describe('formula-only content runtime', () => {
     });
 
     it('opens the global bookmarks panel from the extension action message', async () => {
-        mocks.settingsCached = { formula: enabledFormulaSettings() };
+        mocks.currentTheme = 'dark';
+        mocks.settingsCached = {
+            formula: enabledFormulaSettings(),
+            appearance: {
+                accentColor: '#2563EB',
+                fontSizePx: 18,
+            },
+        };
         const runtime = startFormulaOnlyRuntime(getFormulaOnlyPlatformProfile('https://chat.deepseek.com/a/chat/s/mock')!);
 
         expect(mocks.runtimeAddListener).toHaveBeenCalledTimes(1);
@@ -227,7 +413,13 @@ describe('formula-only content runtime', () => {
         );
         await Promise.resolve();
 
-        expect(mocks.bookmarksPanelToggle).toHaveBeenCalledTimes(1);
+        expect(mocks.bookmarksPanelToggle).toHaveBeenCalledWith(expect.objectContaining({
+            theme: 'dark',
+            overrides: {
+                accentColor: '#2563eb',
+                baseFontScale: 18 / 16,
+            },
+        }));
         runtime.dispose();
     });
 

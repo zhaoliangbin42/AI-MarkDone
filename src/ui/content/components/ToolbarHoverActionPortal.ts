@@ -1,8 +1,27 @@
 import type { Theme } from '../../../core/types/theme';
-import { getTokenCss, type UserThemeOverrides } from '../../../style/tokens';
+import {
+    areAppearanceSnapshotsEqual,
+    createAppearanceSnapshot,
+    type AppearanceSnapshot,
+} from '../../../style/appearance';
+import { AppearanceScope } from '../../../style/appearanceScope';
+import type { UserThemeOverrides } from '../../../style/tokens';
 import { ensureStyle } from '../../../style/shadow';
 import { TooltipDelegate } from '../../../utils/tooltip';
 import { createIcon } from './Icon';
+import {
+    getDefaultSurfaceMotionProfile,
+    SurfaceSession,
+    type ResponsiveProfile,
+} from './SurfaceRuntime';
+import { getAnchoredMotionCss } from './styles/anchoredMotionCss';
+
+const RESPONSIVE_PROFILE: ResponsiveProfile = {
+    viewportGutterPx: 8,
+    collision: 'flip-clamp',
+    scrollOwner: 'none',
+    narrowFallback: 'compact',
+};
 
 export type ToolbarHoverPortalAction = {
     id: string;
@@ -36,25 +55,44 @@ export class ToolbarHoverActionPortal {
     private onPointerEnter: (() => void) | null = null;
     private onPointerLeave: (() => void) | null = null;
     private onRequestClose: (() => void) | null = null;
-    private onDocPointerDown: ((event: Event) => void) | null = null;
     private onWindowResize: (() => void) | null = null;
     private onWindowScroll: (() => void) | null = null;
     private positionFrame: number | null = null;
-    private theme: Theme;
-    private themeOverrides: UserThemeOverrides;
+    private appearance: AppearanceSnapshot;
+    private readonly appearanceScope: AppearanceScope;
+    private readonly surfaceSession: SurfaceSession<AppearanceSnapshot>;
     private tooltipDelegate: TooltipDelegate;
 
     constructor(theme: Theme, themeOverrides: UserThemeOverrides = {}) {
-        this.theme = theme;
-        this.themeOverrides = themeOverrides;
+        this.appearance = createAppearanceSnapshot(theme, themeOverrides);
         this.host = document.createElement('div');
         this.host.className = 'aimd-toolbar-hover-action-host';
         this.host.setAttribute('data-aimd-role', 'toolbar-hover-actions');
         this.host.dataset.open = '0';
         this.host.setAttribute('data-aimd-theme', theme);
         this.shadow = this.host.attachShadow({ mode: 'open' });
-        ensureStyle(this.shadow, getTokenCss(theme, this.themeOverrides), { id: 'aimd-toolbar-hover-action-tokens' });
-        ensureStyle(this.shadow, this.getCss(), { id: 'aimd-toolbar-hover-action-base', cache: 'shared' });
+        this.appearanceScope = AppearanceScope.forShadowRoot(this.shadow, {
+            styleId: 'aimd-toolbar-hover-action-tokens',
+        });
+        this.appearanceScope.apply(this.appearance);
+        ensureStyle(this.shadow, `${getAnchoredMotionCss()}\n${this.getCss()}`, {
+            id: 'aimd-toolbar-hover-action-base',
+            cache: 'shared',
+        });
+        this.surfaceSession = new SurfaceSession<AppearanceSnapshot>({
+            profile: 'anchored',
+            responsiveProfile: RESPONSIVE_PROFILE,
+            motionProfile: getDefaultSurfaceMotionProfile('anchored'),
+            appearance: {
+                currentValue: this.appearance,
+                equals: areAppearanceSnapshotsEqual,
+                apply: (snapshot) => {
+                    this.appearance = snapshot;
+                    this.host.dataset.aimdTheme = snapshot.theme;
+                    this.appearanceScope.apply(snapshot);
+                },
+            },
+        });
         this.tooltipDelegate = new TooltipDelegate(this.shadow, { upgradeTitles: false });
 
         this.bridge = document.createElement('div');
@@ -67,6 +105,7 @@ export class ToolbarHoverActionPortal {
         this.actionsRoot = document.createElement('div');
         this.actionsRoot.className = 'toolbar-hover-actions';
         this.actionsRoot.dataset.role = 'toolbar-hover-actions';
+        this.actionsRoot.dataset.aimdSurfaceProfile = 'anchored';
         this.actionsRoot.addEventListener('pointerenter', () => this.onPointerEnter?.());
         this.actionsRoot.addEventListener('pointerleave', () => this.onPointerLeave?.());
         this.shadow.appendChild(this.bridge);
@@ -77,15 +116,8 @@ export class ToolbarHoverActionPortal {
         return this.host.dataset.open === '1';
     }
 
-    setTheme(theme: Theme): void {
-        this.theme = theme;
-        this.host.setAttribute('data-aimd-theme', theme);
-        ensureStyle(this.shadow, getTokenCss(theme, this.themeOverrides), { id: 'aimd-toolbar-hover-action-tokens' });
-    }
-
-    setThemeOverrides(overrides: UserThemeOverrides): void {
-        this.themeOverrides = { ...overrides };
-        ensureStyle(this.shadow, getTokenCss(this.theme, this.themeOverrides), { id: 'aimd-toolbar-hover-action-tokens' });
+    setAppearance(snapshot: AppearanceSnapshot): void {
+        this.surfaceSession.setAppearance(snapshot);
     }
 
     open(params: ToolbarHoverActionPortalParams): void {
@@ -109,14 +141,36 @@ export class ToolbarHoverActionPortal {
             document.body.appendChild(this.host);
         }
 
-        this.positionToAnchor(params.anchorEl);
         this.host.dataset.open = '1';
-        this.scheduleReposition();
-        this.installGlobalHandlers();
+        this.surfaceSession.syncPositioner({
+            update: () => {
+                if (!this.currentAnchor || !this.host.isConnected) return;
+                this.positionToAnchor(this.currentAnchor);
+                this.scheduleReposition();
+            },
+            destroy: () => this.cancelReposition(),
+        });
+        this.surfaceSession.syncOutsideDismiss({
+            eventTarget: document,
+            roots: () => [this.host, this.currentAnchor],
+            onDismiss: () => this.onRequestClose?.(),
+        });
+        this.surfaceSession.syncEscapeScope({
+            root: this.host,
+            keydownTarget: document,
+            onEscape: () => this.onRequestClose?.(),
+            stopPropagationAll: false,
+            maintainFocus: false,
+            capture: true,
+        });
+        this.surfaceSession.open({ surface: this.actionsRoot });
+        this.installViewportHandlers();
     }
 
     close(): void {
-        this.cancelReposition();
+        this.surfaceSession.clearEscapeScope();
+        this.surfaceSession.clearOutsideDismiss();
+        this.surfaceSession.clearPositioner();
         this.tooltipDelegate.hide();
         this.host.dataset.open = '0';
         this.currentAnchor = null;
@@ -124,20 +178,22 @@ export class ToolbarHoverActionPortal {
         this.onPointerLeave = null;
         this.onRequestClose = null;
         this.actionsRoot.replaceChildren();
-        this.removeGlobalHandlers();
+        this.removeViewportHandlers();
         this.host.remove();
     }
 
     dispose(): void {
         this.close();
+        this.surfaceSession.destroy();
         this.tooltipDelegate.disconnect();
+        this.appearanceScope.dispose();
     }
 
     private positionToAnchor(anchorEl: HTMLElement): void {
         const rect = anchorEl.getBoundingClientRect();
         const actionRect = this.actionsRoot.getBoundingClientRect();
         const viewportWidth = window.innerWidth || document.documentElement.clientWidth || 1024;
-        const margin = 8;
+        const margin = RESPONSIVE_PROFILE.viewportGutterPx;
         const width = actionRect.width || this.actionsRoot.scrollWidth || this.actionsRoot.offsetWidth || 0;
         const height = actionRect.height || this.actionsRoot.scrollHeight || this.actionsRoot.offsetHeight || 0;
         const rawCenter = rect.left + (rect.width / 2);
@@ -148,7 +204,7 @@ export class ToolbarHoverActionPortal {
         const placeBelow = rect.top - height - margin < margin;
 
         this.host.dataset.placement = placeBelow ? 'bottom' : 'top';
-        this.host.style.setProperty('--aimd-toolbar-hover-anchor-x', `${Math.round(anchorOffset)}px`);
+        this.host.style.setProperty('--_toolbar-hover-anchor-x', `${Math.round(anchorOffset)}px`);
         this.host.style.left = `${Math.round(left)}px`;
         this.host.style.top = `${Math.round(placeBelow ? rect.bottom : rect.top)}px`;
     }
@@ -205,34 +261,15 @@ export class ToolbarHoverActionPortal {
         }
     }
 
-    private installGlobalHandlers(): void {
-        this.removeGlobalHandlers();
-        this.onDocPointerDown = (event: Event) => {
-            const path = typeof event.composedPath === 'function' ? event.composedPath() : [];
-            if (path.includes(this.host)) return;
-            if (this.currentAnchor && path.includes(this.currentAnchor)) return;
-
-            const target = event.target;
-            if (target instanceof Node) {
-                const root = target.getRootNode();
-                if (root instanceof ShadowRoot && root.host === this.host) return;
-                if (this.host.contains(target)) return;
-                if (this.currentAnchor?.contains(target)) return;
-            }
-            this.onRequestClose?.();
-        };
+    private installViewportHandlers(): void {
+        this.removeViewportHandlers();
         this.onWindowResize = () => this.onRequestClose?.();
         this.onWindowScroll = () => this.onRequestClose?.();
-        document.addEventListener('pointerdown', this.onDocPointerDown, true);
         window.addEventListener('resize', this.onWindowResize, true);
         window.addEventListener('scroll', this.onWindowScroll, true);
     }
 
-    private removeGlobalHandlers(): void {
-        if (this.onDocPointerDown) {
-            document.removeEventListener('pointerdown', this.onDocPointerDown, true);
-            this.onDocPointerDown = null;
-        }
+    private removeViewportHandlers(): void {
         if (this.onWindowResize) {
             window.removeEventListener('resize', this.onWindowResize, true);
             this.onWindowResize = null;
@@ -246,6 +283,7 @@ export class ToolbarHoverActionPortal {
     private getCss(): string {
         return `
 :host {
+  --_toolbar-hover-max-width: 560px;
   position: fixed;
   left: 0;
   top: 0;
@@ -258,7 +296,7 @@ export class ToolbarHoverActionPortal {
   align-items: center;
   justify-content: center;
   gap: var(--aimd-space-2);
-  max-width: min(92vw, 560px);
+  max-width: min(92vw, var(--_toolbar-hover-max-width));
   flex-wrap: wrap;
   transform: translateY(calc(-100% - var(--aimd-space-2)));
   pointer-events: auto;
@@ -313,7 +351,7 @@ export class ToolbarHoverActionPortal {
 
 .toolbar-hover-bridge {
   position: absolute;
-  left: var(--aimd-toolbar-hover-anchor-x, 50%);
+  left: var(--_toolbar-hover-anchor-x, 50%);
   top: calc(-1 * var(--aimd-space-2));
   width: calc(var(--aimd-size-control-icon-toolbar) + var(--aimd-space-4));
   height: var(--aimd-space-2);
@@ -323,7 +361,7 @@ export class ToolbarHoverActionPortal {
 }
 
 :host([data-layout="multi"]) .toolbar-hover-bridge {
-  width: min(92vw, 560px);
+  width: min(92vw, var(--_toolbar-hover-max-width));
 }
 
 :host([data-placement="bottom"]) .toolbar-hover-bridge {

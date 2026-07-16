@@ -1,6 +1,8 @@
-import { getPageTokenCss, type UserThemeOverrides } from './tokens';
+import { createAppearanceSnapshot } from './appearance';
+import { AppearanceScope } from './appearanceScope';
+import type { UserThemeOverrides } from './tokens';
 
-const STYLE_ID = 'aimd-page-token-vars';
+const pageScopes = new WeakMap<Document, AppearanceScope>();
 
 /**
  * Expose `--aimd-*` tokens to the host page DOM (non-Shadow elements).
@@ -11,16 +13,10 @@ const STYLE_ID = 'aimd-page-token-vars';
  */
 export function ensurePageTokens(overrides: UserThemeOverrides = {}): void {
     if (typeof document === 'undefined') return;
-    const css = getPageTokenCss(overrides);
-    const existing = document.getElementById(STYLE_ID);
-    if (existing instanceof HTMLStyleElement) {
-        existing.textContent = css;
-        return;
+    let scope = pageScopes.get(document);
+    if (!scope) {
+        scope = AppearanceScope.forPage(document);
+        pageScopes.set(document, scope);
     }
-
-    const style = document.createElement('style');
-    style.id = STYLE_ID;
-    style.textContent = css;
-
-    (document.head || document.documentElement).appendChild(style);
+    scope.apply(createAppearanceSnapshot('light', overrides));
 }

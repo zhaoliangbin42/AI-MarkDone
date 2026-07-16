@@ -1,6 +1,7 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import fs from 'node:fs';
 import path from 'node:path';
+import { createAppearanceSnapshot } from '@/style/appearance';
 
 vi.mock('@/drivers/shared/clients/settingsClientRpc', () => ({
     settingsClientRpc: {
@@ -88,6 +89,7 @@ function createController(): any {
         refreshPositionsForUrl: vi.fn(async () => undefined),
         refreshUiState: vi.fn(async () => undefined),
         getTheme: vi.fn(() => 'light'),
+        getAppearance: vi.fn(() => createAppearanceSnapshot('light')),
         getPlatforms: vi.fn(() => ['All', 'ChatGPT']),
         getFolderCheckboxState: vi.fn(() => ({ checked: false, indeterminate: false })),
         setQuery: vi.fn(),

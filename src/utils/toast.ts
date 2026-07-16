@@ -16,10 +16,10 @@ function getToastCss(): string {
     return `
 #${TOAST_VIEWPORT_ID} {
   position: fixed;
-  inset-block-start: var(--aimd-space-4, 16px);
+  inset-block-start: var(--aimd-space-4);
   inset-inline-start: 50%;
   transform: translateX(-50%);
-  z-index: var(--aimd-toast-z, 10000);
+  z-index: var(--aimd-toast-z);
   pointer-events: none;
   display: flex;
   justify-content: center;
@@ -28,8 +28,8 @@ function getToastCss(): string {
 .aimd-toast {
   box-sizing: border-box;
   max-width: min(92vw, 420px);
-  padding: var(--aimd-space-2, 8px) var(--aimd-space-4, 16px);
-  border-radius: var(--aimd-radius-lg, 8px);
+  padding: var(--aimd-space-2) var(--aimd-space-4);
+  border-radius: var(--aimd-radius-lg);
   background: var(--aimd-toast-bg);
   color: var(--aimd-toast-text);
   box-shadow: var(--aimd-toast-shadow);
@@ -41,7 +41,7 @@ function getToastCss(): string {
   text-align: center;
   white-space: normal;
   overflow-wrap: anywhere;
-  animation: aimdToastLifecycle var(--aimd-toast-duration, 3000ms) var(--aimd-ease-out, cubic-bezier(0.16, 1, 0.3, 1)) forwards;
+  animation: aimdToastLifecycle var(--_toast-duration) var(--aimd-ease-out) forwards;
 }
 @keyframes aimdToastLifecycle {
   0% { opacity: 0; transform: translateY(-12px); }
@@ -51,7 +51,7 @@ function getToastCss(): string {
 }
 @media (prefers-reduced-motion: reduce) {
   .aimd-toast {
-    animation: aimdToastReduced var(--aimd-toast-duration, 3000ms) linear forwards;
+    animation: aimdToastReduced var(--_toast-duration) var(--aimd-ease-in-out) forwards;
   }
   @keyframes aimdToastReduced {
     0%, 88% { opacity: 1; }
@@ -101,7 +101,7 @@ export function showToast(params: ShowToastParams): void {
     toast.dataset.tone = params.tone ?? 'info';
     toast.setAttribute('role', 'status');
     toast.setAttribute('aria-live', 'polite');
-    toast.style.setProperty('--aimd-toast-duration', `${durationMs}ms`);
+    toast.style.setProperty('--_toast-duration', `${durationMs}ms`);
     toast.textContent = text;
     viewport.appendChild(toast);
 

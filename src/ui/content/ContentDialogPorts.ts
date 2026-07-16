@@ -3,14 +3,12 @@ import type { SaveMessagesDialog } from './export/SaveMessagesDialog';
 
 export type BookmarkSaveDialogPort = Pick<BookmarkSaveDialog,
     | 'open'
-    | 'setTheme'
-    | 'setThemeOverrides'
+    | 'setAppearance'
 >;
 
 export type SaveMessagesDialogPort = Pick<SaveMessagesDialog,
     | 'open'
-    | 'setTheme'
-    | 'setThemeOverrides'
+    | 'setAppearance'
     | 'setExportSettings'
     | 'setMarkdownFormulaFormat'
 >;
