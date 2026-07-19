@@ -10,6 +10,9 @@ vi.mock('@/ui/content/bookmarks/save/bookmarkSaveDialogSingleton', () => ({
         setTheme: vi.fn(),
     },
 }));
+vi.mock('@/drivers/content/chatgpt/chatgptRoute', () => ({
+    getChatGPTConversationId: vi.fn(() => 'conv-1'),
+}));
 import { ChatGPTAdapter } from '@/drivers/content/adapters/sites/chatgpt';
 import { MessageToolbarOrchestrator } from '@/ui/content/controllers/MessageToolbarOrchestrator';
 import { SiteAdapter, type ThemeDetector } from '@/drivers/content/adapters/base';
@@ -88,21 +91,8 @@ describe('MessageToolbarOrchestrator ChatGPT reader path', () => {
     }
 
     function renderVirtualizedChatGptBookmarkDom(): void {
-        const previousTurns = Array.from({ length: 49 }, (_value, index) => {
-            const position = index + 1;
-            return `
-              <div data-turn-id-container id="user-${position}">
-                <section data-turn="user"></section>
-              </div>
-              <div data-turn-id-container id="assistant-${position}">
-                <section data-turn="assistant"></section>
-              </div>
-            `;
-        }).join('');
-
         document.body.innerHTML = `
           <div id="thread">
-            ${previousTurns}
             <div data-turn-id-container id="user-50">
               <section data-turn="user">
                 <div data-message-author-role="user">
@@ -112,7 +102,7 @@ describe('MessageToolbarOrchestrator ChatGPT reader path', () => {
             </div>
             <div data-turn-id-container id="assistant-50">
               <section data-turn="assistant">
-                <div data-message-author-role="assistant" data-message-id="dom-wrapper-id" data-aimd-msg-position="2">
+                <div data-message-author-role="assistant" data-message-id="payload-a50" data-aimd-msg-position="1">
                   <div class="markdown prose">Visible answer</div>
                 </div>
                 <div class="z-0 flex">
@@ -243,7 +233,7 @@ describe('MessageToolbarOrchestrator ChatGPT reader path', () => {
             }),
         } as any;
         const snapshot = {
-            conversationId: 'conv-deep-research',
+            conversationId: 'conv-1',
             buildFingerprint: 'build-1',
             capturedAt: Date.now(),
             source: 'runtime-bridge',
@@ -329,13 +319,13 @@ describe('MessageToolbarOrchestrator ChatGPT reader path', () => {
             }),
         } as any;
         const snapshot = {
-            conversationId: 'conv-deep-research',
+            conversationId: 'conv-1',
             buildFingerprint: 'build-1',
             capturedAt: Date.now(),
             source: 'runtime-bridge',
             rounds: [
                 {
-                    id: 'deep-assistant-turn',
+                    id: 'deep-user-turn',
                     position: 1,
                     userPrompt: 'Research this topic',
                     assistantContent: '# Deep Research Report\n\nFull report body. citeturn0search0',
@@ -500,6 +490,60 @@ describe('MessageToolbarOrchestrator ChatGPT reader path', () => {
         await expect(shownItems[0].content()).resolves.toBe('Refreshed answer with $x+y$');
     });
 
+    it('does not move an in-page Reader refresh to a reused canonical position after its typed identity disappears', async () => {
+        document.body.innerHTML = `
+          <main>
+            <article data-turn="user">
+              <div data-message-author-role="user"><div class="whitespace-pre-wrap">Old question</div></div>
+            </article>
+            <article data-turn="assistant">
+              <div data-message-author-role="assistant" data-message-id="old-a2"><div class="markdown prose">Old answer</div></div>
+            </article>
+          </main>
+        `;
+        const initialSnapshot = {
+            conversationId: 'conv-1', buildFingerprint: 'build-1', capturedAt: 1, source: 'runtime-bridge' as const,
+            rounds: [{ id: 'old-round', position: 2, userPrompt: 'Old question', assistantContent: 'Old answer', preview: 'Old question', messageId: 'old-a2', userMessageId: 'old-u', assistantMessageId: 'old-a2' }],
+        };
+        const refreshedSnapshot = {
+            conversationId: 'conv-1', buildFingerprint: 'build-1', capturedAt: 2, source: 'runtime-bridge' as const,
+            rounds: [
+                { id: 'new-round-1', position: 1, userPrompt: 'New question 1', assistantContent: 'New answer 1', preview: 'New question 1', messageId: 'new-a1', userMessageId: 'new-u1', assistantMessageId: 'new-a1' },
+                { id: 'new-round-2', position: 2, userPrompt: 'New question 2', assistantContent: 'New answer 2', preview: 'New question 2', messageId: 'new-a2', userMessageId: 'new-u2', assistantMessageId: 'new-a2' },
+            ],
+        };
+        let shownItems: any[] = [];
+        const readerPanel = {
+            show: vi.fn(async (items: any[]) => { shownItems = items; }),
+            getCommentExportContext: vi.fn(() => null),
+        } as any;
+        const chatGptConversationEngine = {
+            forceRefreshCurrentConversation: vi.fn()
+                .mockResolvedValueOnce(initialSnapshot)
+                .mockResolvedValueOnce(refreshedSnapshot),
+        } as any;
+        const adapter = new ChatGPTAdapter();
+        const orchestrator = new MessageToolbarOrchestrator(adapter, { readerPanel, chatGptConversationEngine });
+        const assistant = document.querySelector('[data-message-id="old-a2"]') as HTMLElement;
+        const readerAction = (orchestrator as any).getActionsForMessage(assistant, () => null)
+            .find((action: any) => action.id === 'reader');
+
+        await readerAction.onClick();
+        const refreshAction = readerPanel.show.mock.calls[0][3].actions
+            .find((action: any) => action.id === 'refresh');
+        await refreshAction.onClick({
+            item: shownItems[0],
+            index: 0,
+            items: shownItems,
+            notify: vi.fn(),
+            rerender: vi.fn(),
+        });
+
+        expect(readerPanel.show).toHaveBeenCalledTimes(2);
+        expect(readerPanel.show.mock.calls[1][1]).toBe(0);
+        expect(shownItems[0].meta).toMatchObject({ userMessageId: 'new-u1', position: 1 });
+    });
+
     it('refreshes only the ChatGPT Reader tail item content when it is resolved again', async () => {
         document.body.innerHTML = `
           <div id="thread">
@@ -646,7 +690,7 @@ describe('MessageToolbarOrchestrator ChatGPT reader path', () => {
         await expect(shownItems[0].content()).resolves.toBe('Original tail');
     });
 
-    it('opens ChatGPT Reader at the matching snapshot round from the shared Reader source', async () => {
+    it('fails closed when a clicked ChatGPT Reader element only has a non-canonical local id', async () => {
         document.body.innerHTML = `
           <div id="thread">
             <article data-turn="user">
@@ -680,8 +724,8 @@ describe('MessageToolbarOrchestrator ChatGPT reader path', () => {
         await readerAction.onClick();
 
         expect(readerPanel.show).toHaveBeenCalledWith(
-            expect.any(Array),
-            2,
+            [],
+            0,
             expect.any(String),
             expect.objectContaining({ profile: 'conversation-reader' }),
         );
@@ -898,6 +942,7 @@ describe('MessageToolbarOrchestrator ChatGPT reader path', () => {
             }),
         } as any;
         const chatGptConversationEngine = {
+            peekCurrentSnapshot: vi.fn(() => snapshot),
             forceRefreshCurrentConversation: vi.fn(async () => snapshot),
         } as any;
         const orchestrator = new MessageToolbarOrchestrator(adapter, { readerPanel, chatGptConversationEngine }) as any;
@@ -911,7 +956,61 @@ describe('MessageToolbarOrchestrator ChatGPT reader path', () => {
         expect(readerState.map((item) => item.id)).toEqual(['chatgpt-a1', 'chatgpt-a2']);
     });
 
-    it('only appends ChatGPT Reader tail pages whose identities are observed in the DOM', async () => {
+    it('drops a delayed ChatGPT Reader tail snapshot after the SPA route changes', async () => {
+        window.history.replaceState({}, '', '/c/conversation-a');
+        document.body.innerHTML = `
+          <main>
+            <article data-turn="user"><div data-message-author-role="user" data-message-id="u2">Question 2</div></article>
+            <article data-turn="assistant"><div data-message-author-role="assistant" data-message-id="a2">Answer 2</div></article>
+          </main>
+        `;
+        const readerState: any[] = [{
+            id: 'chatgpt-a1',
+            userPrompt: 'Question 1',
+            content: 'Answer 1',
+            meta: { position: 1, roundId: 'round-1', userMessageId: 'u1', assistantMessageId: 'a1', messageId: 'a1' },
+        }];
+        const snapshot = {
+            conversationId: 'conv-1',
+            buildFingerprint: 'build-1',
+            source: 'runtime-bridge' as const,
+            origin: 'conversation-graph' as const,
+            coverage: 'complete' as const,
+            branchKey: 'a2',
+            capturedAt: 2,
+            rounds: [
+                { id: 'round-1', position: 1, userPrompt: 'Question 1', assistantContent: 'Answer 1', preview: 'Question 1', messageId: 'a1', userMessageId: 'u1', assistantMessageId: 'a1' },
+                { id: 'round-2', position: 2, userPrompt: 'Question 2', assistantContent: 'Answer 2', preview: 'Question 2', messageId: 'a2', userMessageId: 'u2', assistantMessageId: 'a2' },
+            ],
+        };
+        let resolveSnapshot!: (value: typeof snapshot) => void;
+        const delayedSnapshot = new Promise<typeof snapshot>((resolve) => { resolveSnapshot = resolve; });
+        const readerPanel = {
+            isShowingConversationReader: vi.fn(() => true),
+            getItemsSnapshot: vi.fn(() => [...readerState]),
+            appendItem: vi.fn(async (item: any) => readerState.push(item)),
+            replaceItems: vi.fn(async () => undefined),
+        } as any;
+        const chatGptConversationEngine = {
+            forceRefreshCurrentConversation: vi.fn(() => delayedSnapshot),
+        } as any;
+        const orchestrator = new MessageToolbarOrchestrator(new ChatGPTAdapter(), {
+            readerPanel,
+            chatGptConversationEngine,
+        }) as any;
+
+        const sync = orchestrator.syncReaderTailPages();
+        await Promise.resolve();
+        window.history.replaceState({}, '', '/c/conversation-b');
+        resolveSnapshot(snapshot);
+        await sync;
+
+        expect(readerPanel.appendItem).not.toHaveBeenCalled();
+        expect(readerPanel.replaceItems).not.toHaveBeenCalled();
+        expect(readerState.map((item) => item.id)).toEqual(['chatgpt-a1']);
+    });
+
+    it('appends every verified canonical Reader tail page even when virtualization has not mounted it', async () => {
         document.body.innerHTML = `
           <div id="thread">
             <article data-turn="user">
@@ -995,8 +1094,8 @@ describe('MessageToolbarOrchestrator ChatGPT reader path', () => {
 
         await orchestrator.syncReaderTailPages();
 
-        expect(readerPanel.appendItem).toHaveBeenCalledTimes(1);
-        expect(readerState.map((item) => item.id)).toEqual(['chatgpt-a1', 'chatgpt-a2']);
+        expect(readerPanel.appendItem).toHaveBeenCalledTimes(2);
+        expect(readerState.map((item) => item.id)).toEqual(['chatgpt-a1', 'chatgpt-a2', 'chatgpt-a3']);
     });
 
     it('waits for a later sync when a new ChatGPT DOM turn is not present in the refreshed snapshot yet', async () => {
@@ -1186,7 +1285,7 @@ describe('MessageToolbarOrchestrator ChatGPT reader path', () => {
           </div>
         `;
 
-        const readerState: any[] = [
+        let readerState: any[] = [
             {
                 id: 'chatgpt-a1',
                 userPrompt: 'Question 1',
@@ -1243,6 +1342,9 @@ describe('MessageToolbarOrchestrator ChatGPT reader path', () => {
             appendItem: vi.fn(async (item: any) => {
                 readerState.push(item);
             }),
+            replaceItems: vi.fn(async (items: any[]) => {
+                readerState = items;
+            }),
         } as any;
         const chatGptConversationEngine = {
             forceRefreshCurrentConversation: vi.fn()
@@ -1261,11 +1363,322 @@ describe('MessageToolbarOrchestrator ChatGPT reader path', () => {
         await orchestrator.syncReaderTailPages();
 
         expect(readerPanel.appendItem).toHaveBeenCalledTimes(1);
-        expect(chatGptConversationEngine.forceRefreshCurrentConversation).toHaveBeenCalledTimes(1);
-        expect(readerState.map((item) => item.id)).toEqual(['chatgpt-a1', 'chatgpt-temp-a2']);
+        expect(readerPanel.replaceItems).toHaveBeenCalledWith(
+            expect.arrayContaining([expect.objectContaining({ id: 'chatgpt-real-a2' })]),
+            { preserveCurrentIdentity: true },
+        );
+        expect(chatGptConversationEngine.forceRefreshCurrentConversation).toHaveBeenCalledTimes(2);
+        expect(readerState.map((item) => item.id)).toEqual(['chatgpt-a1', 'chatgpt-real-a2']);
     });
 
-    it('saves ChatGPT bookmarks with payload positions instead of DOM-local positions', async () => {
+    it('appends a canonical ChatGPT Reader tail when virtualization removed every earlier carrier', async () => {
+        renderVirtualizedChatGptBookmarkDom();
+
+        const readerState: any[] = [
+            {
+                id: 'chatgpt-payload-a1',
+                userPrompt: 'Question 1',
+                content: 'Answer 1',
+                meta: { platformId: 'chatgpt', position: 1, messageId: 'payload-a1' },
+            },
+            {
+                id: 'chatgpt-payload-a2',
+                userPrompt: 'Question 2',
+                content: 'Answer 2',
+                meta: { platformId: 'chatgpt', position: 2, messageId: 'payload-a2' },
+            },
+        ];
+        const adapter = new ChatGPTAdapter();
+        const readerPanel = {
+            isShowingConversationReader: vi.fn(() => true),
+            getItemsSnapshot: vi.fn(() => [...readerState]),
+            appendItem: vi.fn(async (item: any) => readerState.push(item)),
+        } as any;
+        const chatGptConversationEngine = {
+            forceRefreshCurrentConversation: vi.fn(async () => buildVirtualizedChatGptSnapshot()),
+        } as any;
+        const orchestrator = new MessageToolbarOrchestrator(adapter, { readerPanel, chatGptConversationEngine }) as any;
+
+        await orchestrator.syncReaderTailPages();
+
+        expect(chatGptConversationEngine.forceRefreshCurrentConversation).toHaveBeenCalledTimes(1);
+        expect(readerPanel.appendItem).toHaveBeenCalledWith(expect.objectContaining({
+            id: 'chatgpt-payload-a50',
+            userPrompt: 'Question 50',
+            meta: expect.objectContaining({ position: 50, messageId: 'payload-a50' }),
+        }));
+        expect(readerState.map((item) => item.meta.position)).toEqual([1, 2, 50]);
+    });
+
+    it('appends a Deep Research tail from the canonical graph when its DOM turn id differs from the report message id', async () => {
+        document.body.innerHTML = `
+          <main>
+            <div data-turn-id-container="user-turn-2">
+              <section data-turn-id="user-turn-2" data-testid="conversation-turn-3" data-turn="user">
+                <div data-message-author-role="user" data-message-id="u2">
+                  <div class="whitespace-pre-wrap">Research question 2</div>
+                </div>
+              </section>
+            </div>
+            <div data-turn-id-container="assistant-turn-2">
+              <section data-turn-id="assistant-turn-2" data-testid="conversation-turn-4" data-turn="assistant">
+                <div data-conversation-screenshot-content class="agent-turn">
+                  <div class="report-stack">
+                    <div class="report-widget"><iframe title="internal://deep-research"></iframe></div>
+                  </div>
+                </div>
+              </section>
+            </div>
+          </main>
+        `;
+        const snapshot = {
+            conversationId: 'conv-1',
+            buildFingerprint: 'build-1',
+            source: 'runtime-bridge' as const,
+            origin: 'conversation-graph' as const,
+            coverage: 'complete' as const,
+            branchKey: 'nested-report-id',
+            capturedAt: 2,
+            rounds: [
+                { id: 'round-1', position: 1, userPrompt: 'Question 1', assistantContent: 'Answer 1', preview: 'Question 1', messageId: 'a1', userMessageId: 'u1', assistantMessageId: 'a1' },
+                { id: 'user-turn-2', position: 2, userPrompt: 'Research question 2', assistantContent: '# Canonical report', preview: 'Research question 2', messageId: 'nested-report-id', userMessageId: 'u2', assistantMessageId: 'nested-report-id' },
+            ],
+        };
+        const readerState: any[] = [{
+            id: 'chatgpt-a1',
+            userPrompt: 'Question 1',
+            content: 'Answer 1',
+            meta: { position: 1, roundId: 'round-1', userMessageId: 'u1', assistantMessageId: 'a1', messageId: 'a1' },
+        }];
+        const readerPanel = {
+            isShowingConversationReader: vi.fn(() => true),
+            getItemsSnapshot: vi.fn(() => [...readerState]),
+            appendItem: vi.fn(async (item: any) => readerState.push(item)),
+            replaceItems: vi.fn(async () => undefined),
+        } as any;
+        const chatGptConversationEngine = {
+            forceRefreshCurrentConversation: vi.fn(async () => snapshot),
+        } as any;
+        const adapter = new ChatGPTAdapter();
+        const orchestrator = new MessageToolbarOrchestrator(adapter, {
+            readerPanel,
+            chatGptConversationEngine,
+        }) as any;
+
+        await orchestrator.syncReaderTailPages();
+
+        expect(readerPanel.replaceItems).not.toHaveBeenCalled();
+        expect(readerPanel.appendItem).toHaveBeenCalledWith(expect.objectContaining({
+            id: 'chatgpt-nested-report-id',
+            meta: expect.objectContaining({
+                position: 2,
+                roundId: 'user-turn-2',
+                assistantMessageId: 'nested-report-id',
+            }),
+        }));
+        expect(readerState.map((item) => item.id)).toEqual(['chatgpt-a1', 'chatgpt-nested-report-id']);
+
+        await orchestrator.syncReaderTailPages();
+
+        expect(chatGptConversationEngine.forceRefreshCurrentConversation).toHaveBeenCalledTimes(1);
+        expect(readerPanel.appendItem).toHaveBeenCalledTimes(1);
+    });
+
+    it('atomically replaces an open ChatGPT Reader when the canonical branch changes', async () => {
+        document.body.innerHTML = `
+          <main>
+            <article data-turn="user" data-turn-id="round-2">
+              <div data-message-author-role="user" data-message-id="u2">Question 2</div>
+            </article>
+            <article data-turn="assistant" data-turn-id="round-2">
+              <div data-message-author-role="assistant" data-message-id="a2"><div class="markdown prose">Old answer 2</div></div>
+            </article>
+          </main>
+        `;
+        const branchA = {
+            conversationId: 'conv-1',
+            buildFingerprint: 'build-1',
+            source: 'runtime-bridge' as const,
+            origin: 'conversation-graph' as const,
+            coverage: 'complete' as const,
+            branchKey: 'leaf-a3',
+            capturedAt: 1,
+            rounds: [
+                { id: 'round-1', position: 1, userPrompt: 'Question 1', assistantContent: 'Old answer 1', preview: 'Question 1', messageId: 'a1', userMessageId: 'u1', assistantMessageId: 'a1' },
+                { id: 'round-2', position: 2, userPrompt: 'Question 2', assistantContent: 'Old answer 2', preview: 'Question 2', messageId: 'a2', userMessageId: 'u2', assistantMessageId: 'a2' },
+                { id: 'round-3', position: 3, userPrompt: 'Question 3', assistantContent: 'Old answer 3', preview: 'Question 3', messageId: 'a3', userMessageId: 'u3', assistantMessageId: 'a3' },
+            ],
+        };
+        const branchB = {
+            ...branchA,
+            branchKey: 'leaf-b4',
+            capturedAt: 2,
+            rounds: [
+                { id: 'round-b2', position: 1, userPrompt: 'Question 2 regenerated', assistantContent: 'New answer 2', preview: 'Question 2', messageId: 'b2', userMessageId: 'u2', assistantMessageId: 'b2' },
+                { id: 'round-b4', position: 2, userPrompt: 'Question 4', assistantContent: 'New answer 4', preview: 'Question 4', messageId: 'b4', userMessageId: 'u4', assistantMessageId: 'b4' },
+            ],
+        };
+        let activeSnapshot = branchA;
+        let readerState: any[] = branchA.rounds.map((round) => ({
+            id: `chatgpt-${round.messageId}`,
+            userPrompt: round.userPrompt,
+            content: round.assistantContent,
+            meta: {
+                platformId: 'chatgpt',
+                position: round.position,
+                messageId: round.messageId,
+                roundId: round.id,
+                userMessageId: round.userMessageId,
+                assistantMessageId: round.assistantMessageId,
+                branchKey: branchA.branchKey,
+            },
+        }));
+        const readerPanel = {
+            isShowingConversationReader: vi.fn(() => true),
+            getItemsSnapshot: vi.fn(() => [...readerState]),
+            appendItem: vi.fn(async (item: any) => { readerState.push(item); }),
+            replaceItems: vi.fn(async (items: any[]) => { readerState = items; }),
+        } as any;
+        const chatGptConversationEngine = {
+            peekCurrentSnapshot: vi.fn(() => activeSnapshot),
+            forceRefreshCurrentConversation: vi.fn(async () => activeSnapshot),
+        } as any;
+        const orchestrator = new MessageToolbarOrchestrator(new ChatGPTAdapter(), {
+            readerPanel,
+            chatGptConversationEngine,
+        }) as any;
+
+        await orchestrator.syncReaderTailPages();
+        activeSnapshot = branchB;
+        await orchestrator.syncReaderTailPages();
+
+        expect(readerPanel.replaceItems).toHaveBeenCalledTimes(1);
+        expect(readerPanel.replaceItems).toHaveBeenCalledWith(
+            expect.arrayContaining([
+                expect.objectContaining({
+                    id: 'chatgpt-b2',
+                    meta: expect.objectContaining({ userMessageId: 'u2', branchKey: 'leaf-b4' }),
+                }),
+            ]),
+            { preserveCurrentIdentity: true },
+        );
+        expect(readerPanel.appendItem).not.toHaveBeenCalled();
+        expect(readerState.map((item) => item.id)).toEqual(['chatgpt-b2', 'chatgpt-b4']);
+
+        activeSnapshot = {
+            ...branchB,
+            branchKey: 'leaf-b5',
+            capturedAt: 3,
+            rounds: [
+                ...branchB.rounds,
+                { id: 'round-b5', position: 3, userPrompt: 'Question 5', assistantContent: 'New answer 5', preview: 'Question 5', messageId: 'b5', userMessageId: 'u5', assistantMessageId: 'b5' },
+            ],
+        };
+        await orchestrator.syncReaderTailPages();
+
+        expect(readerPanel.appendItem).toHaveBeenCalledWith(expect.objectContaining({ id: 'chatgpt-b5' }));
+        expect(readerState.map((item) => item.id)).toEqual(['chatgpt-b2', 'chatgpt-b4', 'chatgpt-b5']);
+    });
+
+    it('keeps canonical branch extension on the Reader tail append path', async () => {
+        document.body.innerHTML = `
+          <main>
+            <article data-turn="user" data-turn-id="round-2">
+              <div data-message-author-role="user" data-message-id="u2">Question 2</div>
+            </article>
+            <article data-turn="assistant" data-turn-id="round-2">
+              <div data-message-author-role="assistant" data-message-id="a2"><div class="markdown prose">Answer 2</div></div>
+            </article>
+          </main>
+        `;
+        const extendedSnapshot = {
+            conversationId: 'conv-1',
+            buildFingerprint: 'build-1',
+            source: 'runtime-bridge' as const,
+            origin: 'conversation-graph' as const,
+            coverage: 'complete' as const,
+            branchKey: 'leaf-a2',
+            capturedAt: 2,
+            rounds: [
+                { id: 'round-1', position: 1, userPrompt: 'Question 1', assistantContent: 'Answer 1', preview: 'Question 1', messageId: 'a1', userMessageId: 'u1', assistantMessageId: 'a1' },
+                { id: 'round-2', position: 2, userPrompt: 'Question 2', assistantContent: 'Answer 2', preview: 'Question 2', messageId: 'a2', userMessageId: 'u2', assistantMessageId: 'a2' },
+            ],
+        };
+        const readerState: any[] = [{
+            id: 'chatgpt-a1',
+            userPrompt: 'Question 1',
+            content: 'Answer 1',
+            meta: {
+                platformId: 'chatgpt',
+                position: 1,
+                messageId: 'a1',
+                roundId: 'round-1',
+                userMessageId: 'u1',
+                assistantMessageId: 'a1',
+                branchKey: 'leaf-a1',
+            },
+        }];
+        const readerPanel = {
+            isShowingConversationReader: vi.fn(() => true),
+            getItemsSnapshot: vi.fn(() => [...readerState]),
+            appendItem: vi.fn(async (item: any) => readerState.push(item)),
+            replaceItems: vi.fn(async () => undefined),
+        } as any;
+        const chatGptConversationEngine = {
+            peekCurrentSnapshot: vi.fn(() => extendedSnapshot),
+            forceRefreshCurrentConversation: vi.fn(async () => extendedSnapshot),
+        } as any;
+        const orchestrator = new MessageToolbarOrchestrator(new ChatGPTAdapter(), {
+            readerPanel,
+            chatGptConversationEngine,
+        }) as any;
+
+        await orchestrator.syncReaderTailPages();
+
+        expect(readerPanel.replaceItems).not.toHaveBeenCalled();
+        expect(readerPanel.appendItem).toHaveBeenCalledTimes(1);
+        expect(readerState.map((item) => item.id)).toEqual(['chatgpt-a1', 'chatgpt-a2']);
+    });
+
+    it('does not rebind live Reader content by a reused position after branch replacement', async () => {
+        const branchB = {
+            conversationId: 'conv-1',
+            buildFingerprint: 'build-1',
+            source: 'runtime-bridge' as const,
+            origin: 'conversation-graph' as const,
+            coverage: 'complete' as const,
+            branchKey: 'leaf-b4',
+            capturedAt: 2,
+            rounds: [
+                { id: 'round-b4', position: 2, userPrompt: 'Question 4', assistantContent: 'Wrong branch answer', preview: 'Question 4', messageId: 'b4', userMessageId: 'u4', assistantMessageId: 'b4' },
+            ],
+        };
+        const tail: any = {
+            id: 'chatgpt-a2',
+            userPrompt: 'Question 2',
+            content: 'Original branch answer',
+            meta: {
+                position: 2,
+                messageId: 'a2',
+                roundId: 'round-a2',
+                userMessageId: 'u2',
+                assistantMessageId: 'a2',
+                branchKey: 'leaf-a2',
+            },
+        };
+        const orchestrator = new MessageToolbarOrchestrator(new ChatGPTAdapter(), {
+            readerPanel: {} as any,
+            chatGptConversationEngine: {
+                forceRefreshCurrentConversation: vi.fn(async () => branchB),
+            } as any,
+        }) as any;
+
+        orchestrator.attachChatGptLiveTailReaderItem([tail]);
+
+        await expect(tail.content()).resolves.toBe('Original branch answer');
+    });
+
+    it('saves ChatGPT bookmarks from the exact indexed element even when the adapter exposes a local fallback id', async () => {
         renderVirtualizedChatGptBookmarkDom();
 
         vi.mocked(bookmarkSaveDialog.open).mockReset();
@@ -1276,6 +1689,7 @@ describe('MessageToolbarOrchestrator ChatGPT reader path', () => {
         } as any);
 
         const adapter = new ChatGPTAdapter();
+        vi.spyOn(adapter, 'getMessageId').mockReturnValue('chatgpt-1');
         const readerPanel = { show: vi.fn(async () => undefined) } as any;
         const bookmarksController = {
             isPositionBookmarked: vi.fn(() => false),
@@ -1310,6 +1724,58 @@ describe('MessageToolbarOrchestrator ChatGPT reader path', () => {
         expect(chatGptConversationEngine.getSnapshot).toHaveBeenCalledTimes(1);
         expect(chatGptConversationEngine.forceRefreshCurrentConversation).toHaveBeenCalledTimes(1);
         expect(toolbar.setActionActive).toHaveBeenCalledWith('bookmark_toggle', true);
+    });
+
+    it('does not fill a canonical ChatGPT bookmark prompt from DOM text', async () => {
+        renderVirtualizedChatGptBookmarkDom();
+        const snapshot = buildVirtualizedChatGptSnapshot();
+        snapshot.rounds = snapshot.rounds.map((round: any) => (
+            round.position === 50 ? { ...round, userPrompt: '' } : round
+        ));
+        const adapter = new ChatGPTAdapter();
+        const orchestrator = new MessageToolbarOrchestrator(adapter, {
+            readerPanel: { show: vi.fn() } as any,
+            chatGptConversationEngine: { getSnapshot: vi.fn(async () => snapshot) } as any,
+        }) as any;
+        orchestrator.getUserPromptForElement = vi.fn(() => 'DOM fallback prompt');
+        const assistant = document.querySelector('[data-message-author-role="assistant"][data-message-id]') as HTMLElement;
+
+        const target = await orchestrator.resolveToolbarBookmarkTarget(assistant);
+
+        expect(target?.userPrompt).toBe('');
+        expect(orchestrator.getUserPromptForElement).not.toHaveBeenCalled();
+    });
+
+    it('fails closed when a ChatGPT toolbar element cannot map to one canonical round', async () => {
+        renderVirtualizedChatGptBookmarkDom();
+        document.querySelector('[data-message-id="payload-a50"]')?.setAttribute('data-message-id', 'dom-local-id');
+
+        const adapter = new ChatGPTAdapter();
+        vi.spyOn(adapter, 'getMessageId').mockReturnValue('payload-a50');
+        const bookmarksController = {
+            isPositionBookmarked: vi.fn(() => false),
+            getDefaultFolderPath: vi.fn(() => '/Inbox'),
+            toggleBookmarkFromToolbar: vi.fn(),
+            selectFolder: vi.fn(),
+        } as any;
+        const chatGptConversationEngine = {
+            getSnapshot: vi.fn(async () => buildVirtualizedChatGptSnapshot()),
+            forceRefreshCurrentConversation: vi.fn(async () => buildVirtualizedChatGptSnapshot()),
+        } as any;
+        const orchestrator = new MessageToolbarOrchestrator(adapter, {
+            readerPanel: { show: vi.fn() } as any,
+            bookmarksController,
+            chatGptConversationEngine,
+            bookmarkSaveDialog,
+        }) as any;
+        const assistant = document.querySelector('[data-message-author-role="assistant"]') as HTMLElement;
+        const actions = orchestrator.getActionsForMessage(assistant, () => ({ setActionActive: vi.fn() }));
+
+        const result = await actions.find((action: any) => action.id === 'bookmark_toggle').onClick();
+
+        expect(result).toEqual(expect.objectContaining({ ok: false }));
+        expect(bookmarksController.toggleBookmarkFromToolbar).not.toHaveBeenCalled();
+        expect(chatGptConversationEngine.forceRefreshCurrentConversation).not.toHaveBeenCalled();
     });
 
     it('highlights ChatGPT bookmark buttons by payload position instead of DOM-local position', async () => {
@@ -1355,6 +1821,37 @@ describe('MessageToolbarOrchestrator ChatGPT reader path', () => {
         const actions = (orchestrator as any).getActionsForMessage(assistant, () => null);
 
         expect(actions.some((action: any) => action.id === 'collapse_turn')).toBe(false);
+    });
+
+    it('computes ChatGPT word count from the canonical Reader item instead of mounted DOM text', async () => {
+        document.body.innerHTML = `
+          <article data-turn="assistant">
+            <div data-message-author-role="assistant" data-message-id="a1">
+              <div class="markdown prose">Partial DOM text</div>
+            </div>
+          </article>
+        `;
+        const orchestrator = new MessageToolbarOrchestrator(new ChatGPTAdapter(), {
+            readerPanel: { show: vi.fn() } as any,
+        }) as any;
+        orchestrator.prepareCurrentReaderItemForElement = vi.fn(async () => ({
+            id: 'chatgpt-a1',
+            userPrompt: 'Question',
+            content: 'Canonical complete answer',
+            meta: { position: 1, messageId: 'a1' },
+        }));
+        orchestrator.wordCounter = {
+            count: vi.fn((text: string) => ({ text })),
+            format: vi.fn(() => '3 Words / 25 Chars'),
+        };
+        const toolbar = { setStats: vi.fn() };
+        const assistant = document.querySelector('[data-message-id="a1"]') as HTMLElement;
+
+        orchestrator.refreshWordCountForToolbar(toolbar, assistant, false);
+        await vi.waitFor(() => expect(orchestrator.wordCounter.count).toHaveBeenCalled());
+
+        expect(orchestrator.wordCounter.count).toHaveBeenCalledWith('Canonical complete answer');
+        expect(toolbar.setStats).toHaveBeenCalledWith(['3 Words', '25 Chars']);
     });
 
     it('opens save messages directly from live DOM in hidden-only mode', async () => {
@@ -1416,7 +1913,6 @@ describe('MessageToolbarOrchestrator ChatGPT reader path', () => {
             bookmarksController,
             bookmarkSaveDialog,
         }) as any;
-        orchestrator.getMergedMarkdownForElement = vi.fn(() => ({ ok: true, markdown: 'First' }));
         orchestrator.getUserPromptForElement = vi.fn(() => 'Prompt');
 
         const assistant = document.querySelector('.assistant-message') as HTMLElement;

@@ -5,6 +5,7 @@ import type { AppearanceSnapshot } from '../../../style/appearance';
 import type {
     ReaderCommentExportContext,
     ReaderPanelPromptManagerController,
+    ReaderPanelReplaceItemsOptions,
     ReaderPanelSettingsController,
     ReaderPanelShowOptions,
 } from './ReaderPanelContracts';
@@ -19,5 +20,6 @@ export interface ReaderPanelPort {
     isShowingConversationReader(): boolean;
     getItemsSnapshot(): ReaderItem[];
     appendItem(item: ReaderItem): Promise<void>;
+    replaceItems(items: ReaderItem[], options?: ReaderPanelReplaceItemsOptions): Promise<void>;
     getCommentExportContext(): ReaderCommentExportContext | null;
 }

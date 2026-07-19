@@ -1,5 +1,26 @@
 # Release Notes
 
+## v5.0.0 (2026-07-19)
+
+This release brings lightweight Markdown authoring and live formula assistance to the ChatGPT composer, adds atomic Markdown copy on the official page, rebuilds long-conversation discovery, and reduces extension overhead.
+
+### Added
+- Added optional Markdown authoring, ordered and unordered list editing, visible bold markers, formula suggestions, and live formula previews to the ChatGPT composer.
+- Added atomic Markdown copy for complete formulas, code blocks, tables, images, headings, list items, quotes, and dividers.
+- Added standard toolbar actions for Deep Research reports, including Reader, copy, export, Save Messages, and bookmarks.
+- Added QQ and Xiaohongshu community invitations plus a dedicated Mappamory introduction in Bookmarks.
+
+### Changed
+- Rebuilt long-conversation discovery around verified conversation order and stable message identities, keeping Reader, copy, export, bookmarks, the directory, and message navigation aligned.
+- Reduced repeated page scans, deferred heavy features until first use, and made toolbar recovery respond to targeted page changes.
+- Reworked long-message PNG export to prefer one complete image and split only when browser limits require it.
+- Refined Reader, Bookmarks, Settings, Input Enhancement, toolbar, dialog, and feedback presentation.
+
+### Fixed
+- Fixed the directory losing historical messages when ChatGPT unloads off-screen content or a history-cleanup extension changes page nodes.
+- Fixed language selection failing to persist across cold startup, rapid switching, and lazily loaded extension surfaces.
+- Fixed dialogs and panels occasionally leaving an invisible overlay that blocked ChatGPT page interaction.
+
 ## v4.8.0 (2026-07-11)
 
 This release improves Reader annotation management, reduces conflicts with selection-translation extensions, and fixes several Reader, Prompt, navigation, and formula-export issues reported by users.

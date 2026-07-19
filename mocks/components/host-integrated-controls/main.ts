@@ -184,6 +184,14 @@ async function applyVariant(next: VisualHarnessVariant): Promise<void> {
 async function prepareForAudit(): Promise<void> {
     const hoverButton = toolbar.getElement().shadowRoot?.querySelector<HTMLButtonElement>('[data-action="copy-markdown"]');
     hoverButton?.dispatchEvent(new FocusEvent('focusin', { bubbles: true, composed: true }));
+    const hoverPortal = document.querySelector<HTMLElement>('[data-aimd-role="toolbar-hover-actions"]');
+    const hoverActions = hoverPortal?.shadowRoot?.querySelector<HTMLElement>('[data-role="toolbar-hover-actions"]');
+    const hoverBridge = hoverPortal?.shadowRoot?.querySelector<HTMLElement>('[data-role="toolbar-hover-bridge"]');
+    const secondaryAction = hoverPortal?.shadowRoot?.querySelector<HTMLButtonElement>('[data-action="copy-png"]');
+    hoverButton?.dispatchEvent(new FocusEvent('focusout', { bubbles: true, composed: true }));
+    hoverBridge?.dispatchEvent(new PointerEvent('pointerenter'));
+    hoverActions?.dispatchEvent(new PointerEvent('pointerenter'));
+    secondaryAction?.dispatchEvent(new FocusEvent('focusin', { bubbles: true, composed: true }));
 
     const directoryItem = directory.getElement().shadowRoot?.querySelector<HTMLElement>('[data-position="3"]');
     directoryItem?.dispatchEvent(new PointerEvent('pointerover', { bubbles: true, composed: true }));

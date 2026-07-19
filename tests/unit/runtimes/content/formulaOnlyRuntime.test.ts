@@ -59,6 +59,7 @@ const mocks = vi.hoisted(() => {
     });
     const readerSetAppearance = vi.fn();
     const ensurePageTokens = vi.fn();
+    const setLocale = vi.fn(async () => undefined);
 
     return {
         controllerEnable,
@@ -81,6 +82,7 @@ const mocks = vi.hoisted(() => {
         bookmarksSetAppearance,
         readerSetAppearance,
         ensurePageTokens,
+        setLocale,
         get bookmarksAppearance() {
             return bookmarksAppearance;
         },
@@ -134,6 +136,10 @@ vi.mock('@/drivers/content/theme/theme-manager', () => ({
 
 vi.mock('@/style/pageTokens', () => ({
     ensurePageTokens: mocks.ensurePageTokens,
+}));
+
+vi.mock('@/ui/content/components/i18n', () => ({
+    setLocale: mocks.setLocale,
 }));
 
 vi.mock('@/drivers/shared/browser', () => ({
@@ -332,6 +338,28 @@ describe('formula-only content runtime', () => {
         expect(mocks.readerSetAppearance).not.toHaveBeenCalled();
         expect(mocks.ensurePageTokens).not.toHaveBeenCalled();
 
+        runtime.dispose();
+    });
+
+    it('applies the saved locale on startup and follows later language changes', () => {
+        mocks.settingsCached = {
+            language: 'zh_CN',
+            formula: enabledFormulaSettings(),
+        };
+        const runtime = startFormulaOnlyRuntime(
+            getFormulaOnlyPlatformProfile('https://gemini.google.com/app')!,
+        );
+
+        expect(mocks.setLocale).toHaveBeenCalledWith('zh_CN');
+
+        mocks.settingsSubscriber?.({
+            settings: {
+                ...mocks.settingsCached,
+                language: 'en',
+            },
+        });
+
+        expect(mocks.setLocale).toHaveBeenLastCalledWith('en');
         runtime.dispose();
     });
 

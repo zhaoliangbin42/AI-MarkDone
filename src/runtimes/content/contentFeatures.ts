@@ -4,6 +4,12 @@ import type { ReaderPanelPort } from '../../ui/content/reader/ReaderPanelPort';
 import type { copyMessagePng as copyMessagePngImplementation } from '../../services/copy/copy-turn-png';
 import type { runFormulaAssetAction as runFormulaAssetActionImplementation } from '../../services/math/formulaAssetActions';
 import type { renderFormulaSvgAsset as renderFormulaSvgAssetImplementation } from '../../services/math/formulaAssetRenderer';
+import type { UiLocale } from '../../ui/content/components/i18n';
+
+export async function setContentFeatureLocale(locale: UiLocale): Promise<void> {
+    const { setLocale } = await import('../../ui/content/components/i18n');
+    await setLocale(locale);
+}
 
 export async function createReaderPanel(): Promise<ReaderPanelPort> {
     const { ReaderPanel } = await import('../../ui/content/reader/ReaderPanel');

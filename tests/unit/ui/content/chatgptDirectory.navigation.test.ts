@@ -1,5 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { SiteAdapter, type ConversationGroupRef, type ThemeDetector } from '@/drivers/content/adapters/base';
+import { getChatGPTConversationIndex } from '@/drivers/content/chatgpt/ChatGPTConversationIndex';
+import type { ChatGPTConversationSnapshot } from '@/drivers/content/chatgpt/types';
 
 const navigationMocks = vi.hoisted(() => ({
     scrollToBookmarkTargetWithRetry: vi.fn(),
@@ -118,17 +120,95 @@ class GroupAwareChatGPTNavigationTestAdapter extends ChatGPTNavigationTestAdapte
     }
 }
 
-function buildSkeletonDom(): HTMLElement {
+function buildMaterializedRoundDom(): HTMLElement {
     document.body.innerHTML = `
-      <div data-turn-id-container id="user-1"><section data-turn="user"></section></div>
-      <div data-turn-id-container id="assistant-1"><section data-turn="assistant"></section></div>
+      <div data-turn-id-container><section id="user-1" data-turn="user" data-message-author-role="user" data-message-id="u1"></section></div>
+      <div data-turn-id-container><section id="assistant-1" data-turn="assistant" data-message-author-role="assistant" data-message-id="a1"></section></div>
     `;
     return document.getElementById('user-1') as HTMLElement;
+}
+
+function publishCanonicalRounds(adapter: SiteAdapter, assistantMessageIds: string[]): void {
+    getChatGPTConversationIndex(adapter).setSnapshot({
+        conversationId: '12345678-1234-1234-1234-123456789abc',
+        buildFingerprint: 'test-build',
+        source: 'runtime-bridge',
+        origin: 'conversation-graph',
+        coverage: 'complete',
+        branchKey: 'branch-test',
+        capturedAt: Date.now(),
+        rounds: assistantMessageIds.map((assistantMessageId, index) => ({
+            id: `canonical-round-${index + 1}`,
+            position: index + 1,
+            userPrompt: `Prompt ${index + 1}`,
+            assistantContent: `Answer ${index + 1}`,
+            preview: `Prompt ${index + 1}`,
+            messageId: assistantMessageId,
+            userMessageId: null,
+            assistantMessageId,
+        })),
+    });
+}
+
+function buildCanonicalSnapshot(roundCount: number): ChatGPTConversationSnapshot {
+    return {
+        conversationId: '12345678-1234-1234-1234-123456789abc',
+        buildFingerprint: 'test-build',
+        source: 'runtime-bridge',
+        origin: 'conversation-graph',
+        coverage: 'complete',
+        branchKey: 'branch-test',
+        capturedAt: Date.now(),
+        rounds: Array.from({ length: roundCount }, (_, index) => {
+            const position = index + 1;
+            return {
+                id: `round-${position}`,
+                position,
+                userPrompt: `Prompt ${position}`,
+                assistantContent: `Answer ${position}`,
+                preview: `Prompt ${position}`,
+                messageId: `assistant-${position}`,
+                userMessageId: `user-${position}`,
+                assistantMessageId: `assistant-${position}`,
+            };
+        }),
+    };
+}
+
+function mountRoleWindow(positions: number[]): void {
+    let main = document.querySelector('main');
+    if (!(main instanceof HTMLElement)) {
+        main = document.createElement('main');
+        document.body.appendChild(main);
+    }
+    main.innerHTML = positions.map((position) => `
+      <div id="user-${position}" data-turn="user" data-turn-id="round-${position}">
+        <div data-message-author-role="user" data-message-id="user-${position}">Prompt ${position}</div>
+      </div>
+      <div id="assistant-${position}" data-turn="assistant" data-turn-id="round-${position}">
+        <div data-message-author-role="assistant" data-message-id="assistant-${position}">Answer ${position}</div>
+      </div>
+    `).join('');
+}
+
+function attachTestScrollRoot(adapter: ChatGPTNavigationTestAdapter): HTMLElement {
+    const scrollRoot = document.createElement('div');
+    Object.defineProperties(scrollRoot, {
+        clientHeight: { configurable: true, value: 500 },
+        scrollHeight: { configurable: true, value: 5000 },
+        scrollTop: { configurable: true, writable: true, value: 0 },
+    });
+    scrollRoot.scrollTo = vi.fn((options: ScrollToOptions) => {
+        scrollRoot.scrollTop = Number(options.top ?? 0);
+    });
+    adapter.getConversationScrollRoot = () => scrollRoot;
+    return scrollRoot;
 }
 
 describe('ChatGPT directory navigation', () => {
     beforeEach(() => {
         vi.useFakeTimers();
+        window.history.replaceState({}, '', '/c/12345678-1234-1234-1234-123456789abc');
         navigationMocks.scrollToBookmarkTargetWithRetry.mockReset();
         navigationMocks.highlightNavigationTarget.mockReset();
         window.localStorage.clear();
@@ -142,10 +222,11 @@ describe('ChatGPT directory navigation', () => {
         window.localStorage.clear();
     });
 
-    it('realigns the skeleton anchor when host hydration shifts it after the first scroll', async () => {
+    it('realigns the materialized anchor when host hydration shifts it after the first scroll', async () => {
         const { navigateChatGPTDirectoryTarget } = await import('@/ui/content/chatgptDirectory/navigation');
         const adapter = new ChatGPTNavigationTestAdapter();
-        const anchor = buildSkeletonDom();
+        const anchor = buildMaterializedRoundDom();
+        publishCanonicalRounds(adapter, ['a1']);
         const releaseListener = vi.fn();
         window.addEventListener('aimd:chatgpt-send-position-restore:release', releaseListener);
         let top = 0;
@@ -189,7 +270,8 @@ describe('ChatGPT directory navigation', () => {
     it('does not keep realigning after the user starts navigating manually', async () => {
         const { navigateChatGPTDirectoryTarget } = await import('@/ui/content/chatgptDirectory/navigation');
         const adapter = new ChatGPTNavigationTestAdapter();
-        const anchor = buildSkeletonDom();
+        const anchor = buildMaterializedRoundDom();
+        publishCanonicalRounds(adapter, ['a1']);
         let top = 0;
         anchor.getBoundingClientRect = vi.fn(() => ({
             x: 0,
@@ -225,76 +307,107 @@ describe('ChatGPT directory navigation', () => {
         expect(anchor.scrollIntoView).toHaveBeenCalledTimes(1);
     });
 
-    it('uses ChatGPT user role nodes as directory anchors when turn containers are absent', async () => {
-        const { collectChatGPTSkeletonAnchors } = await import('@/ui/content/chatgptDirectory/navigation');
+    it('materializes an unmounted canonical target and succeeds only after exact identity appears', async () => {
+        const { navigateChatGPTDirectoryTarget } = await import('@/ui/content/chatgptDirectory/navigation');
         const adapter = new ChatGPTNavigationTestAdapter();
-        document.body.innerHTML = `
-          <main>
-            <div id="user-1" data-message-author-role="user">Prompt one</div>
-            <div id="assistant-1a" data-message-author-role="assistant" data-message-id="a1">Partial response</div>
-            <div id="assistant-1b" data-message-author-role="assistant" data-message-id="a2">Final response</div>
-            <div id="user-2" data-message-author-role="user">Prompt two</div>
-            <div id="assistant-2" data-message-author-role="assistant" data-message-id="a3">Response two</div>
-          </main>
-        `;
+        mountRoleWindow([1, 2, 3, 4, 5, 6]);
+        getChatGPTConversationIndex(adapter).setSnapshot(buildCanonicalSnapshot(60));
 
-        const anchors = collectChatGPTSkeletonAnchors(adapter);
+        const scrollRoot = document.createElement('div');
+        Object.defineProperties(scrollRoot, {
+            clientHeight: { configurable: true, value: 10 },
+            scrollHeight: { configurable: true, value: 4510 },
+            scrollTop: { configurable: true, writable: true, value: 0 },
+        });
+        scrollRoot.scrollTo = vi.fn((options: ScrollToOptions) => {
+            scrollRoot.scrollTop = Number(options.top ?? 0);
+            if (scrollRoot.scrollTop < 4000) {
+                mountRoleWindow([10, 11, 12, 13, 14, 15]);
+                return;
+            }
+            if (scrollRoot.scrollTop < 4250) {
+                mountRoleWindow([30, 31, 32, 33, 34, 35]);
+                return;
+            }
+            if (scrollRoot.scrollTop < 4350) {
+                mountRoleWindow([45, 46, 47, 48, 49]);
+                return;
+            }
+            mountRoleWindow([46, 47, 48, 49, 50]);
+            (document.getElementById('user-50') as HTMLElement).scrollIntoView = vi.fn();
+        });
+        adapter.getConversationScrollRoot = () => scrollRoot;
 
-        expect(anchors).toHaveLength(2);
-        expect(anchors.map((anchor) => anchor.position)).toEqual([1, 2]);
-        expect(anchors.map((anchor) => anchor.anchorEl.id)).toEqual(['user-1', 'user-2']);
+        const resultPromise = navigateChatGPTDirectoryTarget(adapter, { position: 50 }, {
+            timeoutMs: 300,
+            intervalMs: 20,
+            alignmentTimeoutMs: 0,
+        });
+        await vi.advanceTimersByTimeAsync(320);
+        const result = await resultPromise;
+
+        expect(result).toEqual({ ok: true });
+        expect(scrollRoot.scrollTo).toHaveBeenCalledTimes(4);
+        const firstTop = Number((scrollRoot.scrollTo as ReturnType<typeof vi.fn>).mock.calls[0]?.[0]?.top ?? 0);
+        const secondTop = Number((scrollRoot.scrollTo as ReturnType<typeof vi.fn>).mock.calls[1]?.[0]?.top ?? 0);
+        expect(secondTop).toBeGreaterThan(firstTop);
+        expect(navigationMocks.scrollToBookmarkTargetWithRetry).not.toHaveBeenCalled();
+        expect(navigationMocks.highlightNavigationTarget).toHaveBeenCalledWith(document.getElementById('user-50'));
     });
 
-    it('resolves assistant role nodes to the preceding ChatGPT user-role directory position', async () => {
-        const { resolveChatGPTSkeletonPositionForMessage } = await import('@/ui/content/chatgptDirectory/navigation');
+    it('cancels materialization when the user takes over scrolling', async () => {
+        const { navigateChatGPTDirectoryTarget } = await import('@/ui/content/chatgptDirectory/navigation');
         const adapter = new ChatGPTNavigationTestAdapter();
-        document.body.innerHTML = `
-          <main>
-            <div id="user-1" data-message-author-role="user">Prompt one</div>
-            <div id="assistant-1a" data-message-author-role="assistant" data-message-id="a1">Partial response</div>
-            <div id="assistant-1b" data-message-author-role="assistant" data-message-id="a2">Final response</div>
-            <div id="user-2" data-message-author-role="user">Prompt two</div>
-            <div id="assistant-2" data-message-author-role="assistant" data-message-id="a3">Response two</div>
-          </main>
-        `;
+        mountRoleWindow([1, 2, 3, 4, 5, 6]);
+        getChatGPTConversationIndex(adapter).setSnapshot(buildCanonicalSnapshot(60));
+        attachTestScrollRoot(adapter);
 
-        expect(resolveChatGPTSkeletonPositionForMessage(
-            adapter,
-            document.getElementById('assistant-1b') as HTMLElement,
-        )).toBe(1);
-        expect(resolveChatGPTSkeletonPositionForMessage(
-            adapter,
-            document.getElementById('assistant-2') as HTMLElement,
-        )).toBe(2);
+        const resultPromise = navigateChatGPTDirectoryTarget(adapter, { position: 50 }, {
+            timeoutMs: 300,
+            intervalMs: 20,
+        });
+        await Promise.resolve();
+        document.dispatchEvent(new WheelEvent('wheel', { bubbles: true }));
+        await vi.advanceTimersByTimeAsync(40);
+
+        await expect(resultPromise).resolves.toEqual({ ok: false, message: 'Navigation cancelled' });
     });
 
-    it('uses adapter-owned conversation anchors instead of assistant selector count', async () => {
-        const { collectChatGPTSkeletonAnchors } = await import('@/ui/content/chatgptDirectory/navigation');
-        const adapter = new GroupAwareChatGPTNavigationTestAdapter();
-        document.body.innerHTML = `
-          <main>
-            <div data-group-root>
-              <section id="user-1" data-turn="user">Prompt one</section>
-              <section id="assistant-1a" data-turn="assistant">
-                <div data-message-author-role="assistant" data-message-id="a1a"></div>
-              </section>
-              <section id="assistant-1b" data-turn="assistant">
-                <div data-message-author-role="assistant" data-message-id="a1b"></div>
-              </section>
-            </div>
-            <div data-group-root>
-              <section id="user-2" data-turn="user">Prompt two</section>
-              <section id="assistant-2" data-turn="assistant">
-                <div data-message-author-role="assistant" data-message-id="a2"></div>
-              </section>
-            </div>
-          </main>
-        `;
+    it('cancels materialization when the conversation route changes', async () => {
+        const { navigateChatGPTDirectoryTarget } = await import('@/ui/content/chatgptDirectory/navigation');
+        window.history.replaceState({}, '', '/c/12345678-1234-1234-1234-123456789abc');
+        const adapter = new ChatGPTNavigationTestAdapter();
+        mountRoleWindow([1, 2, 3, 4, 5, 6]);
+        getChatGPTConversationIndex(adapter).setSnapshot(buildCanonicalSnapshot(60));
+        attachTestScrollRoot(adapter);
 
-        const anchors = collectChatGPTSkeletonAnchors(adapter);
+        const resultPromise = navigateChatGPTDirectoryTarget(adapter, { position: 50 }, {
+            timeoutMs: 300,
+            intervalMs: 20,
+        });
+        await Promise.resolve();
+        window.setTimeout(() => window.history.replaceState({}, '', '/c/aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee'), 10);
+        await vi.advanceTimersByTimeAsync(60);
 
-        expect(anchors).toHaveLength(2);
-        expect(anchors.map((anchor) => anchor.anchorEl.id)).toEqual(['user-1', 'user-2']);
+        await expect(resultPromise).resolves.toEqual({ ok: false, message: 'Conversation route changed' });
+    });
+
+    it('fails closed when bounded materialization never exposes the exact identity', async () => {
+        const { navigateChatGPTDirectoryTarget } = await import('@/ui/content/chatgptDirectory/navigation');
+        const adapter = new ChatGPTNavigationTestAdapter();
+        mountRoleWindow([1, 2, 3, 4, 5, 6]);
+        getChatGPTConversationIndex(adapter).setSnapshot(buildCanonicalSnapshot(60));
+        attachTestScrollRoot(adapter);
+
+        const resultPromise = navigateChatGPTDirectoryTarget(adapter, { position: 50 }, {
+            timeoutMs: 100,
+            intervalMs: 20,
+            maxSeekAttempts: 2,
+        });
+        await vi.advanceTimersByTimeAsync(120);
+
+        await expect(resultPromise).resolves.toEqual({ ok: false, message: 'Canonical target was not materialized' });
+        expect(navigationMocks.scrollToBookmarkTargetWithRetry).not.toHaveBeenCalled();
     });
 
     it('builds round positions with jump anchors and full group ranges from adapter-owned refs', async () => {
@@ -319,6 +432,7 @@ describe('ChatGPT directory navigation', () => {
             </div>
           </main>
         `;
+        publishCanonicalRounds(adapter, ['a1a', 'a2']);
 
         const positions = collectChatGPTRoundPositions(adapter);
 
@@ -327,6 +441,21 @@ describe('ChatGPT directory navigation', () => {
         expect(positions[0]?.jumpAnchor.id).toBe('user-1');
         expect(positions[0]?.userAnchor?.id).toBe('user-1');
         expect(positions[0]?.assistantRoot?.id).toBe('assistant-1a');
-        expect(positions[0]?.groupEls.map((node) => node.id)).toEqual(['user-1', 'assistant-1a']);
+        expect(positions[0]?.groupEls.map((node) => node.id)).toEqual(['user-1', 'assistant-1a', 'assistant-1b']);
+    });
+
+    it('resolves active position in canonical coordinates for a virtualized window', async () => {
+        const { resolveChatGPTActivePosition } = await import('@/ui/content/chatgptDirectory/navigation');
+        const first = document.createElement('div');
+        const second = document.createElement('div');
+        document.body.append(first, second);
+        first.getBoundingClientRect = vi.fn(() => ({ top: -100, bottom: 100 } as DOMRect));
+        second.getBoundingClientRect = vi.fn(() => ({ top: 120, bottom: 400 } as DOMRect));
+        const rounds = [
+            { position: 20, jumpAnchor: first, groupEls: [first] },
+            { position: 21, jumpAnchor: second, groupEls: [second] },
+        ] as any;
+
+        expect(resolveChatGPTActivePosition(rounds, 180)).toBe(21);
     });
 });

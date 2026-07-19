@@ -34,11 +34,15 @@ export const extensionIconFiles = [
     'about_avatar.png',
     'mappamory-changelog-4.6.0.png',
     'mappamory-about-en-4.6.0.png',
+    'mappamory-promo-poster.png',
+    'mappamory-record-map-context.png',
 ] as const;
 
 export const safariExcludedIconFiles = [
     'bmc_qr.png',
+    'qq-group-invite.png',
     'wechat_qr.png',
+    'xiaohongshu-group-invite.png',
     'xiaohongshu_card.png',
 ] as const;
 
@@ -52,6 +56,18 @@ export const safariExcludedLocaleMessageKeys = [
     'wechatAppreciationCode',
     'xiaohongshuAccount',
     'findMeOnXiaohongshu',
+    'communityCardEyebrow',
+    'communityCardTitle',
+    'communityCardDesc',
+    'communityQQTitle',
+    'communityQQMeta',
+    'communityQQHint',
+    'communityQQAlt',
+    'communityXiaohongshuTitle',
+    'communityXiaohongshuMeta',
+    'communityXiaohongshuHint',
+    'communityXiaohongshuAlt',
+    'communityPrivacyNote',
     'tabSponsor',
     'sponsorTabPlaceholder',
     'sponsorOpenSourceTitle',

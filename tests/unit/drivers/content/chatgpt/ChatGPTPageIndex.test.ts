@@ -6,6 +6,7 @@ import {
 } from '@/drivers/content/chatgpt/domConversationDiscovery';
 import { collectConversationTurnRefs } from '@/drivers/content/conversation/collectConversationTurnRefs';
 import { collectChatGPTRoundPositions } from '@/ui/content/chatgptDirectory/navigation';
+import { getChatGPTConversationIndex } from '@/drivers/content/chatgpt/ChatGPTConversationIndex';
 
 function appendRound(index: number): void {
     const main = document.querySelector('main');
@@ -32,6 +33,7 @@ describe('ChatGPTPageIndex', () => {
     let adapter: ChatGPTAdapter;
 
     beforeEach(() => {
+        window.history.replaceState({}, '', '/c/12345678-1234-1234-1234-123456789abc');
         document.documentElement.innerHTML = '<head></head><body><main></main></body>';
         appendRound(1);
         adapter = new ChatGPTAdapter();
@@ -60,12 +62,51 @@ describe('ChatGPTPageIndex', () => {
     it('shares the same mapped turn snapshot across toolbar, directory, and navigation callers', () => {
         const firstTurns = collectConversationTurnRefs(adapter);
         const secondTurns = collectConversationTurnRefs(adapter);
+        getChatGPTConversationIndex(adapter).setSnapshot({
+            conversationId: '12345678-1234-1234-1234-123456789abc',
+            buildFingerprint: 'test-build',
+            source: 'runtime-bridge',
+            origin: 'conversation-graph',
+            coverage: 'complete',
+            branchKey: 'branch-test',
+            capturedAt: Date.now(),
+            rounds: [{
+                id: 'round-1',
+                position: 1,
+                userPrompt: 'Prompt 1',
+                assistantContent: 'Answer 1',
+                preview: 'Prompt 1',
+                messageId: 'assistant-1',
+                userMessageId: null,
+                assistantMessageId: 'assistant-1',
+            }],
+        });
         const positions = collectChatGPTRoundPositions(adapter);
 
         expect(secondTurns).toBe(firstTurns);
         expect(positions.map((position) => position.assistantRoot)).toEqual(
             firstTurns.map((turn) => turn.assistantRootEl),
         );
+    });
+
+    it('keeps user and assistant turn identities typed when their host ids differ', () => {
+        const main = document.querySelector('main');
+        if (!(main instanceof HTMLElement)) throw new Error('fixture main is missing');
+        main.innerHTML = `
+            <article data-turn="user" data-turn-id="user-turn-identity">
+                <div data-message-author-role="user" data-message-id="user-message-identity">Prompt</div>
+            </article>
+            <article data-turn="assistant" data-turn-id="assistant-turn-identity">
+                <div data-message-author-role="assistant" data-message-id="assistant-message-identity"></div>
+            </article>
+        `;
+
+        expect(collectChatGPTDomRoundRefs(adapter)[0]?.identity).toEqual({
+            roundId: 'user-turn-identity',
+            userMessageId: 'user-message-identity',
+            assistantMessageId: 'assistant-message-identity',
+            assistantTurnId: 'assistant-turn-identity',
+        });
     });
 
     it('notifies every navigation subscriber from one shared round-change source', async () => {
@@ -151,6 +192,8 @@ describe('ChatGPTPageIndex', () => {
 
     it('invalidates for host attributes that can change message identity', async () => {
         const first = collectChatGPTDomRoundRefs(adapter);
+        const listener = vi.fn();
+        const unsubscribe = subscribeChatGPTDomRoundChanges(adapter, listener);
         const assistant = document.querySelector('[data-message-id="assistant-1"]');
         if (!(assistant instanceof HTMLElement)) throw new Error('fixture assistant is missing');
 
@@ -160,6 +203,8 @@ describe('ChatGPTPageIndex', () => {
         const changed = collectChatGPTDomRoundRefs(adapter);
         expect(changed).not.toBe(first);
         expect(changed.map((round) => round.id)).toEqual(['assistant-updated']);
+        expect(listener).toHaveBeenCalledTimes(1);
+        unsubscribe();
     });
 
     it('rebinds when ChatGPT replaces the conversation root', async () => {
@@ -182,14 +227,17 @@ describe('ChatGPTPageIndex', () => {
         try {
             const firstSnapshot = collectChatGPTDomRoundRefs(adapter);
             const firstTurns = collectConversationTurnRefs(adapter);
+            const firstIndex = getChatGPTConversationIndex(adapter);
 
             adapter.dispose();
             const rebuiltSnapshot = collectChatGPTDomRoundRefs(adapter);
             const rebuiltTurns = collectConversationTurnRefs(adapter);
+            const rebuiltIndex = getChatGPTConversationIndex(adapter);
 
             expect(disconnect).toHaveBeenCalled();
             expect(rebuiltSnapshot).not.toBe(firstSnapshot);
             expect(rebuiltTurns).not.toBe(firstTurns);
+            expect(rebuiltIndex).not.toBe(firstIndex);
         } finally {
             disconnect.mockRestore();
         }

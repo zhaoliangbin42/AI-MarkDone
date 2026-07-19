@@ -1,7 +1,7 @@
 {
     "manifest_version": 2,
     "name": "__MSG_extName__",
-    "version": "4.8.0",
+    "version": "5.0.0",
     "description": "__MSG_extDescription__",
     "default_locale": "en",
     "homepage_url": "https://zhaoliangbin42.github.io/ai-markdone/en/",
@@ -18,6 +18,17 @@
         "https://oauth2.googleapis.com/*"
     ],
     "content_scripts": [
+        {
+            "matches": [
+                "https://chatgpt.com/*",
+                "https://chat.openai.com/*"
+            ],
+            "js": [
+                "page-bridges/chatgpt-conversation-bridge.js"
+            ],
+            "run_at": "document_start",
+            "world": "MAIN"
+        },
         {
             "matches": [
                 "https://chatgpt.com/*",
@@ -63,7 +74,7 @@
     "browser_specific_settings": {
         "gecko": {
             "id": "ai-markdone@zhaoliangbin.com",
-            "strict_min_version": "109.0",
+            "strict_min_version": "128.0",
             "data_collection_permissions": {
                 "required": [
                     "none"

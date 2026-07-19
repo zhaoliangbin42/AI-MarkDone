@@ -70,11 +70,14 @@ describe('legacy UI surface closure', () => {
         }
     });
 
-    it('routes toolbar hover transients through the shared anchored Surface session', () => {
+    it('keeps toolbar hover transients on the transform-safe established lifecycle', () => {
         const portal = read('src/ui/content/components/ToolbarHoverActionPortal.ts');
-        expect(portal).toContain('new SurfaceSession');
-        expect(portal).toContain("profile: 'anchored'");
-        expect(portal).not.toContain('onDocPointerDown');
+        expect(portal).not.toContain('SurfaceSession');
+        expect(portal).not.toContain('getAnchoredMotionCss');
+        expect(portal).toContain('onDocPointerDown');
+        expect(portal).toContain("document.addEventListener('pointerdown'");
+        expect(portal).toContain('path.includes(this.host)');
+        expect(portal).toContain('path.includes(this.currentAnchor)');
     });
 
     it('keeps the Prompt family split by workflow, geometry, rendering, and orchestration responsibility', () => {

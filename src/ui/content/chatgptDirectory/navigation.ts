@@ -1,34 +1,33 @@
 import type { SiteAdapter } from '../../../drivers/content/adapters/base';
-import { scrollToBookmarkTargetWithRetry, type ScrollResult } from '../../../drivers/content/bookmarks/navigation';
-import { collectConversationTurnRefs } from '../../../drivers/content/conversation/collectConversationTurnRefs';
+import type { ScrollResult } from '../../../drivers/content/bookmarks/navigation';
 import { highlightNavigationTarget } from '../../../drivers/content/conversation/highlight';
 import { releaseChatGPTSendPositionRestore } from '../../../drivers/content/chatgpt/sendPositionRestoreEvents';
-
-export type ChatGPTSkeletonAnchor = {
-    position: number;
-    anchorEl: HTMLElement;
-};
+import { getChatGPTConversationIndex } from '../../../drivers/content/chatgpt/ChatGPTConversationIndex';
+import {
+    materializeChatGPTConversationTarget,
+    resolveChatGPTCanonicalTarget,
+    type ChatGPTCanonicalNavigationTarget,
+    type ChatGPTMaterializationOptions,
+} from '../../../drivers/content/chatgpt/ChatGPTConversationNavigation';
 
 export type ChatGPTRoundPosition = {
     position: number;
     id: string | null;
     messageId: string | null;
+    roundId: string | null;
+    userMessageId: string | null;
+    assistantMessageId: string | null;
     userPromptText: string | null;
     userPromptQuality?: 'real' | 'fallback';
-    jumpAnchor: HTMLElement;
+    jumpAnchor: HTMLElement | null;
     userAnchor: HTMLElement | null;
     assistantRoot: HTMLElement | null;
     groupEls: HTMLElement[];
 };
 
-export type ChatGPTNavigationTarget = {
-    position: number;
-    messageId?: string | null;
-};
+export type ChatGPTNavigationTarget = ChatGPTCanonicalNavigationTarget;
 
-export type ChatGPTNavigationOptions = {
-    timeoutMs?: number;
-    intervalMs?: number;
+export type ChatGPTNavigationOptions = ChatGPTMaterializationOptions & {
     alignmentTimeoutMs?: number;
     alignmentQuietMs?: number;
     alignmentTolerancePx?: number;
@@ -84,67 +83,76 @@ function scrollAnchor(anchor: HTMLElement): void {
 }
 
 function getAnchorForTarget(adapter: SiteAdapter, target: ChatGPTNavigationTarget): HTMLElement | null {
-    return collectChatGPTSkeletonAnchors(adapter)[target.position - 1]?.anchorEl ?? null;
-}
-
-function pushUnique(nodes: HTMLElement[], node: HTMLElement | null | undefined): void {
-    if (node && !nodes.includes(node)) nodes.push(node);
+    return resolveChatGPTCanonicalTarget(adapter, target)?.materialized?.jumpAnchorEl ?? null;
 }
 
 export function collectChatGPTRoundPositions(adapter: SiteAdapter): ChatGPTRoundPosition[] {
-    const turns = collectConversationTurnRefs(adapter);
-    return turns
-        .map((turn, index): ChatGPTRoundPosition | null => {
-            const jumpAnchor = turn.jumpAnchorEl ?? turn.userRootEl ?? turn.assistantRootEl ?? turn.turnRootEl;
-            if (!(jumpAnchor instanceof HTMLElement)) return null;
-            const groupEls: HTMLElement[] = [];
-            pushUnique(groupEls, turn.jumpAnchorEl);
-            pushUnique(groupEls, turn.userRootEl);
-            pushUnique(groupEls, turn.assistantRootEl);
-            if (!turn.assistantRootEl || !turn.assistantRootEl.contains(turn.primaryMessageEl)) {
-                pushUnique(groupEls, turn.primaryMessageEl);
-            }
-            for (const groupEl of turn.groupEls ?? []) pushUnique(groupEls, groupEl);
-            if (groupEls.length === 0) pushUnique(groupEls, jumpAnchor);
-            return {
-                position: index + 1,
-                id: turn.messageId,
-                messageId: turn.messageId ?? turn.primaryMessageEl.getAttribute('data-message-id') ?? null,
-                userPromptText: turn.userPrompt,
-                userPromptQuality: turn.userPromptQuality,
-                jumpAnchor,
-                userAnchor: turn.userRootEl ?? null,
-                assistantRoot: turn.assistantRootEl ?? turn.turnRootEl,
-                groupEls,
-            };
-        })
-        .filter((position): position is ChatGPTRoundPosition => position !== null);
-}
-
-export function collectChatGPTSkeletonAnchors(adapter: SiteAdapter): ChatGPTSkeletonAnchor[] {
-    return collectChatGPTRoundPositions(adapter).map((position) => ({
-        position: position.position,
-        anchorEl: position.jumpAnchor,
-    }));
-}
-
-export function resolveChatGPTSkeletonPositionForMessage(adapter: SiteAdapter, messageElement: HTMLElement): number | null {
-    const turns = collectConversationTurnRefs(adapter);
-    const index = turns.findIndex((turn) => {
-        const candidates = [
-            turn.jumpAnchorEl,
-            turn.userRootEl,
-            turn.assistantRootEl,
-            turn.primaryMessageEl,
-            ...(turn.groupEls ?? []),
-        ].filter((node): node is HTMLElement => node instanceof HTMLElement);
-        return candidates.some((node) => (
-            node === messageElement
-            || node.contains(messageElement)
-            || messageElement.contains(node)
-        ));
+    return getChatGPTConversationIndex(adapter).getRounds().map((indexedRound) => {
+        const materialized = indexedRound.materialized;
+        return {
+            position: indexedRound.position,
+            id: indexedRound.round.id,
+            messageId: indexedRound.round.messageId ?? indexedRound.round.assistantMessageId,
+            roundId: indexedRound.identity.roundId,
+            userMessageId: indexedRound.identity.userMessageId,
+            assistantMessageId: indexedRound.identity.assistantMessageId,
+            userPromptText: indexedRound.round.userPrompt,
+            userPromptQuality: 'real',
+            jumpAnchor: materialized?.jumpAnchorEl ?? null,
+            userAnchor: materialized?.userRootEl ?? null,
+            assistantRoot: materialized?.assistantRootEl ?? null,
+            groupEls: materialized?.groupEls ?? [],
+        };
     });
-    return index >= 0 ? index + 1 : null;
+}
+
+function getRoundViewportRange(round: ChatGPTRoundPosition): { top: number; bottom: number } | null {
+    const nodes = round.groupEls.length
+        ? round.groupEls
+        : (round.jumpAnchor ? [round.jumpAnchor] : []);
+    let top = Number.POSITIVE_INFINITY;
+    let bottom = Number.NEGATIVE_INFINITY;
+    for (const node of nodes) {
+        if (!node.isConnected) continue;
+        const rect = node.getBoundingClientRect();
+        if (!Number.isFinite(rect.top) || !Number.isFinite(rect.bottom)) continue;
+        top = Math.min(top, rect.top);
+        bottom = Math.max(bottom, rect.bottom);
+    }
+    if (!Number.isFinite(top) || !Number.isFinite(bottom)) return null;
+    return { top, bottom };
+}
+
+export function resolveChatGPTActivePosition(
+    rounds: ChatGPTRoundPosition[],
+    referenceY: number,
+    fallbackPosition = 0,
+): number {
+    if (rounds.length === 0) return 0;
+    const ranges = rounds.map((round) => {
+        const range = getRoundViewportRange(round);
+        return range ? { position: round.position, ...range } : null;
+    }).filter((range): range is { position: number; top: number; bottom: number } => range !== null);
+    const visible = ranges.find((range) => range.top <= referenceY && range.bottom >= referenceY);
+    if (visible) return visible.position;
+    if (ranges.length > 0) {
+        const getDistance = (range: { top: number; bottom: number }) => {
+            if (referenceY < range.top) return range.top - referenceY;
+            if (referenceY > range.bottom) return referenceY - range.bottom;
+            return 0;
+        };
+        let nearest = ranges[0]!;
+        let nearestDistance = getDistance(nearest);
+        for (const range of ranges.slice(1)) {
+            const distance = getDistance(range);
+            if (distance < nearestDistance) {
+                nearest = range;
+                nearestDistance = distance;
+            }
+        }
+        return nearest.position;
+    }
+    return fallbackPosition || rounds[0]?.position || 0;
 }
 
 export async function navigateChatGPTDirectoryTarget(
@@ -152,22 +160,22 @@ export async function navigateChatGPTDirectoryTarget(
     target: ChatGPTNavigationTarget,
     options?: ChatGPTNavigationOptions
 ): Promise<ScrollResult> {
-    const anchor = getAnchorForTarget(adapter, target);
+    const materialized = await materializeChatGPTConversationTarget(adapter, target, options);
+    if (!materialized.ok) return materialized;
+    const exactTarget: ChatGPTNavigationTarget = {
+        position: materialized.indexedRound.position,
+        messageId: materialized.indexedRound.round.messageId,
+        roundId: materialized.indexedRound.identity.roundId,
+        userMessageId: materialized.indexedRound.identity.userMessageId,
+        assistantMessageId: materialized.indexedRound.identity.assistantMessageId,
+    };
+    const anchor = materialized.anchor;
     if (anchor && typeof anchor.scrollIntoView === 'function') {
-        const settledAnchor = await scrollChatGPTAnchorWithAlignment(adapter, target, anchor, options);
+        const settledAnchor = await scrollChatGPTAnchorWithAlignment(adapter, exactTarget, anchor, options);
         window.setTimeout(() => highlightNavigationTarget(settledAnchor), 40);
         return { ok: true };
     }
-
-    releaseChatGPTSendPositionRestore();
-    return scrollToBookmarkTargetWithRetry(
-        adapter,
-        { position: target.position, messageId: target.messageId },
-        {
-            timeoutMs: options?.timeoutMs ?? 1500,
-            intervalMs: options?.intervalMs ?? 120,
-        },
-    );
+    return { ok: false, message: 'Materialized target has no scroll anchor' };
 }
 
 async function scrollChatGPTAnchorWithAlignment(

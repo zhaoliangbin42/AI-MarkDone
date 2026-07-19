@@ -2,8 +2,9 @@ import { describe, expect, it, vi } from 'vitest';
 import { MessageToolbar } from '@/ui/content/MessageToolbar';
 
 describe('MessageToolbar tooltip integration', () => {
-    it('renders delegated tooltip feedback instead of toolbar-local feedback hosts or native title tooltips', () => {
+    it('keeps the Main hover sequence stable from the lower Copy tooltip to the upper PNG tooltip', async () => {
         vi.useFakeTimers();
+        const onCopyPng = vi.fn(async () => ({ ok: true as const }));
         const toolbar = new MessageToolbar('light', [
             {
                 id: 'copy_markdown',
@@ -15,7 +16,7 @@ describe('MessageToolbar tooltip integration', () => {
                     id: 'copy_png',
                     label: 'Copy as PNG',
                     icon: '<svg viewBox="0 0 16 16"></svg>',
-                    onClick: async () => ({ ok: true }),
+                    onClick: onCopyPng,
                 },
             },
         ]);
@@ -42,25 +43,38 @@ describe('MessageToolbar tooltip integration', () => {
 
         button?.dispatchEvent(new Event('pointerover', { bubbles: true, composed: true }));
         button?.dispatchEvent(new MouseEvent('mouseenter'));
-        vi.advanceTimersByTime(149);
-        expect(document.querySelector('.aimd-tooltip')).toBeNull();
+        vi.advanceTimersByTime(100);
 
-        vi.advanceTimersByTime(1);
-        const tooltip = document.body.querySelector<HTMLElement>('.aimd-tooltip');
-        expect(tooltip?.textContent).toBe('Copy markdown');
-        expect(tooltip?.dataset.placement).toBe('bottom');
-        expect(document.querySelector('.aimd-toolbar-hover-action-host')).not.toBeNull();
-        expect(document.querySelector('.aimd-toolbar-tooltip-host')).toBeNull();
-        expect(shadow.querySelector('.aimd-tooltip')).toBeNull();
+        const portalHost = document.querySelector<HTMLElement>('.aimd-toolbar-hover-action-host');
+        const actionsRoot = portalHost?.shadowRoot?.querySelector<HTMLElement>('[data-role="toolbar-hover-actions"]');
+        const bridge = portalHost?.shadowRoot?.querySelector<HTMLElement>('[data-role="toolbar-hover-bridge"]');
+        const secondaryButton = portalHost?.shadowRoot?.querySelector<HTMLButtonElement>('[data-action="copy_png"]');
+        expect(portalHost).toBeTruthy();
+        expect(actionsRoot?.style.transform).toBe('');
+        expect(actionsRoot?.style.opacity).toBe('');
+        expect(bridge).toBeTruthy();
+        expect(secondaryButton).toBeTruthy();
+
+        vi.advanceTimersByTime(50);
+        const triggerTooltip = document.body.querySelector<HTMLElement>('.aimd-tooltip');
+        expect(triggerTooltip?.textContent).toBe('Copy markdown');
+        expect(triggerTooltip?.dataset.placement).toBe('bottom');
+        expect(document.querySelector('.aimd-toolbar-hover-action-host')).toBe(portalHost);
+        expect(portalHost?.shadowRoot?.querySelector('[data-action="copy_png"]')).toBe(secondaryButton);
+
+        vi.advanceTimersByTime(180);
+        expect(document.querySelector('.aimd-toolbar-hover-action-host')).toBe(portalHost);
+        expect(portalHost?.shadowRoot?.querySelector('[data-action="copy_png"]')).toBe(secondaryButton);
+        expect(document.body.querySelector<HTMLElement>('.aimd-tooltip')?.textContent).toBe('Copy markdown');
 
         button?.dispatchEvent(new Event('pointerout', { bubbles: true, composed: true }));
+        button?.dispatchEvent(new MouseEvent('mouseleave'));
         expect(document.querySelector('.aimd-tooltip')).toBeNull();
+        bridge?.dispatchEvent(new MouseEvent('pointerenter'));
+        vi.advanceTimersByTime(120);
+        expect(document.querySelector('.aimd-toolbar-hover-action-host')).toBe(portalHost);
+        expect(portalHost?.shadowRoot?.querySelector('[data-action="copy_png"]')).toBe(secondaryButton);
 
-        const secondaryButton = document
-            .querySelector<HTMLElement>('.aimd-toolbar-hover-action-host')
-            ?.shadowRoot
-            ?.querySelector<HTMLButtonElement>('[data-action="copy_png"]');
-        expect(secondaryButton).toBeTruthy();
         vi.spyOn(secondaryButton!, 'getBoundingClientRect').mockReturnValue({
             x: 320,
             y: 180,
@@ -79,6 +93,12 @@ describe('MessageToolbar tooltip integration', () => {
         expect(secondaryTooltip?.textContent).toBe('Copy as PNG');
         expect(secondaryTooltip?.dataset.placement).toBe('top');
 
+        secondaryButton?.dispatchEvent(new MouseEvent('pointerdown', { bubbles: true, composed: true }));
+        secondaryButton?.dispatchEvent(new MouseEvent('click', { bubbles: true, composed: true }));
+        await Promise.resolve();
+        expect(onCopyPng).toHaveBeenCalledTimes(1);
+
+        toolbar.dispose();
         toolbar.getElement().remove();
         vi.useRealTimers();
     });

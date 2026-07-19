@@ -24,10 +24,13 @@ describe('lazy content features', () => {
             isShowingConversationReader: vi.fn(() => true),
             getItemsSnapshot: vi.fn(() => []),
             appendItem: vi.fn(async () => undefined),
+            replaceItems: vi.fn(async () => undefined),
             getCommentExportContext: vi.fn(() => null),
         };
         const createReaderPanel = vi.fn(() => actualReader);
+        const setContentFeatureLocale = vi.fn(async () => undefined);
         const importer = vi.fn(async () => ({
+            setContentFeatureLocale,
             createReaderPanel,
             createBookmarksPanel: vi.fn(),
         }));
@@ -55,6 +58,10 @@ describe('lazy content features', () => {
         expect(actualReader.setReaderSettingsController).toHaveBeenCalledWith(settingsController);
         expect(actualReader.setPromptManagerController).toHaveBeenCalledWith(promptController);
         expect(actualReader.show).toHaveBeenCalledWith([], 0, 'dark', undefined);
+
+        const replacement = [{ id: 'branch-b', userPrompt: 'B', content: 'new' }];
+        await reader.replaceItems(replacement, { preserveCurrentIdentity: true });
+        expect(actualReader.replaceItems).toHaveBeenCalledWith(replacement, { preserveCurrentIdentity: true });
     });
 
     it('shares the imported feature module between Reader and Bookmarks triggers', async () => {
@@ -68,6 +75,7 @@ describe('lazy content features', () => {
             isShowingConversationReader: vi.fn(() => false),
             getItemsSnapshot: vi.fn(() => []),
             appendItem: vi.fn(async () => undefined),
+            replaceItems: vi.fn(async () => undefined),
             getCommentExportContext: vi.fn(() => null),
         };
         const actualBookmarks = {
@@ -78,7 +86,12 @@ describe('lazy content features', () => {
         };
         const createReaderPanel = vi.fn(() => actualReader);
         const createBookmarksPanel = vi.fn(() => actualBookmarks);
-        const importer = vi.fn(async () => ({ createReaderPanel, createBookmarksPanel }));
+        const setContentFeatureLocale = vi.fn(async () => undefined);
+        const importer = vi.fn(async () => ({
+            setContentFeatureLocale,
+            createReaderPanel,
+            createBookmarksPanel,
+        }));
         const loader = new ContentFeatureModuleLoader(importer as any);
         const reader = createLazyReaderPanel(loader);
         const bookmarks = createLazyBookmarksPanel({} as any, reader, {}, loader);
@@ -91,6 +104,90 @@ describe('lazy content features', () => {
         expect(importer).toHaveBeenCalledTimes(1);
         expect(createReaderPanel).toHaveBeenCalledTimes(1);
         expect(createBookmarksPanel).toHaveBeenCalledWith({}, reader, {});
+        expect(actualBookmarks.toggle).toHaveBeenCalledTimes(1);
+    });
+
+    it('applies the saved locale inside the lazy module graph before opening Bookmarks', async () => {
+        const actualBookmarks = {
+            toggle: vi.fn(async () => undefined),
+            show: vi.fn(async () => undefined),
+            hide: vi.fn(),
+            isVisible: vi.fn(() => true),
+        };
+        const setContentFeatureLocale = vi.fn(async () => undefined);
+        const createBookmarksPanel = vi.fn(() => actualBookmarks);
+        const importer = vi.fn(async () => ({
+            setContentFeatureLocale,
+            createReaderPanel: vi.fn(),
+            createBookmarksPanel,
+        }));
+        const loader = new ContentFeatureModuleLoader(importer as any);
+        const reader = createLazyReaderPanel(loader);
+        const bookmarks = createLazyBookmarksPanel({} as any, reader, {}, loader);
+
+        loader.setLocale('zh_CN');
+        await bookmarks.toggle();
+
+        expect(setContentFeatureLocale).toHaveBeenCalledWith('zh_CN');
+        expect(setContentFeatureLocale.mock.invocationCallOrder[0]).toBeLessThan(
+            createBookmarksPanel.mock.invocationCallOrder[0]!,
+        );
+        expect(actualBookmarks.toggle).toHaveBeenCalledTimes(1);
+    });
+
+    it('waits for an in-flight locale update before creating another lazy surface', async () => {
+        let finishChineseLocale: (() => void) | null = null;
+        const setContentFeatureLocale = vi.fn((locale: string) => {
+            if (locale !== 'zh_CN') return Promise.resolve();
+            return new Promise<void>((resolve) => {
+                finishChineseLocale = resolve;
+            });
+        });
+        const actualReader = {
+            setAppearance: vi.fn(),
+            setReaderSettings: vi.fn(),
+            setReaderSettingsController: vi.fn(),
+            setPromptManagerController: vi.fn(),
+            show: vi.fn(async () => undefined),
+            hide: vi.fn(),
+            isShowingConversationReader: vi.fn(() => false),
+            getItemsSnapshot: vi.fn(() => []),
+            appendItem: vi.fn(async () => undefined),
+            replaceItems: vi.fn(async () => undefined),
+            getCommentExportContext: vi.fn(() => null),
+        };
+        const actualBookmarks = {
+            toggle: vi.fn(async () => undefined),
+            show: vi.fn(async () => undefined),
+            hide: vi.fn(),
+            isVisible: vi.fn(() => true),
+        };
+        const createReaderPanel = vi.fn(() => actualReader);
+        const createBookmarksPanel = vi.fn(() => actualBookmarks);
+        const importer = vi.fn(async () => ({
+            setContentFeatureLocale,
+            createReaderPanel,
+            createBookmarksPanel,
+        }));
+        const loader = new ContentFeatureModuleLoader(importer as any);
+        const reader = createLazyReaderPanel(loader);
+        const bookmarks = createLazyBookmarksPanel({} as any, reader, {}, loader);
+
+        loader.setLocale('en');
+        await reader.show([], 0, 'light');
+
+        loader.setLocale('zh_CN');
+        const opening = bookmarks.toggle();
+        await Promise.resolve();
+        await Promise.resolve();
+
+        expect(setContentFeatureLocale).toHaveBeenLastCalledWith('zh_CN');
+        expect(createBookmarksPanel).not.toHaveBeenCalled();
+
+        finishChineseLocale?.();
+        await opening;
+
+        expect(createBookmarksPanel).toHaveBeenCalledTimes(1);
         expect(actualBookmarks.toggle).toHaveBeenCalledTimes(1);
     });
 
@@ -117,6 +214,7 @@ describe('lazy content features', () => {
             svg: '<svg/>',
         }));
         const importer = vi.fn(async () => ({
+            setContentFeatureLocale: vi.fn(async () => undefined),
             createReaderPanel: vi.fn(),
             createBookmarksPanel: vi.fn(),
             getSaveMessagesDialog: () => actualSaveMessages,

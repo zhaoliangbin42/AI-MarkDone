@@ -15,6 +15,7 @@ import { resolveChatGPTInputEnhancement } from '../../core/settings/inputEnhance
 import { setLocale, t } from '../../ui/content/components/i18n';
 import { SendController } from '../../ui/content/sending/SendController';
 import { ChatGPTConversationEngine } from '../../drivers/content/chatgpt/ChatGPTConversationEngine';
+import { getChatGPTConversationIndex } from '../../drivers/content/chatgpt/ChatGPTConversationIndex';
 import { ChatGPTDirectoryController } from '../../ui/content/controllers/ChatGPTDirectoryController';
 import { ChatGPTSendPositionRestoreController } from '../../ui/content/controllers/ChatGPTSendPositionRestoreController';
 import { ChatGPTComposerEditingController } from '../../ui/content/controllers/ChatGPTComposerEditingController';
@@ -51,6 +52,7 @@ import {
     createLazyReaderPanel,
     createLazyRunFormulaAssetAction,
     createLazySaveMessagesDialog,
+    setLazyContentFeatureLocale,
 } from './lazyContentFeatures';
 
 const isDebugEnabled = () => {
@@ -104,8 +106,14 @@ if (adapter) {
     const settingsClient = new SettingsClient();
     const bookmarksController = new BookmarksPanelController(adapter);
     const chatGptConversationEngine = adapter.getPlatformId() === 'chatgpt' ? new ChatGPTConversationEngine(adapter) : null;
+    let chatGptConversationIndexBound = false;
+    const bindChatGptConversationIndex = () => {
+        if (!chatGptConversationEngine || chatGptConversationIndexBound) return;
+        getChatGPTConversationIndex(adapter).bindSnapshotSource(chatGptConversationEngine);
+        chatGptConversationIndexBound = true;
+    };
     const chatGptDirectory = adapter.getPlatformId() === 'chatgpt' && chatGptConversationEngine
-        ? new ChatGPTDirectoryController(adapter, chatGptConversationEngine, bookmarksController)
+        ? new ChatGPTDirectoryController(adapter, bookmarksController)
         : null;
     const chatGptOfficialNavigationVisibility = adapter.getPlatformId() === 'chatgpt'
         ? new ChatGPTOfficialNavigationVisibilityController()
@@ -206,6 +214,16 @@ if (adapter) {
     let runtimeEnabled = adapter.getPlatformId() === 'chatgpt'
         ? cachedSettings?.platforms?.[platformKey] ?? true
         : false;
+    let atomicSelectionEnabled = false;
+    const setAtomicSelectionEnabled = (enabled: boolean) => {
+        if (enabled === atomicSelectionEnabled) return;
+        atomicSelectionEnabled = enabled;
+        if (enabled) {
+            chatGptAtomicSelection?.init();
+        } else {
+            chatGptAtomicSelection?.dispose();
+        }
+    };
     const initialAppearance = createAppearanceSnapshot(
         document.documentElement.getAttribute('data-aimd-theme') === 'dark' ? 'dark' : 'light',
         getThemeOverrides(cachedSettings),
@@ -322,13 +340,13 @@ if (adapter) {
 
     const initChatGptIfNeeded = () => {
         if (!chatGptConversationEngine) return;
+        bindChatGptConversationIndex();
         viewportResizeSuspend?.init();
         chatGptSendPositionRestore?.init();
         chatGptComposerEditing?.init();
         chatGptPromptAutocomplete?.init();
         chatGptMessageStepper?.init();
         chatGptPageWidth?.init();
-        chatGptAtomicSelection?.init();
         syncChatGptBehaviorSettings(settingsClient.getCached()?.chatgptBehavior);
         if (!chatGptDirectory) {
             writeDebugState({ ChatGptInit: 'directory-disabled' });
@@ -365,6 +383,7 @@ if (adapter) {
             settings,
         );
         const effectiveInputEnhancement = resolveChatGPTInputEnhancement(inputEnhancement);
+        setAtomicSelectionEnabled(Boolean(runtimeEnabled && next.atomicMarkdownCopy));
         chatGptSendPositionRestore?.setEnabled(Boolean(next.restorePositionAfterSend));
         chatGptSendPositionRestore?.setEnterKeyNewlineEnabled(effectiveInputEnhancement.enterKeyNewline);
         chatGptComposerEditing?.setInputEnhancementSettings(inputEnhancement);
@@ -425,12 +444,14 @@ if (adapter) {
         chatGptPromptAutocomplete?.dispose();
         chatGptMessageStepper?.dispose();
         chatGptPageWidth?.dispose();
-        chatGptAtomicSelection?.dispose();
+        setAtomicSelectionEnabled(false);
         contentAdapter.dispose?.();
+        chatGptConversationIndexBound = false;
     };
 
     // Apply initial UI locale immediately (otherwise switching to a non-auto locale won't take effect until a change event).
     void setLocale(lastLocale);
+    setLazyContentFeatureLocale(lastLocale);
     applyAppearance(initialAppearance);
     if (cachedSettings?.reader) {
         readerPanel.setReaderSettings(cachedSettings.reader);
@@ -457,6 +478,7 @@ if (adapter) {
         if (snap.settings.language !== lastLocale) {
             lastLocale = snap.settings.language;
             void setLocale(lastLocale);
+            setLazyContentFeatureLocale(lastLocale);
         }
         const nextRuntimeEnabled = adapter.getPlatformId() === 'chatgpt'
             ? snap.settings.platforms?.[platformKey] ?? true

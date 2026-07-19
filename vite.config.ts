@@ -12,7 +12,6 @@ export default defineConfig({
         rollupOptions: {
             input: {
                 'content-early': resolve(__dirname, 'src/runtimes/content/early.ts'),
-                'content-early-main': resolve(__dirname, 'src/runtimes/content/early-main.ts'),
                 content: resolve(__dirname, 'src/runtimes/content/entry.ts'),
                 background: resolve(__dirname, 'src/runtimes/background/entry.ts')
             },

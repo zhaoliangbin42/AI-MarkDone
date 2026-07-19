@@ -170,13 +170,13 @@ describe('exportTurnsPng', () => {
         expect(res.ok).toBe(true);
         expect(progress).toEqual([
             'preparing:0/1',
-            'rendering:1/3',
+            'rendering:0/1',
             'downloading:1/1',
             'done:1/1',
         ]);
     });
 
-    it('reports renderer progress without a second per-message progress model', async () => {
+    it('preserves detailed renderer progress inside the single long-image export job', async () => {
         const progress: any[] = [];
 
         const res = await exportTurnsPng(turns, [0], metadata, {
@@ -187,10 +187,14 @@ describe('exportTurnsPng', () => {
         expect(res.ok).toBe(true);
         expect(progress).toContainEqual({
             phase: 'rendering',
-            completed: 1,
-            total: 3,
+            completed: 0,
+            total: 1,
+            render: {
+                phase: 'rasterizing',
+                completed: 1,
+                total: 3,
+            },
         });
-        expect(progress.some((event) => 'current' in event)).toBe(false);
     });
 
     it('cancels PNG export before downloading when the abort signal fires', async () => {

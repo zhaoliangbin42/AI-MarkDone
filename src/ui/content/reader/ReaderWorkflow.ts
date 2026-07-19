@@ -1,7 +1,9 @@
 import type { ReaderItem } from '../../../services/reader/types';
+import { resolveReaderReplacementIndex } from '../../../services/reader/readerItemIdentity';
 import type {
     ReaderPanelAction,
     ReaderPanelProfile,
+    ReaderPanelReplaceItemsOptions,
     ReaderPanelShowOptions,
 } from './ReaderPanelContracts';
 
@@ -78,6 +80,14 @@ export class ReaderWorkflow {
 
     append(item: ReaderItem): void {
         this.itemList = [...this.itemList, item];
+    }
+
+    replaceItems(items: ReaderItem[], options?: ReaderPanelReplaceItemsOptions): void {
+        const nextIndex = options?.preserveCurrentIdentity
+            ? resolveReaderReplacementIndex(this.currentItem, items, this.currentIndex)
+            : Math.max(0, Math.min(this.currentIndex, Math.max(0, items.length - 1)));
+        this.itemList = [...items];
+        this.currentIndex = nextIndex;
     }
 
     move(delta: number): boolean {

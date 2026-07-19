@@ -7,11 +7,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [5.0.0] - 2026-07-19
+
 ### Added
 - ChatGPT: Added a default-on Input Enhancement control center beside the composer attachment button. Settings can hide the entry entirely; its popover separately controls Enter-newline, ordered and unordered list authoring, visible bold markers, inline/display LaTeX preview, and formula-only `\\` completion from a 1,250-item LaTeX Workshop-derived catalog. The formula catalog deliberately excludes LaTeX Workshop `@` shortcuts.
 - ChatGPT: Selecting a complete formula, code span or block, table, image, heading, list item, quote, or divider directly in an assistant response now highlights the whole unit and copies its Markdown source, while partial and unsupported selections keep ChatGPT's native behavior.
+- Bookmarks: Added localized QQ and Xiaohongshu community invitations to the Feedback page in Chrome and Firefox, with the full uncropped invite images, QQ group number, Xiaohongshu invite expiry guidance, and a follow-account fallback for joining through Xiaohongshu.
+- Bookmarks: Added a dedicated Mappamory page with a bilingual product introduction, current map-based contact and local-data capabilities, App Store and website links, and two product visuals.
 
 ### Fixed
+- Settings: Language changes now consistently keep the latest selection across cold startup, rapid switching, formula-only sites, and the unsupported-page popup; failed saves restore the last persisted language instead of appearing to succeed.
+- ChatGPT: Kept the directory, Reader, message export, bookmarks, and navigation aligned with the complete conversation when ChatGPT virtualizes long chats by passively observing the page's own conversation graph responses, including transient graph refresh failures, branch changes, Reader refreshes, and off-screen targets; partial hydration windows are no longer treated as complete history.
 - ChatGPT: Prevented closed or rapidly reopened AI-MarkDone dialogs and panels from leaving an invisible full-viewport layer or page scroll lock behind, which could otherwise make the ChatGPT page stop responding to clicks until refresh.
 - ChatGPT: Centered the Input Enhancement switch thumb inside its track in both enabled and disabled states, including narrow layouts and 200% reflow.
 - Bookmarks: Prevented the mobile filter toolbar and bookmark metadata from clipping or overlapping, while keeping row actions reachable after selection or keyboard focus.
@@ -23,13 +29,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - ChatGPT: Kept the Input Enhancement button mounted and composer editing bound after ChatGPT replaces nested hydration shells during page startup.
 - ChatGPT: The Input Enhancement button now uses the AI-MarkDone tooltip and stays outside the official attachment tooltip trigger.
 - ChatGPT: Widening the ChatGPT conversation now widens the composer input bar by the same amount.
-- ChatGPT: Toolbar hover tooltips now stay anchored to their button; Copy Markdown labels open below the main Copy button while Copy PNG labels remain above the secondary hover button, and multi-part replies no longer rebuild the same toolbar.
+- ChatGPT: Restored the original Copy hover sequence: hovering Copy opens the PNG action above while the main tooltip remains below, moving onto the PNG action shows its tooltip above, and the overlap-tolerant pointer bridge keeps the action fixed and clickable.
 - ChatGPT: The right-side directory now updates when the conversation view is replaced after adding a new message.
 - UI: Prevented panels, dialogs, popovers, and host-integrated controls from clipping, escaping the viewport, or hiding primary actions on narrow and short layouts, and aligned live theme and locale updates across transient surfaces.
+- Export: Restored separate image-rendering and total-export progress for Save Messages PNG, including Markdown compilation, layout, segment rendering, encoding, and finalization statistics without changing the single-long-image output path.
+- Export: Restored message PNG generation to the proven content-side path, removed the unreliable iframe handshake from Copy PNG and Save Messages PNG, and fixed long cards so code, tables, and formulas render without horizontal clipping.
+- Settings: Fixed saved interface language not being applied to lazily loaded Reader, Bookmarks, Settings, and export surfaces until the language was manually switched away and back.
+- Settings: Added a default-on ChatGPT switch for copying complete local selections as canonical Markdown; disabling it immediately restores the website's native selection and copy behavior.
 
 ### Changed
-- Export: Save Messages now combines selected messages into one long PNG whenever the image fits the safe export budget. Oversized exports keep at least 1x clarity and fall back to a ZIP containing the fewest necessary PNG parts.
-- Export: Copy PNG, Save Messages PNG, and trusted-TeX formula assets now share an on-demand cross-browser renderer and one high-memory scheduler. Message PNGs stream into the encoder without a final full-height canvas, while the existing controls, clipboard behavior, and download behavior stay unchanged.
+- Bookmarks: Refined the About and Feedback pages with clearer introductions, a more structured creator profile and project story, scan-friendly community cards, and improved responsive presentation; Mappamory promotion now lives in its own page instead of the About page.
+- Export: Save Messages combines selected messages into one long PNG and lowers the effective scale only when the browser Canvas budget requires it.
+- Export: Copy PNG and Save Messages PNG now share one content-side `message-card-v1` renderer, while trusted-TeX formula assets keep their on-demand extension renderer.
 - Formula: PNG, SVG, and MathML assets now use one consistent formula renderer when trusted TeX source is available. Formulas whose source cannot be recovered keep a compatible PNG path instead of producing misleading vector or MathML files.
 - Settings: Consolidated the former ChatGPT Markdown and Enter-newline switches into one Input Enhancement availability setting. Existing choices migrate without loss, while detailed preferences remain in the composer popover.
 - ChatGPT: Refined the Input Enhancement popover into a compact grouped tool panel with a clearer master state, lightweight editing and formula sections, and space-efficient list-type controls.
@@ -42,7 +53,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Performance: Consolidated formula-content discovery into its existing shared controller and removed the formula-only runtime's duplicate observer and discovery pipeline.
 - Performance: Deferred per-message task-progress UI until it is used and removed inactive tooltip observers, cutting the 200-message toolbar shadow tree by about 21% without removing actions.
 - Performance: Moved Reader, bookmarks, save dialogs, and Copy PNG out of the ChatGPT startup bundle into feature-specific extension modules, while keeping their first-use triggers and cross-browser behavior intact.
-- Performance: Made long message PNG export render only the active band, copy a fixed safe set of visual styles, and omit bitmap-invisible MathML markup, substantially reducing long-image time without changing the approved Chromium or Firefox output pixels.
+- Performance: Made message PNG export rely on its closed stylesheet instead of copying hundreds of host computed styles per node, omit bitmap-invisible MathML, constrain wide formulas, and split long Markdown by message section and top-level block.
 
 ## [4.8.0] - 2026-07-11
 

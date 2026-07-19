@@ -13,13 +13,14 @@ const roundChangeMocks = vi.hoisted(() => ({
     subscribe: vi.fn(),
 }));
 
-vi.mock('@/ui/content/chatgptDirectory/navigation', () => ({
+vi.mock('@/ui/content/chatgptDirectory/navigation', async (importOriginal) => ({
+    ...await importOriginal<typeof import('@/ui/content/chatgptDirectory/navigation')>(),
     collectChatGPTRoundPositions: navigationMocks.collectChatGPTRoundPositions,
     navigateChatGPTDirectoryTarget: navigationMocks.navigateChatGPTDirectoryTarget,
 }));
 
-vi.mock('@/drivers/content/chatgpt/domConversationDiscovery', () => ({
-    subscribeChatGPTDomRoundChanges: roundChangeMocks.subscribe,
+vi.mock('@/drivers/content/chatgpt/ChatGPTConversationIndex', () => ({
+    getChatGPTConversationIndex: () => ({ subscribe: roundChangeMocks.subscribe }),
 }));
 
 function createRound(position: number, top: number, bottom: number) {
@@ -41,11 +42,24 @@ function createRound(position: number, top: number, bottom: number) {
         position,
         id: `round-${position}`,
         messageId: `message-${position}`,
+        roundId: `round-${position}`,
+        userMessageId: `user-${position}`,
+        assistantMessageId: `message-${position}`,
         userPromptText: `Prompt ${position}`,
         jumpAnchor: el,
         userAnchor: el,
         assistantRoot: el,
         groupEls: [el],
+    };
+}
+
+function createNavigationTarget(position: number) {
+    return {
+        position,
+        messageId: `message-${position}`,
+        roundId: `round-${position}`,
+        userMessageId: `user-${position}`,
+        assistantMessageId: `message-${position}`,
     };
 }
 
@@ -75,7 +89,7 @@ describe('ChatGPTMessageStepperController', () => {
         roundChangeListener = null;
         unsubscribeRoundChanges = vi.fn();
         roundChangeMocks.subscribe.mockReset();
-        roundChangeMocks.subscribe.mockImplementation((_adapter, listener: () => void) => {
+        roundChangeMocks.subscribe.mockImplementation((listener: () => void) => {
             roundChangeListener = listener;
             return unsubscribeRoundChanges;
         });
@@ -143,7 +157,7 @@ describe('ChatGPTMessageStepperController', () => {
         await Promise.resolve();
         expect(navigationMocks.navigateChatGPTDirectoryTarget).toHaveBeenLastCalledWith(
             adapter,
-            { position: 1, messageId: 'message-1' },
+            createNavigationTarget(1),
         );
 
         controller.dispose();
@@ -157,7 +171,7 @@ describe('ChatGPTMessageStepperController', () => {
         await Promise.resolve();
         expect(navigationMocks.navigateChatGPTDirectoryTarget).toHaveBeenLastCalledWith(
             adapter,
-            { position: 3, messageId: 'message-3' },
+            createNavigationTarget(3),
         );
     });
 
@@ -358,7 +372,7 @@ describe('ChatGPTMessageStepperController', () => {
         expect(event.defaultPrevented).toBe(true);
         expect(navigationMocks.navigateChatGPTDirectoryTarget).toHaveBeenCalledWith(
             adapter,
-            { position: 3, messageId: 'message-3' },
+            createNavigationTarget(3),
         );
     });
 
@@ -381,12 +395,12 @@ describe('ChatGPTMessageStepperController', () => {
         expect(navigationMocks.navigateChatGPTDirectoryTarget).toHaveBeenNthCalledWith(
             1,
             adapter,
-            { position: 3, messageId: 'message-3' },
+            createNavigationTarget(3),
         );
         expect(navigationMocks.navigateChatGPTDirectoryTarget).toHaveBeenNthCalledWith(
             2,
             adapter,
-            { position: 4, messageId: 'message-4' },
+            createNavigationTarget(4),
         );
     });
 
@@ -422,7 +436,7 @@ describe('ChatGPTMessageStepperController', () => {
         await Promise.resolve();
         expect(navigationMocks.navigateChatGPTDirectoryTarget).toHaveBeenCalledWith(
             adapter,
-            { position: 3, messageId: 'message-3' },
+            createNavigationTarget(3),
         );
     });
 
@@ -448,7 +462,7 @@ describe('ChatGPTMessageStepperController', () => {
 
         expect(navigationMocks.navigateChatGPTDirectoryTarget).toHaveBeenCalledWith(
             adapter,
-            { position: 3, messageId: 'message-3' },
+            createNavigationTarget(3),
         );
 
         controller.setVisible(true);

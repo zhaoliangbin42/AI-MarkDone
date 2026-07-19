@@ -33,6 +33,10 @@ import {
     createAppearanceSnapshot,
     type AppearanceSnapshot,
 } from '../../../style/appearance';
+import {
+    presentImageExportProgress,
+    retainMonotonicImageExportProgress,
+} from './imageExportProgressPresentation';
 
 type State = {
     format: SaveFormat;
@@ -41,6 +45,8 @@ type State = {
     turnsCount: number;
     progressText: string;
     progressValue: number | null;
+    renderProgressText: string;
+    renderProgressValue: number | null;
 };
 
 export class SaveMessagesDialog {
@@ -67,6 +73,8 @@ export class SaveMessagesDialog {
         turnsCount: 0,
         progressText: '',
         progressValue: null,
+        renderProgressText: '',
+        renderProgressValue: null,
     };
     private closing = false;
     private motionNeedsOpen = false;
@@ -117,6 +125,8 @@ export class SaveMessagesDialog {
         this.state.saving = false;
         this.state.progressText = '';
         this.state.progressValue = null;
+        this.state.renderProgressText = '';
+        this.state.renderProgressValue = null;
         if (this.overlaySession && this.closing) {
             this.overlaySession.cancelSurfaceClose();
         }
@@ -292,6 +302,8 @@ export class SaveMessagesDialog {
         this.pngExportAbort?.abort();
         if (this.state.format === 'png' && this.state.saving) {
             this.state.progressText = this.getLabel('pngExportCancelled', 'PNG export cancelled');
+            this.state.renderProgressText = '';
+            this.state.renderProgressValue = null;
             this.render();
         }
     }
@@ -308,6 +320,8 @@ export class SaveMessagesDialog {
         this.state.saving = true;
         this.state.progressText = '';
         this.state.progressValue = null;
+        this.state.renderProgressText = '';
+        this.state.renderProgressValue = null;
         this.render();
         const pngAbort = format === 'png' ? new AbortController() : null;
         this.pngExportAbort = pngAbort;
@@ -356,9 +370,12 @@ export class SaveMessagesDialog {
         const saveLabel = this.state.saving ? this.getLabel('saving', 'Saving') : this.getLabel('btnSave', 'Save');
         const cancelLabel = this.getLabel('btnCancel', 'Cancel');
         const countLabel = this.getSelectedCountLabel();
-        const showProgress = this.state.format === 'png' && this.state.saving && Boolean(this.state.progressText);
+        const showProgress = this.state.format === 'png'
+            && this.state.saving
+            && (Boolean(this.state.progressText) || Boolean(this.state.renderProgressText));
         const showCancel = this.state.format === 'png' && this.state.saving;
         const totalProgressValue = this.state.progressValue ?? 0;
+        const renderProgressValue = this.state.renderProgressValue ?? 0;
 
         return `
 <div class="panel-window panel-window--dialog panel-window--save workflow-dialog" role="dialog" aria-modal="true" aria-label="${escapeHtml(title)}" aria-busy="${this.state.saving ? 'true' : 'false'}">
@@ -386,6 +403,13 @@ export class SaveMessagesDialog {
     </div>
     ${showProgress ? `
     <div class="progress-panel">
+      ${this.state.renderProgressText ? `
+      <div class="progress-row">
+        <div class="progress-label">${escapeHtml(this.state.renderProgressText)}</div>
+        <div class="progress-track" role="progressbar" aria-label="${escapeHtml(this.getLabel('pngExportRenderProgressLabel', 'Image rendering'))}" aria-valuemin="0" aria-valuemax="100" aria-valuenow="${renderProgressValue}">
+          <div class="progress-fill" style="width: ${renderProgressValue}%"></div>
+        </div>
+      </div>` : ''}
       <div class="progress-row">
         <div class="progress-label workflow-dialog__status" data-tone="muted" role="status" aria-live="polite">${escapeHtml(this.state.progressText)}</div>
         <div class="progress-track" role="progressbar" aria-label="${escapeHtml(this.getLabel('pngExportTotalProgressLabel', 'Total export'))}" aria-valuemin="0" aria-valuemax="100" aria-valuenow="${totalProgressValue}">
@@ -428,8 +452,42 @@ export class SaveMessagesDialog {
     }
 
     private applyPngProgress(event: ExportProgressEvent): void {
-        this.state.progressValue = event.total > 0 ? Math.round((event.completed / event.total) * 100) : null;
         this.state.progressText = this.getPngProgressLabel(event.phase, event.completed, event.total, event.filename);
+        if (event.render) {
+            const render = retainMonotonicImageExportProgress(
+                this.state.renderProgressValue === null
+                    ? null
+                    : {
+                        label: this.state.renderProgressText,
+                        value: this.state.renderProgressValue,
+                    },
+                presentImageExportProgress(event.render, (key, substitutions) => (
+                    substitutions ? t(key, substitutions) : t(key)
+                )),
+            );
+            this.state.renderProgressText = render.label;
+            this.state.renderProgressValue = render.value;
+            this.state.progressValue = Math.round(render.value * 0.9);
+            return;
+        }
+
+        this.state.renderProgressText = '';
+        this.state.renderProgressValue = null;
+        switch (event.phase) {
+            case 'zipping':
+                this.state.progressValue = 95;
+                return;
+            case 'downloading':
+                this.state.progressValue = 98;
+                return;
+            case 'done':
+                this.state.progressValue = 100;
+                return;
+            default:
+                this.state.progressValue = event.total > 0
+                    ? Math.round((event.completed / event.total) * 100)
+                    : null;
+        }
     }
 
     private getPngProgressLabel(phase: string, completed: number, total: number, filename?: string): string {

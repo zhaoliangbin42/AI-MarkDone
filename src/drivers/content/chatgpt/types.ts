@@ -9,10 +9,23 @@ export type ChatGPTConversationRound = {
     assistantMessageId: string | null;
 };
 
-export type ChatGPTConversationSnapshot = {
+type ChatGPTConversationSnapshotBase = {
     conversationId: string;
     buildFingerprint: string | null;
     rounds: ChatGPTConversationRound[];
-    source: 'runtime-bridge' | 'react-props' | 'dom';
     capturedAt: number;
+};
+
+export type ChatGPTConversationSnapshotCandidate = ChatGPTConversationSnapshotBase & {
+    source: unknown;
+    origin: unknown;
+    coverage: unknown;
+    branchKey: unknown;
+};
+
+export type ChatGPTConversationSnapshot = ChatGPTConversationSnapshotBase & {
+    source: 'runtime-bridge';
+    origin: 'conversation-graph';
+    coverage: 'complete';
+    branchKey: string;
 };

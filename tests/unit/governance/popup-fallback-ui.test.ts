@@ -1,10 +1,21 @@
-import { describe, expect, it } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 
 function readPopupHtml(): string {
     return readFileSync(resolve(process.cwd(), 'src/popup/popup.html'), 'utf-8');
 }
+
+function readLocaleMessages(locale: 'en' | 'zh_CN'): Record<string, { message?: string }> {
+    return JSON.parse(
+        readFileSync(resolve(process.cwd(), `public/_locales/${locale}/messages.json`), 'utf-8'),
+    );
+}
+
+afterEach(() => {
+    vi.unstubAllGlobals();
+    document.body.innerHTML = '';
+});
 
 describe('fallback popup UI', () => {
     it('keeps the unsupported-site popup on the tokenized card layout instead of a bare link list', () => {
@@ -58,6 +69,55 @@ describe('fallback popup UI', () => {
         expect(html).toContain('data-i18n-attr="alt:popupLogoAlt"');
         expect(script).toContain('i18n.getMessage');
         expect(script).toContain("document.documentElement.lang");
+    });
+
+    it('honors the saved language instead of always using the browser UI language', async () => {
+        const script = readFileSync(resolve(process.cwd(), 'src/popup/popup.js'), 'utf-8');
+        const en = readLocaleMessages('en');
+        const zh = readLocaleMessages('zh_CN');
+        const stored = {
+            app_settings: {
+                language: 'zh_CN',
+                appearance: {},
+            },
+        };
+
+        document.body.innerHTML = `
+            <div data-i18n="popupSupportedSites">Supported sites</div>
+            <img data-i18n-attr="alt:popupLogoAlt" alt="AI-MarkDone logo">
+        `;
+        vi.stubGlobal('browser', {
+            i18n: {
+                getMessage: (key: string) => en[key]?.message ?? '',
+                getUILanguage: () => 'en',
+            },
+            runtime: {
+                getURL: (path: string) => path,
+            },
+            storage: {
+                sync: {
+                    get: (_key: string, callback: (value: typeof stored) => void) => {
+                        callback(stored);
+                        return Promise.resolve(stored);
+                    },
+                },
+            },
+        });
+        vi.stubGlobal(
+            'fetch',
+            vi.fn(async (url: string) => ({
+                ok: String(url).includes('_locales/zh_CN/messages.json'),
+                json: async () => zh,
+            })),
+        );
+
+        new Function(script)();
+
+        await vi.waitFor(() => {
+            expect(document.querySelector('[data-i18n]')?.textContent).toBe('支持的网站');
+        });
+        expect(document.querySelector('img')?.getAttribute('alt')).toBe('AI-MarkDone 标志');
+        expect(document.documentElement.lang).toBe('zh-CN');
     });
 
     it('keeps the popup usable at the documented 320px minimum width', () => {

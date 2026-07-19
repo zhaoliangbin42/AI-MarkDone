@@ -97,8 +97,9 @@ export async function exportTurnsPng(
             signal: options.signal,
             onProgress: (current) => options.onProgress?.({
                 phase: 'rendering',
-                completed: current.completed ?? 0,
-                total: current.total ?? 1,
+                completed: current.phase === 'finalizing' ? 1 : 0,
+                total: 1,
+                render: current,
             }),
         });
         throwIfAborted(options.signal);

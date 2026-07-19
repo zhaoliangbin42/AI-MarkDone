@@ -184,11 +184,22 @@ describe('SaveMessagesDialog', () => {
         let resolveExport!: () => void;
         vi.mocked(exportTurnsPng).mockImplementationOnce(async (_turns, _indices, _metadata, options: any) => {
             expect(options.png).toEqual({ width: 800, pixelRatio: 1 });
-            options.onProgress?.({ phase: 'rendering', completed: 1, total: 2, filename: 'message-001.png' });
+            options.onProgress?.({
+                phase: 'rendering',
+                completed: 0,
+                total: 1,
+                render: { phase: 'rasterizing', completed: 1, total: 5 },
+            });
+            options.onProgress?.({
+                phase: 'rendering',
+                completed: 0,
+                total: 1,
+                render: { phase: 'preparing' },
+            });
             await new Promise<void>((resolve) => {
                 resolveExport = resolve;
             });
-            options.onProgress?.({ phase: 'done', completed: 2, total: 2 });
+            options.onProgress?.({ phase: 'done', completed: 1, total: 1 });
             return { ok: true, noop: false };
         });
 
@@ -207,11 +218,11 @@ describe('SaveMessagesDialog', () => {
         await flushUi();
 
         const progressBars = shadow.querySelectorAll('[role="progressbar"]');
-        expect(progressBars).toHaveLength(1);
-        expect(progressBars[0].getAttribute('aria-label')).toBe('Total export');
-        expect(progressBars[0].getAttribute('aria-valuenow')).toBe('50');
-        expect(shadow.textContent).toContain('1/2');
-        expect(shadow.textContent).toContain('message-001.png');
+        expect(progressBars).toHaveLength(2);
+        expect(progressBars[0].getAttribute('aria-label')).toBe('Image rendering');
+        expect(Number(progressBars[0].getAttribute('aria-valuenow'))).toBeGreaterThan(0);
+        expect(progressBars[1].getAttribute('aria-label')).toBe('Total export');
+        expect(shadow.textContent).toContain('2/5');
         expect(shadow.querySelector<HTMLButtonElement>('[data-action="cancel-png-export"]')?.textContent).toBe('Cancel');
 
         resolveExport();
@@ -229,7 +240,6 @@ describe('SaveMessagesDialog', () => {
                 phase: 'rendering',
                 completed: 0,
                 total: 2,
-                filename: 'message-001.png',
             });
             await new Promise<void>((resolve) => {
                 resolveExport = resolve;
@@ -265,7 +275,6 @@ describe('SaveMessagesDialog', () => {
                 phase: 'rendering',
                 completed: 0,
                 total: 2,
-                filename: 'message-001.png',
             });
             await new Promise<void>((resolve) => {
                 resolveExport = resolve;
@@ -316,7 +325,12 @@ describe('SaveMessagesDialog', () => {
         const adapter = { getPlatformId: () => 'chatgpt' } as any;
         let resolveExport!: () => void;
         vi.mocked(exportTurnsPng).mockImplementationOnce(async (_turns, _indices, _metadata, options: any) => {
-            options.onProgress?.({ phase: 'rendering', completed: 1, total: 2, filename: 'message-001.png' });
+            options.onProgress?.({
+                phase: 'rendering',
+                completed: 0,
+                total: 1,
+                render: { phase: 'encoding', completed: 1, total: 2 },
+            });
             await new Promise<void>((resolve) => {
                 resolveExport = resolve;
             });
@@ -332,8 +346,8 @@ describe('SaveMessagesDialog', () => {
         shadow.querySelector<HTMLButtonElement>('[data-action="save-turns"]')!.click();
         await flushUi();
 
-        expect(shadow.textContent).toContain('正在渲染 1/2');
-        expect(shadow.textContent).toContain('message-001.png');
+        expect(shadow.textContent).toContain('正在编码第 2/2 段');
+        expect(shadow.querySelectorAll('[role="progressbar"]')).toHaveLength(2);
 
         resolveExport();
         await flushUi();

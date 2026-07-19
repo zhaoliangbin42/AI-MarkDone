@@ -23,6 +23,7 @@ import { normalizeGlobalFontSizePx, normalizeThemeAccentColor } from '../../core
 import { areAppearanceSnapshotsEqual, createAppearanceSnapshot, type AppearanceSnapshot } from '../../style/appearance';
 import { ensurePageTokens } from '../../style/pageTokens';
 import type { UserThemeOverrides } from '../../style/tokens';
+import { setLocale } from '../../ui/content/components/i18n';
 
 export type FormulaOnlyPlatformId = 'gemini' | 'claude' | 'deepseek';
 
@@ -222,6 +223,7 @@ export class FormulaOnlyRuntime {
         this.settingsClient.init();
         const initialSettings = this.settingsClient.getCached();
         const initialOverrides = resolveAppearanceOverrides(initialSettings);
+        void setLocale(initialSettings?.language ?? DEFAULT_SETTINGS.language);
         this.applySettings(initialSettings);
         this.themeManager.init(this.panelAdapter);
         this.unsubscribeTheme = this.themeManager.subscribe((theme) => {
@@ -231,6 +233,7 @@ export class FormulaOnlyRuntime {
             ));
         });
         this.unsubscribeSettings = this.settingsClient.subscribe((snap) => {
+            void setLocale(snap.settings.language);
             this.applySettings(snap.settings);
             this.applyAppearance(createAppearanceSnapshot(
                 this.appearance?.theme ?? 'light',

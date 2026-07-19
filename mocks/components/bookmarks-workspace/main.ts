@@ -174,6 +174,18 @@ async function showSettingsAndCloudBackup(host: HTMLElement): Promise<void> {
     cloudBackup?.scrollIntoView({ block: 'center' });
 }
 
+async function showInfoTab(host: HTMLElement, tabId: 'about' | 'feedback' | 'mappamory'): Promise<void> {
+    const shadow = host.shadowRoot!;
+    shadow.querySelector<HTMLButtonElement>(`.tab-btn[data-tab-id="${tabId}"]`)?.click();
+    await nextTask();
+    const panel = shadow.querySelector<HTMLElement>(`.${tabId}-panel`);
+    if (tabId === 'feedback') {
+        panel?.querySelector<HTMLElement>('.community-card')?.scrollIntoView({ block: 'start' });
+    } else {
+        panel?.scrollTo({ top: 0 });
+    }
+}
+
 async function applyVariant(next: VisualHarnessVariant): Promise<void> {
     await closePanel();
     stepper?.dispose();
@@ -202,7 +214,11 @@ async function applyVariant(next: VisualHarnessVariant): Promise<void> {
     stepper.setPageBookmarked(true);
 
     const host = await openFromPageControl();
-    if (next.theme === 'dark' || next.locale === 'zh_CN') {
+    if (window.innerWidth >= 1200) {
+        await showInfoTab(host, next.theme === 'light' ? 'feedback' : 'mappamory');
+    } else if (next.locale === 'zh_CN') {
+        await showInfoTab(host, next.theme === 'light' ? 'feedback' : 'mappamory');
+    } else if (next.theme === 'dark') {
         await showSettingsAndCloudBackup(host);
     }
 }

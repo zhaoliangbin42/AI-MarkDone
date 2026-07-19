@@ -99,5 +99,83 @@ describe('i18n', () => {
 
         unsub();
     });
-});
 
+    it('keeps the latest locale when an older catalog request finishes last', async () => {
+        vi.resetModules();
+
+        const en = readLocaleJson('en');
+        const zh = readLocaleJson('zh_CN');
+        let resolveZhFetch!: (response: any) => void;
+        const delayedZhFetch = new Promise<any>((resolve) => {
+            resolveZhFetch = resolve;
+        });
+
+        vi.stubGlobal(
+            'fetch',
+            vi.fn((url: any) => {
+                if (String(url).includes('_locales/zh_CN/messages.json')) {
+                    return delayedZhFetch;
+                }
+                if (String(url).includes('_locales/en/messages.json')) {
+                    return Promise.resolve({ ok: true, json: async () => en } as any);
+                }
+                return Promise.resolve({ ok: false, json: async () => ({}) } as any);
+            }),
+        );
+
+        const { getEffectiveLocale, getLocale, setLocale, subscribeLocaleChange, t } = await import(
+            '@/ui/content/components/i18n'
+        );
+        const seen: string[] = [];
+        const unsubscribe = subscribeLocaleChange((locale) => seen.push(locale));
+
+        const olderRequest = setLocale('zh_CN');
+        const latestRequest = setLocale('en');
+        await latestRequest;
+        resolveZhFetch({ ok: true, json: async () => zh });
+        await olderRequest;
+
+        expect(getLocale()).toBe('en');
+        expect(getEffectiveLocale()).toBe('en');
+        expect(t('btnClose')).toBe('Close');
+        expect(document.documentElement.lang).toBe('en');
+        expect(seen).toEqual(['en']);
+
+        unsubscribe();
+    });
+
+    it('waits for the requested catalog when the same locale is selected while it is still loading', async () => {
+        vi.resetModules();
+
+        const en = readLocaleJson('en');
+        const zh = readLocaleJson('zh_CN');
+        let resolveZhFetch!: (response: any) => void;
+        const delayedZhFetch = new Promise<any>((resolve) => {
+            resolveZhFetch = resolve;
+        });
+        vi.stubGlobal(
+            'fetch',
+            vi.fn((url: any) => {
+                if (String(url).includes('_locales/zh_CN/messages.json')) {
+                    return delayedZhFetch;
+                }
+                return Promise.resolve({ ok: true, json: async () => en } as any);
+            }),
+        );
+
+        const { setLocale, t } = await import('@/ui/content/components/i18n');
+        await setLocale('en');
+
+        const firstRequest = setLocale('zh_CN');
+        let repeatedRequestSettled = false;
+        const repeatedRequest = setLocale('zh_CN').then(() => {
+            repeatedRequestSettled = true;
+        });
+        await Promise.resolve();
+
+        expect(repeatedRequestSettled).toBe(false);
+        resolveZhFetch({ ok: true, json: async () => zh });
+        await Promise.all([firstRequest, repeatedRequest]);
+        expect(t('btnClose')).toBe('关闭');
+    });
+});

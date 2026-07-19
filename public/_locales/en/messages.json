@@ -691,6 +691,30 @@
         "message": "Rendering $1: $2",
         "description": "Message for pngExportRenderingWithFilename"
     },
+    "pngExportStagePreparing": {
+        "message": "Preparing image",
+        "description": "PNG render stage shown while preparing the image"
+    },
+    "pngExportStageCompiling": {
+        "message": "Compiling Markdown",
+        "description": "PNG render stage shown while compiling Markdown"
+    },
+    "pngExportStageLayout": {
+        "message": "Laying out image",
+        "description": "PNG render stage shown while measuring and laying out the image"
+    },
+    "pngExportStageRasterizing": {
+        "message": "Rendering segment $1",
+        "description": "PNG render stage and current segment count"
+    },
+    "pngExportStageEncoding": {
+        "message": "Encoding segment $1",
+        "description": "PNG encoding stage and current segment count"
+    },
+    "pngExportStageFinalizing": {
+        "message": "Finalizing image",
+        "description": "PNG render stage shown while finalizing the image"
+    },
     "pngExportZipping": {
         "message": "Packaging ZIP $1",
         "description": "Message for pngExportZipping"
@@ -714,6 +738,10 @@
     "pngExportCancelled": {
         "message": "PNG export cancelled",
         "description": "Message shown when PNG export is cancelled"
+    },
+    "pngExportRenderProgressLabel": {
+        "message": "Image rendering",
+        "description": "Accessible label for the detailed PNG rendering progress bar"
     },
     "pngExportTotalProgressLabel": {
         "message": "Total export",
@@ -1043,12 +1071,20 @@
         "message": "When reading older messages, sending a new message brings you back to your reading position.",
         "description": "Message for chatgptRestorePositionAfterSendDesc"
     },
+    "chatgptAtomicMarkdownCopyLabel": {
+        "message": "Copy selected content as Markdown",
+        "description": "Message for chatgptAtomicMarkdownCopyLabel"
+    },
+    "chatgptAtomicMarkdownCopyDesc": {
+        "message": "When a complete formula, code block, table, heading, list item, or other supported unit is selected on ChatGPT, Ctrl/Cmd+C copies canonical Markdown. Partial selections keep ChatGPT's native copy.",
+        "description": "Message for chatgptAtomicMarkdownCopyDesc"
+    },
     "chatgptInputEnhancementLabel": {
         "message": "Input enhancement",
         "description": "Settings label for making ChatGPT input enhancements available"
     },
     "chatgptInputEnhancementDesc": {
-        "message": "Show the input enhancement button in ChatGPT. Turning this off hides the button and pauses every enhancement without erasing its preferences.",
+        "message": "Show the input enhancement button in ChatGPT. When enabled, the composer supports lightweight Markdown syntax and live formula rendering.",
         "description": "Settings description for ChatGPT input enhancement availability"
     },
     "chatgptInputEnhancementButton": {
@@ -1735,6 +1771,22 @@
         "message": "I am an engineering graduate student. I do not work directly in computer science, but I enjoy tinkering with AI tools in my spare time. Feel free to follow me.",
         "description": "Message for aboutProfileBio"
     },
+    "aboutHeroEyebrow": {
+        "message": "Independent project",
+        "description": "Eyebrow shown above the About page introduction"
+    },
+    "aboutHeroTitle": {
+        "message": "Built from real workflow friction",
+        "description": "Title of the About page introduction"
+    },
+    "aboutHeroDesc": {
+        "message": "AI-MarkDone is a personal project for making long AI conversations easier to read, organize, and reuse.",
+        "description": "Summary shown in the About page introduction"
+    },
+    "aboutProfileRole": {
+        "message": "Creator of AI-MarkDone",
+        "description": "Role shown beside the creator profile"
+    },
     "aboutWebsiteTitle": {
         "message": "AI-MarkDone website",
         "description": "Message for aboutWebsiteTitle"
@@ -1747,29 +1799,89 @@
         "message": "Visit website",
         "description": "Message for aboutWebsiteButton"
     },
-    "mappamoryPromoEyebrow": {
-        "message": "My iOS app",
-        "description": "Message for mappamoryPromoEyebrow"
+    "mappamoryHeroEyebrow": {
+        "message": "Mappamory · iPhone app",
+        "description": "Eyebrow shown above the Mappamory introduction"
     },
-    "mappamoryPromoTitle": {
-        "message": "Mappamory",
-        "description": "Message for mappamoryPromoTitle"
+    "mappamoryHeroTitle": {
+        "message": "People, places, and the records that connect them",
+        "description": "Title of the Mappamory introduction"
     },
-    "mappamoryPromoDesc": {
-        "message": "A local-first friends map contact book for remembering the hometowns, schools, workplaces, and meaningful places of people you care about. Before June 30, message me on X to get one year of membership. I hope you like it.",
-        "description": "Message for mappamoryPromoDesc"
+    "mappamoryHeroDesc": {
+        "message": "Mappamory is a map-based contacts app for iPhone. Save the places connected to people you care about, then return through the map or a person’s profile.",
+        "description": "Summary shown in the Mappamory introduction"
     },
-    "mappamoryPromoXLink": {
-        "message": "X: https://x.com/Mappamory",
-        "description": "Message for mappamoryPromoXLink"
-    },
-    "mappamoryPromoButton": {
+    "mappamoryAppStoreButton": {
         "message": "View on App Store",
-        "description": "Message for mappamoryPromoButton"
+        "description": "Label for the Mappamory App Store link"
     },
-    "mappamoryPromoImageAlt": {
-        "message": "Mappamory app preview",
-        "description": "Message for mappamoryPromoImageAlt"
+    "mappamoryWebsiteButton": {
+        "message": "Visit Mappamory website",
+        "description": "Label for the Mappamory website link"
+    },
+    "mappamoryPosterAlt": {
+        "message": "Mappamory app poster with a friend map and iPhone preview",
+        "description": "Alternative text for the Mappamory promotional poster"
+    },
+    "mappamoryStoryEyebrow": {
+        "message": "A map-based contacts app",
+        "description": "Eyebrow shown above the Mappamory product story"
+    },
+    "mappamoryStoryTitle": {
+        "message": "Remember people through the places you share",
+        "description": "Title of the Mappamory product story"
+    },
+    "mappamoryStoryDesc": {
+        "message": "Ordinary contacts tell you how to reach someone. Mappamory also helps you remember where your connection happened and what you want to keep from it.",
+        "description": "Description of the Mappamory product story"
+    },
+    "mappamoryFeatureMapTitle": {
+        "message": "See your contacts on a map",
+        "description": "Title of the Mappamory map feature"
+    },
+    "mappamoryFeatureMapDesc": {
+        "message": "Browse people and places together, then move from an avatar or map cluster into the records behind it.",
+        "description": "Description of the Mappamory map feature"
+    },
+    "mappamoryFeaturePeopleTitle": {
+        "message": "Return through people or places",
+        "description": "Title of the Mappamory people and places feature"
+    },
+    "mappamoryFeaturePeopleDesc": {
+        "message": "Each record connects one or more people with a place, date, notes, tags, and optional photos—so the same memory can be found from either side.",
+        "description": "Description of the Mappamory people and places feature"
+    },
+    "mappamoryFeatureLocalTitle": {
+        "message": "Keep your data local by default",
+        "description": "Title of the Mappamory local data feature"
+    },
+    "mappamoryFeatureLocalDesc": {
+        "message": "No account is required. Your data stays on your iPhone by default, with local export, backup, preview, and restore when you need them.",
+        "description": "Description of the Mappamory local data feature"
+    },
+    "mappamoryProofEyebrow": {
+        "message": "Inside the app",
+        "description": "Eyebrow shown above the Mappamory interface preview"
+    },
+    "mappamoryProofTitle": {
+        "message": "See every record easily on the map",
+        "description": "Title shown beside the Mappamory interface preview"
+    },
+    "mappamoryProofDesc": {
+        "message": "Open a place on the map to see the people and records connected to it. Photos, dates, and notes stay with the record instead of being scattered across different apps.",
+        "description": "Description shown beside the Mappamory interface preview"
+    },
+    "mappamoryPrivacyTitle": {
+        "message": "Save places. Never track people.",
+        "description": "Title of the Mappamory privacy note"
+    },
+    "mappamoryPrivacyDesc": {
+        "message": "Mappamory saves the places you choose for your own records. It is not a live-location service and does not track other people.",
+        "description": "Description of the Mappamory privacy boundary"
+    },
+    "mappamoryProofAlt": {
+        "message": "Mappamory map and record detail screen",
+        "description": "Alternative text for the Mappamory interface preview"
     },
     "supportContactEyebrow": {
         "message": "Support",
@@ -1790,6 +1902,66 @@
     "supportContactCopyEmail": {
         "message": "Copy Email",
         "description": "Message for supportContactCopyEmail"
+    },
+    "feedbackHeroEyebrow": {
+        "message": "Community and support",
+        "description": "Eyebrow shown above the Feedback page introduction"
+    },
+    "feedbackHeroTitle": {
+        "message": "Help shape AI-MarkDone",
+        "description": "Title of the Feedback page introduction"
+    },
+    "feedbackHeroDesc": {
+        "message": "Share what works, what gets in your way, and what would make the extension more useful in your daily workflow.",
+        "description": "Summary shown in the Feedback page introduction"
+    },
+    "communityCardEyebrow": {
+        "message": "Scan to join",
+        "description": "Eyebrow shown above the community group cards"
+    },
+    "communityCardTitle": {
+        "message": "Join the AI-MarkDone community",
+        "description": "Title shown above the community group cards"
+    },
+    "communityCardDesc": {
+        "message": "Join a group to share feedback, report issues, and compare workflows with other AI-MarkDone users.",
+        "description": "Description shown above the community group cards"
+    },
+    "communityQQTitle": {
+        "message": "QQ group",
+        "description": "Title of the QQ community group card"
+    },
+    "communityQQMeta": {
+        "message": "Group 962705835",
+        "description": "Group number shown on the QQ community group card"
+    },
+    "communityQQHint": {
+        "message": "Open QQ and scan the code to join.",
+        "description": "Scan guidance shown on the QQ community group card"
+    },
+    "communityQQAlt": {
+        "message": "AI-MarkDone QQ group invite QR code, group 962705835",
+        "description": "Alternative text for the QQ community invite image"
+    },
+    "communityXiaohongshuTitle": {
+        "message": "Xiaohongshu group",
+        "description": "Title of the Xiaohongshu community group card"
+    },
+    "communityXiaohongshuMeta": {
+        "message": "Invite valid through August 14, 2026",
+        "description": "Expiry notice shown on the Xiaohongshu community group card"
+    },
+    "communityXiaohongshuHint": {
+        "message": "Open Xiaohongshu and scan the code. If it has expired, follow my Xiaohongshu account and join the group through my profile.",
+        "description": "Scan and fallback guidance for the Xiaohongshu community group"
+    },
+    "communityXiaohongshuAlt": {
+        "message": "AI-MarkDone Xiaohongshu group invite QR code",
+        "description": "Alternative text for the Xiaohongshu community invite image"
+    },
+    "communityPrivacyNote": {
+        "message": "Joining is optional and group members may see your public profile. You can also follow my Xiaohongshu account and enter the group through my profile.",
+        "description": "Privacy note shown below the community group cards"
     },
     "selectFolderLabel": {
         "message": "Select folder",
@@ -1886,6 +2058,10 @@
     "tabAbout": {
         "message": "About",
         "description": "Message for tabAbout"
+    },
+    "tabMappamory": {
+        "message": "Mappamory",
+        "description": "Message for tabMappamory"
     },
     "tabFaq": {
         "message": "FAQ",

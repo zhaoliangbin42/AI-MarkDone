@@ -1,12 +1,13 @@
 import { describe, expect, it, vi } from 'vitest';
 import { BookmarksPanelTabWorkflow } from '@/ui/content/bookmarks/workflows/BookmarksPanelTabWorkflow';
 
-function createContents(): Record<'bookmarks' | 'settings' | 'changelog' | 'about' | 'faq' | 'sponsor' | 'feedback', HTMLElement> {
+function createContents(): Record<'bookmarks' | 'settings' | 'changelog' | 'about' | 'mappamory' | 'faq' | 'sponsor' | 'feedback', HTMLElement> {
     return {
         bookmarks: document.createElement('section'),
         settings: document.createElement('section'),
         changelog: document.createElement('section'),
         about: document.createElement('section'),
+        mappamory: document.createElement('section'),
         faq: document.createElement('section'),
         sponsor: document.createElement('section'),
         feedback: document.createElement('section'),
@@ -35,6 +36,7 @@ describe('BookmarksPanelTabWorkflow', () => {
             'changelog',
             'faq',
             'about',
+            'mappamory',
             'feedback',
         ]);
         expect(model.tabs.some((tab) => tab.id === 'sponsor')).toBe(false);

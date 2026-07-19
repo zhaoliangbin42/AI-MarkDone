@@ -4,12 +4,13 @@ import {
     fileTextIcon,
     infoIcon,
     messageSquareTextIcon,
+    pinIcon,
     sendIcon,
     settingsIcon,
 } from '../../../../assets/icons';
 import type { BookmarksPanelTabSpec } from '../ui/BookmarksPanelShell';
 
-export type BookmarksPanelTabId = 'bookmarks' | 'settings' | 'changelog' | 'about' | 'faq' | 'sponsor' | 'feedback';
+export type BookmarksPanelTabId = 'bookmarks' | 'settings' | 'changelog' | 'about' | 'mappamory' | 'faq' | 'sponsor' | 'feedback';
 
 type BookmarksScrollPort = {
     getTreeScrollTop(): number;
@@ -31,6 +32,7 @@ const TAB_DEFINITIONS: readonly TabDefinition[] = [
     { id: 'changelog', labelKey: 'tabChangelog', labelFallback: 'Changelog', icon: fileTextIcon, panelClassName: 'changelog-panel', scrollSelector: '.changelog-panel' },
     { id: 'faq', labelKey: 'tabFaq', labelFallback: 'FAQ', icon: messageSquareTextIcon, panelClassName: 'faq-panel', scrollSelector: '.faq-panel' },
     { id: 'about', labelKey: 'tabAbout', labelFallback: 'About', icon: infoIcon, panelClassName: 'about-panel', scrollSelector: '.about-panel' },
+    { id: 'mappamory', labelKey: 'tabMappamory', labelFallback: 'Mappamory', icon: pinIcon, panelClassName: 'mappamory-panel', scrollSelector: '.mappamory-panel' },
     { id: 'sponsor', labelKey: 'tabSponsor', labelFallback: 'Buy Me Coffee', icon: coffeeIcon, panelClassName: 'sponsor-panel', scrollSelector: '.sponsor-panel' },
     { id: 'feedback', labelKey: 'tabFeedback', labelFallback: 'Feedback', icon: sendIcon, panelClassName: 'feedback-panel', scrollSelector: '.feedback-panel' },
 ];
@@ -48,6 +50,7 @@ export class BookmarksPanelTabWorkflow {
         settings: 0,
         changelog: 0,
         about: 0,
+        mappamory: 0,
         faq: 0,
         sponsor: 0,
         feedback: 0,

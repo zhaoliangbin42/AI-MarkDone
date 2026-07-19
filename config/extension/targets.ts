@@ -9,6 +9,7 @@ export const extensionTargets = {
         backgroundKind: 'service_worker',
         hostPermissionPlacement: 'host_permissions',
         webAccessibleResourcesStyle: 'mv3',
+        minimumChromeVersion: '111',
     },
     firefox: {
         target: 'firefox',
@@ -20,7 +21,7 @@ export const extensionTargets = {
         webAccessibleResourcesStyle: 'mv2',
         gecko: {
             id: 'ai-markdone@zhaoliangbin.com',
-            strictMinVersion: '109.0',
+            strictMinVersion: '128.0',
             dataCollectionPermissions: {
                 required: ['none'],
             },

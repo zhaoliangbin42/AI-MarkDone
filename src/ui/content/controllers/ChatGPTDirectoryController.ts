@@ -1,16 +1,15 @@
 import type { Theme } from '../../../core/types/theme';
 import type { SiteAdapter } from '../../../drivers/content/adapters/base';
 import { RouteWatcher } from '../../../drivers/content/injection/routeWatcher';
-import type { ChatGPTConversationEngine } from '../../../drivers/content/chatgpt/ChatGPTConversationEngine';
-import { subscribeChatGPTDomRoundChanges } from '../../../drivers/content/chatgpt/domConversationDiscovery';
-import type { ChatGPTConversationRound, ChatGPTConversationSnapshot } from '../../../drivers/content/chatgpt/types';
+import { getChatGPTConversationIndex, type ChatGPTConversationIndex } from '../../../drivers/content/chatgpt/ChatGPTConversationIndex';
+import type { ChatGPTConversationRound } from '../../../drivers/content/chatgpt/types';
 import type { ChatGPTDirectoryMode, ChatGPTDirectoryPromptLabelMode } from '../../../core/settings/types';
 import { ChatGPTDirectoryRail } from '../chatgptDirectory/ChatGPTDirectoryRail';
 import {
     collectChatGPTRoundPositions,
     navigateChatGPTDirectoryTarget,
+    resolveChatGPTActivePosition,
     type ChatGPTRoundPosition,
-    type ChatGPTSkeletonAnchor,
 } from '../chatgptDirectory/navigation';
 import {
     areAppearanceSnapshotsEqual,
@@ -19,34 +18,13 @@ import {
 } from '../../../style/appearance';
 import { AIMD_VIEWPORT_RESIZE_IDLE_EVENT } from './ViewportResizeSuspendController';
 import { subscribeLocaleChange, t } from '../components/i18n';
+import { isChatGPTConversationPage } from '../../../drivers/content/chatgpt/chatgptRoute';
 
 type DirectoryBookmarksState = {
     refreshPositionsForUrl?: (url: string) => Promise<void>;
     isPositionBookmarked?: (url: string, position: number) => boolean;
     subscribe?: (listener: () => void) => () => void;
 };
-
-function isChatGPTConversationPage(url: string): boolean {
-    try {
-        const parsed = new URL(url);
-        return /(?:^|\/)c\/[0-9a-f-]{8,}/i.test(parsed.pathname);
-    } catch {
-        return false;
-    }
-}
-
-function getChatGPTConversationId(url: string): string | null {
-    try {
-        const parsed = new URL(url);
-        return parsed.pathname.match(/(?:^|\/)c\/([0-9a-f-]{8,})/i)?.[1] ?? null;
-    } catch {
-        return url.match(/(?:^|\/)c\/([0-9a-f-]{8,})/i)?.[1] ?? null;
-    }
-}
-
-function hasChatGPTConversationDom(): boolean {
-    return Boolean(document.querySelector('[data-turn-id-container] [data-turn]'));
-}
 
 function writeDebugState(patch: Record<string, string | boolean | number | null | undefined>): void {
     try {
@@ -69,12 +47,6 @@ function getDirectoryMessageFallback(position: number): string {
     return !label || label === key ? `Message ${position}` : label;
 }
 
-function isLowQualityRoundPrompt(prompt: string | null | undefined, quality?: 'real' | 'fallback'): boolean {
-    if (quality === 'real') return false;
-    if (quality === 'fallback') return true;
-    return isLowQualityPrompt(prompt);
-}
-
 function getDirectoryBookmarkUrl(): string {
     try {
         const parsed = new URL(window.location.href);
@@ -87,28 +59,22 @@ function getDirectoryBookmarkUrl(): string {
 
 export class ChatGPTDirectoryController {
     private adapter: SiteAdapter;
-    private engine: ChatGPTConversationEngine;
+    private conversationIndex: ChatGPTConversationIndex | null = null;
     private bookmarksState: DirectoryBookmarksState | null;
     private rail: ChatGPTDirectoryRail | null = null;
     private appearance: AppearanceSnapshot = createAppearanceSnapshot('light');
     private enabled = true;
     private displayMode: ChatGPTDirectoryMode = 'preview';
     private promptLabelMode: ChatGPTDirectoryPromptLabelMode = 'head';
-    private snapshot: ChatGPTConversationSnapshot | null = null;
     private routeWatcher: RouteWatcher | null = null;
     private scrollRoot: HTMLElement | null = null;
-    private skeletonAnchors: ChatGPTSkeletonAnchor[] = [];
     private roundPositions: ChatGPTRoundPosition[] = [];
     private activePosition = 0;
     private rafId: number | null = null;
     private rebuildTimer: number | null = null;
     private pendingRebuildReasons = new Set<string>();
-    private missingPromptHydrationPromise: Promise<void> | null = null;
-    private pendingMissingPromptHydrationSignature: string | null = null;
-    private requestedMissingPromptHydrationSignatures = new Set<string>();
     private snapshotRetryTimer: number | null = null;
     private snapshotRetryCount = 0;
-    private unsubscribeEngine: (() => void) | null = null;
     private unsubscribeBookmarks: (() => void) | null = null;
     private unsubscribeRoundChanges: (() => void) | null = null;
     private unsubscribeLocale: (() => void) | null = null;
@@ -116,9 +82,8 @@ export class ChatGPTDirectoryController {
     private globalScrollFallbacksBound = false;
     private viewportResizeSuspendBound = false;
 
-    constructor(adapter: SiteAdapter, engine: ChatGPTConversationEngine, bookmarksState: DirectoryBookmarksState | null = null) {
+    constructor(adapter: SiteAdapter, bookmarksState: DirectoryBookmarksState | null = null) {
         this.adapter = adapter;
-        this.engine = engine;
         this.bookmarksState = bookmarksState;
     }
 
@@ -133,19 +98,15 @@ export class ChatGPTDirectoryController {
             return;
         }
         this.initialized = true;
+        this.conversationIndex = getChatGPTConversationIndex(this.adapter);
         writeDebugState({ DirectoryInit: 'start' });
         this.routeWatcher = new RouteWatcher(() => {
             this.refresh();
         }, { intervalMs: 500 });
         this.routeWatcher.start();
-        this.unsubscribeRoundChanges = subscribeChatGPTDomRoundChanges(this.adapter, () => {
+        this.unsubscribeRoundChanges = this.conversationIndex.subscribe(() => {
             this.scheduleIndexRebuild('mutation');
         });
-        this.unsubscribeEngine = this.engine.subscribe((snapshot) => {
-            this.snapshot = snapshot;
-            if (snapshot) this.snapshotRetryCount = 0;
-            this.render();
-        }, { live: false });
         this.unsubscribeBookmarks = this.bookmarksState?.subscribe?.(() => {
             this.render();
         }) ?? null;
@@ -163,21 +124,17 @@ export class ChatGPTDirectoryController {
             this.rebuildTimer = null;
         }
         this.pendingRebuildReasons.clear();
-        this.pendingMissingPromptHydrationSignature = null;
-        this.requestedMissingPromptHydrationSignatures.clear();
-        this.missingPromptHydrationPromise = null;
         if (this.snapshotRetryTimer !== null) {
             window.clearTimeout(this.snapshotRetryTimer);
             this.snapshotRetryTimer = null;
         }
         this.routeWatcher?.stop();
         this.routeWatcher = null;
-        this.unsubscribeEngine?.();
-        this.unsubscribeEngine = null;
         this.unsubscribeBookmarks?.();
         this.unsubscribeBookmarks = null;
         this.unsubscribeRoundChanges?.();
         this.unsubscribeRoundChanges = null;
+        this.conversationIndex = null;
         this.unsubscribeLocale?.();
         this.unsubscribeLocale = null;
         this.scrollRoot?.removeEventListener('scroll', this.handleScroll, { capture: true } as EventListenerOptions);
@@ -217,6 +174,10 @@ export class ChatGPTDirectoryController {
         this.rail?.setRightInsetPx(value);
     }
 
+    private getConversationIndex(): ChatGPTConversationIndex {
+        return this.conversationIndex ?? getChatGPTConversationIndex(this.adapter);
+    }
+
     private ensureRail(): void {
         if (this.rail) {
             const element = this.rail.getElement();
@@ -245,8 +206,7 @@ export class ChatGPTDirectoryController {
     }
 
     private async refresh(): Promise<void> {
-        if (!this.enabled || (!isChatGPTConversationPage(window.location.href) && !hasChatGPTConversationDom())) {
-            this.snapshot = null;
+        if (!this.enabled || !isChatGPTConversationPage(window.location.href)) {
             this.rail?.setRounds([]);
             this.rail?.setVisible(false);
             writeDebugState({ DirectoryVisible: false, DirectoryReason: 'not-conversation' });
@@ -255,27 +215,22 @@ export class ChatGPTDirectoryController {
         this.ensureRail();
         this.rail?.setVisible(true);
         this.rebindScrollRoot();
-        const conversationId = getChatGPTConversationId(window.location.href);
-        const cachedSnapshot = this.engine.peekCurrentSnapshot?.() ?? null;
-        if (cachedSnapshot) this.snapshot = cachedSnapshot;
-        else if (conversationId && this.snapshot?.conversationId !== conversationId) this.snapshot = null;
+        const conversationIndex = this.getConversationIndex();
+        const cachedSnapshot = conversationIndex.getSnapshot();
         this.render();
-        this.requestMissingPromptHydration('refresh');
         const bookmarkUrl = getDirectoryBookmarkUrl();
+        const snapshotRequest = conversationIndex.ensureSnapshot().catch(() => null);
         const [snapshot] = await Promise.all([
-            Promise.resolve(this.engine.peekCurrentSnapshot?.() ?? this.snapshot),
+            snapshotRequest,
             this.bookmarksState?.refreshPositionsForUrl?.(bookmarkUrl).catch(() => undefined) ?? Promise.resolve(),
         ]);
-        if (snapshot) this.snapshot = snapshot;
-        else if (conversationId && this.snapshot?.conversationId !== conversationId) this.snapshot = null;
         this.render();
-        this.requestMissingPromptHydration('refresh');
-        if (!this.snapshot) this.scheduleSnapshotRetry();
+        if (!snapshot && !cachedSnapshot) this.scheduleSnapshotRetry();
         writeDebugState({
             DirectoryVisible: true,
-            DirectoryReason: this.snapshot ? 'snapshot' : 'placeholder',
+            DirectoryReason: snapshot || cachedSnapshot ? 'snapshot' : 'placeholder',
             DirectoryRounds: this.roundPositions.length,
-            DirectoryAnchors: this.skeletonAnchors.length,
+            DirectoryAnchors: this.roundPositions.filter((round) => round.jumpAnchor instanceof HTMLElement).length,
         });
     }
 
@@ -308,7 +263,7 @@ export class ChatGPTDirectoryController {
         this.snapshotRetryCount += 1;
         this.snapshotRetryTimer = window.setTimeout(() => {
             this.snapshotRetryTimer = null;
-            if (!this.enabled || this.snapshot) return;
+            if (!this.enabled || this.getConversationIndex().getSnapshot()) return;
             void this.refresh();
         }, delay);
     }
@@ -348,7 +303,6 @@ export class ChatGPTDirectoryController {
             this.rebuildTimer = null;
             this.pendingRebuildReasons.clear();
             this.render();
-            this.requestMissingPromptHydration('mutation');
         };
         const ric = window.requestIdleCallback as ((cb: () => void, opts?: { timeout: number }) => number) | undefined;
         if (typeof ric === 'function') {
@@ -390,106 +344,19 @@ export class ChatGPTDirectoryController {
 
     private refreshRoundPositions(): void {
         this.roundPositions = collectChatGPTRoundPositions(this.adapter);
-        this.skeletonAnchors = this.roundPositions.map((position) => ({
-            position: position.position,
-            anchorEl: position.jumpAnchor,
-        }));
-    }
-
-    private requestMissingPromptHydration(_reason: string): void {
-        const signature = this.buildMissingPromptHydrationSignature();
-        if (!signature) return;
-        if (this.requestedMissingPromptHydrationSignatures.has(signature)) return;
-
-        this.pendingMissingPromptHydrationSignature = signature;
-        if (this.missingPromptHydrationPromise) return;
-
-        this.missingPromptHydrationPromise = this.flushMissingPromptHydration().finally(() => {
-            this.missingPromptHydrationPromise = null;
-        });
-    }
-
-    private async flushMissingPromptHydration(): Promise<void> {
-        while (this.pendingMissingPromptHydrationSignature) {
-            const signature = this.pendingMissingPromptHydrationSignature;
-            this.pendingMissingPromptHydrationSignature = null;
-            if (this.requestedMissingPromptHydrationSignatures.has(signature)) continue;
-            this.requestedMissingPromptHydrationSignatures.add(signature);
-            await this.hydrateMissingPromptLabels();
-        }
-    }
-
-    private buildMissingPromptHydrationSignature(): string | null {
-        if (!this.enabled || this.roundPositions.length === 0) return null;
-        const missingPositions = this.getMissingPromptPositions();
-        if (missingPositions.length === 0) return null;
-        const conversationId = getChatGPTConversationId(window.location.href) ?? getDirectoryBookmarkUrl();
-        return `${conversationId}|${this.roundPositions.length}|${missingPositions.join(',')}`;
-    }
-
-    private getMissingPromptPositions(): number[] {
-        const snapshotsByPosition = new Map<number, ChatGPTConversationRound>();
-        for (const round of this.snapshot?.rounds ?? []) {
-            snapshotsByPosition.set(round.position, round);
-        }
-
-        return this.roundPositions
-            .filter((position) => {
-                const snapshot = snapshotsByPosition.get(position.position);
-                const domPrompt = position.userPromptText?.trim() ?? '';
-                const snapshotPrompt = snapshot?.userPrompt?.trim() ?? '';
-                return isLowQualityRoundPrompt(domPrompt, position.userPromptQuality)
-                    && isLowQualityPrompt(snapshotPrompt);
-            })
-            .map((position) => position.position);
-    }
-
-    private async hydrateMissingPromptLabels(): Promise<void> {
-        try {
-            const forceRefresh = (this.engine as {
-                forceRefreshCurrentConversation?: () => Promise<ChatGPTConversationSnapshot | null>;
-            }).forceRefreshCurrentConversation;
-            const snapshot = await (
-                typeof forceRefresh === 'function'
-                    ? forceRefresh.call(this.engine)
-                    : this.engine.getSnapshot()
-            );
-            if (!snapshot) return;
-            this.snapshot = snapshot;
-            this.snapshotRetryCount = 0;
-            this.render();
-        } catch {
-            // Missing prompt hydration is an enhancement; DOM-discovered navigation remains usable.
-        }
     }
 
     private buildDirectoryRounds(): ChatGPTConversationRound[] {
-        const snapshotsByPosition = new Map<number, ChatGPTConversationRound>();
-        for (const round of this.snapshot?.rounds ?? []) {
-            snapshotsByPosition.set(round.position, round);
-        }
-
-        if (this.roundPositions.length === 0) return [];
-
-        return this.roundPositions.map((position) => {
-            const snapshot = snapshotsByPosition.get(position.position);
-            const domPrompt = position.userPromptText?.trim() ?? '';
-            const snapshotPrompt = snapshot?.userPrompt?.trim() ?? '';
-            const usableDomPrompt = isLowQualityRoundPrompt(domPrompt, position.userPromptQuality) ? '' : domPrompt;
+        return this.getConversationIndex().getRounds().map(({ round }) => {
+            const snapshotPrompt = round.userPrompt?.trim() ?? '';
             const usableSnapshotPrompt = isLowQualityPrompt(snapshotPrompt) ? '' : snapshotPrompt;
-            const userPrompt = usableDomPrompt
-                || usableSnapshotPrompt
-                || getDirectoryMessageFallback(position.position);
+            const userPrompt = usableSnapshotPrompt
+                || getDirectoryMessageFallback(round.position);
 
             return {
-                id: snapshot?.id ?? position.id ?? `chatgpt-skeleton-${position.position}`,
-                position: position.position,
+                ...round,
                 userPrompt,
-                assistantContent: snapshot?.assistantContent ?? '',
                 preview: userPrompt,
-                messageId: snapshot?.messageId ?? position.messageId,
-                userMessageId: snapshot?.userMessageId ?? null,
-                assistantMessageId: snapshot?.assistantMessageId ?? position.messageId,
             };
         });
     }
@@ -503,64 +370,27 @@ export class ChatGPTDirectoryController {
         }
 
         const referenceY = Math.round(window.innerHeight * 0.35);
-        const ranges = this.roundPositions
-            .map((position) => {
-                const range = this.getRoundViewportRange(position);
-                return range ? { position: position.position, ...range } : null;
-            })
-            .filter((range): range is { position: number; top: number; bottom: number } => range !== null);
-
-        let active = ranges.find((range) => range.top <= referenceY && range.bottom >= referenceY)?.position ?? 0;
-
-        if (!active && ranges.length > 0) {
-            let nearest = ranges[0]!;
-            let nearestDistance = this.getRangeDistanceFromReference(nearest, referenceY);
-            for (const range of ranges.slice(1)) {
-                const distance = this.getRangeDistanceFromReference(range, referenceY);
-                if (distance < nearestDistance) {
-                    nearest = range;
-                    nearestDistance = distance;
-                }
-            }
-            active = nearest.position;
-        }
-
-        if (!active) active = this.activePosition || this.roundPositions[0]?.position || 0;
+        const active = resolveChatGPTActivePosition(
+            this.roundPositions,
+            referenceY,
+            this.activePosition || this.roundPositions[0]?.position || 0,
+        );
         this.activePosition = active;
         this.rail.setActivePosition(active, { follow: options?.followRail });
     }
 
-    private getRoundViewportRange(position: ChatGPTRoundPosition): { top: number; bottom: number } | null {
-        const nodes = position.groupEls.length ? position.groupEls : [position.jumpAnchor];
-        let top = Number.POSITIVE_INFINITY;
-        let bottom = Number.NEGATIVE_INFINITY;
-        for (const node of nodes) {
-            if (!node.isConnected) continue;
-            const rect = node.getBoundingClientRect();
-            if (!Number.isFinite(rect.top) || !Number.isFinite(rect.bottom)) continue;
-            top = Math.min(top, rect.top);
-            bottom = Math.max(bottom, rect.bottom);
-        }
-        if (!Number.isFinite(top) || !Number.isFinite(bottom)) return null;
-        return { top, bottom };
-    }
-
-    private getRangeDistanceFromReference(range: { top: number; bottom: number }, referenceY: number): number {
-        if (referenceY < range.top) return range.top - referenceY;
-        if (referenceY > range.bottom) return referenceY - range.bottom;
-        return 0;
-    }
-
     private async handleSelect(round: ChatGPTConversationRound): Promise<void> {
-        const result = await this.navigateToPosition(round.position, round.messageId);
-        if (result.ok) return;
-    }
-
-    private async navigateToPosition(position: number, messageId?: string | null) {
-        return await navigateChatGPTDirectoryTarget(
+        const result = await navigateChatGPTDirectoryTarget(
             this.adapter,
-            { position, messageId },
+            {
+                position: round.position,
+                messageId: round.messageId,
+                roundId: round.id,
+                userMessageId: round.userMessageId,
+                assistantMessageId: round.assistantMessageId,
+            },
             { timeoutMs: 1500, intervalMs: 120 },
         );
+        if (result.ok) return;
     }
 }

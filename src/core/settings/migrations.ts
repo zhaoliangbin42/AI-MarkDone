@@ -168,6 +168,7 @@ export function normalizeChatGPTBehaviorSettings(value: unknown): AppSettings['c
     const record = isRecord(value) ? value : {};
     return {
         restorePositionAfterSend: Boolean((record as any).restorePositionAfterSend ?? DEFAULT_SETTINGS.chatgptBehavior.restorePositionAfterSend),
+        atomicMarkdownCopy: Boolean((record as any).atomicMarkdownCopy ?? DEFAULT_SETTINGS.chatgptBehavior.atomicMarkdownCopy),
         inputEnhancement: normalizeChatGPTInputEnhancementSettings(record.inputEnhancement, record),
         showMessageStepper: Boolean((record as any).showMessageStepper ?? DEFAULT_SETTINGS.chatgptBehavior.showMessageStepper),
         showPageBookmarkControl: Boolean((record as any).showPageBookmarkControl ?? DEFAULT_SETTINGS.chatgptBehavior.showPageBookmarkControl),

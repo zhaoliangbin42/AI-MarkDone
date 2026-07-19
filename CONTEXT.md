@@ -28,3 +28,11 @@ The complete Surface catalog, token ownership rules, and responsive contracts ar
 - **Formula preview**: lightweight anchored rendering for inline and display formulas. It never rewrites or renders inside the source composer.
 
 Both master switches preserve child values when disabled. Effective capability state is always derived from availability, runtime master, and the corresponding child switch.
+
+## ChatGPT Content Discovery
+
+- **Canonical conversation snapshot**: one verified, complete current-branch projection reconstructed from the ChatGPT conversation graph. It alone owns round content, absolute order, branch identity, and typed message identities.
+- **Conversation Engine**: the semantic SSOT that owns and publishes the Canonical conversation snapshot. Reader, copy, export, and bookmark-body flows consume it through `readerContentSource`.
+- **Conversation Index**: the unique navigation projection that combines the Engine snapshot with optional currently materialized page anchors. Directory, stepper, locate, and bookmark navigation consume its ordered rounds plus anchors.
+- **Materialization**: the host-controlled act of mounting a conversation round into the current ChatGPT DOM window. Materialization may add or remove anchors, but it never changes the Canonical conversation snapshot's round count or order.
+- **Round identity**: typed `userMessageId`, `assistantMessageId`, and graph round/node aliases used to join semantic rounds to materialized anchors. Prompt text and DOM-local position are presentation data, never identity.

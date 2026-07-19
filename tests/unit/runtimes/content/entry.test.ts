@@ -242,7 +242,12 @@ const engineCtor = vi.fn(function () {
         getSnapshot: engineGetSnapshot,
     };
 });
+const conversationIndexBindSnapshotSource = vi.fn();
+const getChatGPTConversationIndex = vi.fn(() => ({
+    bindSnapshotSource: conversationIndexBindSnapshotSource,
+}));
 const setLocale = vi.fn(async () => {});
+const setLazyContentFeatureLocale = vi.fn();
 const t = vi.fn((key: string) => key);
 const scrollToBookmarkTargetWithRetry = vi.fn(async () => ({ ok: true }));
 const consumePendingNavigation = vi.fn(() => null);
@@ -358,6 +363,7 @@ vi.mock('@/runtimes/content/lazyContentFeatures', () => ({
     createLazyCopyMessagePng: vi.fn(() => vi.fn(async () => ({ ok: true, noop: false }))),
     createLazyRunFormulaAssetAction: vi.fn(() => vi.fn(async () => ({ ok: true, status: 'copied' }))),
     createLazyRenderFormulaSvgAsset: vi.fn(() => vi.fn()),
+    setLazyContentFeatureLocale,
 }));
 
 vi.mock('@/ui/content/bookmarks/save/bookmarkSaveDialogSingleton', () => ({
@@ -434,6 +440,10 @@ vi.mock('@/ui/content/controllers/ChatGPTAtomicSelectionController', () => ({
 
 vi.mock('@/drivers/content/chatgpt/ChatGPTConversationEngine', () => ({
     ChatGPTConversationEngine: engineCtor,
+}));
+
+vi.mock('@/drivers/content/chatgpt/ChatGPTConversationIndex', () => ({
+    getChatGPTConversationIndex,
 }));
 
 vi.mock('@/ui/content/sending/SendController', () => ({
@@ -514,6 +524,63 @@ afterEach(() => {
 });
 
 describe('content runtime entry', () => {
+    it('applies the ChatGPT atomic Markdown copy setting without requiring a page reload', async () => {
+        const { DEFAULT_SETTINGS } = await import('@/core/settings/types');
+        const settings = structuredClone(DEFAULT_SETTINGS) as any;
+        settings.chatgptBehavior.atomicMarkdownCopy = false;
+        settingsGetCached.mockReturnValue(settings);
+
+        vi.resetModules();
+        await import('@/runtimes/content/entry');
+
+        expect(atomicSelectionInit).not.toHaveBeenCalled();
+
+        settingsSubscriber!({
+            settings: {
+                ...settings,
+                chatgptBehavior: {
+                    ...settings.chatgptBehavior,
+                    atomicMarkdownCopy: true,
+                },
+            },
+        });
+        expect(atomicSelectionInit).toHaveBeenCalledTimes(1);
+
+        settingsSubscriber!({
+            settings: {
+                ...settings,
+                chatgptBehavior: {
+                    ...settings.chatgptBehavior,
+                    atomicMarkdownCopy: false,
+                },
+            },
+        });
+        expect(atomicSelectionDispose).toHaveBeenCalledTimes(1);
+    });
+
+    it('forwards the saved locale into the independently bundled lazy feature graph', async () => {
+        const { DEFAULT_SETTINGS } = await import('@/core/settings/types');
+        const settings = structuredClone(DEFAULT_SETTINGS);
+        settings.language = 'zh_CN';
+        settingsGetCached.mockReturnValue(settings);
+
+        vi.resetModules();
+        await import('@/runtimes/content/entry');
+
+        expect(setLocale).toHaveBeenCalledWith('zh_CN');
+        expect(setLazyContentFeatureLocale).toHaveBeenCalledWith('zh_CN');
+
+        settingsSubscriber!({
+            settings: {
+                ...settings,
+                language: 'en',
+            },
+        });
+
+        expect(setLocale).toHaveBeenLastCalledWith('en');
+        expect(setLazyContentFeatureLocale).toHaveBeenLastCalledWith('en');
+    });
+
     it('does not construct runtime surfaces for unsupported hosts', async () => {
         adapterPlatformId = 'unknown';
         vi.resetModules();
@@ -572,6 +639,37 @@ describe('content runtime entry', () => {
             type: 'content:ready',
             payload: { platform: 'chatgpt', url: 'https://chatgpt.com/c/mock' },
         }));
+    });
+
+    it('binds the canonical conversation index before initializing navigation surfaces', async () => {
+        adapterPlatformId = 'chatgpt';
+        vi.resetModules();
+        await import('@/runtimes/content/entry');
+
+        const engine = engineCtor.mock.results[0]?.value;
+        expect(getChatGPTConversationIndex).toHaveBeenCalledTimes(1);
+        expect(conversationIndexBindSnapshotSource).toHaveBeenCalledWith(engine);
+        expect(conversationIndexBindSnapshotSource.mock.invocationCallOrder[0]).toBeLessThan(
+            messageStepperInit.mock.invocationCallOrder[0]!,
+        );
+        expect(conversationIndexBindSnapshotSource.mock.invocationCallOrder[0]).toBeLessThan(
+            directoryInit.mock.invocationCallOrder[0]!,
+        );
+    });
+
+    it('does not bind the canonical conversation index while ChatGPT runtime starts disabled', async () => {
+        adapterPlatformId = 'chatgpt';
+        settingsGetCached.mockReturnValue({
+            platforms: { chatgpt: false },
+        });
+        vi.resetModules();
+        await import('@/runtimes/content/entry');
+
+        expect(getChatGPTConversationIndex).not.toHaveBeenCalled();
+        expect(conversationIndexBindSnapshotSource).not.toHaveBeenCalled();
+        expect(engineInit).not.toHaveBeenCalled();
+        expect(directoryInit).not.toHaveBeenCalled();
+        expect(messageStepperInit).not.toHaveBeenCalled();
     });
 
     it('persists the complete input enhancement snapshot through the existing ChatGPT behavior category', async () => {
@@ -1078,6 +1176,8 @@ describe('content runtime entry', () => {
         });
 
         expect(messageToolbarsInit).toHaveBeenCalledTimes(2);
+        expect(getChatGPTConversationIndex).toHaveBeenCalledTimes(2);
+        expect(conversationIndexBindSnapshotSource).toHaveBeenCalledTimes(2);
         expect(viewportResizeSuspendInit).toHaveBeenCalledTimes(2);
         expect(sendPositionRestoreInit).toHaveBeenCalledTimes(2);
         expect(sendPositionRestoreSetEnabled).toHaveBeenLastCalledWith(false);

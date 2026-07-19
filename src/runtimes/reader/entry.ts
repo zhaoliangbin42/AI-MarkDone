@@ -44,6 +44,21 @@ function toReaderItems(snapshot: ReaderSessionSnapshot): ReaderItem[] {
     }));
 }
 
+function applyBookmarkMetadata(items: ReaderItem[], bookmarkedPositions: ReadonlySet<number>): ReaderItem[] {
+    return items.map((item) => {
+        const position = Number(item.meta?.position ?? 0);
+        if (!position) return item;
+        return {
+            ...item,
+            meta: {
+                ...(item.meta ?? {}),
+                bookmarked: bookmarkedPositions.has(position),
+                bookmarkable: true,
+            },
+        };
+    });
+}
+
 function getThemeOverrides(settings: AppSettings | null | undefined): UserThemeOverrides {
     const fontSizePx = normalizeGlobalFontSizePx(settings?.appearance?.fontSizePx);
     const accentColor = normalizeThemeAccentColor(settings?.appearance?.accentColor);
@@ -203,18 +218,7 @@ async function run(): Promise<void> {
         if (!session) return;
         const bookmarkedPositions = await readBookmarkedPositions(session.snapshot.sourceUrl);
         const detachedSendPort = createDetachedReaderSendPort(sessionId);
-        const items = toReaderItems(session.snapshot).map((item) => {
-            const position = Number(item.meta?.position ?? 0);
-            if (!position) return item;
-            return {
-                ...item,
-                meta: {
-                    ...(item.meta ?? {}),
-                    bookmarked: bookmarkedPositions.has(position),
-                    bookmarkable: true,
-                },
-            };
-        });
+        const items = applyBookmarkMetadata(toReaderItems(session.snapshot), bookmarkedPositions);
         const actions = createConversationReaderActions({
             refresh: {
                 refresh: async (ctx) => {
@@ -228,9 +232,19 @@ async function run(): Promise<void> {
                         ctx.notify(response.ok ? t('detachedReaderSourceUnavailable') : response.error.message);
                         return;
                     }
-                    session = (response.data as { session?: ReaderSessionRecord }).session ?? session;
+                    const refreshedSession = (response.data as { session?: ReaderSessionRecord }).session ?? session;
+                    if (!refreshedSession) {
+                        ctx.notify(t('detachedReaderSourceUnavailable'));
+                        return;
+                    }
+                    session = refreshedSession;
+                    const refreshedBookmarkedPositions = await readBookmarkedPositions(refreshedSession.snapshot.sourceUrl);
+                    bookmarkedPositions.clear();
+                    refreshedBookmarkedPositions.forEach((position) => bookmarkedPositions.add(position));
+                    const refreshedItems = applyBookmarkMetadata(toReaderItems(refreshedSession.snapshot), bookmarkedPositions);
+                    applyAppearance(createAppearanceSnapshot(refreshedSession.snapshot.theme, getThemeOverrides(settings)));
+                    await panel.replaceItems(refreshedItems, { preserveCurrentIdentity: true });
                     ctx.notify(t('detachedReaderRefreshed'));
-                    await showSession();
                 },
             },
             bookmark: {

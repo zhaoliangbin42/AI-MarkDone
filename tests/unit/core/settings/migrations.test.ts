@@ -3,6 +3,17 @@ import { DEFAULT_SETTINGS } from '../../../../src/core/settings/types';
 import { loadAndNormalize } from '../../../../src/services/settings/settingsService';
 
 describe('settings migrations', () => {
+    it('keeps ChatGPT atomic Markdown copy enabled by default and preserves an explicit opt-out', () => {
+        expect(loadAndNormalize(null).chatgptBehavior.atomicMarkdownCopy).toBe(true);
+        expect(loadAndNormalize({
+            ...DEFAULT_SETTINGS,
+            chatgptBehavior: {
+                ...DEFAULT_SETTINGS.chatgptBehavior,
+                atomicMarkdownCopy: false,
+            },
+        }).chatgptBehavior.atomicMarkdownCopy).toBe(false);
+    });
+
     it('enables every ChatGPT input enhancement for a fresh install', () => {
         const next = loadAndNormalize(null);
 
@@ -222,6 +233,7 @@ describe('settings migrations', () => {
 
         expect(defaulted.chatgptBehavior).toEqual({
             restorePositionAfterSend: true,
+            atomicMarkdownCopy: true,
             inputEnhancement: {
                 available: true,
                 enabled: false,
@@ -241,6 +253,7 @@ describe('settings migrations', () => {
         });
         expect(disabled.chatgptBehavior).toEqual({
             restorePositionAfterSend: false,
+            atomicMarkdownCopy: true,
             inputEnhancement: {
                 available: true,
                 enabled: true,

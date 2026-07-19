@@ -8,7 +8,7 @@
     <a href="./LICENSE">
       <img src="https://img.shields.io/github/license/zhaoliangbin42/AI-MarkDone?label=License" alt="License">
     </a>
-    <img src="https://img.shields.io/badge/Version-4.8.0-10A37F" alt="Version 4.8.0">
+    <img src="https://img.shields.io/badge/Version-5.0.0-10A37F" alt="Version 5.0.0">
     </br>
     <img src="https://img.shields.io/badge/Browsers-Chrome%20%7C%20Firefox%20%7C%20Safari-10A37F" alt="Browsers">
     <img src="https://img.shields.io/badge/Primary%20Platform-ChatGPT-10A37F" alt="Primary Platform">
@@ -203,13 +203,13 @@ npm run build
 
 ## 📅 最新更新
 
-### 4.8.0
-- 改进阅读器注释管理，支持在统一列表中排序、定位、编辑和删除注释。
-- 注释复制、导出和发送插入现在使用一致的排序方式。
-- 将书签面板入口移出 ChatGPT 官方顶部区域，减少与划词翻译插件的冲突。
-- 修复矮屏下阅读器设置条目错位，以及鼠标点击自定义 Prompt 时插入失效的问题。
-- 隐藏右侧导航条内部滚动条，同时保留正常滚动能力。
-- 缩小公式 SVG 文件体积，并提升对 PowerPoint 等软件的兼容性。
+### 5.0.0
+- ChatGPT 输入框新增可选的 Markdown 输入增强、公式联想与实时公式预览。
+- 新增原子化 Markdown 复制，完整选中公式、代码块、表格、标题、列表项、引用等内容单元后即可直接复制。
+- 重做长对话内容发现链路，让阅读器、复制、导出、书签、导航条和翻页器保持完整历史与分支顺序。
+- Deep Research 报告现在也支持标准消息工具栏。
+- 减少 ChatGPT 页面重复扫描，并改进长消息 PNG 导出。
+- 在反馈页面增加 QQ 群和小红书群入口，并新增独立的好友迹介绍。
 
 [完整更新日志](./CHANGELOG.md)
 [版本说明](./RELEASE_NOTES.md)

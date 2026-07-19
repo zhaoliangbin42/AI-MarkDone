@@ -1,7 +1,7 @@
 {
     "manifest_version": 2,
     "name": "__MSG_extName__",
-    "version": "4.8.0",
+    "version": "5.0.0",
     "description": "__MSG_extDescription__",
     "default_locale": "en",
     "homepage_url": "https://zhaoliangbin42.github.io/ai-markdone/en/",
@@ -15,6 +15,16 @@
         "https://chat.deepseek.com/*"
     ],
     "content_scripts": [
+        {
+            "matches": [
+                "https://chatgpt.com/*",
+                "https://chat.openai.com/*"
+            ],
+            "js": [
+                "page-bridges/chatgpt-conversation-bootstrap.js"
+            ],
+            "run_at": "document_start"
+        },
         {
             "matches": [
                 "https://chatgpt.com/*",
@@ -56,6 +66,8 @@
         "icons/about_avatar.png",
         "icons/mappamory-changelog-4.6.0.png",
         "icons/mappamory-about-en-4.6.0.png",
+        "icons/mappamory-promo-poster.png",
+        "icons/mappamory-record-map-context.png",
         "_locales/*/messages.json",
         "vendor/katex/*.css",
         "vendor/katex/fonts/*",

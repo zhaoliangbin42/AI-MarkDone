@@ -94,6 +94,10 @@ describe('renderMessageCardProfile', () => {
         expect(rendered.html).toContain('hljs');
         expect(rendered.html).toContain('class="katex-display"');
         expect(rendered.html).toContain('class="tag"');
+        expect(rendered.html).toContain('.reader-code-block__scroll,\n.aimd-png-export-card .reader-code-block__scroll pre');
+        expect(rendered.html).toContain('.aimd-png-export-card .reader-markdown pre code');
+        expect(rendered.html).toContain('display: table;');
+        expect(rendered.html).toContain('overflow: visible;');
         expect(rendered.html).not.toContain('reader-copy-code');
         expect(rendered.html).not.toContain('katex-styles-bundled');
     });

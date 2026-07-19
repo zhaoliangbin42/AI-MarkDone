@@ -1,8 +1,6 @@
 import { loadBookmarksDoc } from '../../content/loader';
 import { parseBookmarksDoc } from '../../content/parser';
-import { MAPPAMORY_APP_STORE_URL, MAPPAMORY_X_URL } from '../../../../../../config/extension/productLinks';
-import { externalLinkIcon } from '../../../../../assets/icons';
-import { getEffectiveLocale, t } from '../../../components/i18n';
+import { t } from '../../../components/i18n';
 import { renderInfoBlocks } from './renderInfoBlocks';
 import { TARGET_SURFACE_SOCIAL_FOLLOW_CARD_ENABLED } from '../../../../../config/targetSurface';
 
@@ -16,62 +14,18 @@ function tr(key: string, fallback: string): string {
     return value === key ? fallback : value;
 }
 
-function createMappamoryPromoCard(actions: AboutTabViewActions): HTMLElement {
-    const isChineseLocale = getEffectiveLocale() === 'zh_CN';
-    const card = document.createElement('section');
-    card.className = 'mappamory-promo-card';
+function decorateStoryPoints(fragment: DocumentFragment): void {
+    for (const paragraph of fragment.querySelectorAll<HTMLParagraphElement>('.info-copy')) {
+        const match = paragraph.textContent?.match(/^(\d+)\.\s+/);
+        if (!match) continue;
 
-    const content = document.createElement('div');
-    content.className = 'mappamory-promo-card__content';
-
-    const eyebrow = document.createElement('div');
-    eyebrow.className = 'mappamory-promo-card__eyebrow';
-    eyebrow.textContent = tr('mappamoryPromoEyebrow', 'My iOS app');
-
-    const title = document.createElement('div');
-    title.className = 'mappamory-promo-card__title';
-    title.textContent = tr('mappamoryPromoTitle', 'Mappamory');
-
-    const copy = document.createElement('p');
-    copy.className = 'mappamory-promo-card__copy';
-    copy.textContent = tr(
-        'mappamoryPromoDesc',
-        'A local-first friends map contact book for remembering the hometowns, schools, workplaces, and meaningful places of people you care about.',
-    );
-
-    const xLink = document.createElement('a');
-    xLink.className = 'mappamory-promo-card__social-link';
-    xLink.href = MAPPAMORY_X_URL;
-    xLink.target = '_blank';
-    xLink.rel = 'noopener noreferrer';
-    xLink.textContent = tr('mappamoryPromoXLink', `X: ${MAPPAMORY_X_URL}`);
-
-    const link = document.createElement('a');
-    link.className = 'support-contact-card__button support-contact-card__button--email mappamory-promo-card__button';
-    link.href = MAPPAMORY_APP_STORE_URL;
-    link.target = '_blank';
-    link.rel = 'noopener noreferrer';
-    link.textContent = tr('mappamoryPromoButton', 'View on App Store');
-    link.insertAdjacentHTML('afterbegin', `<span class="support-contact-card__button-icon" aria-hidden="true">${externalLinkIcon}</span>`);
-
-    content.append(eyebrow, title, copy);
-    if (!isChineseLocale) {
-        content.appendChild(xLink);
+        const firstNode = paragraph.firstChild;
+        if (firstNode?.nodeType === Node.TEXT_NODE && firstNode.textContent) {
+            firstNode.textContent = firstNode.textContent.replace(/^(\d+)\.\s+/, '');
+        }
+        paragraph.classList.add('info-story-point');
+        paragraph.dataset.storyIndex = match[1]!.padStart(2, '0');
     }
-    content.appendChild(link);
-
-    const media = document.createElement('div');
-    media.className = 'mappamory-promo-card__media';
-
-    const image = document.createElement('img');
-    image.className = 'mappamory-promo-card__image';
-    image.src = actions.getAssetUrl(isChineseLocale ? 'icons/mappamory-changelog-4.6.0.png' : 'icons/mappamory-about-en-4.6.0.png');
-    image.alt = tr('mappamoryPromoImageAlt', 'Mappamory app preview');
-    image.loading = 'lazy';
-    media.appendChild(image);
-
-    card.append(content, media);
-    return card;
 }
 
 export class AboutTabView {
@@ -89,20 +43,28 @@ export class AboutTabView {
 
     private render(actions: AboutTabViewActions): void {
         const doc = parseBookmarksDoc(loadBookmarksDoc('about'));
-        const celebration = document.createElement('div');
-        celebration.className = 'sponsor-celebration';
-        celebration.setAttribute('aria-hidden', 'true');
 
         const shell = document.createElement('div');
-        shell.className = 'info-shell sponsor-shell';
+        shell.className = 'info-shell about-shell';
 
         const hero = document.createElement('section');
-        hero.className = 'info-hero';
+        hero.className = 'info-hero info-hero--about';
+
+        const heroEyebrow = document.createElement('div');
+        heroEyebrow.className = 'info-eyebrow';
+        heroEyebrow.textContent = tr('aboutHeroEyebrow', 'Independent project');
 
         const heroTitle = document.createElement('h3');
         heroTitle.className = 'info-hero__title';
-        heroTitle.textContent = t('followMe');
-        hero.appendChild(heroTitle);
+        heroTitle.textContent = tr('aboutHeroTitle', 'Built from real workflow friction');
+
+        const heroBody = document.createElement('p');
+        heroBody.className = 'info-hero__body';
+        heroBody.textContent = tr(
+            'aboutHeroDesc',
+            'AI-MarkDone is a personal project for making long AI conversations easier to read, organize, and reuse.',
+        );
+        hero.append(heroEyebrow, heroTitle, heroBody);
 
         const profileCard = document.createElement('section');
         profileCard.className = 'info-profile-card';
@@ -111,14 +73,20 @@ export class AboutTabView {
             <div class="info-profile__avatar-frame">
               <img src="${actions.getAssetUrl('icons/about_avatar.png')}" alt="Benko Zhao avatar" class="info-profile__avatar">
             </div>
-            <p class="info-profile__bio">${t('aboutProfileBio')}</p>
+            <div class="info-profile__content">
+              <div class="info-profile__identity">
+                <strong class="info-profile__name">Benko Zhao</strong>
+                <span class="info-profile__role">${tr('aboutProfileRole', 'Creator of AI-MarkDone')}</span>
+              </div>
+              <p class="info-profile__bio">${t('aboutProfileBio')}</p>
+            </div>
           </div>
         `;
 
         const infoSections = document.createDocumentFragment();
         for (const section of doc.sections) {
             const container = document.createElement('section');
-            container.className = 'info-section';
+            container.className = 'info-section info-section--story';
             container.innerHTML = `
               <div class="info-section__head">
                 <div class="info-section__title">${section.heading}</div>
@@ -127,12 +95,18 @@ export class AboutTabView {
 
             const body = document.createElement('div');
             body.className = 'info-copy-stack';
-            body.appendChild(renderInfoBlocks(section.blocks, { resolveAssetUrl: actions.getAssetUrl }));
+            const blocks = renderInfoBlocks(section.blocks, {
+                listClassName: 'info-list info-list--story',
+                listItemClassName: 'info-list-card info-list-card--story',
+                resolveAssetUrl: actions.getAssetUrl,
+            });
+            decorateStoryPoints(blocks);
+            body.appendChild(blocks);
             container.appendChild(body);
             infoSections.appendChild(container);
         }
 
-        shell.append(hero, profileCard, createMappamoryPromoCard(actions), infoSections);
+        shell.append(hero, profileCard, infoSections);
         if (TARGET_SURFACE_SOCIAL_FOLLOW_CARD_ENABLED && actions.showSocialFollowCard !== false) {
             const socialFollow = document.createElement('section');
             socialFollow.className = 'social-follow-card';
@@ -148,7 +122,7 @@ export class AboutTabView {
             `;
             shell.appendChild(socialFollow);
         }
-        this.root.replaceChildren(celebration, shell);
+        this.root.replaceChildren(shell);
     }
 
 }

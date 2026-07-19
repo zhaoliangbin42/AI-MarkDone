@@ -64,7 +64,7 @@ export class IframeExportRendererConnector {
             targetWindow.postMessage({
                 v: EXPORT_RENDER_HOST_PROTOCOL_VERSION,
                 type: EXPORT_RENDER_HOST_CONNECT_TYPE,
-            }, this.rendererOrigin(), [channel.port2]);
+            }, '*', [channel.port2]);
         } catch (error) {
             channel.port1.close();
             channel.port2.close();
@@ -121,10 +121,6 @@ export class IframeExportRendererConnector {
             // The next job should observe isConnected and create a fresh renderer immediately.
             if (this.iframePromise === promise) this.iframePromise = null;
         });
-    }
-
-    private rendererOrigin(): string {
-        return new URL(browser.runtime.getURL(RENDERER_HTML)).origin;
     }
 }
 

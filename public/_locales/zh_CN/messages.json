@@ -691,6 +691,30 @@
         "message": "正在渲染 $1：$2",
         "description": "Message for pngExportRenderingWithFilename"
     },
+    "pngExportStagePreparing": {
+        "message": "正在准备图片",
+        "description": "PNG render stage shown while preparing the image"
+    },
+    "pngExportStageCompiling": {
+        "message": "正在编译 Markdown",
+        "description": "PNG render stage shown while compiling Markdown"
+    },
+    "pngExportStageLayout": {
+        "message": "正在排版图片",
+        "description": "PNG render stage shown while measuring and laying out the image"
+    },
+    "pngExportStageRasterizing": {
+        "message": "正在渲染第 $1 段",
+        "description": "PNG render stage and current segment count"
+    },
+    "pngExportStageEncoding": {
+        "message": "正在编码第 $1 段",
+        "description": "PNG encoding stage and current segment count"
+    },
+    "pngExportStageFinalizing": {
+        "message": "正在完成图片",
+        "description": "PNG render stage shown while finalizing the image"
+    },
     "pngExportZipping": {
         "message": "正在打包 ZIP $1",
         "description": "Message for pngExportZipping"
@@ -714,6 +738,10 @@
     "pngExportCancelled": {
         "message": "PNG 导出已取消",
         "description": "Message shown when PNG export is cancelled"
+    },
+    "pngExportRenderProgressLabel": {
+        "message": "图片渲染",
+        "description": "Accessible label for the detailed PNG rendering progress bar"
     },
     "pngExportTotalProgressLabel": {
         "message": "总进度",
@@ -1043,12 +1071,20 @@
         "message": "阅读历史消息时，发送后会尽快回到原来的阅读位置。",
         "description": "Message for chatgptRestorePositionAfterSendDesc"
     },
+    "chatgptAtomicMarkdownCopyLabel": {
+        "message": "将局部选区复制为 Markdown",
+        "description": "Message for chatgptAtomicMarkdownCopyLabel"
+    },
+    "chatgptAtomicMarkdownCopyDesc": {
+        "message": "在 ChatGPT 中完整选中公式、代码块、表格、标题、列表项等支持的内容单元时，Ctrl/Cmd+C 会复制规范 Markdown；部分选区仍使用官网原生复制。",
+        "description": "Message for chatgptAtomicMarkdownCopyDesc"
+    },
     "chatgptInputEnhancementLabel": {
         "message": "输入增强",
         "description": "控制 ChatGPT 输入增强入口的设置标签"
     },
     "chatgptInputEnhancementDesc": {
-        "message": "在 ChatGPT 中显示输入增强按钮。关闭后会隐藏按钮并暂停全部能力，但保留各项偏好。",
+        "message": "在 ChatGPT 中显示输入增强按钮。开启后，输入框支持轻量 Markdown 语法与公式渲染。",
         "description": "ChatGPT 输入增强入口设置说明"
     },
     "chatgptInputEnhancementButton": {
@@ -1735,6 +1771,22 @@
         "message": "我是一个工科研究生。虽然我不直接从事计算机专业，但平时很喜欢捣鼓各种 AI 工具，欢迎大家关注我。",
         "description": "Message for aboutProfileBio"
     },
+    "aboutHeroEyebrow": {
+        "message": "独立作品",
+        "description": "Eyebrow shown above the About page introduction"
+    },
+    "aboutHeroTitle": {
+        "message": "从真实的使用阻力里长出来",
+        "description": "Title of the About page introduction"
+    },
+    "aboutHeroDesc": {
+        "message": "AI-MarkDone 是一个从个人工作流出发的项目，希望让长对话更好读、更好整理，也更容易再次使用。",
+        "description": "Summary shown in the About page introduction"
+    },
+    "aboutProfileRole": {
+        "message": "AI-MarkDone 作者",
+        "description": "Role shown beside the creator profile"
+    },
     "aboutWebsiteTitle": {
         "message": "AI-MarkDone 官网",
         "description": "Message for aboutWebsiteTitle"
@@ -1747,29 +1799,89 @@
         "message": "浏览官网",
         "description": "Message for aboutWebsiteButton"
     },
-    "mappamoryPromoEyebrow": {
-        "message": "我的 iOS App",
-        "description": "Message for mappamoryPromoEyebrow"
+    "mappamoryHeroEyebrow": {
+        "message": "好友迹 · iPhone App",
+        "description": "Eyebrow shown above the Mappamory introduction"
     },
-    "mappamoryPromoTitle": {
-        "message": "好友迹",
-        "description": "Message for mappamoryPromoTitle"
+    "mappamoryHeroTitle": {
+        "message": "把重要的人，放回地图里",
+        "description": "Title of the Mappamory introduction"
     },
-    "mappamoryPromoDesc": {
-        "message": "好友地图通讯录。把朋友的家乡、学校、工作地点和重要地点记在地图上，久而久之，就能看见一张属于你的朋友地图。6 月 30 日前，小红书后台私信我，可以领取一年会员。希望你喜欢。",
-        "description": "Message for mappamoryPromoDesc"
+    "mappamoryHeroDesc": {
+        "message": "好友迹是一款 iPhone 好友地图通讯录。把人物、地点和记录放在同一张地图里，以后可以从地图或人物页重新找到它们。",
+        "description": "Summary shown in the Mappamory introduction"
     },
-    "mappamoryPromoXLink": {
-        "message": "X: https://x.com/Mappamory",
-        "description": "Message for mappamoryPromoXLink"
+    "mappamoryAppStoreButton": {
+        "message": "在 App Store 下载",
+        "description": "Label for the Mappamory App Store link"
     },
-    "mappamoryPromoButton": {
-        "message": "前往 App Store",
-        "description": "Message for mappamoryPromoButton"
+    "mappamoryWebsiteButton": {
+        "message": "浏览好友迹官网",
+        "description": "Label for the Mappamory website link"
     },
-    "mappamoryPromoImageAlt": {
-        "message": "好友迹 App 预览",
-        "description": "Message for mappamoryPromoImageAlt"
+    "mappamoryPosterAlt": {
+        "message": "好友迹品牌海报，展示好友地图和 iPhone 界面",
+        "description": "Alternative text for the Mappamory promotional poster"
+    },
+    "mappamoryStoryEyebrow": {
+        "message": "好友地图通讯录",
+        "description": "Eyebrow shown above the Mappamory product story"
+    },
+    "mappamoryStoryTitle": {
+        "message": "通过共同的地点，重新记住一个人",
+        "description": "Title of the Mappamory product story"
+    },
+    "mappamoryStoryDesc": {
+        "message": "普通通讯录告诉你怎么联系一个人。好友迹还想帮你记住：你们的联系发生在哪里，有哪些值得留下来的记录。",
+        "description": "Description of the Mappamory product story"
+    },
+    "mappamoryFeatureMapTitle": {
+        "message": "在地图上查看联系人",
+        "description": "Title of the Mappamory map feature"
+    },
+    "mappamoryFeatureMapDesc": {
+        "message": "把人物和地点放在同一张地图里，从头像或地图聚合点进入背后的记录。",
+        "description": "Description of the Mappamory map feature"
+    },
+    "mappamoryFeaturePeopleTitle": {
+        "message": "从人物或地点重新找到记录",
+        "description": "Title of the Mappamory people and places feature"
+    },
+    "mappamoryFeaturePeopleDesc": {
+        "message": "一条记录可以连接一个或多个人物与一个地点，并保存日期、备注、标签和照片；从人物或地点两边都能重新找到它。",
+        "description": "Description of the Mappamory people and places feature"
+    },
+    "mappamoryFeatureLocalTitle": {
+        "message": "默认保存在本机",
+        "description": "Title of the Mappamory local data feature"
+    },
+    "mappamoryFeatureLocalDesc": {
+        "message": "无需注册账号。数据默认保存在你的 iPhone 上，并支持本地导出、备份、预览和恢复。",
+        "description": "Description of the Mappamory local data feature"
+    },
+    "mappamoryProofEyebrow": {
+        "message": "真实界面",
+        "description": "Eyebrow shown above the Mappamory interface preview"
+    },
+    "mappamoryProofTitle": {
+        "message": "便捷地在地图上看见每一条记录",
+        "description": "Title shown beside the Mappamory interface preview"
+    },
+    "mappamoryProofDesc": {
+        "message": "在地图上打开一个地点，就能看到与它相关的人物和记录。照片、日期和备注都跟着记录保存，不必散落在不同 App 里。",
+        "description": "Description shown beside the Mappamory interface preview"
+    },
+    "mappamoryPrivacyTitle": {
+        "message": "记录地点，不追踪任何人",
+        "description": "Title of the Mappamory privacy note"
+    },
+    "mappamoryPrivacyDesc": {
+        "message": "好友迹只保存你主动选择、用于个人记录的地点。它不是实时定位服务，也不会追踪其他人。",
+        "description": "Description of the Mappamory privacy boundary"
+    },
+    "mappamoryProofAlt": {
+        "message": "好友迹地图与记录详情界面",
+        "description": "Alternative text for the Mappamory interface preview"
     },
     "supportContactEyebrow": {
         "message": "支持联系",
@@ -1790,6 +1902,66 @@
     "supportContactCopyEmail": {
         "message": "复制邮箱",
         "description": "Message for supportContactCopyEmail"
+    },
+    "feedbackHeroEyebrow": {
+        "message": "交流与支持",
+        "description": "Eyebrow shown above the Feedback page introduction"
+    },
+    "feedbackHeroTitle": {
+        "message": "一起把 AI-MarkDone 做得更好",
+        "description": "Title of the Feedback page introduction"
+    },
+    "feedbackHeroDesc": {
+        "message": "欢迎告诉我哪些地方真正帮到了你、哪些环节还不顺手，以及你希望它下一步解决什么问题。",
+        "description": "Summary shown in the Feedback page introduction"
+    },
+    "communityCardEyebrow": {
+        "message": "扫码加入",
+        "description": "Eyebrow shown above the community group cards"
+    },
+    "communityCardTitle": {
+        "message": "加入 AI-MarkDone 交流群",
+        "description": "Title shown above the community group cards"
+    },
+    "communityCardDesc": {
+        "message": "欢迎进群交流使用体验、反馈问题、提出功能建议，也可以和其他用户分享自己的工作流。",
+        "description": "Description shown above the community group cards"
+    },
+    "communityQQTitle": {
+        "message": "QQ 交流群",
+        "description": "Title of the QQ community group card"
+    },
+    "communityQQMeta": {
+        "message": "群号 962705835",
+        "description": "Group number shown on the QQ community group card"
+    },
+    "communityQQHint": {
+        "message": "打开 QQ 扫描二维码即可申请加入。",
+        "description": "Scan guidance shown on the QQ community group card"
+    },
+    "communityQQAlt": {
+        "message": "AI-MarkDone QQ 交流群二维码，群号 962705835",
+        "description": "Alternative text for the QQ community invite image"
+    },
+    "communityXiaohongshuTitle": {
+        "message": "小红书群聊",
+        "description": "Title of the Xiaohongshu community group card"
+    },
+    "communityXiaohongshuMeta": {
+        "message": "邀请二维码有效期至 2026 年 8 月 14 日",
+        "description": "Expiry notice shown on the Xiaohongshu community group card"
+    },
+    "communityXiaohongshuHint": {
+        "message": "打开小红书扫描二维码。若邀请已经失效，可以先关注我的小红书账号，再通过我的账号加入群聊。",
+        "description": "Scan and fallback guidance for the Xiaohongshu community group"
+    },
+    "communityXiaohongshuAlt": {
+        "message": "AI-MarkDone 小红书群聊邀请二维码",
+        "description": "Alternative text for the Xiaohongshu community invite image"
+    },
+    "communityPrivacyNote": {
+        "message": "加群完全自愿，群成员可能看到你的公开资料；也可以先关注我的小红书账号，再从我的账号进入群聊。",
+        "description": "Privacy note shown below the community group cards"
     },
     "selectFolderLabel": {
         "message": "选择文件夹",
@@ -1886,6 +2058,10 @@
     "tabAbout": {
         "message": "关于我",
         "description": "Message for tabAbout"
+    },
+    "tabMappamory": {
+        "message": "好友迹",
+        "description": "Message for tabMappamory"
     },
     "tabFaq": {
         "message": "常见问题",

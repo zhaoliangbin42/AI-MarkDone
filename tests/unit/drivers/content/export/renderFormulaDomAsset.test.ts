@@ -56,8 +56,10 @@ describe('renderFormulaDomAsset', () => {
         expect(clone.innerHTML).toContain('data-glyph="brace"');
         expect((node as HTMLElement).parentElement?.querySelector('style')?.textContent).toContain('KaTeX_Main');
         expect(options).toMatchObject({
-            cacheBust: true,
+            cacheBust: false,
             fontEmbedCSS: '',
+            skipAutoScale: true,
+            includeStyleProperties: [],
         });
     });
 
@@ -75,7 +77,7 @@ describe('renderFormulaDomAsset', () => {
         expect(clone.classList.contains('math-inline')).toBe(true);
         expect(clone.style.fontSize).toBe('36px');
         expect(options).toMatchObject({
-            cacheBust: true,
+            cacheBust: false,
             fontEmbedCSS: '',
             pixelRatio: 2,
         });

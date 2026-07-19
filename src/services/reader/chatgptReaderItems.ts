@@ -31,6 +31,10 @@ export function buildChatGPTReaderItems(
         meta: {
             platformId: 'chatgpt',
             messageId: round.messageId,
+            roundId: round.id,
+            userMessageId: round.userMessageId,
+            assistantMessageId: round.assistantMessageId,
+            branchKey: snapshot.branchKey,
             position: round.position,
             url: normalizedUrl,
             bookmarkable: true,

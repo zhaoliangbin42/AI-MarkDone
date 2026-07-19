@@ -30,4 +30,14 @@ describe('Bookmarks workspace responsive family styles', () => {
 
         expect(shippedCss).toContain('var(--aimd-size-control-icon-panel) * 5');
     });
+
+    it('keeps community QR codes large and stacks them into one scan-friendly column on narrow layouts', () => {
+        const responsiveCss = getBookmarksWorkspaceResponsiveCss();
+        const shippedCss = getBookmarksPanelCss();
+
+        expect(shippedCss).toMatch(/\.community-group-card__image-frame\s*\{[\s\S]*?aspect-ratio: 9 \/ 16;/);
+        expect(shippedCss).toMatch(/\.community-group-card__image\s*\{[\s\S]*?object-fit: contain;/);
+        expect(shippedCss).toMatch(/@media \(max-width: 720px\)[\s\S]*?\.community-group-grid\s*\{[\s\S]*?grid-template-columns: 1fr;/);
+        expect(responsiveCss).toMatch(/@media \(max-width: 560px\)[\s\S]*?\.community-card\s*\{[\s\S]*?padding: var\(--aimd-space-4\);/);
+    });
 });

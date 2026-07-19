@@ -2,12 +2,10 @@ import type { SiteAdapter } from '../adapters/base';
 import { ChatGPTPageIndex } from './ChatGPTPageIndex';
 
 export type ChatGPTDomRoundRef = {
-    position: number;
     id: string;
+    identity: ChatGPTDomRoundIdentity;
     userRootEl: HTMLElement;
     userMessageEl: HTMLElement;
-    userPromptText: string | null;
-    userPromptQuality: 'real' | 'fallback';
     anchorEl: HTMLElement;
     jumpAnchorEl: HTMLElement;
     assistantRootEl: HTMLElement;
@@ -19,6 +17,13 @@ export type ChatGPTDomRoundRef = {
     source: 'turn-wrapper' | 'legacy-container' | 'role-scan';
 };
 
+export type ChatGPTDomRoundIdentity = {
+    roundId: string | null;
+    userMessageId: string | null;
+    assistantMessageId: string | null;
+    assistantTurnId: string | null;
+};
+
 const ROLE_SELECTOR = '[data-message-author-role]';
 const USER_ROLE_SELECTOR = '[data-message-author-role="user"]';
 const TURN_ROOT_SELECTOR = '[data-turn-id-container], [data-testid^="conversation-turn-"], section[data-turn], article[data-turn], [data-turn]';
@@ -26,24 +31,25 @@ const TESTID_TURN_WRAPPER_SELECTOR = '[data-testid^="conversation-turn-"][data-t
 const FALLBACK_TURN_WRAPPER_SELECTOR = 'article[data-turn], section[data-turn]';
 const LEGACY_TURN_CONTAINER_SELECTOR = '[data-turn-id-container]';
 
-type StructuredTurn = {
-    id?: string | null;
-    role?: string | null;
-    author?: { role?: string | null } | null;
-    messages?: unknown[];
-};
-
-function readRecord(value: unknown): Record<string, unknown> | null {
-    return value && typeof value === 'object' ? value as Record<string, unknown> : null;
+function readElementId(element: HTMLElement | null | undefined, attribute: string): string | null {
+    const value = element?.getAttribute(attribute)?.trim();
+    return value || null;
 }
 
-function readString(record: Record<string, unknown> | null | undefined, key: string): string | null {
-    const value = record?.[key];
-    return typeof value === 'string' && value.trim() ? value.trim() : null;
+function readRoundId(...elements: Array<HTMLElement | null | undefined>): string | null {
+    for (const element of elements) {
+        const id = readElementId(element, 'data-turn-id');
+        if (id) return id;
+    }
+    return null;
 }
 
-function normalizePromptText(text: string): string {
-    return text.replace(/\s+\n/g, '\n').replace(/\n{3,}/g, '\n\n').replace(/[ \t]{2,}/g, ' ').trim();
+function readMessageId(...elements: Array<HTMLElement | null | undefined>): string | null {
+    for (const element of elements) {
+        const id = readElementId(element, 'data-message-id');
+        if (id) return id;
+    }
+    return null;
 }
 
 function getDiscoveryRoot(adapter: SiteAdapter): ParentNode {
@@ -139,134 +145,10 @@ function findUserMessage(userRootEl: HTMLElement): HTMLElement {
     return message instanceof HTMLElement ? message : userRootEl;
 }
 
-function getTurnRole(turn: StructuredTurn | null): 'user' | 'assistant' | null {
-    const role = readString(readRecord(turn?.author), 'role') ?? (typeof turn?.role === 'string' ? turn.role : null);
-    if (role === 'user' || role === 'assistant') return role;
-    const messages = Array.isArray(turn?.messages) ? turn.messages : [];
-    for (let index = messages.length - 1; index >= 0; index -= 1) {
-        const message = readRecord(messages[index]);
-        const messageRole = readString(readRecord(message?.author) ?? message, 'role');
-        if (messageRole === 'user' || messageRole === 'assistant') return messageRole;
-    }
-    return null;
-}
-
-function getReactRootCandidate(element: HTMLElement): any {
-    for (const key of Object.keys(element)) {
-        if (!key.startsWith('__reactFiber$') && !key.startsWith('__reactProps$')) continue;
-        const value = (element as unknown as Record<string, unknown>)[key];
-        if (value) return value;
-    }
-    return null;
-}
-
-function findStructuredTurnData(element: HTMLElement): StructuredTurn | null {
-    let fiber = getReactRootCandidate(element);
-    let depth = 0;
-
-    while (fiber && depth < 12) {
-        const candidates = [
-            fiber.pendingProps,
-            fiber.memoizedProps,
-            fiber.pendingProps?.value,
-            fiber.memoizedProps?.value,
-        ].filter(Boolean) as Array<Record<string, unknown>>;
-
-        for (const candidate of candidates) {
-            const turn =
-                (candidate.turn as StructuredTurn | undefined)
-                ?? (candidate.currentTurn as StructuredTurn | undefined)
-                ?? (candidate.prevTurn as StructuredTurn | undefined)
-                ?? null;
-            if (turn && getTurnRole(turn)) return turn;
-        }
-
-        fiber = fiber.return ?? null;
-        depth += 1;
-    }
-
-    return null;
-}
-
-function isStructuredTextContent(record: Record<string, unknown>): boolean {
-    const contentType = readString(record, 'content_type');
-    return !contentType || contentType === 'text' || contentType === 'multimodal_text';
-}
-
-function normalizeStructuredText(value: unknown): string {
-    if (typeof value === 'string') return value.trim();
-    if (Array.isArray(value)) {
-        return value.map((item) => normalizeStructuredText(item)).filter(Boolean).join('\n\n').trim();
-    }
-
-    const record = readRecord(value);
-    if (!record || !isStructuredTextContent(record)) return '';
-    if (Array.isArray(record.parts)) {
-        const combined = record.parts
-            .map((part) => typeof part === 'string' ? part : '')
-            .filter(Boolean)
-            .join('\n')
-            .trim();
-        if (combined) return combined;
-    }
-    return readString(record, 'text') ?? readString(record, 'content') ?? readString(record, 'markdown') ?? '';
-}
-
-function getStructuredTurnText(turn: StructuredTurn | null, expectedRole: 'user' | 'assistant'): string {
-    const messages = Array.isArray(turn?.messages) ? turn.messages : [];
-    const texts = messages
-        .filter((message) => {
-            const record = readRecord(message);
-            if (!record) return false;
-            const role = readString(readRecord(record.author) ?? record, 'role') ?? getTurnRole(turn);
-            if (role !== expectedRole) return false;
-            const content = readRecord(record.content);
-            return !content || isStructuredTextContent(content);
-        })
-        .map((message) => normalizeStructuredText(readRecord(message)?.content))
-        .filter(Boolean);
-    return texts[texts.length - 1] ?? '';
-}
-
-function getStructuredTurnMessageId(turn: StructuredTurn | null, expectedRole: 'user' | 'assistant'): string | null {
-    const messages = Array.isArray(turn?.messages) ? turn.messages : [];
-    for (let index = messages.length - 1; index >= 0; index -= 1) {
-        const record = readRecord(messages[index]);
-        if (!record) continue;
-        const role = readString(readRecord(record.author) ?? record, 'role') ?? getTurnRole(turn);
-        if (role !== expectedRole) continue;
-        const id = readString(record, 'id');
-        if (id) return id;
-    }
-    return typeof turn?.id === 'string' && turn.id.trim() ? turn.id.trim() : null;
-}
-
 function getTurnRootFromContainer(container: HTMLElement, role: 'user' | 'assistant'): HTMLElement | null {
     const selector = `section[data-turn="${role}"], article[data-turn="${role}"], [data-turn="${role}"]`;
     const turnRoot = container.matches(selector) ? container : container.querySelector(selector);
     return turnRoot instanceof HTMLElement ? turnRoot : null;
-}
-
-function extractPromptTextFromElement(element: HTMLElement): string {
-    const clone = element.cloneNode(true) as HTMLElement;
-    clone.querySelectorAll('button, [role="button"], input, textarea, select, [data-aimd-role], [aria-label*="message actions" i]').forEach((node) => node.remove());
-    return normalizePromptText((clone.textContent || '').trim());
-}
-
-function extractUserPrompt(userRootEl: HTMLElement, userMessageEl: HTMLElement): string | null {
-    const bubble =
-        userRootEl.querySelector(`${USER_ROLE_SELECTOR} .whitespace-pre-wrap`) as HTMLElement | null
-        || userRootEl.querySelector(USER_ROLE_SELECTOR) as HTMLElement | null
-        || userRootEl.querySelector('.whitespace-pre-wrap') as HTMLElement | null
-        || userMessageEl;
-    const normalized = extractPromptTextFromElement(bubble) || extractPromptTextFromElement(userRootEl);
-    return normalized || null;
-}
-
-function buildPrompt(raw: string | null | undefined, position: number): { text: string; quality: 'real' | 'fallback' } {
-    const normalized = normalizePromptText(raw ?? '');
-    if (normalized) return { text: normalized, quality: 'real' };
-    return { text: `Message ${position}`, quality: 'fallback' };
 }
 
 function pushUnique(nodes: HTMLElement[], node: HTMLElement | null | undefined): void {
@@ -283,7 +165,6 @@ function collectTurnWrapperRoundRefs(adapter: SiteAdapter, root: ParentNode): Ch
     let pendingUser: {
         root: HTMLElement;
         message: HTMLElement;
-        prompt: string | null;
     } | null = null;
 
     for (const turnWrapper of turnWrappers) {
@@ -293,7 +174,6 @@ function collectTurnWrapperRoundRefs(adapter: SiteAdapter, root: ParentNode): Ch
             pendingUser = {
                 root: turnWrapper,
                 message: userMessage,
-                prompt: extractUserPrompt(turnWrapper, userMessage),
             };
             continue;
         }
@@ -324,15 +204,16 @@ function collectTurnWrapperRoundRefs(adapter: SiteAdapter, root: ParentNode): Ch
         const assistantMessageEl = hasRealAssistantMessage
             ? realAssistantMessageEl
             : createEmptyChatGPTAssistantMessageFallback(id);
-        const prompt = buildPrompt(pendingUser.prompt, rounds.length + 1);
-
         rounds.push({
-            position: rounds.length + 1,
             id,
+            identity: {
+                roundId: readRoundId(pendingUser.root),
+                userMessageId: readMessageId(pendingUser.message, pendingUser.root),
+                assistantMessageId: readMessageId(realAssistantMessageEl, turnWrapper),
+                assistantTurnId: readRoundId(turnWrapper),
+            },
             userRootEl: pendingUser.root,
             userMessageEl: pendingUser.message,
-            userPromptText: prompt.text,
-            userPromptQuality: prompt.quality,
             anchorEl: pendingUser.root,
             jumpAnchorEl: pendingUser.root,
             assistantRootEl: turnWrapper,
@@ -356,28 +237,24 @@ function collectLegacyContainerRoundRefs(adapter: SiteAdapter, root: ParentNode)
         container: HTMLElement;
         root: HTMLElement;
         message: HTMLElement;
-        prompt: string | null;
     } | null = null;
 
     for (const container of containers) {
-        const structuredTurn = findStructuredTurnData(container);
-        const structuredRole = getTurnRole(structuredTurn);
         const userRootEl = getTurnRootFromContainer(container, 'user');
         const assistantRootEl = getTurnRootFromContainer(container, 'assistant');
 
-        if ((userRootEl && !assistantRootEl) || structuredRole === 'user') {
-            const userRoot = userRootEl ?? container;
+        if (userRootEl && !assistantRootEl) {
+            const userRoot = userRootEl;
             const userMessage = findUserMessage(userRoot);
             pendingUser = {
                 container,
                 root: userRoot,
                 message: userMessage,
-                prompt: extractUserPrompt(userRoot, userMessage) || getStructuredTurnText(structuredTurn, 'user') || null,
             };
             continue;
         }
 
-        if (!assistantRootEl && structuredRole !== 'assistant') continue;
+        if (!assistantRootEl) continue;
 
         if (!pendingUser) {
             const previousRound = rounds[rounds.length - 1];
@@ -385,34 +262,35 @@ function collectLegacyContainerRoundRefs(adapter: SiteAdapter, root: ParentNode)
             continue;
         }
 
-        const resolvedAssistantRoot = assistantRootEl ?? container;
+        const resolvedAssistantRoot = assistantRootEl;
         const realAssistantMessageEl = findAssistantMessage(adapter, resolvedAssistantRoot);
         const hasRealAssistantMessage = realAssistantMessageEl instanceof HTMLElement;
         if (hasRealAssistantMessage && !isVirtualizationEligible(adapter, realAssistantMessageEl)) {
             continue;
         }
 
-        const id = (realAssistantMessageEl ? adapter.getMessageId(realAssistantMessageEl) : null)
-            || getStructuredTurnMessageId(structuredTurn, 'assistant')
-            || resolvedAssistantRoot.getAttribute('data-turn-id')
-            || resolvedAssistantRoot.getAttribute('data-testid')
-            || resolvedAssistantRoot.id
-            || `chatgpt-legacy-round-${rounds.length + 1}`;
+        const roundId = readRoundId(pendingUser.root, pendingUser.container);
+        const userMessageId = readMessageId(pendingUser.message, pendingUser.root, pendingUser.container);
+        const assistantMessageId = readMessageId(realAssistantMessageEl, resolvedAssistantRoot);
+        const assistantTurnId = readRoundId(resolvedAssistantRoot, container);
+        const id = assistantMessageId || assistantTurnId || roundId || userMessageId;
+        if (!id) continue;
         const assistantMessageEl = hasRealAssistantMessage
             ? realAssistantMessageEl
             : createEmptyChatGPTAssistantMessageFallback(id);
         const groupEls: HTMLElement[] = [];
         pushUnique(groupEls, pendingUser.container);
         pushUnique(groupEls, container);
-        const prompt = buildPrompt(pendingUser.prompt, rounds.length + 1);
-
         rounds.push({
-            position: rounds.length + 1,
             id,
+            identity: {
+                roundId,
+                userMessageId,
+                assistantMessageId,
+                assistantTurnId,
+            },
             userRootEl: pendingUser.root,
             userMessageEl: pendingUser.message,
-            userPromptText: prompt.text,
-            userPromptQuality: prompt.quality,
             anchorEl: pendingUser.container,
             jumpAnchorEl: pendingUser.container,
             assistantRootEl: resolvedAssistantRoot,
@@ -442,7 +320,6 @@ function discoverChatGPTDomRoundRefs(adapter: SiteAdapter): ChatGPTDomRoundRef[]
     let pendingUser: {
         root: HTMLElement;
         message: HTMLElement;
-        prompt: string | null;
         paired: boolean;
     } | null = null;
 
@@ -458,7 +335,6 @@ function discoverChatGPTDomRoundRefs(adapter: SiteAdapter): ChatGPTDomRoundRef[]
             pendingUser = {
                 root: roleRoot,
                 message: roleNode,
-                prompt: extractUserPrompt(roleRoot, roleNode),
                 paired: false,
             };
             continue;
@@ -481,15 +357,16 @@ function discoverChatGPTDomRoundRefs(adapter: SiteAdapter): ChatGPTDomRoundRef[]
             || roleRoot.getAttribute('data-turn-id')
             || roleRoot.getAttribute('data-testid')
             || `chatgpt-role-round-${rounds.length + 1}`;
-        const prompt = buildPrompt(pendingUser.prompt, rounds.length + 1);
-
         rounds.push({
-            position: rounds.length + 1,
             id,
+            identity: {
+                roundId: readRoundId(pendingUser.root),
+                userMessageId: readMessageId(pendingUser.message, pendingUser.root),
+                assistantMessageId: readMessageId(assistantMessageEl, roleRoot),
+                assistantTurnId: readRoundId(roleRoot),
+            },
             userRootEl: pendingUser.root,
             userMessageEl: pendingUser.message,
-            userPromptText: prompt.text,
-            userPromptQuality: prompt.quality,
             anchorEl: pendingUser.root,
             jumpAnchorEl: pendingUser.root,
             assistantRootEl: roleRoot,
@@ -534,9 +411,9 @@ export function disposeChatGPTPageIndex(adapter: SiteAdapter): void {
     pageIndexByAdapter.delete(adapter);
 }
 
-export function collectChatGPTDomRoundAnchors(adapter: SiteAdapter): Array<{ position: number; anchorEl: HTMLElement }> {
+export function collectChatGPTDomRoundAnchors(adapter: SiteAdapter): Array<{ identity: ChatGPTDomRoundIdentity; anchorEl: HTMLElement }> {
     return collectChatGPTDomRoundRefs(adapter).map((round) => ({
-        position: round.position,
+        identity: round.identity,
         anchorEl: round.anchorEl,
     }));
 }

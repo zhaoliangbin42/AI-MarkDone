@@ -139,7 +139,7 @@ describe('ToolbarHoverActionPortal', () => {
         vi.useRealTimers();
     });
 
-    it('keeps the transparent hover bridge inside the gap without covering the trigger', () => {
+    it('keeps the Main overlap tolerance across the trigger-to-action gap', () => {
         const portal = new ToolbarHoverActionPortal('light');
         const host = document.createElement('button');
         document.body.appendChild(host);
@@ -151,38 +151,40 @@ describe('ToolbarHoverActionPortal', () => {
             .querySelector<HTMLStyleElement>('style[data-aimd-style-id="aimd-toolbar-hover-action-base"]')!
             .textContent ?? '';
 
-        expect(css).toContain('top: calc(-1 * var(--aimd-space-2));');
-        expect(css).toContain('height: var(--aimd-space-2);');
-        expect(css).not.toContain('top: calc(-1 * var(--aimd-space-3));');
-        expect(css).not.toContain('transform: translate(-50%, calc(-1 * var(--aimd-space-2)));');
+        expect(css).toContain('top: calc(-1 * var(--aimd-space-3));');
+        expect(css).toContain('height: var(--aimd-space-4);');
+        expect(css).toContain('transform: translate(-50%, calc(-1 * var(--aimd-space-2)));');
 
         portal.dispose();
     });
 
-    it('uses the shared anchored lifecycle for outside-click, Escape, and teardown', () => {
+    it('keeps CSS anchor transforms intact and uses the stable pointerdown boundary', () => {
         const anchor = document.createElement('button');
         const outside = document.createElement('button');
         document.body.append(anchor, outside);
         const onRequestClose = vi.fn();
         const portal = new ToolbarHoverActionPortal('light');
         portal.open({ anchorEl: anchor, label: 'Copy as PNG', onRequestClose });
+        const host = document.querySelector<HTMLElement>('.aimd-toolbar-hover-action-host')!;
+        const actionsRoot = host.shadowRoot!.querySelector<HTMLElement>('[data-role="toolbar-hover-actions"]')!;
+        const action = host.shadowRoot!.querySelector<HTMLButtonElement>('[data-role="toolbar-hover-action"]')!;
 
-        anchor.dispatchEvent(new MouseEvent('pointerdown', { bubbles: true, composed: true }));
-        anchor.dispatchEvent(new MouseEvent('click', { bubbles: true, composed: true }));
+        expect(actionsRoot.style.transform).toBe('');
+        expect(actionsRoot.style.opacity).toBe('');
+
+        action.dispatchEvent(new MouseEvent('pointerdown', { bubbles: true, composed: true }));
         expect(onRequestClose).not.toHaveBeenCalled();
 
         outside.dispatchEvent(new MouseEvent('pointerdown', { bubbles: true, composed: true }));
-        outside.dispatchEvent(new MouseEvent('click', { bubbles: true, composed: true }));
         expect(onRequestClose).toHaveBeenCalledTimes(1);
 
         document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }));
-        expect(onRequestClose).toHaveBeenCalledTimes(2);
+        expect(onRequestClose).toHaveBeenCalledTimes(1);
 
         portal.close();
         outside.dispatchEvent(new MouseEvent('pointerdown', { bubbles: true, composed: true }));
-        outside.dispatchEvent(new MouseEvent('click', { bubbles: true, composed: true }));
         document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }));
-        expect(onRequestClose).toHaveBeenCalledTimes(2);
+        expect(onRequestClose).toHaveBeenCalledTimes(1);
 
         portal.dispose();
     });

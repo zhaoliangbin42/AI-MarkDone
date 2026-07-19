@@ -1,31 +1,17 @@
 (() => {
   const BRIDGE_KEY = '__AIMD_CHATGPT_CONVERSATION_BRIDGE__';
-  if (window[BRIDGE_KEY]) return;
+  const BRIDGE_VERSION = 2;
+  const existingBridge = window[BRIDGE_KEY];
+  if (existingBridge?.version === BRIDGE_VERSION) return;
+  existingBridge?.dispose?.();
 
   const REQUEST_EVENT = 'aimd:chatgpt-conversation-bridge:request';
   const RESPONSE_EVENT = 'aimd:chatgpt-conversation-bridge:response';
-  const CACHE_KEY = 'aimd:chatgpt-conversation-bridge-cache:v3';
-  const JS_ASSET_RE = /\/cdn\/assets\/[^"' )]+\.js(?:\?[^"' )]+)?$/i;
-  const MAX_SCAN = 18;
-  const MAX_BRIDGE_ATTEMPTS = 5;
-  const BACKEND_NEGATIVE_CACHE_TTL_MS = 5 * 60 * 1000;
-  const KEYWORDS = [
-    { pattern: /updateThreadFromServer/g, score: 90 },
-    { pattern: /getConversationTurns|getConversationTurnAtIndex|lastUserMessage/g, score: 70 },
-    { pattern: /\/conversation\/\{conversation_id\}|\/backend-api\/conversation\//g, score: 60 },
-    { pattern: /\brootId\b|\bcurrentLeafId\b|\bmessageIdToNodeId\b|\bgetBranchFromLeaf\b/g, score: 45 },
-    { pattern: /\bmapping\b|\bcurrent_node\b|\balder_turns\b/g, score: 35 },
-  ];
-
+  const CAPTURE_EVENT = 'aimd:chatgpt-conversation-bridge:capture';
+  const MAX_CAPTURED_CONVERSATIONS = 3;
   const bridgeState = {
-    buildFingerprint: null,
-    candidate: null,
-    aliasMap: null,
-    descriptor: null,
-    module: null,
-    snapshotCache: new Map(),
-    backendFailureCache: new Map(),
-    discoveryPromise: null,
+    graphsByConversation: new Map(),
+    captureSequence: 0,
   };
 
   function decodeBridgeDetail(detail) {
@@ -46,10 +32,6 @@
 
   function nowTs() {
     return Date.now();
-  }
-
-  function unique(values) {
-    return Array.from(new Set(values.filter(Boolean)));
   }
 
   function cleanText(value) {
@@ -110,140 +92,6 @@
     return !contentType || contentType === 'text' || contentType === 'output_text';
   }
 
-  function normalizeUrl(value) {
-    try {
-      return new URL(value, location.href).href;
-    } catch {
-      return null;
-    }
-  }
-
-  function collectJsAssets() {
-    const urls = [];
-
-    for (const node of document.querySelectorAll('script[src], link[href]')) {
-      const url = normalizeUrl(node.getAttribute('src') || node.getAttribute('href'));
-      if (url && JS_ASSET_RE.test(url)) urls.push(url);
-    }
-
-    for (const entry of performance.getEntriesByType('resource')) {
-      const url = normalizeUrl(entry?.name);
-      if (url && JS_ASSET_RE.test(url)) urls.push(url);
-    }
-
-    return unique(urls);
-  }
-
-  function readBridgeCache() {
-    try {
-      const raw = sessionStorage.getItem(CACHE_KEY);
-      if (!raw) return null;
-      const parsed = JSON.parse(raw);
-      if (!parsed || typeof parsed !== 'object') return null;
-      return parsed;
-    } catch {
-      return null;
-    }
-  }
-
-  function writeBridgeCache(value) {
-    try {
-      sessionStorage.setItem(CACHE_KEY, JSON.stringify(value));
-    } catch {
-      // ignore storage failures
-    }
-  }
-
-  function makeBuildFingerprint(urls) {
-    return urls
-      .map((url) => url.replace(location.origin, ''))
-      .sort()
-      .join('|');
-  }
-
-  function parseExportAliases(text) {
-    const exportToLocal = {};
-    const localToExport = {};
-    const exportMatch = text.match(/export\s*\{([\s\S]{0,200000})\}\s*;?\s*(?:\/\/# sourceMappingURL=|$)/m);
-    if (!exportMatch) return { exportToLocal, localToExport };
-    const block = exportMatch[1];
-    const pairRe = /\b([A-Za-z0-9_$]+)\s+as\s+([A-Za-z0-9_$]+)\b/g;
-    let match = null;
-
-    while ((match = pairRe.exec(block))) {
-      const localName = match[1];
-      const exportName = match[2];
-      exportToLocal[exportName] = localName;
-      localToExport[localName] = exportName;
-    }
-
-    return { exportToLocal, localToExport };
-  }
-
-  function extractDescriptor(text, aliasMaps) {
-    const anchorNeedle = 'threads:{},clientNewThreadIdToServerIdMapping:{},threadRetainCounts:{}';
-    const anchorIndex = text.indexOf(anchorNeedle);
-    if (anchorIndex < 0) return null;
-
-    const anchorWindow = text.slice(Math.max(0, anchorIndex - 2400), Math.min(text.length, anchorIndex + 2400));
-    const stateGetterMatch = anchorWindow.match(/\b([A-Za-z_$][\w$]*)\s*=\s*([A-Za-z_$][\w$]*)\.getState\b/);
-    if (!stateGetterMatch) return null;
-
-    const [, stateGetterLocal, storeLocal] = stateGetterMatch;
-    const descriptor = {
-      storeLocal,
-      stateGetterLocal,
-    };
-
-    const storeExport = aliasMaps.localToExport[storeLocal] || null;
-    const stateGetterExport = aliasMaps.localToExport[stateGetterLocal] || null;
-
-    if (storeExport) descriptor.storeExport = storeExport;
-    if (stateGetterExport) descriptor.stateGetterExport = stateGetterExport;
-
-    return descriptor.storeExport || descriptor.stateGetterExport ? descriptor : null;
-  }
-
-  function scoreAsset(url, text, descriptor) {
-    let score = 0;
-    if (/_conversation/i.test(url)) score += 20;
-
-    for (const rule of KEYWORDS) {
-      rule.pattern.lastIndex = 0;
-      let count = 0;
-      while (rule.pattern.exec(text)) {
-        count += 1;
-        if (count >= 6) break;
-      }
-      if (count > 0) score += rule.score + Math.min(count, 4) * 5;
-    }
-
-    if (descriptor?.storeExport) score += 140;
-    if (descriptor?.stateGetterExport) score += 80;
-    return score;
-  }
-
-  async function scanAssets(urls) {
-    const results = [];
-    for (const url of urls.slice(0, MAX_SCAN)) {
-      try {
-        const response = await fetch(url, { credentials: 'include' });
-        const text = await response.text();
-        const aliasMaps = parseExportAliases(text);
-        const descriptor = extractDescriptor(text, aliasMaps);
-        results.push({
-          url,
-          score: scoreAsset(url, text, descriptor),
-          aliasMap: aliasMaps.exportToLocal,
-          descriptor,
-        });
-      } catch {
-        // ignore candidate
-      }
-    }
-    return results.sort((a, b) => b.score - a.score);
-  }
-
   function extractTextFromValue(value) {
     if (typeof value === 'string') return value;
     if (Array.isArray(value)) {
@@ -283,7 +131,7 @@
 
   function getMessageId(message) {
     if (!message || typeof message !== 'object') return null;
-    return typeof message.id === 'string' ? message.id : null;
+    return typeof message.id === 'string' && message.id.trim() ? message.id.trim() : null;
   }
 
   function getMessageContent(message) {
@@ -322,141 +170,9 @@
     return reportMessage;
   }
 
-  function getDeepResearchReportMessageFromMessages(messages) {
-    for (const message of Array.isArray(messages) ? messages : []) {
-      const reportMessage = getDeepResearchReportMessage(message);
-      if (reportMessage) return reportMessage;
-    }
-    return null;
-  }
-
   function getDisplayableMessageContent(message, expectedRole) {
     if (!isDisplayableMessage(message, expectedRole)) return '';
     return getMessageContent(message);
-  }
-
-  function getTurnRole(turn) {
-    const role = readString(readRecord(turn?.author) || turn, 'role');
-    if (role === 'user' || role === 'assistant') return role;
-    const messages = Array.isArray(turn?.messages) ? turn.messages : [];
-    for (let index = messages.length - 1; index >= 0; index -= 1) {
-      const messageRole = readAuthorRole(messages[index]);
-      if (messageRole === 'user' || messageRole === 'assistant') return messageRole;
-    }
-    return null;
-  }
-
-  function getTurnId(turn) {
-    return typeof turn?.id === 'string' && turn.id.trim() ? turn.id.trim() : null;
-  }
-
-  function getLastDisplayableMessage(turn, expectedRole) {
-    const messages = Array.isArray(turn?.messages) ? turn.messages : [];
-    for (let index = messages.length - 1; index >= 0; index -= 1) {
-      const message = readRecord(messages[index]);
-      if (!message || !isDisplayableMessage(message, expectedRole)) continue;
-      if (getMessageId(message) || getDisplayableMessageContent(message, expectedRole)) return message;
-    }
-    return null;
-  }
-
-  function getReactRootCandidate(element) {
-    for (const key of Object.keys(element)) {
-      if (!key.startsWith('__reactFiber$') && !key.startsWith('__reactProps$')) continue;
-      if (element[key]) return element[key];
-    }
-    return null;
-  }
-
-  function findStructuredTurnData(element) {
-    let fiber = getReactRootCandidate(element);
-    let depth = 0;
-
-    while (fiber && depth < 12) {
-      const candidates = [
-        fiber.pendingProps,
-        fiber.memoizedProps,
-        fiber.pendingProps?.value,
-        fiber.memoizedProps?.value,
-      ].filter(Boolean);
-
-      for (const candidate of candidates) {
-        const turn = candidate.turn || candidate.currentTurn || candidate.prevTurn || null;
-        const parentPromptMessage = candidate.parentPromptMessage || candidate.lastUserMessage || null;
-        if (turn && getTurnRole(turn)) return { turn, parentPromptMessage };
-      }
-
-      fiber = fiber.return || null;
-      depth += 1;
-    }
-
-    return { turn: null, parentPromptMessage: null };
-  }
-
-  function collectStructuredTurnRefs() {
-    const refs = [];
-    const seen = new Set();
-    const push = (element) => {
-      if (!(element instanceof HTMLElement)) return;
-      const { turn, parentPromptMessage } = findStructuredTurnData(element);
-      const role = getTurnRole(turn);
-      if (!turn || !role) return;
-      const id = getTurnId(turn) || `${role}-${refs.length + 1}`;
-      const key = `${role}:${id}`;
-      if (seen.has(key)) return;
-      seen.add(key);
-      refs.push({ element, turn, parentPromptMessage });
-    };
-
-    document.querySelectorAll('main [data-turn-id-container]').forEach(push);
-    if (refs.length > 0) return refs;
-    document.querySelectorAll('[data-message-author-role="assistant"][data-message-id]').forEach(push);
-    return refs;
-  }
-
-  function buildRoundsFromReactTurnContainers() {
-    const refs = collectStructuredTurnRefs();
-    if (refs.length === 0) return null;
-
-    const rounds = [];
-    let pendingUser = null;
-
-    for (const ref of refs) {
-      const role = getTurnRole(ref.turn);
-      if (role === 'user') {
-        const userMessage = getLastDisplayableMessage(ref.turn, 'user');
-        const userPrompt = getDisplayableMessageContent(userMessage, 'user');
-        pendingUser = {
-          turnId: getTurnId(ref.turn),
-          userPrompt: userPrompt || `Message ${rounds.length + 1}`,
-          userMessageId: getMessageId(userMessage),
-        };
-        continue;
-      }
-
-      if (role !== 'assistant') continue;
-      const assistantMessage = getLastDisplayableMessage(ref.turn, 'assistant');
-      const deepResearchReport = getDeepResearchReportMessageFromMessages(ref.turn?.messages);
-      const assistantContent = deepResearchReport
-        ? getMessageContent(deepResearchReport)
-        : getDisplayableMessageContent(assistantMessage, 'assistant');
-      const assistantMessageId = getMessageId(assistantMessage) || getMessageId(deepResearchReport);
-      const fallbackPrompt = getDisplayableMessageContent(ref.parentPromptMessage, 'user');
-      const userPrompt = pendingUser?.userPrompt || fallbackPrompt || `Message ${rounds.length + 1}`;
-      rounds.push({
-        id: getTurnId(ref.turn) || pendingUser?.turnId || `react-turn-${rounds.length + 1}`,
-        position: rounds.length + 1,
-        userPrompt,
-        assistantContent,
-        preview: truncatePreview(userPrompt || assistantContent),
-        messageId: assistantMessageId,
-        userMessageId: pendingUser?.userMessageId || getMessageId(ref.parentPromptMessage),
-        assistantMessageId,
-      });
-      pendingUser = null;
-    }
-
-    return rounds.length > 0 ? rounds : null;
   }
 
   function getNodeMessage(node) {
@@ -471,21 +187,34 @@
       || readString(payload, 'current_leaf_id');
   }
 
+  function getPayloadConversationId(payload) {
+    return readString(payload, 'conversation_id')
+      || readString(payload, 'conversationId')
+      || readString(payload, 'id');
+  }
+
   function buildBranchNodesFromMapping(mapping, currentNodeId) {
-    if (!mapping || typeof mapping !== 'object' || !currentNodeId) return [];
+    if (!mapping || typeof mapping !== 'object' || !currentNodeId) return null;
     const branch = [];
     const seen = new Set();
     let cursor = currentNodeId;
 
-    while (cursor && !seen.has(cursor)) {
+    while (cursor) {
+      if (seen.has(cursor)) return null;
       seen.add(cursor);
       const node = mapping[cursor];
-      if (!node || typeof node !== 'object') break;
+      if (!node || typeof node !== 'object') return null;
       branch.push(node);
-      cursor = typeof node.parent === 'string' && node.parent ? node.parent : null;
+      // A complete ChatGPT graph terminates at its structural root. A visible
+      // message rebased to parent=null is a hydrated window, not full history.
+      if (node.parent === null) {
+        return getNodeMessage(node) === null ? branch.reverse() : null;
+      }
+      if (typeof node.parent !== 'string' || !node.parent) return null;
+      cursor = node.parent;
     }
 
-    return branch.reverse();
+    return null;
   }
 
   function buildRoundsFromMessages(nodes) {
@@ -541,7 +270,7 @@
           ? `${pendingRound.assistantContent}\n\n${assistantContent}`
           : assistantContent;
       }
-      pendingRound.assistantMessageId = getMessageId(message);
+      pendingRound.assistantMessageId = getMessageId(message) || pendingRound.assistantMessageId;
       pendingRound.messageId = pendingRound.assistantMessageId || pendingRound.messageId || pendingRound.userMessageId;
       pendingRound.preview = truncatePreview(
         pendingRound.userPrompt || pendingRound.assistantContent || `Message ${pendingRound.position}`
@@ -554,338 +283,185 @@
   function buildRoundsFromPayload(payload) {
     if (!payload || typeof payload !== 'object') return null;
 
-    if (Array.isArray(payload.turns)) {
-      const rounds = buildRoundsFromTurns(payload.turns);
-      return rounds.length > 0 ? rounds : null;
-    }
-
     const mapping = readRecord(payload.mapping);
     const currentNodeId = getPayloadCurrentNodeId(payload);
     const branchNodes = buildBranchNodesFromMapping(mapping, currentNodeId);
+    if (!branchNodes) return null;
     const rounds = buildRoundsFromMessages(branchNodes);
     return rounds.length > 0 ? rounds : null;
   }
 
-  async function fetchConversationPayloadSnapshot(conversationId) {
-    const failedAt = bridgeState.backendFailureCache.get(conversationId);
-    if (failedAt && nowTs() - failedAt < BACKEND_NEGATIVE_CACHE_TTL_MS) return null;
-
+  function getObservedConversationId(value) {
+    if (typeof value !== 'string' || !value) return null;
     try {
-      const response = await fetch(`/backend-api/conversation/${encodeURIComponent(conversationId)}`, {
-        credentials: 'include',
-      });
-      if (!response?.ok) {
-        if (response?.status === 404 || response?.status === 401 || response?.status === 403) {
-          bridgeState.backendFailureCache.set(conversationId, nowTs());
-        }
-        return null;
-      }
-      bridgeState.backendFailureCache.delete(conversationId);
-      const payload = await response.json();
-      const rounds = buildRoundsFromPayload(payload);
-      if (!rounds) return null;
-      return {
-        conversationId,
-        buildFingerprint: bridgeState.buildFingerprint,
-        rounds,
-        source: 'runtime-bridge',
-        capturedAt: nowTs(),
-      };
+      const url = new URL(value, window.location.href);
+      if (url.origin !== window.location.origin) return null;
+      const match = url.pathname.match(/^\/backend-api\/conversation\/([^/]+)\/?$/);
+      return match?.[1] ? decodeURIComponent(match[1]) : null;
     } catch {
       return null;
     }
   }
 
-  function buildRoundsFromTurns(turns) {
-    const rounds = [];
-    let pendingRound = null;
+  function getObservedRequestUrl(input) {
+    if (typeof input === 'string') return input;
+    if (input instanceof URL) return input.href;
+    return typeof input?.url === 'string' ? input.url : '';
+  }
 
-    for (const turn of Array.isArray(turns) ? turns : []) {
-      const role = typeof turn?.role === 'string' ? turn.role : null;
-      if (role === 'user') {
-        const messages = Array.isArray(turn.messages) ? turn.messages : [];
-        const userMessage = messages.find((message) => (
-          isDisplayableMessage(message, 'user')
-          && (getMessageId(message) || getMessageContent(message))
-        ));
-        const userPrompt = getDisplayableMessageContent(userMessage, 'user');
-        pendingRound = {
-          id: typeof turn.id === 'string' ? turn.id : `user-${rounds.length + 1}`,
-          position: rounds.length + 1,
-          userPrompt: userPrompt || `Message ${rounds.length + 1}`,
-          assistantContent: '',
-          preview: truncatePreview(userPrompt),
-          messageId: null,
-          userMessageId: getMessageId(userMessage),
-          assistantMessageId: null,
-        };
-        rounds.push(pendingRound);
+  function getObservedRequestMethod(input, init) {
+    const method = typeof init?.method === 'string'
+      ? init.method
+      : typeof input?.method === 'string'
+        ? input.method
+        : 'GET';
+    return method.toUpperCase();
+  }
+
+  function mergeObservedMapping(previousMapping, incomingMapping, preferPrevious = false) {
+    const merged = Object.assign(Object.create(null), previousMapping || {});
+    for (const [nodeId, rawIncomingNode] of Object.entries(incomingMapping)) {
+      const incomingNode = readRecord(rawIncomingNode);
+      if (!incomingNode) continue;
+      const previousNode = readRecord(merged[nodeId]);
+      if (preferPrevious && previousNode) {
+        const recoveredParent = previousNode.parent === null
+          && getNodeMessage(previousNode) !== null
+          && typeof incomingNode.parent === 'string'
+          && incomingNode.parent
+          ? incomingNode.parent
+          : previousNode.parent;
+        merged[nodeId] = { ...incomingNode, ...previousNode, parent: recoveredParent };
         continue;
       }
-
-      if (role !== 'assistant') continue;
-      if (!pendingRound) continue;
-
-      const messages = Array.isArray(turn.messages) ? turn.messages : [];
-      const deepResearchReport = getDeepResearchReportMessageFromMessages(messages);
-      const assistantContent = deepResearchReport
-        ? getMessageContent(deepResearchReport)
-        : messages
-          .map((message) => getDisplayableMessageContent(message, 'assistant'))
-          .filter(Boolean)
-          .join('\n\n')
-          .trim();
-      const assistantMessage = messages.find((message) => (
-        isDisplayableMessage(message, 'assistant')
-        && (getMessageId(message) || getMessageContent(message))
-      )) || null;
-      const assistantMessageId = getMessageId(assistantMessage) || getMessageId(deepResearchReport);
-
-      if (assistantContent) {
-        if (deepResearchReport) {
-          pendingRound.assistantContent = assistantContent;
-        } else {
-          pendingRound.assistantContent = pendingRound.assistantContent
-            ? `${pendingRound.assistantContent}\n\n${assistantContent}`
-            : assistantContent;
-        }
+      if (
+        previousNode
+        && typeof previousNode.parent === 'string'
+        && previousNode.parent
+        && incomingNode.parent === null
+        && getNodeMessage(incomingNode) !== null
+      ) {
+        merged[nodeId] = { ...previousNode, ...incomingNode, parent: previousNode.parent };
+      } else {
+        merged[nodeId] = previousNode ? { ...previousNode, ...incomingNode } : incomingNode;
       }
-      pendingRound.assistantMessageId = assistantMessageId;
-      pendingRound.messageId = pendingRound.assistantMessageId || pendingRound.messageId || pendingRound.userMessageId;
-      pendingRound.preview = truncatePreview(
-        pendingRound.userPrompt || pendingRound.assistantContent || `Message ${pendingRound.position}`
-      );
+    }
+    return merged;
+  }
+
+  function isNodeAncestor(mapping, ancestorNodeId, nodeId) {
+    if (!mapping || !ancestorNodeId || !nodeId || ancestorNodeId === nodeId) return ancestorNodeId === nodeId;
+    const seen = new Set();
+    let cursor = nodeId;
+    while (cursor) {
+      if (seen.has(cursor)) return false;
+      seen.add(cursor);
+      const node = readRecord(mapping[cursor]);
+      if (!node || typeof node.parent !== 'string' || !node.parent) return false;
+      if (node.parent === ancestorNodeId) return true;
+      cursor = node.parent;
+    }
+    return false;
+  }
+
+  function rememberObservedPayload(expectedConversationId, payload, captureSequence) {
+    if (!payload || typeof payload !== 'object') return false;
+    const conversationId = getPayloadConversationId(payload);
+    const currentNodeId = getPayloadCurrentNodeId(payload);
+    const mapping = readRecord(payload.mapping);
+    if (conversationId !== expectedConversationId || !currentNodeId || !mapping) return false;
+
+    const previous = bridgeState.graphsByConversation.get(conversationId);
+    const isCompletePayload = buildBranchNodesFromMapping(mapping, currentNodeId) !== null;
+    const isNewestCapture = !previous || captureSequence >= previous.captureSequence;
+    const mergedMapping = isCompletePayload && isNewestCapture
+      ? mapping
+      : mergeObservedMapping(previous?.mapping, mapping, !isNewestCapture);
+    const nextCurrentNodeId = !previous
+      ? currentNodeId
+      : !isNewestCapture
+        ? previous.currentNodeId
+        : !isCompletePayload && isNodeAncestor(mergedMapping, currentNodeId, previous.currentNodeId)
+          ? previous.currentNodeId
+          : currentNodeId;
+    bridgeState.graphsByConversation.delete(conversationId);
+    bridgeState.graphsByConversation.set(conversationId, {
+      mapping: mergedMapping,
+      currentNodeId: nextCurrentNodeId,
+      capturedAt: nowTs(),
+      captureSequence: Math.max(captureSequence, previous?.captureSequence || 0),
+    });
+    while (bridgeState.graphsByConversation.size > MAX_CAPTURED_CONVERSATIONS) {
+      const oldestConversationId = bridgeState.graphsByConversation.keys().next().value;
+      if (!oldestConversationId) break;
+      bridgeState.graphsByConversation.delete(oldestConversationId);
     }
 
-    return rounds.filter((round) => round.userPrompt || round.assistantContent);
+    window.dispatchEvent(new CustomEvent(CAPTURE_EVENT, {
+      detail: JSON.stringify({ conversationId }),
+    }));
+    return true;
   }
 
-  function findTurnsApiExport(mod) {
-    for (const [name, value] of Object.entries(mod)) {
-      if (isTurnsApi(value)) return name;
+  async function captureObservedResponse(response, requestUrl, expectedConversationId, captureSequence) {
+    if (!response?.ok) return;
+    const conversationId = getObservedConversationId(response.url || requestUrl);
+    if (!conversationId || conversationId !== expectedConversationId) return;
+    const contentType = response.headers?.get?.('content-type') || '';
+    if (!contentType.toLowerCase().includes('json')) return;
+    try {
+      const payload = await response.clone().json();
+      rememberObservedPayload(conversationId, payload, captureSequence);
+    } catch {
+      // The host response remains untouched; an unreadable clone simply yields no observation.
     }
-    return null;
   }
 
-  function isTurnsApi(value) {
-    return Boolean(
-      value
-      && typeof value === 'object'
-      && typeof value.getConversationTurns === 'function'
-      && typeof value.getTree === 'function'
-      && typeof value.getCurrentLeafId === 'function'
-    );
+  function installFetchObserver() {
+    const nativeFetch = window.fetch;
+    if (typeof nativeFetch !== 'function') return () => {};
+
+    const observedFetch = function observedFetch(input, ...init) {
+      const requestUrl = getObservedRequestUrl(input);
+      const conversationId = getObservedConversationId(requestUrl);
+      const result = nativeFetch.call(this, input, ...init);
+      if (!conversationId || getObservedRequestMethod(input, init[0]) !== 'GET') return result;
+      const captureSequence = ++bridgeState.captureSequence;
+      Promise.resolve(result)
+        .then((response) => captureObservedResponse(response, requestUrl, conversationId, captureSequence))
+        .catch(() => {});
+      return result;
+    };
+    window.fetch = observedFetch;
+    return () => {
+      if (window.fetch === observedFetch) window.fetch = nativeFetch;
+    };
   }
 
-  function isThreadLike(value) {
-    if (!value || typeof value !== 'object') return false;
-    const tree = value.tree;
-    return Boolean(
-      tree
-      && typeof tree === 'object'
-      && (
-        typeof tree.getDisplayTurns === 'function'
-        || typeof tree.getBranchFromLeaf === 'function'
-        || typeof tree.getNodeByIdOrMessageId === 'function'
-        || Array.isArray(tree.nodes)
-      )
-    );
-  }
-
-  function getStateThread(state, conversationId) {
-    if (!state || typeof state !== 'object' || !state.threads || typeof state.threads !== 'object') return null;
-    const normalizedId = state.clientNewThreadIdToServerIdMapping?.[conversationId] || conversationId;
-    return state.threads[normalizedId] || state.threads[conversationId] || null;
-  }
-
-  function buildRoundsFromDescriptor(mod, descriptor, conversationId) {
-    const turnsApiExport = descriptor?.turnsApiExport || findTurnsApiExport(mod);
-    if (!turnsApiExport) return null;
-    const turnsApi = mod[turnsApiExport];
-    if (!isTurnsApi(turnsApi)) return null;
-
-    let state = null;
-    if (descriptor?.stateGetterExport && typeof mod[descriptor.stateGetterExport] === 'function') {
-      state = mod[descriptor.stateGetterExport]();
-    } else if (
-      descriptor?.storeExport
-      && mod[descriptor.storeExport]
-      && typeof mod[descriptor.storeExport].getState === 'function'
-    ) {
-      state = mod[descriptor.storeExport].getState();
-    }
-
-    if (!state) return null;
-    const thread = getStateThread(state, conversationId);
-    if (!isThreadLike(thread)) return null;
-
-    const turns = turnsApi.getConversationTurns(thread);
-    const rounds = buildRoundsFromTurns(turns);
-    if (!Array.isArray(rounds) || rounds.length === 0) return null;
-    return rounds;
-  }
-
-  async function importBridgeCandidate(candidate, conversationId) {
-    const mod = await import(candidate.url);
-    if (!candidate.descriptor) return null;
-    const rounds = buildRoundsFromDescriptor(mod, candidate.descriptor, conversationId);
+  function getSnapshot(conversationId) {
+    const observed = bridgeState.graphsByConversation.get(conversationId);
+    if (!observed) return null;
+    const payload = {
+      conversation_id: conversationId,
+      current_node: observed.currentNodeId,
+      mapping: observed.mapping,
+    };
+    const rounds = buildRoundsFromPayload(payload);
     if (!rounds) return null;
 
     return {
-      candidateUrl: candidate.url,
-      aliasMap: candidate.aliasMap,
-      descriptor: candidate.descriptor,
-      rounds,
-    };
-  }
-
-  async function discoverBridge(conversationId) {
-    const assets = collectJsAssets();
-    const buildFingerprint = makeBuildFingerprint(assets);
-
-    if (
-      bridgeState.buildFingerprint === buildFingerprint
-      && bridgeState.candidate
-      && (bridgeState.aliasMap || bridgeState.descriptor)
-    ) {
-      return {
-        buildFingerprint,
-        candidateUrl: bridgeState.candidate,
-        aliasMap: bridgeState.aliasMap,
-        descriptor: bridgeState.descriptor,
-      };
-    }
-
-    if (bridgeState.discoveryPromise) return bridgeState.discoveryPromise;
-
-    bridgeState.discoveryPromise = (async () => {
-      const cached = readBridgeCache();
-      if (
-        cached
-        && cached.buildFingerprint === buildFingerprint
-        && typeof cached.candidateUrl === 'string'
-        && (cached.aliasMap || cached.descriptor)
-        && assets.includes(cached.candidateUrl)
-      ) {
-        try {
-          const bridged = await importBridgeCandidate({
-            url: cached.candidateUrl,
-            aliasMap: cached.aliasMap,
-            descriptor: cached.descriptor,
-          }, conversationId);
-          if (bridged) {
-            bridgeState.buildFingerprint = buildFingerprint;
-            bridgeState.candidate = bridged.candidateUrl;
-            bridgeState.aliasMap = bridged.aliasMap;
-            bridgeState.descriptor = bridged.descriptor;
-            bridgeState.snapshotCache.set(conversationId, {
-              conversationId,
-              buildFingerprint,
-              rounds: bridged.rounds,
-              source: 'runtime-bridge',
-              capturedAt: nowTs(),
-            });
-            return {
-              buildFingerprint,
-              candidateUrl: bridged.candidateUrl,
-              aliasMap: bridged.aliasMap,
-              descriptor: bridged.descriptor,
-            };
-          }
-        } catch {
-          // fall through to live scan
-        }
-      }
-
-      const scanned = await scanAssets(assets);
-      for (const candidate of scanned.slice(0, MAX_BRIDGE_ATTEMPTS)) {
-        try {
-          const bridged = await importBridgeCandidate(candidate, conversationId);
-          if (!bridged) continue;
-          bridgeState.buildFingerprint = buildFingerprint;
-          bridgeState.candidate = bridged.candidateUrl;
-          bridgeState.aliasMap = bridged.aliasMap;
-          bridgeState.descriptor = bridged.descriptor;
-          writeBridgeCache({
-            buildFingerprint,
-            candidateUrl: bridged.candidateUrl,
-            aliasMap: bridged.aliasMap,
-            descriptor: bridged.descriptor,
-          });
-          bridgeState.snapshotCache.set(conversationId, {
-            conversationId,
-            buildFingerprint,
-            rounds: bridged.rounds,
-            source: 'runtime-bridge',
-            capturedAt: nowTs(),
-          });
-          return {
-            buildFingerprint,
-            candidateUrl: bridged.candidateUrl,
-            aliasMap: bridged.aliasMap,
-            descriptor: bridged.descriptor,
-          };
-        } catch {
-          // try next candidate
-        }
-      }
-      return null;
-    })();
-
-    try {
-      return await bridgeState.discoveryPromise;
-    } finally {
-      bridgeState.discoveryPromise = null;
-    }
-  }
-
-  async function getSnapshot(conversationId, options = {}) {
-    const force = options?.force === true;
-    if (!force && bridgeState.snapshotCache.has(conversationId)) {
-      return bridgeState.snapshotCache.get(conversationId);
-    }
-
-    const payloadSnapshot = await fetchConversationPayloadSnapshot(conversationId);
-    if (payloadSnapshot?.rounds?.length) {
-      bridgeState.snapshotCache.set(conversationId, payloadSnapshot);
-      return payloadSnapshot;
-    }
-
-    const reactRounds = buildRoundsFromReactTurnContainers();
-    if (reactRounds?.length) {
-      const snapshot = {
-        conversationId,
-        buildFingerprint: bridgeState.buildFingerprint,
-        rounds: reactRounds,
-        source: 'runtime-bridge',
-        capturedAt: nowTs(),
-      };
-      bridgeState.snapshotCache.set(conversationId, snapshot);
-      return snapshot;
-    }
-
-    const bridge = await discoverBridge(conversationId);
-    if (!bridge?.candidateUrl || (!bridge.aliasMap && !bridge.descriptor)) return null;
-
-    const bridged = await importBridgeCandidate({
-      url: bridge.candidateUrl,
-      aliasMap: bridge.aliasMap,
-      descriptor: bridge.descriptor,
-    }, conversationId);
-    if (!bridged) return null;
-
-    const snapshot = {
       conversationId,
-      buildFingerprint: bridge.buildFingerprint,
-      rounds: bridged.rounds,
+      buildFingerprint: null,
+      rounds,
       source: 'runtime-bridge',
-      capturedAt: nowTs(),
+      origin: 'conversation-graph',
+      coverage: 'complete',
+      branchKey: observed.currentNodeId,
+      capturedAt: observed.capturedAt,
     };
-    bridgeState.snapshotCache.set(conversationId, snapshot);
-    return snapshot;
   }
 
-  window.addEventListener(REQUEST_EVENT, (event) => {
+  const handleSnapshotRequest = (event) => {
     const rawDetail = event instanceof CustomEvent ? event.detail : null;
     const detail = decodeBridgeDetail(rawDetail);
     if (!detail || detail.type !== 'snapshot') return;
@@ -897,7 +473,7 @@
     };
 
     Promise.resolve()
-      .then(() => getSnapshot(detail.conversationId, { force: detail.force === true }))
+      .then(() => getSnapshot(detail.conversationId))
       .then((snapshot) => {
         respond({
           requestId: detail.requestId,
@@ -916,7 +492,16 @@
           },
         });
       });
-  });
+  };
 
-  window[BRIDGE_KEY] = true;
+  const restoreFetch = installFetchObserver();
+  window.addEventListener(REQUEST_EVENT, handleSnapshotRequest);
+  window[BRIDGE_KEY] = {
+    version: BRIDGE_VERSION,
+    dispose() {
+      window.removeEventListener(REQUEST_EVENT, handleSnapshotRequest);
+      restoreFetch();
+      bridgeState.graphsByConversation.clear();
+    },
+  };
 })();

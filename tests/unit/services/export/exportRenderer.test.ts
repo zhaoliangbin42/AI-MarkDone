@@ -195,6 +195,15 @@ describe('renderExportHostJob', () => {
         const secondConnection = await secondConnectionPromise;
 
         expect(postMessage).toHaveBeenCalledTimes(2);
+        expect(postMessage).toHaveBeenNthCalledWith(
+            1,
+            expect.objectContaining({
+                v: EXPORT_RENDER_HOST_PROTOCOL_VERSION,
+                type: 'aimd:export-render-host:connect',
+            }),
+            '*',
+            [expect.any(MessagePort)],
+        );
         secondConnection.port.close();
         connector.teardown();
     });

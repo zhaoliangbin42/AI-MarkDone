@@ -206,7 +206,7 @@ describe('MessageToolbarOrchestrator Copy PNG', () => {
         }));
     });
 
-    it('maps renderer progress into toolbar progress labels', async () => {
+    it('maps renderer stages into monotonic toolbar progress without calling encoding a download', async () => {
         document.body.innerHTML = `
           <title>PNG Progress Test</title>
           <div class="assistant-message" data-message-id="m1" data-aimd-msg-position="7">
@@ -216,7 +216,11 @@ describe('MessageToolbarOrchestrator Copy PNG', () => {
         `;
 
         vi.mocked(copyMessagePng).mockImplementationOnce(async (_turn, _metadata, options: any) => {
-            options.onProgress({ phase: 'rasterizing', completed: 2, total: 4 });
+            options.onProgress({ phase: 'rasterizing', completed: 0, total: 2 });
+            options.onProgress({ phase: 'encoding', completed: 0, total: 2 });
+            options.onProgress({ phase: 'preparing' });
+            options.onProgress({ phase: 'rasterizing', completed: 1, total: 2 });
+            options.onProgress({ phase: 'encoding', completed: 1, total: 2 });
             return { ok: true, noop: false };
         });
 
@@ -233,12 +237,13 @@ describe('MessageToolbarOrchestrator Copy PNG', () => {
 
         await copyAction.hoverAction.onClick({ signal: new AbortController().signal, onProgress });
 
-        expect(onProgress).toHaveBeenCalledWith(expect.objectContaining({
-            label: expect.any(String),
-            completed: 2,
-            total: 4,
-            indeterminate: false,
-        }));
+        const updates = onProgress.mock.calls.map(([event]) => event);
+        const values = updates.map((event) => event.value);
+        expect(values).toEqual([...values].sort((a, b) => a - b));
+        expect(updates.map((event) => event.label).join(' ')).toContain('1/2');
+        expect(updates.map((event) => event.label).join(' ')).toContain('2/2');
+        expect(updates.map((event) => event.label).join(' ')).not.toContain('Downloading');
+        expect(updates.every((event) => event.indeterminate === false)).toBe(true);
     });
 
     it('reports cancelled Copy PNG as a short cancellation message', async () => {

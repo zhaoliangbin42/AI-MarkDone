@@ -12,6 +12,7 @@ const panelSetReaderSettingsController = vi.fn();
 const panelSetPromptManagerController = vi.fn();
 const panelGetCommentExportContext = vi.fn(() => null);
 const panelShow = vi.fn(async () => undefined);
+const panelReplaceItems = vi.fn(async () => undefined);
 const bookmarkSaveDialogOpen = vi.fn(async () => ({ ok: true, title: 'Saved title', folderPath: 'Saved/Folder' }));
 const bookmarkSaveDialogSetAppearance = vi.fn();
 let settingsSnapshotListener: ((snapshot: { settings: any }) => void) | null = null;
@@ -37,6 +38,7 @@ const readerPanelCtor = vi.fn(function () {
         setPromptManagerController: panelSetPromptManagerController,
         getCommentExportContext: panelGetCommentExportContext,
         show: panelShow,
+        replaceItems: panelReplaceItems,
         hide: vi.fn(),
     };
 });
@@ -83,6 +85,79 @@ afterEach(() => {
 });
 
 describe('detached reader runtime entry', () => {
+    it('refreshes in place and preserves the current typed identity instead of reopening at the fresh tail', async () => {
+        const { DEFAULT_SETTINGS } = await import('@/core/settings/types');
+        const settings = { ...structuredClone(DEFAULT_SETTINGS), language: 'en' as const };
+        const initialSession = {
+            sessionId: 'session-1',
+            sourceTabId: 10,
+            readerTabId: 11,
+            sourceUrl: 'https://chatgpt.com/c/mock',
+            snapshot: {
+                items: [
+                    { id: 'old-a1', userPrompt: 'Question 1', content: 'Old answer 1', meta: { position: 1, roundId: 'round-1', userMessageId: 'u1', assistantMessageId: 'old-a1', messageId: 'old-a1' } },
+                    { id: 'old-a2', userPrompt: 'Question 2', content: 'Old answer 2', meta: { position: 2, roundId: 'round-2', userMessageId: 'u2', assistantMessageId: 'old-a2', messageId: 'old-a2' } },
+                ],
+                startIndex: 0,
+                sourceUrl: 'https://chatgpt.com/c/mock',
+                theme: 'light' as const,
+                createdAt: 1,
+                updatedAt: 1,
+            },
+        };
+        const refreshedSession = {
+            ...initialSession,
+            snapshot: {
+                ...initialSession.snapshot,
+                items: [
+                    { id: 'new-a1', userPrompt: 'Question 1', content: 'New answer 1', meta: { position: 1, roundId: 'round-1', userMessageId: 'u1', assistantMessageId: 'new-a1', messageId: 'new-a1' } },
+                    { id: 'new-a2', userPrompt: 'Question 2', content: 'New answer 2', meta: { position: 2, roundId: 'round-2', userMessageId: 'u2', assistantMessageId: 'new-a2', messageId: 'new-a2' } },
+                ],
+                startIndex: 1,
+                updatedAt: 2,
+            },
+        };
+        window.location.hash = '#sessionId=session-1';
+        sendExtRequest.mockImplementation(async (request: any) => {
+            if (request.type === 'settings:getAll') return { ok: true, data: { settings } };
+            if (request.type === 'readerSession:get') return { ok: true, data: { session: initialSession } };
+            if (request.type === 'readerSession:refresh') return { ok: true, data: { session: refreshedSession } };
+            if (request.type === 'bookmarks:positions') return { ok: true, data: { positions: [1] } };
+            return { ok: true, data: {} };
+        });
+
+        await import('@/runtimes/reader/entry');
+        await vi.waitFor(() => expect(panelShow).toHaveBeenCalledTimes(1));
+        const refreshAction = panelShow.mock.calls[0][3].actions.find((action: any) => action.id === 'refresh');
+        const currentItem = panelShow.mock.calls[0][0][0];
+
+        await refreshAction.onClick({
+            item: currentItem,
+            index: 0,
+            items: panelShow.mock.calls[0][0],
+            notify: vi.fn(),
+            rerender: vi.fn(),
+        });
+
+        expect(panelShow).toHaveBeenCalledTimes(1);
+        expect(panelReplaceItems).toHaveBeenCalledWith(
+            [
+                expect.objectContaining({
+                    id: 'new-a1',
+                    meta: expect.objectContaining({
+                        position: 1,
+                        roundId: 'round-1',
+                        userMessageId: 'u1',
+                        assistantMessageId: 'new-a1',
+                        bookmarked: true,
+                    }),
+                }),
+                expect.objectContaining({ id: 'new-a2' }),
+            ],
+            { preserveCurrentIdentity: true },
+        );
+    });
+
     it('syncs page appearance without broadcasting Reader-owned layout settings', async () => {
         const { DEFAULT_SETTINGS } = await import('@/core/settings/types');
         const settings = {

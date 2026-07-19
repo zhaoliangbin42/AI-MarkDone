@@ -11,6 +11,10 @@ export type ContentProvider = string | (() => string) | (() => Promise<string>);
 export type ReaderItemMeta = {
     platformId?: string;
     messageId?: string | null;
+    roundId?: string | null;
+    userMessageId?: string | null;
+    assistantMessageId?: string | null;
+    branchKey?: string | null;
     position?: number;
     url?: string;
     bookmarkable?: boolean;

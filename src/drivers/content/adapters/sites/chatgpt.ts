@@ -9,6 +9,7 @@ import {
     disposeChatGPTPageIndex,
     type ChatGPTDomRoundRef,
 } from '../../chatgpt/domConversationDiscovery';
+import { disposeChatGPTConversationIndex } from '../../chatgpt/ChatGPTConversationIndex';
 
 const DEEP_RESEARCH_SCREENSHOT_ROOT_SELECTOR = '[data-conversation-screenshot-content]';
 const DEEP_RESEARCH_IFRAME_SELECTOR = `${DEEP_RESEARCH_SCREENSHOT_ROOT_SELECTOR} iframe[title="internal://deep-research"]`;
@@ -288,8 +289,6 @@ export class ChatGPTAdapter extends SiteAdapter {
             assistantMessageEl: roundRef.assistantMessageEl,
             assistantContentRootEl: roundRef.assistantContentRootEl,
             userRootEl: roundRef.userRootEl,
-            userPromptText: roundRef.userPromptText,
-            userPromptQuality: roundRef.userPromptQuality,
             barAnchorEl: roundRef.jumpAnchorEl,
             groupEls: roundRef.groupEls,
             assistantIndex,
@@ -300,6 +299,7 @@ export class ChatGPTAdapter extends SiteAdapter {
     }
 
     dispose(): void {
+        disposeChatGPTConversationIndex(this);
         disposeChatGPTPageIndex(this);
         this.conversationGroupCache = null;
     }

@@ -1,11 +1,10 @@
 import type { SiteAdapter } from '../adapters/base';
 import {
-    resolveConversationTarget,
     scrollToConversationTarget,
     scrollToConversationTargetWithRetry,
-    type ConversationLocator,
 } from '../conversation/navigation';
 import { highlightNavigationTarget } from '../conversation/highlight';
+import { materializeChatGPTConversationTarget } from '../chatgpt/ChatGPTConversationNavigation';
 import { releaseChatGPTSendPositionRestore } from '../chatgpt/sendPositionRestoreEvents';
 
 const NAV_KEY = 'aimd:bookmarkNavigate:v1';
@@ -77,11 +76,13 @@ function legacyScrollToAssistantPosition(
 }
 
 export function scrollToAssistantPosition(adapter: SiteAdapter, position: number): ScrollResult {
+    if (adapter.getPlatformId?.() === 'chatgpt') {
+        return { ok: false, message: 'Canonical async navigation required' };
+    }
     const mapped = scrollToConversationTarget(adapter, { kind: 'legacyAssistantPosition', position });
     if (mapped.ok) return mapped;
 
     // Fallback for platforms where turn grouping is unavailable or DOM is in flux.
-    // Keeps legacy behavior as a safety net.
     return legacyScrollToAssistantPosition(adapter, position);
 }
 
@@ -109,45 +110,17 @@ function scrollElementIntoView(targetEl: HTMLElement, options?: { behavior?: Scr
     return { ok: true };
 }
 
-function scrollChatGptLocator(
-    adapter: SiteAdapter,
-    locator: ConversationLocator,
-    options?: { behavior?: ScrollBehavior; block?: ScrollLogicalPosition }
-): ScrollResult {
-    const resolved = resolveConversationTarget(adapter, locator);
-    if (!resolved.ok) return resolved;
-    return scrollElementIntoView(resolved.targetEl, options);
-}
-
-async function scrollChatGptLocatorWithRetry(
-    adapter: SiteAdapter,
-    locator: ConversationLocator,
-    options?: { timeoutMs?: number; intervalMs?: number; behavior?: ScrollBehavior; block?: ScrollLogicalPosition }
-): Promise<ScrollResult> {
-    const timeoutMs = options?.timeoutMs ?? 2000;
-    const intervalMs = options?.intervalMs ?? 200;
-    const start = Date.now();
-    let last: ScrollResult = { ok: false, message: 'Not ready' };
-    while (Date.now() - start < timeoutMs) {
-        last = scrollChatGptLocator(adapter, locator, {
-            behavior: options?.behavior,
-            block: options?.block,
-        });
-        if (last.ok) return last;
-        await new Promise((resolve) => window.setTimeout(resolve, intervalMs));
-    }
-    return last;
-}
-
 export function scrollToBookmarkTarget(adapter: SiteAdapter, target: BookmarkNavigationTarget): ScrollResult {
+    const isChatGpt = adapter.getPlatformId?.() === 'chatgpt';
+    if (isChatGpt) return { ok: false, message: 'Canonical async navigation required' };
+
     const locators = buildBookmarkTargetLocators(target);
     let last: ScrollResult = { ok: false, message: 'Position not available' };
-    const isChatGpt = adapter.getPlatformId?.() === 'chatgpt';
 
     for (const locator of locators) {
-        last = isChatGpt
-            ? scrollChatGptLocator(adapter, locator)
-            : (locator.kind === 'messageId' ? scrollToConversationTarget(adapter, locator) : scrollToAssistantPosition(adapter, locator.position));
+        last = locator.kind === 'messageId'
+            ? scrollToConversationTarget(adapter, locator)
+            : scrollToAssistantPosition(adapter, locator.position);
         if (last.ok) return last;
     }
 
@@ -159,6 +132,15 @@ export async function scrollToAssistantPositionWithRetry(
     position: number,
     options?: { timeoutMs?: number; intervalMs?: number; behavior?: ScrollBehavior; block?: ScrollLogicalPosition }
 ): Promise<ScrollResult> {
+    if (adapter.getPlatformId?.() === 'chatgpt') {
+        const materialized = await materializeChatGPTConversationTarget(adapter, { position }, {
+            timeoutMs: options?.timeoutMs,
+            intervalMs: options?.intervalMs,
+        });
+        if (!materialized.ok) return materialized;
+        return scrollElementIntoView(materialized.anchor, options);
+    }
+
     const mapped = await scrollToConversationTargetWithRetry(adapter, { kind: 'legacyAssistantPosition', position }, options);
     if (mapped.ok) return mapped;
     const timeoutMs = options?.timeoutMs ?? 2000;
@@ -181,20 +163,30 @@ export async function scrollToBookmarkTargetWithRetry(
     target: BookmarkNavigationTarget,
     options?: { timeoutMs?: number; intervalMs?: number; behavior?: ScrollBehavior; block?: ScrollLogicalPosition }
 ): Promise<ScrollResult> {
-    const locators = buildBookmarkTargetLocators(target);
-    let last: ScrollResult = { ok: false, message: 'Position not available' };
     const isChatGpt = adapter.getPlatformId?.() === 'chatgpt';
     const navOptions = {
         ...options,
         block: options?.block ?? ('start' as ScrollLogicalPosition),
     };
+    if (isChatGpt) {
+        const materialized = await materializeChatGPTConversationTarget(adapter, {
+            position: target.position,
+            messageId: normalizeMessageId(target.messageId),
+        }, {
+            timeoutMs: options?.timeoutMs,
+            intervalMs: options?.intervalMs,
+        });
+        if (!materialized.ok) return materialized;
+        return scrollElementIntoView(materialized.anchor, navOptions);
+    }
+
+    const locators = buildBookmarkTargetLocators(target);
+    let last: ScrollResult = { ok: false, message: 'Position not available' };
 
     for (const locator of locators) {
-        last = isChatGpt
-            ? await scrollChatGptLocatorWithRetry(adapter, locator, navOptions)
-            : (locator.kind === 'messageId'
-                ? await scrollToConversationTargetWithRetry(adapter, locator, navOptions)
-                : await scrollToAssistantPositionWithRetry(adapter, locator.position, navOptions));
+        last = locator.kind === 'messageId'
+            ? await scrollToConversationTargetWithRetry(adapter, locator, navOptions)
+            : await scrollToAssistantPositionWithRetry(adapter, locator.position, navOptions);
         if (last.ok) return last;
     }
 

@@ -2,14 +2,14 @@
 
 This document is the executable acceptance contract for message PNG and formula asset export. It supplements `CURRENT_TEST_GATES.md`; it does not replace the repository-wide build, smoke, acceptance, or release gates.
 
-## Current Status (2026-07-15)
+## Current Status (2026-07-19)
 
-The architecture, protocol, streaming encoder, long-PNG output policy, shared high-memory scheduler, trusted-TeX formula path, and Chromium/Firefox built-renderer harness are implemented. This document remains the target gate, not a claim that every row is green.
+The production message path uses the proven content-side `message-card-v1` renderer and restores one-long-PNG output with conservative Canvas scaling. The trusted-TeX formula path still uses the extension renderer. Streaming encoder and built-renderer fixtures remain useful lower-level experiments, but they are not the production message-delivery architecture. This document remains the target gate, not a claim that every row is green.
 
 - **Green evidence:** Chromium/Firefox short fixtures are pixel-identical to their checked-in new-renderer goldens. Three canonical 60k runs produced one decodable 1x PNG per engine with no remote request or final full-height Canvas: Chromium rendered 480×60,114px in 6.27/6.17/6.11s (6.17s median), while Firefox rendered 480×64,523px in 17.59/17.51/17.61s (17.59s median). The validator used at most a 480×256 Canvas. A 67,061px fixture produces the mathematically minimum two 1x parts (65,512 + 1,549px). Real Chromium/Firefox formula PNG jobs covering CJK underbrace, mhchem and NewCM output are decodable, and focused protocol/planner/encoder/host/delivery tests are green.
-- **Non-blocking performance evidence:** three-run short-image medians are 275.1/127.8ms cold/warm on Chromium and 3,025/3,000ms on Firefox. Chromium clears the warm target and the 60k file-time target is green on both engines; Firefox does not clear the former 20% short-warm target. Reported 60k band-raster wall-time peaks are about 615ms on Chromium and 2,090ms on Firefox; this includes asynchronous SVG-image decode and is not a browser Long Task measurement. These timing thresholds are diagnostic targets, not release blockers: correctness, decodability, bounded memory, cancellation, and deterministic hard-limit fallback are the required stability gates. Reducing ultra-long bands from the safe 8M-pixel ceiling to 2M was rejected because it regressed Firefox 60k end-to-end time to about 33 seconds. Message output must still never be lowered below 1x merely to force success.
+- **Non-blocking performance evidence:** three-run short-image medians are 275.1/127.8ms cold/warm on Chromium and 3,025/3,000ms on Firefox. Chromium clears the warm target and the 60k file-time target is green on both engines; Firefox does not clear the former 20% short-warm target. Reported 60k band-raster wall-time peaks are about 615ms on Chromium and 2,090ms on Firefox; this includes asynchronous SVG-image decode and is not a browser Long Task measurement. These timing thresholds are diagnostic targets, not release blockers: correctness, decodability, bounded memory, cancellation, and deterministic hard-limit fallback are the required stability gates. All message jobs use the existing safe 8M-pixel band ceiling directly; a second 2M preference threshold was rejected because a real Firefox 800px/3x fixture repeated the fixed foreignObject setup 14 times and took 29.32s, versus 4 bands and 9.18s at the same output dimensions and pixels. Message output must still never be lowered below 1x merely to force success.
 - **Red semantic-fragment gate:** production currently uses semantic-boundary-aware pixel bands. Independent code-line fragments, repeated table headers, and ordered-list `start` reconstruction are not implemented.
-- **Red E2E/golden scope:** the browser harness exercises built renderer assets directly over MessageChannel; it does not replace an installed-extension trigger/Clipboard/Download check. Current message goldens are new-renderer baselines, not pre-refactor captures, and formula visual goldens are still missing.
+- **Red E2E/golden scope:** the built-renderer harness exercises retained lower-level renderer assets directly over MessageChannel; it does not represent the production content-side message trigger and does not replace installed-extension Clipboard/Download checks. Formula visual goldens are still missing.
 
 ## 1. Locked Product Contract
 
@@ -135,18 +135,17 @@ npm run benchmark:image-export:30k
 npm run benchmark:image-export:60k
 ```
 
-Use `--browser=chromium` or `--browser=firefox` with `npm run harness:image-export -- ...` for per-engine diagnosis. The report separates renderer duration from harness-only PNG decode/pixel-scan time.
+Use `--browser=chromium` or `--browser=firefox` with `npm run harness:image-export -- ...` for per-engine diagnosis. `--long-width-css-px=360..1200` and `--long-pixel-ratio=1..3` reproduce the production settings envelope; the latter accepts 0.5 steps. The report records those options, band count, renderer duration, and harness-only PNG decode/pixel-scan time separately.
 
 The canonical 60k command uses `--long-repeat=171`, which keeps the engine-specific output height between 60,000 and 65,535px. The harness validates PNG signature, IHDR, consecutive IDAT chunks, CRC32, IEND, browser decode, and foreground pixels in reusable 480×256 tiles; it must not allocate a validation Canvas at the exported image height. Treat `bandRasterWallMs` only as phase wall time until a browser Long Tasks/heartbeat probe directly establishes main-thread occupancy.
 
 ## 6. Runtime, Bundle, And Browser Gates
 
-- Startup, idle, streaming, toolbar recovery, Reader open, and Bookmarks open must request no export renderer, MathJax asset capability, Markdown export capability, or PNG worker.
-- The first real image action may load `export-renderer.html`; capability chunks and worker must resolve only from extension origin.
+- Startup, idle, streaming, toolbar recovery, Reader open, and Bookmarks open must not preload message PNG implementation, the formula renderer, or MathJax asset capability.
+- The first message PNG action may load its content feature chunk but must not create `export-renderer.html`; the first authoritative formula asset action may create the iframe, whose capability chunks resolve only from extension origin.
 - Message export must not load the formula MathJax capability; formula export must not load Markdown/highlight capability.
-- Only one high-memory job runs per tab. Queued work is FIFO; cancelling a queued job removes it without creating the iframe.
-- While the connection is alive, completed cache entries use a 120-second TTL. The 120-second idle teardown removes iframe/worker ownership and clears that completed cache.
-- Chrome MV3, Firefox MV2 (minimum 109), and Safari WebExtension use the same host/protocol/worker/`fflate` implementation.
+- Copy PNG and Save Messages PNG must share `ExportDocumentV1`, `message-card-v1`, and `renderPngBlob()` across Chrome MV3, Firefox MV2 (minimum 128), and Safari WebExtension.
+- Formula host jobs remain FIFO and cancellable; connection cache and 120-second idle teardown apply only to the formula renderer path.
 - Manifests add no `offscreen`, `downloads`, `debugger`, or new host permission.
 - Safari hides binary PNG/SVG copy surfaces but retains MathML copy and PNG/SVG/Save Messages download surfaces.
 

@@ -201,6 +201,7 @@ describe('settingsService', () => {
         };
         const next = planSetCategory(DEFAULT_SETTINGS, 'chatgptBehavior', {
             restorePositionAfterSend: true,
+            atomicMarkdownCopy: false,
             inputEnhancement,
             showMessageStepper: false,
             showPageBookmarkControl: false,
@@ -214,6 +215,7 @@ describe('settingsService', () => {
 
         expect(next.chatgptBehavior).toEqual({
             restorePositionAfterSend: true,
+            atomicMarkdownCopy: false,
             inputEnhancement,
             showMessageStepper: false,
             showPageBookmarkControl: false,
@@ -234,6 +236,7 @@ describe('settingsService', () => {
         }).next;
         expect(normalized.chatgptBehavior).toEqual({
             restorePositionAfterSend: true,
+            atomicMarkdownCopy: true,
             inputEnhancement: {
                 available: true,
                 enabled: false,

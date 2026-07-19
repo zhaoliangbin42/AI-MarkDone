@@ -1,5 +1,6 @@
 import { toCanvas } from 'html-to-image';
 import { getKatexCssWithEmbeddedFonts } from '../../../core/export/katexAssets';
+import { BITMAP_CAPTURE_STYLE_PROPERTIES } from './htmlToImageCapture';
 
 export type FormulaDomCaptureOptions = {
     sourceElement?: Element | null;
@@ -256,10 +257,12 @@ export async function renderFormulaDomPngAsset(options: FormulaDomCaptureOptions
         const pixelRatio = resolveSafePixelRatio(requestedPixelRatio(options.pixelRatio), size.width, size.height);
         const canvas = await toCanvas(prepared.node, {
             backgroundColor: options.backgroundColor,
-            cacheBust: true,
+            cacheBust: false,
             // The isolated capture root already contains the embedded KaTeX CSS once.
             // Passing it again makes html-to-image inject a duplicate font/style payload.
             fontEmbedCSS: '',
+            skipAutoScale: true,
+            includeStyleProperties: BITMAP_CAPTURE_STYLE_PROPERTIES,
             width: size.width,
             height: size.height,
             canvasWidth: size.width,

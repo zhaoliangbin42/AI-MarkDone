@@ -53,6 +53,7 @@ export type ChatGPTInputEnhancementSettings = {
 
 export type ChatGPTBehaviorSettings = {
     restorePositionAfterSend: boolean;
+    atomicMarkdownCopy: boolean;
     inputEnhancement: ChatGPTInputEnhancementSettings;
     showMessageStepper: boolean;
     showPageBookmarkControl: boolean;
@@ -183,6 +184,7 @@ export const DEFAULT_SETTINGS: AppSettings = {
     },
     chatgptBehavior: {
         restorePositionAfterSend: true,
+        atomicMarkdownCopy: true,
         inputEnhancement: {
             ...DEFAULT_CHATGPT_INPUT_ENHANCEMENT_SETTINGS,
             lists: { ...DEFAULT_CHATGPT_INPUT_ENHANCEMENT_SETTINGS.lists },

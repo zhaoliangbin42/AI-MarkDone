@@ -82,7 +82,7 @@ describe('ReaderPanel presentation', () => {
         vi.mocked(bookmarksClient.getChangelogNotice).mockResolvedValueOnce({
             ok: true,
             data: {
-                pendingVersion: '4.8.0',
+                pendingVersion: '5.0.0',
                 lastShownVersion: null,
                 reason: 'update',
                 previousVersion: '4.4.6',
@@ -100,16 +100,16 @@ describe('ReaderPanel presentation', () => {
             const shadow = host.shadowRoot as ShadowRoot;
             const modal = shadow.querySelector<HTMLElement>('.mock-modal');
 
-            expect(modal?.querySelector('.mock-modal__title-copy strong')?.textContent).toBe("What's new in AI-MarkDone 4.8.0");
-            expect(modal?.textContent).toContain('2026-07-11');
-            expect(modal?.textContent).toContain('annotation management');
+            expect(modal?.querySelector('.mock-modal__title-copy strong')?.textContent).toBe("What's new in AI-MarkDone 5.0.0");
+            expect(modal?.textContent).toContain('2026-07-19');
+            expect(modal?.textContent).toContain('atomic Markdown copy');
             expect(Array.from(modal?.querySelectorAll<HTMLButtonElement>('.mock-modal__button') ?? []).map((button) => button.textContent)).toEqual(['OK']);
 
             const okButton = modal?.querySelector<HTMLButtonElement>('.mock-modal__button');
             okButton?.click();
             await Promise.resolve();
 
-            expect(bookmarksClient.ackChangelogNotice).toHaveBeenCalledWith('4.8.0');
+            expect(bookmarksClient.ackChangelogNotice).toHaveBeenCalledWith('5.0.0');
         } finally {
             panel.hide();
         }

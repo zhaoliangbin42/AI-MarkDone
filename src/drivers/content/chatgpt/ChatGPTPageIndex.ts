@@ -15,6 +15,13 @@ const ROUND_STRUCTURE_SELECTOR = [
     '[data-testid^="conversation-turn-"]',
 ].join(',');
 
+const ROUND_IDENTITY_ATTRIBUTES = new Set([
+    'data-message-id',
+    'data-turn-id',
+    'data-turn',
+    'data-message-author-role',
+]);
+
 function getElementForOwnershipCheck(node: Node): Element | null {
     if (node.nodeType === 1) return node as Element;
     return node.parentElement;
@@ -46,6 +53,10 @@ function nodeMayContainRoundStructure(node: Node): boolean {
 }
 
 function mutationAffectsRoundStructure(mutation: MutationRecord): boolean {
+    if (mutation.type === 'attributes') {
+        return !isExtensionOwnedNode(mutation.target)
+            && Boolean(mutation.attributeName && ROUND_IDENTITY_ATTRIBUTES.has(mutation.attributeName));
+    }
     if (mutation.type !== 'childList' || isExtensionOwnedNode(mutation.target)) return false;
     return [...mutation.addedNodes, ...mutation.removedNodes].some((node) => (
         !isExtensionOwnedNode(node) && nodeMayContainRoundStructure(node)

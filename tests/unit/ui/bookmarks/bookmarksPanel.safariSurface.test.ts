@@ -132,7 +132,7 @@ describe('BookmarksPanel Safari App Store surface policy', () => {
 
         const shadow = document.getElementById('aimd-bookmarks-panel-host')!.shadowRoot!;
         const tabIds = Array.from(shadow.querySelectorAll<HTMLElement>('[data-action="set-bookmarks-tab"]')).map((node) => node.dataset.tab);
-        expect(tabIds).toEqual(['bookmarks', 'settings', 'changelog', 'faq', 'about', 'feedback']);
+        expect(tabIds).toEqual(['bookmarks', 'settings', 'changelog', 'faq', 'about', 'mappamory', 'feedback']);
         expect(shadow.querySelector('[data-action="set-bookmarks-tab"][data-tab="sponsor"]')).toBeNull();
         expect(shadow.querySelector('.sponsor-panel')).toBeNull();
         expect(shadow.textContent).not.toContain('Buy Me Coffee');
@@ -144,30 +144,34 @@ describe('BookmarksPanel Safari App Store surface policy', () => {
         expect(aboutPanel?.querySelector('.info-profile__avatar')).toBeTruthy();
         expect(aboutPanel?.querySelector('.about-website-card')).toBeNull();
         expect(aboutPanel?.querySelector('.support-contact-card')).toBeNull();
-        const mappamoryCard = aboutPanel?.querySelector<HTMLElement>('.mappamory-promo-card');
-        const mappamoryLink = mappamoryCard?.querySelector<HTMLAnchorElement>('.mappamory-promo-card__button');
-        const mappamoryXLink = mappamoryCard?.querySelector<HTMLAnchorElement>('.mappamory-promo-card__social-link');
-        const mappamoryImage = mappamoryCard?.querySelector<HTMLImageElement>('.mappamory-promo-card__image');
-        expect(mappamoryCard).toBeTruthy();
-        expect(mappamoryLink?.href).toBe('https://apps.apple.com/cn/app/mappamory/id6769453796?l=en-GB');
-        expect(mappamoryLink?.target).toBe('_blank');
-        expect(mappamoryLink?.rel).toContain('noopener');
-        expect(mappamoryLink?.rel).toContain('noreferrer');
-        expect(mappamoryXLink?.textContent).toBe('X: https://x.com/Mappamory');
-        expect(mappamoryXLink?.href).toBe('https://x.com/Mappamory');
-        expect(mappamoryXLink?.target).toBe('_blank');
-        expect(mappamoryXLink?.rel).toContain('noopener');
-        expect(mappamoryXLink?.rel).toContain('noreferrer');
-        expect(mappamoryImage?.src).toContain('icons/mappamory-about-en-4.6.0.png');
+        expect(aboutPanel?.querySelector('.mappamory-promo-card')).toBeNull();
         expect(aboutPanel?.querySelector('.social-follow-card')).toBeNull();
         expect(aboutPanel?.textContent).not.toContain('Feedback and contact');
+
+        shadow.querySelector<HTMLElement>('[data-action="set-bookmarks-tab"][data-tab="mappamory"]')!.click();
+        const mappamoryPanel = shadow.querySelector<HTMLElement>('.mappamory-panel');
+        const mappamoryLinks = Array.from(mappamoryPanel?.querySelectorAll<HTMLAnchorElement>('.mappamory-cta') ?? []);
+        expect(mappamoryPanel?.dataset.active).toBe('1');
+        expect(mappamoryPanel?.querySelector('.aimd-mappamory')).toBeTruthy();
+        expect(mappamoryPanel?.querySelector<HTMLImageElement>('.mappamory-poster__image')?.src).toContain(
+            'icons/mappamory-promo-poster.png',
+        );
+        expect(mappamoryPanel?.querySelector<HTMLImageElement>('.mappamory-proof__image')?.src).toContain(
+            'icons/mappamory-record-map-context.png',
+        );
+        expect(mappamoryLinks.map((link) => link.href)).toEqual([
+            'https://apps.apple.com/cn/app/mappamory/id6769453796?l=en-GB',
+            'https://mappamory.com/',
+        ]);
 
         shadow.querySelector<HTMLElement>('[data-action="set-bookmarks-tab"][data-tab="feedback"]')!.click();
         const feedbackPanel = shadow.querySelector<HTMLElement>('.feedback-panel');
         const websiteCta = feedbackPanel?.querySelector<HTMLAnchorElement>('.about-website-card__button');
         expect(feedbackPanel?.dataset.active).toBe('1');
         expect(feedbackPanel?.querySelector('.aimd-feedback')).toBeTruthy();
-        expect(feedbackPanel?.querySelector('.info-hero__title')?.textContent).toBe('Feedback');
+        expect(feedbackPanel?.querySelector('.info-hero__title')?.textContent).toBe('Help shape AI-MarkDone');
+        expect(feedbackPanel?.querySelector('.community-card')).toBeNull();
+        expect(feedbackPanel?.querySelector('.community-group-card')).toBeNull();
         expect(feedbackPanel?.querySelector<HTMLAnchorElement>('.support-contact-card__button--email')?.href).toBe(
             'mailto:zhaoliangbin42@gmail.com?subject=AI-MarkDone%20Safari%20Feedback',
         );

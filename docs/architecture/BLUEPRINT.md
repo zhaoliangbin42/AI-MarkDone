@@ -27,7 +27,7 @@
 - Page Side（Content Script）：负责页面 DOM 交互与 UI 注入
 - Background Side（Service Worker / background script）：负责副作用能力中心
 - Extension Pages（unsupported popup / Detached Reader）：承载宿主外的用户界面；设置继续由 Bookmarks Settings surface 持有
-- Export Renderer（按需 extension page iframe + static worker）：负责消息/公式的编译、布局、band 栅格化与编码，不持有用户副作用
+- Image Export：消息图片由 content-side 闭合 profile 与分段栅格化 driver 负责；authoritative TeX 公式资产由按需 extension page iframe 负责；两者都不持有交付副作用
 
 ### 2.1.1 前后端分离定义（Extension Frontend vs Backend）
 
@@ -74,7 +74,7 @@
 
 ### 2.3.2 Reader 闭环（预览/复制/发送）
 
-1. Driver（adapter/datasource）采集 `ReaderItem[]`（live page / bookmarks 等来源）
+1. Driver（adapter/datasource）采集 `ReaderItem[]`（live page / bookmarks 等来源）；ChatGPT live page 只允许 `ChatGPTConversationEngine` 的 verified conversation graph snapshot 作为 canonical semantic source，DOM 不能补齐或降级正文
 2. Service 进行编排：解析/渲染策略、缓存、错误回退、性能节流
 3. UI 只负责呈现与交互（分页/复制/打开浮层/触发发送）
 4. 副作用（写书签、写设置、网络等）通过 Background 执行并返回结果
@@ -111,11 +111,11 @@ Detached Reader 是 Reader 闭环的跨 runtime 形态，而不是第三套 Read
 
 1. UI 只保留当前消息 Copy PNG、Save Messages PNG、公式资产三个入口；入口不持有 HTML/CSS/renderer function，也不自行决定 Markdown、KaTeX、highlight 或分片算法。
 2. 消息路径从 fresh `ReaderItem[]` 转换为 `ChatTurn[]`，再构建版本化 `ExportDocumentV1`；authoritative TeX 提交结构化 spec。`dom-only` source 不能跨 iframe 传递，因此只允许由 `renderFormulaAsset()` 背后的唯一 content-side compatibility adapter 消费。Markdown 文件导出保持现有 formatter，不因图片重构改变 canonical 内容语义。
-3. Service 以每 tab 一个 FIFO scheduler 串行化全部高内存任务。可传输 job 通过 lazy `export-renderer.html` iframe 与私有 `MessageChannel` 执行；host 支持取消/进度、每次消息任务 120 秒 timeout、500ms stuck-cancel watchdog、120 秒 idle teardown、一次重建重试、in-flight 去重与 bounded byte-LRU；启动期不得加载。
-4. Renderer capability 只执行编译、布局、受控 band 栅格化和编码。消息 capability 不加载 MathJax 资产模块，公式 capability 不加载 Markdown/highlight 模块；renderer 不读 storage、不联网、不写 clipboard、不触发 download。
-5. 消息 PNG 在预算内始终生成一张长图；effective ratio 最低 1x，1x 仍超过 65,535px/64,000,000 pixels 时才按语义边界生成最少 part 数。worker 用一条 `fflate` zlib stream 输出 PNG chunks，不创建总高度 Canvas。
+3. 消息路径在 content runtime 内由 `message-card-v1` 编译闭合静态 DOM，并进入同一个 `renderPngBlob()`；它不依赖 iframe handshake。authoritative 公式资产才通过 lazy `export-renderer.html` iframe、私有 `MessageChannel` 与 scheduler 执行；启动期不得加载两条路径的重模块。
+4. 消息 profile 自持 Markdown、highlight、KaTeX 与静态图片规则，不复制宿主计算样式；content driver 按消息 section 和 Markdown 顶层 block 分段栅格化，公式 renderer 只处理结构化公式 spec。两条路径都不读 storage、不联网。
+5. 消息 PNG 优先生成一张长图；最终 Canvas 超过 16,384px 单边或 24,000,000 pixels 的保守预算时自动降低 effective ratio，以稳定产出为先。代码、表格和 display formula 必须在导出宽度内换行或等比收敛，不得以横向滚动区域进入图片。
 6. authoritative TeX 的 SVG/PNG/MathML 共享同一 MathJax 语义资产；`dom-only` 只允许兼容 PNG，SVG/MathML 返回 `SOURCE_UNAVAILABLE`。公式 PNG 保持单图，可等比降低到 1x 以下，SVG 保持无损出口。
-7. Content driver 继续独占 clipboard、download 与 ZIP 交付；Safari surface policy 只隐藏 binary copy，不改变 renderer 或 Save 行为。三端共用同一 primary host、协议、scheduler、DOM compatibility adapter 和 `fflate`，不新增 offscreen document、background renderer、权限、服务端或远程资源代理。
+7. Content driver 继续独占 clipboard 与 download 交付；Safari surface policy 只隐藏 binary copy，不改变 Save 行为。三端共用同一消息 profile/content renderer 与公式 host/DOM compatibility adapter，不新增 offscreen document、background renderer、权限、服务端或远程资源代理。
 
 ---
 
@@ -147,8 +147,9 @@ Detached Reader 是 Reader 闭环的跨 runtime 形态，而不是第三套 Read
 补充约束：
 
 - 页面级入口必须由 AI-MarkDone 自有 surface 承载，不得为入口修改宿主页面 header 的内部 DOM；若未来新增宿主锚点，相关 DOM 差异仍必须收敛在 adapter 契约内
-- ChatGPT conversation group discovery、turn root、conversation root、streaming 判定同样属于 adapter/driver 契约的一部分；UI/controller 只能消费已经抽象好的 group refs，包括完整 body roots、user prompt title 与稳定 anchor hints，不得在 UI 层按 ChatGPT selector 重新推导 user/assistant 轮次
-- ChatGPT DOM round refs 必须由 adapter-owned page index 按相关宿主 DOM revision 缓存；同一 revision 内的 toolbar、directory、stepper 与 navigation 调用只能消费同一有序 snapshot。索引必须忽略 AI-MarkDone 自有节点和 `data-aimd-*` bookkeeping 变化，conversation root 更换或 runtime disable 时必须重绑或释放 observer
+- ChatGPT conversation group discovery、turn root、conversation root、streaming 判定同样属于 adapter/driver 契约的一部分；UI/controller 只能消费已经抽象好的 structural refs，不得在 UI 层按 ChatGPT selector 重新推导轮次、正文或 identity
+- `ChatGPTConversationEngine` 是唯一 semantic SSOT；`readerContentSource` 把其 verified graph snapshot 投影成 Reader/Copy/Save Messages/书签正文共用的 `ReaderItem[]`
+- `ChatGPTPageIndex` 只按宿主 DOM revision 缓存当前 connected materialization anchors；`ChatGPTConversationIndex` 以 Engine snapshot 的完整顺序为事实，并以 typed identity 连接这些可选 anchors，作为 Directory、Stepper、Reader locate、Bookmark Go 与 pending navigation 的唯一 navigation projection。DOM window replacement 不得改变 canonical count；索引必须忽略 AI-MarkDone 自有节点和 `data-aimd-*` bookkeeping，conversation root 更换或 runtime disable→enable 时必须正确重建、重绑与释放
 - ChatGPT 稳定态性能优化所需的重子树结构提示（如 KaTeX / code-heavy subtree refs）同样属于 adapter/driver 契约；UI/controller 只能消费 adapter 返回的结构化 hints，不得自行扩张宿主 selector 集合
 - runtime 只允许持有平台无关的生命周期编排器（如 toolbar orchestrator），不得在入口层写平台选择器
 - toolbar observer 只能作为事件信号：消息内 mutation 必须定向进入该消息的 incremental reconcile，无关文本必须忽略，只有 message 集合/顺序、route/init、conversation root replacement 或无法归属的官方 action-row 结构变化才能进入 full reconcile；不得在一次 scheduled reconcile 后再做第二次全量 toolbar 遍历
@@ -172,13 +173,13 @@ Detached Reader 是 Reader 闭环的跨 runtime 形态，而不是第三套 Read
 
 ### 3.4 Export Renderer Contract（Content ↔ Extension Page）
 
-目标：让消息图片与公式资产共享一个版本化、可取消、可流式交付的隔离渲染边界，同时避免把二进制塞进 background runtime protocol。
+目标：为 authoritative TeX 公式资产提供版本化、可取消、可分块交付的隔离渲染边界，同时避免把二进制塞进 background runtime protocol。消息图片的 SSOT 是 `ExportDocumentV1` 与 `message-card-v1`，但生产栅格化留在 content-side driver，不经过该协议。
 
-- 命令只允许 `start(jobId, RenderHostJob)` 与 `cancel(jobId)`；job 只允许 `message-png` 或 `formula-asset`
+- 公式生产调用只允许 `start(jobId, formula-asset)` 与 `cancel(jobId)`；协议中保留的 `message-png` capability 不是当前消息导出主链
 - 事件固定为 progress、artifact-start、零基连续 artifact-chunk、artifact-complete、failed；二进制必须用 transferable `ArrayBuffer`
 - 同一 artifact 的 metadata、chunk sequence、part number/count 必须严格连续；未知版本、乱序、重叠 completion 或不稳定错误码属于 protocol failure
 - Host client 负责队列、生命周期、一次重建重试、取消与 bounded cache；renderer runtime 负责 capability dispatch 与纯渲染，不得反向拥有 clipboard/download/storage/network
-- `ExportDocumentV1` 与 `message-card-v1` 是消息图片语义/样式 SSOT；调用方不得绕过 profile 传入 HTML、CSS 或自定义 renderer
+- `ExportDocumentV1` 与 `message-card-v1` 是消息图片语义/样式 SSOT；service 不得绕过 profile 传入 HTML、CSS 或自定义 renderer，content driver 只消费 profile 结果
 - 公式 source confidence 是资产正确性边界；只有 authoritative TeX 能请求 SVG/MathML，DOM compatibility 不得被扩张为默认公式主链
 - 详细可执行门禁见 `docs/testing/IMAGE_EXPORT_GATES.md`
 
@@ -257,8 +258,9 @@ Surface profile / motion ownership 规则补充：
 
 - Site adapters：`src/drivers/content/adapters/*`
 - Injection / conversation / clipboard / theme / sending bridges：`src/drivers/content/*`
+- ChatGPT 内容发现：`ChatGPTConversationEngine` 持有 canonical semantic snapshot，`ChatGPTPageIndex` 持有 connected anchors，`ChatGPTConversationIndex` 是唯一 navigation projection，`ChatGPTConversationNavigation` 负责 bounded exact-identity materialization；UI 不拥有宿主 selector 或第二套定位算法
 - Browser abstraction：`src/drivers/shared/browser.ts`
-- Image export runtime：`src/runtimes/export-renderer/*`；只实现 capability dispatch、band rasterization 与 worker encoding，content driver 继续持有 clipboard/download
+- Message image export：`src/services/export/messageCardProfile.ts` + `src/drivers/content/export/renderPng.ts`；Formula asset runtime：`src/runtimes/export-renderer/*`；content driver 继续持有 clipboard/download
 - Background capabilities：`src/drivers/background/storage/*`, `src/drivers/background/cloudBackup/*`, `src/runtimes/background/handlers/*`
 - Google Drive provider 属于 background-only driver；UI/service 只能通过 `src/contracts/protocol.ts` 与 background handler 间接触发
 
@@ -269,7 +271,7 @@ Surface profile / motion ownership 规则补充：
 - runtime protocol：`src/contracts/protocol.ts`
 - platform contract：`src/contracts/platform.ts`
 - storage contract：`src/contracts/storage.ts`
-- export renderer protocol：`src/services/export/exportRenderHostProtocol.ts`（extension page 私有协议，不属于 content ↔ background runtime message）
+- formula export renderer protocol：`src/services/export/exportRenderHostProtocol.ts`（extension page 私有协议，不属于 content ↔ background runtime message）
 
 ---
 
@@ -296,7 +298,7 @@ Surface profile / motion ownership 规则补充：
 - 内部 `SurfaceProfile` 固定为 `panel`、`modal`、`anchored`、`inline` 四类行为族；产品 Surface 可以在族内声明具名 profile，但调用方不能传低层 CSS、motion 或 geometry flags。
 - `ResponsiveProfile` 统一 viewport gutter、宽高 clamp、flip、collision、唯一 scroll owner 与窄屏降级。host selector 与 anchor rect 仍由 Platform Adapter 提供，Surface Runtime 不读取站点私有 DOM。
 - `SurfaceMotionProfile` 是 CSS animation 与 JS delayed-unmount timing 的共同数据源，并内建 reduced-motion 语义；同一时长不得在 CSS 与 TypeScript 中重复维护。
-- `SurfaceSession` 统一 appearance、locale、focus、Escape、outside-click、position、close 与 destroy。`OverlaySession` 是 modal/panel profile 的共享 Adapter；anchored Surface 直接或通过 family owner 组合同一个 session，不各自复制 window listeners 和 viewport clamp。
+- `SurfaceSession` 统一 appearance、locale、focus、Escape、outside-click、position、close 与 destroy。`OverlaySession` 是 modal/panel profile 的共享 Adapter；anchored Surface 直接或通过 family owner 组合同一个 session。唯一登记的例外是 transform-owned toolbar hover portal：它保留 motion-free 的既有 pointer boundary，防止 opening motion 覆盖锚定几何；其他 anchored Surface 不得各自复制 window listeners 和 viewport clamp。
 - Surface 外壳在一次 session 内保持 stable ownership；异步数据、设置回流与错误状态只更新内容区，不重建 host/backdrop 或重复进入动画。
 - 当前实现没有为 UI 收敛保留长期 feature flag 或第二套 lifecycle。新增 Surface 必须在真实入口、双实例（适用时）和销毁验证完成后接入 catalog。
 

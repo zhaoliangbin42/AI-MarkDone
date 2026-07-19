@@ -40,6 +40,9 @@ function makeSnapshot(roundCount: number, capturedAt = 1, id = conversationId) {
         buildFingerprint: 'build-1',
         capturedAt,
         source: 'runtime-bridge' as const,
+        origin: 'conversation-graph' as const,
+        coverage: 'complete' as const,
+        branchKey: `branch-${roundCount}`,
         rounds: Array.from({ length: roundCount }, (_, index) => ({
             id: `round-${index + 1}`,
             position: index + 1,
@@ -180,12 +183,89 @@ describe('ChatGPTConversationEngine', () => {
         }
     });
 
-    it('loads a bridge snapshot once and serves subsequent requests from cache', async () => {
-        const appendSpy = vi.spyOn(document.head, 'appendChild').mockImplementation((node: Node) => {
-            const script = node as HTMLScriptElement;
-            window.setTimeout(() => script.onload?.(new Event('load')), 0);
-            return node;
+    it('refreshes only the current route when the passive bridge captures a graph', async () => {
+        const originalRequestIdleCallback = window.requestIdleCallback;
+        (window as any).requestIdleCallback = vi.fn(() => 1);
+        let requestCount = 0;
+        installBridgeResponder(() => {
+            requestCount += 1;
+            return { snapshot: makeSnapshot(requestCount, requestCount) };
         });
+        const engine = new ChatGPTConversationEngine(createAdapter());
+
+        try {
+            engine.init();
+            window.dispatchEvent(new CustomEvent('aimd:chatgpt-conversation-bridge:capture', {
+                detail: JSON.stringify({ conversationId: 'another-conversation' }),
+            }));
+            await Promise.resolve();
+            expect(requestCount).toBe(0);
+
+            window.dispatchEvent(new CustomEvent('aimd:chatgpt-conversation-bridge:capture', {
+                detail: JSON.stringify({ conversationId }),
+            }));
+            await Promise.resolve();
+            await Promise.resolve();
+
+            expect(requestCount).toBe(1);
+            expect(engine.peekCurrentSnapshot()?.rounds).toHaveLength(1);
+        } finally {
+            engine.dispose();
+            (window as any).requestIdleCallback = originalRequestIdleCallback;
+        }
+    });
+
+    it('re-reads the bridge when a newer capture arrives during an in-flight forced snapshot', async () => {
+        const originalRequestIdleCallback = window.requestIdleCallback;
+        (window as any).requestIdleCallback = vi.fn(() => 1);
+        const requests: Array<Record<string, any>> = [];
+        const listener = ((event: Event) => {
+            const detail = (event as CustomEvent<Record<string, any>>).detail;
+            requests.push(detail);
+            if (requests.length !== 2) return;
+            window.dispatchEvent(new CustomEvent('aimd:chatgpt-conversation-bridge:response', {
+                detail: {
+                    requestId: detail.requestId,
+                    ok: true,
+                    snapshot: makeSnapshot(2, 2),
+                },
+            }));
+        }) as EventListener;
+        window.addEventListener('aimd:chatgpt-conversation-bridge:request', listener);
+        removeBridgeResponder = () => window.removeEventListener('aimd:chatgpt-conversation-bridge:request', listener);
+        const engine = new ChatGPTConversationEngine(createAdapter());
+
+        try {
+            engine.init();
+            window.dispatchEvent(new CustomEvent('aimd:chatgpt-conversation-bridge:capture', {
+                detail: JSON.stringify({ conversationId }),
+            }));
+            expect(requests).toHaveLength(1);
+
+            window.dispatchEvent(new CustomEvent('aimd:chatgpt-conversation-bridge:capture', {
+                detail: JSON.stringify({ conversationId }),
+            }));
+            expect(requests).toHaveLength(1);
+
+            const first = requests[0]!;
+            window.dispatchEvent(new CustomEvent('aimd:chatgpt-conversation-bridge:response', {
+                detail: {
+                    requestId: first.requestId,
+                    ok: true,
+                    snapshot: makeSnapshot(1, 1),
+                },
+            }));
+            for (let index = 0; index < 8; index += 1) await Promise.resolve();
+
+            expect(requests).toHaveLength(2);
+            expect(engine.peekCurrentSnapshot()?.rounds).toHaveLength(2);
+        } finally {
+            engine.dispose();
+            (window as any).requestIdleCallback = originalRequestIdleCallback;
+        }
+    });
+
+    it('reads the declarative bridge snapshot once and serves subsequent requests from cache', async () => {
         let requestCount = 0;
         installBridgeResponder((detail) => {
             requestCount += 1;
@@ -201,7 +281,6 @@ describe('ChatGPTConversationEngine', () => {
         expect(first?.source).toBe('runtime-bridge');
         expect(second).toBe(first);
         expect(requestCount).toBe(1);
-        expect(appendSpy).toHaveBeenCalledTimes(1);
     });
 
     it('force refresh updates the cached snapshot when new rounds arrive', async () => {
@@ -230,6 +309,291 @@ describe('ChatGPTConversationEngine', () => {
         expect(refreshed?.rounds).toHaveLength(2);
         expect((await engine.getSnapshot())?.rounds).toHaveLength(2);
         expect(requestCount).toBe(2);
+    });
+
+    it('starts a distinct forced request when a non-forced snapshot request is already in flight', async () => {
+        vi.spyOn(document.head, 'appendChild').mockImplementation((node: Node) => {
+            const script = node as HTMLScriptElement;
+            window.setTimeout(() => script.onload?.(new Event('load')), 0);
+            return node;
+        });
+        const requests: boolean[] = [];
+        const listener = ((event: Event) => {
+            const detail = (event as CustomEvent<Record<string, any>>).detail;
+            requests.push(Boolean(detail.force));
+            const snapshot = detail.force ? makeSnapshot(2, 2) : makeSnapshot(1, 1);
+            window.setTimeout(() => {
+                window.dispatchEvent(new CustomEvent('aimd:chatgpt-conversation-bridge:response', {
+                    detail: {
+                        requestId: detail.requestId,
+                        ok: true,
+                        snapshot,
+                    },
+                }));
+            }, detail.force ? 0 : 50);
+        }) as EventListener;
+        window.addEventListener('aimd:chatgpt-conversation-bridge:request', listener);
+        removeBridgeResponder = () => window.removeEventListener('aimd:chatgpt-conversation-bridge:request', listener);
+
+        const engine = new ChatGPTConversationEngine(createAdapter());
+        const passivePromise = engine.getSnapshot();
+        await vi.advanceTimersByTimeAsync(0);
+        const forcedPromise = engine.forceRefreshCurrentConversation();
+        await vi.runAllTimersAsync();
+        const passive = await passivePromise;
+        const forced = await forcedPromise;
+
+        expect(requests).toEqual([false, true]);
+        expect(passive).toBe(forced);
+        expect(passive?.rounds).toHaveLength(2);
+        expect(forced?.rounds).toHaveLength(2);
+        expect(engine.peekCurrentSnapshot()?.rounds).toHaveLength(2);
+    });
+
+    it('makes a newer forced caller wait for the capture revision that superseded an in-flight request', async () => {
+        const requests: Array<Record<string, any>> = [];
+        const listener = ((event: Event) => {
+            const detail = (event as CustomEvent<Record<string, any>>).detail;
+            requests.push(detail);
+            if (requests.length !== 2) return;
+            window.dispatchEvent(new CustomEvent('aimd:chatgpt-conversation-bridge:response', {
+                detail: {
+                    requestId: detail.requestId,
+                    ok: true,
+                    snapshot: makeSnapshot(2, 2),
+                },
+            }));
+        }) as EventListener;
+        window.addEventListener('aimd:chatgpt-conversation-bridge:request', listener);
+        removeBridgeResponder = () => window.removeEventListener('aimd:chatgpt-conversation-bridge:request', listener);
+
+        const engine = new ChatGPTConversationEngine(createAdapter());
+        const firstForced = engine.forceRefreshCurrentConversation();
+        const secondForced = engine.forceRefreshCurrentConversation();
+        expect(requests).toHaveLength(1);
+
+        window.dispatchEvent(new CustomEvent('aimd:chatgpt-conversation-bridge:response', {
+            detail: {
+                requestId: requests[0]!.requestId,
+                ok: true,
+                snapshot: makeSnapshot(1, 1),
+            },
+        }));
+        for (let index = 0; index < 8; index += 1) await Promise.resolve();
+
+        await expect(firstForced).resolves.toBeNull();
+        await expect(secondForced).resolves.toMatchObject({ rounds: expect.arrayContaining([expect.objectContaining({ position: 2 })]) });
+        expect(requests).toHaveLength(2);
+        expect(engine.peekCurrentSnapshot()?.rounds).toHaveLength(2);
+    });
+
+    it('keeps the verified graph snapshot when a refresh returns a partial semantic candidate', async () => {
+        vi.spyOn(document.head, 'appendChild').mockImplementation((node: Node) => {
+            const script = node as HTMLScriptElement;
+            window.setTimeout(() => script.onload?.(new Event('load')), 0);
+            return node;
+        });
+        let requestCount = 0;
+        installBridgeResponder(() => {
+            requestCount += 1;
+            if (requestCount === 1) return { snapshot: makeSnapshot(3, 1) };
+            return {
+                snapshot: {
+                    ...makeSnapshot(1, 2),
+                    origin: 'legacy-unverified',
+                    coverage: 'partial',
+                    branchKey: null,
+                },
+            };
+        });
+
+        const engine = new ChatGPTConversationEngine(createAdapter());
+        const initialPromise = engine.getSnapshot();
+        await vi.runAllTimersAsync();
+        const initial = await initialPromise;
+        const refreshedPromise = engine.forceRefreshCurrentConversation();
+        await vi.runAllTimersAsync();
+        const refreshed = await refreshedPromise;
+
+        expect(initial?.rounds).toHaveLength(3);
+        expect(refreshed).toBe(initial);
+        expect(engine.peekCurrentSnapshot()).toBe(initial);
+    });
+
+    it('retries a stale refresh when the failed request falls back to the previous snapshot', async () => {
+        vi.spyOn(document.head, 'appendChild').mockImplementation((node: Node) => {
+            const script = node as HTMLScriptElement;
+            window.setTimeout(() => script.onload?.(new Event('load')), 0);
+            return node;
+        });
+        let requestCount = 0;
+        installBridgeResponder(() => {
+            requestCount += 1;
+            if (requestCount === 1) return { snapshot: makeSnapshot(1, 1) };
+            if (requestCount === 2) return {};
+            return { snapshot: makeSnapshot(2, 3) };
+        });
+
+        const engine = new ChatGPTConversationEngine(createAdapter());
+        const initialPromise = engine.getSnapshot();
+        await vi.runAllTimersAsync();
+        const initial = await initialPromise;
+
+        const fallback = await engine.forceRefreshCurrentConversation();
+
+        expect(fallback).toBe(initial);
+        expect(requestCount).toBe(2);
+        await vi.advanceTimersByTimeAsync(499);
+        expect(requestCount).toBe(2);
+        await vi.advanceTimersByTimeAsync(1);
+        expect(requestCount).toBe(3);
+        expect(engine.peekCurrentSnapshot()?.rounds).toHaveLength(2);
+    });
+
+    it('resumes a stale retry when a hidden conversation becomes visible again', async () => {
+        vi.spyOn(document.head, 'appendChild').mockImplementation((node: Node) => {
+            const script = node as HTMLScriptElement;
+            window.setTimeout(() => script.onload?.(new Event('load')), 0);
+            return node;
+        });
+        let requestCount = 0;
+        installBridgeResponder(() => {
+            requestCount += 1;
+            if (requestCount === 1) return { snapshot: makeSnapshot(1, 1) };
+            if (requestCount === 2) return {};
+            return { snapshot: makeSnapshot(2, 3) };
+        });
+
+        const engine = new ChatGPTConversationEngine(createAdapter());
+        const initialPromise = engine.getSnapshot();
+        await vi.runAllTimersAsync();
+        await initialPromise;
+        await engine.forceRefreshCurrentConversation();
+        Object.defineProperty(document, 'visibilityState', { configurable: true, value: 'hidden' });
+
+        await vi.advanceTimersByTimeAsync(500);
+        expect(requestCount).toBe(2);
+
+        Object.defineProperty(document, 'visibilityState', { configurable: true, value: 'visible' });
+        document.dispatchEvent(new Event('visibilitychange'));
+        await vi.runAllTimersAsync();
+
+        expect(requestCount).toBe(3);
+        expect(engine.peekCurrentSnapshot()?.rounds).toHaveLength(2);
+        engine.dispose();
+    });
+
+    it('accepts a shorter verified snapshot when the active graph branch changes', async () => {
+        vi.spyOn(document.head, 'appendChild').mockImplementation((node: Node) => {
+            const script = node as HTMLScriptElement;
+            window.setTimeout(() => script.onload?.(new Event('load')), 0);
+            return node;
+        });
+        let requestCount = 0;
+        installBridgeResponder(() => {
+            requestCount += 1;
+            return { snapshot: requestCount === 1 ? makeSnapshot(3, 1) : makeSnapshot(1, 2) };
+        });
+
+        const engine = new ChatGPTConversationEngine(createAdapter());
+        const initialPromise = engine.getSnapshot();
+        await vi.runAllTimersAsync();
+        const initial = await initialPromise;
+        const refreshedPromise = engine.forceRefreshCurrentConversation();
+        await vi.runAllTimersAsync();
+        const refreshed = await refreshedPromise;
+
+        expect(initial?.branchKey).toBe('branch-3');
+        expect(refreshed?.branchKey).toBe('branch-1');
+        expect(refreshed?.rounds).toHaveLength(1);
+        expect(engine.peekCurrentSnapshot()).toBe(refreshed);
+    });
+
+    it('rejects a graph snapshot that identifies a different conversation', async () => {
+        vi.spyOn(document.head, 'appendChild').mockImplementation((node: Node) => {
+            const script = node as HTMLScriptElement;
+            window.setTimeout(() => script.onload?.(new Event('load')), 0);
+            return node;
+        });
+        const otherConversationId = '795499b7-464c-8323-a998-119f661ac954';
+        installBridgeResponder(() => ({ snapshot: makeSnapshot(1, 1, otherConversationId) }));
+
+        const engine = new ChatGPTConversationEngine(createAdapter());
+        const snapshotPromise = engine.getSnapshot();
+        await vi.runAllTimersAsync();
+        const snapshot = await snapshotPromise;
+
+        expect(snapshot).toBeNull();
+        expect(engine.peekCurrentSnapshot()).toBeNull();
+    });
+
+    it('rejects a candidate that labels an empty round list as a complete graph', async () => {
+        vi.spyOn(document.head, 'appendChild').mockImplementation((node: Node) => {
+            const script = node as HTMLScriptElement;
+            window.setTimeout(() => script.onload?.(new Event('load')), 0);
+            return node;
+        });
+        installBridgeResponder(() => ({
+            snapshot: {
+                ...makeSnapshot(1),
+                rounds: [],
+            },
+        }));
+
+        const engine = new ChatGPTConversationEngine(createAdapter());
+        const snapshotPromise = engine.getSnapshot();
+        await vi.runAllTimersAsync();
+        const snapshot = await snapshotPromise;
+
+        expect(snapshot).toBeNull();
+        expect(engine.peekCurrentSnapshot()).toBeNull();
+    });
+
+    it('rejects a complete graph candidate whose round positions are not canonical and contiguous', async () => {
+        vi.spyOn(document.head, 'appendChild').mockImplementation((node: Node) => {
+            const script = node as HTMLScriptElement;
+            window.setTimeout(() => script.onload?.(new Event('load')), 0);
+            return node;
+        });
+        const malformed = makeSnapshot(2);
+        malformed.rounds[1]!.position = 7;
+        installBridgeResponder(() => ({ snapshot: malformed }));
+
+        const engine = new ChatGPTConversationEngine(createAdapter());
+        const snapshotPromise = engine.getSnapshot();
+        await vi.runAllTimersAsync();
+        const snapshot = await snapshotPromise;
+
+        expect(snapshot).toBeNull();
+        expect(engine.peekCurrentSnapshot()).toBeNull();
+    });
+
+    it('rejects malformed or ambiguous round DTO fields at the content-world boundary', async () => {
+        vi.spyOn(document.head, 'appendChild').mockImplementation((node: Node) => {
+            const script = node as HTMLScriptElement;
+            window.setTimeout(() => script.onload?.(new Event('load')), 0);
+            return node;
+        });
+        const invalidText = makeSnapshot(1) as any;
+        invalidText.rounds[0].userPrompt = 42;
+        const duplicateIdentity = makeSnapshot(2);
+        duplicateIdentity.rounds[1]!.assistantMessageId = duplicateIdentity.rounds[0]!.assistantMessageId;
+        duplicateIdentity.rounds[1]!.messageId = duplicateIdentity.rounds[0]!.messageId;
+        const mismatchedAlias = makeSnapshot(1);
+        mismatchedAlias.rounds[0]!.messageId = 'unrelated-message';
+        const invalidTimestamp = makeSnapshot(1);
+        invalidTimestamp.capturedAt = Number.NaN;
+        const candidates = [invalidText, duplicateIdentity, mismatchedAlias, invalidTimestamp];
+        let requestIndex = 0;
+        installBridgeResponder(() => ({ snapshot: candidates[requestIndex++] }));
+
+        for (const _candidate of candidates) {
+            const engine = new ChatGPTConversationEngine(createAdapter());
+            const snapshotPromise = engine.getSnapshot();
+            await vi.runAllTimersAsync();
+            await expect(snapshotPromise).resolves.toBeNull();
+            expect(engine.peekCurrentSnapshot()).toBeNull();
+        }
     });
 
     it('treats SPA conversation changes as stale and force-refreshes the next snapshot', async () => {
@@ -265,30 +629,77 @@ describe('ChatGPTConversationEngine', () => {
         ]);
     });
 
-    it('force-refreshes the current conversation when ChatGPT fetches conversation payload again', async () => {
+    it('clears subscribers immediately when the route changes before the new graph arrives', async () => {
         vi.spyOn(document.head, 'appendChild').mockImplementation((node: Node) => {
             const script = node as HTMLScriptElement;
             window.setTimeout(() => script.onload?.(new Event('load')), 0);
             return node;
         });
-        const requests: boolean[] = [];
-        installBridgeResponder((detail) => {
-            requests.push(Boolean(detail.force));
-            return { snapshot: makeSnapshot(detail.force ? 2 : 1, requests.length) };
+        const nextConversationId = '795499b7-464c-8323-a998-119f661ac954';
+        installBridgeResponder((detail) => ({
+            snapshot: makeSnapshot(1, 1, detail.conversationId),
+        }));
+        const engine = new ChatGPTConversationEngine(createAdapter());
+        const initialPromise = engine.getSnapshot();
+        await vi.runAllTimersAsync();
+        await initialPromise;
+        const listener = vi.fn();
+        (engine as any).subscribers.add(listener);
+        document.body.innerHTML = '<main data-old-conversation="true">Old conversation still mounted</main>';
+
+        const previousUrl = window.location.href;
+        history.replaceState({}, '', `/c/${nextConversationId}`);
+        (engine as any).handleRouteChange(window.location.href, previousUrl);
+
+        expect(listener).toHaveBeenCalledTimes(1);
+        expect(listener).toHaveBeenLastCalledWith(null);
+
+        await vi.runAllTimersAsync();
+    });
+
+    it('does not publish an old conversation request that completes after a route change', async () => {
+        vi.spyOn(document.head, 'appendChild').mockImplementation((node: Node) => {
+            const script = node as HTMLScriptElement;
+            window.setTimeout(() => script.onload?.(new Event('load')), 0);
+            return node;
         });
+        const nextConversationId = '795499b7-464c-8323-a998-119f661ac954';
+        const listener = ((event: Event) => {
+            const detail = (event as CustomEvent<Record<string, any>>).detail;
+            const isOldConversation = detail.conversationId === conversationId;
+            window.setTimeout(() => {
+                window.dispatchEvent(new CustomEvent('aimd:chatgpt-conversation-bridge:response', {
+                    detail: {
+                        requestId: detail.requestId,
+                        ok: true,
+                        snapshot: makeSnapshot(1, isOldConversation ? 1 : 2, detail.conversationId),
+                    },
+                }));
+            }, isOldConversation ? 50 : 100);
+        }) as EventListener;
+        window.addEventListener('aimd:chatgpt-conversation-bridge:request', listener);
+        removeBridgeResponder = () => window.removeEventListener('aimd:chatgpt-conversation-bridge:request', listener);
 
         const engine = new ChatGPTConversationEngine(createAdapter());
-        const firstPromise = engine.getSnapshot();
-        await vi.runAllTimersAsync();
-        await firstPromise;
+        const snapshotListener = vi.fn();
+        (engine as any).subscribers.add(snapshotListener);
+        const oldRequest = engine.getSnapshot();
+        await vi.advanceTimersByTimeAsync(0);
 
-        (engine as any).handleConversationFetch(new CustomEvent('aimd:chatgpt-conversation-fetch', {
-            detail: { url: `https://chatgpt.com/backend-api/conversation/${conversationId}` },
+        const previousUrl = window.location.href;
+        history.replaceState({}, '', `/c/${nextConversationId}`);
+        (engine as any).handleRouteChange(window.location.href, previousUrl);
+        expect(snapshotListener).toHaveBeenLastCalledWith(null);
+
+        await vi.advanceTimersByTimeAsync(50);
+        await oldRequest;
+        expect(snapshotListener).toHaveBeenCalledTimes(1);
+        expect(snapshotListener).toHaveBeenLastCalledWith(null);
+
+        await vi.advanceTimersByTimeAsync(50);
+        expect(snapshotListener).toHaveBeenLastCalledWith(expect.objectContaining({
+            conversationId: nextConversationId,
         }));
-        await vi.runAllTimersAsync();
-
-        expect((await engine.getSnapshot())?.rounds).toHaveLength(2);
-        expect(requests).toContain(true);
     });
 
     it('does not notify subscribers when force refresh returns equivalent content', async () => {
@@ -315,6 +726,37 @@ describe('ChatGPTConversationEngine', () => {
         expect(listener).toHaveBeenCalledTimes(1);
     });
 
+    it('notifies subscribers when the active branch changes with equivalent round content', async () => {
+        vi.spyOn(document.head, 'appendChild').mockImplementation((node: Node) => {
+            const script = node as HTMLScriptElement;
+            window.setTimeout(() => script.onload?.(new Event('load')), 0);
+            return node;
+        });
+        let requestCount = 0;
+        installBridgeResponder(() => {
+            requestCount += 1;
+            return {
+                snapshot: {
+                    ...makeSnapshot(1, requestCount),
+                    branchKey: requestCount === 1 ? 'leaf-original' : 'leaf-regenerated',
+                },
+            };
+        });
+        const engine = new ChatGPTConversationEngine(createAdapter());
+        const listener = vi.fn();
+        (engine as any).subscribers.add(listener);
+
+        const firstPromise = engine.getSnapshot();
+        await vi.runAllTimersAsync();
+        await firstPromise;
+        const secondPromise = engine.forceRefreshCurrentConversation();
+        await vi.runAllTimersAsync();
+        const second = await secondPromise;
+
+        expect(second?.branchKey).toBe('leaf-regenerated');
+        expect(listener).toHaveBeenCalledTimes(2);
+    });
+
     it('starts live refresh while subscribed and stops it after unsubscribe', async () => {
         const setIntervalSpy = vi.spyOn(window, 'setInterval');
         const engine = new ChatGPTConversationEngine(createAdapter());
@@ -339,12 +781,7 @@ describe('ChatGPTConversationEngine', () => {
         unsubscribe();
     });
 
-    it('does not synthesize a markdown snapshot from DOM text when the bridge script fails to load', async () => {
-        vi.spyOn(document.head, 'appendChild').mockImplementation((node: Node) => {
-            const script = node as HTMLScriptElement;
-            window.setTimeout(() => script.onerror?.(new Event('error')), 0);
-            return node;
-        });
+    it('does not synthesize a markdown snapshot from DOM text when no graph was captured', async () => {
         document.body.innerHTML = `
           <article data-turn="user">
             <div data-message-author-role="user"><div class="whitespace-pre-wrap">Prompt</div></div>
@@ -370,12 +807,7 @@ describe('ChatGPTConversationEngine', () => {
         expect(snapshot).toBeNull();
     });
 
-    it('prefers structured React content over DOM text even when visible DOM has more turns', async () => {
-        vi.spyOn(document.head, 'appendChild').mockImplementation((node: Node) => {
-            const script = node as HTMLScriptElement;
-            window.setTimeout(() => script.onerror?.(new Event('error')), 0);
-            return node;
-        });
+    it('does not publish structured React content when the graph bridge is unavailable', async () => {
         document.body.innerHTML = `
           <article data-turn="user">
             <div data-message-author-role="user"><div class="whitespace-pre-wrap">Prompt 1</div></div>
@@ -416,13 +848,10 @@ describe('ChatGPTConversationEngine', () => {
         await vi.runAllTimersAsync();
         const snapshot = await snapshotPromise;
 
-        expect(snapshot?.source).toBe('react-props');
-        expect(snapshot?.rounds).toHaveLength(1);
-        expect(snapshot?.rounds[0]?.assistantContent).toBe('React answer 1');
-        expect(snapshot?.rounds[0]?.messageId).toBe('a1');
+        expect(snapshot).toBeNull();
     });
 
-    it('ignores non-visible structured messages inside an assistant turn', async () => {
+    it('does not publish hidden-message-filtered React data as a complete graph', async () => {
         vi.spyOn(document.head, 'appendChild').mockImplementation((node: Node) => {
             const script = node as HTMLScriptElement;
             window.setTimeout(() => script.onerror?.(new Event('error')), 0);
@@ -477,12 +906,10 @@ describe('ChatGPTConversationEngine', () => {
         await vi.runAllTimersAsync();
         const snapshot = await snapshotPromise;
 
-        expect(snapshot?.source).toBe('react-props');
-        expect(snapshot?.rounds[0]?.assistantContent).toBe('Visible answer');
-        expect(snapshot?.rounds[0]?.assistantMessageId).toBe('a1');
+        expect(snapshot).toBeNull();
     });
 
-    it('rebuilds a full fallback snapshot from structured turn containers when visible DOM is virtualized', async () => {
+    it('does not treat structured turn containers as complete when visible DOM is virtualized', async () => {
         vi.spyOn(document.head, 'appendChild').mockImplementation((node: Node) => {
             const script = node as HTMLScriptElement;
             window.setTimeout(() => script.onerror?.(new Event('error')), 0);
@@ -540,14 +967,10 @@ describe('ChatGPTConversationEngine', () => {
         await vi.runAllTimersAsync();
         const snapshot = await snapshotPromise;
 
-        expect(snapshot?.source).toBe('react-props');
-        expect(snapshot?.rounds).toHaveLength(2);
-        expect(snapshot?.rounds.map((round) => round.userPrompt)).toEqual(['Question 1', 'Question 2']);
-        expect(snapshot?.rounds.map((round) => round.assistantContent)).toEqual(['Answer 1', 'Answer 2']);
-        expect(snapshot?.rounds.map((round) => round.assistantMessageId)).toEqual(['a1-message', 'a2-message']);
+        expect(snapshot).toBeNull();
     });
 
-    it('rebuilds all semantic turn wrappers when structured data lives below the wrapper', async () => {
+    it('does not publish descendant React carriers as a complete conversation', async () => {
         vi.spyOn(document.head, 'appendChild').mockImplementation((node: Node) => {
             const script = node as HTMLScriptElement;
             window.setTimeout(() => script.onerror?.(new Event('error')), 0);
@@ -600,13 +1023,6 @@ describe('ChatGPTConversationEngine', () => {
         await vi.runAllTimersAsync();
         const snapshot = await snapshotPromise;
 
-        expect(snapshot?.source).toBe('react-props');
-        expect(snapshot?.rounds).toHaveLength(2);
-        expect(snapshot?.rounds.map((round) => round.userPrompt)).toEqual(['Question 1', 'Question 2']);
-        expect(snapshot?.rounds.map((round) => round.assistantContent)).toEqual([
-            'Answer 1 from local turn data',
-            'Answer 2 from local turn data',
-        ]);
-        expect(snapshot?.rounds.map((round) => round.messageId)).toEqual(['visible-a1', 'visible-a2']);
+        expect(snapshot).toBeNull();
     });
 });

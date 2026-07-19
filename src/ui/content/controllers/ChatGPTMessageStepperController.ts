@@ -8,26 +8,19 @@ import {
 import { AppearanceScope } from '../../../style/appearanceScope';
 import type { Theme } from '../../../core/types/theme';
 import { subscribeLocaleChange, t } from '../components/i18n';
-import { subscribeChatGPTDomRoundChanges } from '../../../drivers/content/chatgpt/domConversationDiscovery';
+import { getChatGPTConversationIndex } from '../../../drivers/content/chatgpt/ChatGPTConversationIndex';
 import {
     collectChatGPTRoundPositions,
     navigateChatGPTDirectoryTarget,
+    resolveChatGPTActivePosition,
     type ChatGPTRoundPosition,
 } from '../chatgptDirectory/navigation';
+import { isChatGPTConversationPage } from '../../../drivers/content/chatgpt/chatgptRoute';
 
 const HOST_ID = 'aimd-chatgpt-message-stepper';
 const STYLE_ID = 'aimd-chatgpt-message-stepper-style';
 const TOKEN_STYLE_ID = 'aimd-chatgpt-message-stepper-tokens';
 const NAVIGATION_SETTLE_MS = 1200;
-
-function isChatGPTConversationPage(url: string): boolean {
-    try {
-        const parsed = new URL(url);
-        return /(?:^|\/)c\/[0-9a-f-]{8,}/i.test(parsed.pathname);
-    } catch {
-        return false;
-    }
-}
 
 function isEditableElement(node: EventTarget | null): boolean {
     if (!(node instanceof HTMLElement)) return false;
@@ -51,27 +44,6 @@ function isExtensionSurfaceElement(node: EventTarget | null): boolean {
         '.send-popover',
         '.aimd-field-control',
     ].join(',')));
-}
-
-function getRoundRange(round: ChatGPTRoundPosition): { top: number; bottom: number } | null {
-    const nodes = round.groupEls.length ? round.groupEls : [round.jumpAnchor];
-    let top = Number.POSITIVE_INFINITY;
-    let bottom = Number.NEGATIVE_INFINITY;
-    for (const node of nodes) {
-        if (!node.isConnected) continue;
-        const rect = node.getBoundingClientRect();
-        if (!Number.isFinite(rect.top) || !Number.isFinite(rect.bottom)) continue;
-        top = Math.min(top, rect.top);
-        bottom = Math.max(bottom, rect.bottom);
-    }
-    if (!Number.isFinite(top) || !Number.isFinite(bottom)) return null;
-    return { top, bottom };
-}
-
-function getRangeDistanceFromReference(range: { top: number; bottom: number }, referenceY: number): number {
-    if (referenceY < range.top) return range.top - referenceY;
-    if (referenceY > range.bottom) return referenceY - range.bottom;
-    return 0;
 }
 
 export class ChatGPTMessageStepperController {
@@ -120,7 +92,7 @@ export class ChatGPTMessageStepperController {
         document.addEventListener('keydown', this.onKeyDownCapture, { capture: true });
         window.addEventListener('scroll', this.onScroll, { capture: true, passive: true });
         document.addEventListener('scroll', this.onScroll, { capture: true, passive: true });
-        this.unsubscribeRoundChanges = subscribeChatGPTDomRoundChanges(this.adapter, () => this.scheduleRefreshState());
+        this.unsubscribeRoundChanges = getChatGPTConversationIndex(this.adapter).subscribe(() => this.scheduleRefreshState());
     }
 
     dispose(): void {
@@ -413,6 +385,9 @@ export class ChatGPTMessageStepperController {
         void navigateChatGPTDirectoryTarget(this.adapter, {
             position: target.position,
             messageId: target.messageId,
+            roundId: target.roundId,
+            userMessageId: target.userMessageId,
+            assistantMessageId: target.assistantMessageId,
         }).then((result) => {
             if (requestId !== this.navigationRequestId) return;
             if (!result.ok) {
@@ -458,29 +433,8 @@ export class ChatGPTMessageStepperController {
     }
 
     private resolveActivePosition(): number {
-        if (this.rounds.length === 0) return 0;
         const referenceY = Math.round(window.innerHeight * 0.35);
-        const ranges = this.rounds
-            .map((round) => {
-                const range = getRoundRange(round);
-                return range ? { position: round.position, ...range } : null;
-            })
-            .filter((range): range is { position: number; top: number; bottom: number } => range !== null);
-        const visible = ranges.find((range) => range.top <= referenceY && range.bottom >= referenceY);
-        if (visible) return visible.position;
-        if (ranges.length > 0) {
-            let nearest = ranges[0]!;
-            let nearestDistance = getRangeDistanceFromReference(nearest, referenceY);
-            for (const range of ranges.slice(1)) {
-                const distance = getRangeDistanceFromReference(range, referenceY);
-                if (distance < nearestDistance) {
-                    nearest = range;
-                    nearestDistance = distance;
-                }
-            }
-            return nearest.position;
-        }
-        return this.rounds[0]?.position ?? 0;
+        return resolveChatGPTActivePosition(this.rounds, referenceY);
     }
 
     private syncButtons(): void {

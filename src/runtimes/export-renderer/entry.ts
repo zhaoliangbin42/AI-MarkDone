@@ -135,7 +135,7 @@ let connected = false;
 
 window.addEventListener('message', (event: MessageEvent<unknown>) => {
     const message = event.data as { v?: unknown; type?: unknown } | null;
-    if (event.source !== window.parent
+    if ((event.source !== null && event.source !== window.parent)
         || message?.v !== EXPORT_RENDER_HOST_PROTOCOL_VERSION
         || message?.type !== EXPORT_RENDER_HOST_CONNECT_TYPE
         || !event.ports[0]

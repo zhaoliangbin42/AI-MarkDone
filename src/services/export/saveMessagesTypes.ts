@@ -1,3 +1,5 @@
+import type { ImageExportProgressEvent } from './imageExportContracts';
+
 export interface ChatTurn {
     user: string;
     assistant: string; // markdown
@@ -23,6 +25,7 @@ export type ExportProgressEvent = {
     completed: number;
     total: number;
     filename?: string;
+    render?: ImageExportProgressEvent;
 };
 
 export type ExportProgressCallback = (event: ExportProgressEvent) => void;

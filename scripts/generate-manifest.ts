@@ -11,7 +11,7 @@ import {
     isValidGoogleOAuthClientId,
 } from '../config/extension/cloudBackup';
 import { CHROME_WEB_STORE_EXTENSION_ID, CHROME_WEB_STORE_PUBLIC_KEY } from '../config/extension/chromeWebStore';
-import { SUPPORTED_HOST_PATTERNS } from '../config/extension/hosts';
+import { CHATGPT_HOST_PATTERNS, SUPPORTED_HOST_PATTERNS } from '../config/extension/hosts';
 import { extensionMeta } from '../config/extension/meta';
 import { type ExtensionTarget, extensionTargets } from '../config/extension/targets';
 
@@ -50,6 +50,10 @@ export function buildManifest(target: ExtensionTarget, options: BuildManifestOpt
             'storage',
         ],
     };
+
+    if (target === 'chrome') {
+        manifest.minimum_chrome_version = targetConfig.minimumChromeVersion;
+    }
 
     if (target === 'chrome' && googleDriveCloudBackup.enabled) {
         const chromeExtensionClientId = googleDriveCloudBackup.chromeExtensionClientId?.trim() || '';
@@ -99,7 +103,21 @@ export function buildManifest(target: ExtensionTarget, options: BuildManifestOpt
         ];
     }
 
+    const chatGptCaptureScript = target !== 'safari'
+        ? {
+            matches: [...CHATGPT_HOST_PATTERNS],
+            js: [extensionAssets.chatGptConversationBridge],
+            run_at: 'document_start',
+            world: 'MAIN',
+        }
+        : {
+            matches: [...CHATGPT_HOST_PATTERNS],
+            js: [extensionAssets.chatGptConversationBootstrap],
+            run_at: 'document_start',
+        };
+
     manifest.content_scripts = [
+        chatGptCaptureScript,
         {
             matches: [...SUPPORTED_HOST_PATTERNS],
             js: [extensionAssets.contentEntry],

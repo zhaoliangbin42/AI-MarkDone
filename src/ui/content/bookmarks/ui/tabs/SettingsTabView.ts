@@ -46,7 +46,7 @@ import {
 } from '../../../../../core/settings/formula';
 import { normalizeFormulaSourceFormat, type FormulaSourceFormat } from '../../../../../core/math/formulaSourceFormat';
 import type { ModalHost } from '../../../components/ModalHost';
-import { setLocale, t } from '../../../components/i18n';
+import { getLocale, setLocale, t } from '../../../components/i18n';
 import { createIcon } from '../../../components/Icon';
 import { Icons } from '../../../../../assets/icons';
 import {
@@ -70,7 +70,7 @@ export type SettingsTabViewActions = {
     setChatGptDirectorySettings?: (patch: Partial<AppSettings['chatgptDirectory']>) => Promise<void> | void;
     setChatGptBehaviorSettings?: (patch: Partial<AppSettings['chatgptBehavior']>) => Promise<void> | void;
     setAppearanceSettings?: (patch: Partial<AppSettings['appearance']>) => Promise<void> | void;
-    setLanguage?: (value: AppSettings['language']) => Promise<void> | void;
+    setLanguage?: (value: AppSettings['language']) => Promise<boolean | void> | boolean | void;
     exportAllBookmarks?: () => Promise<void> | void;
     cloudBackup?: CloudBackupSettingsPanelActions;
 };
@@ -132,6 +132,7 @@ type Refs = {
     };
     chatgptDirectory: {
         restorePositionAfterSend: HTMLInputElement;
+        atomicMarkdownCopy: HTMLInputElement;
         inputEnhancement: HTMLInputElement;
         promptAutocomplete: HTMLInputElement;
         showMessageStepper: HTMLInputElement;
@@ -173,6 +174,8 @@ export class SettingsTabView {
     private advancedExpanded = false;
     private mainPageRoot: HTMLElement | null = null;
     private buttonsPageRoot: HTMLElement | null = null;
+    private languageChangeRevision = 0;
+    private languageSaveQueue: Promise<void> = Promise.resolve();
 
     constructor(params: { modal: ModalHost; actions?: SettingsTabViewActions; onOpenPromptManager?: (anchor: HTMLElement) => Promise<void> | void }) {
         this.modal = params.modal;
@@ -293,6 +296,11 @@ export class SettingsTabView {
             chatGptDirectoryGroup.body,
             t('chatgptRestorePositionAfterSendLabel'),
             t('chatgptRestorePositionAfterSendDesc'),
+        );
+        const chatGptAtomicMarkdownCopy = this.createToggle(
+            chatGptDirectoryGroup.body,
+            t('chatgptAtomicMarkdownCopyLabel'),
+            t('chatgptAtomicMarkdownCopyDesc'),
         );
         const chatGptInputEnhancement = this.createToggle(
             chatGptDirectoryGroup.body,
@@ -525,6 +533,7 @@ export class SettingsTabView {
             },
             chatgptDirectory: {
                 restorePositionAfterSend: chatGptRestorePositionAfterSend.input,
+                atomicMarkdownCopy: chatGptAtomicMarkdownCopy.input,
                 inputEnhancement: chatGptInputEnhancement.input,
                 promptAutocomplete: chatGptPromptAutocomplete.input,
                 showMessageStepper: chatGptShowMessageStepper.input,
@@ -568,6 +577,7 @@ export class SettingsTabView {
         this.refs.export.pngWidth.input.dataset.role = 'settings-export-png-width';
         this.refs.export.pngPixelRatio.input.dataset.role = 'settings-export-png-pixel-ratio';
         this.refs.chatgptDirectory.restorePositionAfterSend.dataset.role = 'settings-chatgpt-restore-position-after-send';
+        this.refs.chatgptDirectory.atomicMarkdownCopy.dataset.role = 'settings-chatgpt-atomic-markdown-copy';
         this.refs.chatgptDirectory.inputEnhancement.dataset.role = 'settings-chatgpt-input-enhancement';
         this.refs.chatgptDirectory.promptAutocomplete.dataset.role = 'settings-chatgpt-prompt-autocomplete';
         this.refs.chatgptDirectory.showMessageStepper.dataset.role = 'settings-chatgpt-show-message-stepper';
@@ -799,6 +809,11 @@ export class SettingsTabView {
             this.settings.chatgptBehavior.restorePositionAfterSend = next;
             void this.actions.setChatGptBehaviorSettings?.({ restorePositionAfterSend: next });
         });
+        this.refs.chatgptDirectory.atomicMarkdownCopy.addEventListener('change', () => {
+            const next = this.refs.chatgptDirectory.atomicMarkdownCopy.checked;
+            this.settings.chatgptBehavior.atomicMarkdownCopy = next;
+            void this.actions.setChatGptBehaviorSettings?.({ atomicMarkdownCopy: next });
+        });
         this.refs.chatgptDirectory.inputEnhancement.addEventListener('change', () => {
             const inputEnhancement = {
                 ...this.settings.chatgptBehavior.inputEnhancement,
@@ -902,13 +917,38 @@ export class SettingsTabView {
         });
         // Language
         this.refs.language.onChange((value) => {
-            this.settings.language = value as any;
-            void this.actions.setLanguage?.(value as AppSettings['language']);
-            void setLocale(value as AppSettings['language']);
+            const next = value as AppSettings['language'];
+            const revision = ++this.languageChangeRevision;
+            this.languageSaveQueue = this.languageSaveQueue
+                .catch(() => undefined)
+                .then(() => this.persistLanguageChange(next, revision));
         });
     }
 
     private readonly onOpenPromptManager?: (anchor: HTMLElement) => Promise<void> | void;
+
+    private async persistLanguageChange(
+        next: AppSettings['language'],
+        revision: number,
+    ): Promise<void> {
+        let persisted = true;
+        try {
+            persisted = (await this.actions.setLanguage?.(next)) !== false;
+        } catch {
+            persisted = false;
+        }
+
+        if (persisted) {
+            this.settings.language = next;
+        }
+        if (revision !== this.languageChangeRevision) return;
+
+        const appliedLocale = persisted ? next : this.settings.language;
+        this.refs.language.setValue(appliedLocale);
+        if (getLocale() !== appliedLocale) {
+            await setLocale(appliedLocale);
+        }
+    }
 
     private applySettingsToDom(): void {
         const s = this.settings;
@@ -933,6 +973,7 @@ export class SettingsTabView {
         this.refs.export.pngWidth.field.dataset.disabled = this.refs.export.pngWidth.input.disabled ? '1' : '0';
         this.syncSliderValue(this.refs.export.pngPixelRatio, resolvePngExportPixelRatio(s.export));
         this.refs.chatgptDirectory.restorePositionAfterSend.checked = Boolean(s.chatgptBehavior.restorePositionAfterSend);
+        this.refs.chatgptDirectory.atomicMarkdownCopy.checked = Boolean(s.chatgptBehavior.atomicMarkdownCopy);
         this.refs.chatgptDirectory.inputEnhancement.checked = Boolean(s.chatgptBehavior.inputEnhancement.available);
         this.refs.chatgptDirectory.promptAutocomplete.checked = Boolean(s.chatgptBehavior.promptAutocomplete);
         this.refs.chatgptDirectory.showMessageStepper.checked = Boolean(s.chatgptBehavior.showMessageStepper);
@@ -963,6 +1004,7 @@ export class SettingsTabView {
         this.syncToggle(this.refs.behavior.saveContextOnly);
         this.syncToggle(this.refs.formula.clickCopyMarkdown);
         this.syncToggle(this.refs.chatgptDirectory.restorePositionAfterSend);
+        this.syncToggle(this.refs.chatgptDirectory.atomicMarkdownCopy);
         this.syncToggle(this.refs.chatgptDirectory.inputEnhancement);
         this.syncToggle(this.refs.chatgptDirectory.promptAutocomplete);
         this.syncToggle(this.refs.chatgptDirectory.showMessageStepper);

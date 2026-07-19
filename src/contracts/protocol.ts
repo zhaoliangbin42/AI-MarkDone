@@ -197,6 +197,10 @@ export type ReaderSessionSerializableItem = {
     meta?: {
         platformId?: string;
         messageId?: string | null;
+        roundId?: string | null;
+        userMessageId?: string | null;
+        assistantMessageId?: string | null;
+        branchKey?: string | null;
         position?: number;
         url?: string;
         bookmarkable?: boolean;

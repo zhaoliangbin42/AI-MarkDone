@@ -19,21 +19,23 @@
 
 ### ChatGPT-specific checks
 
-当问题只发生在 ChatGPT，不要只盯 DOM selector。当前 ChatGPT shipping path 还依赖 payload/store-first 与目录条锚点链路，需要额外检查：
+当问题只发生在 ChatGPT，不要只盯 DOM selector。先区分 canonical semantic snapshot 与当前 materialized anchors：
 
-1. `ChatGPTConversationEngine` 是否还能拿到完整 snapshot
-   - 如果 Reader 只能看到当前 hydration 的几条消息，先检查 bridge/store，而不是先改 Reader UI
-2. `ChatGPTDirectoryController` 是否还能建立当前页面的 skeleton/container anchors
-   - 目录条 click、Reader locate、ChatGPT 书签 Go/pending navigation 都依赖这条锚点链路
-3. 如果目录条能跳、Reader 或书签不能跳
-   - 先检查对应入口是否仍走 `src/ui/content/chatgptDirectory/navigation.ts`
-   - 不要直接改全平台共享 bookmark navigation，除非确认是跨平台语义问题
-4. 如果 ChatGPT 工具栏书签高亮或保存位置漂移
-   - 先检查 `MessageToolbarOrchestrator` 是否仍通过 `resolveChatGPTSkeletonPositionForMessage()` 解析绝对轮次
-   - 不要为了修复 ChatGPT 动态加载窗口里的局部 position 而修改 bookmark storage key/schema
-5. 如果 payload 完整但同页跳转失败
-   - 检查 `[data-turn-id-container]` / `section[data-turn]` 的宿主结构是否变化
-   - 再检查目录条 helper 是否正确回退到了共享 bookmark navigation
+1. `ChatGPTConversationEngine` 是否发布了当前 conversation ID 的完整 verified graph snapshot
+   - bridge 必须在 `document_start` 被动观察 ChatGPT 页面自身的 same-origin conversation `GET` 响应；不得读取认证信息或主动重放 session/conversation 请求
+   - 检查 page bridge graph parser 与 content-world DTO validator；缺节点、环、route/ID/branch/identity 不一致必须 fail closed
+   - 不要用 React props、内部 store 或可见 DOM 补齐正文
+2. 比较 `ChatGPTConversationIndex` 的完整 canonical rounds 与 `ChatGPTPageIndex` 的当前 connected anchors
+   - DOM hydration window 变小只应减少 anchors，不能减少目录/stepper count
+   - typed `roundId` / `userMessageId` / `assistantMessageId` 无法唯一连接时，应修复 adapter/driver identity，不得使用 prompt 或 DOM-local position 猜测
+3. 如果正文完整但 Reader/Copy/Save Messages 不完整
+   - 检查入口是否仍统一经过 `readerContentSource -> ChatGPTConversationEngine -> ReaderItem[]`
+4. 如果目录能显示但同页跳转失败
+   - 检查 `ChatGPTConversationNavigation` 是否对未挂载目标执行有界、可取消、route-safe 的 materialization seek，并只在 exact identity 命中后成功
+   - UI `chatgptDirectory/navigation.ts` 只负责命中后的视觉对齐，不得恢复第二套 selector 或 bookmark fallback
+5. 如果工具栏 Reader/书签映射漂移
+   - 检查 clicked element 是否通过 ConversationIndex 唯一解析为 canonical round；显式 element 无法映射时必须 fail closed
+   - 不要为了兼容 ChatGPT 动态窗口修改 bookmark storage key/schema
 
 ## Related Documents
 

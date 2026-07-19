@@ -384,6 +384,54 @@ describe('ReaderPanel navigation', () => {
         }
     });
 
+    it('replaces a visible conversation branch while preserving the current stable user identity', async () => {
+        const { writeText } = setClipboardMock();
+        const panel = new ReaderPanel();
+
+        try {
+            await panel.show([
+                { id: 'a1', userPrompt: 'Q1', content: 'old-1', meta: { position: 1, userMessageId: 'u1', assistantMessageId: 'a1' } },
+                { id: 'a2', userPrompt: 'Q2', content: 'old-2', meta: { position: 2, userMessageId: 'u2', assistantMessageId: 'a2' } },
+                { id: 'a3', userPrompt: 'Q3', content: 'old-3', meta: { position: 3, userMessageId: 'u3', assistantMessageId: 'a3' } },
+            ], 1, 'light', { profile: 'conversation-reader' });
+
+            await panel.replaceItems([
+                { id: 'b2', userPrompt: 'Q2 regenerated', content: 'new-2', meta: { position: 1, userMessageId: 'u2', assistantMessageId: 'b2' } },
+                { id: 'b4', userPrompt: 'Q4', content: 'new-4', meta: { position: 2, userMessageId: 'u4', assistantMessageId: 'b4' } },
+            ], { preserveCurrentIdentity: true });
+
+            const host = document.querySelector('#aimd-reader-panel-host') as HTMLElement;
+            const shadow = host.shadowRoot as ShadowRoot;
+            expect(shadow.querySelector<HTMLElement>('.reader-header-page')?.textContent).toBe('1/2');
+            expect(panel.getItemsSnapshot().map((item) => item.id)).toEqual(['b2', 'b4']);
+
+            shadow.querySelector<HTMLButtonElement>('[data-action="reader-copy"]')?.click();
+            await Promise.resolve();
+            await Promise.resolve();
+            expect(writeText).toHaveBeenCalledWith('new-2');
+        } finally {
+            panel.hide();
+        }
+    });
+
+    it('does not replace bookmark preview items through the conversation branch Interface', async () => {
+        const panel = new ReaderPanel();
+
+        try {
+            await panel.show([
+                { id: 'bookmark-a', userPrompt: 'Saved prompt', content: 'saved content' },
+            ], 0, 'light', { profile: 'bookmark-preview' });
+
+            await panel.replaceItems([
+                { id: 'conversation-b', userPrompt: 'Conversation prompt', content: 'conversation content' },
+            ], { preserveCurrentIdentity: true });
+
+            expect(panel.getItemsSnapshot().map((item) => item.id)).toEqual(['bookmark-a']);
+        } finally {
+            panel.hide();
+        }
+    });
+
     it('renders a heading outline rail for markdown pages with multiple headings', async () => {
         const panel = new ReaderPanel();
 

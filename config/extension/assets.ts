@@ -24,6 +24,8 @@ const safariWebAccessibleResources = [
 
 export const extensionAssets = {
     contentEntry: 'content.js',
+    chatGptConversationBridge: 'page-bridges/chatgpt-conversation-bridge.js',
+    chatGptConversationBootstrap: 'page-bridges/chatgpt-conversation-bootstrap.js',
     contentFeaturesEntry: 'content-features.js',
     exportRendererPath: 'export-renderer.html',
     formulaSnippetCatalog: 'vendor/latex-workshop/formula-snippets.json',

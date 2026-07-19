@@ -9,6 +9,9 @@ describe('buildChatGPTReaderItems', () => {
             buildFingerprint: 'build-1',
             capturedAt: 1,
             source: 'runtime-bridge',
+            origin: 'conversation-graph',
+            coverage: 'complete',
+            branchKey: 'branch-leaf-2',
             rounds: [
                 {
                     id: 'round-1',
@@ -41,6 +44,10 @@ describe('buildChatGPTReaderItems', () => {
                 meta: expect.objectContaining({
                     platformId: 'chatgpt',
                     messageId: 'a1',
+                    roundId: 'round-1',
+                    userMessageId: 'u1',
+                    assistantMessageId: 'a1',
+                    branchKey: 'branch-leaf-2',
                     position: 1,
                     url: 'https://chatgpt.com/c/abc',
                 }),
@@ -202,7 +209,7 @@ describe('buildChatGPTReaderItems', () => {
         ].join('\n'));
     });
 
-    it('does not treat DOM-local positions as payload positions when opening Reader', () => {
+    it('fails closed instead of treating DOM-local positions as payload positions when opening Reader', () => {
         const snapshot = {
             conversationId: 'conv-1',
             buildFingerprint: 'build-1',
@@ -246,14 +253,12 @@ describe('buildChatGPTReaderItems', () => {
             position: 2,
             positionSource: 'dom',
             messageId: 'dom-wrapper-id',
-            userPrompt: 'Prompt\n50',
-        })).toBe(2);
+        } as any)).toBe(-1);
         expect(buildChatGPTReaderItems(snapshot, {
             position: 2,
             positionSource: 'dom',
             messageId: 'dom-wrapper-id',
-            userPrompt: 'Prompt 50',
-        }).startIndex).toBe(2);
+        } as any).startIndex).toBe(-1);
     });
 
     it('prefers message id over prompt when resolving the initial Reader item', () => {
@@ -286,8 +291,43 @@ describe('buildChatGPTReaderItems', () => {
             ],
         };
 
-        expect(resolveChatGPTConversationStartIndex(snapshot, { messageId: 'a2', userPrompt: 'Duplicate prompt' })).toBe(1);
-        expect(resolveChatGPTConversationRound(snapshot, { messageId: 'a2', userPrompt: 'Duplicate prompt' })?.position).toBe(2);
+        expect(resolveChatGPTConversationStartIndex(snapshot, { messageId: 'a2' })).toBe(1);
+        expect(resolveChatGPTConversationRound(snapshot, { messageId: 'a2' })?.position).toBe(2);
+    });
+
+    it('never treats prompt text as canonical round identity', () => {
+        const snapshot = {
+            conversationId: 'conv-1',
+            buildFingerprint: 'build-1',
+            capturedAt: 1,
+            source: 'runtime-bridge' as const,
+            rounds: [
+                {
+                    id: 'round-1',
+                    position: 1,
+                    userPrompt: 'Duplicate prompt',
+                    assistantContent: 'Answer 1',
+                    preview: 'Duplicate prompt',
+                    messageId: 'a1',
+                    userMessageId: 'u1',
+                    assistantMessageId: 'a1',
+                },
+                {
+                    id: 'round-2',
+                    position: 2,
+                    userPrompt: 'Duplicate prompt',
+                    assistantContent: 'Answer 2',
+                    preview: 'Duplicate prompt',
+                    messageId: 'a2',
+                    userMessageId: 'u2',
+                    assistantMessageId: 'a2',
+                },
+            ],
+        };
+
+        const unresolved = { messageId: 'missing-id' };
+        expect(resolveChatGPTConversationStartIndex(snapshot, unresolved)).toBe(-1);
+        expect(resolveChatGPTConversationRound(snapshot, unresolved)).toBeNull();
     });
 
     it('uses payload positions only when the caller marks the source as snapshot', () => {
@@ -320,8 +360,77 @@ describe('buildChatGPTReaderItems', () => {
             ],
         };
 
-        expect(resolveChatGPTConversationStartIndex(snapshot, { position: 1 })).toBe(1);
+        expect(resolveChatGPTConversationStartIndex(snapshot, { position: 1 })).toBe(-1);
         expect(resolveChatGPTConversationStartIndex(snapshot, { position: 1, positionSource: 'snapshot' })).toBe(0);
+    });
+
+    it('keeps typed ChatGPT identities in their own namespaces and requires a unique match', () => {
+        const snapshot = {
+            conversationId: 'conv-1',
+            buildFingerprint: 'build-1',
+            capturedAt: 1,
+            source: 'runtime-bridge' as const,
+            rounds: [
+                {
+                    id: 'round-1',
+                    position: 1,
+                    userPrompt: 'Prompt 1',
+                    assistantContent: 'Answer 1',
+                    preview: 'Prompt 1',
+                    messageId: 'shared-assistant',
+                    userMessageId: 'u1',
+                    assistantMessageId: 'shared-assistant',
+                },
+                {
+                    id: 'round-2',
+                    position: 2,
+                    userPrompt: 'Prompt 2',
+                    assistantContent: 'Answer 2',
+                    preview: 'Prompt 2',
+                    messageId: 'shared-assistant',
+                    userMessageId: 'round-1',
+                    assistantMessageId: 'shared-assistant',
+                },
+            ],
+        };
+
+        expect(resolveChatGPTConversationRound(snapshot, { roundId: 'round-1' })?.position).toBe(1);
+        expect(resolveChatGPTConversationRound(snapshot, { userMessageId: 'round-1' })?.position).toBe(2);
+        expect(resolveChatGPTConversationRound(snapshot, { messageId: 'shared-assistant' })).toBeNull();
+        expect(resolveChatGPTConversationStartIndex(snapshot, { messageId: 'shared-assistant' })).toBe(-1);
+    });
+
+    it('defaults a full Reader with no clicked target to the canonical tail', () => {
+        const snapshot = {
+            conversationId: 'conv-1',
+            buildFingerprint: 'build-1',
+            capturedAt: 1,
+            source: 'runtime-bridge' as const,
+            rounds: [
+                {
+                    id: 'round-1',
+                    position: 1,
+                    userPrompt: 'Prompt 1',
+                    assistantContent: 'Answer 1',
+                    preview: 'Prompt 1',
+                    messageId: 'a1',
+                    userMessageId: 'u1',
+                    assistantMessageId: 'a1',
+                },
+                {
+                    id: 'round-2',
+                    position: 2,
+                    userPrompt: 'Prompt 2',
+                    assistantContent: 'Answer 2',
+                    preview: 'Prompt 2',
+                    messageId: 'a2',
+                    userMessageId: 'u2',
+                    assistantMessageId: 'a2',
+                },
+            ],
+        };
+
+        expect(resolveChatGPTConversationStartIndex(snapshot, null)).toBe(1);
     });
 
     it('builds shared ChatGPT turns for Reader and export from the same snapshot content', () => {

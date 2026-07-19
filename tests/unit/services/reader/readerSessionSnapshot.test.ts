@@ -9,7 +9,15 @@ describe('buildReaderSessionSnapshot', () => {
                 id: 'reader-item-1',
                 userPrompt: 'Prompt',
                 content: () => 'Resolved markdown',
-                meta: { platformId: 'chatgpt', position: 3, messageId: 'message-3' },
+                meta: {
+                    platformId: 'chatgpt',
+                    position: 3,
+                    messageId: 'message-3',
+                    roundId: 'round-3',
+                    userMessageId: 'user-3',
+                    assistantMessageId: 'message-3',
+                    branchKey: 'leaf-3',
+                },
             },
         ];
 
@@ -27,7 +35,15 @@ describe('buildReaderSessionSnapshot', () => {
                     id: 'reader-item-1',
                     userPrompt: 'Prompt',
                     content: 'Resolved markdown',
-                    meta: { platformId: 'chatgpt', position: 3, messageId: 'message-3' },
+                    meta: {
+                        platformId: 'chatgpt',
+                        position: 3,
+                        messageId: 'message-3',
+                        roundId: 'round-3',
+                        userMessageId: 'user-3',
+                        assistantMessageId: 'message-3',
+                        branchKey: 'leaf-3',
+                    },
                 },
             ],
             startIndex: 0,

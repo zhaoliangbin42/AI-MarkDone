@@ -181,6 +181,8 @@ describe('extension manifest generation', () => {
         expect(safari.web_accessible_resources).toContain('icons/about_avatar.png');
         expect(safari.web_accessible_resources).toContain('icons/mappamory-changelog-4.6.0.png');
         expect(safari.web_accessible_resources).toContain('icons/mappamory-about-en-4.6.0.png');
+        expect(safari.web_accessible_resources).toContain('icons/mappamory-promo-poster.png');
+        expect(safari.web_accessible_resources).toContain('icons/mappamory-record-map-context.png');
         expect(safari.web_accessible_resources).toContain('content-features.js');
         expect(safari.web_accessible_resources).toContain('content-feature-chunks/*.js');
         expect(safari.web_accessible_resources).toContain('export-renderer.html');
@@ -189,15 +191,19 @@ describe('extension manifest generation', () => {
         expect(safari.web_accessible_resources).not.toContain('png-encoder-worker.js');
         expect(safari.web_accessible_resources).not.toContain('icons/*.png');
         expect(safari.web_accessible_resources).not.toContain('icons/bmc_qr.png');
+        expect(safari.web_accessible_resources).not.toContain('icons/qq-group-invite.png');
         expect(safari.web_accessible_resources).not.toContain('icons/wechat_qr.png');
+        expect(safari.web_accessible_resources).not.toContain('icons/xiaohongshu-group-invite.png');
         expect(safari.web_accessible_resources).not.toContain('icons/xiaohongshu_card.png');
     });
 
     it('keeps a stable Firefox Gecko id for identity redirect URLs', () => {
+        const chrome = buildManifest('chrome') as any;
         const firefox = buildManifest('firefox') as any;
 
+        expect(chrome.minimum_chrome_version).toBe('111');
         expect(firefox.browser_specific_settings?.gecko?.id).toBe('ai-markdone@zhaoliangbin.com');
-        expect(firefox.browser_specific_settings?.gecko?.strict_min_version).toBe('109.0');
+        expect(firefox.browser_specific_settings?.gecko?.strict_min_version).toBe('128.0');
         expect(firefox.browser_specific_settings?.gecko?.data_collection_permissions).toEqual({
             required: ['none'],
         });

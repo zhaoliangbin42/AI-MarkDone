@@ -71,6 +71,7 @@ import type {
     ReaderCommentExportContext,
     ReaderPanelActionContext,
     ReaderPanelPromptManagerController,
+    ReaderPanelReplaceItemsOptions,
     ReaderPanelSettingsController,
     ReaderPanelShowOptions,
 } from './ReaderPanelContracts';
@@ -94,6 +95,7 @@ export type {
     ReaderPanelActionContext,
     ReaderPanelProfile,
     ReaderPanelPromptManagerController,
+    ReaderPanelReplaceItemsOptions,
     ReaderPanelSettingsController,
     ReaderPanelShowOptions,
 } from './ReaderPanelContracts';
@@ -356,6 +358,23 @@ export class ReaderPanel {
     async appendItem(item: ReaderItem): Promise<void> {
         this.workflow.append(item);
         this.render();
+    }
+
+    async replaceItems(items: ReaderItem[], options?: ReaderPanelReplaceItemsOptions): Promise<void> {
+        if (!this.isShowingConversationReader()) return;
+        this.workflow.replaceItems(items, options);
+        this.state.renderedHtml = '';
+        this.state.renderedMarkdownSource = '';
+        this.state.renderedAtomicUnits = [];
+        this.state.outlineItems = [];
+        this.state.activeOutlineId = '';
+        this.state.selectedAtomicUnitIds = [];
+        this.state.selectionSourceText = '';
+        this.state.selectionExport = '';
+        this.state.userPromptDisplay = createEmptyReaderRenderResult(this.workflow.currentItem?.userPrompt ?? '').userPromptDisplay;
+        this.commentSelectionSnapshot = null;
+        this.render(false);
+        await this.renderCurrentContent();
     }
 
     hide(): void {

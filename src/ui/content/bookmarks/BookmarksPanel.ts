@@ -11,6 +11,7 @@ import { SettingsTabView, type SettingsTabViewActions } from './ui/tabs/Settings
 import { ChangelogTabView } from './ui/tabs/ChangelogTabView';
 import { FeedbackTabView } from './ui/tabs/FeedbackTabView';
 import { AboutTabView } from './ui/tabs/AboutTabView';
+import { MappamoryTabView } from './ui/tabs/MappamoryTabView';
 import { FaqTabView } from './ui/tabs/FaqTabView';
 import { SponsorTabView } from './ui/tabs/SponsorTabView';
 import { createBookmarksPanelShell } from './ui/BookmarksPanelShell';
@@ -117,6 +118,7 @@ export class BookmarksPanel {
     private settingsView: BookmarksPanelTabView | null = null;
     private changelogView: BookmarksPanelTabView | null = null;
     private aboutView: BookmarksPanelTabView | null = null;
+    private mappamoryView: BookmarksPanelTabView | null = null;
     private faqView: BookmarksPanelTabView | null = null;
     private sponsorView: BookmarksPanelTabView | null = null;
     private feedbackView: BookmarksPanelTabView | null = null;
@@ -233,6 +235,8 @@ export class BookmarksPanel {
             this.changelogView = null;
             this.aboutView?.destroy?.();
             this.aboutView = null;
+            this.mappamoryView?.destroy?.();
+            this.mappamoryView = null;
             this.faqView?.destroy?.();
             this.faqView = null;
             this.sponsorView?.destroy?.();
@@ -309,6 +313,8 @@ export class BookmarksPanel {
         this.changelogView = null;
         this.aboutView?.destroy?.();
         this.aboutView = null;
+        this.mappamoryView?.destroy?.();
+        this.mappamoryView = null;
         this.faqView?.destroy?.();
         this.faqView = null;
         this.sponsorView?.destroy?.();
@@ -420,11 +426,13 @@ export class BookmarksPanel {
                 await settingsClientRpc.setCategory('appearance', patch);
             },
             setLanguage: async (value) => {
+                const result = await settingsClientRpc.setCategory('language', value);
+                if (!result.ok) return false;
                 this.uiState.settings = {
                     ...this.uiState.settings,
                     language: value,
                 };
-                await settingsClientRpc.setCategory('language', value);
+                return true;
             },
             exportAllBookmarks: async () => {
                 await this.exportAll();
@@ -448,6 +456,8 @@ export class BookmarksPanel {
         changelogPanel.classList.add('changelog-panel');
         const aboutPanel = this.aboutView?.getElement() ?? document.createElement('section');
         aboutPanel.classList.add('about-panel');
+        const mappamoryPanel = this.mappamoryView?.getElement() ?? document.createElement('section');
+        mappamoryPanel.classList.add('mappamory-panel');
         const faqPanel = this.faqView?.getElement() ?? document.createElement('section');
         faqPanel.classList.add('faq-panel');
         const feedbackPanel = this.feedbackView?.getElement() ?? document.createElement('section');
@@ -462,6 +472,7 @@ export class BookmarksPanel {
                 changelog: changelogPanel,
                 faq: faqPanel,
                 about: aboutPanel,
+                mappamory: mappamoryPanel,
                 sponsor: sponsorPanel,
                 feedback: feedbackPanel,
             },
@@ -514,6 +525,7 @@ export class BookmarksPanel {
                 if (this.settingsView?.consumeEscape?.()) return;
                 if (this.changelogView?.consumeEscape?.()) return;
                 if (this.aboutView?.consumeEscape?.()) return;
+                if (this.mappamoryView?.consumeEscape?.()) return;
                 if (this.faqView?.consumeEscape?.()) return;
                 if (this.sponsorView?.consumeEscape?.()) return;
                 if (this.feedbackView?.consumeEscape?.()) return;
@@ -556,6 +568,7 @@ export class BookmarksPanel {
             && this.settingsView
             && this.changelogView
             && this.aboutView
+            && this.mappamoryView
             && this.faqView
             && this.feedbackView
             && (!TARGET_SURFACE_SPONSOR_TAB_ENABLED || this.sponsorView)
@@ -624,6 +637,21 @@ export class BookmarksPanel {
             }
         }
 
+        if (!this.mappamoryView) {
+            try {
+                this.mappamoryView = new MappamoryTabView({
+                    actions: {
+                        getAssetUrl: (assetPath) => browser.runtime.getURL(assetPath),
+                    },
+                });
+            } catch (error) {
+                logger.warn('[AI-MarkDone][BookmarksPanel] Failed to create Mappamory tab view; keeping the shell open.', {
+                    error: String(error),
+                });
+                this.mappamoryView = createFallbackTabView('aimd-mappamory');
+            }
+        }
+
         if (!this.faqView) {
             try {
                 this.faqView = new FaqTabView({
@@ -655,7 +683,12 @@ export class BookmarksPanel {
 
         if (!this.feedbackView) {
             try {
-                this.feedbackView = new FeedbackTabView();
+                this.feedbackView = new FeedbackTabView({
+                    actions: {
+                        getAssetUrl: (assetPath) => browser.runtime.getURL(assetPath),
+                        showCommunityCards: TARGET_SURFACE_SOCIAL_FOLLOW_CARD_ENABLED,
+                    },
+                });
             } catch (error) {
                 logger.warn('[AI-MarkDone][BookmarksPanel] Failed to create feedback tab view; keeping the shell open.', {
                     error: String(error),
@@ -681,6 +714,7 @@ export class BookmarksPanel {
         this.settingsView?.dismissTransientUi?.();
         this.changelogView?.dismissTransientUi?.();
         this.aboutView?.dismissTransientUi?.();
+        this.mappamoryView?.dismissTransientUi?.();
         this.faqView?.dismissTransientUi?.();
         this.sponsorView?.dismissTransientUi?.();
         this.feedbackView?.dismissTransientUi?.();

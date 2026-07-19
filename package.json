@@ -1,7 +1,7 @@
 {
     "name": "ai-markdone",
     "private": true,
-    "version": "4.8.0",
+    "version": "5.0.0",
     "description": "Focused ChatGPT reader, bookmarks, Google Drive backup, LaTeX copy, Markdown export, PDF export, and PNG sharing.",
     "homepage": "https://zhaoliangbin42.github.io/ai-markdone/en/",
     "type": "module",
@@ -12,9 +12,9 @@
         "build:chrome": "tsc && vite build --config vite.config.chrome.ts && vite build --config vite.config.chrome.reader.ts && vite build --config vite.config.chrome.background.ts && tsx scripts/build-export-renderer.ts chrome",
         "build:firefox": "tsc && vite build --config vite.config.firefox.ts && vite build --config vite.config.firefox.reader.ts && vite build --config vite.config.firefox.background.ts && tsx scripts/build-export-renderer.ts firefox",
         "build:safari:webext": "tsc && vite build --config vite.config.safari.ts && vite build --config vite.config.safari.reader.ts && vite build --config vite.config.safari.background.ts && tsx scripts/build-export-renderer.ts safari && npm run verify:bundle-size:safari",
-        "postbuild:chrome": "tsx scripts/prepare-extension-target.ts chrome && npm run verify:entry-format:chrome",
-        "postbuild:firefox": "tsx scripts/prepare-extension-target.ts firefox && npm run verify:entry-format:firefox",
-        "postbuild:safari:webext": "tsx scripts/prepare-extension-target.ts safari && npm run verify:entry-format:safari",
+    "postbuild:chrome": "tsx scripts/prepare-extension-target.ts chrome && npm run verify:entry-format:chrome && npm run verify:chatgpt-content-boundary -- chrome",
+    "postbuild:firefox": "tsx scripts/prepare-extension-target.ts firefox && npm run verify:entry-format:firefox && npm run verify:chatgpt-content-boundary -- firefox",
+    "postbuild:safari:webext": "tsx scripts/prepare-extension-target.ts safari && npm run verify:entry-format:safari && npm run verify:chatgpt-content-boundary -- safari",
         "release:verify": "npm run test:smoke && npm run test:acceptance && npm run build:all:webext",
         "package:safari:xcode": "tsx scripts/package-safari-xcode.ts",
         "package:safari:dmg": "tsx scripts/package-safari-dmg.ts",
@@ -25,7 +25,7 @@
         "test:ui:visual": "tsx scripts/harness-ui-visual.ts",
         "test:smoke": "vitest run tests/unit/contracts/protocol.test.ts tests/unit/style/tokens.test.ts tests/unit/governance/uiTokenGraph.test.ts tests/unit/governance/dependency-boundaries.test.ts tests/unit/governance/manifest-resource-consistency.test.ts tests/unit/governance/manifest-generation.test.ts",
         "test:release": "vitest run tests/unit/governance/dependency-boundaries.test.ts tests/unit/governance/manifest-resource-consistency.test.ts",
-        "test:acceptance": "vitest run tests/unit/governance/manifest-resource-consistency.test.ts tests/unit/governance/manifest-generation.test.ts tests/unit/governance/release-scripts.test.ts tests/unit/governance/supported-hosts-consistency.test.ts tests/unit/governance/i18n-keys.test.ts tests/unit/governance/uiSurfaceCoverage.test.ts tests/unit/governance/uiTokenGraph.test.ts tests/unit/governance/uiStyleBoundaries.test.ts tests/unit/governance/uiVisualHarnessContract.test.ts tests/unit/governance/uiLegacySurfaceClosure.test.ts tests/unit/governance/uiReaderArchitecture.test.ts tests/unit/governance/uiReaderStyleClosure.test.ts tests/unit/ui/i18n/i18n.test.ts tests/unit/drivers/shared/browserApi.test.ts tests/unit/drivers/content/chatgpt/ChatGPTConversationEngine.test.ts tests/unit/ui/content/controllers/ChatGPTDirectoryController.test.ts tests/unit/ui/reader/readerPanel.bookmarkAction.test.ts tests/unit/runtimes/content/entry.test.ts",
+        "test:acceptance": "vitest run tests/unit/governance/manifest-resource-consistency.test.ts tests/unit/governance/manifest-generation.test.ts tests/unit/governance/release-scripts.test.ts tests/unit/governance/supported-hosts-consistency.test.ts tests/unit/governance/i18n-keys.test.ts tests/unit/governance/uiSurfaceCoverage.test.ts tests/unit/governance/uiTokenGraph.test.ts tests/unit/governance/uiStyleBoundaries.test.ts tests/unit/governance/uiVisualHarnessContract.test.ts tests/unit/governance/uiLegacySurfaceClosure.test.ts tests/unit/governance/uiReaderArchitecture.test.ts tests/unit/governance/uiReaderStyleClosure.test.ts tests/unit/ui/i18n/i18n.test.ts tests/unit/drivers/shared/browserApi.test.ts tests/unit/drivers/content/chatgpt/ChatGPTConversationEngine.test.ts tests/unit/drivers/content/chatgpt/ChatGPTConversationIndex.test.ts tests/unit/ui/content/controllers/ChatGPTDirectoryController.test.ts tests/unit/ui/reader/readerPanel.bookmarkAction.test.ts tests/unit/runtimes/content/entry.test.ts",
         "test:core": "vitest run",
         "perf:chatgpt": "tsx scripts/benchmark-chatgpt-runtime.ts",
         "verify:image-export-structure": "tsx scripts/benchmark-image-export.ts",
@@ -39,7 +39,8 @@
         "verify:bundle-size:safari": "tsx scripts/verify-extension-bundle-size.ts safari",
         "verify:entry-format:chrome": "bash scripts/verify-extension-entry-format.sh chrome",
         "verify:entry-format:firefox": "bash scripts/verify-extension-entry-format.sh firefox",
-        "verify:entry-format:safari": "bash scripts/verify-extension-entry-format.sh safari"
+    "verify:entry-format:safari": "bash scripts/verify-extension-entry-format.sh safari",
+    "verify:chatgpt-content-boundary": "tsx scripts/verify-chatgpt-content-discovery-boundary.ts"
     },
     "dependencies": {
         "@lezer/markdown": "^1.6.3",

@@ -7,6 +7,7 @@ import type { BookmarksPanelOptions, BookmarksPanelPort } from '../../ui/content
 import type {
     ReaderCommentExportContext,
     ReaderPanelPromptManagerController,
+    ReaderPanelReplaceItemsOptions,
     ReaderPanelSettingsController,
     ReaderPanelShowOptions,
 } from '../../ui/content/reader/ReaderPanel';
@@ -18,6 +19,7 @@ import type { ExportSettings } from '../../core/settings/export';
 import type { copyMessagePng } from '../../services/copy/copy-turn-png';
 import type { runFormulaAssetAction } from '../../services/math/formulaAssetActions';
 import type { renderFormulaSvgAsset } from '../../services/math/formulaAssetRenderer';
+import type { UiLocale } from '../../ui/content/components/i18n';
 import type * as ContentFeatureModuleExports from './contentFeatures';
 import {
     areAppearanceSnapshotsEqual,
@@ -35,21 +37,65 @@ async function importContentFeatureModule(): Promise<ContentFeatureModule> {
 
 export class ContentFeatureModuleLoader {
     private modulePromise: Promise<ContentFeatureModule> | null = null;
+    private loadedModule: ContentFeatureModule | null = null;
+    private desiredLocale: UiLocale = 'auto';
+    private localeRevision = 0;
+    private synchronizedLocaleRevision = -1;
+    private localeSyncPromise: Promise<void> = Promise.resolve();
 
     constructor(private readonly importer: ContentFeatureImporter = importContentFeatureModule) {}
 
     load(): Promise<ContentFeatureModule> {
         if (!this.modulePromise) {
-            this.modulePromise = this.importer().catch((error) => {
-                this.modulePromise = null;
-                throw error;
-            });
+            this.modulePromise = this.importer()
+                .then(async (module) => {
+                    this.loadedModule = module;
+                    return module;
+                })
+                .catch((error) => {
+                    this.loadedModule = null;
+                    this.modulePromise = null;
+                    throw error;
+                });
         }
-        return this.modulePromise;
+        return this.modulePromise.then(async (module) => {
+            await this.queueLocaleSynchronization(module);
+            return module;
+        });
+    }
+
+    setLocale(locale: UiLocale): void {
+        if (locale === this.desiredLocale && this.localeRevision > 0) return;
+        this.desiredLocale = locale;
+        this.localeRevision += 1;
+        if (this.loadedModule) {
+            void this.queueLocaleSynchronization(this.loadedModule);
+        }
+    }
+
+    private queueLocaleSynchronization(module: ContentFeatureModule): Promise<void> {
+        const synchronize = () => this.synchronizeLocale(module);
+        this.localeSyncPromise = this.localeSyncPromise.then(synchronize, synchronize);
+        return this.localeSyncPromise;
+    }
+
+    private async synchronizeLocale(module: ContentFeatureModule): Promise<void> {
+        while (true) {
+            const revision = this.localeRevision;
+            if (revision === this.synchronizedLocaleRevision) return;
+            const locale = this.desiredLocale;
+            await module.setContentFeatureLocale(locale);
+            this.synchronizedLocaleRevision = revision;
+            if (revision === this.localeRevision) return;
+        }
     }
 }
 
 const defaultLoader = new ContentFeatureModuleLoader();
+
+export function setLazyContentFeatureLocale(locale: UiLocale): void {
+    defaultLoader.setLocale(locale);
+}
 
 class LazyInstance<T> {
     private instance: T | null = null;
@@ -148,6 +194,11 @@ class LazyReaderPanel implements ReaderPanelPort {
     async appendItem(item: ReaderItem): Promise<void> {
         if (!this.lazy.current) return;
         await this.lazy.current.appendItem(item);
+    }
+
+    async replaceItems(items: ReaderItem[], options?: ReaderPanelReplaceItemsOptions): Promise<void> {
+        if (!this.lazy.current) return;
+        await this.lazy.current.replaceItems(items, options);
     }
 
     getCommentExportContext(): ReaderCommentExportContext | null {

@@ -20,6 +20,9 @@ describe('image export browser harness contract', () => {
         expect(source).toContain('maxChangedPixelRatio: 0.005');
         expect(source).toContain('--update-goldens');
         expect(source).toContain('--long-repeat=');
+        expect(source).toContain('--long-width-css-px=');
+        expect(source).toContain('--long-pixel-ratio=');
+        expect(source).toContain('longRenderOptions');
         expect(source).toContain('nonWhitePixelCount');
         expect(source).toContain('artifact.nonWhitePixelCount > 0');
         expect(source).toContain('parsePngStructure');
@@ -32,6 +35,7 @@ describe('image export browser harness contract', () => {
         expect(source).toContain('CANONICAL_60K_REPEAT = 171');
         expect(source).not.toContain('MAX_60K_RENDER_DURATION_MS');
         expect(source).toContain('bandRasterWallMs');
+        expect(source).toContain("state.progressPhases.at(-1) !== 'finalizing'");
         expect(rendererHtml).toContain("img-src 'self' data: blob:");
         expect(rendererHtml).toContain("connect-src 'self'");
         expect(source).toContain("runJob('formula-png'");

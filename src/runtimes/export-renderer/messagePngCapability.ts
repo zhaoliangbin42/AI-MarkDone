@@ -3,10 +3,7 @@ import type { PngArtifactMetadata, ImageExportProgressEvent } from '../../servic
 import type { MessagePngRenderHostJob } from '../../services/export/exportRenderHostProtocol';
 import { renderMessageCardProfile } from '../../services/export/messageCardProfile';
 import { planMessageBands } from '../../services/export/messageBandPlanner';
-import {
-    MESSAGE_PNG_LIMITS,
-    planMessagePngOutput,
-} from '../../services/export/messagePngOutputPlan';
+import { planMessagePngOutput } from '../../services/export/messagePngOutputPlan';
 import { getKatexCssWithEmbeddedFonts } from '../../core/export/katexAssets';
 import { WorkerPngEncoderClient } from './workerPngEncoderClient';
 import {
@@ -45,11 +42,6 @@ const MESSAGE_CAPTURE_STYLE_PROPERTIES: string[] = [
     'place-items', 'place-content', 'place-self', 'content', 'counter-increment', 'counter-reset',
     'quotes', 'appearance', '-webkit-appearance', 'pointer-events',
 ];
-// Real-browser benchmarks show that roughly 2M device pixels keeps html-to-image's
-// per-band DOM work bounded without multiplying the fixed serialization overhead.
-// This remains well below the 8M hard safety ceiling enforced by the output plan.
-const PREFERRED_BAND_PIXELS = 2_000_000;
-const ULTRA_LONG_DOCUMENT_HEIGHT_PX = 50_000;
 const BAND_BLOCK_SELECTOR = [
     '.message-header',
     '.user-prompt',
@@ -374,19 +366,13 @@ export async function renderMessagePngCapability(
             requestedPixelRatio: job.options.requestedPixelRatio,
         });
         const boundaries = semanticBoundaryRows(root, output.effectivePixelRatio, output.pixelHeight);
-        // Keep ordinary bands small for responsiveness. Ultra-long exports use the 8M hard
-        // ceiling because Firefox's repeated foreignObject setup becomes slower than the larger
-        // band raster; the built-renderer gate keeps this branch below the 20-second file target.
-        const preferredBandPixels = output.pixelHeight >= ULTRA_LONG_DOCUMENT_HEIGHT_PX
-            ? MESSAGE_PNG_LIMITS.maxBandPixels
-            : PREFERRED_BAND_PIXELS;
         const parts = planMessageBands({
             totalPixelHeight: output.pixelHeight,
             maxPartPixelHeight: output.maxPartPixelHeight,
-            maxBandPixelHeight: Math.max(1, Math.min(
-                output.maxBandPixelHeight,
-                Math.floor(preferredBandPixels / output.pixelWidth),
-            )),
+            // Firefox pays a large fixed foreignObject setup cost for every band. Use the
+            // shared 8M-pixel safety budget directly instead of multiplying that setup work
+            // with a second, lower preference threshold.
+            maxBandPixelHeight: output.maxBandPixelHeight,
             boundaryPixelRows: boundaries,
         });
         const totalBands = parts.reduce((total, part) => total + part.bands.length, 0);
@@ -467,6 +453,9 @@ export async function renderMessagePngCapability(
                     }
                 }
                 await partWorker.finish();
+                if (part.partNumber === part.partCount) {
+                    sink.onProgress({ phase: 'finalizing', completed: parts.length, total: parts.length });
+                }
                 sink.onArtifactComplete();
             } catch (error) {
                 await partWorker.cancel().catch(() => undefined);
@@ -476,7 +465,6 @@ export async function renderMessagePngCapability(
                 partWorker.terminate();
             }
         }
-        sink.onProgress({ phase: 'finalizing', completed: parts.length, total: parts.length });
     } finally {
         root.remove();
     }

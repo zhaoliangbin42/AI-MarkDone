@@ -213,6 +213,55 @@ describe('renderMessagePngCapability', () => {
         expect(deepSourceClone).not.toHaveBeenCalled();
     });
 
+    it('does not multiply Firefox foreignObject setup for a medium 800px 3x export', async () => {
+        vi.spyOn(HTMLElement.prototype, 'scrollHeight', 'get').mockImplementation(function () {
+            return this.id === 'aimd-export-renderer-message-root' ? 4_000 : 0;
+        });
+        vi.spyOn(HTMLElement.prototype, 'getBoundingClientRect').mockReturnValue({
+            x: 0,
+            y: 0,
+            top: 0,
+            right: 800,
+            bottom: 4_000,
+            left: 0,
+            width: 800,
+            height: 4_000,
+            toJSON: () => ({}),
+        });
+        vi.stubGlobal('requestAnimationFrame', (callback: FrameRequestCallback) => {
+            callback(0);
+            return 1;
+        });
+
+        await renderMessagePngCapability({
+            kind: 'message-png',
+            document: {
+                schemaVersion: 1,
+                profile: 'message-card-v1',
+                title: 'Medium high density',
+                labels: { user: 'You', assistant: 'Assistant' },
+                sections: [{
+                    sourceIndex: 0,
+                    heading: 'Message 1',
+                    userText: 'Question',
+                    assistantMarkdown: 'Answer',
+                }],
+            },
+            options: { widthCssPx: 800, requestedPixelRatio: 3 },
+        }, {
+            onProgress: () => undefined,
+            onArtifactStart: () => undefined,
+            onArtifactChunk: () => undefined,
+            onArtifactComplete: () => undefined,
+        }, {
+            createWorker: () => new FakePngWorker() as unknown as Worker,
+        });
+
+        expect(renderedCanvasSizes).toHaveLength(4);
+        expect(Math.max(...renderedCanvasSizes.map((size) => size.width * size.height)))
+            .toBeLessThanOrEqual(8_000_000);
+    });
+
     it('preempts the active worker band when the export is cancelled', async () => {
         vi.spyOn(HTMLElement.prototype, 'scrollHeight', 'get').mockImplementation(function () {
             return this.id === 'aimd-export-renderer-message-root' ? 12_000 : 0;
@@ -365,24 +414,24 @@ describe('renderMessagePngCapability', () => {
 
     it('removes off-band Markdown block content before html-to-image traverses the band DOM', async () => {
         vi.spyOn(HTMLElement.prototype, 'scrollHeight', 'get').mockImplementation(function () {
-            return this.id === 'aimd-export-renderer-message-root' ? 18_000 : 0;
+            return this.id === 'aimd-export-renderer-message-root' ? 60_000 : 0;
         });
         vi.spyOn(HTMLElement.prototype, 'getBoundingClientRect').mockImplementation(function () {
             const text = this.textContent || '';
             const originalTop = text === 'first-band-block'
                 ? 0
                 : text === 'second-band-block'
-                    ? 6_000
+                    ? 20_000
                     : text === 'third-band-block'
-                        ? 12_000
+                        ? 40_000
                         : 0;
             const originalBottom = text === 'first-band-block'
-                ? 6_000
+                ? 20_000
                 : text === 'second-band-block'
-                    ? 12_000
+                    ? 40_000
                     : text === 'third-band-block'
-                        ? 18_000
-                        : 18_000;
+                        ? 60_000
+                        : 60_000;
             const isProjected = this.id !== 'aimd-export-renderer-message-root'
                 && this.style.position === 'absolute';
             const parentRect = isProjected
@@ -479,6 +528,7 @@ describe('renderMessagePngCapability', () => {
             return 1;
         });
         const progress: Array<{ phase: string; completed?: number; total?: number }> = [];
+        const eventOrder: string[] = [];
 
         await renderMessagePngCapability({
             kind: 'message-png',
@@ -491,10 +541,13 @@ describe('renderMessagePngCapability', () => {
             },
             options: { widthCssPx: 360, requestedPixelRatio: 1 },
         }, {
-            onProgress: (event) => progress.push(event),
+            onProgress: (event) => {
+                progress.push(event);
+                eventOrder.push(`progress:${event.phase}`);
+            },
             onArtifactStart: () => undefined,
             onArtifactChunk: () => undefined,
-            onArtifactComplete: () => undefined,
+            onArtifactComplete: () => eventOrder.push('artifact-complete'),
         }, {
             createWorker: () => new FakePngWorker() as unknown as Worker,
         });
@@ -505,6 +558,12 @@ describe('renderMessagePngCapability', () => {
             Array.from({ length: rasterizing.length }, (_value, index) => index),
         );
         expect(new Set(rasterizing.map((event) => event.total))).toEqual(new Set([rasterizing.length]));
+        const finalizingIndex = eventOrder.lastIndexOf('progress:finalizing');
+        const terminalArtifactIndex = eventOrder.lastIndexOf('artifact-complete');
+        expect(finalizingIndex).toBeGreaterThanOrEqual(0);
+        expect(terminalArtifactIndex).toBeGreaterThanOrEqual(0);
+        expect(eventOrder.filter((event) => event === 'progress:finalizing')).toHaveLength(1);
+        expect(finalizingIndex).toBeLessThan(terminalArtifactIndex);
     });
 
     it('keeps an exact ceil-rounded device width for odd CSS widths at fractional ratios', async () => {

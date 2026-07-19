@@ -35,6 +35,10 @@ export type ReaderPanelShowOptions = {
     actions?: ReaderPanelAction[];
 };
 
+export type ReaderPanelReplaceItemsOptions = {
+    preserveCurrentIdentity?: boolean;
+};
+
 export type ReaderPanelSettingsController = {
     onChange: (patch: Partial<AppSettings['reader']>) => Promise<void> | void;
 };

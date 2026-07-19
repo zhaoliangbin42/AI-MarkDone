@@ -9,7 +9,9 @@ type LocaleMessagesJson = Record<string, { message?: string }>;
 
 let activeLocale: UiLocale = 'auto';
 let activeCatalog: LocaleCatalog | null = null;
+let activeCatalogLocale: Exclude<UiLocale, 'auto'> | null = null;
 let activeEffectiveLocale: Exclude<UiLocale, 'auto'> | null = null;
+let localeRequestRevision = 0;
 const loadedCatalogs = new Map<Exclude<UiLocale, 'auto'>, LocaleCatalog>();
 const listeners = new Set<(locale: UiLocale) => void>();
 
@@ -90,16 +92,22 @@ export async function setLocale(locale: UiLocale): Promise<void> {
     const localeChanged = locale !== activeLocale;
     const effectiveChanged = effective !== activeEffectiveLocale;
     // Ensure we still load catalogs on first run (activeCatalog is null) and when auto-locale resolves differently.
-    if (!localeChanged && !effectiveChanged && activeCatalog) return;
+    if (!localeChanged && !effectiveChanged && activeCatalog && activeCatalogLocale === effective) return;
 
     activeLocale = locale;
     activeEffectiveLocale = effective;
+    const requestRevision = ++localeRequestRevision;
 
+    let nextCatalog: LocaleCatalog | null;
     try {
-        activeCatalog = await loadCatalog(effective);
+        nextCatalog = await loadCatalog(effective);
     } catch {
-        activeCatalog = null;
+        nextCatalog = null;
     }
+
+    if (requestRevision !== localeRequestRevision) return;
+    activeCatalog = nextCatalog;
+    activeCatalogLocale = nextCatalog ? effective : null;
 
     // a11y: reflect effective language on the top-level document.
     try {

@@ -72,6 +72,11 @@ type HarnessServer = {
     close: () => Promise<void>;
 };
 
+type MessageRenderOptions = {
+    widthCssPx: number;
+    requestedPixelRatio: number;
+};
+
 type BrowserHarnessResult = {
     browser: BrowserName;
     localRequestCount: number;
@@ -89,6 +94,7 @@ type BrowserHarnessResult = {
         durationMs: number;
         validationDurationMs: number;
         foregroundPixelCount: number;
+        bandCount: number;
         maxBandRasterWallMs: number;
         p95BandRasterWallMs: number;
         maxValidationCanvasHeight: number;
@@ -108,6 +114,7 @@ export type ImageExportBrowserHarnessReport = {
     schemaVersion: 1;
     updateGoldens: boolean;
     longRepeat: number;
+    longRenderOptions: MessageRenderOptions;
     visualLimits: typeof VISUAL_GOLDEN_LIMITS;
     browsers: BrowserHarnessResult[];
 };
@@ -120,6 +127,10 @@ const VISUAL_GOLDEN_LIMITS = {
 const CANONICAL_60K_REPEAT = 171;
 const MIN_60K_ARTIFACT_HEIGHT_PX = 60_000;
 const MAX_60K_ARTIFACT_HEIGHT_PX = 65_535;
+const SHORT_RENDER_OPTIONS: MessageRenderOptions = {
+    widthCssPx: 480,
+    requestedPixelRatio: 1,
+};
 
 const BROWSER_CONFIGS: Array<{
     name: BrowserName;
@@ -283,13 +294,37 @@ async function loadCorpus(): Promise<{
     };
 }
 
+function readLongRenderOptions(): MessageRenderOptions {
+    const widthArgument = process.argv.find((argument) => argument.startsWith('--long-width-css-px='));
+    const ratioArgument = process.argv.find((argument) => argument.startsWith('--long-pixel-ratio='));
+    const widthCssPx = widthArgument
+        ? Number(widthArgument.slice('--long-width-css-px='.length))
+        : SHORT_RENDER_OPTIONS.widthCssPx;
+    const requestedPixelRatio = ratioArgument
+        ? Number(ratioArgument.slice('--long-pixel-ratio='.length))
+        : SHORT_RENDER_OPTIONS.requestedPixelRatio;
+    invariant(
+        Number.isInteger(widthCssPx) && widthCssPx >= 360 && widthCssPx <= 1_200,
+        '--long-width-css-px must be an integer from 360 through 1200',
+    );
+    invariant(
+        Number.isFinite(requestedPixelRatio)
+            && requestedPixelRatio >= 1
+            && requestedPixelRatio <= 3
+            && Number.isInteger(requestedPixelRatio * 2),
+        '--long-pixel-ratio must be from 1 through 3 in 0.5 steps',
+    );
+    return { widthCssPx, requestedPixelRatio };
+}
+
 async function executeRendererJobs(
     page: Page,
     documents: { short: ExportDocumentV1; long: ExportDocumentV1 },
+    longRenderOptions: MessageRenderOptions,
 ): Promise<PageHarnessResult> {
     // tsx preserves nested function names with this helper; Playwright serializes the callback without its module prelude.
     await page.evaluate('globalThis.__name = (target) => target');
-    return page.evaluate(async ({ shortDocument, longDocument }) => {
+    return page.evaluate(async ({ shortDocument, longDocument, longOptions }) => {
         type Metadata = {
             mimeType: 'image/png';
             widthPx: number;
@@ -596,6 +631,14 @@ async function executeRendererJobs(
 
             const { metadata, chunks } = state.current;
             state.current = null;
+            if (
+                state.jobId !== 'formula-png'
+                && metadata.partNumber === metadata.partCount
+                && state.progressPhases.at(-1) !== 'finalizing'
+            ) {
+                failActive(new Error('Message artifact completed before its finalizing progress phase.'));
+                return;
+            }
             state.artifactPromises.push(decodeArtifact(metadata, chunks, state.captureBytes));
             if (metadata.partNumber !== metadata.partCount) return;
             // Production rendering is complete when the final transferable artifact arrives.
@@ -656,14 +699,18 @@ async function executeRendererJobs(
         });
 
         try {
-            const messageJob = (documentValue: typeof shortDocument) => ({
+            const messageJob = (
+                documentValue: typeof shortDocument,
+                options: { widthCssPx: number; requestedPixelRatio: number },
+            ) => ({
                 kind: 'message-png',
                 document: documentValue,
-                options: { widthCssPx: 480, requestedPixelRatio: 1 },
+                options,
             });
-            const shortCold = await runJob('short-cold', messageJob(shortDocument), true);
-            const shortWarm = await runJob('short-warm', messageJob(shortDocument), false);
-            const long = await runJob('long', messageJob(longDocument), false);
+            const shortOptions = { widthCssPx: 480, requestedPixelRatio: 1 };
+            const shortCold = await runJob('short-cold', messageJob(shortDocument, shortOptions), true);
+            const shortWarm = await runJob('short-warm', messageJob(shortDocument, shortOptions), false);
+            const long = await runJob('long', messageJob(longDocument, longOptions), false);
             const formulaPng = await runJob('formula-png', {
                 kind: 'formula-asset',
                 spec: {
@@ -681,6 +728,7 @@ async function executeRendererJobs(
     }, {
         shortDocument: documents.short,
         longDocument: documents.long,
+        longOptions: longRenderOptions,
     }) as Promise<PageHarnessResult>;
 }
 
@@ -832,6 +880,7 @@ async function runBrowserHarness(
     server: HarnessServer,
     documents: { short: ExportDocumentV1; long: ExportDocumentV1 },
     longRepeat: number,
+    longRenderOptions: MessageRenderOptions,
     updateGoldens: boolean,
 ): Promise<BrowserHarnessResult> {
     const browser = await config.launcher.launch({ headless: true });
@@ -867,15 +916,19 @@ async function runBrowserHarness(
         const pageErrors: string[] = [];
         page.on('pageerror', (error) => pageErrors.push(error.stack ?? error.message));
         await page.goto(`${server.origin}/harness.html?target=${config.name}`, { waitUntil: 'load' });
-        const result = await executeRendererJobs(page, documents);
+        const result = await executeRendererJobs(page, documents, longRenderOptions);
 
         validateJob(`${config.name} short cold`, result.shortCold, 1);
         validateJob(`${config.name} short warm`, result.shortWarm, 1);
-        validateJob(`${config.name} long`, result.long, 1);
+        validateJob(`${config.name} long`, result.long, longRenderOptions.requestedPixelRatio);
         validateJob(`${config.name} formula PNG`, result.formulaPng, 4);
         invariant(result.shortCold.artifacts.length === 1, `${config.name} short fixture was split`);
         invariant(result.shortWarm.artifacts.length === 1, `${config.name} warm short fixture was split`);
-        if (longRepeat === CANONICAL_60K_REPEAT) {
+        if (
+            longRepeat === CANONICAL_60K_REPEAT
+            && longRenderOptions.widthCssPx === SHORT_RENDER_OPTIONS.widthCssPx
+            && longRenderOptions.requestedPixelRatio === SHORT_RENDER_OPTIONS.requestedPixelRatio
+        ) {
             invariant(result.long.artifacts.length === 1, `${config.name} canonical 60k artifact was split`);
             const heightPx = result.long.artifacts[0]!.metadata.heightPx;
             invariant(
@@ -915,6 +968,7 @@ async function runBrowserHarness(
                     (total, artifact) => total + artifact.nonWhitePixelCount,
                     0,
                 ),
+                bandCount: result.long.bandRasterWallMs.length,
                 maxBandRasterWallMs: Math.round(Math.max(0, ...result.long.bandRasterWallMs) * 100) / 100,
                 p95BandRasterWallMs: Math.round(percentile(result.long.bandRasterWallMs, 0.95) * 100) / 100,
                 maxValidationCanvasHeight: Math.max(
@@ -956,6 +1010,7 @@ export async function runImageExportBrowserHarness(): Promise<ImageExportBrowser
     const configs = BROWSER_CONFIGS.filter((config) => names.includes(config.name));
     for (const config of configs) await assertBuiltRenderer(config.distDir);
     const documents = await loadCorpus();
+    const longRenderOptions = readLongRenderOptions();
     const updateGoldens = process.argv.includes('--update-goldens');
     const server = await createHarnessServer();
     try {
@@ -966,6 +1021,7 @@ export async function runImageExportBrowserHarness(): Promise<ImageExportBrowser
                 server,
                 documents,
                 documents.longRepeat,
+                longRenderOptions,
                 updateGoldens,
             ));
         }
@@ -973,6 +1029,7 @@ export async function runImageExportBrowserHarness(): Promise<ImageExportBrowser
             schemaVersion: 1,
             updateGoldens,
             longRepeat: documents.longRepeat,
+            longRenderOptions,
             visualLimits: VISUAL_GOLDEN_LIMITS,
             browsers,
         };

@@ -12,6 +12,8 @@
 | Firefox | MV2 | Background Script (`background.js` ← `src/runtimes/background/entry.ts`) | ✅ |
 | Safari | MV2 WebExtension preview | Background Script (`background.js` ← `src/runtimes/background/entry.ts`) | 🧪 web extension 产物可构建；上架前需 Safari 实机验证 |
 
+当前最低版本为 Chrome 111 与 Firefox 128。该基线用于保证 ChatGPT 内容 bridge 能以静态 `document_start` 脚本直接运行在页面主执行环境，避免动态注入晚于宿主 hydration 的竞态；Safari preview 暂由 `document_start` bootstrap 加载同一 bridge，并继续要求实机验证。
+
 ---
 
 ## 2. 组件分工（按运行时边界）
@@ -106,7 +108,7 @@ Google Drive Backup v1 是浏览器兼容性边界内的显式差异：Google Ch
 - 新增/修改 background 行为：以 `src/runtimes/background/entry.ts` 为共享入口，并同步验证 Chrome 与 Firefox 产物；Safari 相关变更应额外运行 `npm run build:safari:webext`
 - 新增/修改 content 行为：优先走 `src/drivers/shared/browser.ts` 的统一 API（避免直接依赖 `chrome.*`）
 - 新增重型 content surface：必须通过现有 lazy feature facade / typed port 接入，并同步更新三端 web-accessible resource、module export、bundle budget 与真实 trigger-path gate；不得静态带回 `content.js`
-- 新增/修改图片导出 capability：必须复用 `export-renderer.html` 与共享协议，验证三端产物、启动期零 renderer 请求、Safari surface policy、Firefox 109 baseline，以及 `docs/testing/IMAGE_EXPORT_GATES.md`；不得新增 target-specific renderer 或权限
+- 新增/修改图片导出 capability：必须复用 `export-renderer.html` 与共享协议，验证三端产物、启动期零 renderer 请求、Safari surface policy、Firefox 128 baseline，以及 `docs/testing/IMAGE_EXPORT_GATES.md`；不得新增 target-specific renderer 或权限
 - UI 与 service 层不得新增浏览器 target 分支；浏览器差异只能位于 `config/extension/*` 或 `src/drivers/shared/browser*`
 - 所有跨 runtime 通信：必须收敛到“单点协议定义”（见 `docs/architecture/BLUEPRINT.md` 的 protocol 章节）
 
@@ -120,6 +122,7 @@ Content runtime 共享同一份 TypeScript 源码，但浏览器对部分 Web AP
 
 - `requestIdleCallback` / `cancelIdleCallback` 必须以 `window` 作为 receiver 调用。Firefox 对裸函数调用会执行 WebIDL receiver 校验，裸调用可能抛出 `called on an object that does not implement interface Window`，从而中断扫描调度、公式增量增强或其他延迟任务。
 - ChatGPT page bridge 的 Firefox content/page script 通信必须使用 JSON string `CustomEvent.detail`；Chrome/Chromium 继续使用 object detail。bridge 双端必须同时支持 object 与 string detail，浏览器差异只能停留在 transport encode/decode 层，不允许扩散到 Reader、Bookmark、Copy 或 ChatGPT snapshot 业务逻辑。
+- ChatGPT page bridge 只能被动观察宿主自身的 same-origin conversation `GET` 响应；不得读取 Cookie、Token、认证请求头，不得调用 session endpoint，也不得由扩展主动重放 conversation 请求。
 - Shadow DOM 样式注入不得假设 `shadowRoot.adoptedStyleSheets` 在所有浏览器中都是普通数组。共享样式路径应先安全读取并验证必要数组能力；若读取、构造样式表、`replaceSync` 或重新赋值失败，必须降级到 root-scoped `<style data-aimd-style-id>` 注入。
 - 构造样式表共享缓存仍是支持浏览器的首选性能路径；fallback 只用于不支持或行为不兼容的 runtime，不应引入浏览器名称分支。
 - 站点 toolbar anchor、header anchor 与 message discovery 仍由 adapter contract 管理。Firefox runtime 兼容修复不得通过修改 ChatGPT DOM selector、添加正文 fallback、长期轮询或 aggressive retry 来绕过底层 API 错误。

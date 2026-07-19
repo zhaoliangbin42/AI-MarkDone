@@ -15,7 +15,7 @@ describe('export renderer entry', () => {
         });
 
         window.dispatchEvent(new MessageEvent('message', {
-            source: window,
+            source: null,
             data: { v: 1, type: 'aimd:export-render-host:connect' },
             ports: [channel.port2],
         }));

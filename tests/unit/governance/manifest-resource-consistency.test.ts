@@ -2,14 +2,14 @@ import { describe, expect, it } from 'vitest';
 import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { extensionIconFiles, safariExcludedIconFiles, safariExcludedLocaleMessageKeys } from '../../../config/extension/surface';
-import { SUPPORTED_HOST_PATTERNS } from '../../../config/extension/hosts';
+import { CHATGPT_HOST_PATTERNS, SUPPORTED_HOST_PATTERNS } from '../../../config/extension/hosts';
 
 type ChromeManifest = {
     host_permissions?: string[];
     icons?: Record<string, string>;
     action?: { default_icon?: Record<string, string> };
     background?: { service_worker?: string };
-    content_scripts?: Array<{ js?: string[]; matches?: string[]; run_at?: string }>;
+    content_scripts?: Array<{ js?: string[]; matches?: string[]; run_at?: string; world?: string }>;
     web_accessible_resources?: Array<{ resources?: string[]; matches?: string[] }>;
 };
 
@@ -18,7 +18,7 @@ type Mv2Manifest = {
     icons?: Record<string, string>;
     browser_action?: { default_icon?: Record<string, string> };
     background?: { scripts?: string[] };
-    content_scripts?: Array<{ js?: string[]; matches?: string[]; run_at?: string }>;
+    content_scripts?: Array<{ js?: string[]; matches?: string[]; run_at?: string; world?: string }>;
     web_accessible_resources?: string[];
 };
 
@@ -68,6 +68,10 @@ describe('manifest resource consistency', () => {
             'buyMeCoffee',
             'wechatAppreciationCode',
             'findMeOnXiaohongshu',
+            'communityCardTitle',
+            'communityQQTitle',
+            'communityXiaohongshuTitle',
+            'communityPrivacyNote',
             'sponsorThanksTitle',
         ]));
     });
@@ -125,6 +129,37 @@ describe('manifest resource consistency', () => {
         expect(chromeResources).not.toContain('content-early-main.js');
         expect(firefoxResources).not.toContain('content-early-main.js');
         expect(safariResources).not.toContain('content-early-main.js');
+    });
+
+    it('installs the passive ChatGPT graph bridge before host hydration', () => {
+        const chrome = readJson<ChromeManifest>('manifest.chrome.json');
+        const firefox = readJson<Mv2Manifest>('manifest.firefox.json');
+        const safari = readJson<Mv2Manifest>('manifest.safari.json');
+
+        const chromeCapture = chrome.content_scripts?.find((item) => item.js?.includes('page-bridges/chatgpt-conversation-bridge.js'));
+        const firefoxCapture = firefox.content_scripts?.find((item) => item.js?.includes('page-bridges/chatgpt-conversation-bridge.js'));
+        const safariCapture = safari.content_scripts?.find((item) => item.js?.includes('page-bridges/chatgpt-conversation-bootstrap.js'));
+
+        expect(chromeCapture).toEqual({
+            matches: [...CHATGPT_HOST_PATTERNS],
+            js: ['page-bridges/chatgpt-conversation-bridge.js'],
+            run_at: 'document_start',
+            world: 'MAIN',
+        });
+        expect(firefoxCapture).toEqual(chromeCapture);
+        expect(safariCapture).toEqual({
+            matches: [...CHATGPT_HOST_PATTERNS],
+            js: ['page-bridges/chatgpt-conversation-bootstrap.js'],
+            run_at: 'document_start',
+        });
+
+        for (const manifest of [chrome, firefox, safari]) {
+            const idleEntry = manifest.content_scripts?.find((item) => item.js?.includes('content.js'));
+            expect(idleEntry).toMatchObject({
+                matches: [...SUPPORTED_HOST_PATTERNS],
+                run_at: 'document_idle',
+            });
+        }
     });
 
 });

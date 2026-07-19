@@ -102,20 +102,25 @@ ${containerSelector} h1:first-child, ${containerSelector} h2:first-child, ${cont
 ${containerSelector} pre { margin: 16px 0; }
 ${containerSelector} blockquote { margin: 16px 0; padding-left: 16px; }
 
-${containerSelector} .reader-code-block__scroll {
+${containerSelector} .reader-code-block__scroll,
+${containerSelector} .reader-code-block__scroll pre {
   overflow: visible;
+  max-height: none;
 }
-${containerSelector} pre,
-${containerSelector} pre code {
+${containerSelector} .reader-markdown pre,
+${containerSelector} .reader-markdown pre code {
   max-width: 100%;
   white-space: pre-wrap;
+  overflow: visible;
   overflow-wrap: anywhere;
   word-break: break-word;
 }
 ${containerSelector} table {
+  display: table;
   width: 100%;
   max-width: 100%;
   table-layout: fixed;
+  overflow: visible;
 }
 ${containerSelector} th,
 ${containerSelector} td {

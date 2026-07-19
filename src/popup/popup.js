@@ -18,12 +18,37 @@
         root.style.setProperty('--aimd-interactive-selected', `color-mix(in srgb, ${color} 14%, transparent)`);
     };
 
-    const localizePopup = () => {
+    const resolvePopupLocale = (language, i18n) => {
+        if (language === 'en' || language === 'zh_CN') return language;
+        const uiLanguage = i18n?.getUILanguage?.() ?? '';
+        return uiLanguage.toLowerCase().startsWith('zh') ? 'zh_CN' : 'en';
+    };
+
+    const loadLocaleCatalog = async (locale) => {
+        const runtime = globalThis.browser?.runtime ?? globalThis.chrome?.runtime;
+        const url = runtime?.getURL?.(`_locales/${locale}/messages.json`)
+            ?? `/_locales/${locale}/messages.json`;
+        const response = await fetch(url);
+        if (!response.ok) throw new Error(`Locale catalog unavailable: ${locale}`);
+        return await response.json();
+    };
+
+    const localizePopup = async (language = 'auto') => {
         const i18n = globalThis.browser?.i18n ?? globalThis.chrome?.i18n;
         if (!i18n?.getMessage) return;
+        const locale = resolvePopupLocale(language, i18n);
+        let catalog = null;
+        if (language !== 'auto') {
+            try {
+                catalog = await loadLocaleCatalog(locale);
+            } catch {
+                catalog = null;
+            }
+        }
+        const getMessage = (key) => catalog?.[key]?.message ?? i18n.getMessage(key);
         document.querySelectorAll('[data-i18n]').forEach((element) => {
             const key = element.getAttribute('data-i18n');
-            const value = key ? i18n.getMessage(key) : '';
+            const value = key ? getMessage(key) : '';
             if (value) element.textContent = value;
         });
         document.querySelectorAll('[data-i18n-attr]').forEach((element) => {
@@ -32,11 +57,10 @@
             if (separator <= 0) return;
             const attribute = binding.slice(0, separator);
             const key = binding.slice(separator + 1);
-            const value = i18n.getMessage(key);
+            const value = getMessage(key);
             if (value) element.setAttribute(attribute, value);
         });
-        const uiLanguage = i18n.getUILanguage?.();
-        if (uiLanguage) document.documentElement.lang = uiLanguage;
+        document.documentElement.lang = locale === 'zh_CN' ? 'zh-CN' : 'en';
     };
 
     const colorScheme = globalThis.matchMedia?.('(prefers-color-scheme: dark)');
@@ -44,16 +68,20 @@
         document.documentElement.setAttribute('data-aimd-theme', colorScheme?.matches ? 'dark' : 'light');
     };
 
-    localizePopup();
+    void localizePopup();
     applyColorScheme();
     colorScheme?.addEventListener?.('change', applyColorScheme);
 
     const storage = globalThis.browser?.storage ?? globalThis.chrome?.storage;
     const result = storage?.sync?.get?.('app_settings', (next) => {
-        applyAccentColor(next?.app_settings?.appearance?.accentColor);
+        const settings = next?.app_settings;
+        applyAccentColor(settings?.appearance?.accentColor);
+        void localizePopup(settings?.language);
     });
 
     result?.then?.((next) => {
-        applyAccentColor(next?.app_settings?.appearance?.accentColor);
+        const settings = next?.app_settings;
+        applyAccentColor(settings?.appearance?.accentColor);
+        void localizePopup(settings?.language);
     });
 })();

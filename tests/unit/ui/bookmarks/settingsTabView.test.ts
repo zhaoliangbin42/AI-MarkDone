@@ -55,6 +55,7 @@ const baseSettings = {
     },
     chatgptBehavior: {
         restorePositionAfterSend: true,
+        atomicMarkdownCopy: true,
         inputEnhancement: {
             available: true,
             enabled: true,
@@ -121,6 +122,7 @@ describe('SettingsTabView', () => {
         const chatGptGroup = Array.from(root.querySelectorAll<HTMLElement>('.settings-group'))
             .find((group) => group.querySelector('.settings-group-title')?.textContent?.includes('chatgptReadingInputSettingsLabel'))!;
         expect(chatGptGroup.querySelector('[data-role="settings-chatgpt-restore-position-after-send"]')).toBeTruthy();
+        expect(chatGptGroup.querySelector('[data-role="settings-chatgpt-atomic-markdown-copy"]')).toBeTruthy();
         expect(chatGptGroup.querySelector('[data-role="settings-chatgpt-input-enhancement"]')).toBeTruthy();
         expect(chatGptGroup.querySelector('[data-role="settings-chatgpt-enter-key-newline"]')).toBeNull();
         expect(chatGptGroup.querySelector('[data-role="settings-chatgpt-markdown-composer-enabled"]')).toBeNull();
@@ -177,6 +179,35 @@ describe('SettingsTabView', () => {
         gemini.dispatchEvent(new Event('change', { bubbles: true }));
 
         expect(onSetPlatforms).toHaveBeenCalledWith({ gemini: false });
+    });
+
+    it('restores the previous language selection when persistence fails', async () => {
+        const modal = { confirm: vi.fn(async () => true) } as any;
+        const setLanguage = vi.fn(async () => false);
+        const view = new SettingsTabView({
+            modal,
+            actions: { setLanguage } as any,
+        });
+        view.setState({
+            settings: structuredClone(baseSettings),
+            storageUsage: null,
+        });
+
+        const root = view.getElement();
+        const trigger = root.querySelector<HTMLButtonElement>(
+            '[data-action="toggle-settings-menu"][data-menu="language"]',
+        )!;
+        const initialLabel = trigger.textContent;
+
+        trigger.click();
+        root.querySelector<HTMLButtonElement>(
+            '[data-action="settings-select-option"][data-menu="language"][data-value="zh_CN"]',
+        )!.click();
+
+        await vi.waitFor(() => {
+            expect(setLanguage).toHaveBeenCalledWith('zh_CN');
+            expect(trigger.textContent).toBe(initialLabel);
+        });
     });
 
     it('wires the master message toolbar toggle to behavior settings', () => {
@@ -314,6 +345,29 @@ describe('SettingsTabView', () => {
         toggle.dispatchEvent(new Event('change', { bubbles: true }));
 
         expect(onSetChatGptBehaviorSettings).toHaveBeenCalledWith({ restorePositionAfterSend: false });
+    });
+
+    it('lets users disable ChatGPT atomic Markdown copy', () => {
+        const modal = { confirm: vi.fn(async () => true) } as any;
+        const onSetChatGptBehaviorSettings = vi.fn(async () => undefined);
+        const view = new SettingsTabView({
+            modal,
+            actions: { setChatGptBehaviorSettings: onSetChatGptBehaviorSettings },
+        });
+        view.setState({
+            settings: structuredClone(baseSettings),
+            storageUsage: null,
+        });
+
+        const toggle = view.getElement().querySelector<HTMLInputElement>(
+            '[data-role="settings-chatgpt-atomic-markdown-copy"]',
+        )!;
+        expect(toggle.checked).toBe(true);
+
+        toggle.checked = false;
+        toggle.dispatchEvent(new Event('change', { bubbles: true }));
+
+        expect(onSetChatGptBehaviorSettings).toHaveBeenCalledWith({ atomicMarkdownCopy: false });
     });
 
     it('wires only input enhancement availability while preserving its detailed preferences', () => {

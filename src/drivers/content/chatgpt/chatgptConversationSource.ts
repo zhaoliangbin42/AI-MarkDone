@@ -9,19 +9,45 @@ export type ChatGPTConversationTurn = {
 
 export type ChatGPTConversationStartTarget = {
     position?: number | null;
-    positionSource?: 'snapshot' | 'dom';
+    positionSource?: 'snapshot';
     messageId?: string | null;
-    userPrompt?: string | null;
+    roundId?: string | null;
+    userMessageId?: string | null;
+    assistantMessageId?: string | null;
 };
 
 function normalizeMessageId(value: unknown): string | null {
     return typeof value === 'string' && value.trim() ? value.trim() : null;
 }
 
-function normalizePrompt(value: unknown): string | null {
-    if (typeof value !== 'string') return null;
-    const normalized = value.replace(/\s+/g, ' ').trim();
-    return normalized || null;
+function resolveUniqueRoundIndex(
+    snapshot: ChatGPTConversationSnapshot,
+    target: ChatGPTConversationStartTarget,
+): number {
+    const roundId = normalizeMessageId(target.roundId);
+    const userMessageId = normalizeMessageId(target.userMessageId);
+    const assistantMessageId = normalizeMessageId(target.assistantMessageId);
+    const messageId = normalizeMessageId(target.messageId);
+    const hasCanonicalIdentity = Boolean(roundId || userMessageId || assistantMessageId || messageId);
+
+    if (hasCanonicalIdentity) {
+        const matches = snapshot.rounds
+            .map((round, index) => ({ round, index }))
+            .filter(({ round }) => (
+                (!roundId || round.id === roundId)
+                && (!userMessageId || round.userMessageId === userMessageId)
+                && (!assistantMessageId || (round.assistantMessageId ?? round.messageId) === assistantMessageId)
+                && (!messageId || round.messageId === messageId || round.assistantMessageId === messageId)
+            ));
+        return matches.length === 1 ? matches[0]!.index : -1;
+    }
+
+    const position = Number(target.position ?? 0);
+    if (target.positionSource !== 'snapshot' || !Number.isInteger(position) || position <= 0) return -1;
+    const matches = snapshot.rounds
+        .map((round, index) => ({ round, index }))
+        .filter(({ round }) => round.position === position);
+    return matches.length === 1 ? matches[0]!.index : -1;
 }
 
 export function buildChatGPTConversationTurns(snapshot: ChatGPTConversationSnapshot): ChatGPTConversationTurn[] {
@@ -36,33 +62,8 @@ export function resolveChatGPTConversationStartIndex(
     snapshot: ChatGPTConversationSnapshot,
     target?: ChatGPTConversationStartTarget | null
 ): number {
-    const fallback = Math.max(0, snapshot.rounds.length - 1);
-    if (!target) return fallback;
-
-    const messageId = normalizeMessageId(target.messageId);
-    if (messageId) {
-        const byMessageId = snapshot.rounds.findIndex((round) => (
-            round.messageId === messageId
-            || round.assistantMessageId === messageId
-            || round.userMessageId === messageId
-            || round.id === messageId
-        ));
-        if (byMessageId >= 0) return byMessageId;
-    }
-
-    const userPrompt = normalizePrompt(target.userPrompt);
-    if (userPrompt) {
-        const byPrompt = snapshot.rounds.findIndex((round) => normalizePrompt(round.userPrompt) === userPrompt);
-        if (byPrompt >= 0) return byPrompt;
-    }
-
-    const position = Number(target.position ?? 0);
-    if (target.positionSource === 'snapshot' && Number.isInteger(position) && position > 0) {
-        const byPosition = snapshot.rounds.findIndex((round) => round.position === position);
-        if (byPosition >= 0) return byPosition;
-    }
-
-    return fallback;
+    if (!target) return Math.max(0, snapshot.rounds.length - 1);
+    return resolveUniqueRoundIndex(snapshot, target);
 }
 
 export function resolveChatGPTConversationRound(
@@ -70,28 +71,6 @@ export function resolveChatGPTConversationRound(
     target?: ChatGPTConversationStartTarget | null
 ): ChatGPTConversationRound | null {
     if (!target) return null;
-
-    const messageId = normalizeMessageId(target.messageId);
-    if (messageId) {
-        const byMessageId = snapshot.rounds.find((round) => (
-            round.messageId === messageId
-            || round.assistantMessageId === messageId
-            || round.userMessageId === messageId
-            || round.id === messageId
-        ));
-        if (byMessageId) return byMessageId;
-    }
-
-    const userPrompt = normalizePrompt(target.userPrompt);
-    if (userPrompt) {
-        const byPrompt = snapshot.rounds.find((round) => normalizePrompt(round.userPrompt) === userPrompt);
-        if (byPrompt) return byPrompt;
-    }
-
-    const position = Number(target.position ?? 0);
-    if (target.positionSource === 'snapshot' && Number.isInteger(position) && position > 0) {
-        return snapshot.rounds.find((round) => round.position === position) ?? null;
-    }
-
-    return null;
+    const index = resolveUniqueRoundIndex(snapshot, target);
+    return index >= 0 ? snapshot.rounds[index] ?? null : null;
 }

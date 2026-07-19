@@ -19,7 +19,7 @@ describe('ChatGPTAdapter fold groups', () => {
         expect(refs[0]?.userRootEl?.getAttribute('data-turn')).toBe('user');
         expect(refs.every((ref) => ref.userRootEl instanceof HTMLElement)).toBe(true);
         expect(refs.length).toBeGreaterThanOrEqual(3);
-        expect(refs.some((ref) => Boolean(ref.userPromptText?.trim()))).toBe(true);
+        expect(refs.every((ref) => ref.userPromptText === undefined)).toBe(true);
         for (const ref of refs) {
             const assistantMessageId = ref.assistantMessageEl.getAttribute('data-message-id');
             expect(ref.userRootEl).toBeInstanceOf(HTMLElement);
@@ -74,7 +74,7 @@ describe('ChatGPTAdapter fold groups', () => {
         const refs = adapter.getConversationGroupRefs();
 
         expect(refs.map((ref) => ref.id)).toEqual(['a-legacy', 'a-modern']);
-        expect(refs.map((ref) => ref.userPromptText)).toEqual(['legacy prompt', 'modern prompt']);
+        expect(refs.every((ref) => ref.userPromptText === undefined)).toBe(true);
     });
 
     it('ignores assistant-like nodes outside the conversation observer scope', () => {
@@ -101,7 +101,7 @@ describe('ChatGPTAdapter fold groups', () => {
         expect(refs.map((ref) => ref.id)).toEqual(['a-real']);
     });
 
-    it('discovers virtualized ChatGPT turns from structured React turn data on turn containers', () => {
+    it('ignores private React payloads when no observable turn identity is materialized', () => {
         document.documentElement.innerHTML = `
             <head></head>
             <body>
@@ -146,10 +146,7 @@ describe('ChatGPTAdapter fold groups', () => {
         const adapter = new ChatGPTAdapter();
         const refs = adapter.getConversationGroupRefs();
 
-        expect(refs).toHaveLength(2);
-        expect(refs.map((ref) => ref.id)).toEqual(['a1-message', 'a2-message']);
-        expect(refs.map((ref) => ref.userPromptText)).toEqual(['Prompt 1', 'Prompt 2']);
-        expect(refs.map((ref) => ref.assistantRootEl.id)).toEqual(['a1', 'a2']);
+        expect(refs).toEqual([]);
     });
 
     it('discovers user-round groups from current role/testid turns when legacy turn containers are absent', () => {
@@ -181,7 +178,7 @@ describe('ChatGPTAdapter fold groups', () => {
 
         expect(refs).toHaveLength(2);
         expect(refs.map((ref) => ref.id)).toEqual(['a1a', 'a2']);
-        expect(refs.map((ref) => ref.userPromptText)).toEqual(['Prompt one', 'Prompt two']);
+        expect(refs.every((ref) => ref.userPromptText === undefined)).toBe(true);
         expect(refs.map((ref) => ref.barAnchorEl?.id)).toEqual(['turn-u1', 'turn-u2']);
         expect(refs.map((ref) => ref.assistantRootEl.id)).toEqual(['turn-a1a', 'turn-a2']);
     });
@@ -233,11 +230,7 @@ describe('ChatGPTAdapter fold groups', () => {
         const refs = adapter.getConversationGroupRefs();
 
         expect(refs).toHaveLength(3);
-        expect(refs.map((ref) => ref.userPromptText)).toEqual([
-            'Thesis prompt one',
-            'Thesis prompt two',
-            'Thesis prompt three',
-        ]);
+        expect(refs.every((ref) => ref.userPromptText === undefined)).toBe(true);
         expect(refs.map((ref) => ref.barAnchorEl?.id)).toEqual(['turn-u1', 'turn-u2', 'turn-u3']);
         expect(refs.map((ref) => ref.assistantRootEl.id)).toEqual(['turn-a1', 'turn-a2', 'turn-a3']);
         expect(refs.map((ref) => ref.assistantMessageEl.tagName)).toEqual(['IFRAME', 'DIV', 'IFRAME']);
@@ -286,7 +279,7 @@ describe('ChatGPTAdapter fold groups', () => {
         expect(adapter.getToolbarAnchorElement(unanchoredFrame)).toBeNull();
     });
 
-    it('extracts user prompts from the text body without file-card labels', () => {
+    it('keeps user DOM text out of structural group refs', () => {
         document.documentElement.innerHTML = `
             <head></head>
             <body>
@@ -315,9 +308,8 @@ describe('ChatGPTAdapter fold groups', () => {
         const refs = adapter.getConversationGroupRefs();
 
         expect(refs).toHaveLength(1);
-        expect(refs[0]?.userPromptText).toBe('该论文介绍了 O-OTFS ，请帮我对 Introduction 部分进行详细的总结');
-        expect(refs[0]?.userPromptText).not.toContain('粘贴的文本');
-        expect(refs[0]?.userPromptText).not.toContain('Document');
+        expect(refs[0]?.userPromptText).toBeUndefined();
+        expect(refs[0]?.userRootEl.textContent).toContain('该论文介绍了 O-OTFS');
     });
 
     it('ignores role nodes outside the scoped ChatGPT conversation root', () => {
@@ -344,7 +336,7 @@ describe('ChatGPTAdapter fold groups', () => {
 
         expect(refs).toHaveLength(1);
         expect(refs[0]?.id).toBe('a1');
-        expect(refs[0]?.userPromptText).toBe('Prompt one');
+        expect(refs[0]?.userPromptText).toBeUndefined();
     });
 
     it('ignores turn wrappers outside the scoped ChatGPT conversation root', () => {
@@ -375,6 +367,6 @@ describe('ChatGPTAdapter fold groups', () => {
 
         expect(refs).toHaveLength(1);
         expect(refs[0]?.id).toBe('a1');
-        expect(refs[0]?.userPromptText).toBe('Prompt one');
+        expect(refs[0]?.userPromptText).toBeUndefined();
     });
 });

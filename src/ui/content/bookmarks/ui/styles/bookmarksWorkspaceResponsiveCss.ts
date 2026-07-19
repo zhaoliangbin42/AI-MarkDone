@@ -172,6 +172,21 @@ export function getBookmarksWorkspaceResponsiveCss(): string {
     scrollbar-gutter: auto;
   }
 
+  .info-hero,
+  .info-section--story,
+  .community-card {
+    padding: var(--aimd-space-4);
+  }
+
+  .info-profile-card,
+  .mappamory-story,
+  .mappamory-proof,
+  .social-follow-card,
+  .support-contact-card,
+  .about-website-card {
+    padding: var(--aimd-space-4);
+  }
+
   .toggle-row,
   .settings-row {
     grid-template-columns: minmax(0, 1fr);

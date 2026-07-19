@@ -1,5 +1,11 @@
 import type { SiteAdapter } from '../../drivers/content/adapters/base';
 import type { ChatGPTConversationEngine } from '../../drivers/content/chatgpt/ChatGPTConversationEngine';
+import {
+    getChatGPTConversationIndex,
+    type ChatGPTIndexedRound,
+} from '../../drivers/content/chatgpt/ChatGPTConversationIndex';
+import type { ChatGPTConversationStartTarget } from '../../drivers/content/chatgpt/chatgptConversationSource';
+import type { ChatGPTConversationSnapshot } from '../../drivers/content/chatgpt/types';
 import type { ChatTurn } from '../export/saveMessagesTypes';
 import { buildChatGPTReaderItems } from './chatgptReaderItems';
 import { collectReaderItems, type CollectReaderItemsResult } from './collectReaderItems';
@@ -16,12 +22,33 @@ export type ReaderContentSourceResult = CollectReaderItemsResult & {
     metadataSource: ReaderContentMetadataSource;
 };
 
-function getStartTarget(adapter: SiteAdapter, messageElement: HTMLElement | null) {
-    if (!messageElement) return null;
+type ChatGptStartTargetResolution =
+    | { ok: true; target: ChatGPTConversationStartTarget | null }
+    | { ok: false };
+
+function toChatGptStartTarget(indexedRound: ChatGPTIndexedRound): ChatGPTConversationStartTarget {
     return {
-        messageId: adapter.getMessageId(messageElement),
-        userPrompt: adapter.extractUserPrompt(messageElement),
+        position: indexedRound.position,
+        positionSource: 'snapshot',
+        messageId: indexedRound.round.messageId,
+        roundId: indexedRound.identity.roundId,
+        userMessageId: indexedRound.identity.userMessageId,
+        assistantMessageId: indexedRound.identity.assistantMessageId,
     };
+}
+
+function resolveChatGptStartTarget(
+    adapter: SiteAdapter,
+    snapshot: ChatGPTConversationSnapshot,
+    messageElement: HTMLElement | null,
+): ChatGptStartTargetResolution {
+    const index = getChatGPTConversationIndex(adapter);
+    index.setSnapshot(snapshot);
+    if (!messageElement) return { ok: true, target: null };
+    const indexedRound = index.resolveRoundForElement(messageElement);
+    return indexedRound
+        ? { ok: true, target: toChatGptStartTarget(indexedRound) }
+        : { ok: false };
 }
 
 function getFallbackStartElement(adapter: SiteAdapter, messageElement: HTMLElement | null): HTMLElement | null {
@@ -38,9 +65,11 @@ async function collectChatGPTSnapshotReaderContent(
     try {
         const snapshot = await options.chatGptConversationEngine.getSnapshot();
         if (!snapshot?.rounds?.length) return null;
+        const startTarget = resolveChatGptStartTarget(adapter, snapshot, startMessageElement);
+        if (!startTarget.ok) return { items: [], startIndex: 0, metadataSource: 'chatgpt-snapshot' };
         const result = buildChatGPTReaderItems(
             snapshot,
-            getStartTarget(adapter, startMessageElement),
+            startTarget.target,
             options.pageUrl ?? window.location.href,
         );
         return { ...result, metadataSource: 'chatgpt-snapshot' };
@@ -59,9 +88,11 @@ async function collectFreshChatGPTSnapshotReaderContent(
     try {
         const snapshot = await options.chatGptConversationEngine.forceRefreshCurrentConversation();
         if (!snapshot?.rounds?.length) return null;
+        const startTarget = resolveChatGptStartTarget(adapter, snapshot, startMessageElement);
+        if (!startTarget.ok) return { items: [], startIndex: 0, metadataSource: 'chatgpt-snapshot' };
         const result = buildChatGPTReaderItems(
             snapshot,
-            getStartTarget(adapter, startMessageElement),
+            startTarget.target,
             options.pageUrl ?? window.location.href,
         );
         return { ...result, metadataSource: 'chatgpt-snapshot' };
@@ -91,6 +122,9 @@ export async function collectReaderContent(
     const chatGptSnapshotContent = options
         ? await collectChatGPTSnapshotReaderContent(adapter, startMessageElement, options)
         : null;
+    if (adapter.getPlatformId?.() === 'chatgpt') {
+        return chatGptSnapshotContent ?? { items: [], startIndex: 0, metadataSource: 'chatgpt-snapshot' };
+    }
     return chatGptSnapshotContent ?? collectDomFallbackReaderContent(adapter, startMessageElement);
 }
 
@@ -115,6 +149,16 @@ export async function collectFreshCurrentReaderItem(
     messageElement: HTMLElement,
     options: ReaderContentSourceOptions,
 ): Promise<ReaderItem | null> {
+    if (adapter.getPlatformId?.() === 'chatgpt') {
+        if (!options.chatGptConversationEngine) return null;
+        const snapshot = await options.chatGptConversationEngine.forceRefreshCurrentConversation().catch(() => null);
+        if (!snapshot?.rounds?.length) return null;
+        const startTarget = resolveChatGptStartTarget(adapter, snapshot, messageElement);
+        if (!startTarget.ok || !startTarget.target) return null;
+        const result = buildChatGPTReaderItems(snapshot, startTarget.target, options.pageUrl ?? window.location.href);
+        return result.items[result.startIndex] ?? null;
+    }
+
     const result = await collectFreshReaderContent(adapter, messageElement, options);
     return result.items[result.startIndex] ?? null;
 }
