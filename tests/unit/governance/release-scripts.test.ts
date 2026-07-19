@@ -14,62 +14,33 @@ function readReleaseGuide(): string {
     return readFileSync(resolve(process.cwd(), '.codex/guides/release.md'), 'utf-8');
 }
 
-function readSafariDmgScript(): string {
-    return readFileSync(resolve(process.cwd(), 'scripts/package-safari-dmg.ts'), 'utf-8');
-}
-
-function readSafariXcodeScript(): string {
-    return readFileSync(resolve(process.cwd(), 'scripts/package-safari-xcode.ts'), 'utf-8');
-}
-
 describe('release scripts', () => {
-    it('runs all automated release gates including Safari web extension build', () => {
+    it('runs all automated release gates for Chrome and Firefox', () => {
         const scripts = readPackageJson().scripts || {};
 
         expect(scripts['release:verify']).toContain('npm run test:smoke');
         expect(scripts['release:verify']).toContain('npm run test:acceptance');
-        expect(scripts['release:verify']).toContain('npm run build:all:webext');
+        expect(scripts['release:verify']).toContain('npm run build');
         expect(scripts['release:verify']).not.toContain('npm run test:core');
+        expect(scripts.build).toContain('npm run build:chrome');
+        expect(scripts.build).toContain('npm run build:firefox');
+        expect(scripts['release:verify']).not.toContain('safari');
     });
 
-    it('keeps Safari Xcode packaging as an explicit manual command', () => {
-        const scripts = readPackageJson().scripts || {};
-        const releaseGuide = readReleaseGuide();
-        const safariXcodeScript = readSafariXcodeScript();
-
-        expect(scripts['package:safari:xcode']).toBe('tsx scripts/package-safari-xcode.ts');
-        expect(safariXcodeScript).toContain("run('npm', ['run', 'build:safari:webext'])");
-        expect(safariXcodeScript).toContain('safari-web-extension-converter');
-        expect(safariXcodeScript).toContain('safariBundle.bundleIdentifier');
-        expect(safariXcodeScript).toContain('MARKETING_VERSION');
-        expect(safariXcodeScript).toContain('CURRENT_PROJECT_VERSION');
-        expect(safariXcodeScript).toContain('--copy-resources');
-        expect(safariXcodeScript).toContain('--no-open');
-        expect(safariXcodeScript).toContain('--no-prompt');
-        expect(safariXcodeScript).toContain('--force');
-        expect(scripts['release:verify']).not.toContain('package:safari:xcode');
-        expect(releaseGuide).toContain('npm run package:safari:xcode');
-        expect(releaseGuide).toContain('Every explicit release flow must run Safari Xcode packaging');
-    });
-
-    it('keeps Safari DMG packaging in the explicit release flow', () => {
+    it('keeps Safari outside the supported release workflow', () => {
         const scripts = readPackageJson().scripts || {};
         const releaseGuide = readReleaseGuide();
 
-        expect(scripts['package:safari:dmg']).toBe('tsx scripts/package-safari-dmg.ts');
-        expect(scripts['release:verify']).not.toContain('package:safari:dmg');
-        expect(releaseGuide).toContain('npm run package:safari:dmg');
-        expect(releaseGuide).toContain('SAFARI_APP_PATH');
-        expect(releaseGuide).toContain('App Store Connect');
+        expect(scripts['release:verify']).not.toContain('safari');
+        expect(releaseGuide).not.toContain('package:safari');
+        expect(releaseGuide).not.toContain('SAFARI_APP_PATH');
+        expect(releaseGuide).not.toContain('App Store Connect');
     });
 
     it('keeps formal release artifacts under the release directory', () => {
         const releaseGuide = readReleaseGuide();
-        const safariDmgScript = readSafariDmgScript();
 
-        expect(releaseGuide).toContain('release/AI-MarkDone-v<version>-free.dmg');
         expect(releaseGuide).toContain('release/AI-MarkDone-v<version>-<target>.zip');
         expect(releaseGuide).toContain('Do not place formal release packages under `release-artifacts/`');
-        expect(safariDmgScript).toContain('release/${productName}-v${version}-free.dmg');
     });
 });

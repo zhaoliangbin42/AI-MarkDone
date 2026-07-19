@@ -17,7 +17,7 @@ The production message path uses the proven content-side `message-card-v1` rende
 - Message input is fresh `ReaderItem[] -> ChatTurn[] -> ExportDocumentV1`; formula input is authoritative TeX or explicit `dom-only` compatibility source.
 - Selected messages produce one long PNG whenever the hard budget permits. Multipart ZIP is only the minimum-part fallback at 1x.
 - Message effective pixel ratio may step down by 0.5 but never below 1x. Formula PNG may scale below 1x to preserve one complete formula; SVG remains the lossless formula output.
-- Markdown file export, PDF delivery, Reader canonical content, settings schema, control placement, clipboard/download behavior, and Safari surface policy do not change.
+- Markdown file export, PDF delivery, Reader canonical content, settings schema, control placement, and clipboard/download behavior do not change.
 - Renderer work stays local and offline. No new browser permission, background renderer, Offscreen Document, service, CDP/debugger path, or remote asset proxy is allowed.
 
 ## 2. Focused Automated Gates
@@ -30,7 +30,7 @@ Run the affected files from this set during development:
 - encoder/ZIP: `streamingPngEncoder`, PNG signature/IHDR/IDAT/CRC/IEND, exact RGBA decode, cancel, gap/overlap rejection, `zipBlobs`
 - host capability: `messagePngCapability`, one-live-canvas behavior, band dimensions, image placeholder and formula/overflow policy
 - delivery services: `copy-turn-png`, `saveMessagesFacade`, `SaveMessagesDialog`
-- real triggers: toolbar Copy PNG, Save Messages multi-selection, formula hover copy/save, Safari hidden-copy/visible-save policy
+- real triggers: toolbar Copy PNG, Save Messages multi-selection, formula hover copy/save
 - formula source boundary: authoritative TeX SVG/PNG/MathML parity and `dom-only` PNG-only / `SOURCE_UNAVAILABLE` behavior
 
 The current focused command should include all existing files below plus any new formula-source or worker-client test introduced by the change:
@@ -67,8 +67,6 @@ npx vitest run \
   tests/unit/runtimes/content/entry.test.ts \
   tests/unit/runtimes/content/formulaOnlyRuntime.test.ts \
   tests/unit/ui/content/messageToolbarOrchestrator.copy-png.test.ts \
-  tests/unit/ui/content/messageToolbarOrchestrator.safariSurface.test.ts \
-  tests/unit/ui/content/formulaAssetHoverController.safariSurface.test.ts \
   tests/unit/ui/export/saveMessagesDialog.test.ts
 ```
 
@@ -144,10 +142,9 @@ The canonical 60k command uses `--long-repeat=171`, which keeps the engine-speci
 - Startup, idle, streaming, toolbar recovery, Reader open, and Bookmarks open must not preload message PNG implementation, the formula renderer, or MathJax asset capability.
 - The first message PNG action may load its content feature chunk but must not create `export-renderer.html`; the first authoritative formula asset action may create the iframe, whose capability chunks resolve only from extension origin.
 - Message export must not load the formula MathJax capability; formula export must not load Markdown/highlight capability.
-- Copy PNG and Save Messages PNG must share `ExportDocumentV1`, `message-card-v1`, and `renderPngBlob()` across Chrome MV3, Firefox MV2 (minimum 128), and Safari WebExtension.
+- Copy PNG and Save Messages PNG must share `ExportDocumentV1`, `message-card-v1`, and `renderPngBlob()` across Chrome MV3 and Firefox MV2 (minimum 128).
 - Formula host jobs remain FIFO and cancellable; connection cache and 120-second idle teardown apply only to the formula renderer path.
 - Manifests add no `offscreen`, `downloads`, `debugger`, or new host permission.
-- Safari hides binary PNG/SVG copy surfaces but retains MathML copy and PNG/SVG/Save Messages download surfaces.
 
 ## 7. Final Closeout
 
@@ -157,7 +154,7 @@ The image-export refactor is complete only after all applicable focused tests pa
 npm run test:core
 npm run test:smoke
 npm run test:acceptance
-npm run build:all:webext
+npm run build
 npm run perf:chatgpt
 npm run verify:image-export-structure
 npm run benchmark:image-export
@@ -171,5 +168,4 @@ Also record:
 - three-run ChatGPT and image-export benchmark evidence
 - Chromium and Firefox visual-golden results
 - real Toolbar Copy PNG, Save Messages multi-select, and formula hover copy/save checks
-- Safari surface-policy check
 - bundle proof that startup contains none of the renderer capabilities and no host-origin chunk request occurs

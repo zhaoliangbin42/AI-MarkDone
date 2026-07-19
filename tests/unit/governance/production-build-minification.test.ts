@@ -6,10 +6,10 @@ describe('production build minification', () => {
     it('keeps every extension runtime build on the same explicit esbuild minifier', () => {
         const repoRoot = process.cwd();
         const configFiles = readdirSync(repoRoot)
-            .filter((name) => /^vite\.config(?:\.(?:chrome|firefox|safari)(?:\.(?:background|reader))?)?\.ts$/.test(name))
+            .filter((name) => /^vite\.config(?:\.(?:chrome|firefox)(?:\.(?:background|reader))?)?\.ts$/.test(name))
             .sort();
 
-        expect(configFiles).toHaveLength(10);
+        expect(configFiles).toHaveLength(7);
         for (const configFile of configFiles) {
             const source = readFileSync(resolve(repoRoot, configFile), 'utf8');
             expect(source, configFile).toContain("minify: 'esbuild'");
@@ -29,13 +29,11 @@ describe('production build minification', () => {
         };
 
         expect(pkg.scripts.build).toContain('npm run verify:bundle-size');
-        expect(pkg.scripts['build:safari:webext']).toContain('npm run verify:bundle-size:safari');
         expect(pkg.scripts['verify:bundle-size']).toBe('tsx scripts/verify-extension-bundle-size.ts chrome firefox');
-        expect(pkg.scripts['verify:bundle-size:safari']).toBe('tsx scripts/verify-extension-bundle-size.ts safari');
     });
 
     it('builds the lazy content feature entry together with Reader so heavy renderer code can be shared', () => {
-        for (const target of ['chrome', 'firefox', 'safari']) {
+        for (const target of ['chrome', 'firefox']) {
             const source = readFileSync(resolve(process.cwd(), `vite.config.${target}.reader.ts`), 'utf8');
             expect(source).toContain("base: './'");
             expect(source).toContain("reader: resolve(__dirname, 'src/runtimes/reader/entry.ts')");

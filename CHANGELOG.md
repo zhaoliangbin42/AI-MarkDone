@@ -38,6 +38,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Settings: Added a default-on ChatGPT switch for copying complete local selections as canonical Markdown; disabling it immediately restores the website's native selection and copy behavior.
 
 ### Changed
+- Release: Chrome and Firefox are now the supported browser targets; Safari is no longer part of the build, validation, or distribution workflow.
 - Bookmarks: Refined the About and Feedback pages with clearer introductions, a more structured creator profile and project story, scan-friendly community cards, and improved responsive presentation; Mappamory promotion now lives in its own page instead of the About page.
 - Export: Save Messages combines selected messages into one long PNG and lowers the effective scale only when the browser Canvas budget requires it.
 - Export: Copy PNG and Save Messages PNG now share one content-side `message-card-v1` renderer, while trusted-TeX formula assets keep their on-demand extension renderer.

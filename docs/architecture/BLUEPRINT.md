@@ -104,7 +104,7 @@ Detached Reader 是 Reader 闭环的跨 runtime 形态，而不是第三套 Read
 3. Background driver/provider 作为云端副作用边界：Google Chrome 以 manifest `oauth2` 作为 `chrome.identity.getAuthToken` 的 SSOT；支持 WebAuth 的浏览器环境使用 Web application OAuth client、`identity.getRedirectURL()` 和 `identity.launchWebAuthFlow`；Google Drive API、上传后回读校验、provider 错误映射都收敛在 background 侧
 4. 本地书签写入继续复用 bookmarks 的 storage/index 与现有导入导出能力；Google Drive Backup v1 是用户主动触发的不可变 snapshot 备份/恢复，不会实时双向更新
 5. 恢复必须先做安全合并预览；用户确认后才允许进入 background storage queue，并写入 pre-restore emergency snapshot
-6. Build config 由 `config/extension/cloudBackup.ts` 与 `config/extension/chromeWebStore.ts` 驱动：Chrome/Chromium build 同时包含 Chrome Extension OAuth client ID、manifest `oauth2`、Web OAuth client ID、`identity` 与 Google host permissions；Google Chrome 使用 Chrome Extension client，WebAuth-compatible browser 使用 Web OAuth client；Chrome 默认注入 Chrome Web Store public key 固定 extension ID；Firefox 使用 Web OAuth client ID、`launchWebAuthFlow` 和 `identity.getRedirectURL()` 的实际返回值；Safari v1 保持入口关闭
+6. Build config 由 `config/extension/cloudBackup.ts` 与 `config/extension/chromeWebStore.ts` 驱动：Chrome/Chromium build 同时包含 Chrome Extension OAuth client ID、manifest `oauth2`、Web OAuth client ID、`identity` 与 Google host permissions；Google Chrome 使用 Chrome Extension client，WebAuth-compatible browser 使用 Web OAuth client；Chrome 默认注入 Chrome Web Store public key 固定 extension ID；Firefox 使用 Web OAuth client ID、`launchWebAuthFlow` 和 `identity.getRedirectURL()` 的实际返回值
 7. OAuth client ID 是公开的应用身份，不是共享 Google 账号。Provider 不请求 `identity.email`，不把 refresh token/cookie/account id 写入 extension storage；账号展示只来自 Drive `about.get` 的邮箱、显示名与头像 URL 摘要。浏览器 identity cache 管理长期授权体验；provider 只把短期 access token 缓存在 extension local storage，过期前用于抗 service worker 重启。
 
 ### 2.3.5 Image Export 闭环（消息长图 + 公式资产）
@@ -115,7 +115,7 @@ Detached Reader 是 Reader 闭环的跨 runtime 形态，而不是第三套 Read
 4. 消息 profile 自持 Markdown、highlight、KaTeX 与静态图片规则，不复制宿主计算样式；content driver 按消息 section 和 Markdown 顶层 block 分段栅格化，公式 renderer 只处理结构化公式 spec。两条路径都不读 storage、不联网。
 5. 消息 PNG 优先生成一张长图；最终 Canvas 超过 16,384px 单边或 24,000,000 pixels 的保守预算时自动降低 effective ratio，以稳定产出为先。代码、表格和 display formula 必须在导出宽度内换行或等比收敛，不得以横向滚动区域进入图片。
 6. authoritative TeX 的 SVG/PNG/MathML 共享同一 MathJax 语义资产；`dom-only` 只允许兼容 PNG，SVG/MathML 返回 `SOURCE_UNAVAILABLE`。公式 PNG 保持单图，可等比降低到 1x 以下，SVG 保持无损出口。
-7. Content driver 继续独占 clipboard 与 download 交付；Safari surface policy 只隐藏 binary copy，不改变 Save 行为。三端共用同一消息 profile/content renderer 与公式 host/DOM compatibility adapter，不新增 offscreen document、background renderer、权限、服务端或远程资源代理。
+7. Content driver 继续独占 clipboard 与 download 交付；Chrome 与 Firefox 共用同一消息 profile/content renderer 与公式 host/DOM compatibility adapter，不新增 offscreen document、background renderer、权限、服务端或远程资源代理。
 
 ---
 

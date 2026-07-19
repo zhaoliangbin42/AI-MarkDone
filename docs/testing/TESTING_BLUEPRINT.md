@@ -12,7 +12,7 @@
 - **按契约驱动**：协议（protocol）、适配器契约（adapter contract）、存储契约（storage contract）必须有独立测试
 - **可回归**：关键能力（bookmarks、reader、parse/render、settings、i18n）必须有可重复回归套件
 - **可定位**：失败能快速映射到模块（而不是“全局 E2E 才能发现”）
-- **兼容性**：Chrome MV3 / Firefox MV2 / Safari WebExtension 的差异点必须被测试锁定（至少 release gates）
+- **兼容性**：Chrome MV3 / Firefox MV2 的差异点必须被测试锁定（至少 release gates）
 - **可视验收**：UI 模块在并入插件前必须先完成 mock-first 浏览器视觉验证，而不是只依赖 build 或 jsdom
 
 ---
@@ -152,7 +152,7 @@ scripts/               # browser visual, bundle, performance, and renderer harne
 - `background.js` 不得包含运行时 chunk 加载；`content.js` 只允许用 `browser.runtime.getURL()` 生成固定 `content-features.js` URL。真实图片动作进入 lazy feature 后，host client 才允许用同一固定 asset contract 解析 `export-renderer.html`；不得出现 bundler 自动生成的 host-relative `./assets/*` chunk、任意脚本文本执行或 host page URL
 - `reader.js`、`content-features.js` 与 `content-feature-chunks/*.js` 必须作为 ES modules 解析；feature facade 必须保留约定的 callable exports，preload/chunk URL 必须以 `import.meta.url` 解析到 extension origin
 - `export-renderer.js` 与 `export-renderer-chunks/*.js` 必须作为 ES modules 解析，`png-encoder-worker.js` 必须可独立执行；只有 `export-renderer.html` 对 host 暴露，renderer chunks/worker 由 extension page 内部解析
-- 三端 manifest 必须从共享 asset contract 暴露 facade/chunk/renderer host resources；门禁同时作用于 Chrome MV3、Firefox MV2 与 Safari WebExtension 产物
+- Chrome 与 Firefox manifest 必须从共享 asset contract 暴露 facade/chunk/renderer host resources；门禁同时作用于 Chrome MV3 与 Firefox MV2 产物
 
 原因：
 
@@ -174,6 +174,6 @@ scripts/               # browser visual, bundle, performance, and renderer harne
 2. **规划层**：倍率阶梯、硬预算、最少 part 数、文件名、消息/block band 边界、超宽 code/table/formula/image policy。
 3. **编码层**：已知 RGBA 的真实 PNG decode、CRC/IDAT/IEND、单一 zlib stream、取消、backpressure 与 band 连续性。
 4. **运行时层**：built-renderer browser harness 验证真实 Chromium/Firefox 引擎中的 iframe + MessageChannel + worker、PNG decode 与 capability 产物；installed-extension/真实入口 gate 另行验证 extension-origin lazy façade、FIFO/cache/reconnect、WAR 和 Clipboard/Download。两者不得互相替代。
-5. **产品层**：Toolbar Copy PNG、Save Messages 多选、公式 hover、Safari policy、Clipboard/Download fallback、Chromium/Firefox visual golden 与 12k/30k/60k benchmark。
+5. **产品层**：Toolbar Copy PNG、Save Messages 多选、公式 hover、Clipboard/Download fallback、Chromium/Firefox visual golden 与 12k/30k/60k benchmark。
 
-Release gate 不允许用单一 unit suite 替代真实 renderer harness，也不允许用最后一张 mock canvas 证明“没有总高度 Canvas”。固定阈值、fixture、命令与三端验收见 `docs/testing/IMAGE_EXPORT_GATES.md`。
+Release gate 不允许用单一 unit suite 替代真实 renderer harness，也不允许用最后一张 mock canvas 证明“没有总高度 Canvas”。固定阈值、fixture、命令与双端验收见 `docs/testing/IMAGE_EXPORT_GATES.md`。

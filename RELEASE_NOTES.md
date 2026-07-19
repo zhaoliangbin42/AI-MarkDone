@@ -11,6 +11,7 @@ This release brings lightweight Markdown authoring and live formula assistance t
 - Added QQ and Xiaohongshu community invitations plus a dedicated Mappamory introduction in Bookmarks.
 
 ### Changed
+- Chrome and Firefox are now the supported browser targets. Safari is no longer included in release validation or distribution.
 - Rebuilt long-conversation discovery around verified conversation order and stable message identities, keeping Reader, copy, export, bookmarks, the directory, and message navigation aligned.
 - Reduced repeated page scans, deferred heavy features until first use, and made toolbar recovery respond to targeted page changes.
 - Reworked long-message PNG export to prefer one complete image and split only when browser limits require it.

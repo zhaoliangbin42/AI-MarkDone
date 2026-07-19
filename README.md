@@ -10,7 +10,7 @@
     </a>
     <img src="https://img.shields.io/badge/Version-5.0.0-10A37F" alt="Version 5.0.0">
     </br>
-    <img src="https://img.shields.io/badge/Browsers-Chrome%20%7C%20Firefox%20%7C%20Safari-10A37F" alt="Browsers">
+    <img src="https://img.shields.io/badge/Browsers-Chrome%20%7C%20Firefox-10A37F" alt="Browsers">
     <img src="https://img.shields.io/badge/Primary%20Platform-ChatGPT-10A37F" alt="Primary Platform">
     <a href="https://github.com/zhaoliangbin42/AI-MarkDone">
       <img src="https://img.shields.io/github/stars/zhaoliangbin42/AI-MarkDone?style=social" alt="GitHub stars">
@@ -134,7 +134,6 @@ If any of these sound familiar, **AI-MarkDone** is built exactly for you.
 | :--- | :--- |
 | **Chrome** | ✅ Fully supported, MV3 build |
 | **Firefox** | ✅ Supported, MV2 build |
-| **Safari** | ✅ Supported, Safari Web Extension build |
 
 ## 🤖 AI Platform Direction
 
@@ -166,16 +165,13 @@ Secure, verified, and auto-updated.
 5. Click **Load unpacked** and select the unzipped extension folder that contains `manifest.json`.
 6. Refresh your ChatGPT page and enjoy.
 
-### 🧩 Firefox And Safari
+### 🧩 Firefox
 
-Firefox and Safari builds are prepared from the same source code with browser-specific manifests and adapters:
+Firefox is built from the same source code with a browser-specific manifest and adapter:
 
 ```bash
 npm run build:firefox
-npm run build:safari:webext
 ```
-
-Safari distribution uses a Safari Web Extension wrapper. Release packaging is documented in [docs/runbooks/safari-extension-release.md](./docs/runbooks/safari-extension-release.md).
 
 ---
 

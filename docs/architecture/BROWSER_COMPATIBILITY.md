@@ -1,6 +1,6 @@
-# Browser Compatibility (Chrome MV3 / Firefox MV2 / Safari WebExtension Preview)
+# Browser Compatibility (Chrome MV3 / Firefox MV2)
 
-本文档是 AI-MarkDone 的浏览器兼容性“权威说明”，定义 Chrome MV3、Firefox MV2 与 Safari WebExtension preview target 的运行时差异、代码分工与构建产物形态。
+本文档是 AI-MarkDone 的浏览器兼容性权威说明。当前正式支持范围只有 Chrome MV3 与 Firefox MV2。仓库中遗留的 Safari 构建代码不属于产品支持、发布门禁或发布产物，后续功能不需要为其适配。
 
 ---
 
@@ -10,24 +10,23 @@
 |:--|:--:|:--|:--:|
 | Chrome | MV3 | Service Worker (`background.js` ← `src/runtimes/background/entry.ts`) | ✅ |
 | Firefox | MV2 | Background Script (`background.js` ← `src/runtimes/background/entry.ts`) | ✅ |
-| Safari | MV2 WebExtension preview | Background Script (`background.js` ← `src/runtimes/background/entry.ts`) | 🧪 web extension 产物可构建；上架前需 Safari 实机验证 |
 
-当前最低版本为 Chrome 111 与 Firefox 128。该基线用于保证 ChatGPT 内容 bridge 能以静态 `document_start` 脚本直接运行在页面主执行环境，避免动态注入晚于宿主 hydration 的竞态；Safari preview 暂由 `document_start` bootstrap 加载同一 bridge，并继续要求实机验证。
+当前最低版本为 Chrome 111 与 Firefox 128。该基线用于保证 ChatGPT 内容 bridge 能以静态 `document_start` 脚本直接运行在页面主执行环境，避免动态注入晚于宿主 hydration 的竞态。
 
 ---
 
 ## 2. 组件分工（按运行时边界）
 
-| Component | Chrome | Firefox | Safari | 共享策略 |
-|:--|:--|:--|:--|:--|
-| Content Script | `content.js`（由 `src/runtimes/content/entry.ts` 编译） | 同上 | 同上 | ✅ 100% |
-| Lazy content features | `content-features.js` + `content-feature-chunks/*.js` ES modules | 同上 | 同上（待 Safari 实机验证） | 与 `reader.js` 共用一个 Rollup graph；只从 extension origin 按真实用户动作加载 |
-| Image export renderer | `export-renderer.html` + `export-renderer.js` + capability chunks + `png-encoder-worker.js` | 同上 | 同上（Save 保留；binary copy surface 隐藏） | 三端共享 extension-origin iframe、MessageChannel、worker 与 `fflate`；不使用 background/offscreen renderer |
-| Background | `src/runtimes/background/entry.ts`（编译） | 同上（用 MV2 manifest + polyfill 兼容） | 同上（待 Safari 实机验证） | ✅ 100% |
-| Manifest | `manifest.chrome.json` | `manifest.firefox.json` | `manifest.safari.json` | 由 `config/extension/*` + `scripts/generate-manifest.ts` 生成 |
-| Google Drive Backup | `identity` + manifest `oauth2` + WebAuth fallback | `identity.launchWebAuthFlow` + configured Web OAuth client | 不展示入口 | 云端副作用统一在 background provider，UI 只能走 `cloudBackup:*` 协议 |
-| Popup | `src/popup/popup.html`（复制） | 同上 | 同上 | ✅ 100% |
-| Icons/locales/KaTeX/page bridges | `public/*`/`vendor/*`（复制） | 同上 | App Store 合规 allowlist（无 sponsor/social 资源） | 共享核心资源；Safari target 有合规裁剪 |
+| Component | Chrome | Firefox | 共享策略 |
+|:--|:--|:--|:--|
+| Content Script | `content.js`（由 `src/runtimes/content/entry.ts` 编译） | 同上 | ✅ 100% |
+| Lazy content features | `content-features.js` + `content-feature-chunks/*.js` ES modules | 同上 | 与 `reader.js` 共用一个 Rollup graph；只从 extension origin 按真实用户动作加载 |
+| Image export renderer | `export-renderer.html` + `export-renderer.js` + capability chunks + `png-encoder-worker.js` | 同上 | 两端共享 extension-origin iframe、MessageChannel、worker 与 `fflate`；不使用 background/offscreen renderer |
+| Background | `src/runtimes/background/entry.ts`（编译） | 同上（用 MV2 manifest + polyfill 兼容） | ✅ 100% |
+| Manifest | `manifest.chrome.json` | `manifest.firefox.json` | 由 `config/extension/*` + `scripts/generate-manifest.ts` 生成 |
+| Google Drive Backup | `identity` + manifest `oauth2` + WebAuth fallback | `identity.launchWebAuthFlow` + configured Web OAuth client | 云端副作用统一在 background provider，UI 只能走 `cloudBackup:*` 协议 |
+| Popup | `src/popup/popup.html`（复制） | 同上 | ✅ 100% |
+| Icons/locales/KaTeX/page bridges | `public/*`/`vendor/*`（复制） | 同上 | 共用核心资源 |
 
 为什么 background 入口保持共享（可审计性优先）：
 
@@ -43,9 +42,7 @@
 
 - `npm run build:chrome` → `dist-chrome/`
 - `npm run build:firefox` → `dist-firefox/`
-- `npm run build:safari:webext` → `dist-safari/`（不包含 Xcode/App Store 包装）
-- `npm run build` 仍只构建 Chrome + Firefox
-- `npm run build:all:webext` 构建 Chrome + Firefox + Safari web extension 产物
+- `npm run build` 与 `npm run build:all:webext` 均构建全部正式支持目标，也就是 Chrome + Firefox
 
 产物结构（摘要）：
 
@@ -70,15 +67,6 @@ dist-firefox/
   manifest.json   (from manifest.firefox.json)
   icons/, _locales/, vendor/katex/, src/popup/
 
-dist-safari/
-  background.js   (from src/runtimes/background/entry.ts)
-  content.js      (from src/runtimes/content/entry.ts)
-  content-features.js, content-feature-chunks/*.js
-  export-renderer.html, export-renderer.js, export-renderer-chunks/*.js
-  png-encoder-worker.js
-  reader.js       (shared feature graph entry)
-  manifest.json   (from manifest.safari.json)
-  icons/, _locales/, page-bridges/, vendor/katex/, src/popup/
 ```
 
 ---
@@ -93,22 +81,20 @@ dist-safari/
 - manifest 生成入口：`scripts/generate-manifest.ts`
 - dist 资源准备入口：`scripts/prepare-extension-target.ts`
 
-三端 manifest 都把 `content-features.js`、`content-feature-chunks/*.js` 与 `export-renderer.html` 声明为受支持 host 可访问的 extension resources。classic `content.js` 只能以 `browser.runtime.getURL()` 解析固定 feature facade；真实图片动作进入 lazy feature 后，host client 才能用同一固定 asset contract 解析 renderer URL。模块构建使用相对 base，使 Vite preload 以 `import.meta.url` 解析到 `chrome-extension://` / `moz-extension://` / Safari extension origin，而不是当前网页 origin。Export renderer 的 entry、capability chunks 与 worker 由 iframe 内部从 extension origin 加载，不扩大 host-facing resource allowlist。`scripts/verify-extension-entry-format.sh` 同时验证 classic entries、全部 module chunks、export renderer/worker，以及 facade callable exports；`scripts/verify-extension-bundle-size.ts` 对启动 entry、共享 feature graph 与 renderer capability 分别设预算。
+Chrome 与 Firefox manifest 都把 `content-features.js`、`content-feature-chunks/*.js` 与 `export-renderer.html` 声明为受支持 host 可访问的 extension resources。classic `content.js` 只能以 `browser.runtime.getURL()` 解析固定 feature facade；真实图片动作进入 lazy feature 后，host client 才能用同一固定 asset contract 解析 renderer URL。模块构建使用相对 base，使 Vite preload 以 `import.meta.url` 解析到 `chrome-extension://` 或 `moz-extension://`，而不是当前网页 origin。Export renderer 的 entry、capability chunks 与 worker 由 iframe 内部从 extension origin 加载，不扩大 host-facing resource allowlist。`scripts/verify-extension-entry-format.sh` 同时验证 classic entries、全部 module chunks、export renderer/worker，以及 facade callable exports；`scripts/verify-extension-bundle-size.ts` 对启动 entry、共享 feature graph 与 renderer capability 分别设预算。
 
-Safari App Store target 的 surface policy 是合规差异，不是功能 fork：Chrome/Firefox 继续保留 sponsor tab、Buy Me Coffee 二维码、GitHub 支持 CTA、赞助感谢名单、About 小红书关注卡，以及 PNG/SVG 二进制剪贴板 copy 动作；Safari 在 build-time 关闭 sponsor tab、社交关注卡和 binary clipboard copy surfaces，并在 dist 阶段裁剪 `bmc_qr.png`、`wechat_qr.png`、`xiaohongshu_card.png` 以及对应 sponsor/social locale keys。Safari 的 Save/Export PNG/SVG 下载动作继续保留，底部 Feedback tab 的官网卡片、反馈邮箱与 support contact card 也继续保留。
+Google Drive Backup v1 是浏览器兼容性边界内的显式差异：Google Chrome 使用 `chrome.identity.getAuthToken()` 与 manifest `oauth2.client_id/scopes`，由浏览器托管授权缓存；Firefox 使用 `identity.launchWebAuthFlow()` 与 `identity.getRedirectURL()`，必要时把 Firefox allizom redirect 转成 MDN 允许的 loopback redirect。两端都不得把 refresh token、client secret、cookie、Google account id 或 Drive 文件内容写入协议响应、snapshot 或 `storage.sync`。
 
-Google Drive Backup v1 是浏览器兼容性边界内的显式差异：Google Chrome 使用 `chrome.identity.getAuthToken()` 与 manifest `oauth2.client_id/scopes`，由浏览器托管授权缓存；支持 WebAuth 的浏览器使用 `identity.launchWebAuthFlow()` 与 `identity.getRedirectURL()`，并要求 Google Cloud Web OAuth client 配置 exact redirect URI；Firefox 使用同一 WebAuth 代码路径，必要时把 Firefox allizom redirect 转成 MDN 允许的 loopback redirect。Safari v1 不展示 Google Drive Backup，直到有可验证的 Safari auth 路径。所有 target 都不得把 refresh token、client secret、cookie、Google account id 或 Drive 文件内容写入协议响应、snapshot 或 `storage.sync`。
-
-图片导出不允许出现浏览器专用 renderer fork：Chrome MV3 不使用 Offscreen Document，Firefox MV2 不使用 background canvas，Safari 不维护独立编码路径。三端统一依赖普通 extension page iframe、`MessageChannel` transferable chunks、static worker、共享高内存 scheduler 和 `fflate` zlib/ZIP；无法跨 iframe 传递 Element 的 `dom-only` 公式 PNG 在三端共用同一 content-side compatibility adapter。该架构不新增 `offscreen`、`downloads`、`debugger` 或远程资源权限，也不依赖 `CompressionStream`。Safari 的差异只停留在 surface policy：隐藏 PNG/SVG binary copy，继续保留 Save PNG/SVG 和 Save Messages PNG。
+图片导出不允许出现浏览器专用 renderer fork：Chrome MV3 不使用 Offscreen Document，Firefox MV2 不使用 background canvas。两端统一依赖普通 extension page iframe、`MessageChannel` transferable chunks、static worker、共享高内存 scheduler 和 `fflate` zlib/ZIP；无法跨 iframe 传递 Element 的 `dom-only` 公式 PNG 共用同一 content-side compatibility adapter。该架构不新增 `offscreen`、`downloads`、`debugger` 或远程资源权限，也不依赖 `CompressionStream`。
 
 ---
 
 ## 5. 开发规则（与蓝图/契约一致）
 
-- 新增/修改 background 行为：以 `src/runtimes/background/entry.ts` 为共享入口，并同步验证 Chrome 与 Firefox 产物；Safari 相关变更应额外运行 `npm run build:safari:webext`
+- 新增/修改 background 行为：以 `src/runtimes/background/entry.ts` 为共享入口，并同步验证 Chrome 与 Firefox 产物
 - 新增/修改 content 行为：优先走 `src/drivers/shared/browser.ts` 的统一 API（避免直接依赖 `chrome.*`）
-- 新增重型 content surface：必须通过现有 lazy feature facade / typed port 接入，并同步更新三端 web-accessible resource、module export、bundle budget 与真实 trigger-path gate；不得静态带回 `content.js`
-- 新增/修改图片导出 capability：必须复用 `export-renderer.html` 与共享协议，验证三端产物、启动期零 renderer 请求、Safari surface policy、Firefox 128 baseline，以及 `docs/testing/IMAGE_EXPORT_GATES.md`；不得新增 target-specific renderer 或权限
+- 新增重型 content surface：必须通过现有 lazy feature facade / typed port 接入，并同步更新两端 web-accessible resource、module export、bundle budget 与真实 trigger-path gate；不得静态带回 `content.js`
+- 新增/修改图片导出 capability：必须复用 `export-renderer.html` 与共享协议，验证两端产物、启动期零 renderer 请求、Firefox 128 baseline，以及 `docs/testing/IMAGE_EXPORT_GATES.md`；不得新增 target-specific renderer 或权限
 - UI 与 service 层不得新增浏览器 target 分支；浏览器差异只能位于 `config/extension/*` 或 `src/drivers/shared/browser*`
 - 所有跨 runtime 通信：必须收敛到“单点协议定义”（见 `docs/architecture/BLUEPRINT.md` 的 protocol 章节）
 

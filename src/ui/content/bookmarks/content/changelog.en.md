@@ -49,6 +49,7 @@ Visit [https://mappamory.com/](https://mappamory.com/) to learn more and downloa
 
 ## Improved
 
+- Chrome and Firefox are now the supported browser targets. Safari is no longer part of release validation or distribution.
 - Substantially reduced repeated ChatGPT page scans and startup work, making toolbars, the directory, and long-conversation interactions lighter.
 - Reworked long-image export. Selected messages are combined into one PNG when safe, with oversized captures split into the fewest practical images and packaged automatically.
 - Refined the visual hierarchy and responsive layout across Reader, Bookmarks, Settings, Input Enhancement, toolbars, dialogs, and Feedback.
