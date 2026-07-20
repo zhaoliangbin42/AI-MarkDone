@@ -311,6 +311,58 @@ describe('ChatGPTConversationEngine', () => {
         expect(requestCount).toBe(2);
     });
 
+    it('publishes a complete live DOM tail through the canonical snapshot', async () => {
+        installBridgeResponder(() => ({ snapshot: makeSnapshot(1) }));
+        const engine = new ChatGPTConversationEngine(createAdapter());
+        const initialPromise = engine.getSnapshot();
+        await vi.runAllTimersAsync();
+        await initialPromise;
+        const listener = vi.fn();
+        engine.subscribe(listener, { live: false });
+        listener.mockClear();
+
+        const updated = engine.applyLiveDomTail('branch-1', [{
+            id: 'round-2',
+            position: 2,
+            userPrompt: 'Question 2',
+            assistantContent: '**Answer 2**',
+            preview: 'Question 2',
+            messageId: 'a2',
+            userMessageId: 'u2',
+            assistantMessageId: 'a2',
+        }]);
+
+        expect(updated?.rounds).toHaveLength(2);
+        expect(updated?.branchKey).toBe('a2');
+        expect(engine.peekCurrentSnapshot()).toBe(updated);
+        expect(listener).toHaveBeenCalledWith(updated);
+    });
+
+    it('keeps a verified live tail when the passive graph cache still returns its exact prefix', async () => {
+        installBridgeResponder(() => ({ snapshot: makeSnapshot(1) }));
+        const engine = new ChatGPTConversationEngine(createAdapter());
+        const initialPromise = engine.getSnapshot();
+        await vi.runAllTimersAsync();
+        await initialPromise;
+        const live = engine.applyLiveDomTail('branch-1', [{
+            id: 'round-2',
+            position: 2,
+            userPrompt: 'Question 2',
+            assistantContent: 'Answer 2',
+            preview: 'Question 2',
+            messageId: 'a2',
+            userMessageId: 'u2',
+            assistantMessageId: 'a2',
+        }]);
+
+        const refreshedPromise = engine.forceRefreshCurrentConversation();
+        await vi.runAllTimersAsync();
+        const refreshed = await refreshedPromise;
+
+        expect(refreshed).toBe(live);
+        expect(refreshed?.rounds).toHaveLength(2);
+    });
+
     it('starts a distinct forced request when a non-forced snapshot request is already in flight', async () => {
         vi.spyOn(document.head, 'appendChild').mockImplementation((node: Node) => {
             const script = node as HTMLScriptElement;

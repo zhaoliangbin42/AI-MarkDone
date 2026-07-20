@@ -2,6 +2,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { ChatGPTAdapter } from '@/drivers/content/adapters/sites/chatgpt';
 import {
     collectChatGPTDomRoundRefs,
+    subscribeChatGPTDomMutations,
     subscribeChatGPTDomRoundChanges,
 } from '@/drivers/content/chatgpt/domConversationDiscovery';
 import { collectConversationTurnRefs } from '@/drivers/content/conversation/collectConversationTurnRefs';
@@ -135,6 +136,19 @@ describe('ChatGPTPageIndex', () => {
         await deliverMutations();
 
         expect(listener).not.toHaveBeenCalled();
+        unsubscribe();
+    });
+
+    it('notifies content-discovery subscribers when an existing message finishes rendering', async () => {
+        const listener = vi.fn();
+        const unsubscribe = subscribeChatGPTDomMutations(adapter, listener);
+        const content = document.querySelector('.markdown')?.firstChild;
+        if (!content) throw new Error('fixture content is missing');
+
+        content.textContent = 'Answer 1 complete';
+        await deliverMutations();
+
+        expect(listener).toHaveBeenCalledTimes(1);
         unsubscribe();
     });
 

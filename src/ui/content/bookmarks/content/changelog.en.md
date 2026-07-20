@@ -1,5 +1,15 @@
 # Changelog
 
+# 5.0.1
+2026-07-20
+
+This maintenance release makes ChatGPT content discovery update reliably after new replies and after ChatGPT remounts messages in long virtualized conversations. Reader, export, the directory, bookmarks, navigation, and the message toolbar continue to share the same content-discovery path without reading authentication information.
+
+## Fixed
+
+- Kept the directory, Reader, export source, and message-toolbar word count synchronized when a completed new reply appears, without waiting for a page refresh.
+- Restored Reader content and word counts when ChatGPT remounts a visible reply during long-conversation virtualization.
+
 # 5.0.0
 2026-07-19
 

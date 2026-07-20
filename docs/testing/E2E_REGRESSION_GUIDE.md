@@ -85,6 +85,8 @@ TypeScript, JavaScript, Python, Bash, SQL, JSON, YAML, HTML, CSS
 
 ### 5.1 Smoke
 - [ ] On ChatGPT, each eligible official message action row receives exactly one toolbar
+- [ ] In a long ChatGPT conversation, send one user-controlled prompt; without reload or scrolling old history, verify the directory count/order, open Reader tail, and materialized toolbar word count update after the response's own action row appears
+- [ ] On a virtualized ChatGPT conversation where the visible assistant keeps its canonical message ID under a remounted host turn wrapper, verify the last toolbar word count resolves and opening Reader from that message shows the canonical final position instead of `0/0`
 - [ ] Bookmark panel opens/closes repeatedly without error
 - [ ] Reader opens and navigation works
 - [ ] No raw i18n key shown (`btnDelete`, `btnCancel`, etc.)

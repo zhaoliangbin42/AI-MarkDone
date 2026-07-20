@@ -723,7 +723,28 @@ describe('ChatGPT conversation bridge', () => {
         expect(snapshot.ok).toBe(false);
     });
 
-    it('does not inspect non-GET responses even when they use the conversation path', async () => {
+    it('does not inspect a cross-origin conversation write response', async () => {
+        const hostResponse = new Response('data: [DONE]\n\n', {
+            status: 200,
+            headers: { 'Content-Type': 'text/event-stream' },
+        });
+        const cloneSpy = vi.spyOn(hostResponse, 'clone');
+        const fetchMock = vi.fn(async () => hostResponse);
+        Object.defineProperty(window, 'fetch', { configurable: true, value: fetchMock });
+        vi.stubGlobal('fetch', fetchMock);
+
+        installBridge();
+        const returned = await window.fetch('https://example.com/backend-api/conversation', {
+            method: 'POST',
+            body: '{}',
+        });
+        await new Promise((resolve) => window.setTimeout(resolve, 0));
+
+        expect(returned).toBe(hostResponse);
+        expect(cloneSpy).not.toHaveBeenCalled();
+    });
+
+    it('does not inspect non-GET responses on graph-read paths', async () => {
         const conversationId = '69e8d157-5fec-839c-9124-2179ba8b7d7c';
         const hostResponse = new Response(JSON.stringify(graphPayload(conversationId)), {
             status: 200,

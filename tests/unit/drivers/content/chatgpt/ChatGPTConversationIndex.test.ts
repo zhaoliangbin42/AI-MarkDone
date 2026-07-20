@@ -279,6 +279,32 @@ describe('ChatGPTConversationIndex', () => {
         expect(index.resolveRoundForElement(document.createElement('div'))).toBeNull();
     });
 
+    it('resolves a remounted assistant by its unique canonical message id when host turn ids drift', () => {
+        const index = getChatGPTConversationIndex(adapter);
+        const snapshot = buildSnapshot(1);
+        snapshot.rounds[0] = {
+            ...snapshot.rounds[0]!,
+            id: 'canonical-user-message',
+            userMessageId: 'canonical-user-message',
+        };
+        index.setSnapshot(snapshot);
+        document.querySelector('main')!.innerHTML = `
+            <article data-turn="user" data-turn-id="host-user-turn">
+                <div data-message-author-role="user" data-message-id="canonical-user-message">Prompt 1</div>
+            </article>
+            <article data-turn="assistant" data-turn-id="host-assistant-turn">
+                <div data-message-author-role="assistant" data-message-id="assistant-1">
+                    <div class="markdown prose">Answer 1</div>
+                </div>
+            </article>
+        `;
+        const assistant = document.querySelector('[data-message-id="assistant-1"]');
+        if (!(assistant instanceof HTMLElement)) throw new Error('assistant message is missing');
+
+        expect(index.getRounds()[0]?.materialized).toBeNull();
+        expect(index.resolveRoundForElement(assistant)?.position).toBe(1);
+    });
+
     it('keeps notifying subscribers when another consumer fails', () => {
         const index = getChatGPTConversationIndex(adapter);
         const survivingListener = vi.fn();

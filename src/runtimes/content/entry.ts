@@ -29,6 +29,7 @@ import { OverlaySession } from '../../ui/content/overlay/OverlaySession';
 import { ViewportResizeSuspendController } from '../../ui/content/controllers/ViewportResizeSuspendController';
 import { navigateChatGPTDirectoryTarget } from '../../ui/content/chatgptDirectory/navigation';
 import { collectFreshReaderContent } from '../../services/reader/readerContentSource';
+import { ChatGPTLiveDomContent } from '../../services/content/ChatGPTLiveDomContent';
 import { setReaderMarkdownCopyFormulaFormat } from '../../services/reader/readerMarkdownCopy';
 import { buildReaderSessionSnapshot } from '../../services/reader/readerSessionSnapshot';
 import { sendText } from '../../services/sending/sendService';
@@ -106,6 +107,9 @@ if (adapter) {
     const settingsClient = new SettingsClient();
     const bookmarksController = new BookmarksPanelController(adapter);
     const chatGptConversationEngine = adapter.getPlatformId() === 'chatgpt' ? new ChatGPTConversationEngine(adapter) : null;
+    const chatGptLiveDomContent = chatGptConversationEngine
+        ? new ChatGPTLiveDomContent(adapter, chatGptConversationEngine)
+        : null;
     let chatGptConversationIndexBound = false;
     const bindChatGptConversationIndex = () => {
         if (!chatGptConversationEngine || chatGptConversationIndexBound) return;
@@ -348,13 +352,13 @@ if (adapter) {
         chatGptMessageStepper?.init();
         chatGptPageWidth?.init();
         syncChatGptBehaviorSettings(settingsClient.getCached()?.chatgptBehavior);
+        chatGptConversationEngine.init();
+        chatGptLiveDomContent?.init();
         if (!chatGptDirectory) {
             writeDebugState({ ChatGptInit: 'directory-disabled' });
-            chatGptConversationEngine.init();
             return;
         }
         writeDebugState({ ChatGptInit: 'start' });
-        chatGptConversationEngine.init();
         chatGptDirectory.init(getCurrentAppearance().theme);
         syncChatGptDirectorySettings(settingsClient.getCached()?.chatgptDirectory);
         writeDebugState({ ChatGptInit: 'done' });
@@ -437,6 +441,7 @@ if (adapter) {
         messageToolbars.dispose();
         chatGptDirectory?.dispose();
         chatGptOfficialNavigationVisibility?.dispose();
+        chatGptLiveDomContent?.dispose();
         chatGptConversationEngine?.dispose?.();
         viewportResizeSuspend?.dispose();
         chatGptSendPositionRestore?.dispose();

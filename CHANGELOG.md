@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [5.0.1] - 2026-07-20
+
+### Fixed
+- ChatGPT: Kept the directory, Reader, export source, and message-toolbar word count synchronized when completed new replies appear, without requiring a page refresh or reading authentication information.
+- ChatGPT: Restored Reader content and message-toolbar word counts when long conversations remount visible replies during virtualization.
+
 ## [5.0.0] - 2026-07-19
 
 ### Added

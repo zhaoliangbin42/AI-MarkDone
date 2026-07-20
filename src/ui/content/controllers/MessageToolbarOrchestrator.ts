@@ -133,6 +133,7 @@ export class MessageToolbarOrchestrator {
     private scanScheduler: ScanScheduler | null = null;
     private routeWatcher: RouteWatcher | null = null;
     private unsubscribeLocale: (() => void) | null = null;
+    private unsubscribeConversationSnapshot: (() => void) | null = null;
     private observedContainer: HTMLElement | null = null;
     private readerPanel: ReaderPanelPort;
     private sendController: SendController | null = null;
@@ -156,6 +157,7 @@ export class MessageToolbarOrchestrator {
     private chatGptToolbarRecoveryAttemptsByMessageKey = new Map<string, number>();
     private chatGptToolbarRecoveryTimer: number | null = null;
     private currentReaderItemByMessageKey = new Map<string, Promise<ReaderItem | null>>();
+    private conversationSnapshotRevision = 0;
     private intentionallyRemovedToolbarHosts = new WeakSet<HTMLElement>();
     private readonly saveMessagesDialog: SaveMessagesDialogPort | null;
     private readonly bookmarkSaveDialog: BookmarkSaveDialogPort | null;
@@ -223,6 +225,54 @@ export class MessageToolbarOrchestrator {
     private requireFullRescan(): void {
         this.needsFullRescan = true;
         this.clearReaderItemCache();
+    }
+
+    private handleChatGptConversationSnapshot(snapshot: ChatGPTConversationSnapshot | null): void {
+        const revision = ++this.conversationSnapshotRevision;
+        this.clearReaderItemCache();
+        if (!snapshot) return;
+        const index = getChatGPTConversationIndex(this.adapter);
+        index.setSnapshot(snapshot);
+        const items = buildChatGPTReaderItems(snapshot, null, this.getBookmarkPageUrl()).items;
+        for (const record of this.recordsByMessageKey.values()) {
+            const messageId = this.adapter.getMessageId(record.message);
+            const directMatches = messageId
+                ? snapshot.rounds.filter((round) => (
+                    round.assistantMessageId === messageId || round.messageId === messageId
+                ))
+                : [];
+            const position = directMatches.length === 1
+                ? directMatches[0]!.position
+                : index.resolveRoundForElement(record.message)?.position ?? null;
+            const item = position
+                ? items.find((candidate) => Number(candidate.meta?.position ?? 0) === position) ?? null
+                : null;
+            if (item) {
+                this.currentReaderItemByMessageKey.set(
+                    this.getReaderItemCacheKey(record.message),
+                    Promise.resolve(item),
+                );
+            }
+            if (!this.behavior.showWordCount) continue;
+            if (record.pending) {
+                record.toolbar.setStats([]);
+            } else if (item) {
+                void resolveReaderItemMarkdown(item)
+                    .then((text) => {
+                        if (revision === this.conversationSnapshotRevision) {
+                            this.applyWordCount(record.toolbar, text);
+                        }
+                    })
+                    .catch(() => {
+                        if (revision === this.conversationSnapshotRevision) {
+                            record.toolbar.setStats(['—']);
+                        }
+                    });
+            } else {
+                record.toolbar.setStats(['—']);
+            }
+        }
+        void this.syncReaderTailPages();
     }
 
     private async resolveCurrentReaderItemForElement(messageElement: HTMLElement): Promise<ReaderItem | null> {
@@ -580,6 +630,16 @@ export class MessageToolbarOrchestrator {
         this.unsubscribeLocale = subscribeLocaleChange(() => {
             this.refreshExistingToolbarsForLocale();
         });
+        if (
+            this.adapter.getPlatformId() === 'chatgpt'
+            && this.chatGptConversationEngine
+            && !this.unsubscribeConversationSnapshot
+        ) {
+            this.unsubscribeConversationSnapshot = this.chatGptConversationEngine.subscribe(
+                (snapshot) => this.handleChatGptConversationSnapshot(snapshot),
+                { live: false },
+            );
+        }
     }
 
     dispose(): void {
@@ -589,6 +649,8 @@ export class MessageToolbarOrchestrator {
         this.routeWatcher = null;
         this.unsubscribeLocale?.();
         this.unsubscribeLocale = null;
+        this.unsubscribeConversationSnapshot?.();
+        this.unsubscribeConversationSnapshot = null;
         this.observer?.disconnect();
         this.observer = null;
         this.observedContainer = null;
@@ -1256,23 +1318,10 @@ export class MessageToolbarOrchestrator {
             return;
         }
 
-        const applyWordCount = (text: string) => {
-            const normalized = text.trim();
-            if (!normalized) {
-                toolbar.setStats(['—']);
-                return;
-            }
-            const res = this.wordCounter.count(normalized);
-            const formatted = this.wordCounter.format(res);
-            const parts = formatted.split(' / ');
-            if (parts.length >= 2) toolbar.setStats([parts[0], parts.slice(1).join(' ')]);
-            else toolbar.setStats([formatted]);
-        };
-
         if (this.adapter.getPlatformId() === 'chatgpt') {
             void this.prepareCurrentReaderItemForElement(messageElement)
                 .then((item) => item ? resolveReaderItemMarkdown(item) : '')
-                .then(applyWordCount)
+                .then((text) => this.applyWordCount(toolbar, text))
                 .catch(() => toolbar.setStats(['—']));
             return;
         }
@@ -1294,10 +1343,23 @@ export class MessageToolbarOrchestrator {
                 return;
             }
 
-            applyWordCount(text);
+            this.applyWordCount(toolbar, text);
         };
 
         tryCompute(0);
+    }
+
+    private applyWordCount(toolbar: MessageToolbar, text: string): void {
+        const normalized = text.trim();
+        if (!normalized) {
+            toolbar.setStats(['—']);
+            return;
+        }
+        const res = this.wordCounter.count(normalized);
+        const formatted = this.wordCounter.format(res);
+        const parts = formatted.split(' / ');
+        if (parts.length >= 2) toolbar.setStats([parts[0], parts.slice(1).join(' ')]);
+        else toolbar.setStats([formatted]);
     }
 
     private async syncReaderTailPages(): Promise<void> {

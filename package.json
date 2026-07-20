@@ -1,7 +1,7 @@
 {
     "name": "ai-markdone",
     "private": true,
-    "version": "5.0.0",
+    "version": "5.0.1",
     "description": "Focused ChatGPT reader, bookmarks, Google Drive backup, LaTeX copy, Markdown export, PDF export, and PNG sharing.",
     "homepage": "https://zhaoliangbin42.github.io/ai-markdone/en/",
     "type": "module",

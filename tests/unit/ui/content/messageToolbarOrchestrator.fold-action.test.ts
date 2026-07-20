@@ -1854,6 +1854,63 @@ describe('MessageToolbarOrchestrator ChatGPT reader path', () => {
         expect(toolbar.setStats).toHaveBeenCalledWith(['3 Words', '25 Chars']);
     });
 
+    it('recomputes ChatGPT word count when the canonical snapshot changes without another DOM mutation', async () => {
+        vi.useFakeTimers();
+        renderVirtualizedChatGptBookmarkDom();
+        const adapter = new ChatGPTAdapter();
+        let snapshot = buildVirtualizedChatGptSnapshot();
+        let publishSnapshot: ((nextSnapshot: typeof snapshot) => void) | null = null;
+        const unsubscribe = vi.fn();
+        const chatGptConversationEngine = {
+            forceRefreshCurrentConversation: vi.fn(async () => snapshot),
+            subscribe: vi.fn((listener: typeof publishSnapshot) => {
+                publishSnapshot = listener;
+                return unsubscribe;
+            }),
+        } as any;
+        const orchestrator = new MessageToolbarOrchestrator(adapter, {
+            readerPanel: { show: vi.fn() } as any,
+            chatGptConversationEngine,
+        }) as any;
+        orchestrator.wordCounter = {
+            count: vi.fn((text: string) => ({ text })),
+            format: vi.fn(() => '4 Words / 30 Chars'),
+        };
+
+        try {
+            orchestrator.init();
+            await vi.advanceTimersByTimeAsync(1_000);
+            await vi.waitFor(() => {
+                expect(orchestrator.wordCounter.count).toHaveBeenCalledWith('Answer 50');
+            });
+            expect(chatGptConversationEngine.subscribe).toHaveBeenCalledTimes(1);
+            expect(publishSnapshot).not.toBeNull();
+            vi.clearAllTimers();
+            const refreshCountBeforePublish = chatGptConversationEngine.forceRefreshCurrentConversation.mock.calls.length;
+
+            snapshot = {
+                ...snapshot,
+                capturedAt: snapshot.capturedAt + 1,
+                rounds: snapshot.rounds.map((round) => (
+                    round.assistantMessageId === 'payload-a50'
+                        ? { ...round, assistantContent: 'Canonical final answer with more words' }
+                        : round
+                )),
+            };
+            publishSnapshot?.(snapshot);
+            await vi.waitFor(() => {
+                expect(orchestrator.wordCounter.count).toHaveBeenLastCalledWith('Canonical final answer with more words');
+            });
+            expect(chatGptConversationEngine.forceRefreshCurrentConversation).toHaveBeenCalledTimes(refreshCountBeforePublish);
+        } finally {
+            orchestrator.dispose();
+            adapter.dispose();
+            vi.useRealTimers();
+        }
+
+        expect(unsubscribe).toHaveBeenCalledTimes(1);
+    });
+
     it('opens save messages directly from live DOM in hidden-only mode', async () => {
         document.body.innerHTML = `
           <div id="thread">

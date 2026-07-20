@@ -146,4 +146,36 @@ describe('ChatGPTAdapter injection contract', () => {
         });
     });
 
+    it('does not borrow the previous turn action row for an unfinished assistant message', () => {
+        const html = `
+            <div data-testid="conversation-turn-1">
+              <article data-turn="assistant">
+                <div data-message-author-role="assistant" data-message-id="a1">
+                  <div class="markdown prose">Complete</div>
+                </div>
+              </article>
+              <div class="z-0 flex justify-end">
+                <button data-testid="copy-turn-action-button">copy</button>
+              </div>
+            </div>
+            <div data-testid="conversation-turn-2">
+              <article data-turn="assistant">
+                <div data-message-author-role="assistant" data-message-id="a2">
+                  <div class="markdown prose">Still streaming</div>
+                </div>
+              </article>
+            </div>
+        `;
+
+        withDom(html, 'https://chatgpt.com/c/mock', () => {
+            const adapter = new ChatGPTAdapter();
+            const messages = document.querySelectorAll(adapter.getMessageSelector());
+            const unfinished = messages[1] as HTMLElement | undefined;
+            expect(unfinished).toBeInstanceOf(HTMLElement);
+            if (!unfinished) return;
+
+            expect(adapter.getToolbarAnchorElement(unfinished)).toBeNull();
+        });
+    });
+
 });

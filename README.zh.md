@@ -8,7 +8,7 @@
     <a href="./LICENSE">
       <img src="https://img.shields.io/github/license/zhaoliangbin42/AI-MarkDone?label=License" alt="License">
     </a>
-    <img src="https://img.shields.io/badge/Version-5.0.0-10A37F" alt="Version 5.0.0">
+    <img src="https://img.shields.io/badge/Version-5.0.1-10A37F" alt="Version 5.0.1">
     </br>
     <img src="https://img.shields.io/badge/Browsers-Chrome%20%7C%20Firefox-10A37F" alt="Browsers">
     <img src="https://img.shields.io/badge/Primary%20Platform-ChatGPT-10A37F" alt="Primary Platform">
@@ -199,13 +199,9 @@ npm run build
 
 ## 📅 最新更新
 
-### 5.0.0
-- ChatGPT 输入框新增可选的 Markdown 输入增强、公式联想与实时公式预览。
-- 新增原子化 Markdown 复制，完整选中公式、代码块、表格、标题、列表项、引用等内容单元后即可直接复制。
-- 重做长对话内容发现链路，让阅读器、复制、导出、书签、导航条和翻页器保持完整历史与分支顺序。
-- Deep Research 报告现在也支持标准消息工具栏。
-- 减少 ChatGPT 页面重复扫描，并改进长消息 PNG 导出。
-- 在反馈页面增加 QQ 群和小红书群入口，并新增独立的好友迹介绍。
+### 5.0.1
+- 新回复完成后，目录条、阅读器、导出来源和工具栏字数统计会自动同步，不再需要刷新页面。
+- ChatGPT 在长对话中重新挂载可见回复时，阅读器正文和工具栏字数统计仍能正确关联。
 
 [完整更新日志](./CHANGELOG.md)
 [版本说明](./RELEASE_NOTES.md)

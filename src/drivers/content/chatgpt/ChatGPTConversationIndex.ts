@@ -219,7 +219,18 @@ export class ChatGPTConversationIndex {
     }
 
     resolveRoundForElement(element: HTMLElement): ChatGPTIndexedRound | null {
-        const matches = this.getRounds().filter((round) => {
+        const rounds = this.getRounds();
+        const messageId = normalizeId(element.getAttribute('data-message-id'));
+        if (messageId) {
+            const identityMatches = rounds.filter(
+                (round) => round.identity.assistantMessageId === messageId,
+            );
+            if (identityMatches.length > 0) {
+                return identityMatches.length === 1 ? identityMatches[0]! : null;
+            }
+        }
+
+        const matches = rounds.filter((round) => {
             const materialized = round.materialized;
             if (!materialized) return false;
             const candidates = [

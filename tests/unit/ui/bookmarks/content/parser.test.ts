@@ -10,31 +10,31 @@ describe('bookmarks content parser', () => {
 
         expect(zh.title).toBe('更新日志');
         expect(en.title).toBe('Changelog');
-        expect(zh.entries.map((entry) => entry.version)).toEqual(['5.0.0', '4.8.0', '4.7.0', '4.6.0', '4.5.1', '4.5.0', '4.4.6', '4.4.5', '4.4.1', '4.4.0', '4.3.1', '4.3.0', '4.2.3', '4.2.2', '4.2.1', '4.2.0', '4.1.2', '4.1.1', '4.1.0', '4.0.0', '3.0.0']);
-        expect(en.entries.map((entry) => entry.version)).toEqual(['5.0.0', '4.8.0', '4.7.0', '4.6.0', '4.5.1', '4.5.0', '4.4.6', '4.4.5', '4.4.1', '4.4.0', '4.3.1', '4.3.0', '4.2.3', '4.2.2', '4.2.1', '4.2.0', '4.1.2', '4.1.1', '4.1.0', '4.0.0', '3.0.0']);
-        expect(zh.entries[0]?.date).toBe('2026-07-19');
-        expect(zh.entries[2]?.date).toBe('2026-06-28');
-        expect(en.entries[8]?.leadBlocks[0]).toEqual(
+        expect(zh.entries.map((entry) => entry.version)).toEqual(['5.0.1', '5.0.0', '4.8.0', '4.7.0', '4.6.0', '4.5.1', '4.5.0', '4.4.6', '4.4.5', '4.4.1', '4.4.0', '4.3.1', '4.3.0', '4.2.3', '4.2.2', '4.2.1', '4.2.0', '4.1.2', '4.1.1', '4.1.0', '4.0.0', '3.0.0']);
+        expect(en.entries.map((entry) => entry.version)).toEqual(['5.0.1', '5.0.0', '4.8.0', '4.7.0', '4.6.0', '4.5.1', '4.5.0', '4.4.6', '4.4.5', '4.4.1', '4.4.0', '4.3.1', '4.3.0', '4.2.3', '4.2.2', '4.2.1', '4.2.0', '4.1.2', '4.1.1', '4.1.0', '4.0.0', '3.0.0']);
+        expect(zh.entries[0]?.date).toBe('2026-07-20');
+        expect(zh.entries[3]?.date).toBe('2026-06-28');
+        expect(en.entries[9]?.leadBlocks[0]).toEqual(
             expect.objectContaining({
                 type: 'paragraph',
                 text: expect.stringContaining('personalization'),
             }),
         );
-        expect(zh.entries[0]?.sections.map((section) => section.heading)).toEqual([
+        expect(zh.entries[1]?.sections.map((section) => section.heading)).toEqual([
             '原理解析',
             '也介绍一下我的 App：好友迹',
             '新增',
             '优化',
             '修复',
         ]);
-        expect(en.entries[0]?.sections.map((section) => section.heading)).toEqual([
+        expect(en.entries[1]?.sections.map((section) => section.heading)).toEqual([
             'How the new directory works',
             'A quick introduction to my app: Mappamory',
             'Added',
             'Improved',
             'Fixed',
         ]);
-        expect(zh.entries[2]?.sections[0]?.blocks).toContainEqual({
+        expect(zh.entries[3]?.sections[0]?.blocks).toContainEqual({
             type: 'image',
             alt: '好友迹 - 好友地图通讯录',
             src: 'icons/mappamory-changelog-4.6.0.png',

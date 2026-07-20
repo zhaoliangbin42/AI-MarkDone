@@ -1,5 +1,15 @@
 # Release Notes
 
+## v5.0.1 (2026-07-20)
+
+This maintenance release keeps AI-MarkDone's shared ChatGPT content discovery synchronized after new replies and across long-conversation virtualization.
+
+### Fixed
+- Kept the directory, Reader, export source, and message-toolbar word count synchronized when completed new replies appear, without requiring a page refresh.
+- Restored Reader content and message-toolbar word counts when ChatGPT remounts visible replies in long virtualized conversations.
+
+Both fixes preserve the passive content-discovery boundary: AI-MarkDone does not request ChatGPT conversations or read authentication information.
+
 ## v5.0.0 (2026-07-19)
 
 This release brings lightweight Markdown authoring and live formula assistance to the ChatGPT composer, adds atomic Markdown copy on the official page, rebuilds long-conversation discovery, and reduces extension overhead.

@@ -405,6 +405,10 @@ export function subscribeChatGPTDomRoundChanges(adapter: SiteAdapter, listener: 
     return getChatGPTPageIndex(adapter).subscribe(listener);
 }
 
+export function subscribeChatGPTDomMutations(adapter: SiteAdapter, listener: () => void): () => void {
+    return getChatGPTPageIndex(adapter).subscribeMutations(listener);
+}
+
 export function disposeChatGPTPageIndex(adapter: SiteAdapter): void {
     const index = pageIndexByAdapter.get(adapter);
     index?.dispose();

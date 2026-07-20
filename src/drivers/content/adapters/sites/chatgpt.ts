@@ -46,7 +46,6 @@ export class ChatGPTAdapter extends SiteAdapter {
         const scopes: HTMLElement[] = [];
         const turnRoot = this.getTurnRootElement(assistantMessageElement);
         if (turnRoot) scopes.push(turnRoot);
-        if (assistantArticle.parentElement instanceof HTMLElement) scopes.push(assistantArticle.parentElement);
         if (assistantArticle instanceof HTMLElement) scopes.push(assistantArticle);
 
         for (const scope of scopes) {
@@ -167,8 +166,17 @@ export class ChatGPTAdapter extends SiteAdapter {
     }
 
     getTurnRootElement(assistantMessageElement: HTMLElement): HTMLElement | null {
-        const el = assistantMessageElement.closest?.('[data-testid^="conversation-turn-"]');
-        return el instanceof HTMLElement ? el : null;
+        const selectors = [
+            '[data-testid^="conversation-turn-"]',
+            '[data-turn-id-container]',
+            'article[data-turn="assistant"]',
+            'section[data-turn="assistant"]',
+        ];
+        for (const selector of selectors) {
+            const candidate = assistantMessageElement.closest?.(selector);
+            if (candidate instanceof HTMLElement) return candidate;
+        }
+        return null;
     }
 
     injectToolbar(messageElement: HTMLElement, toolbarHost: HTMLElement): boolean {

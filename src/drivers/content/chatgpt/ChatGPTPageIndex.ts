@@ -68,7 +68,8 @@ export class ChatGPTPageIndex {
     private observer: MutationObserver | null = null;
     private observedRoot: ParentNode | null = null;
     private snapshot: ChatGPTDomRoundRef[] | null = null;
-    private subscribers = new Set<() => void>();
+    private roundSubscribers = new Set<() => void>();
+    private mutationSubscribers = new Set<() => void>();
 
     constructor(options: ChatGPTPageIndexOptions) {
         this.options = options;
@@ -85,16 +86,23 @@ export class ChatGPTPageIndex {
     }
 
     subscribe(listener: () => void): () => void {
-        this.subscribers.add(listener);
+        this.roundSubscribers.add(listener);
         this.ensureObservedRoot();
-        return () => this.subscribers.delete(listener);
+        return () => this.roundSubscribers.delete(listener);
+    }
+
+    subscribeMutations(listener: () => void): () => void {
+        this.mutationSubscribers.add(listener);
+        this.ensureObservedRoot();
+        return () => this.mutationSubscribers.delete(listener);
     }
 
     dispose(): void {
         this.observer?.disconnect();
         this.observer = null;
         this.observedRoot = null;
-        this.subscribers.clear();
+        this.roundSubscribers.clear();
+        this.mutationSubscribers.clear();
         this.invalidate();
     }
 
@@ -120,14 +128,9 @@ export class ChatGPTPageIndex {
             const hostMutations = mutations.filter(mutationAffectsHostPage);
             if (hostMutations.length === 0) return;
             this.invalidate();
+            this.notify(this.mutationSubscribers, 'Content-change');
             if (!hostMutations.some(mutationAffectsRoundStructure)) return;
-            for (const listener of Array.from(this.subscribers)) {
-                try {
-                    listener();
-                } catch (error) {
-                    logger.warn('[AI-MarkDone][ChatGPTPageIndex] Round-change subscriber failed', error);
-                }
-            }
+            this.notify(this.roundSubscribers, 'Round-change');
         });
         this.observer.observe(nextRoot, {
             attributes: true,
@@ -135,5 +138,15 @@ export class ChatGPTPageIndex {
             characterData: true,
             subtree: true,
         });
+    }
+
+    private notify(subscribers: Set<() => void>, label: string): void {
+        for (const listener of Array.from(subscribers)) {
+            try {
+                listener();
+            } catch (error) {
+                logger.warn(`[AI-MarkDone][ChatGPTPageIndex] ${label} subscriber failed`, error);
+            }
+        }
     }
 }
