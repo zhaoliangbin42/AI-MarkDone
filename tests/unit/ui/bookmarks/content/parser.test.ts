@@ -20,20 +20,29 @@ describe('bookmarks content parser', () => {
                 text: expect.stringContaining('personalization'),
             }),
         );
-        expect(zh.entries[1]?.sections.map((section) => section.heading)).toEqual([
+        const zhFiveZeroSections = [
             '原理解析',
             '也介绍一下我的 App：好友迹',
             '新增',
             '优化',
             '修复',
-        ]);
-        expect(en.entries[1]?.sections.map((section) => section.heading)).toEqual([
+        ];
+        const enFiveZeroSections = [
             'How the new directory works',
             'A quick introduction to my app: Mappamory',
             'Added',
             'Improved',
             'Fixed',
-        ]);
+        ];
+        expect(zh.entries[0]?.sections.map((section) => section.heading)).toEqual(zhFiveZeroSections);
+        expect(zh.entries[1]?.sections.map((section) => section.heading)).toEqual(zhFiveZeroSections);
+        expect(en.entries[0]?.sections.map((section) => section.heading)).toEqual(enFiveZeroSections);
+        expect(en.entries[1]?.sections.map((section) => section.heading)).toEqual(enFiveZeroSections);
+        expect(zh.entries[0]?.sections[1]?.blocks).toContainEqual({
+            type: 'image',
+            alt: '好友迹——好友地图通讯录',
+            src: 'icons/mappamory-promo-poster.png',
+        });
         expect(zh.entries[3]?.sections[0]?.blocks).toContainEqual({
             type: 'image',
             alt: '好友迹 - 好友地图通讯录',

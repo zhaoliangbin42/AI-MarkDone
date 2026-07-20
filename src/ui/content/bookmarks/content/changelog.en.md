@@ -3,11 +3,64 @@
 # 5.0.1
 2026-07-20
 
-This maintenance release makes ChatGPT content discovery update reliably after new replies and after ChatGPT remounts messages in long virtualized conversations. Reader, export, the directory, bookmarks, navigation, and the message toolbar continue to share the same content-discovery path without reading authentication information.
+Hi everyone. AI-MarkDone 5.0.1 is here. This release changes quite a few parts of the extension, so the first build may feel less stable than previous versions. If anything gets in your way, please send feedback.
+
+This update started as a spontaneous idea. I have been using ChatGPT heavily lately, and the composer kept feeling slower and less structured than I wanted. After Codex added basic Markdown list authoring, I found the workflow so comfortable that I started wondering whether the official ChatGPT composer could offer something similar.
+
+That idea became Input Enhancement. The ChatGPT composer now supports lightweight Markdown authoring, formula suggestions, and live formula previews. If Markdown is already part of your daily workflow, the faster structure and formula input should feel familiar immediately. You can enable the feature in Settings and turn it off whenever you do not need it.
+
+The other major addition is atomic Markdown copy directly on the official ChatGPT page. Select a complete formula, code block, table, heading, list item, quote, or other supported content unit, then press Ctrl/Cmd+C to copy its canonical Markdown source. Collecting a small part of an answer no longer requires opening Reader or rebuilding the formatting by hand. This feature also has its own Settings switch.
+
+**I now have a bigger goal for AI-MarkDone: turn it into an extremely efficient ChatGPT workspace while keeping it focused and lightweight. Every feature should be easy to enable or disable, and every feature will remain free.**
+
+## How the new directory works
+
+### Why did the directory lose history, and what actually changed?
+
+The visible symptom was a directory with missing entries. The underlying problem was that the old version treated “messages currently mounted on the webpage” as “the complete conversation.”
+
+A long ChatGPT page behaves like a moving window. To control memory and rendering cost, ChatGPT keeps nearby messages mounted and temporarily unloads older messages farther away. The old directory scanned those page nodes directly, so it could only see the part of the conversation inside that moving window. History-cleanup extensions could collapse or remove the same nodes and produce the same result.
+
+Version 5.0.0 separates the two jobs. One layer follows the conversation structure already loaded by ChatGPT and uses stable message identities to recover the active branch, full order, and complete rounds. A second layer tracks only which messages are currently mounted and where they appear on the page. The first layer builds the directory; the second handles scrolling and positioning. When an older target is not mounted, AI-MarkDone progressively brings it back into the page and locates it only after the message identity matches.
+
+The directory can now keep its history while you scroll through a long conversation, switch branches, or use a history-cleanup extension. Reader, copy, export, and bookmarks consume the same verified conversation content, while the directory and message navigator share the same identities and order. The extension also avoids rescanning the entire conversation after every small page change, reducing its overhead on long chats.
+
+## A quick introduction to my app: Mappamory
+
+Mappamory is also approaching a major update, and many early users have already told me that it has become genuinely useful in daily life.
+
+Most of us have had the same experience: a friend once mentioned their hometown, school, or workplace, then the detail disappeared from memory before the next meeting. Those places matter, but there has never been a convenient tool built around remembering them.
+
+Mappamory is a map-based contact book for that exact need. Add the people you care about, save places such as hometowns, schools, workplaces, and favorite cities, then view those connections together on a map.
+
+Every detail is entered by you and stored locally on your device. It is your private map contact book for remembering people and the places connected to your shared stories.
+
+![Mappamory — map-based contacts](icons/mappamory-promo-poster.png)
+
+Visit [https://mappamory.com/](https://mappamory.com/) to learn more and download the app.
+
+## Added
+
+- Added Markdown enhancement to the ChatGPT composer, including basic Markdown authoring, formula suggestions, and live formula previews.
+- Added atomic Markdown copy on ChatGPT. Select a complete formula, code block, table, heading, list item, quote, or other supported unit and press Ctrl/Cmd+C to copy canonical Markdown.
+- Added the standard message toolbar to Deep Research reports, including Reader, copy, export, Save Messages, and bookmark workflows.
+- Added QQ and Xiaohongshu community invitations to Feedback so users can scan and join the discussion.
+- Added a dedicated Mappamory section introducing the map-based contact book and its main capabilities.
+
+## Improved
+
+- Chrome and Firefox are now the supported browser targets. Safari is no longer part of release validation or distribution.
+- Substantially reduced repeated ChatGPT page scans and startup work, making toolbars, the directory, and long-conversation interactions lighter.
+- Reworked long-image export. Selected messages are combined into one PNG when safe, with oversized captures split into the fewest practical images and packaged automatically.
+- Refined the visual hierarchy and responsive layout across Reader, Bookmarks, Settings, Input Enhancement, toolbars, dialogs, and Feedback.
 
 ## Fixed
 
-- Kept the directory, Reader, export source, and message-toolbar word count synchronized when a completed new reply appears, without waiting for a page refresh.
+- Fixed the directory losing historical messages in long ChatGPT conversations. Thanks to Email user @高程 and everyone else who reported it.
+- Fixed the directory losing message history after using a ChatGPT history-cleanup extension. Thanks to Email user @Howard Lou.
+- Fixed language selection failing to persist reliably across cold startup, rapid switching, and some page types.
+- Fixed dialogs or panels occasionally leaving a transparent overlay behind and blocking clicks on ChatGPT.
+- Kept the directory, Reader, export source, and message-toolbar word count synchronized when a completed new reply appears, without waiting for a page refresh or reading authentication information.
 - Restored Reader content and word counts when ChatGPT remounts a visible reply during long-conversation virtualization.
 
 # 5.0.0

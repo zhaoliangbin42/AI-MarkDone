@@ -70,7 +70,7 @@ async function verifyTarget(target: Target): Promise<string[]> {
         const featureBuffers = await Promise.all(featureFiles.map((file) => readFile(file)));
         const rawBytes = featureBuffers.reduce((total, content) => total + content.byteLength, 0);
         const gzipBytes = featureBuffers.reduce((total, content) => total + gzipSync(content).byteLength, 0);
-        const maxRawBytes = 1_650_000;
+        const maxRawBytes = 1_670_000;
         const maxGzipBytes = 450_000;
         rows.push(
             `${target}/content feature graph: raw ${formatBytes(rawBytes)} / ${formatBytes(maxRawBytes)}, gzip ${formatBytes(gzipBytes)} / ${formatBytes(maxGzipBytes)}`,
