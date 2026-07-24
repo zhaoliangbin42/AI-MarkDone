@@ -110,6 +110,124 @@ describe('ChatGPTPageIndex', () => {
         });
     });
 
+    it('pairs turns through persistent host slots when inner wrappers repeat the slot marker', () => {
+        const main = document.querySelector('main');
+        if (!(main instanceof HTMLElement)) throw new Error('fixture main is missing');
+        main.innerHTML = `
+            <div id="conversation-slots">
+                <div data-turn-id-container="client-created-root"></div>
+                <div data-turn-id-container="user-1">
+                    <section
+                        data-testid="conversation-turn-1"
+                        data-turn="user"
+                        data-turn-id="user-1"
+                        data-turn-id-container="user-1"
+                    >
+                        <div data-message-author-role="user" data-message-id="user-1">Prompt 1</div>
+                    </section>
+                </div>
+                <div data-turn-id-container="assistant-1">
+                    <section
+                        data-testid="conversation-turn-2"
+                        data-turn="assistant"
+                        data-turn-id="assistant-1"
+                        data-turn-id-container="assistant-1"
+                    >
+                        <div data-message-author-role="assistant" data-message-id="assistant-1"></div>
+                    </section>
+                </div>
+                <div data-turn-id-container="user-2">
+                    <section
+                        data-testid="conversation-turn-3"
+                        data-turn="user"
+                        data-turn-id="user-2"
+                        data-turn-id-container="user-2"
+                    >
+                        <div data-message-author-role="user" data-message-id="user-2">Prompt 2</div>
+                    </section>
+                </div>
+                <div data-turn-id-container="assistant-2">
+                    <section
+                        data-testid="conversation-turn-4"
+                        data-turn="assistant"
+                        data-turn-id="assistant-2"
+                        data-turn-id-container="assistant-2"
+                    >
+                        <div data-message-author-role="assistant" data-message-id="assistant-2"></div>
+                    </section>
+                </div>
+            </div>
+        `;
+
+        const rounds = collectChatGPTDomRoundRefs(adapter);
+
+        expect(rounds.map((round) => round.id)).toEqual(['assistant-1', 'assistant-2']);
+        expect(rounds.map((round) => round.source)).toEqual(['turn-wrapper', 'turn-wrapper']);
+        expect(rounds.map((round) => round.userRootEl.getAttribute('data-testid'))).toEqual([
+            'conversation-turn-1',
+            'conversation-turn-3',
+        ]);
+        expect(rounds.map((round) => round.identity.userMessageId)).toEqual(['user-1', 'user-2']);
+    });
+
+    it('does not attach an orphan assistant turn across a virtualized gap to the previous round', () => {
+        const main = document.querySelector('main');
+        if (!(main instanceof HTMLElement)) throw new Error('fixture main is missing');
+        main.innerHTML = `
+            <section data-testid="conversation-turn-1" data-turn="user" data-turn-id="user-turn-1">
+                <div data-message-author-role="user" data-message-id="user-1">Prompt 1</div>
+            </section>
+            <section data-testid="conversation-turn-2" data-turn="assistant" data-turn-id="assistant-turn-1">
+                <div data-message-author-role="assistant" data-message-id="assistant-1"></div>
+            </section>
+            <div data-virtualized-placeholder></div>
+            <section data-testid="conversation-turn-4" data-turn="assistant" data-turn-id="assistant-turn-2">
+                <div data-message-author-role="assistant" data-message-id="assistant-2"></div>
+            </section>
+            <section data-testid="conversation-turn-5" data-turn="user" data-turn-id="user-turn-3">
+                <div data-message-author-role="user" data-message-id="user-3">Prompt 3</div>
+            </section>
+            <section data-testid="conversation-turn-6" data-turn="assistant" data-turn-id="assistant-turn-3">
+                <div data-message-author-role="assistant" data-message-id="assistant-3"></div>
+            </section>
+        `;
+
+        const rounds = collectChatGPTDomRoundRefs(adapter);
+
+        expect(rounds.map((round) => round.id)).toEqual(['assistant-1', 'assistant-3']);
+        expect(rounds[0]?.groupEls).toHaveLength(2);
+    });
+
+    it('does not pair a pending user turn with an assistant across a virtualized gap', () => {
+        const main = document.querySelector('main');
+        if (!(main instanceof HTMLElement)) throw new Error('fixture main is missing');
+        main.innerHTML = `
+            <section data-testid="conversation-turn-1" data-turn="user" data-turn-id="user-turn-1">
+                <div data-message-author-role="user" data-message-id="user-1">Prompt 1</div>
+            </section>
+            <section data-testid="conversation-turn-2" data-turn="assistant" data-turn-id="assistant-turn-1">
+                <div data-message-author-role="assistant" data-message-id="assistant-1"></div>
+            </section>
+            <section data-testid="conversation-turn-3" data-turn="user" data-turn-id="user-turn-2">
+                <div data-message-author-role="user" data-message-id="user-2">Prompt 2</div>
+            </section>
+            <div data-virtualized-placeholder></div>
+            <section data-testid="conversation-turn-4" data-turn="assistant" data-turn-id="assistant-turn-2">
+                <div data-message-author-role="assistant" data-message-id="assistant-2"></div>
+            </section>
+            <section data-testid="conversation-turn-5" data-turn="user" data-turn-id="user-turn-3">
+                <div data-message-author-role="user" data-message-id="user-3">Prompt 3</div>
+            </section>
+            <section data-testid="conversation-turn-6" data-turn="assistant" data-turn-id="assistant-turn-3">
+                <div data-message-author-role="assistant" data-message-id="assistant-3"></div>
+            </section>
+        `;
+
+        const rounds = collectChatGPTDomRoundRefs(adapter);
+
+        expect(rounds.map((round) => round.id)).toEqual(['assistant-1', 'assistant-3']);
+    });
+
     it('notifies every navigation subscriber from one shared round-change source', async () => {
         const firstListener = vi.fn();
         const secondListener = vi.fn();

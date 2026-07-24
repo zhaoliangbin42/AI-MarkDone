@@ -46,6 +46,10 @@ type AlignmentDebugEvent = {
     reason?: string;
 };
 
+type AlignmentResult =
+    | { ok: true; anchor: HTMLElement }
+    | { ok: false; message: string };
+
 const DEFAULT_ALIGNMENT_TIMEOUT_MS = 900;
 const DEFAULT_ALIGNMENT_QUIET_MS = 80;
 const DEFAULT_ALIGNMENT_TOLERANCE_PX = 8;
@@ -171,8 +175,9 @@ export async function navigateChatGPTDirectoryTarget(
     };
     const anchor = materialized.anchor;
     if (anchor && typeof anchor.scrollIntoView === 'function') {
-        const settledAnchor = await scrollChatGPTAnchorWithAlignment(adapter, exactTarget, anchor, options);
-        window.setTimeout(() => highlightNavigationTarget(settledAnchor), 40);
+        const alignment = await scrollChatGPTAnchorWithAlignment(adapter, exactTarget, anchor, options);
+        if (!alignment.ok) return alignment;
+        window.setTimeout(() => highlightNavigationTarget(alignment.anchor), 40);
         return { ok: true };
     }
     return { ok: false, message: 'Materialized target has no scroll anchor' };
@@ -183,22 +188,18 @@ async function scrollChatGPTAnchorWithAlignment(
     target: ChatGPTNavigationTarget,
     initialAnchor: HTMLElement,
     options?: ChatGPTNavigationOptions,
-): Promise<HTMLElement> {
+): Promise<AlignmentResult> {
     const timeoutMs = Math.max(0, options?.alignmentTimeoutMs ?? DEFAULT_ALIGNMENT_TIMEOUT_MS);
     const quietMs = Math.max(16, options?.alignmentQuietMs ?? DEFAULT_ALIGNMENT_QUIET_MS);
     const tolerancePx = Math.max(0, options?.alignmentTolerancePx ?? DEFAULT_ALIGNMENT_TOLERANCE_PX);
     const maxAttempts = Math.max(1, options?.maxAlignmentAttempts ?? DEFAULT_MAX_ALIGNMENT_ATTEMPTS);
+    const diagnosticsEnabled = isNavigationDebugEnabled();
     const debugEvents: AlignmentDebugEvent[] = [];
     let anchor = initialAnchor;
     let attempts = 1;
     let aborted = false;
     let mutationCount = 0;
     let resizeCount = 0;
-    let lastActivityAt = Date.now();
-
-    const markActivity = () => {
-        lastActivityAt = Date.now();
-    };
     const abortForUser = () => {
         aborted = true;
     };
@@ -213,7 +214,7 @@ async function scrollChatGPTAnchorWithAlignment(
 
     if (timeoutMs <= 0) {
         flushNavigationDebug(debugEvents);
-        return anchor;
+        return { ok: true, anchor };
     }
 
     for (const eventName of userAbortEvents) {
@@ -221,37 +222,36 @@ async function scrollChatGPTAnchorWithAlignment(
     }
 
     try {
-        const observerRoot = adapter.getObserverContainer?.() ?? document.body;
-        if (observerRoot) {
-            mutationObserver = new MutationObserver(() => {
-                mutationCount += 1;
-                markActivity();
-            });
-            mutationObserver.observe(observerRoot, { childList: true, subtree: true, characterData: true });
-        }
+        if (diagnosticsEnabled) {
+            const observerRoot = adapter.getObserverContainer?.() ?? document.body;
+            if (observerRoot) {
+                mutationObserver = new MutationObserver(() => {
+                    mutationCount += 1;
+                });
+                mutationObserver.observe(observerRoot, { childList: true, subtree: true, characterData: true });
+            }
 
-        if (typeof ResizeObserver !== 'undefined') {
-            resizeObserver = new ResizeObserver(() => {
-                resizeCount += 1;
-                markActivity();
-            });
-            resizeObserver.observe(anchor);
-            const scrollRoot = adapter.getConversationScrollRoot?.();
-            if (scrollRoot) resizeObserver.observe(scrollRoot);
+            if (typeof ResizeObserver !== 'undefined') {
+                resizeObserver = new ResizeObserver(() => {
+                    resizeCount += 1;
+                });
+                resizeObserver.observe(anchor);
+                const scrollRoot = adapter.getConversationScrollRoot?.();
+                if (scrollRoot) resizeObserver.observe(scrollRoot);
+            }
         }
 
         const startedAt = Date.now();
-        while (!aborted && attempts < maxAttempts && Date.now() - startedAt < timeoutMs) {
+        let stableMeasurements = 0;
+        while (!aborted && Date.now() - startedAt < timeoutMs) {
             await sleep(quietMs);
             if (aborted) break;
-            if (Date.now() - lastActivityAt < quietMs) continue;
 
             const nextAnchor = getAnchorForTarget(adapter, target);
             if (nextAnchor && nextAnchor !== anchor) {
                 resizeObserver?.unobserve(anchor);
                 anchor = nextAnchor;
                 if (resizeObserver) resizeObserver.observe(anchor);
-                markActivity();
             }
 
             if (!anchor.isConnected || typeof anchor.scrollIntoView !== 'function') {
@@ -278,8 +278,16 @@ async function scrollChatGPTAnchorWithAlignment(
                 mutationCount,
                 resizeCount,
             });
-            if (Math.abs(delta) <= tolerancePx) break;
+            if (Math.abs(delta) <= tolerancePx) {
+                stableMeasurements += 1;
+                if (stableMeasurements >= 2) {
+                    return { ok: true, anchor };
+                }
+                continue;
+            }
 
+            stableMeasurements = 0;
+            if (attempts >= maxAttempts) break;
             attempts += 1;
             scrollAnchor(anchor);
             debugEvents.push({
@@ -291,7 +299,6 @@ async function scrollChatGPTAnchorWithAlignment(
                 mutationCount,
                 resizeCount,
             });
-            markActivity();
         }
     } finally {
         mutationObserver?.disconnect();
@@ -311,5 +318,7 @@ async function scrollChatGPTAnchorWithAlignment(
         flushNavigationDebug(debugEvents);
     }
 
-    return anchor;
+    if (aborted) return { ok: true, anchor };
+    if (!anchor.isConnected) return { ok: false, message: 'Navigation target was disconnected' };
+    return { ok: false, message: 'Navigation target did not stabilize' };
 }

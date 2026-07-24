@@ -87,8 +87,69 @@ function listLegacyTurnContainers(root: ParentNode): HTMLElement[] {
     );
 }
 
+export function collectChatGPTDomTurnSlots(adapter: SiteAdapter): HTMLElement[] {
+    const root = getDiscoveryRoot(adapter);
+    const containers = listLegacyTurnContainers(root);
+    const groups = new Map<HTMLElement, HTMLElement[]>();
+    for (const container of containers) {
+        const parent = container.parentElement;
+        if (!parent || !rootContains(root, parent)) continue;
+        const group = groups.get(parent);
+        if (group) group.push(container);
+        else groups.set(parent, [container]);
+    }
+    return Array.from(groups.values()).sort((left, right) => right.length - left.length)[0] ?? [];
+}
+
 function rootContains(root: ParentNode, node: Node): boolean {
     return root === document || (root instanceof Node && root.contains(node));
+}
+
+function findPersistentTurnSlot(element: HTMLElement): HTMLElement | null {
+    let nearestMarkedAncestor: HTMLElement | null = null;
+    let current: HTMLElement | null = element;
+    while (current) {
+        if (current.matches(LEGACY_TURN_CONTAINER_SELECTOR)) {
+            nearestMarkedAncestor ??= current;
+            const previous = current.previousElementSibling;
+            const next = current.nextElementSibling;
+            if (
+                previous?.matches(LEGACY_TURN_CONTAINER_SELECTOR)
+                || next?.matches(LEGACY_TURN_CONTAINER_SELECTOR)
+            ) {
+                return current;
+            }
+        }
+        current = current.parentElement;
+    }
+    return nearestMarkedAncestor;
+}
+
+function areAdjacentConversationItems(previous: HTMLElement, next: HTMLElement): boolean {
+    const getListItem = (element: HTMLElement): { parent: HTMLElement; index: number } | null => {
+        const persistentSlot = findPersistentTurnSlot(element);
+        if (persistentSlot?.parentElement) {
+            return {
+                parent: persistentSlot.parentElement,
+                index: Array.from(persistentSlot.parentElement.children).indexOf(persistentSlot),
+            };
+        }
+        let current = element;
+        while (current.parentElement && current.parentElement.children.length === 1) {
+            current = current.parentElement;
+        }
+        const parent = current.parentElement;
+        if (!parent) return null;
+        return { parent, index: Array.from(parent.children).indexOf(current) };
+    };
+    const previousItem = getListItem(previous);
+    const nextItem = getListItem(next);
+    return Boolean(
+        previousItem
+        && nextItem
+        && previousItem.parent === nextItem.parent
+        && nextItem.index === previousItem.index + 1,
+    );
 }
 
 function getTurnRoot(roleNode: HTMLElement, root: ParentNode): HTMLElement {
@@ -182,7 +243,14 @@ function collectTurnWrapperRoundRefs(adapter: SiteAdapter, root: ParentNode): Ch
 
         if (!pendingUser) {
             const previousRound = rounds[rounds.length - 1];
-            if (previousRound) pushUnique(previousRound.groupEls, turnWrapper);
+            const previousGroupEl = previousRound?.groupEls[previousRound.groupEls.length - 1];
+            if (previousGroupEl && areAdjacentConversationItems(previousGroupEl, turnWrapper)) {
+                pushUnique(previousRound!.groupEls, turnWrapper);
+            }
+            continue;
+        }
+        if (!areAdjacentConversationItems(pendingUser.root, turnWrapper)) {
+            pendingUser = null;
             continue;
         }
 
@@ -258,7 +326,14 @@ function collectLegacyContainerRoundRefs(adapter: SiteAdapter, root: ParentNode)
 
         if (!pendingUser) {
             const previousRound = rounds[rounds.length - 1];
-            if (previousRound) pushUnique(previousRound.groupEls, container);
+            const previousGroupEl = previousRound?.groupEls[previousRound.groupEls.length - 1];
+            if (previousGroupEl && areAdjacentConversationItems(previousGroupEl, container)) {
+                pushUnique(previousRound!.groupEls, container);
+            }
+            continue;
+        }
+        if (!areAdjacentConversationItems(pendingUser.container, container)) {
+            pendingUser = null;
             continue;
         }
 
@@ -342,7 +417,14 @@ function discoverChatGPTDomRoundRefs(adapter: SiteAdapter): ChatGPTDomRoundRef[]
 
         if (!pendingUser || pendingUser.paired) {
             const previousRound = rounds[rounds.length - 1];
-            if (previousRound) pushUnique(previousRound.groupEls, roleRoot);
+            const previousGroupEl = previousRound?.groupEls[previousRound.groupEls.length - 1];
+            if (previousGroupEl && areAdjacentConversationItems(previousGroupEl, roleRoot)) {
+                pushUnique(previousRound!.groupEls, roleRoot);
+            }
+            continue;
+        }
+        if (!areAdjacentConversationItems(pendingUser.root, roleRoot)) {
+            pendingUser = null;
             continue;
         }
 

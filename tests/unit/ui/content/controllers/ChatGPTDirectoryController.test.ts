@@ -238,6 +238,62 @@ describe('ChatGPTDirectoryController', () => {
         expect(navigationMocks.scrollToBookmarkTargetWithRetry).not.toHaveBeenCalled();
     });
 
+    it('routes an unmounted round click through its persistent host slot when turn wrappers repeat the slot marker', async () => {
+        document.body.innerHTML = `
+          <main>
+            <div id="conversation-slots">
+              <div data-turn-id-container="client-created-root" data-slot-sentinel></div>
+              <div data-turn-id-container="u1">
+                <section id="user-1" data-turn="user" data-turn-id="round-1" data-turn-id-container="u1">
+                  <div data-message-author-role="user" data-message-id="u1"></div>
+                </section>
+              </div>
+              <div data-turn-id-container="a1">
+                <section id="assistant-1" data-turn="assistant" data-turn-id="assistant-round-1" data-turn-id-container="a1">
+                  <div data-message-author-role="assistant" data-message-id="a1"></div>
+                </section>
+              </div>
+              <div data-turn-id-container="u2" id="user-slot-2"></div>
+              <div data-turn-id-container="a2" id="assistant-slot-2"></div>
+            </div>
+          </main>
+        `;
+        const adapter = new ChatGPTTestAdapter();
+        const engine = { subscribe: vi.fn(() => () => undefined) } as any;
+        const controller = createDirectoryController(adapter, engine);
+        const targetSlot = document.getElementById('user-slot-2') as HTMLElement;
+        const assistantSlot = document.getElementById('assistant-slot-2') as HTMLElement;
+        const targetAnchorScroll = vi.fn();
+        targetSlot.scrollIntoView = vi.fn(() => {
+            targetSlot.innerHTML = `
+              <section id="user-2" data-turn="user" data-turn-id="round-2" data-turn-id-container="u2">
+                <div data-message-author-role="user" data-message-id="u2"></div>
+              </section>
+            `;
+            assistantSlot.innerHTML = `
+              <section id="assistant-2" data-turn="assistant" data-turn-id="assistant-round-2" data-turn-id-container="a2">
+                <div data-message-author-role="assistant" data-message-id="a2"></div>
+              </section>
+            `;
+            (document.getElementById('user-2') as HTMLElement).scrollIntoView = targetAnchorScroll;
+        });
+
+        (controller as any).ensureRail();
+        setCanonicalSnapshot(adapter, buildSnapshot());
+        (controller as any).render();
+
+        const railRoot = document.getElementById('aimd-chatgpt-directory-rail')?.shadowRoot;
+        const items = Array.from(railRoot?.querySelectorAll<HTMLButtonElement>('.rail__item') ?? []);
+        items[1]?.click();
+        await Promise.resolve();
+        await vi.advanceTimersByTimeAsync(1200);
+
+        expect(targetSlot.scrollIntoView).toHaveBeenCalledTimes(1);
+        expect(targetAnchorScroll).toHaveBeenCalledWith({ behavior: 'auto', block: 'start' });
+        expect(navigationMocks.highlightNavigationTarget).toHaveBeenCalledWith(document.getElementById('user-2'));
+        expect(navigationMocks.scrollToBookmarkTargetWithRetry).not.toHaveBeenCalled();
+    });
+
     it('fails closed instead of treating a DOM window as a complete conversation', () => {
         const adapter = new ChatGPTTestAdapter();
         const engine = { subscribe: vi.fn(() => () => undefined) } as any;
@@ -1087,6 +1143,54 @@ describe('ChatGPTDirectoryController', () => {
     });
 
     it('marks the round whose full group range contains the reading reference line as active', () => {
+        Object.defineProperty(window, 'innerHeight', { configurable: true, value: 1000 });
+        setRoundRects({
+            'user-1': [-500, -460],
+            'assistant-1': [-450, 240],
+            'user-2': [260, 300],
+            'assistant-2': [300, 900],
+        });
+        const adapter = new ChatGPTTestAdapter();
+        const engine = { subscribe: vi.fn(() => () => undefined) } as any;
+        const controller = createDirectoryController(adapter, engine);
+
+        (controller as any).ensureRail();
+        setCanonicalSnapshot(adapter, buildSnapshot());
+        (controller as any).render();
+
+        const railRoot = document.getElementById('aimd-chatgpt-directory-rail')?.shadowRoot;
+        const active = railRoot?.querySelector<HTMLElement>('.rail__item[data-active="1"]');
+        expect(active?.dataset.position).toBe('2');
+    });
+
+    it('marks the visible round active when ChatGPT repeats slot markers on nested turn wrappers', () => {
+        document.body.innerHTML = `
+          <main>
+            <div id="conversation-slots">
+              <div data-turn-id-container="client-created-root"></div>
+              <div data-turn-id-container="u1">
+                <section id="user-1" data-testid="conversation-turn-1" data-turn="user" data-turn-id="round-1" data-turn-id-container="u1">
+                  <div data-message-author-role="user" data-message-id="u1"></div>
+                </section>
+              </div>
+              <div data-turn-id-container="a1">
+                <section id="assistant-1" data-testid="conversation-turn-2" data-turn="assistant" data-turn-id="assistant-round-1" data-turn-id-container="a1">
+                  <div data-message-author-role="assistant" data-message-id="a1"></div>
+                </section>
+              </div>
+              <div data-turn-id-container="u2">
+                <section id="user-2" data-testid="conversation-turn-3" data-turn="user" data-turn-id="round-2" data-turn-id-container="u2">
+                  <div data-message-author-role="user" data-message-id="u2"></div>
+                </section>
+              </div>
+              <div data-turn-id-container="a2">
+                <section id="assistant-2" data-testid="conversation-turn-4" data-turn="assistant" data-turn-id="assistant-round-2" data-turn-id-container="a2">
+                  <div data-message-author-role="assistant" data-message-id="a2"></div>
+                </section>
+              </div>
+            </div>
+          </main>
+        `;
         Object.defineProperty(window, 'innerHeight', { configurable: true, value: 1000 });
         setRoundRects({
             'user-1': [-500, -460],

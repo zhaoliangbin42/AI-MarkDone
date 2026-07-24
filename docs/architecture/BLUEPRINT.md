@@ -150,6 +150,7 @@ Detached Reader 是 Reader 闭环的跨 runtime 形态，而不是第三套 Read
 - ChatGPT conversation group discovery、turn root、conversation root、streaming 判定同样属于 adapter/driver 契约的一部分；UI/controller 只能消费已经抽象好的 structural refs，不得在 UI 层按 ChatGPT selector 重新推导轮次、正文或 identity
 - `ChatGPTConversationEngine` 是唯一 semantic SSOT；`readerContentSource` 把其 verified graph snapshot 投影成 Reader/Copy/Save Messages/书签正文共用的 `ReaderItem[]`
 - `ChatGPTPageIndex` 只按宿主 DOM revision 缓存当前 connected materialization anchors；`ChatGPTConversationIndex` 以 Engine snapshot 的完整顺序为事实，并以 typed identity 连接这些可选 anchors，作为 Directory、Stepper、Reader locate、Bookmark Go 与 pending navigation 的唯一 navigation projection。已挂载 assistant message element 的唯一 `data-message-id` 直接对应 canonical `assistantMessageId`，不得因 wrapper/turn ID 漂移而失配；无直接消息身份时才使用 materialized containment，歧义必须 fail closed。DOM window replacement 不得改变 canonical count；索引必须忽略 AI-MarkDone 自有节点和 `data-aimd-*` bookkeeping，conversation root 更换或 runtime disable→enable 时必须正确重建、重绑与释放
+- Off-screen navigation 应以经过 typed-anchor 校准的宿主持久 turn slot 为主路径，不得把 canonical position 直接换算为全局 scroll ratio，也不得依赖 React/Fiber、私有 virtualizer 或宿主数字 test id。校准成功后必须在 bounded budget 内复用同一 target slot，直到 exact identity anchor materialize；不得中途退回像素探测。只有没有可信 slot topology 时才可运行 compatibility seeker，且 exact connected identity 与稳定 alignment 仍是唯一成功条件。正常点击不得因此新增全页 observer、常驻 timer 或重复 slot scan
 - ChatGPT 稳定态性能优化所需的重子树结构提示（如 KaTeX / code-heavy subtree refs）同样属于 adapter/driver 契约；UI/controller 只能消费 adapter 返回的结构化 hints，不得自行扩张宿主 selector 集合
 - runtime 只允许持有平台无关的生命周期编排器（如 toolbar orchestrator），不得在入口层写平台选择器
 - toolbar observer 只能作为事件信号：消息内 mutation 必须定向进入该消息的 incremental reconcile，无关文本必须忽略，只有 message 集合/顺序、route/init、conversation root replacement 或无法归属的官方 action-row 结构变化才能进入 full reconcile；不得在一次 scheduled reconcile 后再做第二次全量 toolbar 遍历
@@ -258,7 +259,7 @@ Surface profile / motion ownership 规则补充：
 
 - Site adapters：`src/drivers/content/adapters/*`
 - Injection / conversation / clipboard / theme / sending bridges：`src/drivers/content/*`
-- ChatGPT 内容发现：`ChatGPTConversationEngine` 持有 canonical semantic snapshot，`ChatGPTPageIndex` 持有 connected anchors，`ChatGPTConversationIndex` 是唯一 navigation projection，`ChatGPTConversationNavigation` 负责 bounded exact-identity materialization；UI 不拥有宿主 selector 或第二套定位算法
+- ChatGPT 内容发现：`ChatGPTConversationEngine` 持有 canonical semantic snapshot，`ChatGPTPageIndex` 持有 connected anchors，`ChatGPTConversationIndex` 是唯一 navigation projection，`ChatGPTConversationNavigation` 负责 host-slot-first、bounded exact-identity materialization 与稳定 alignment；UI 不拥有宿主 selector、像素比例推算或第二套定位算法
 - Browser abstraction：`src/drivers/shared/browser.ts`
 - Message image export：`src/services/export/messageCardProfile.ts` + `src/drivers/content/export/renderPng.ts`；Formula asset runtime：`src/runtimes/export-renderer/*`；content driver 继续持有 clipboard/download
 - Background capabilities：`src/drivers/background/storage/*`, `src/drivers/background/cloudBackup/*`, `src/runtimes/background/handlers/*`
