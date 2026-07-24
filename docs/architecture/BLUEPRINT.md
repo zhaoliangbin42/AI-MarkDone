@@ -74,7 +74,7 @@
 
 ### 2.3.2 Reader 闭环（预览/复制/发送）
 
-1. Driver（adapter/datasource）采集 `ReaderItem[]`（live page / bookmarks 等来源）；ChatGPT live page 只允许 `ChatGPTConversationEngine` 的 verified conversation graph snapshot 作为 canonical semantic source。完整 graph 是基线；共享 PageIndex mutation 触发器只可把当前 canonical 尾节点之后、typed identity 完整且官方完成操作栏已挂载的连续 DOM successor 写回同一 snapshot。DOM 不能补齐历史或跨未知前驱降级正文
+1. Driver（adapter/datasource）采集 `ReaderItem[]`（live page / bookmarks 等来源）；ChatGPT live page 只允许 `ChatGPTConversationEngine` 的 verified conversation graph snapshot 作为 canonical semantic source。完整 graph 是基线；共享 PageIndex mutation 触发器只可原位完成 graph 中仍 pending 的 canonical 尾轮，或把其后 typed identity 完整且官方完成操作栏已挂载的连续 DOM successor 写回同一 snapshot。已证明完成的同身份 live 正文不得被后到旧空 graph 回滚，assistant identity 冲突则以新 graph 分支为准。DOM 不能补齐历史或跨未知前驱降级正文
 2. Service 进行编排：解析/渲染策略、缓存、错误回退、性能节流
 3. UI 只负责呈现与交互（分页/复制/打开浮层/触发发送）
 4. 副作用（写书签、写设置、网络等）通过 Background 执行并返回结果
@@ -154,6 +154,7 @@ Detached Reader 是 Reader 闭环的跨 runtime 形态，而不是第三套 Read
 - ChatGPT 稳定态性能优化所需的重子树结构提示（如 KaTeX / code-heavy subtree refs）同样属于 adapter/driver 契约；UI/controller 只能消费 adapter 返回的结构化 hints，不得自行扩张宿主 selector 集合
 - runtime 只允许持有平台无关的生命周期编排器（如 toolbar orchestrator），不得在入口层写平台选择器
 - toolbar observer 只能作为事件信号：消息内 mutation 必须定向进入该消息的 incremental reconcile，无关文本必须忽略，只有 message 集合/顺序、route/init、conversation root replacement 或无法归属的官方 action-row 结构变化才能进入 full reconcile；不得在一次 scheduled reconcile 后再做第二次全量 toolbar 遍历
+- ChatGPT toolbar full reconcile 必须把当前 mounted assistant surface inventory 与 user/assistant round pairing 分开：一次 selector inventory 覆盖所有可见 assistant，再用可用 turn refs canonicalize/dedupe。空的 virtualized user slot 不得让已挂载 assistant 丢失 toolbar；这条 inventory 不得生成第二份正文、轮次或 position SSOT
 - 同一 content runtime 内的 route-aware controllers 必须共享底层 URL poll/event hub，不得各自创建长期 timer；formula interaction 必须共享 document observer、按 enabled container 过滤 mutation，并让相同 gate 的 settings update 保持幂等
 - 当前消息 Reader item cache 只允许在同一消息 revision 内服务多个用户动作；可归属 mutation 精确失效该消息，消息集合/顺序、route 或 dispose 失效整个 cache
 - manifest content entry 必须保持轻量 classic startup graph；Reader、Bookmarks、Save/Bookmark dialogs 与 Copy PNG 通过 typed ports 延迟到真实用户动作。动态模块地址只能由 `browser.runtime.getURL()` 从固定 asset contract 生成，功能 facade 必须继续按 surface 分段加载，并与 detached Reader 共用构建图，避免把重型 renderer 重复打包或重新带回页面启动路径

@@ -1121,9 +1121,14 @@ export class MessageToolbarOrchestrator {
         let nodes: HTMLElement[];
         if (this.usesChatGptToolbarLifecycle()) {
             this.rebuildTurnIndex();
-            nodes = this.turnRefs
-                .map((turn) => turn.primaryMessageEl)
-                .filter((message) => message.isConnected);
+            const selector = this.adapter.getMessageSelector();
+            const container = this.adapter.getObserverContainer() || document.body;
+            const mountedMessages = discoverMessageElements(container, selector);
+            nodes = this.sortMessagesByDocumentOrder(Array.from(new Set(
+                mountedMessages
+                    .map((message) => this.getTurnRefForElement(message)?.primaryMessageEl ?? message)
+                    .filter((message) => message.isConnected),
+            )));
         } else {
             const selector = this.adapter.getMessageSelector();
             const container = this.adapter.getObserverContainer() || document.body;

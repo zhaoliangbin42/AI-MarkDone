@@ -9,6 +9,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 - ChatGPT: Restored the directory's current-position marker and long-distance jumps after nested ChatGPT turn wrappers began repeating the host slot marker; clicks now resolve the exact user round instead of jumping to a page boundary.
+- ChatGPT: Completed replies now upgrade an existing pending canonical tail immediately, so stale passive graph cache entries can no longer turn message word counts invalid or open an empty Reader.
+- ChatGPT: Restored message toolbars and canonical Reader mapping for mounted assistant replies whose preceding user host slot is temporarily empty during conversation virtualization.
 
 ## [5.0.1] - 2026-07-20
 

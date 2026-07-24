@@ -27,6 +27,20 @@ function baselineSnapshot(): ChatGPTConversationSnapshot {
     };
 }
 
+function pendingTailSnapshot(): ChatGPTConversationSnapshot {
+    const snapshot = baselineSnapshot();
+    return {
+        ...snapshot,
+        branchKey: 'user-turn-1',
+        rounds: [{
+            ...snapshot.rounds[0]!,
+            assistantContent: '',
+            messageId: 'user-1',
+            assistantMessageId: null,
+        }],
+    };
+}
+
 function appendRound(index: number, withActionBar = true): void {
     document.querySelector('main')?.insertAdjacentHTML('beforeend', `
         <article data-turn="user" data-turn-id="user-turn-${index}">
@@ -47,6 +61,8 @@ describe('ChatGPTLiveDomContent', () => {
     let adapter: ChatGPTAdapter;
     let snapshot: ChatGPTConversationSnapshot;
     let applyLiveDomTail: ReturnType<typeof vi.fn>;
+    let registeredReconciler: (() => ChatGPTConversationSnapshot | null) | null;
+    let unregisterReconciler: ReturnType<typeof vi.fn>;
     let source: ChatGPTLiveDomContent;
 
     beforeEach(() => {
@@ -56,11 +72,21 @@ describe('ChatGPTLiveDomContent', () => {
         appendRound(1);
         adapter = new ChatGPTAdapter();
         snapshot = baselineSnapshot();
+        registeredReconciler = null;
+        unregisterReconciler = vi.fn();
         applyLiveDomTail = vi.fn((_: string, rounds: any[]) => {
+            const nextRounds = [...snapshot.rounds];
+            for (const round of rounds) {
+                if (round.position <= nextRounds.length) {
+                    nextRounds[round.position - 1] = round;
+                } else {
+                    nextRounds.push(round);
+                }
+            }
             snapshot = {
                 ...snapshot,
                 branchKey: rounds.at(-1)?.assistantMessageId ?? snapshot.branchKey,
-                rounds: [...snapshot.rounds, ...rounds],
+                rounds: nextRounds,
             };
             return snapshot;
         });
@@ -68,7 +94,11 @@ describe('ChatGPTLiveDomContent', () => {
             peekCurrentSnapshot: () => snapshot,
             applyLiveDomTail,
             subscribe: () => () => undefined,
-        });
+            registerLiveDomReconciler: vi.fn((reconciler) => {
+                registeredReconciler = reconciler;
+                return unregisterReconciler;
+            }),
+        } as any);
         source.init();
     });
 
@@ -95,6 +125,44 @@ describe('ChatGPTLiveDomContent', () => {
         ]);
     });
 
+    it('completes the canonical pending tail when its mounted assistant finishes', async () => {
+        snapshot = pendingTailSnapshot();
+
+        await vi.runAllTimersAsync();
+
+        expect(applyLiveDomTail).toHaveBeenCalledTimes(1);
+        expect(applyLiveDomTail).toHaveBeenCalledWith('user-turn-1', [
+            expect.objectContaining({
+                id: 'user-turn-1',
+                position: 1,
+                userPrompt: 'Question 1',
+                assistantContent: '**Answer 1**',
+                messageId: 'assistant-1',
+                userMessageId: 'user-1',
+                assistantMessageId: 'assistant-1',
+            }),
+        ]);
+    });
+
+    it('registers a synchronous reconciliation path for forced Reader and word-count refreshes', () => {
+        snapshot = pendingTailSnapshot();
+
+        expect(registeredReconciler).toBeTypeOf('function');
+        const reconciled = registeredReconciler?.();
+
+        expect(reconciled?.rounds[0]?.assistantContent).toBe('**Answer 1**');
+        expect(applyLiveDomTail).toHaveBeenCalledTimes(1);
+
+        registeredReconciler?.();
+        expect(applyLiveDomTail).toHaveBeenCalledTimes(1);
+    });
+
+    it('does not replace an already non-empty canonical tail from the rendered DOM', async () => {
+        await vi.runAllTimersAsync();
+
+        expect(applyLiveDomTail).not.toHaveBeenCalled();
+    });
+
     it('waits for the host completion node before publishing the live round', async () => {
         appendRound(2, false);
         await vi.runAllTimersAsync();
@@ -107,5 +175,21 @@ describe('ChatGPTLiveDomContent', () => {
         await vi.runAllTimersAsync();
 
         expect(applyLiveDomTail).toHaveBeenCalledTimes(1);
+    });
+
+    it('publishes the completed prefix when a later live DOM round is still incomplete', async () => {
+        appendRound(2);
+        appendRound(3, false);
+
+        await vi.runAllTimersAsync();
+
+        expect(applyLiveDomTail).toHaveBeenCalledTimes(1);
+        expect(applyLiveDomTail).toHaveBeenCalledWith('assistant-1', [
+            expect.objectContaining({
+                position: 2,
+                assistantMessageId: 'assistant-2',
+                assistantContent: '**Answer 2**',
+            }),
+        ]);
     });
 });

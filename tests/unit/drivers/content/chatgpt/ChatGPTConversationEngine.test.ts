@@ -338,6 +338,118 @@ describe('ChatGPTConversationEngine', () => {
         expect(listener).toHaveBeenCalledWith(updated);
     });
 
+    it('upgrades an existing canonical pending tail instead of requiring a new position', async () => {
+        const pendingSnapshot = makeSnapshot(1);
+        pendingSnapshot.branchKey = 'round-1';
+        pendingSnapshot.rounds[0] = {
+            ...pendingSnapshot.rounds[0]!,
+            assistantContent: '',
+            messageId: 'u1',
+            assistantMessageId: null,
+        };
+        installBridgeResponder(() => ({ snapshot: pendingSnapshot }));
+        const engine = new ChatGPTConversationEngine(createAdapter());
+        const initialPromise = engine.getSnapshot();
+        await vi.runAllTimersAsync();
+        await initialPromise;
+
+        const updated = engine.applyLiveDomTail('round-1', [{
+            id: 'round-1',
+            position: 1,
+            userPrompt: 'Question 1',
+            assistantContent: 'Answer 1',
+            preview: 'Question 1',
+            messageId: 'a1',
+            userMessageId: 'u1',
+            assistantMessageId: 'a1',
+        }]);
+
+        expect(updated?.rounds).toEqual([
+            expect.objectContaining({
+                id: 'round-1',
+                position: 1,
+                assistantContent: 'Answer 1',
+                messageId: 'a1',
+                userMessageId: 'u1',
+                assistantMessageId: 'a1',
+            }),
+        ]);
+        expect(engine.peekCurrentSnapshot()).toBe(updated);
+    });
+
+    it('rejects a live completion whose assistant identity conflicts with the canonical pending tail', async () => {
+        const pendingSnapshot = makeSnapshot(1);
+        pendingSnapshot.branchKey = 'round-1';
+        pendingSnapshot.rounds[0] = {
+            ...pendingSnapshot.rounds[0]!,
+            assistantContent: '',
+            messageId: 'canonical-assistant',
+            assistantMessageId: 'canonical-assistant',
+        };
+        installBridgeResponder(() => ({ snapshot: pendingSnapshot }));
+        const engine = new ChatGPTConversationEngine(createAdapter());
+        const initialPromise = engine.getSnapshot();
+        await vi.runAllTimersAsync();
+        const initial = await initialPromise;
+
+        const updated = engine.applyLiveDomTail('round-1', [{
+            id: 'round-1',
+            position: 1,
+            userPrompt: 'Question 1',
+            assistantContent: 'Conflicting answer',
+            preview: 'Question 1',
+            messageId: 'different-assistant',
+            userMessageId: 'u1',
+            assistantMessageId: 'different-assistant',
+        }]);
+
+        expect(updated).toBe(initial);
+        expect(updated?.rounds[0]).toMatchObject({
+            assistantContent: '',
+            assistantMessageId: 'canonical-assistant',
+        });
+    });
+
+    it('runs the registered live DOM reconciler before a forced refresh returns', async () => {
+        const pendingSnapshot = makeSnapshot(1);
+        pendingSnapshot.branchKey = 'round-1';
+        pendingSnapshot.rounds[0] = {
+            ...pendingSnapshot.rounds[0]!,
+            assistantContent: '',
+            messageId: 'u1',
+            assistantMessageId: null,
+        };
+        installBridgeResponder(() => ({ snapshot: pendingSnapshot }));
+        const engine = new ChatGPTConversationEngine(createAdapter());
+        const initialPromise = engine.getSnapshot();
+        await vi.runAllTimersAsync();
+        await initialPromise;
+        const reconcile = vi.fn(() => engine.applyLiveDomTail('round-1', [{
+            id: 'round-1',
+            position: 1,
+            userPrompt: 'Question 1',
+            assistantContent: 'Completed before Reader opens',
+            preview: 'Question 1',
+            messageId: 'a1',
+            userMessageId: 'u1',
+            assistantMessageId: 'a1',
+        }]));
+        const unregister = engine.registerLiveDomReconciler(reconcile);
+
+        const refreshedPromise = engine.forceRefreshCurrentConversation();
+        await vi.runAllTimersAsync();
+        const refreshed = await refreshedPromise;
+
+        expect(reconcile).toHaveBeenCalledTimes(1);
+        expect(refreshed?.rounds[0]?.assistantContent).toBe('Completed before Reader opens');
+
+        unregister();
+        const secondRefresh = engine.forceRefreshCurrentConversation();
+        await vi.runAllTimersAsync();
+        await secondRefresh;
+        expect(reconcile).toHaveBeenCalledTimes(1);
+    });
+
     it('keeps a verified live tail when the passive graph cache still returns its exact prefix', async () => {
         installBridgeResponder(() => ({ snapshot: makeSnapshot(1) }));
         const engine = new ChatGPTConversationEngine(createAdapter());
@@ -361,6 +473,149 @@ describe('ChatGPTConversationEngine', () => {
 
         expect(refreshed).toBe(live);
         expect(refreshed?.rounds).toHaveLength(2);
+    });
+
+    it('does not regress a completed canonical tail when the passive graph cache still returns it pending', async () => {
+        const pendingSnapshot = makeSnapshot(1);
+        pendingSnapshot.branchKey = 'round-1';
+        pendingSnapshot.rounds[0] = {
+            ...pendingSnapshot.rounds[0]!,
+            assistantContent: '',
+            messageId: 'u1',
+            assistantMessageId: null,
+        };
+        installBridgeResponder(() => ({ snapshot: pendingSnapshot }));
+        const engine = new ChatGPTConversationEngine(createAdapter());
+        const initialPromise = engine.getSnapshot();
+        await vi.runAllTimersAsync();
+        await initialPromise;
+        const live = engine.applyLiveDomTail('round-1', [{
+            id: 'round-1',
+            position: 1,
+            userPrompt: 'Question 1',
+            assistantContent: 'Completed answer 1',
+            preview: 'Question 1',
+            messageId: 'a1',
+            userMessageId: 'u1',
+            assistantMessageId: 'a1',
+        }]);
+
+        const refreshedPromise = engine.forceRefreshCurrentConversation();
+        await vi.runAllTimersAsync();
+        const refreshed = await refreshedPromise;
+
+        expect(refreshed).toBe(live);
+        expect(refreshed?.rounds[0]).toMatchObject({
+            assistantContent: 'Completed answer 1',
+            messageId: 'a1',
+            assistantMessageId: 'a1',
+        });
+    });
+
+    it('merges a completed live tail into a newer empty graph node on the same typed identity', async () => {
+        const pendingSnapshot = makeSnapshot(1);
+        pendingSnapshot.branchKey = 'round-1';
+        pendingSnapshot.rounds[0] = {
+            ...pendingSnapshot.rounds[0]!,
+            assistantContent: '',
+            messageId: 'u1',
+            assistantMessageId: null,
+        };
+        let requestCount = 0;
+        installBridgeResponder(() => {
+            requestCount += 1;
+            if (requestCount === 1) return { snapshot: pendingSnapshot };
+            return {
+                snapshot: {
+                    ...pendingSnapshot,
+                    branchKey: 'assistant-node-1',
+                    capturedAt: 2,
+                    rounds: [{
+                        ...pendingSnapshot.rounds[0]!,
+                        messageId: 'a1',
+                        assistantMessageId: 'a1',
+                    }],
+                },
+            };
+        });
+        const engine = new ChatGPTConversationEngine(createAdapter());
+        const initialPromise = engine.getSnapshot();
+        await vi.runAllTimersAsync();
+        await initialPromise;
+        engine.applyLiveDomTail('round-1', [{
+            id: 'round-1',
+            position: 1,
+            userPrompt: 'Question 1',
+            assistantContent: 'Completed answer 1',
+            preview: 'Question 1',
+            messageId: 'a1',
+            userMessageId: 'u1',
+            assistantMessageId: 'a1',
+        }]);
+
+        const refreshedPromise = engine.forceRefreshCurrentConversation();
+        await vi.runAllTimersAsync();
+        const refreshed = await refreshedPromise;
+
+        expect(refreshed?.branchKey).toBe('assistant-node-1');
+        expect(refreshed?.rounds[0]).toMatchObject({
+            assistantContent: 'Completed answer 1',
+            assistantMessageId: 'a1',
+        });
+    });
+
+    it('accepts a conflicting completed graph assistant as a real branch replacement', async () => {
+        const pendingSnapshot = makeSnapshot(1);
+        pendingSnapshot.branchKey = 'round-1';
+        pendingSnapshot.rounds[0] = {
+            ...pendingSnapshot.rounds[0]!,
+            assistantContent: '',
+            messageId: 'u1',
+            assistantMessageId: null,
+        };
+        let requestCount = 0;
+        installBridgeResponder(() => {
+            requestCount += 1;
+            if (requestCount === 1) return { snapshot: pendingSnapshot };
+            return {
+                snapshot: {
+                    ...pendingSnapshot,
+                    branchKey: 'assistant-branch-b',
+                    capturedAt: 2,
+                    rounds: [{
+                        ...pendingSnapshot.rounds[0]!,
+                        assistantContent: 'Regenerated branch answer',
+                        messageId: 'b1',
+                        assistantMessageId: 'b1',
+                    }],
+                },
+            };
+        });
+        const engine = new ChatGPTConversationEngine(createAdapter());
+        const initialPromise = engine.getSnapshot();
+        await vi.runAllTimersAsync();
+        await initialPromise;
+        engine.applyLiveDomTail('round-1', [{
+            id: 'round-1',
+            position: 1,
+            userPrompt: 'Question 1',
+            assistantContent: 'Old live answer',
+            preview: 'Question 1',
+            messageId: 'a1',
+            userMessageId: 'u1',
+            assistantMessageId: 'a1',
+        }]);
+
+        const refreshedPromise = engine.forceRefreshCurrentConversation();
+        await vi.runAllTimersAsync();
+        const refreshed = await refreshedPromise;
+
+        expect(refreshed?.branchKey).toBe('assistant-branch-b');
+        expect(refreshed?.rounds[0]).toMatchObject({
+            assistantContent: 'Regenerated branch answer',
+            messageId: 'b1',
+            assistantMessageId: 'b1',
+        });
     });
 
     it('starts a distinct forced request when a non-forced snapshot request is already in flight', async () => {

@@ -13,7 +13,7 @@ import { copyMarkdownFromMessage } from '../copy/copy-markdown';
 
 type ChatGPTLiveDomContentEngine = Pick<
     ChatGPTConversationEngine,
-    'applyLiveDomTail' | 'peekCurrentSnapshot' | 'subscribe'
+    'applyLiveDomTail' | 'peekCurrentSnapshot' | 'registerLiveDomReconciler' | 'subscribe'
 >;
 
 const REFRESH_DEBOUNCE_MS = 120;
@@ -36,6 +36,20 @@ function roundMatchesSnapshot(
     snapshotRound: ChatGPTConversationRound,
 ): boolean {
     const identity = domRound.identity;
+    if (
+        identity.userMessageId
+        && snapshotRound.userMessageId
+        && identity.userMessageId !== snapshotRound.userMessageId
+    ) {
+        return false;
+    }
+    if (
+        identity.assistantMessageId
+        && snapshotRound.assistantMessageId
+        && identity.assistantMessageId !== snapshotRound.assistantMessageId
+    ) {
+        return false;
+    }
     return Boolean(
         (identity.roundId && identity.roundId === snapshotRound.id)
         || (identity.userMessageId && identity.userMessageId === snapshotRound.userMessageId)
@@ -98,6 +112,35 @@ function buildLiveRound(
     };
 }
 
+function buildCanonicalTailCompletion(
+    adapter: SiteAdapter,
+    domRound: ChatGPTDomRoundRef,
+    snapshotRound: ChatGPTConversationRound,
+): ChatGPTConversationRound | null {
+    if (snapshotRound.assistantContent.trim()) return null;
+    const liveRound = buildLiveRound(adapter, domRound, snapshotRound.position);
+    if (!liveRound) return null;
+    if (
+        snapshotRound.userMessageId
+        && liveRound.userMessageId !== snapshotRound.userMessageId
+    ) {
+        return null;
+    }
+    if (
+        snapshotRound.assistantMessageId
+        && liveRound.assistantMessageId !== snapshotRound.assistantMessageId
+    ) {
+        return null;
+    }
+    return {
+        ...liveRound,
+        id: snapshotRound.id,
+        userPrompt: snapshotRound.userPrompt,
+        preview: snapshotRound.preview,
+        userMessageId: snapshotRound.userMessageId ?? liveRound.userMessageId,
+    };
+}
+
 export function collectChatGPTLiveDomTail(
     adapter: SiteAdapter,
     snapshot: ChatGPTConversationSnapshot,
@@ -116,12 +159,21 @@ export function collectChatGPTLiveDomTail(
     if (
         lastKnownDomIndex < 0
         || lastKnownSnapshotIndex !== snapshot.rounds.length - 1
-        || lastKnownDomIndex === domRounds.length - 1
     ) {
         return [];
     }
 
     const tail: ChatGPTConversationRound[] = [];
+    const snapshotTail = snapshot.rounds[lastKnownSnapshotIndex];
+    const mountedSnapshotTail = domRounds[lastKnownDomIndex];
+    if (snapshotTail && mountedSnapshotTail) {
+        const completion = buildCanonicalTailCompletion(
+            adapter,
+            mountedSnapshotTail,
+            snapshotTail,
+        );
+        if (completion) tail.push(completion);
+    }
     for (const [tailIndex, domRound] of domRounds.slice(lastKnownDomIndex + 1).entries()) {
         if (findUniqueSnapshotRoundIndex(domRound, snapshot) >= 0) return [];
         const liveRound = buildLiveRound(
@@ -129,7 +181,7 @@ export function collectChatGPTLiveDomTail(
             domRound,
             snapshot.rounds.length + tailIndex + 1,
         );
-        if (!liveRound) return [];
+        if (!liveRound) break;
         tail.push(liveRound);
     }
     return tail;
@@ -137,8 +189,10 @@ export function collectChatGPTLiveDomTail(
 
 export class ChatGPTLiveDomContent {
     private refreshTimer: number | null = null;
+    private refreshPending = true;
     private unsubscribeDomMutations: (() => void) | null = null;
     private unsubscribeSnapshot: (() => void) | null = null;
+    private unregisterLiveDomReconciler: (() => void) | null = null;
 
     constructor(
         private readonly adapter: SiteAdapter,
@@ -147,6 +201,7 @@ export class ChatGPTLiveDomContent {
 
     init(): void {
         if (this.unsubscribeDomMutations || this.adapter.getPlatformId() !== 'chatgpt') return;
+        this.refreshPending = true;
         this.unsubscribeDomMutations = subscribeChatGPTDomMutations(
             this.adapter,
             () => this.scheduleRefresh(),
@@ -154,6 +209,9 @@ export class ChatGPTLiveDomContent {
         this.unsubscribeSnapshot = this.engine.subscribe(
             () => this.scheduleRefresh(),
             { live: false },
+        );
+        this.unregisterLiveDomReconciler = this.engine.registerLiveDomReconciler(
+            () => this.reconcileImmediately(),
         );
         this.scheduleRefresh();
     }
@@ -163,13 +221,17 @@ export class ChatGPTLiveDomContent {
         this.unsubscribeDomMutations = null;
         this.unsubscribeSnapshot?.();
         this.unsubscribeSnapshot = null;
+        this.unregisterLiveDomReconciler?.();
+        this.unregisterLiveDomReconciler = null;
         if (this.refreshTimer !== null) {
             window.clearTimeout(this.refreshTimer);
             this.refreshTimer = null;
         }
+        this.refreshPending = false;
     }
 
     private scheduleRefresh(): void {
+        this.refreshPending = true;
         if (this.refreshTimer !== null) window.clearTimeout(this.refreshTimer);
         this.refreshTimer = window.setTimeout(() => {
             this.refreshTimer = null;
@@ -177,11 +239,27 @@ export class ChatGPTLiveDomContent {
         }, REFRESH_DEBOUNCE_MS);
     }
 
-    private refresh(): void {
+    private reconcileImmediately(): ChatGPTConversationSnapshot | null {
+        if (this.refreshTimer !== null) {
+            window.clearTimeout(this.refreshTimer);
+            this.refreshTimer = null;
+        }
+        return this.refresh();
+    }
+
+    private refresh(): ChatGPTConversationSnapshot | null {
         const snapshot = this.engine.peekCurrentSnapshot();
-        if (!snapshot?.rounds.length) return;
+        if (!snapshot?.rounds.length) return snapshot;
+        if (!this.refreshPending) return snapshot;
+        this.refreshPending = false;
         const tail = collectChatGPTLiveDomTail(this.adapter, snapshot);
-        if (tail.length === 0) return;
-        this.engine.applyLiveDomTail(snapshot.branchKey, tail);
+        if (tail.length === 0) return snapshot;
+        const reconciled = this.engine.applyLiveDomTail(snapshot.branchKey, tail);
+        this.refreshPending = false;
+        if (this.refreshTimer !== null) {
+            window.clearTimeout(this.refreshTimer);
+            this.refreshTimer = null;
+        }
+        return reconciled;
     }
 }

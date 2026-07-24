@@ -233,13 +233,22 @@ const atomicSelectionCtor = vi.fn(function () {
     };
 });
 const engineInit = vi.fn();
+const engineDispose = vi.fn();
 const engineSubscribe = vi.fn();
 const engineGetSnapshot = vi.fn(async () => null);
+const enginePeekCurrentSnapshot = vi.fn(() => null);
+const engineApplyLiveDomTail = vi.fn(() => null);
+const engineUnregisterLiveDomReconciler = vi.fn();
+const engineRegisterLiveDomReconciler = vi.fn(() => engineUnregisterLiveDomReconciler);
 const engineCtor = vi.fn(function () {
     return {
         init: engineInit,
+        dispose: engineDispose,
         subscribe: engineSubscribe,
         getSnapshot: engineGetSnapshot,
+        peekCurrentSnapshot: enginePeekCurrentSnapshot,
+        applyLiveDomTail: engineApplyLiveDomTail,
+        registerLiveDomReconciler: engineRegisterLiveDomReconciler,
     };
 });
 const conversationIndexBindSnapshotSource = vi.fn();
@@ -655,6 +664,7 @@ describe('content runtime entry', () => {
         expect(conversationIndexBindSnapshotSource.mock.invocationCallOrder[0]).toBeLessThan(
             directoryInit.mock.invocationCallOrder[0]!,
         );
+        expect(engineRegisterLiveDomReconciler).toHaveBeenCalledTimes(1);
     });
 
     it('does not bind the canonical conversation index while ChatGPT runtime starts disabled', async () => {
@@ -1128,6 +1138,8 @@ describe('content runtime entry', () => {
         expect(directoryCtor).toHaveBeenCalledTimes(1);
         expect(directoryDispose).toHaveBeenCalledTimes(1);
         expect(officialNavigationDispose).toHaveBeenCalledTimes(1);
+        expect(engineUnregisterLiveDomReconciler).toHaveBeenCalledTimes(1);
+        expect(engineDispose).toHaveBeenCalledTimes(1);
         expect(mathClickDisable).toHaveBeenCalledTimes(1);
         expect(mathClickSetFormulaSettings).toHaveBeenLastCalledWith({
             clickCopyMarkdown: false,

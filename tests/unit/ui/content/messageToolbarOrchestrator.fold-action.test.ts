@@ -404,6 +404,93 @@ describe('MessageToolbarOrchestrator ChatGPT reader path', () => {
         }
     });
 
+    it('injects a working toolbar for a mounted assistant whose preceding user host slot is virtualized', async () => {
+        window.history.replaceState({}, '', '/c/conv-1');
+        document.body.innerHTML = `
+          <main>
+            <div id="turn-slots">
+              <div data-turn-id-container="virtualized-user-slot"></div>
+              <div data-turn-id-container="assistant-slot">
+                <section data-turn="assistant" data-turn-id="assistant-turn-7">
+                  <div data-message-author-role="assistant" data-message-id="assistant-7">
+                    <div class="markdown prose">Visible DOM answer</div>
+                  </div>
+                  <div class="z-0 flex">
+                    <div><button data-testid="copy-turn-action-button">copy</button></div>
+                  </div>
+                </section>
+              </div>
+            </div>
+          </main>
+        `;
+        const snapshot = {
+            conversationId: 'conv-1',
+            buildFingerprint: 'build-1',
+            source: 'runtime-bridge' as const,
+            origin: 'conversation-graph' as const,
+            coverage: 'complete' as const,
+            branchKey: 'assistant-turn-7',
+            capturedAt: Date.now(),
+            rounds: [{
+                id: 'user-turn-7',
+                position: 7,
+                userPrompt: 'Canonical question 7',
+                assistantContent: 'Canonical complete answer seven',
+                preview: 'Canonical question 7',
+                messageId: 'assistant-7',
+                userMessageId: 'user-7',
+                assistantMessageId: 'assistant-7',
+            }],
+        };
+        let shownItems: any[] = [];
+        const readerPanel = {
+            show: vi.fn(async (items: any[]) => {
+                shownItems = items;
+            }),
+        } as any;
+        const chatGptConversationEngine = {
+            forceRefreshCurrentConversation: vi.fn(async () => snapshot),
+        } as any;
+        const adapter = new ChatGPTAdapter();
+        const orchestrator = new MessageToolbarOrchestrator(adapter, {
+            readerPanel,
+            chatGptConversationEngine,
+        }) as any;
+
+        try {
+            orchestrator.scanAndInject(new Set(['manual']));
+
+            const toolbarHost = document.querySelector<HTMLElement>('[data-aimd-role="message-toolbar"]');
+            expect(toolbarHost).toBeInstanceOf(HTMLElement);
+            await vi.waitFor(() => {
+                const statsText = toolbarHost?.shadowRoot
+                    ?.querySelector<HTMLElement>('[data-role="stats"]')
+                    ?.textContent
+                    ?.trim();
+                expect(statsText).toBeTruthy();
+                expect(statsText).not.toBe('—');
+            });
+
+            toolbarHost?.shadowRoot
+                ?.querySelector<HTMLButtonElement>('[data-action="reader"]')
+                ?.click();
+            await vi.waitFor(() => expect(readerPanel.show).toHaveBeenCalledTimes(1));
+
+            expect(shownItems).toHaveLength(1);
+            expect(shownItems[0]).toMatchObject({
+                userPrompt: 'Canonical question 7',
+                meta: {
+                    position: 7,
+                    assistantMessageId: 'assistant-7',
+                },
+            });
+            await expect(shownItems[0].content()).resolves.toBe('Canonical complete answer seven');
+        } finally {
+            orchestrator.dispose();
+            adapter.dispose();
+        }
+    });
+
     it('adds the shared Reader refresh action to the in-page Reader and refreshes through the Reader source', async () => {
         document.body.innerHTML = `
           <div id="thread">

@@ -38,6 +38,8 @@ type SnapshotSubscriptionOptions = {
     live?: boolean;
 };
 
+type LiveDomReconciler = () => ChatGPTConversationSnapshot | null;
+
 export class ChatGPTConversationEngine {
     private adapter: SiteAdapter;
     private initialized = false;
@@ -48,10 +50,7 @@ export class ChatGPTConversationEngine {
     private staleConversationIds = new Set<string>();
     private staleRevisionByConversation = new Map<string, number>();
     private snapshotByConversation = new Map<string, ChatGPTConversationSnapshot>();
-    private liveDomTailBaseByConversation = new Map<string, {
-        branchKey: string;
-        roundCount: number;
-    }>();
+    private liveDomTailBaseByConversation = new Map<string, ChatGPTConversationSnapshot>();
     private inFlightByConversation = new Map<string, {
         promise: Promise<ChatGPTConversationSnapshot | null>;
         staleRevision: number;
@@ -59,6 +58,7 @@ export class ChatGPTConversationEngine {
     private requestGenerationByConversation = new Map<string, number>();
     private appliedGenerationByConversation = new Map<string, number>();
     private subscribers = new Set<(snapshot: ChatGPTConversationSnapshot | null) => void>();
+    private liveDomReconciler: LiveDomReconciler | null = null;
     private liveRefreshTimer: number | null = null;
     private waitingForVisibleRebuild = false;
     private readonly handleVisibilityChange = () => {
@@ -120,6 +120,7 @@ export class ChatGPTConversationEngine {
         this.stopWaitingForVisibleRebuild();
         this.stopLiveRefresh();
         window.removeEventListener(CAPTURE_EVENT, this.handleBridgeCapture as EventListener);
+        this.liveDomReconciler = null;
         this.initialized = false;
     }
 
@@ -146,9 +147,24 @@ export class ChatGPTConversationEngine {
         return this.refreshCurrentConversation({ force: false });
     }
 
-    forceRefreshCurrentConversation(): Promise<ChatGPTConversationSnapshot | null> {
+    async forceRefreshCurrentConversation(): Promise<ChatGPTConversationSnapshot | null> {
         this.markCurrentConversationStale();
-        return this.rebuildCurrentConversation();
+        const refreshed = await this.rebuildCurrentConversation();
+        if (!this.liveDomReconciler) return refreshed;
+        try {
+            return this.liveDomReconciler() ?? refreshed;
+        } catch {
+            return refreshed;
+        }
+    }
+
+    registerLiveDomReconciler(reconciler: LiveDomReconciler): () => void {
+        this.liveDomReconciler = reconciler;
+        return () => {
+            if (this.liveDomReconciler === reconciler) {
+                this.liveDomReconciler = null;
+            }
+        };
     }
 
     applyLiveDomTail(
@@ -160,15 +176,43 @@ export class ChatGPTConversationEngine {
         const previous = this.snapshotByConversation.get(conversationId) ?? null;
         if (!previous || previous.branchKey !== expectedBranchKey) return previous;
 
-        const existingRoundIds = new Set(previous.rounds.map((round) => round.id));
-        const existingUserMessageIds = new Set(previous.rounds.map((round) => round.userMessageId).filter(Boolean));
-        const existingAssistantMessageIds = new Set(previous.rounds.flatMap((round) => [
+        const nextRounds = [...previous.rounds];
+        const firstCandidate = rounds[0];
+        const previousTail = previous.rounds[previous.rounds.length - 1];
+        if (
+            firstCandidate
+            && previousTail
+            && firstCandidate.position === previousTail.position
+        ) {
+            const completion = completePendingRound(previousTail, firstCandidate);
+            if (!completion) return previous;
+            const earlierRounds = previous.rounds.slice(0, -1);
+            if (
+                earlierRounds.some((round) => round.id === completion.id)
+                || earlierRounds.some((round) => (
+                    completion.userMessageId !== null
+                    && round.userMessageId === completion.userMessageId
+                ))
+                || earlierRounds.some((round) => (
+                    round.messageId === completion.assistantMessageId
+                    || round.assistantMessageId === completion.assistantMessageId
+                ))
+            ) {
+                return previous;
+            }
+            nextRounds[nextRounds.length - 1] = completion;
+            rounds = rounds.slice(1);
+        }
+
+        const existingRoundIds = new Set(nextRounds.map((round) => round.id));
+        const existingUserMessageIds = new Set(nextRounds.map((round) => round.userMessageId).filter(Boolean));
+        const existingAssistantMessageIds = new Set(nextRounds.flatMap((round) => [
             round.messageId,
             round.assistantMessageId,
         ]).filter(Boolean));
         const accepted: ChatGPTConversationRound[] = [];
         for (const round of rounds) {
-            const expectedPosition = previous.rounds.length + accepted.length + 1;
+            const expectedPosition = nextRounds.length + accepted.length + 1;
             if (
                 !isNonEmptyIdentity(round.id)
                 || round.position !== expectedPosition
@@ -192,19 +236,19 @@ export class ChatGPTConversationEngine {
             existingAssistantMessageIds.add(round.assistantMessageId);
             accepted.push(round);
         }
-        if (accepted.length === 0) return previous;
+        const completedPendingTail = nextRounds[nextRounds.length - 1] !== previousTail;
+        if (!completedPendingTail && accepted.length === 0) return previous;
 
         if (!this.liveDomTailBaseByConversation.has(conversationId)) {
-            this.liveDomTailBaseByConversation.set(conversationId, {
-                branchKey: previous.branchKey,
-                roundCount: previous.rounds.length,
-            });
+            this.liveDomTailBaseByConversation.set(conversationId, previous);
         }
         const next: ChatGPTConversationSnapshot = {
             ...previous,
-            branchKey: accepted[accepted.length - 1]?.assistantMessageId ?? previous.branchKey,
+            branchKey: accepted[accepted.length - 1]?.assistantMessageId
+                ?? nextRounds[nextRounds.length - 1]?.assistantMessageId
+                ?? previous.branchKey,
             capturedAt: Date.now(),
-            rounds: [...previous.rounds, ...accepted],
+            rounds: [...nextRounds, ...accepted],
         };
         this.snapshotByConversation.set(conversationId, next);
         this.subscribers.forEach((listener) => listener(next));
@@ -275,17 +319,16 @@ export class ChatGPTConversationEngine {
             if (generation < appliedGeneration) {
                 return this.snapshotByConversation.get(conversationId) ?? snapshot;
             }
-            const liveBase = this.liveDomTailBaseByConversation.get(conversationId);
-            const preservesLiveTail = Boolean(
-                previous
-                && liveBase
-                && snapshot.branchKey === liveBase.branchKey
-                && snapshot.rounds.length === liveBase.roundCount
-                && previous.rounds.length > snapshot.rounds.length
-                && isExactRoundPrefix(snapshot.rounds, previous.rounds),
-            );
-            const nextSnapshot = preservesLiveTail && previous ? previous : snapshot;
-            if (!preservesLiveTail) this.liveDomTailBaseByConversation.delete(conversationId);
+            const liveBase = this.liveDomTailBaseByConversation.get(conversationId) ?? null;
+            const liveMerge = previous && liveBase
+                ? mergeIncomingGraphWithLiveDom(previous, snapshot, liveBase)
+                : { snapshot, preservesLiveDom: false };
+            const nextSnapshot = liveMerge.snapshot;
+            if (liveMerge.preservesLiveDom) {
+                this.liveDomTailBaseByConversation.set(conversationId, snapshot);
+            } else {
+                this.liveDomTailBaseByConversation.delete(conversationId);
+            }
             this.snapshotByConversation.set(conversationId, nextSnapshot);
             this.appliedGenerationByConversation.set(conversationId, generation);
             if (requestedStaleRevision === latestStaleRevision) {
@@ -445,6 +488,43 @@ export class ChatGPTConversationEngine {
     }
 }
 
+function completePendingRound(
+    pending: ChatGPTConversationRound,
+    completed: ChatGPTConversationRound,
+): ChatGPTConversationRound | null {
+    if (
+        pending.assistantContent.trim()
+        || completed.id !== pending.id
+        || completed.position !== pending.position
+        || typeof completed.userPrompt !== 'string'
+        || typeof completed.assistantContent !== 'string'
+        || !completed.assistantContent.trim()
+        || typeof completed.preview !== 'string'
+        || !isNullableIdentity(completed.messageId)
+        || !isNullableIdentity(completed.userMessageId)
+        || !isNullableIdentity(completed.assistantMessageId)
+        || !completed.assistantMessageId
+        || completed.messageId !== completed.assistantMessageId
+        || (
+            pending.userMessageId !== null
+            && completed.userMessageId !== pending.userMessageId
+        )
+        || (
+            pending.assistantMessageId !== null
+            && completed.assistantMessageId !== pending.assistantMessageId
+        )
+    ) {
+        return null;
+    }
+    return {
+        ...pending,
+        assistantContent: completed.assistantContent,
+        messageId: completed.messageId,
+        userMessageId: pending.userMessageId ?? completed.userMessageId,
+        assistantMessageId: completed.assistantMessageId,
+    };
+}
+
 function isVerifiedGraphSnapshot(
     snapshot: ChatGPTConversationSnapshotCandidate | null,
     conversationId: string
@@ -526,21 +606,102 @@ function areSnapshotsEquivalent(
     return true;
 }
 
-function isExactRoundPrefix(
+function mergeIncomingGraphWithLiveDom(
+    previous: ChatGPTConversationSnapshot,
+    incoming: ChatGPTConversationSnapshot,
+    liveBase: ChatGPTConversationSnapshot,
+): { snapshot: ChatGPTConversationSnapshot; preservesLiveDom: boolean } {
+    if (areSnapshotsEquivalent(liveBase, incoming)) {
+        return { snapshot: previous, preservesLiveDom: true };
+    }
+    if (
+        incoming.rounds.length < liveBase.rounds.length
+        || !isRoundLineagePrefix(liveBase.rounds, incoming.rounds)
+    ) {
+        return { snapshot: incoming, preservesLiveDom: false };
+    }
+
+    const overlapCount = Math.min(previous.rounds.length, incoming.rounds.length);
+    for (let index = 0; index < overlapCount; index += 1) {
+        if (!roundsShareLineage(previous.rounds[index]!, incoming.rounds[index]!)) {
+            return { snapshot: incoming, preservesLiveDom: false };
+        }
+    }
+
+    let preservesLiveDom = false;
+    const mergedRounds = incoming.rounds.map((round, index) => {
+        const liveRound = previous.rounds[index];
+        if (
+            !liveRound
+            || !liveRound.assistantContent.trim()
+            || round.assistantContent.trim()
+        ) {
+            return round;
+        }
+        preservesLiveDom = true;
+        return {
+            ...round,
+            assistantContent: liveRound.assistantContent,
+            messageId: liveRound.messageId,
+            assistantMessageId: liveRound.assistantMessageId,
+        };
+    });
+
+    const hasPreservedTail = incoming.rounds.length < previous.rounds.length
+        && isRoundLineagePrefix(incoming.rounds, previous.rounds);
+    if (hasPreservedTail) {
+        mergedRounds.push(...previous.rounds.slice(incoming.rounds.length));
+        preservesLiveDom = true;
+    }
+    if (!preservesLiveDom) {
+        return { snapshot: incoming, preservesLiveDom: false };
+    }
+
+    return {
+        snapshot: {
+            ...incoming,
+            branchKey: hasPreservedTail ? previous.branchKey : incoming.branchKey,
+            rounds: mergedRounds,
+        },
+        preservesLiveDom: true,
+    };
+}
+
+function isRoundLineagePrefix(
     prefix: ChatGPTConversationRound[],
     rounds: ChatGPTConversationRound[],
 ): boolean {
     if (prefix.length > rounds.length) return false;
     return prefix.every((round, index) => {
         const candidate = rounds[index];
-        return Boolean(candidate)
-            && round.id === candidate.id
-            && round.position === candidate.position
-            && round.userPrompt === candidate.userPrompt
-            && round.assistantContent === candidate.assistantContent
-            && round.preview === candidate.preview
-            && round.messageId === candidate.messageId
-            && round.userMessageId === candidate.userMessageId
-            && round.assistantMessageId === candidate.assistantMessageId;
+        return Boolean(candidate) && roundsShareLineage(round, candidate);
     });
+}
+
+function roundsShareLineage(
+    left: ChatGPTConversationRound,
+    right: ChatGPTConversationRound,
+): boolean {
+    if (
+        left.userMessageId
+        && right.userMessageId
+        && left.userMessageId !== right.userMessageId
+    ) {
+        return false;
+    }
+    if (
+        left.assistantMessageId
+        && right.assistantMessageId
+        && left.assistantMessageId !== right.assistantMessageId
+    ) {
+        return false;
+    }
+    return Boolean(
+        (left.userMessageId && left.userMessageId === right.userMessageId)
+        || (
+            left.assistantMessageId
+            && left.assistantMessageId === right.assistantMessageId
+        )
+        || left.id === right.id
+    );
 }
