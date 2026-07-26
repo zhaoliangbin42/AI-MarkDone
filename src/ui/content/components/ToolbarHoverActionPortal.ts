@@ -19,11 +19,14 @@ export type ToolbarHoverPortalAction = {
     tooltip?: string;
     icon?: string;
     showLabel?: boolean;
+    disabled?: boolean;
+    busy?: boolean;
     onClick: () => void;
 };
 
 export type ToolbarHoverActionPortalParams = {
-    anchorEl: HTMLElement;
+    anchorEl?: HTMLElement;
+    anchorRect?: DOMRect;
     id?: string;
     label?: string;
     tooltip?: string;
@@ -43,12 +46,14 @@ export class ToolbarHoverActionPortal {
     private bridge: HTMLElement;
     private actionsRoot: HTMLElement;
     private currentAnchor: HTMLElement | null = null;
+    private currentAnchorRect: DOMRect | null = null;
     private onPointerEnter: (() => void) | null = null;
     private onPointerLeave: (() => void) | null = null;
     private onRequestClose: (() => void) | null = null;
     private onDocPointerDown: ((event: Event) => void) | null = null;
     private onWindowResize: (() => void) | null = null;
     private onWindowScroll: (() => void) | null = null;
+    private onWindowKeyDown: ((event: Event) => void) | null = null;
     private positionFrame: number | null = null;
     private appearance: AppearanceSnapshot;
     private readonly appearanceScope: AppearanceScope;
@@ -100,7 +105,9 @@ export class ToolbarHoverActionPortal {
     }
 
     open(params: ToolbarHoverActionPortalParams): void {
-        this.currentAnchor = params.anchorEl;
+        if (!params.anchorEl && !params.anchorRect) return;
+        this.currentAnchor = params.anchorEl ?? null;
+        this.currentAnchorRect = params.anchorRect ?? null;
         this.onPointerEnter = params.onPointerEnter ?? null;
         this.onPointerLeave = params.onPointerLeave ?? null;
         this.onRequestClose = params.onRequestClose ?? null;
@@ -120,7 +127,7 @@ export class ToolbarHoverActionPortal {
             document.body.appendChild(this.host);
         }
 
-        this.positionToAnchor(params.anchorEl);
+        this.positionToAnchor(params.anchorRect ?? params.anchorEl!.getBoundingClientRect());
         this.host.dataset.open = '1';
         this.scheduleReposition();
         this.installGlobalHandlers();
@@ -131,6 +138,7 @@ export class ToolbarHoverActionPortal {
         this.tooltipDelegate.hide();
         this.host.dataset.open = '0';
         this.currentAnchor = null;
+        this.currentAnchorRect = null;
         this.onPointerEnter = null;
         this.onPointerLeave = null;
         this.onRequestClose = null;
@@ -145,8 +153,7 @@ export class ToolbarHoverActionPortal {
         this.appearanceScope.dispose();
     }
 
-    private positionToAnchor(anchorEl: HTMLElement): void {
-        const rect = anchorEl.getBoundingClientRect();
+    private positionToAnchor(rect: DOMRect): void {
         const actionRect = this.actionsRoot.getBoundingClientRect();
         const viewportWidth = window.innerWidth || document.documentElement.clientWidth || 1024;
         const margin = VIEWPORT_GUTTER_PX;
@@ -169,8 +176,8 @@ export class ToolbarHoverActionPortal {
         this.cancelReposition();
         this.positionFrame = window.requestAnimationFrame(() => {
             this.positionFrame = null;
-            if (!this.currentAnchor || !this.host.isConnected) return;
-            this.positionToAnchor(this.currentAnchor);
+            if ((!this.currentAnchor && !this.currentAnchorRect) || !this.host.isConnected) return;
+            this.positionToAnchor(this.currentAnchorRect ?? this.currentAnchor!.getBoundingClientRect());
         });
     }
 
@@ -197,6 +204,8 @@ export class ToolbarHoverActionPortal {
             button.dataset.action = action.id;
             button.dataset.tooltip = action.tooltip || action.label;
             button.setAttribute('aria-label', action.label);
+            button.disabled = Boolean(action.disabled);
+            if (action.busy) button.setAttribute('aria-busy', 'true');
             const visibleLabel = action.displayLabel ?? action.label;
             if (action.icon && action.showLabel) {
                 const label = document.createElement('span');
@@ -209,6 +218,7 @@ export class ToolbarHoverActionPortal {
                 button.textContent = visibleLabel;
             }
             button.addEventListener('click', (event) => {
+                if (button.disabled) return;
                 event.preventDefault();
                 event.stopPropagation();
                 action.onClick();
@@ -235,9 +245,13 @@ export class ToolbarHoverActionPortal {
         };
         this.onWindowResize = () => this.onRequestClose?.();
         this.onWindowScroll = () => this.onRequestClose?.();
+        this.onWindowKeyDown = (event: Event) => {
+            if (event instanceof KeyboardEvent && event.key === 'Escape') this.onRequestClose?.();
+        };
         document.addEventListener('pointerdown', this.onDocPointerDown, true);
         window.addEventListener('resize', this.onWindowResize, true);
         window.addEventListener('scroll', this.onWindowScroll, true);
+        window.addEventListener('keydown', this.onWindowKeyDown, true);
     }
 
     private removeGlobalHandlers(): void {
@@ -252,6 +266,10 @@ export class ToolbarHoverActionPortal {
         if (this.onWindowScroll) {
             window.removeEventListener('scroll', this.onWindowScroll, true);
             this.onWindowScroll = null;
+        }
+        if (this.onWindowKeyDown) {
+            window.removeEventListener('keydown', this.onWindowKeyDown, true);
+            this.onWindowKeyDown = null;
         }
     }
 
@@ -346,6 +364,11 @@ export class ToolbarHoverActionPortal {
 
 .toolbar-hover-action:hover {
   border-color: color-mix(in srgb, var(--aimd-border-strong) 72%, var(--aimd-interactive-primary) 20%);
+}
+
+.toolbar-hover-action:disabled {
+  opacity: 0.62;
+  cursor: wait;
 }
 
 .toolbar-hover-action:focus-visible {

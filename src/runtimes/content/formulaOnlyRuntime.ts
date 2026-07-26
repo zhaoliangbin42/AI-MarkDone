@@ -12,7 +12,7 @@ import { browser } from '../../drivers/shared/browser';
 import { resolveFormulaSettings, shouldEnableFormulaInteractions } from './formulaRuntimeSettings';
 import { getFormulaPlatformParserAdapter } from './formulaPlatformParsers';
 import type { MarkdownParserAdapter } from '../../drivers/content/adapters/parser/MarkdownParserAdapter';
-import { setReaderMarkdownCopyFormulaFormat } from '../../services/reader/readerMarkdownCopy';
+import { setCanonicalMarkdownCopyFormulaFormat } from '../../services/copy/canonicalMarkdownCopy';
 import {
     createLazyBookmarksPanel,
     createLazyReaderPanel,
@@ -270,7 +270,7 @@ export class FormulaOnlyRuntime {
         const platformEnabled = Boolean(settings?.platforms?.[this.profile.id] ?? DEFAULT_SETTINGS.platforms[this.profile.id]);
         const next = resolveFormulaSettings(settings?.formula);
         this.formulaController.setFormulaSettings(next);
-        setReaderMarkdownCopyFormulaFormat(next.markdownCopyFormulaFormat);
+        setCanonicalMarkdownCopyFormulaFormat(next.markdownCopyFormulaFormat);
         if (!platformEnabled || !shouldEnableFormulaInteractions(next)) {
             this.formulaController.disable();
             return;

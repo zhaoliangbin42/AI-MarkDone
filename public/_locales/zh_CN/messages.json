@@ -1072,11 +1072,11 @@
         "description": "Message for chatgptRestorePositionAfterSendDesc"
     },
     "chatgptAtomicMarkdownCopyLabel": {
-        "message": "将局部选区复制为 Markdown",
+        "message": "增强局部选区复制",
         "description": "Message for chatgptAtomicMarkdownCopyLabel"
     },
     "chatgptAtomicMarkdownCopyDesc": {
-        "message": "在 ChatGPT 中完整选中公式、代码块、表格、标题、列表项等支持的内容单元时，Ctrl/Cmd+C 会复制规范 Markdown；部分选区仍使用官网原生复制。",
+        "message": "在 ChatGPT 中完整选中支持的内容时，Ctrl/Cmd+C 复制规范 Markdown，选区旁可按设置中的公式格式复制基础富文本；部分选区仍使用官网原生复制。",
         "description": "Message for chatgptAtomicMarkdownCopyDesc"
     },
     "chatgptInputEnhancementLabel": {
@@ -1547,6 +1547,18 @@
         "message": "复制 Markdown",
         "description": "Message for copyMarkdown"
     },
+    "atomicCopyRich": {
+        "message": "带格式复制",
+        "description": "Label for rich copying a native page selection"
+    },
+    "atomicCopyRichTooltip": {
+        "message": "复制清洗后的基础样式 HTML，并使用设置中选择的公式源码格式",
+        "description": "Tooltip for a ready rich-copy selection action"
+    },
+    "atomicCopyRichWriteFailed": {
+        "message": "无法写入富文本与公式，且未改为复制 Markdown。",
+        "description": "Notice after a strict rich-copy clipboard write fails"
+    },
     "close": {
         "message": "关闭",
         "description": "Message for close"
@@ -1658,6 +1670,14 @@
     "formulaMarkdownCopyFormulaFormatDesc": {
         "message": "设置复制或保存整段 Markdown 源码时的公式包围格式。",
         "description": "Message for formulaMarkdownCopyFormulaFormatDesc"
+    },
+    "formulaRichCopyFormulaFormatLabel": {
+        "message": "带格式复制公式格式",
+        "description": "Label for the formula representation used by formatted selection copy"
+    },
+    "formulaRichCopyFormulaFormatDesc": {
+        "message": "设置“带格式复制”中公式使用的源码包围格式；不会影响 Markdown 复制或点击单个公式。",
+        "description": "Description for the formatted-copy formula representation setting"
     },
     "formulaSourceFormatMarkdownDollar": {
         "message": "$...$ / $$...$$",

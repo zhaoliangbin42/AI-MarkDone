@@ -24,6 +24,9 @@ export function withErrorBoundary<T>(fn: () => T, fallback: T, context: { node: 
     try {
         return fn();
     } catch (error) {
+        if (error instanceof ParserError && error.recoveryAction === 'abort') {
+            throw error;
+        }
         logger.error(`[AI-MarkDone][${context.handlerName}] Failed for node`, {
             nodeType: context.node.nodeType,
             nodeName: context.node.nodeName,
@@ -41,4 +44,3 @@ export function checkMaxDepth(depth: number, maxDepth: number = 100): void {
         });
     }
 }
-

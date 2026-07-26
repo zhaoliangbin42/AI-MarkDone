@@ -9,10 +9,38 @@ const LATEX_ATTRIBUTE_KEYS = [
 const looksLikeLatex = (value: string): boolean =>
     /\\[a-zA-Z]+/.test(value) || /\\[^\s]/.test(value) || /[_^]/.test(value);
 
+export function normalizeExtractedLatexSource(value: string): string {
+    let source = value.trim();
+    const wrappers = [
+        ['$$', '$$'],
+        ['\\[', '\\]'],
+        ['\\(', '\\)'],
+        ['$', '$'],
+    ] as const;
+
+    let changed = true;
+    while (changed) {
+        changed = false;
+        for (const [open, close] of wrappers) {
+            if (
+                source.length <= open.length + close.length
+                || !source.startsWith(open)
+                || !source.endsWith(close)
+            ) {
+                continue;
+            }
+            source = source.slice(open.length, -close.length).trim();
+            changed = true;
+            break;
+        }
+    }
+    return source;
+}
+
 const getAttributeLatex = (element: Element): string | null => {
     for (const key of LATEX_ATTRIBUTE_KEYS) {
         const value = element.getAttribute(key);
-        if (value && value.trim()) return value.trim();
+        if (value && value.trim()) return normalizeExtractedLatexSource(value);
     }
     return null;
 };
@@ -30,7 +58,7 @@ const getClosestAttributeLatex = (element: Element | null): string | null => {
 const getAnnotationLatex = (element: Element): string | null => {
     const annotation = element.querySelector('annotation[encoding="application/x-tex"]');
     const text = annotation?.textContent?.trim();
-    return text || null;
+    return text ? normalizeExtractedLatexSource(text) : null;
 };
 
 export function extractAuthoritativeLatexSource(element: Element | null): string | null {
@@ -46,8 +74,9 @@ const getKatexErrorLatex = (element: Element): string | null => {
 
     const text = errorElement.textContent?.trim() || '';
     if (!text) return null;
-    if (!looksLikeLatex(text)) return null;
-    return text;
+    const source = text.replace(/^ParseError:.*?:\s*/i, '').trim();
+    if (!looksLikeLatex(source)) return null;
+    return normalizeExtractedLatexSource(source);
 };
 
 const getAccessibleLatex = (element: Element): string | null => {
@@ -56,7 +85,7 @@ const getAccessibleLatex = (element: Element): string | null => {
         || null;
     if (!label) return null;
     if (!looksLikeLatex(label)) return null;
-    return label;
+    return normalizeExtractedLatexSource(label);
 };
 
 export function extractLatexSource(element: Element | null): string | null {

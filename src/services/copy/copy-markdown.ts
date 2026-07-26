@@ -64,21 +64,60 @@ function copyMarkdownFromElementInternal(
         const clone = root.cloneNode(true) as HTMLElement;
         adapter.normalizeDOM(clone);
         removeNoiseNodes(clone, adapter);
+        normalizeRenderedWhitespace(clone);
 
         if (adapter.shouldEnhanceUnrenderedMath()) {
             enhanceUnrenderedMath(clone);
         }
 
         const parser = createMarkdownParser(parserAdapter, { enablePerformanceLogging: false, ...options });
-        const markdown = adapter.cleanMarkdown(parser.parse(clone));
-        if (markdown.startsWith('<!-- Parser Max nodes') || markdown.startsWith('<!-- Parser Time budget')) {
+        const parsed = parser.parse(clone);
+        if (parsed.startsWith('<!-- Parser Max nodes') || parsed.startsWith('<!-- Parser Time budget')) {
             return { ok: false, error: { code: 'INTERNAL_ERROR', message: 'Markdown fragment budget exceeded.' } };
         }
+        const markdown = adapter.cleanMarkdown(parsed);
         return { ok: true, markdown };
     } catch (err) {
         logger.error('[AI-MarkDone][Copy] copyMarkdownFromMessage failed', err);
         return { ok: false, error: { code: 'INTERNAL_ERROR', message: 'Failed to build markdown.' } };
     }
+}
+
+function normalizeRenderedWhitespace(root: HTMLElement): void {
+    const walker = root.ownerDocument.createTreeWalker(root, NodeFilter.SHOW_TEXT);
+    const textNodes: Text[] = [];
+    let current: Node | null;
+    while ((current = walker.nextNode())) {
+        if (current instanceof Text) textNodes.push(current);
+    }
+
+    for (const textNode of textNodes) {
+        if (textNode.parentElement?.closest('pre, code, textarea, .katex, .katex-display, math')) continue;
+        const normalized = textNode.data.replace(/\u00a0/g, ' ');
+        if (!normalized.trim()) {
+            if (shouldPreserveCollapsedSpace(textNode)) {
+                textNode.data = ' ';
+            } else {
+                textNode.remove();
+            }
+            continue;
+        }
+        textNode.data = normalized.replace(/\s+/g, ' ');
+    }
+}
+
+function shouldPreserveCollapsedSpace(textNode: Text): boolean {
+    const parent = textNode.parentElement;
+    if (!parent) return false;
+    const previous = textNode.previousSibling;
+    const next = textNode.nextSibling;
+    if (!previous || !next) return false;
+    return !isBlockNode(previous) && !isBlockNode(next);
+}
+
+function isBlockNode(node: Node): boolean {
+    if (!(node instanceof HTMLElement)) return false;
+    return node.matches('address, article, aside, blockquote, div, dl, fieldset, figure, footer, form, h1, h2, h3, h4, h5, h6, header, hr, li, main, nav, ol, p, pre, section, table, ul');
 }
 
 export function copyMarkdownFromElement(

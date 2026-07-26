@@ -37,6 +37,7 @@ import {
     DEFAULT_FORMULA_SETTINGS,
     normalizeFormulaAssetFontSizePx,
     normalizeLegacyClickCopyFormulaFormat,
+    normalizeFormulaRichCopyFormat,
     type FormulaSettings,
 } from './formula';
 import { normalizeFormulaSourceFormat } from '../math/formulaSourceFormat';
@@ -79,6 +80,7 @@ export function normalizeFormulaSettings(formula: unknown, legacyBehavior?: unkn
         clickCopyMarkdown: Boolean((record as any).clickCopyMarkdown ?? fallbackClickCopyMarkdown),
         clickCopyFormulaFormat: normalizeLegacyClickCopyFormulaFormat(record),
         markdownCopyFormulaFormat: normalizeFormulaSourceFormat((record as any).markdownCopyFormulaFormat),
+        richCopyFormulaFormat: normalizeFormulaRichCopyFormat((record as any).richCopyFormulaFormat),
         assetActions: {
             copyPng: Boolean((assetActions as any).copyPng ?? DEFAULT_FORMULA_SETTINGS.assetActions.copyPng),
             copySvg: Boolean((assetActions as any).copySvg ?? DEFAULT_FORMULA_SETTINGS.assetActions.copySvg),

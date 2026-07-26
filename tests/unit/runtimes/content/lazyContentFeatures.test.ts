@@ -2,6 +2,7 @@ import { describe, expect, it, vi } from 'vitest';
 
 import {
     ContentFeatureModuleLoader,
+    createLazyBuildCanonicalMarkdownRichPayload,
     createLazyBookmarkSaveDialog,
     createLazyBookmarksPanel,
     createLazyCopyMessagePng,
@@ -13,6 +14,32 @@ import {
 import { createAppearanceSnapshot } from '@/style/appearance';
 
 describe('lazy content features', () => {
+    it('loads the canonical Markdown rich renderer only when formatted copy is requested', async () => {
+        const payload = {
+            html: '<p>answer</p>',
+            plainText: 'answer',
+        };
+        const buildCanonicalMarkdownRichPayload = vi.fn(async () => payload);
+        const importer = vi.fn(async () => ({
+            setContentFeatureLocale: vi.fn(async () => undefined),
+            buildCanonicalMarkdownRichPayload,
+        }));
+        const loader = new ContentFeatureModuleLoader(importer as any);
+        const buildRichPayload = createLazyBuildCanonicalMarkdownRichPayload(loader);
+        const params = {
+            canonicalMarkdown: 'answer',
+            plainText: 'answer',
+            formulaFormat: 'raw' as const,
+        };
+
+        expect(importer).not.toHaveBeenCalled();
+
+        await expect(buildRichPayload(params)).resolves.toEqual(payload);
+
+        expect(importer).toHaveBeenCalledTimes(1);
+        expect(buildCanonicalMarkdownRichPayload).toHaveBeenCalledWith(params);
+    });
+
     it('keeps Reader code unloaded until show and replays current configuration before rendering', async () => {
         const actualReader = {
             setAppearance: vi.fn(),

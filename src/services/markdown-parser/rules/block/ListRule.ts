@@ -11,18 +11,30 @@ export function createListRule(): Rule {
             const items = Array.from(listElem.children).filter((child) => child.tagName === 'LI');
             const level = getListLevel(listElem);
             const indent = '  '.repeat(level);
+            let orderedIndex = isOrdered
+                ? readIntegerAttribute(listElem, 'start') ?? 1
+                : 1;
 
             let result = '';
-            items.forEach((item, index) => {
-                const marker = isOrdered ? `${index + 1}.` : '-';
+            items.forEach((item) => {
+                const explicitValue = readIntegerAttribute(item, 'value');
+                if (isOrdered && explicitValue !== null) orderedIndex = explicitValue;
+                const marker = isOrdered ? `${orderedIndex}.` : '-';
                 const itemContent = processListItem(item as HTMLElement, context);
                 result += `${indent}${marker} ${itemContent}\n`;
+                if (isOrdered) orderedIndex += 1;
             });
 
             if (level === 0) result += '\n';
             return result;
         },
     };
+}
+
+function readIntegerAttribute(element: Element, name: string): number | null {
+    const raw = element.getAttribute(name);
+    if (!raw || !Number.isFinite(Number(raw))) return null;
+    return Math.round(Number(raw));
 }
 
 function getListLevel(listElem: HTMLElement): number {
@@ -47,4 +59,3 @@ function processListItem(li: HTMLElement, context: any): string {
     }
     return content.trim();
 }
-

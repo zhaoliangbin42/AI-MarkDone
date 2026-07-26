@@ -30,7 +30,7 @@ import { ViewportResizeSuspendController } from '../../ui/content/controllers/Vi
 import { navigateChatGPTDirectoryTarget } from '../../ui/content/chatgptDirectory/navigation';
 import { collectFreshReaderContent } from '../../services/reader/readerContentSource';
 import { ChatGPTLiveDomContent } from '../../services/content/ChatGPTLiveDomContent';
-import { setReaderMarkdownCopyFormulaFormat } from '../../services/reader/readerMarkdownCopy';
+import { setCanonicalMarkdownCopyFormulaFormat } from '../../services/copy/canonicalMarkdownCopy';
 import { buildReaderSessionSnapshot } from '../../services/reader/readerSessionSnapshot';
 import { sendText } from '../../services/sending/sendService';
 import { readComposer, writeComposer } from '../../drivers/content/sending/composerPort';
@@ -47,6 +47,7 @@ import { getFormulaOnlyPlatformProfile, startFormulaOnlyRuntime } from './formul
 import { resolveFormulaSettings, shouldEnableFormulaInteractions } from './formulaRuntimeSettings';
 import {
     createLazyBookmarkSaveDialog,
+    createLazyBuildCanonicalMarkdownRichPayload,
     createLazyBookmarksPanel,
     createLazyCopyMessagePng,
     createLazyRenderFormulaSvgAsset,
@@ -198,7 +199,10 @@ if (adapter) {
         ? new ChatGPTPageWidthController()
         : null;
     const chatGptAtomicSelection = adapter.getPlatformId() === 'chatgpt'
-        ? new ChatGPTAtomicSelectionController(adapter)
+        ? new ChatGPTAtomicSelectionController(
+            adapter,
+            createLazyBuildCanonicalMarkdownRichPayload(),
+        )
         : null;
     const messageToolbars = new MessageToolbarOrchestrator(adapter, {
         readerPanel,
@@ -257,8 +261,9 @@ if (adapter) {
     ) => {
         const next = resolveFormulaSettings(settings);
         mathClick.setFormulaSettings(next);
-        setReaderMarkdownCopyFormulaFormat(next.markdownCopyFormulaFormat);
+        setCanonicalMarkdownCopyFormulaFormat(next.markdownCopyFormulaFormat);
         saveMessagesDialog.setMarkdownFormulaFormat(next.markdownCopyFormulaFormat);
+        chatGptAtomicSelection?.setRichCopyFormulaFormat(next.richCopyFormulaFormat);
         if (options.applyInteractionGate === false) return;
         if (!runtimeEnabled) {
             syncClickToCopy(false);
@@ -420,6 +425,7 @@ if (adapter) {
         chatGptPromptAutocomplete?.setAppearance(nextSnapshot);
         chatGptComposerEditing?.setAppearance(nextSnapshot);
         chatGptMessageStepper?.setAppearance(nextSnapshot);
+        chatGptAtomicSelection?.setAppearance(nextSnapshot);
     };
 
     const syncAppearanceOverrides = (settings: typeof DEFAULT_SETTINGS | null | undefined) => {

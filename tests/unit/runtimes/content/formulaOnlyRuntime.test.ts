@@ -194,15 +194,16 @@ import {
     type FormulaPlatformProfile,
 } from '@/runtimes/content/formulaOnlyRuntime';
 import {
-    formatReaderMarkdownForCopy,
-    setReaderMarkdownCopyFormulaFormat,
-} from '@/services/reader/readerMarkdownCopy';
+    formatCanonicalMarkdownForCopy,
+    setCanonicalMarkdownCopyFormulaFormat,
+} from '@/services/copy/canonicalMarkdownCopy';
 
 function enabledFormulaSettings() {
     return {
         clickCopyMarkdown: true,
         clickCopyFormulaFormat: 'markdown-dollar',
         markdownCopyFormulaFormat: 'markdown-dollar',
+        richCopyFormulaFormat: 'markdown-dollar',
         assetFontSizePx: 36,
         assetActions: {
             copyPng: true,
@@ -219,6 +220,7 @@ function disabledFormulaSettings() {
         clickCopyMarkdown: false,
         clickCopyFormulaFormat: 'markdown-dollar',
         markdownCopyFormulaFormat: 'markdown-dollar',
+        richCopyFormulaFormat: 'markdown-dollar',
         assetFontSizePx: 36,
         assetActions: {
             copyPng: false,
@@ -238,7 +240,7 @@ afterEach(() => {
     mocks.themeSubscriber = null;
     mocks.bookmarksAppearance = null;
     mocks.runtimeMessageListener = null;
-    setReaderMarkdownCopyFormulaFormat('markdown-dollar');
+    setCanonicalMarkdownCopyFormulaFormat('markdown-dollar');
     document.body.innerHTML = '';
 });
 
@@ -461,7 +463,7 @@ describe('formula-only content runtime', () => {
 
         const runtime = startFormulaOnlyRuntime(getFormulaOnlyPlatformProfile('https://gemini.google.com/app')!);
 
-        expect(formatReaderMarkdownForCopy('Inline $x+y$')).toBe('Inline \\(x+y\\)');
+        expect(formatCanonicalMarkdownForCopy('Inline $x+y$')).toBe('Inline \\(x+y\\)');
         runtime.dispose();
     });
 

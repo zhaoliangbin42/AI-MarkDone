@@ -179,12 +179,12 @@ describe('ToolbarHoverActionPortal', () => {
         expect(onRequestClose).toHaveBeenCalledTimes(1);
 
         document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }));
-        expect(onRequestClose).toHaveBeenCalledTimes(1);
+        expect(onRequestClose).toHaveBeenCalledTimes(2);
 
         portal.close();
         outside.dispatchEvent(new MouseEvent('pointerdown', { bubbles: true, composed: true }));
         document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }));
-        expect(onRequestClose).toHaveBeenCalledTimes(1);
+        expect(onRequestClose).toHaveBeenCalledTimes(2);
 
         portal.dispose();
     });

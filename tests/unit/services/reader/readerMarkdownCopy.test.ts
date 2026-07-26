@@ -6,26 +6,28 @@ vi.mock('@/drivers/content/clipboard/clipboard', () => ({
 
 import { copyTextToClipboard } from '@/drivers/content/clipboard/clipboard';
 import {
+    formatCanonicalMarkdownForCopy,
+    setCanonicalMarkdownCopyFormulaFormat,
+} from '@/services/copy/canonicalMarkdownCopy';
+import {
     copyReaderItemMarkdownToClipboard,
-    formatReaderMarkdownForCopy,
-    setReaderMarkdownCopyFormulaFormat,
 } from '@/services/reader/readerMarkdownCopy';
 
 describe('readerMarkdownCopy formula formatting', () => {
     beforeEach(() => {
         vi.mocked(copyTextToClipboard).mockClear();
-        setReaderMarkdownCopyFormulaFormat('markdown-dollar');
+        setCanonicalMarkdownCopyFormulaFormat('markdown-dollar');
     });
 
     it('rewrites markdown math for reader and toolbar copy without mutating plain text', () => {
-        setReaderMarkdownCopyFormulaFormat('latex-brackets');
+        setCanonicalMarkdownCopyFormulaFormat('latex-brackets');
 
-        expect(formatReaderMarkdownForCopy('Inline $x+y$')).toBe('Inline \\(x+y\\)');
-        expect(formatReaderMarkdownForCopy('Plain text')).toBe('Plain text');
+        expect(formatCanonicalMarkdownForCopy('Inline $x+y$')).toBe('Inline \\(x+y\\)');
+        expect(formatCanonicalMarkdownForCopy('Plain text')).toBe('Plain text');
     });
 
     it('copies resolved reader item markdown with the selected formula format', async () => {
-        setReaderMarkdownCopyFormulaFormat('equation');
+        setCanonicalMarkdownCopyFormulaFormat('equation');
 
         await copyReaderItemMarkdownToClipboard({
             id: 'item-1',

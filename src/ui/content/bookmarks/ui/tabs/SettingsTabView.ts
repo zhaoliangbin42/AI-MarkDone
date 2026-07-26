@@ -42,6 +42,8 @@ import {
     MIN_FORMULA_ASSET_FONT_SIZE_PX,
     normalizeLegacyClickCopyFormulaFormat,
     normalizeFormulaAssetFontSizePx,
+    normalizeFormulaRichCopyFormat,
+    type FormulaRichCopyFormat,
     type FormulaSettings,
 } from '../../../../../core/settings/formula';
 import { normalizeFormulaSourceFormat, type FormulaSourceFormat } from '../../../../../core/math/formulaSourceFormat';
@@ -115,6 +117,7 @@ type Refs = {
         clickCopyMarkdown: HTMLInputElement;
         clickCopyFormulaFormat: SelectRef;
         markdownCopyFormulaFormat: SelectRef;
+        richCopyFormulaFormat: SelectRef;
         assetActionsButton: HTMLButtonElement;
         assetActionsSummary: HTMLElement;
         assetFontSize: SliderFieldRef;
@@ -380,6 +383,13 @@ export class SettingsTabView {
             this.getFormulaSourceFormatOptions(),
             'formula-markdown-copy-format',
         );
+        const formulaRichCopyFormulaFormat = this.createSelect(
+            copyExportGroup.body,
+            t('formulaRichCopyFormulaFormatLabel'),
+            t('formulaRichCopyFormulaFormatDesc'),
+            this.getFormulaRichCopyFormatOptions(),
+            'formula-rich-copy-format',
+        );
         const formulaAssetFontSize = this.createSliderRow(
             copyExportGroup.body,
             t('formulaAssetFontSizeLabel'),
@@ -521,6 +531,7 @@ export class SettingsTabView {
                 clickCopyMarkdown: formulaClickCopyMarkdown.input,
                 clickCopyFormulaFormat: formulaClickCopyFormulaFormat,
                 markdownCopyFormulaFormat: formulaMarkdownCopyFormulaFormat,
+                richCopyFormulaFormat: formulaRichCopyFormulaFormat,
                 assetActionsButton: formulaAssetActions.button,
                 assetActionsSummary: formulaAssetActions.summary,
                 assetFontSize: formulaAssetFontSize,
@@ -571,6 +582,7 @@ export class SettingsTabView {
         this.refs.formula.clickCopyMarkdown.dataset.role = 'settings-formula-click-copy-markdown';
         this.refs.formula.clickCopyFormulaFormat.trigger.dataset.role = 'settings-formula-click-copy-format';
         this.refs.formula.markdownCopyFormulaFormat.trigger.dataset.role = 'settings-formula-markdown-copy-format';
+        this.refs.formula.richCopyFormulaFormat.trigger.dataset.role = 'settings-formula-rich-copy-format';
         this.refs.formula.assetActionsButton.dataset.role = 'settings-formula-asset-actions';
         this.refs.formula.assetFontSize.input.dataset.role = 'settings-formula-asset-font-size';
         this.refs.export.pngWidthPreset.trigger.dataset.role = 'settings-export-png-width-preset';
@@ -759,6 +771,15 @@ export class SettingsTabView {
             });
             this.applySettingsToDom();
             void this.actions.setFormulaSettings?.({ markdownCopyFormulaFormat: next });
+        });
+        this.refs.formula.richCopyFormulaFormat.onChange((value) => {
+            const next = normalizeFormulaRichCopyFormat(value);
+            this.settings.formula = this.normalizeFormulaSettings({
+                ...this.settings.formula,
+                richCopyFormulaFormat: next,
+            });
+            this.applySettingsToDom();
+            void this.actions.setFormulaSettings?.({ richCopyFormulaFormat: next });
         });
         this.refs.formula.assetActionsButton.addEventListener('click', (event) => {
             event.preventDefault();
@@ -965,6 +986,7 @@ export class SettingsTabView {
         this.refs.formula.clickCopyMarkdown.checked = Boolean(s.formula.clickCopyMarkdown);
         this.refs.formula.clickCopyFormulaFormat.setValue(s.formula.clickCopyFormulaFormat);
         this.refs.formula.markdownCopyFormulaFormat.setValue(s.formula.markdownCopyFormulaFormat);
+        this.refs.formula.richCopyFormulaFormat.setValue(s.formula.richCopyFormulaFormat);
         this.refs.formula.assetActionsSummary.textContent = this.formatFormulaAssetActionsSummary(s.formula);
         this.syncSliderValue(this.refs.formula.assetFontSize, normalizeFormulaAssetFontSizePx(s.formula.assetFontSizePx));
         this.refs.export.pngWidthPreset.setValue(s.export.pngWidthPreset);
@@ -1444,6 +1466,10 @@ export class SettingsTabView {
         ];
     }
 
+    private getFormulaRichCopyFormatOptions(): Array<{ value: FormulaRichCopyFormat; label: string }> {
+        return this.getFormulaSourceFormatOptions();
+    }
+
     private closeSelectMenus(): void {
         for (const selectRef of this.selectRefs) selectRef.close();
     }
@@ -1457,6 +1483,7 @@ export class SettingsTabView {
             clickCopyMarkdown: Boolean(record.clickCopyMarkdown ?? DEFAULT_FORMULA_SETTINGS.clickCopyMarkdown),
             clickCopyFormulaFormat: normalizeLegacyClickCopyFormulaFormat(record as Record<string, unknown>),
             markdownCopyFormulaFormat: normalizeFormulaSourceFormat(record.markdownCopyFormulaFormat),
+            richCopyFormulaFormat: normalizeFormulaRichCopyFormat(record.richCopyFormulaFormat),
             assetFontSizePx: normalizeFormulaAssetFontSizePx(record.assetFontSizePx),
             assetActions: {
                 copyPng: Boolean(assetActions.copyPng ?? DEFAULT_FORMULA_SETTINGS.assetActions.copyPng),

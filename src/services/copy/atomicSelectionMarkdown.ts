@@ -1,125 +1,182 @@
 import type { SiteAdapter } from '../../drivers/content/adapters/base';
 import { extractLatexSource } from '../../core/latex/extractLatexSource';
-import { formatReaderMarkdownForCopy } from '../reader/readerMarkdownCopy';
-import { buildAtomicSelectionExport } from '../reader/atomicExport';
-import type { RenderedAtomicUnit, SelectedAtomicUnit } from '../reader/atomicSelection';
+import {
+    resolveRenderedAtomicUnitKind,
+    resolveStrictRenderedAtomicSelection,
+    type RenderedAtomicUnit,
+} from '../reader/atomicSelection';
+import { formatCanonicalMarkdownForCopy } from './canonicalMarkdownCopy';
 import { copyMarkdownFromElement } from './copy-markdown';
 
-const DEFAULT_MAX_PROCESSING_TIME_MS = 32;
+const DEFAULT_MAX_PROCESSING_TIME_MS = 64;
 const DEFAULT_MAX_NODE_COUNT = 5_000;
 
-export function buildPageAtomicSelectionMarkdown(params: {
+export type PageAtomicSelectionSnapshot = {
+    range: Range;
+    root: HTMLElement;
+    units: RenderedAtomicUnit[];
+    canonicalMarkdown: string;
+    markdown: string;
+};
+
+type PageAtomicSelectionSnapshotParams = {
     adapter: SiteAdapter;
     range: Range;
     root: HTMLElement;
-    selectedUnits: RenderedAtomicUnit[];
     maxProcessingTimeMs?: number;
     maxNodeCount?: number;
-}): string | null {
+};
+
+export function buildPageAtomicSelectionSnapshot(
+    params: PageAtomicSelectionSnapshotParams,
+): PageAtomicSelectionSnapshot | null {
     const {
         adapter,
         range,
         root,
-        selectedUnits,
         maxProcessingTimeMs = DEFAULT_MAX_PROCESSING_TIME_MS,
         maxNodeCount = DEFAULT_MAX_NODE_COUNT,
     } = params;
-    if (selectedUnits.length === 0) return null;
-
     const startedAt = performance.now();
-    let remainingNodes = maxNodeCount;
-    const resolved: SelectedAtomicUnit[] = [];
-
-    for (const [index, unit] of selectedUnits.entries()) {
-        const nodeCount = countSubtreeNodes(unit.element, remainingNodes);
-        remainingNodes -= nodeCount;
-        const remainingTime = maxProcessingTimeMs - (performance.now() - startedAt);
-        if (remainingNodes < 0 || remainingTime <= 0) return null;
-
-        const source = serializeAtomicUnit(adapter, unit, {
-            maxProcessingTimeMs: remainingTime,
-            maxNodeCount: Math.max(1, remainingNodes + nodeCount),
-        });
-        if (!source?.trim()) return null;
-        resolved.push({
-            id: `aimd-page-unit-${index + 1}`,
-            kind: unit.kind,
-            mode: unit.mode,
-            start: index,
-            end: index + 1,
-            source: source.trim(),
-            element: unit.element,
-        });
-        if (performance.now() - startedAt > maxProcessingTimeMs) return null;
-    }
-
-    const markdown = buildAtomicSelectionExport({
-        range,
-        root,
-        selectedUnits: resolved,
-        shouldSkipElement: (element) => shouldSkipElement(adapter, element),
+    const selection = resolveStrictRenderedAtomicSelection(range, root);
+    if (!selection.isValid) return null;
+    const fragmentRoot = cloneClosedSelectionFragment(range, root);
+    if (!fragmentRoot) return null;
+    const remainingTime = maxProcessingTimeMs - (performance.now() - startedAt);
+    if (remainingTime <= 0) return null;
+    const result = copyMarkdownFromElement(adapter, fragmentRoot, {
+        maxProcessingTimeMs: remainingTime,
+        maxNodeCount,
     });
-    if (!markdown || performance.now() - startedAt > maxProcessingTimeMs) return null;
-    return formatReaderMarkdownForCopy(markdown);
+    if (!result.ok || performance.now() - startedAt > maxProcessingTimeMs) return null;
+    const canonicalMarkdown = result.markdown;
+    if (!canonicalMarkdown) return null;
+    const markdown = formatCanonicalMarkdownForCopy(canonicalMarkdown);
+    if (!markdown) return null;
+    return {
+        range: range.cloneRange(),
+        root,
+        units: selection.units,
+        canonicalMarkdown,
+        markdown,
+    };
 }
 
-function serializeAtomicUnit(
-    adapter: SiteAdapter,
-    unit: RenderedAtomicUnit,
-    options: { maxProcessingTimeMs: number; maxNodeCount: number },
-): string | null {
-    if (unit.kind === 'inline-math' || unit.kind === 'display-math') {
-        const source = extractLatexSource(unit.element);
-        if (!source) return null;
-        return unit.kind === 'display-math'
-            ? `$$\n${source}\n$$`
-            : `$${source}$`;
+export function buildPageAtomicSelectionMarkdown(params: PageAtomicSelectionSnapshotParams): string | null {
+    return buildPageAtomicSelectionSnapshot(params)?.markdown ?? null;
+}
+
+function cloneClosedSelectionFragment(range: Range, root: HTMLElement): HTMLElement | null {
+    if (!root.contains(range.startContainer) || !root.contains(range.endContainer)) return null;
+    const cloneRoot = resolveSelectionCloneRoot(range, root);
+    if (!cloneRoot) return null;
+    const context = { range, formulaSourceValid: true };
+    const content = cloneSelectedNode(cloneRoot, context);
+    if (!(content instanceof HTMLElement) || !context.formulaSourceValid) return null;
+    const fragmentRoot = root.ownerDocument.createElement('div');
+    fragmentRoot.appendChild(content);
+    return fragmentRoot.textContent?.trim() || fragmentRoot.querySelector('.katex, .katex-display, img, hr')
+        ? fragmentRoot
+        : null;
+}
+
+function resolveSelectionCloneRoot(range: Range, root: HTMLElement): HTMLElement | null {
+    let cloneRoot = range.commonAncestorContainer instanceof HTMLElement
+        ? range.commonAncestorContainer
+        : range.commonAncestorContainer.parentElement;
+    if (!cloneRoot || !root.contains(cloneRoot)) return null;
+
+    let current: HTMLElement | null = cloneRoot;
+    while (current && root.contains(current)) {
+        if (resolveRenderedAtomicUnitKind(current)) cloneRoot = current;
+        if (current === root) break;
+        current = current.parentElement;
     }
-    if (unit.kind === 'image') {
-        const image = unit.element as HTMLImageElement;
-        const source = image.getAttribute('src')?.trim();
-        if (!source) return null;
-        const alt = image.getAttribute('alt') ?? '';
-        return `![${alt}](${source})`;
+    if (cloneRoot.matches('li') && cloneRoot.parentElement?.matches('ol, ul')) {
+        cloneRoot = cloneRoot.parentElement;
     }
-    const result = copyMarkdownFromElement(adapter, unit.element, options);
-    if (!result.ok) return null;
-    if (unit.kind !== 'list-item') return result.markdown;
-
-    const marker = resolveListMarker(unit.element);
-    const lines = result.markdown.trim().split('\n');
-    const first = lines.shift()?.trim();
-    if (!first) return null;
-    const continuationIndent = ' '.repeat(marker.length + 1);
-    const continuation = lines.map((line) => line ? `${continuationIndent}${line}` : '').join('\n');
-    return continuation ? `${marker} ${first}\n${continuation}` : `${marker} ${first}`;
+    return cloneRoot;
 }
 
-function resolveListMarker(element: HTMLElement): string {
-    const parent = element.parentElement;
-    if (!(parent instanceof HTMLOListElement)) return '-';
-    const explicitValue = element.getAttribute('value');
-    if (explicitValue && Number.isFinite(Number(explicitValue))) return `${Math.round(Number(explicitValue))}.`;
-    const siblings = Array.from(parent.children).filter((child) => child.tagName === 'LI');
-    const index = Math.max(0, siblings.indexOf(element));
-    return `${parent.start + index}.`;
-}
-
-function countSubtreeNodes(root: HTMLElement, limit: number): number {
-    const walker = root.ownerDocument.createTreeWalker(root, NodeFilter.SHOW_ALL);
-    let count = 1;
-    while (walker.nextNode()) {
-        count += 1;
-        if (count > limit) return count;
+function cloneSelectedNode(
+    node: Node,
+    context: { range: Range; formulaSourceValid: boolean },
+): Node | null {
+    if (node instanceof Text) {
+        if (!rangeIntersectsNode(context.range, node)) return null;
+        const start = node === context.range.startContainer ? context.range.startOffset : 0;
+        const end = node === context.range.endContainer ? context.range.endOffset : node.data.length;
+        if (end <= start) return null;
+        return node.ownerDocument.createTextNode(node.data.slice(start, end));
     }
-    return count;
+    if (!(node instanceof HTMLElement)) return null;
+    if (!rangeIntersectsNode(context.range, node)) return null;
+
+    if (isFormulaContainer(node)) {
+        const source = extractLatexSource(node);
+        if (!source) {
+            context.formulaSourceValid = false;
+            return null;
+        }
+        const compact = node.ownerDocument.createElement('span');
+        compact.className = node.classList.contains('katex-display')
+            ? 'katex-display'
+            : 'katex';
+        compact.setAttribute('data-latex-source', source);
+        return compact;
+    }
+
+    const clone = node.cloneNode(false) as HTMLElement;
+    adjustOrderedListStart(node, clone, context.range);
+    node.childNodes.forEach((child) => {
+        const selected = cloneSelectedNode(child, context);
+        if (selected) clone.appendChild(selected);
+    });
+    if (clone.childNodes.length > 0 || clone.matches('img, hr, br')) return clone;
+    return null;
 }
 
-function shouldSkipElement(adapter: SiteAdapter, element: HTMLElement): boolean {
-    if (element.matches('script, style, noscript, button, [role="button"], [data-aimd-role], .sr-only')) return true;
+function isFormulaContainer(element: HTMLElement): boolean {
+    return element.classList.contains('katex-display')
+        || (
+            element.classList.contains('katex')
+            && element.closest('.katex-display') === null
+        );
+}
+
+function rangeIntersectsNode(range: Range, node: Node): boolean {
     try {
-        return adapter.isNoiseNode(element, { nextSibling: element.nextElementSibling });
+        return range.intersectsNode(node);
     } catch {
         return false;
     }
+}
+
+function adjustOrderedListStart(source: HTMLElement, clone: HTMLElement, range: Range): void {
+    if (!(source instanceof HTMLOListElement) || !(clone instanceof HTMLOListElement)) return;
+    const items = Array.from(source.children).filter((child): child is HTMLLIElement => child instanceof HTMLLIElement);
+    const firstSelectedIndex = items.findIndex((item) => {
+        try {
+            return range.intersectsNode(item);
+        } catch {
+            return false;
+        }
+    });
+    if (firstSelectedIndex < 0) return;
+    clone.start = resolveOrderedListItemNumber(source, items, firstSelectedIndex);
+}
+
+function resolveOrderedListItemNumber(
+    list: HTMLOListElement,
+    items: HTMLLIElement[],
+    targetIndex: number,
+): number {
+    let ordinal = list.start;
+    for (let index = 0; index <= targetIndex; index += 1) {
+        const explicit = items[index]?.getAttribute('value');
+        if (explicit && Number.isFinite(Number(explicit))) ordinal = Math.round(Number(explicit));
+        if (index === targetIndex) return ordinal;
+        ordinal += 1;
+    }
+    return ordinal;
 }

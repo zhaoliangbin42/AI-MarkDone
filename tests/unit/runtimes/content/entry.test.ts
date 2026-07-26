@@ -226,10 +226,14 @@ const pageWidthCtor = vi.fn(function () {
 });
 const atomicSelectionInit = vi.fn();
 const atomicSelectionDispose = vi.fn();
+const atomicSelectionSetAppearance = vi.fn();
+const atomicSelectionSetRichCopyFormulaFormat = vi.fn();
 const atomicSelectionCtor = vi.fn(function () {
     return {
         init: atomicSelectionInit,
         dispose: atomicSelectionDispose,
+        setAppearance: atomicSelectionSetAppearance,
+        setRichCopyFormulaFormat: atomicSelectionSetRichCopyFormulaFormat,
     };
 });
 const engineInit = vi.fn();
@@ -369,6 +373,7 @@ vi.mock('@/runtimes/content/lazyContentFeatures', () => ({
         open: bookmarkSaveDialogOpen,
         setAppearance: bookmarkSaveDialogSetAppearance,
     })),
+    createLazyBuildCanonicalMarkdownRichPayload: vi.fn(() => vi.fn(async () => null)),
     createLazyCopyMessagePng: vi.fn(() => vi.fn(async () => ({ ok: true, noop: false }))),
     createLazyRunFormulaAssetAction: vi.fn(() => vi.fn(async () => ({ ok: true, status: 'copied' }))),
     createLazyRenderFormulaSvgAsset: vi.fn(() => vi.fn()),
@@ -565,6 +570,29 @@ describe('content runtime entry', () => {
             },
         });
         expect(atomicSelectionDispose).toHaveBeenCalledTimes(1);
+    });
+
+    it('syncs the formatted-copy formula preference into the atomic selection owner', async () => {
+        const { DEFAULT_SETTINGS } = await import('@/core/settings/types');
+        const settings = structuredClone(DEFAULT_SETTINGS);
+        settings.formula.richCopyFormulaFormat = 'raw';
+        settingsGetCached.mockReturnValue(settings);
+
+        vi.resetModules();
+        await import('@/runtimes/content/entry');
+
+        expect(atomicSelectionSetRichCopyFormulaFormat).toHaveBeenLastCalledWith('raw');
+
+        settingsSubscriber!({
+            settings: {
+                ...settings,
+                formula: {
+                    ...settings.formula,
+                    richCopyFormulaFormat: 'raw',
+                },
+            },
+        });
+        expect(atomicSelectionSetRichCopyFormulaFormat).toHaveBeenLastCalledWith('raw');
     });
 
     it('forwards the saved locale into the independently bundled lazy feature graph', async () => {
@@ -1145,6 +1173,7 @@ describe('content runtime entry', () => {
             clickCopyMarkdown: false,
             clickCopyFormulaFormat: 'markdown-dollar',
             markdownCopyFormulaFormat: 'markdown-dollar',
+            richCopyFormulaFormat: 'markdown-dollar',
             assetFontSizePx: 36,
             assetActions: { copyPng: false, copySvg: true, copyMathml: false, savePng: false, saveSvg: true },
         });
@@ -1350,6 +1379,7 @@ describe('content runtime entry', () => {
             clickCopyMarkdown: false,
             clickCopyFormulaFormat: 'markdown-dollar',
             markdownCopyFormulaFormat: 'markdown-dollar',
+            richCopyFormulaFormat: 'markdown-dollar',
             assetFontSizePx: 36,
             assetActions: { copyPng: true, copySvg: false, copyMathml: false, savePng: true, saveSvg: false },
         });

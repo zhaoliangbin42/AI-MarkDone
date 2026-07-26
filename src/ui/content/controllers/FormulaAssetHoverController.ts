@@ -6,7 +6,10 @@ import type {
     FormulaAssetAction,
     runFormulaAssetAction,
 } from '../../../services/math/formulaAssetActions';
-import { DEFAULT_FORMULA_SETTINGS, type FormulaSettings } from '../../../core/settings/formula';
+import {
+    DEFAULT_FORMULA_SETTINGS,
+    type FormulaSettings,
+} from '../../../core/settings/formula';
 import { normalizeFormulaSourceFormat } from '../../../core/math/formulaSourceFormat';
 import { createAppearanceSnapshot, type AppearanceSnapshot } from '../../../style/appearance';
 import { targetSurfacePolicy } from '../../../config/targetSurface';
@@ -18,6 +21,11 @@ export type FormulaAssetHoverControllerOptions = {
     runFormulaAssetAction?: typeof runFormulaAssetAction;
 };
 
+type FormulaAssetControllerSettings = Pick<
+    FormulaSettings,
+    'clickCopyMarkdown' | 'clickCopyFormulaFormat' | 'assetActions' | 'assetFontSizePx'
+>;
+
 export class FormulaAssetHoverController {
     private readonly mathClick: MathClickHandler;
     private hoverActionPortal: ToolbarHoverActionPortal | null = null;
@@ -27,7 +35,12 @@ export class FormulaAssetHoverController {
     private hoverActionPortalInside = false;
     private activeContext: MathFormulaHoverContext | null = null;
     private actionPending = false;
-    private formulaSettings: FormulaSettings = structuredClone(DEFAULT_FORMULA_SETTINGS);
+    private formulaSettings: FormulaAssetControllerSettings = {
+        clickCopyMarkdown: DEFAULT_FORMULA_SETTINGS.clickCopyMarkdown,
+        clickCopyFormulaFormat: DEFAULT_FORMULA_SETTINGS.clickCopyFormulaFormat,
+        assetActions: { ...DEFAULT_FORMULA_SETTINGS.assetActions },
+        assetFontSizePx: DEFAULT_FORMULA_SETTINGS.assetFontSizePx,
+    };
     private appearance: AppearanceSnapshot = createAppearanceSnapshot('light');
     private readonly runFormulaAssetAction: typeof runFormulaAssetAction;
 
@@ -61,7 +74,6 @@ export class FormulaAssetHoverController {
         this.formulaSettings = {
             clickCopyMarkdown: Boolean(settings.clickCopyMarkdown),
             clickCopyFormulaFormat: normalizeFormulaSourceFormat(settings.clickCopyFormulaFormat),
-            markdownCopyFormulaFormat: normalizeFormulaSourceFormat(settings.markdownCopyFormulaFormat),
             assetFontSizePx: settings.assetFontSizePx ?? DEFAULT_FORMULA_SETTINGS.assetFontSizePx,
             assetActions: {
                 ...DEFAULT_FORMULA_SETTINGS.assetActions,

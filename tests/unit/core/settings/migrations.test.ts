@@ -133,6 +133,23 @@ describe('settings migrations', () => {
         expect(next.platforms).toEqual({ chatgpt: true, gemini: false, claude: true, deepseek: false });
     });
 
+    it.each([
+        ['word-office-math', 'markdown-dollar'],
+        ['mathml', 'markdown-dollar'],
+        ['equation-star', 'equation-star'],
+        ['unsupported', 'markdown-dollar'],
+    ])('normalizes the rich-copy formula format %s to %s', (stored, expected) => {
+        const next = loadAndNormalize({
+            version: 4,
+            formula: {
+                ...DEFAULT_SETTINGS.formula,
+                richCopyFormulaFormat: stored,
+            },
+        } as any);
+
+        expect(next.formula.richCopyFormulaFormat).toBe(expected);
+    });
+
     it('normalizes v3 appearance font size settings', () => {
         const next = loadAndNormalize({
             version: 3,
@@ -350,6 +367,7 @@ describe('settings migrations', () => {
             clickCopyMarkdown: false,
             clickCopyFormulaFormat: 'raw',
             markdownCopyFormulaFormat: 'markdown-dollar',
+            richCopyFormulaFormat: 'markdown-dollar',
             assetFontSizePx: 72,
             assetActions: { copyPng: false, copySvg: true, copyMathml: false, savePng: false, saveSvg: true },
         });

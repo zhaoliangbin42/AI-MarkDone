@@ -2,9 +2,20 @@ import { describe, expect, it } from 'vitest';
 import {
     extractAuthoritativeLatexSource,
     extractLatexSource,
+    normalizeExtractedLatexSource,
 } from '@/core/latex/extractLatexSource';
 
 describe('extractLatexSource', () => {
+    it.each([
+        ['$x_1 + y$', 'x_1 + y'],
+        ['$$x_1 + y$$', 'x_1 + y'],
+        [String.raw`\(x_1 + y\)`, 'x_1 + y'],
+        [String.raw`\[x_1 + y\]`, 'x_1 + y'],
+        [String.raw`$$\[x_1 + y\]$$`, 'x_1 + y'],
+    ])('normalizes balanced outer formula delimiters in %s', (source, expected) => {
+        expect(normalizeExtractedLatexSource(source)).toBe(expected);
+    });
+
     it('extracts from data-latex-source on self', () => {
         const el = document.createElement('span');
         el.setAttribute('data-latex-source', 'x_1 + y');
@@ -42,6 +53,14 @@ describe('extractLatexSource', () => {
         el.className = 'katex-error';
         el.textContent = '\\alpha_1';
         expect(extractLatexSource(el)).toBe('\\alpha_1');
+    });
+
+    it('removes KaTeX parse-error diagnostics from recoverable formula source', () => {
+        const formula = document.createElement('span');
+        formula.className = 'katex';
+        formula.innerHTML = '<span class="katex-error">ParseError: KaTeX parse error: \\frac{x}{y}</span>';
+
+        expect(extractLatexSource(formula)).toBe('\\frac{x}{y}');
     });
 
     it('uses accessible labels only when they look like LaTeX', () => {

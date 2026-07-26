@@ -19,6 +19,10 @@ import type { ExportSettings } from '../../core/settings/export';
 import type { copyMessagePng } from '../../services/copy/copy-turn-png';
 import type { runFormulaAssetAction } from '../../services/math/formulaAssetActions';
 import type { renderFormulaSvgAsset } from '../../services/math/formulaAssetRenderer';
+import type {
+    AtomicSelectionRichPayload,
+    CanonicalMarkdownRichPayloadParams,
+} from '../../services/copy/atomicSelectionRichHtml';
 import type { UiLocale } from '../../ui/content/components/i18n';
 import type * as ContentFeatureModuleExports from './contentFeatures';
 import {
@@ -354,5 +358,18 @@ export function createLazyRenderFormulaSvgAsset(
     return async (...args) => {
         const module = await loader.load();
         return module.renderFormulaSvgAsset(...args);
+    };
+}
+
+export type CanonicalMarkdownRichPayloadBuilder = (
+    params: CanonicalMarkdownRichPayloadParams,
+) => Promise<AtomicSelectionRichPayload | null>;
+
+export function createLazyBuildCanonicalMarkdownRichPayload(
+    loader: ContentFeatureModuleLoader = defaultLoader,
+): CanonicalMarkdownRichPayloadBuilder {
+    return async (params) => {
+        const module = await loader.load();
+        return module.buildCanonicalMarkdownRichPayload(params);
     };
 }

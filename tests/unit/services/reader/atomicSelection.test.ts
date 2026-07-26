@@ -69,6 +69,17 @@ describe('atomicSelection', () => {
         expect(resolveStrictRenderedAtomicUnits(range, root).map((unit) => unit.kind)).toEqual(['table']);
     });
 
+    it('keeps a complete inner atom valid inside a partially selected structural ancestor', () => {
+        const root = document.createElement('div');
+        root.innerHTML = '<ul><li>Before <code>answer</code> after</li></ul>';
+        const codeText = root.querySelector('code')!.firstChild as Text;
+        const range = document.createRange();
+        range.setStart(codeText, 0);
+        range.setEnd(codeText, codeText.data.length);
+
+        expect(resolveStrictRenderedAtomicUnits(range, root).map((unit) => unit.kind)).toEqual(['inline-code']);
+    });
+
     it('requires node-level containment for strict non-text units', () => {
         const root = document.createElement('div');
         root.innerHTML = '<p>Before<img src="https://example.com/image.png" alt="Example">After</p>';

@@ -4,6 +4,8 @@ import {
     type FormulaSourceFormat,
 } from '../math/formulaSourceFormat';
 
+export type FormulaRichCopyFormat = FormulaSourceFormat;
+
 export type FormulaAssetActionSettings = {
     copyPng: boolean;
     copySvg: boolean;
@@ -16,10 +18,12 @@ export type FormulaSettings = {
     clickCopyMarkdown: boolean;
     clickCopyFormulaFormat: FormulaSourceFormat;
     markdownCopyFormulaFormat: FormulaSourceFormat;
+    richCopyFormulaFormat: FormulaRichCopyFormat;
     assetActions: FormulaAssetActionSettings;
     assetFontSizePx: number;
 };
 
+export const DEFAULT_FORMULA_RICH_COPY_FORMAT: FormulaRichCopyFormat = DEFAULT_FORMULA_SOURCE_FORMAT;
 export const DEFAULT_FORMULA_ASSET_FONT_SIZE_PX = 36;
 export const MIN_FORMULA_ASSET_FONT_SIZE_PX = 16;
 export const MAX_FORMULA_ASSET_FONT_SIZE_PX = 72;
@@ -32,10 +36,15 @@ export function normalizeFormulaAssetFontSizePx(value: unknown): number {
     return Math.round(clamped / FORMULA_ASSET_FONT_SIZE_STEP_PX) * FORMULA_ASSET_FONT_SIZE_STEP_PX;
 }
 
+export function normalizeFormulaRichCopyFormat(value: unknown): FormulaRichCopyFormat {
+    return normalizeFormulaSourceFormat(value);
+}
+
 export const DEFAULT_FORMULA_SETTINGS: FormulaSettings = {
     clickCopyMarkdown: true,
     clickCopyFormulaFormat: DEFAULT_FORMULA_SOURCE_FORMAT,
     markdownCopyFormulaFormat: DEFAULT_FORMULA_SOURCE_FORMAT,
+    richCopyFormulaFormat: DEFAULT_FORMULA_RICH_COPY_FORMAT,
     assetActions: {
         copyPng: false,
         copySvg: false,

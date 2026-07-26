@@ -18,6 +18,7 @@ describe('settingsService', () => {
         expect(next.version).toBe(4);
         expect(next.formula.clickCopyFormulaFormat).toBe('markdown-dollar');
         expect(next.formula.markdownCopyFormulaFormat).toBe('markdown-dollar');
+        expect(next.formula.richCopyFormulaFormat).toBe('markdown-dollar');
         expect(next.formula.assetFontSizePx).toBe(36);
         expect(next.formula.assetActions).toEqual({
             copyPng: false,
@@ -381,6 +382,7 @@ describe('settingsService', () => {
             clickCopyMarkdown: false,
             clickCopyFormulaFormat: 'markdown-dollar',
             markdownCopyFormulaFormat: 'markdown-dollar',
+            richCopyFormulaFormat: 'markdown-dollar',
             assetFontSizePx: 36,
             assetActions: {
                 copyPng: false,
@@ -401,6 +403,7 @@ describe('settingsService', () => {
                 clickCopyMarkdown: true,
                 clickCopyFormulaFormat: 'raw',
                 markdownCopyFormulaFormat: 'latex-brackets',
+                richCopyFormulaFormat: 'equation-star',
                 assetFontSizePx: 44,
                 assetActions: {
                     copyPng: true,
@@ -417,6 +420,7 @@ describe('settingsService', () => {
         expect(next.appearance.fontSizePx).toBe(18);
         expect(next.formula.clickCopyFormulaFormat).toBe('raw');
         expect(next.formula.markdownCopyFormulaFormat).toBe('latex-brackets');
+        expect(next.formula.richCopyFormulaFormat).toBe('equation-star');
         expect(next.formula.assetFontSizePx).toBe(44);
         expect(next.formula.assetActions).toEqual({
             copyPng: true,
@@ -433,6 +437,7 @@ describe('settingsService', () => {
         expect(next.version).toBe(4);
         expect(next.formula.clickCopyFormulaFormat).toBe('markdown-dollar');
         expect(next.formula.markdownCopyFormulaFormat).toBe('markdown-dollar');
+        expect(next.formula.richCopyFormulaFormat).toBe('markdown-dollar');
         expect(next.formula.assetFontSizePx).toBe(36);
         expect(next.formula.assetActions).toEqual({
             copyPng: false,

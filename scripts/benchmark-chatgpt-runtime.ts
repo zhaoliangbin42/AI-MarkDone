@@ -69,7 +69,7 @@ function readPositiveIntegerArg(name: string, fallback: number): number {
 function createFixtureHtml(rounds: number): string {
     const turns = Array.from({ length: rounds }, (_, index) => {
         const atomicSelectionFixture = index === 0
-            ? '<p data-aimd-perf-atomic-selection>Before <code>atomic selection</code> after</p>'
+            ? '<p data-aimd-perf-atomic-selection><strong>Before <span class="katex" data-latex-source="\\frac{x}{y}"><span class="katex-html" aria-hidden="true">x/y</span></span> after</strong></p>'
             : '';
         const extraAssistantSegments = index === rounds - 1
             ? `
@@ -259,15 +259,13 @@ async function runRuntimeBenchmark(extensionPath: string, rounds: number, mutati
 
         await resetPhase(page);
         const selectionContract = await page.evaluate(async (eventCount) => {
-            const code = document.querySelector<HTMLElement>('[data-aimd-perf-atomic-selection] code');
-            const text = code?.firstChild;
+            const formula = document.querySelector<HTMLElement>('[data-aimd-perf-atomic-selection] .katex');
             const selection = window.getSelection();
-            if (!code || !(text instanceof Text) || !selection) {
+            if (!formula || !selection) {
                 throw new Error('Atomic selection fixture is missing');
             }
             const range = document.createRange();
-            range.setStart(text, 0);
-            range.setEnd(text, text.data.length);
+            range.selectNodeContents(formula);
             selection.removeAllRanges();
             selection.addRange(range);
             for (let index = 0; index < eventCount; index += 1) {
@@ -276,6 +274,13 @@ async function runRuntimeBenchmark(extensionPath: string, rounds: number, mutati
             await new Promise<void>((resolveFrame) => requestAnimationFrame(() => resolveFrame()));
             await new Promise<void>((resolveFrame) => requestAnimationFrame(() => resolveFrame()));
             const selectedCount = document.querySelectorAll('[data-aimd-page-atomic-state="selected"]').length;
+            const clipboardData = new DataTransfer();
+            const copyEvent = new ClipboardEvent('copy', {
+                bubbles: true,
+                cancelable: true,
+                clipboardData,
+            });
+            formula.dispatchEvent(copyEvent);
 
             selection.removeAllRanges();
             document.dispatchEvent(new Event('selectionchange'));
@@ -284,6 +289,8 @@ async function runRuntimeBenchmark(extensionPath: string, rounds: number, mutati
             return {
                 selectedCount,
                 clearedCount: document.querySelectorAll('[data-aimd-page-atomic-state="selected"]').length,
+                copiedMarkdown: clipboardData.getData('text/plain'),
+                copiedTypes: Array.from(clipboardData.types),
             };
         }, mutations);
         await page.waitForTimeout(50);
@@ -292,11 +299,13 @@ async function runRuntimeBenchmark(extensionPath: string, rounds: number, mutati
         if (
             selectionContract.selectedCount !== 1
             || selectionContract.clearedCount !== 0
+            || selectionContract.copiedMarkdown !== '$\\frac{x}{y}$'
+            || selectionContract.copiedTypes.join(',') !== 'text/plain'
             || selectionAttributeWrites > 2
             || selection.longTaskCount > 0
         ) {
             throw new Error(
-                `Atomic selection performance gate failed: selected=${selectionContract.selectedCount}, cleared=${selectionContract.clearedCount}, writes=${selectionAttributeWrites}, longTasks=${selection.longTaskCount}`,
+                `Atomic selection performance gate failed: selected=${selectionContract.selectedCount}, cleared=${selectionContract.clearedCount}, copied=${selectionContract.copiedMarkdown}, types=${selectionContract.copiedTypes.join(',')}, writes=${selectionAttributeWrites}, longTasks=${selection.longTaskCount}`,
             );
         }
         console.error('[perf] atomic selection phase complete');

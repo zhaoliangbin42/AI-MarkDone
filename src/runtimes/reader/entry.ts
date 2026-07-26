@@ -12,7 +12,7 @@ import { createDetachedReaderSendPort } from '../../ui/content/sending/detachedR
 import { createPromptLibraryClient } from '../../drivers/content/prompts/promptLibraryClient';
 import { ChatGPTPromptAutocompleteController } from '../../ui/content/controllers/ChatGPTPromptAutocompleteController';
 import type { ReaderItem } from '../../services/reader/types';
-import { setReaderMarkdownCopyFormulaFormat } from '../../services/reader/readerMarkdownCopy';
+import { setCanonicalMarkdownCopyFormulaFormat } from '../../services/copy/canonicalMarkdownCopy';
 import { bookmarkSaveDialog } from '../../ui/content/bookmarks/save/bookmarkSaveDialogSingleton';
 import { SettingsClient } from '../../drivers/content/settings/settingsClient';
 import {
@@ -132,7 +132,7 @@ async function run(): Promise<void> {
 
     const settingsClient = new SettingsClient();
     let settings = await loadSettings();
-    setReaderMarkdownCopyFormulaFormat(settings.formula.markdownCopyFormulaFormat);
+    setCanonicalMarkdownCopyFormulaFormat(settings.formula.markdownCopyFormulaFormat);
     let activeLocale = settings.language ?? DEFAULT_SETTINGS.language;
     await setLocale(activeLocale);
     const panel = new ReaderPanel();

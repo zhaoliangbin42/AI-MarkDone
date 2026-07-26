@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { SiteAdapter, type ThemeDetector } from '@/drivers/content/adapters/base';
 import { ChatGPTAdapter } from '@/drivers/content/adapters/sites/chatgpt';
 import type { MarkdownParserAdapter } from '@/drivers/content/adapters/parser/MarkdownParserAdapter';
-import { copyMarkdownFromMessage } from '@/services/copy/copy-markdown';
+import { copyMarkdownFromElement, copyMarkdownFromMessage } from '@/services/copy/copy-markdown';
 
 const detector: ThemeDetector = {
     detect: () => 'light',
@@ -86,6 +86,32 @@ describe('copyMarkdownFromMessage adapter contract', () => {
         expect(result.markdown).toBe('Hello adapter contract');
     });
 
+    it('preserves ordered-list start and explicit item values', () => {
+        document.body.innerHTML = `
+          <div class="assistant">
+            <div class="content">
+              <ol start="3">
+                <li>Third</li>
+                <li value="7">Seventh</li>
+                <li>Eighth</li>
+              </ol>
+            </div>
+            <div class="actions"></div>
+          </div>
+        `;
+
+        const adapter = new FakeAdapter();
+        const message = document.querySelector('.assistant');
+        expect(message).toBeInstanceOf(HTMLElement);
+        if (!(message instanceof HTMLElement)) return;
+
+        const result = copyMarkdownFromMessage(adapter, message);
+        expect(result.ok).toBe(true);
+        if (!result.ok) return;
+
+        expect(result.markdown).toBe('3. Third\n7. Seventh\n8. Eighth');
+    });
+
     it('lets ChatGPT remove source controls and link noise before copied markdown leaves the pipeline', () => {
         document.body.innerHTML = `
           <div data-message-author-role="assistant" data-message-id="a1">
@@ -110,6 +136,21 @@ describe('copyMarkdownFromMessage adapter contract', () => {
         expect(result.markdown).not.toContain('Huang 2020');
         expect(result.markdown).not.toContain('https://example.com');
         expect(result.markdown).not.toContain('Sources');
+    });
+
+    it('rejects parser-budget aborts before ChatGPT cleanup can hide them', () => {
+        const root = document.createElement('div');
+        root.className = 'markdown prose';
+        root.innerHTML = '<table><tbody><tr><td>Alpha</td><td>Beta</td></tr></tbody></table>';
+
+        const result = copyMarkdownFromElement(new ChatGPTAdapter(), root, {
+            maxNodeCount: 1,
+        });
+
+        expect(result.ok).toBe(false);
+        if (result.ok) return;
+        expect(result.error.code).toBe('INTERNAL_ERROR');
+        expect(result.error.message).toBe('Markdown fragment budget exceeded.');
     });
 
     it('removes ChatGPT webpage citation pills and their empty state wrapper', () => {
@@ -251,5 +292,26 @@ describe('copyMarkdownFromMessage adapter contract', () => {
         expect(result.markdown).toContain('| $x_1 + y$ | inline math |');
         expect(result.markdown).toContain('| $\\\\frac{a}{b}$ | display math in table |');
         expect(result.markdown).not.toContain('rendered math');
+    });
+
+    it('normalizes already-delimited ChatGPT formula sources before Markdown wrapping', () => {
+        document.body.innerHTML = `
+          <div data-message-author-role="assistant" data-message-id="a1">
+            <div class="markdown prose">
+              <p>Result <span class="katex" data-latex-source="\\[x_1+y\\]">rendered math</span>.</p>
+            </div>
+          </div>
+        `;
+
+        const adapter = new ChatGPTAdapter();
+        const message = document.querySelector(adapter.getMessageSelector());
+        expect(message).toBeInstanceOf(HTMLElement);
+        if (!(message instanceof HTMLElement)) return;
+
+        const result = copyMarkdownFromMessage(adapter, message);
+        expect(result.ok).toBe(true);
+        if (!result.ok) return;
+
+        expect(result.markdown).toBe('Result $x_1+y$.');
     });
 });

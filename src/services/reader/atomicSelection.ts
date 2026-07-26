@@ -10,6 +10,12 @@ export type RenderedAtomicUnit = {
     element: HTMLElement;
 };
 
+export type StrictRenderedAtomicSelection = {
+    units: RenderedAtomicUnit[];
+    hasPartialUnit: boolean;
+    isValid: boolean;
+};
+
 const READER_ATOMIC_UNIT_KINDS = [
     'inline-math',
     'display-math',
@@ -217,9 +223,16 @@ export function resolveSelectedAtomicUnits(range: Range, root: HTMLElement): Sel
 }
 
 export function resolveStrictRenderedAtomicUnits(range: Range, root: HTMLElement): RenderedAtomicUnit[] {
-    if (!root.contains(range.startContainer) || !root.contains(range.endContainer)) return [];
+    const selection = resolveStrictRenderedAtomicSelection(range, root);
+    return selection.isValid ? selection.units : [];
+}
 
-    const selected = collectStrictCandidateElements(range, root)
+export function resolveStrictRenderedAtomicSelection(range: Range, root: HTMLElement): StrictRenderedAtomicSelection {
+    if (!root.contains(range.startContainer) || !root.contains(range.endContainer)) {
+        return { units: [], hasPartialUnit: false, isValid: false };
+    }
+
+    const intersecting = collectStrictCandidateElements(range, root)
         .map((element) => {
             const kind = resolveRenderedAtomicUnitKind(element);
             if (!kind) return null;
@@ -230,13 +243,23 @@ export function resolveStrictRenderedAtomicUnits(range: Range, root: HTMLElement
             };
         })
         .filter((unit): unit is RenderedAtomicUnit => Boolean(unit))
-        .filter((unit) => rangeIntersectsElement(range, unit.element) && rangeCoversStrictUnit(range, unit));
+        .filter((unit) => rangeIntersectsElement(range, unit.element));
+    const complete = intersecting.filter((unit) => rangeCoversStrictUnit(range, unit));
+    const hasPartialUnit = intersecting.some((unit) => (
+        !complete.includes(unit)
+        && !complete.some((completeUnit) => unit.element.contains(completeUnit.element))
+    ));
 
-    return selected
-        .filter((unit) => !selected.some((candidate) => (
+    const units = complete
+        .filter((unit) => !complete.some((candidate) => (
             candidate !== unit && candidate.element.contains(unit.element)
         )))
         .sort((left, right) => compareDocumentOrder(left.element, right.element));
+    return {
+        units,
+        hasPartialUnit,
+        isValid: units.length > 0 && !hasPartialUnit,
+    };
 }
 
 function collectStrictCandidateElements(range: Range, root: HTMLElement): HTMLElement[] {

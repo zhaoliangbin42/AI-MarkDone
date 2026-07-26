@@ -1072,11 +1072,11 @@
         "description": "Message for chatgptRestorePositionAfterSendDesc"
     },
     "chatgptAtomicMarkdownCopyLabel": {
-        "message": "Copy selected content as Markdown",
+        "message": "Enhanced selection copy",
         "description": "Message for chatgptAtomicMarkdownCopyLabel"
     },
     "chatgptAtomicMarkdownCopyDesc": {
-        "message": "When a complete formula, code block, table, heading, list item, or other supported unit is selected on ChatGPT, Ctrl/Cmd+C copies canonical Markdown. Partial selections keep ChatGPT's native copy.",
+        "message": "When complete supported content is selected on ChatGPT, Ctrl/Cmd+C copies canonical Markdown and a nearby action copies basic formatted HTML using the configured formula format. Partial selections keep ChatGPT's native copy.",
         "description": "Message for chatgptAtomicMarkdownCopyDesc"
     },
     "chatgptInputEnhancementLabel": {
@@ -1547,6 +1547,18 @@
         "message": "Copy Markdown",
         "description": "Message for copyMarkdown"
     },
+    "atomicCopyRich": {
+        "message": "Copy with formatting",
+        "description": "Label for rich copying a native page selection"
+    },
+    "atomicCopyRichTooltip": {
+        "message": "Copy cleaned basic HTML using the configured formula source format",
+        "description": "Tooltip for a ready rich-copy selection action"
+    },
+    "atomicCopyRichWriteFailed": {
+        "message": "Formatted content and equations could not be written. Markdown was not copied.",
+        "description": "Notice after a strict rich-copy clipboard write fails"
+    },
     "close": {
         "message": "Close",
         "description": "Message for close"
@@ -1658,6 +1670,14 @@
     "formulaMarkdownCopyFormulaFormatDesc": {
         "message": "Choose how formulas are wrapped when copying or saving Markdown source.",
         "description": "Message for formulaMarkdownCopyFormulaFormatDesc"
+    },
+    "formulaRichCopyFormulaFormatLabel": {
+        "message": "Formatted copy formula format",
+        "description": "Label for the formula representation used by formatted selection copy"
+    },
+    "formulaRichCopyFormulaFormatDesc": {
+        "message": "Choose the source wrapper used for formulas in Copy with formatting. This does not change Markdown or single-formula copy.",
+        "description": "Description for the formatted-copy formula representation setting"
     },
     "formulaSourceFormatMarkdownDollar": {
         "message": "$...$ / $$...$$",

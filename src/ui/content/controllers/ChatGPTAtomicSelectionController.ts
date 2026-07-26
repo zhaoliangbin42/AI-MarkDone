@@ -1,6 +1,26 @@
 import type { SiteAdapter } from '../../../drivers/content/adapters/base';
-import { buildPageAtomicSelectionMarkdown } from '../../../services/copy/atomicSelectionMarkdown';
-import { resolveStrictRenderedAtomicUnits, type RenderedAtomicUnit } from '../../../services/reader/atomicSelection';
+import {
+    buildPageAtomicSelectionSnapshot,
+    type PageAtomicSelectionSnapshot,
+} from '../../../services/copy/atomicSelectionMarkdown';
+import type {
+    AtomicSelectionRichPayload,
+    CanonicalMarkdownRichPayloadParams,
+} from '../../../services/copy/atomicSelectionRichHtml';
+import { copyRichTextToClipboard } from '../../../drivers/content/clipboard/copyRichTextToClipboard';
+import {
+    DEFAULT_FORMULA_RICH_COPY_FORMAT,
+    normalizeFormulaRichCopyFormat,
+    type FormulaRichCopyFormat,
+} from '../../../core/settings/formula';
+import {
+    resolveStrictRenderedAtomicUnits,
+    type RenderedAtomicUnit,
+} from '../../../services/reader/atomicSelection';
+import type { AppearanceSnapshot } from '../../../style/appearance';
+import { showToast } from '../../../utils/toast';
+import { t } from '../components/i18n';
+import { ToolbarHoverActionPortal } from '../components/ToolbarHoverActionPortal';
 
 const STYLE_ID = 'aimd-chatgpt-atomic-selection-style';
 const STATE_ATTRIBUTE = 'data-aimd-page-atomic-state';
@@ -10,12 +30,22 @@ type SelectionContext = {
     root: HTMLElement;
 };
 
+export type AtomicSelectionRichPayloadBuilder = (
+    params: CanonicalMarkdownRichPayloadParams,
+) => Promise<AtomicSelectionRichPayload | null>;
+
 export class ChatGPTAtomicSelectionController {
     private readonly selectedElements = new Set<HTMLElement>();
+    private readonly richCopyPortal = new ToolbarHoverActionPortal('light');
     private initialized = false;
     private rafId: number | null = null;
+    private lastSelection: PageAtomicSelectionSnapshot | null = null;
+    private richCopyFormulaFormat: FormulaRichCopyFormat = DEFAULT_FORMULA_RICH_COPY_FORMAT;
 
-    constructor(private readonly adapter: SiteAdapter) {}
+    constructor(
+        private readonly adapter: SiteAdapter,
+        private readonly buildRichPayload: AtomicSelectionRichPayloadBuilder,
+    ) {}
 
     init(): void {
         if (this.initialized) return;
@@ -36,7 +66,32 @@ export class ChatGPTAtomicSelectionController {
             this.rafId = null;
         }
         this.applySelectedElements([]);
+        this.clearRichCopy();
         document.getElementById(STYLE_ID)?.remove();
+    }
+
+    setAppearance(snapshot: AppearanceSnapshot): void {
+        this.richCopyPortal.setAppearance(snapshot);
+    }
+
+    setRichCopyFormulaFormat(format: FormulaRichCopyFormat): void {
+        const next = normalizeFormulaRichCopyFormat(format);
+        this.richCopyFormulaFormat = next;
+        // Runtime formula-settings delivery also invalidates the snapshot's
+        // canonical Markdown representation, even when this rich format did not change.
+        if (!this.lastSelection) return;
+        const context = this.resolveSelectionContext();
+        const snapshot = context
+            ? buildPageAtomicSelectionSnapshot({
+                adapter: this.adapter,
+                range: context.range,
+                root: context.root,
+            })
+            : null;
+        this.applySelectedElements(
+            context ? resolveStrictRenderedAtomicUnits(context.range, context.root) : [],
+        );
+        this.syncRichCopy(snapshot);
     }
 
     private readonly handleSelectionChange = (): void => {
@@ -54,16 +109,17 @@ export class ChatGPTAtomicSelectionController {
         const selectedUnits = resolveStrictRenderedAtomicUnits(context.range, context.root);
         this.applySelectedElements(selectedUnits);
         if (selectedUnits.length === 0) return;
-
-        const markdown = buildPageAtomicSelectionMarkdown({
-            adapter: this.adapter,
-            range: context.range,
-            root: context.root,
-            selectedUnits,
-        });
-        if (!markdown) return;
+        const snapshot = this.lastSelection && this.isSameSelection(context, this.lastSelection)
+            ? this.lastSelection
+            : buildPageAtomicSelectionSnapshot({
+                adapter: this.adapter,
+                range: context.range,
+                root: context.root,
+            });
+        if (!snapshot) return;
         try {
-            event.clipboardData.setData('text/plain', markdown);
+            event.clipboardData.clearData?.();
+            event.clipboardData.setData('text/plain', snapshot.markdown);
             event.preventDefault();
         } catch {
             // Clipboard failures must leave the host page's native copy path available.
@@ -72,10 +128,114 @@ export class ChatGPTAtomicSelectionController {
 
     private syncSelection(): void {
         const context = this.resolveSelectionContext();
+        if (context && this.lastSelection && this.isSameSelection(context, this.lastSelection)) {
+            this.applySelectedElements(this.lastSelection.units);
+            return;
+        }
         const selectedUnits = context
             ? resolveStrictRenderedAtomicUnits(context.range, context.root)
             : [];
+        const snapshot = context
+            ? buildPageAtomicSelectionSnapshot({
+                adapter: this.adapter,
+                range: context.range,
+                root: context.root,
+            })
+            : null;
         this.applySelectedElements(selectedUnits);
+        this.syncRichCopy(snapshot);
+    }
+
+    private syncRichCopy(snapshot: PageAtomicSelectionSnapshot | null): void {
+        this.lastSelection = snapshot;
+        this.richCopyPortal.close();
+
+        if (!snapshot) return;
+        this.openRichCopyAction(snapshot);
+    }
+
+    private openRichCopyAction(snapshot: PageAtomicSelectionSnapshot): void {
+        const rect = resolveSelectionRect(snapshot.range, snapshot.units);
+        if (!rect) return;
+        const richLabel = resolveLocalizedLabel(t('atomicCopyRich'), 'atomicCopyRich', 'Copy with formatting');
+        const richTooltip = resolveLocalizedLabel(
+            t('atomicCopyRichTooltip'),
+            'atomicCopyRichTooltip',
+            'Copy cleaned basic HTML using the configured formula source format',
+        );
+        this.richCopyPortal.open({
+            anchorEl: snapshot.root,
+            anchorRect: rect,
+            actions: [{
+                id: 'copy-rich-selection',
+                label: richLabel,
+                displayLabel: richLabel,
+                tooltip: richTooltip,
+                showLabel: true,
+                onClick: () => { void this.handleRichCopy(); },
+            }],
+            onRequestClose: () => this.richCopyPortal.close(),
+        });
+    }
+
+    private async handleRichCopy(): Promise<void> {
+        const snapshot = this.lastSelection;
+        if (!snapshot) {
+            this.showRichCopyWriteFailure();
+            return;
+        }
+
+        let payload: AtomicSelectionRichPayload | null;
+        try {
+            payload = await this.buildRichPayload({
+                canonicalMarkdown: snapshot.canonicalMarkdown,
+                plainText: snapshot.markdown,
+                formulaFormat: this.richCopyFormulaFormat,
+            });
+        } catch {
+            if (this.lastSelection === snapshot) this.showRichCopyWriteFailure();
+            return;
+        }
+        if (this.lastSelection !== snapshot) return;
+        if (!payload) {
+            this.showRichCopyWriteFailure();
+            return;
+        }
+        const result = await copyRichTextToClipboard({
+            html: payload.html,
+            plainText: payload.plainText,
+        });
+        if (!result.ok) {
+            this.showRichCopyWriteFailure();
+            return;
+        }
+        this.richCopyPortal.close();
+    }
+
+    private showRichCopyWriteFailure(): void {
+        showToast({
+            text: resolveLocalizedLabel(
+                t('atomicCopyRichWriteFailed'),
+                'atomicCopyRichWriteFailed',
+                'Formatted content and equations could not be written. Markdown was not copied.',
+            ),
+            tone: 'error',
+        });
+    }
+
+    private clearRichCopy(): void {
+        this.lastSelection = null;
+        this.richCopyPortal.close();
+    }
+
+    private isSameSelection(context: SelectionContext, snapshot: PageAtomicSelectionSnapshot): boolean {
+        const left = snapshot.range;
+        const right = context.range;
+        return snapshot.root === context.root
+            && left.startContainer === right.startContainer
+            && left.startOffset === right.startOffset
+            && left.endContainer === right.endContainer
+            && left.endOffset === right.endOffset;
     }
 
     private resolveSelectionContext(): SelectionContext | null {
@@ -142,4 +302,40 @@ export class ChatGPTAtomicSelectionController {
 function getElementForNode(node: Node): HTMLElement | null {
     if (node instanceof HTMLElement) return node;
     return node.parentElement;
+}
+
+function resolveLocalizedLabel(translated: string, key: string, fallback: string): string {
+    return !translated || translated === key ? fallback : translated;
+}
+
+function resolveSelectionRect(range: Range, units: RenderedAtomicUnit[]): DOMRect | null {
+    const rects = typeof range.getClientRects === 'function'
+        ? Array.from(range.getClientRects()).filter((rect) => rect.width > 0 || rect.height > 0)
+        : [];
+    if (rects.length > 0) {
+        const left = Math.min(...rects.map((rect) => rect.left));
+        const top = Math.min(...rects.map((rect) => rect.top));
+        const right = Math.max(...rects.map((rect) => rect.right));
+        const bottom = Math.max(...rects.map((rect) => rect.bottom));
+        return makeRect(left, top, right, bottom);
+    }
+    const first = units[0]?.element;
+    return first?.getBoundingClientRect() ?? null;
+}
+
+function makeRect(left: number, top: number, right: number, bottom: number): DOMRect {
+    const width = Math.max(0, right - left);
+    const height = Math.max(0, bottom - top);
+    if (typeof DOMRect === 'function') return new DOMRect(left, top, width, height);
+    return {
+        left,
+        top,
+        right,
+        bottom,
+        width,
+        height,
+        x: left,
+        y: top,
+        toJSON: () => ({ left, top, right, bottom, width, height, x: left, y: top }),
+    } as DOMRect;
 }

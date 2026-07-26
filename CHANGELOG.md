@@ -7,7 +7,27 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+- ChatGPT: Added an independent formula source format for native-selection formatted copy, with `$...$`, LaTeX bracket, raw, `equation`, and `equation*` choices. `Command/Ctrl+C` remains canonical Markdown.
+
+### Changed
+- ChatGPT: Made atomic Markdown copy clear pre-existing clipboard formats before writing only `text/plain`, while keeping formatted-copy failures isolated from the keyboard Markdown path.
+- ChatGPT: Renamed the direct-selection setting to describe Markdown plus formatted copy, while preserving the existing default-on behavior and showing only one nearby formatted-copy action.
+- ChatGPT: Formatted selection copy now carries basic semantic HTML and the same canonical Markdown representation together, prefers the Async Clipboard API, and does not silently downgrade to a text-only success.
+- ChatGPT: Direct selection now normalizes one structurally closed fragment once and sends it through the same Markdown cleanup and canonical clipboard finalizer used by Reader, toolbar, and bookmark copy.
+- ChatGPT: Formatted selection HTML is now generated only from the cleaned canonical Markdown through the Reader parser and sanitizer, instead of maintaining a second DOM extraction and cleanup path.
+- ChatGPT: Formatted HTML and its shared Reader parser are loaded only after the formatted-copy action is clicked. Selection changes and keyboard Markdown copy no longer prepare rich payloads or load Reader/MathJax rendering dependencies.
+- ChatGPT: Temporarily removed Word Office Math and structured MathML from direct formatted-copy settings; existing saved values normalize to the default Markdown-dollar source format. Single-formula MathML copy remains available.
+
 ### Fixed
+- ChatGPT: Kept large formula-heavy native selections on the canonical Markdown path by cloning only selected content and replacing KaTeX visual trees with compact authoritative TeX atoms; shared DOM copy now collapses rendered whitespace and treats parser-budget aborts as failures instead of emitting malformed fallback text.
+- ChatGPT: Prevented already-delimited TeX sources such as `\[...\]`, `\(...\)`, and `$$...$$` from being wrapped a second time into malformed Markdown.
+- ChatGPT: Preserved closed emphasis, links, lists, code, tables, and formula structure when a native selection begins or ends inside a formatted ancestor.
+- ChatGPT: Prevented a complete atom mixed with a partially selected formula or sibling atom from being copied as a mismatched full-source payload.
+- ChatGPT: Removed duplicate component blocks from both copy formats and reports incomplete formatted-copy requests without affecting keyboard Markdown copy.
+- Reader: Native selection copy now uses the same formula source-format setting and canonical Markdown clipboard finalizer as the Reader selection action and ChatGPT direct copy.
+- ChatGPT: Prevented formulas nested inside headings, lists, or quotes from bypassing source validation, and stopped unresolved KaTeX DOM from being emitted as formula source.
+- ChatGPT: Discarded formatted-copy results that finish after the native selection has changed, preventing stale content from reaching the clipboard.
 - ChatGPT: Restored the directory's current-position marker and long-distance jumps after nested ChatGPT turn wrappers began repeating the host slot marker; clicks now resolve the exact user round instead of jumping to a page boundary.
 - ChatGPT: Completed replies now upgrade an existing pending canonical tail immediately, so stale passive graph cache entries can no longer turn message word counts invalid or open an empty Reader.
 - ChatGPT: Restored message toolbars and canonical Reader mapping for mounted assistant replies whose preceding user host slot is temporarily empty during conversation virtualization.

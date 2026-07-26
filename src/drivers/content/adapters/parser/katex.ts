@@ -1,29 +1,14 @@
 import { logger } from '../../../../core/logger';
+import { extractLatexSource } from '../../../../core/latex/extractLatexSource';
 import type { LatexResult, MarkdownParserAdapter } from './MarkdownParserAdapter';
-import { decodeEntities } from './decodeEntities';
 
-function extractFromAnnotation(mathNode: HTMLElement): LatexResult | null {
-    const annotation = mathNode.querySelector('annotation[encoding="application/x-tex"]');
-    const latex = annotation?.textContent?.trim();
+function extractFromSharedSource(mathNode: HTMLElement): LatexResult | null {
+    const latex = extractLatexSource(mathNode);
     if (!latex) return null;
-    return { latex, isBlock: isBlockMath(mathNode) };
-}
-
-function extractFromDataAttribute(mathNode: HTMLElement): LatexResult | null {
-    const latex = mathNode.getAttribute('data-latex-source') || mathNode.getAttribute('data-math');
-    if (!latex) return null;
-    return { latex: latex.trim(), isBlock: isBlockMath(mathNode) };
-}
-
-function extractFromKatexError(mathNode: HTMLElement): LatexResult | null {
-    const errorElement = mathNode.querySelector('.katex-error');
-    if (!errorElement) return null;
-    let text = errorElement.textContent?.trim() || '';
-    if (!text) return null;
-    text = decodeEntities(text);
-    text = text.replace(/^ParseError:.*?:\s*/i, '').trim();
-    if (!text) return null;
-    return { latex: text, isBlock: text.includes('\\begin{') || isBlockMath(mathNode) };
+    return {
+        latex,
+        isBlock: latex.includes('\\begin{') || isBlockMath(mathNode),
+    };
 }
 
 function mathMLToLatex(element: Element): string {
@@ -126,9 +111,7 @@ export function createKatexMarkdownParserAdapter(name: string, logLabel: string)
         },
         extractLatex(mathNode: HTMLElement): LatexResult | null {
             const strategies = [
-                () => extractFromAnnotation(mathNode),
-                () => extractFromDataAttribute(mathNode),
-                () => extractFromKatexError(mathNode),
+                () => extractFromSharedSource(mathNode),
                 () => extractFromMathML(mathNode, logLabel),
                 () => extractFromTextContent(mathNode),
             ];
@@ -143,7 +126,7 @@ export function createKatexMarkdownParserAdapter(name: string, logLabel: string)
             }
 
             logger.error(`[AI-MarkDone][${logLabel}] All LaTeX strategies failed`);
-            return { latex: mathNode.outerHTML, isBlock: isBlockMath(mathNode) };
+            return null;
         },
         getCodeLanguage(codeBlock: HTMLElement): string {
             const classList = Array.from(codeBlock.classList);

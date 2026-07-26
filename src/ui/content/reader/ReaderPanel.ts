@@ -5,7 +5,11 @@ import {
     pinIcon,
 } from '../../../assets/icons';
 import type { ReaderItem } from '../../../services/reader/types';
-import { copyReaderItemMarkdownToClipboard, formatReaderMarkdownForCopy } from '../../../services/reader/readerMarkdownCopy';
+import { copyReaderItemMarkdownToClipboard } from '../../../services/reader/readerMarkdownCopy';
+import {
+    copyCanonicalMarkdownToClipboard,
+    formatCanonicalMarkdownForCopy,
+} from '../../../services/copy/canonicalMarkdownCopy';
 import type { AppSettings } from '../../../core/settings/types';
 import {
     DEFAULT_READER_BODY_FONT_SIZE_PX,
@@ -1589,7 +1593,7 @@ export class ReaderPanel {
         copyButton.innerHTML = createIcon(copyIcon).outerHTML;
         copyButton.addEventListener('click', async () => {
             if (!selection.sourceMarkdown.trim()) return;
-            const ok = await copyTextToClipboard(formatReaderMarkdownForCopy(selection.sourceMarkdown));
+            const ok = await copyCanonicalMarkdownToClipboard(selection.sourceMarkdown);
             showEphemeralTooltip({
                 root: this.overlaySession?.shadow ?? this.host.document,
                 anchor: copyButton,
@@ -2025,7 +2029,10 @@ export class ReaderPanel {
 
         event.preventDefault();
         event.stopPropagation();
-        event.clipboardData?.setData('text/plain', this.state.selectionExport);
+        event.clipboardData?.setData(
+            'text/plain',
+            formatCanonicalMarkdownForCopy(this.state.selectionExport),
+        );
 
         const anchor = this.overlaySession.surfaceRoot.querySelector<HTMLElement>('[data-action="reader-copy"]') ?? markdownRoot;
         showEphemeralTooltip({

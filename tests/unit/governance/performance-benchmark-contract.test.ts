@@ -25,6 +25,9 @@ describe('ChatGPT performance benchmark contract', () => {
         const source = readFileSync(resolve('scripts/benchmark-chatgpt-runtime.ts'), 'utf8');
 
         expect(source).toContain('data-aimd-perf-atomic-selection');
+        expect(source).toContain('data-latex-source="\\\\frac{x}{y}"');
+        expect(source).toContain("selectionContract.copiedMarkdown !== '$\\\\frac{x}{y}$'");
+        expect(source).toContain("selectionContract.copiedTypes.join(',') !== 'text/plain'");
         expect(source).toContain('data-aimd-page-atomic-state');
         expect(source).toContain('Atomic selection performance gate failed');
         expect(source).toContain('selection: PhaseMetrics');

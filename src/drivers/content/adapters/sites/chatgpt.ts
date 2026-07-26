@@ -3,7 +3,7 @@ import { SiteAdapter, type ConversationGroupRef, type NoiseContext, type ThemeDe
 import { chatgptMarkdownParserAdapter } from '../parser/chatgpt';
 import type { MarkdownParserAdapter } from '../parser/MarkdownParserAdapter';
 import { logger } from '../../../../core/logger';
-import { cleanChatGPTReferenceNoise } from '../../chatgpt/normalizeReaderMarkdown';
+import { normalizeChatGPTReaderMarkdown } from '../../chatgpt/normalizeReaderMarkdown';
 import {
     collectChatGPTDomRoundRefs,
     disposeChatGPTPageIndex,
@@ -402,10 +402,10 @@ export class ChatGPTAdapter extends SiteAdapter {
             if (blockId && normalizedText) seenBlocks.add(blockId);
 
             const replacement = document.createDocumentFragment();
-            editor.childNodes.forEach((child) => {
-                if (child.nodeType === Node.TEXT_NODE && !child.textContent?.trim()) return;
-                replacement.appendChild(child.cloneNode(true));
-            });
+            for (const child of Array.from(editor.childNodes)) {
+                if (child.nodeType === Node.TEXT_NODE && !child.textContent?.trim()) continue;
+                replacement.appendChild(child);
+            }
             this.removeAdjacentWhitespace(replaceTarget);
             replaceTarget.replaceWith(replacement);
         }
@@ -451,7 +451,7 @@ export class ChatGPTAdapter extends SiteAdapter {
     }
 
     cleanMarkdown(markdown: string): string {
-        return cleanChatGPTReferenceNoise(markdown);
+        return normalizeChatGPTReaderMarkdown(markdown);
     }
 
     isNoiseNode(node: Node, context: NoiseContext): boolean {
