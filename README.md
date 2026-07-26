@@ -8,7 +8,7 @@
     <a href="./LICENSE">
       <img src="https://img.shields.io/github/license/zhaoliangbin42/AI-MarkDone?label=License" alt="License">
     </a>
-    <img src="https://img.shields.io/badge/Version-5.0.1-10A37F" alt="Version 5.0.1">
+    <img src="https://img.shields.io/badge/Version-5.0.2-10A37F" alt="Version 5.0.2">
     </br>
     <img src="https://img.shields.io/badge/Browsers-Chrome%20%7C%20Firefox-10A37F" alt="Browsers">
     <img src="https://img.shields.io/badge/Primary%20Platform-ChatGPT-10A37F" alt="Primary Platform">
@@ -200,9 +200,10 @@ npm run build
 
 ## 📅 Changelog (Latest)
 
-### 5.0.1
-- Kept the directory, Reader, export source, and toolbar word count synchronized after completed new replies without requiring a page refresh.
-- Restored Reader content and toolbar word counts when ChatGPT remounts visible replies in long virtualized conversations.
+### 5.0.2
+- Fixed inaccurate directory navigation in long ChatGPT conversations.
+- Atomic selection copy now uses plain Markdown text to avoid incorrect formulas in Markdown editors.
+- Improved the stability of ChatGPT message statistics.
 
 [Full Changelog](./CHANGELOG.md)
 [Release Notes](./RELEASE_NOTES.md)

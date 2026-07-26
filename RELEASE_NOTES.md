@@ -1,5 +1,12 @@
 # Release Notes
 
+## v5.0.2 (2026-07-26)
+
+### Fixed
+- Fixed inaccurate directory navigation in long ChatGPT conversations. Thanks to @念即观 | Mind is Vision and the many users who shared feedback.
+- Atomic selection copy now uses plain Markdown text, preventing formulas from becoming incorrect when formatted Markdown is pasted into Markdown editors. Thanks to QQ user @盐焗小星球.
+- Improved the stability of ChatGPT message statistics. Thanks to Xiaohongshu user @伊拉克大灭霸.
+
 ## v5.0.1 (2026-07-20)
 
 This maintenance release keeps AI-MarkDone's shared ChatGPT content discovery synchronized after new replies and across long-conversation virtualization.
