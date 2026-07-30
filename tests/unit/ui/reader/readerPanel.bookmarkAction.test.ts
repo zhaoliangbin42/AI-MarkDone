@@ -13,10 +13,49 @@ vi.mock('@/ui/content/chatgptDirectory/navigation', () => ({
     navigateChatGPTDirectoryTarget: navigationMocks.navigateChatGPTDirectoryTarget,
 }));
 import { ChatGPTAdapter } from '@/drivers/content/adapters/sites/chatgpt';
+import { getChatGPTConversationIndex } from '@/drivers/content/chatgpt/ChatGPTConversationIndex';
 import { MessageToolbarOrchestrator } from '@/ui/content/controllers/MessageToolbarOrchestrator';
 import { bookmarkSaveDialog } from '@/ui/content/bookmarks/save/bookmarkSaveDialogSingleton';
 
 describe('ReaderPanel bookmark action injection', () => {
+    function createOrchestrator(adapter: ChatGPTAdapter, options: any) {
+        window.history.replaceState({}, '', '/c/conv-1');
+        const snapshot = {
+            conversationId: 'conv-1',
+            revision: 1,
+            proof: 'observed-graph' as const,
+            branchKey: 'a1',
+            capturedAt: 1,
+            rounds: [{
+                id: 'round-1',
+                position: 1,
+                userPrompt: 'Hello from user',
+                assistantContent: 'Hi',
+                preview: 'Hello from user',
+                messageId: 'a1',
+                userMessageId: 'u1',
+                assistantMessageId: 'a1',
+            }],
+        };
+        const state = {
+            status: 'ready' as const,
+            routeEpoch: 1,
+            revision: 1,
+            conversationId: 'conv-1',
+            snapshot,
+        };
+        const source = {
+            getState: vi.fn(() => state),
+            ensureReady: vi.fn(async () => snapshot),
+            subscribe: vi.fn(() => vi.fn()),
+        };
+        getChatGPTConversationIndex(adapter).bindConversationSource(source);
+        return new MessageToolbarOrchestrator(adapter, {
+            ...options,
+            chatGptConversationSource: source,
+        });
+    }
+
     it('injects a header bookmark action for conversation reader entries', async () => {
         document.body.innerHTML = `
           <div id="thread">
@@ -42,7 +81,7 @@ describe('ReaderPanel bookmark action injection', () => {
         const bookmarksController = {
             isPositionBookmarked: vi.fn(() => false),
         } as any;
-        const orchestrator = new MessageToolbarOrchestrator(adapter, { readerPanel, bookmarksController });
+        const orchestrator = createOrchestrator(adapter, { readerPanel, bookmarksController });
         const assistant = document.querySelector('[data-message-author-role="assistant"][data-message-id]') as HTMLElement;
 
         (orchestrator as any).rebuildTurnIndex();
@@ -86,7 +125,7 @@ describe('ReaderPanel bookmark action injection', () => {
         const bookmarksController = {
             isPositionBookmarked: vi.fn(() => false),
         } as any;
-        const orchestrator = new MessageToolbarOrchestrator(adapter, { readerPanel, bookmarksController });
+        const orchestrator = createOrchestrator(adapter, { readerPanel, bookmarksController });
         const assistant = document.querySelector('[data-message-author-role="assistant"][data-message-id]') as HTMLElement;
 
         (orchestrator as any).rebuildTurnIndex();
@@ -137,7 +176,7 @@ describe('ReaderPanel bookmark action injection', () => {
             getCommentExportContext: vi.fn(() => null),
         } as any;
         const sendController = { togglePopover: vi.fn() } as any;
-        const orchestrator = new MessageToolbarOrchestrator(adapter, { readerPanel, sendController });
+        const orchestrator = createOrchestrator(adapter, { readerPanel, sendController });
         const assistant = document.querySelector('[data-message-author-role="assistant"][data-message-id]') as HTMLElement;
 
         (orchestrator as any).rebuildTurnIndex();
@@ -195,7 +234,7 @@ describe('ReaderPanel bookmark action injection', () => {
             })),
         } as any;
         const sendController = { togglePopover: vi.fn() } as any;
-        const orchestrator = new MessageToolbarOrchestrator(adapter, { readerPanel, sendController });
+        const orchestrator = createOrchestrator(adapter, { readerPanel, sendController });
         const assistant = document.querySelector('[data-message-author-role="assistant"][data-message-id]') as HTMLElement;
 
         (orchestrator as any).rebuildTurnIndex();
@@ -257,7 +296,7 @@ describe('ReaderPanel bookmark action injection', () => {
             getDefaultFolderPath: vi.fn(() => '/Inbox'),
             toggleBookmarkFromToolbar: vi.fn(async () => ({ ok: true, data: { saved: true } })),
         } as any;
-        const orchestrator = new MessageToolbarOrchestrator(adapter, {
+        const orchestrator = createOrchestrator(adapter, {
             readerPanel,
             bookmarksController,
             bookmarkSaveDialog: bookmarkSaveDialog as any,

@@ -41,6 +41,11 @@ const readerPanelCtor = vi.fn(function () {
         setReaderSettingsController: vi.fn(),
         setPromptManagerController: vi.fn(),
         setCommentExportSettings: vi.fn(),
+        isShowingConversationReader: vi.fn(() => false),
+        getItemsSnapshot: vi.fn(() => []),
+        appendItem: vi.fn(async () => undefined),
+        replaceItems: vi.fn(async () => undefined),
+        hide: vi.fn(),
     };
 });
 const sendControllerSetAppearance = vi.fn();
@@ -238,26 +243,35 @@ const atomicSelectionCtor = vi.fn(function () {
 });
 const engineInit = vi.fn();
 const engineDispose = vi.fn();
-const engineSubscribe = vi.fn();
-const engineGetSnapshot = vi.fn(async () => null);
-const enginePeekCurrentSnapshot = vi.fn(() => null);
-const engineApplyLiveDomTail = vi.fn(() => null);
-const engineUnregisterLiveDomReconciler = vi.fn();
-const engineRegisterLiveDomReconciler = vi.fn(() => engineUnregisterLiveDomReconciler);
+const engineSubscribe = vi.fn(() => () => undefined);
+const engineGetState = vi.fn(() => ({
+    status: 'collecting',
+    routeEpoch: 1,
+    revision: 1,
+    conversationId: 'mock',
+    snapshot: null,
+}));
+const engineEnsureReady = vi.fn(async () => null);
 const engineCtor = vi.fn(function () {
     return {
         init: engineInit,
         dispose: engineDispose,
         subscribe: engineSubscribe,
-        getSnapshot: engineGetSnapshot,
-        peekCurrentSnapshot: enginePeekCurrentSnapshot,
-        applyLiveDomTail: engineApplyLiveDomTail,
-        registerLiveDomReconciler: engineRegisterLiveDomReconciler,
+        getState: engineGetState,
+        ensureReady: engineEnsureReady,
     };
 });
-const conversationIndexBindSnapshotSource = vi.fn();
+const domTurnFactSource = {
+    start: vi.fn(),
+    stop: vi.fn(),
+    read: vi.fn(() => ({ observedAt: 1, rounds: [] })),
+};
+const domTurnFactSourceCtor = vi.fn(function () {
+    return domTurnFactSource;
+});
+const conversationIndexBindConversationSource = vi.fn();
 const getChatGPTConversationIndex = vi.fn(() => ({
-    bindSnapshotSource: conversationIndexBindSnapshotSource,
+    bindConversationSource: conversationIndexBindConversationSource,
 }));
 const setLocale = vi.fn(async () => {});
 const setLazyContentFeatureLocale = vi.fn();
@@ -273,6 +287,7 @@ const collectFreshReaderContent = vi.fn(async () => ({
     items: [{ id: 'reader-item-1', userPrompt: 'Prompt', content: 'Answer' }],
     startIndex: 0,
 }));
+const isReaderContentSourceRevisionCurrent = vi.fn(() => true);
 const buildReaderSessionSnapshot = vi.fn(async (input: any) => ({
     items: input.items,
     startIndex: input.startIndex,
@@ -406,6 +421,7 @@ vi.mock('@/ui/content/overlay/OverlaySession', () => ({
 
 vi.mock('@/services/reader/readerContentSource', () => ({
     collectFreshReaderContent,
+    isReaderContentSourceRevisionCurrent,
 }));
 
 vi.mock('@/services/reader/readerSessionSnapshot', () => ({
@@ -454,6 +470,10 @@ vi.mock('@/ui/content/controllers/ChatGPTAtomicSelectionController', () => ({
 
 vi.mock('@/drivers/content/chatgpt/ChatGPTConversationEngine', () => ({
     ChatGPTConversationEngine: engineCtor,
+}));
+
+vi.mock('@/services/content/ChatGPTDomTurnFactSource', () => ({
+    ChatGPTDomTurnFactSource: domTurnFactSourceCtor,
 }));
 
 vi.mock('@/drivers/content/chatgpt/ChatGPTConversationIndex', () => ({
@@ -515,6 +535,7 @@ afterEach(() => {
         items: [{ id: 'reader-item-1', userPrompt: 'Prompt', content: 'Answer' }],
         startIndex: 0,
     }));
+    isReaderContentSourceRevisionCurrent.mockReturnValue(true);
     buildReaderSessionSnapshot.mockImplementation(async (input: any) => ({
         items: input.items,
         startIndex: input.startIndex,
@@ -685,14 +706,14 @@ describe('content runtime entry', () => {
 
         const engine = engineCtor.mock.results[0]?.value;
         expect(getChatGPTConversationIndex).toHaveBeenCalledTimes(1);
-        expect(conversationIndexBindSnapshotSource).toHaveBeenCalledWith(engine);
-        expect(conversationIndexBindSnapshotSource.mock.invocationCallOrder[0]).toBeLessThan(
+        expect(conversationIndexBindConversationSource).toHaveBeenCalledWith(engine);
+        expect(conversationIndexBindConversationSource.mock.invocationCallOrder[0]).toBeLessThan(
             messageStepperInit.mock.invocationCallOrder[0]!,
         );
-        expect(conversationIndexBindSnapshotSource.mock.invocationCallOrder[0]).toBeLessThan(
+        expect(conversationIndexBindConversationSource.mock.invocationCallOrder[0]).toBeLessThan(
             directoryInit.mock.invocationCallOrder[0]!,
         );
-        expect(engineRegisterLiveDomReconciler).toHaveBeenCalledTimes(1);
+        expect(domTurnFactSourceCtor).toHaveBeenCalledTimes(1);
     });
 
     it('does not bind the canonical conversation index while ChatGPT runtime starts disabled', async () => {
@@ -704,7 +725,7 @@ describe('content runtime entry', () => {
         await import('@/runtimes/content/entry');
 
         expect(getChatGPTConversationIndex).not.toHaveBeenCalled();
-        expect(conversationIndexBindSnapshotSource).not.toHaveBeenCalled();
+        expect(conversationIndexBindConversationSource).not.toHaveBeenCalled();
         expect(engineInit).not.toHaveBeenCalled();
         expect(directoryInit).not.toHaveBeenCalled();
         expect(messageStepperInit).not.toHaveBeenCalled();
@@ -967,7 +988,7 @@ describe('content runtime entry', () => {
         expect(directorySetPromptLabelMode).toHaveBeenCalledWith('headTail');
         expect(officialNavigationCtor).toHaveBeenCalledTimes(1);
         expect(officialNavigationSetEnabled).toHaveBeenCalledWith(false);
-        expect(messageToolbarCtor.mock.calls[0]?.[1]?.chatGptConversationEngine).toBeTruthy();
+        expect(messageToolbarCtor.mock.calls[0]?.[1]?.chatGptConversationSource).toBeTruthy();
     });
 
     it('initializes prompt autocomplete and wires the lower-right prompt button to the manager', async () => {
@@ -1166,7 +1187,6 @@ describe('content runtime entry', () => {
         expect(directoryCtor).toHaveBeenCalledTimes(1);
         expect(directoryDispose).toHaveBeenCalledTimes(1);
         expect(officialNavigationDispose).toHaveBeenCalledTimes(1);
-        expect(engineUnregisterLiveDomReconciler).toHaveBeenCalledTimes(1);
         expect(engineDispose).toHaveBeenCalledTimes(1);
         expect(mathClickDisable).toHaveBeenCalledTimes(1);
         expect(mathClickSetFormulaSettings).toHaveBeenLastCalledWith({
@@ -1218,7 +1238,7 @@ describe('content runtime entry', () => {
 
         expect(messageToolbarsInit).toHaveBeenCalledTimes(2);
         expect(getChatGPTConversationIndex).toHaveBeenCalledTimes(2);
-        expect(conversationIndexBindSnapshotSource).toHaveBeenCalledTimes(2);
+        expect(conversationIndexBindConversationSource).toHaveBeenCalledTimes(2);
         expect(viewportResizeSuspendInit).toHaveBeenCalledTimes(2);
         expect(sendPositionRestoreInit).toHaveBeenCalledTimes(2);
         expect(sendPositionRestoreSetEnabled).toHaveBeenLastCalledWith(false);
@@ -1597,6 +1617,47 @@ describe('content runtime entry', () => {
         }));
         expect(settingsSetCategory).toHaveBeenCalledWith('reader', expect.objectContaining({
             detachedNoticeConfirmed: true,
+        }));
+    });
+
+    it('rejects a detached Reader refresh when the conversation changes during snapshot construction', async () => {
+        adapterPlatformId = 'chatgpt';
+        collectFreshReaderContent.mockResolvedValueOnce({
+            items: [{ id: 'reader-item-1', userPrompt: 'Prompt', content: 'Answer' }],
+            startIndex: 0,
+            sourceRevision: {
+                routeEpoch: 1,
+                revision: 2,
+                conversationId: 'mock',
+            },
+        });
+        buildReaderSessionSnapshot.mockImplementationOnce(async (input: any) => {
+            isReaderContentSourceRevisionCurrent.mockReturnValue(false);
+            return {
+                items: input.items,
+                startIndex: input.startIndex,
+                sourceUrl: input.sourceUrl,
+                theme: input.theme,
+                createdAt: 1,
+                updatedAt: 1,
+            };
+        });
+        vi.resetModules();
+        await import('@/runtimes/content/entry');
+        await Promise.resolve();
+
+        const sendResponse = vi.fn();
+        (runtimeMessageListener as any)!(
+            { v: 1, id: 'refresh_stale_1', type: 'readerSession:refresh', payload: { sessionId: 'session-1' } },
+            undefined,
+            sendResponse,
+        );
+
+        await vi.waitFor(() => expect(sendResponse).toHaveBeenCalled());
+        expect(sendResponse).toHaveBeenCalledWith(expect.objectContaining({
+            ok: false,
+            type: 'readerSession:refresh',
+            error: expect.objectContaining({ code: 'SOURCE_UNAVAILABLE' }),
         }));
     });
 

@@ -8,6 +8,8 @@ export type BookmarkSaveDialogPort = Pick<BookmarkSaveDialog,
 
 export type SaveMessagesDialogPort = Pick<SaveMessagesDialog,
     | 'open'
+    | 'isOpen'
+    | 'close'
     | 'setAppearance'
     | 'setExportSettings'
     | 'setMarkdownFormulaFormat'

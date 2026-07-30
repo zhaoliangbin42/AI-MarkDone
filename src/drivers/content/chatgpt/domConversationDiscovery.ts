@@ -216,10 +216,6 @@ function pushUnique(nodes: HTMLElement[], node: HTMLElement | null | undefined):
     if (node && !nodes.includes(node)) nodes.push(node);
 }
 
-function isVirtualizationEligible(adapter: SiteAdapter, messageEl: HTMLElement): boolean {
-    return adapter.isVirtualizationEligibleMessage?.(messageEl) ?? true;
-}
-
 function collectTurnWrapperRoundRefs(adapter: SiteAdapter, root: ParentNode): ChatGPTDomRoundRef[] {
     const turnWrappers = listTurnWrappers(root);
     const rounds: ChatGPTDomRoundRef[] = [];
@@ -256,9 +252,6 @@ function collectTurnWrapperRoundRefs(adapter: SiteAdapter, root: ParentNode): Ch
 
         const realAssistantMessageEl = findAssistantMessage(adapter, turnWrapper);
         const hasRealAssistantMessage = realAssistantMessageEl instanceof HTMLElement;
-        if (hasRealAssistantMessage && !isVirtualizationEligible(adapter, realAssistantMessageEl)) {
-            continue;
-        }
 
         const groupEls: HTMLElement[] = [];
         pushUnique(groupEls, pendingUser.root);
@@ -340,9 +333,6 @@ function collectLegacyContainerRoundRefs(adapter: SiteAdapter, root: ParentNode)
         const resolvedAssistantRoot = assistantRootEl;
         const realAssistantMessageEl = findAssistantMessage(adapter, resolvedAssistantRoot);
         const hasRealAssistantMessage = realAssistantMessageEl instanceof HTMLElement;
-        if (hasRealAssistantMessage && !isVirtualizationEligible(adapter, realAssistantMessageEl)) {
-            continue;
-        }
 
         const roundId = readRoundId(pendingUser.root, pendingUser.container);
         const userMessageId = readMessageId(pendingUser.message, pendingUser.root, pendingUser.container);
@@ -429,7 +419,6 @@ function discoverChatGPTDomRoundRefs(adapter: SiteAdapter): ChatGPTDomRoundRef[]
         }
 
         const assistantMessageEl = findAssistantMessage(adapter, roleRoot) ?? roleNode;
-        if (!isVirtualizationEligible(adapter, assistantMessageEl)) continue;
 
         const groupEls: HTMLElement[] = [];
         pushUnique(groupEls, pendingUser.root);
@@ -489,6 +478,10 @@ export function subscribeChatGPTDomRoundChanges(adapter: SiteAdapter, listener: 
 
 export function subscribeChatGPTDomMutations(adapter: SiteAdapter, listener: () => void): () => void {
     return getChatGPTPageIndex(adapter).subscribeMutations(listener);
+}
+
+export function invalidateChatGPTDomRoundSnapshot(adapter: SiteAdapter): void {
+    getChatGPTPageIndex(adapter).invalidate();
 }
 
 export function disposeChatGPTPageIndex(adapter: SiteAdapter): void {

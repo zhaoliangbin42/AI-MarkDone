@@ -276,6 +276,14 @@ class LazySaveMessagesDialog implements SaveMessagesDialogPort {
         this.lazy.current?.setMarkdownFormulaFormat(format);
     }
 
+    isOpen(): boolean {
+        return this.lazy.current?.isOpen() ?? false;
+    }
+
+    close(): void {
+        this.lazy.current?.close();
+    }
+
     async open(...args: Parameters<SaveMessagesDialogPort['open']>): Promise<void> {
         this.setAppearance(createAppearanceSnapshot(args[1], this.appearance.overrides));
         const instance = await this.lazy.resolve();

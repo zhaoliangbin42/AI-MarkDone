@@ -63,12 +63,10 @@ describe('ChatGPTPageIndex', () => {
     it('shares the same mapped turn snapshot across toolbar, directory, and navigation callers', () => {
         const firstTurns = collectConversationTurnRefs(adapter);
         const secondTurns = collectConversationTurnRefs(adapter);
-        getChatGPTConversationIndex(adapter).setSnapshot({
+        const snapshot = {
             conversationId: '12345678-1234-1234-1234-123456789abc',
-            buildFingerprint: 'test-build',
-            source: 'runtime-bridge',
-            origin: 'conversation-graph',
-            coverage: 'complete',
+            revision: 1,
+            proof: 'observed-graph',
             branchKey: 'branch-test',
             capturedAt: Date.now(),
             rounds: [{
@@ -81,6 +79,16 @@ describe('ChatGPTPageIndex', () => {
                 userMessageId: null,
                 assistantMessageId: 'assistant-1',
             }],
+        } as const;
+        getChatGPTConversationIndex(adapter).bindConversationSource({
+            getState: () => ({
+                status: 'ready',
+                routeEpoch: 1,
+                revision: 1,
+                conversationId: snapshot.conversationId,
+                snapshot,
+            }),
+            subscribe: () => () => undefined,
         });
         const positions = collectChatGPTRoundPositions(adapter);
 
@@ -257,13 +265,17 @@ describe('ChatGPTPageIndex', () => {
         unsubscribe();
     });
 
-    it('notifies content-discovery subscribers when an existing message finishes rendering', async () => {
+    it('notifies content-discovery subscribers when the official completion action row mounts', async () => {
+        document.querySelector('.z-0.flex')?.remove();
         const listener = vi.fn();
         const unsubscribe = subscribeChatGPTDomMutations(adapter, listener);
-        const content = document.querySelector('.markdown')?.firstChild;
-        if (!content) throw new Error('fixture content is missing');
+        const assistantTurn = document.querySelector('[data-turn="assistant"]');
+        if (!(assistantTurn instanceof HTMLElement)) throw new Error('fixture assistant turn is missing');
 
-        content.textContent = 'Answer 1 complete';
+        assistantTurn.insertAdjacentHTML(
+            'beforeend',
+            '<div class="z-0 flex"><button data-testid="copy-turn-action-button">Copy</button></div>',
+        );
         await deliverMutations();
 
         expect(listener).toHaveBeenCalledTimes(1);
@@ -303,7 +315,7 @@ describe('ChatGPTPageIndex', () => {
         } finally {
             querySelectorAll.mockRestore();
         }
-    });
+    }, 10_000);
 
     it('does not invalidate for extension-owned toolbar insertion or bookkeeping attributes', async () => {
         const first = collectChatGPTDomRoundRefs(adapter);

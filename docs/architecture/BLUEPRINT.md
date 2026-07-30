@@ -74,7 +74,7 @@
 
 ### 2.3.2 Reader 闭环（预览/复制/发送）
 
-1. Driver（adapter/datasource）采集 `ReaderItem[]`（live page / bookmarks 等来源）；ChatGPT live page 只允许 `ChatGPTConversationEngine` 的 verified conversation graph snapshot 作为 canonical semantic source。完整 graph 是基线；共享 PageIndex mutation 触发器只可原位完成 graph 中仍 pending 的 canonical 尾轮，或把其后 typed identity 完整且官方完成操作栏已挂载的连续 DOM successor 写回同一 snapshot。已证明完成的同身份 live 正文不得被后到旧空 graph 回滚，assistant identity 冲突则以新 graph 分支为准。DOM 不能补齐历史或跨未知前驱降级正文
+1. Driver（adapter/datasource）采集 `ReaderItem[]`（live page / bookmarks 等来源）；ChatGPT live page 只允许 `ChatGPTConversationReducer` 发布的 proof-backed snapshot 作为 canonical semantic source。完整性根只能是被动观察的完整当前分支 graph，或扩展亲历空白新对话并连续见证的 birth epoch；共享 PageIndex 只提供 typed DOM turn facts 和当前 anchors。Graph 决定完整分支与绝对顺序，birth 只能从零沿连续完成 successor 推进；同 lineage 的旧空 graph 不得回滚已完成正文，typed identity 冲突必须撤下旧 snapshot 并等待 graph 重新校准。DOM 不能补齐未知历史，消费者不能拥有第二套恢复链路
 2. Service 进行编排：解析/渲染策略、缓存、错误回退、性能节流
 3. UI 只负责呈现与交互（分页/复制/打开浮层/触发发送）
 4. 副作用（写书签、写设置、网络等）通过 Background 执行并返回结果
@@ -148,7 +148,8 @@ Detached Reader 是 Reader 闭环的跨 runtime 形态，而不是第三套 Read
 
 - 页面级入口必须由 AI-MarkDone 自有 surface 承载，不得为入口修改宿主页面 header 的内部 DOM；若未来新增宿主锚点，相关 DOM 差异仍必须收敛在 adapter 契约内
 - ChatGPT conversation group discovery、turn root、conversation root、streaming 判定同样属于 adapter/driver 契约的一部分；UI/controller 只能消费已经抽象好的 structural refs，不得在 UI 层按 ChatGPT selector 重新推导轮次、正文或 identity
-- `ChatGPTConversationEngine` 是唯一 semantic SSOT；`readerContentSource` 把其 verified graph snapshot 投影成 Reader/Copy/Save Messages/书签正文共用的 `ReaderItem[]`
+- `ChatGPTConversationEngine` 是唯一 semantic SSOT；`readerContentSource` 是唯一 `ReaderItem[]` 正文投影，分别提供无副作用的当前读取和一次确认的用户动作读取。工具栏词数/书签状态与 Reader revision binding 只被动读取，Copy/PNG/Reader open/Save Messages/书签命令只通过 fresh 入口确认一次；任何 UI/controller 都不得直接调用 Engine flush 或构造 ChatGPT Reader items
+- 官网 conversation Reader 只由 `ChatGPTConversationReaderBinding` 订阅 source revision；snapshot withdrawal 关闭 Reader，精确前缀只追加，既有 identity/prompt/正文变化原子替换。Save Messages 与延迟书签事务必须以 `routeEpoch + revision + conversationId` 失效，且该 token 不进入持久 schema
 - `ChatGPTPageIndex` 只按宿主 DOM revision 缓存当前 connected materialization anchors；`ChatGPTConversationIndex` 以 Engine snapshot 的完整顺序为事实，并以 typed identity 连接这些可选 anchors，作为 Directory、Stepper、Reader locate、Bookmark Go 与 pending navigation 的唯一 navigation projection。已挂载 assistant message element 的唯一 `data-message-id` 直接对应 canonical `assistantMessageId`，不得因 wrapper/turn ID 漂移而失配；无直接消息身份时才使用 materialized containment，歧义必须 fail closed。DOM window replacement 不得改变 canonical count；索引必须忽略 AI-MarkDone 自有节点和 `data-aimd-*` bookkeeping，conversation root 更换或 runtime disable→enable 时必须正确重建、重绑与释放
 - Off-screen navigation 应以经过 typed-anchor 校准的宿主持久 turn slot 为主路径，不得把 canonical position 直接换算为全局 scroll ratio，也不得依赖 React/Fiber、私有 virtualizer 或宿主数字 test id。校准成功后必须在 bounded budget 内复用同一 target slot，直到 exact identity anchor materialize；不得中途退回像素探测。只有没有可信 slot topology 时才可运行 compatibility seeker，且 exact connected identity 与稳定 alignment 仍是唯一成功条件。正常点击不得因此新增全页 observer、常驻 timer 或重复 slot scan
 - ChatGPT 稳定态性能优化所需的重子树结构提示（如 KaTeX / code-heavy subtree refs）同样属于 adapter/driver 契约；UI/controller 只能消费 adapter 返回的结构化 hints，不得自行扩张宿主 selector 集合

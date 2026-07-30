@@ -11,7 +11,7 @@ import {
     type FormulaSourceFormat,
 } from '../../../core/math/formulaSourceFormat';
 import type { SiteAdapter } from '../../../drivers/content/adapters/base';
-import type { ChatGPTConversationEngine } from '../../../drivers/content/chatgpt/ChatGPTConversationEngine';
+import type { ChatGPTConversationSource } from '../../../drivers/content/chatgpt/types';
 import { buildConversationMetadata } from '../../../drivers/content/conversation/metadata';
 import { subscribeLocaleChange, t } from '../components/i18n';
 import type { ExportProgressEvent, TranslateFn, SaveFormat } from '../../../services/export/saveMessagesTypes';
@@ -20,7 +20,11 @@ import {
     exportTurnsPdf,
     exportTurnsPng,
 } from '../../../services/export/saveMessagesFacade';
-import { collectFreshReaderContent, readerItemsToChatTurns } from '../../../services/reader/readerContentSource';
+import {
+    collectFreshReaderContent,
+    isReaderContentSourceRevisionCurrent,
+    readerItemsToChatTurns,
+} from '../../../services/reader/readerContentSource';
 import { getSaveMessagesDialogCss } from './saveMessagesDialogCss';
 import { xIcon, fileCodeIcon, fileTextIcon, imageIcon } from '../../../assets/icons';
 import { OverlaySession } from '../overlay/OverlaySession';
@@ -104,7 +108,7 @@ export class SaveMessagesDialog {
         adapter: SiteAdapter,
         theme: Theme,
         options?: {
-            chatGptConversationEngine?: ChatGPTConversationEngine | null;
+            chatGptConversationSource?: ChatGPTConversationSource | null;
             startMessageElement?: HTMLElement | null;
         }
     ): Promise<void> {
@@ -112,10 +116,20 @@ export class SaveMessagesDialog {
         this.adapter = adapter;
         this.setAppearance(createAppearanceSnapshot(theme, this.appearance.overrides));
 
-        const { items, startIndex } = await collectFreshReaderContent(adapter, options?.startMessageElement ?? null, {
-            chatGptConversationEngine: options?.chatGptConversationEngine ?? null,
+        const content = await collectFreshReaderContent(adapter, options?.startMessageElement ?? null, {
+            chatGptConversationSource: options?.chatGptConversationSource ?? null,
         });
+        const { items, startIndex } = content;
         const turns = await readerItemsToChatTurns(items);
+        if (
+            adapter.getPlatformId() === 'chatgpt'
+            && !isReaderContentSourceRevisionCurrent(
+                options?.chatGptConversationSource,
+                content.sourceRevision,
+            )
+        ) {
+            return;
+        }
         const metadata = buildConversationMetadata(adapter, turns.length);
         this.turns = turns;
         this.metadata = metadata;

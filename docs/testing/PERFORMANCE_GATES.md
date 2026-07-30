@@ -170,6 +170,13 @@ If a phase misses a threshold, work stays in that phase. The implementation may 
 - Three final 200-event runs retained exactly two `data-aimd-page-atomic-state` writes, zero selection long tasks, zero idle mutations, 200/200 toolbars, and zero duplicates. Median selection duration was 171.2 ms, toolbar readiness 250.3 ms, and replacement recovery 152.4 ms.
 - The current worktree build passed 1,412/1,412 core tests, 36/36 smoke tests, 122/122 acceptance tests, TypeScript checking, Chrome/Firefox production builds, entry-format checks, and bundle gates. `content.js` is 734,353 raw bytes / 194,704 gzip bytes.
 
+### ChatGPT content-consumer control convergence — 2026-07-30
+
+- Three consecutive 200-round runs retained 200/200 toolbars, zero duplicate action rows, zero idle mutations, exactly 200 streaming host mutations, zero selection/idle/streaming/recovery long tasks, and zero export-renderer requests on every run.
+- The existing three-run worktree benchmark measured 342.8 ms toolbar readiness, 153.7 ms replacement recovery, 103.0 ms first feature load, 5,745,575-byte post-GC heap, 1,867.0 ms cold duration, 138 ms cold long-task total/maximum, and 103.2 ms selection duration. The isolated staged build's `content.js` is 742,280 raw / 195,860 gzip bytes.
+- Against the accepted 2026-07-29 median, recovery, feature load, selection, cold duration, and bundle size remain within or improve the 10% boundary, but toolbar readiness (+26.8%), post-GC heap (+15.3%), and cold long-task total (+137.9%) do not. The synthetic benchmark never publishes a canonical conversation snapshot or opens Reader, Save Messages, Copy, PNG, or bookmark flows, so the new Reader projection/binding and transaction-invalidating paths remain dormant; no additional content observer or network request was introduced. This does not establish the source of the regression, so the historical 10% median gate remains open rather than being waived.
+- The isolated staged tree passed 1,754/1,754 core tests, 46/46 smoke tests, 206/206 acceptance tests, TypeScript checking, Chrome MV3 and Firefox MV2 builds, passive-content boundary checks, and bundle budgets. Current-build installed acceptance remains manual because browser automation cannot reload the unpacked extension through `chrome://extensions`; the protected open ChatGPT page was not refreshed.
+
 ### UI system closeout — 2026-07-15
 
 Confirmed structural facts:

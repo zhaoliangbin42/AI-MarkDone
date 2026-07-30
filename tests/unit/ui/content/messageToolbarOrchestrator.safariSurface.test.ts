@@ -17,7 +17,7 @@ vi.mock('@/services/copy/copy-turn-png', () => ({
 
 vi.mock('@/services/reader/readerContentSource', () => ({
     collectFreshCurrentReaderItem: vi.fn(async () => (
-        { id: 'm1', userPrompt: 'Prompt', content: 'Answer', meta: { position: 1 } }
+        { item: { id: 'm1', userPrompt: 'Prompt', content: 'Answer', meta: { position: 1 } } }
     )),
     collectFreshReaderContent: vi.fn(async () => ({
         items: [

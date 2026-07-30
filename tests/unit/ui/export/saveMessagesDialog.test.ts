@@ -17,6 +17,7 @@ vi.mock('../../../../src/services/reader/readerContentSource', () => ({
         startIndex: 0,
         metadataSource: 'chatgpt-snapshot',
     })),
+    isReaderContentSourceRevisionCurrent: vi.fn(() => true),
     readerItemsToChatTurns: vi.fn(async (items: any[]) =>
         Promise.all(items.map(async (item, index) => ({
             user: item.userPrompt,
@@ -27,7 +28,11 @@ vi.mock('../../../../src/services/reader/readerContentSource', () => ({
 }));
 
 import { exportTurnsMarkdown, exportTurnsPdf, exportTurnsPng } from '../../../../src/services/export/saveMessagesFacade';
-import { collectFreshReaderContent, readerItemsToChatTurns } from '../../../../src/services/reader/readerContentSource';
+import {
+    collectFreshReaderContent,
+    isReaderContentSourceRevisionCurrent,
+    readerItemsToChatTurns,
+} from '../../../../src/services/reader/readerContentSource';
 import { SaveMessagesDialog } from '../../../../src/ui/content/export/SaveMessagesDialog';
 import { setLocale } from '../../../../src/ui/content/components/i18n';
 
@@ -165,17 +170,28 @@ describe('SaveMessagesDialog', () => {
             getMessageId: () => 'a1',
             extractUserPrompt: () => 'u1',
         } as any;
-        const chatGptConversationEngine: any = {
-            getSnapshot: vi.fn(async () => null),
-            forceRefreshCurrentConversation: vi.fn(),
+        const chatGptConversationSource: any = {
+            ensureReady: vi.fn(async () => null),
         };
 
         const dlg = new SaveMessagesDialog();
-        await dlg.open(adapter, 'light', { chatGptConversationEngine });
+        await dlg.open(adapter, 'light', { chatGptConversationSource });
 
         expect(collectFreshReaderContent).toHaveBeenCalledWith(adapter, null, {
-            chatGptConversationEngine,
+            chatGptConversationSource,
         });
+    });
+
+    it('does not mount a stale ChatGPT export after the source revision changes during collection', async () => {
+        await setLocale('en');
+        const adapter = { getPlatformId: () => 'chatgpt' } as any;
+        const chatGptConversationSource = { getState: vi.fn() } as any;
+        vi.mocked(isReaderContentSourceRevisionCurrent).mockReturnValueOnce(false);
+
+        const dlg = new SaveMessagesDialog();
+        await dlg.open(adapter, 'light', { chatGptConversationSource });
+
+        expect(document.getElementById('aimd-save-messages-dialog-host')).toBeNull();
     });
 
     it('uses an image icon for PNG and shows progress while PNG export is running', async () => {

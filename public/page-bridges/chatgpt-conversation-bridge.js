@@ -11,6 +11,7 @@
   const MAX_CAPTURED_CONVERSATIONS = 3;
   const bridgeState = {
     graphsByConversation: new Map(),
+    requestSequence: 0,
     captureSequence: 0,
   };
 
@@ -364,7 +365,7 @@
     return false;
   }
 
-  function rememberObservedPayload(expectedConversationId, payload, captureSequence) {
+  function rememberObservedPayload(expectedConversationId, payload, requestSequence) {
     if (!payload || typeof payload !== 'object') return false;
     const conversationId = getPayloadConversationId(payload);
     const currentNodeId = getPayloadCurrentNodeId(payload);
@@ -373,7 +374,7 @@
 
     const previous = bridgeState.graphsByConversation.get(conversationId);
     const isCompletePayload = buildBranchNodesFromMapping(mapping, currentNodeId) !== null;
-    const isNewestCapture = !previous || captureSequence >= previous.captureSequence;
+    const isNewestCapture = !previous || requestSequence >= previous.requestSequence;
     const mergedMapping = isCompletePayload && isNewestCapture
       ? mapping
       : mergeObservedMapping(previous?.mapping, mapping, !isNewestCapture);
@@ -389,7 +390,7 @@
       mapping: mergedMapping,
       currentNodeId: nextCurrentNodeId,
       capturedAt: nowTs(),
-      captureSequence: Math.max(captureSequence, previous?.captureSequence || 0),
+      requestSequence: Math.max(requestSequence, previous?.requestSequence || 0),
     });
     while (bridgeState.graphsByConversation.size > MAX_CAPTURED_CONVERSATIONS) {
       const oldestConversationId = bridgeState.graphsByConversation.keys().next().value;
@@ -397,13 +398,17 @@
       bridgeState.graphsByConversation.delete(oldestConversationId);
     }
 
+    const captureSequence = ++bridgeState.captureSequence;
     window.dispatchEvent(new CustomEvent(CAPTURE_EVENT, {
-      detail: JSON.stringify({ conversationId }),
+      detail: JSON.stringify({
+        conversationId,
+        captureSequence,
+      }),
     }));
     return true;
   }
 
-  async function captureObservedResponse(response, requestUrl, expectedConversationId, captureSequence) {
+  async function captureObservedResponse(response, requestUrl, expectedConversationId, requestSequence) {
     if (!response?.ok) return;
     const conversationId = getObservedConversationId(response.url || requestUrl);
     if (!conversationId || conversationId !== expectedConversationId) return;
@@ -411,7 +416,7 @@
     if (!contentType.toLowerCase().includes('json')) return;
     try {
       const payload = await response.clone().json();
-      rememberObservedPayload(conversationId, payload, captureSequence);
+      rememberObservedPayload(conversationId, payload, requestSequence);
     } catch {
       // The host response remains untouched; an unreadable clone simply yields no observation.
     }
@@ -426,9 +431,9 @@
       const conversationId = getObservedConversationId(requestUrl);
       const result = nativeFetch.call(this, input, ...init);
       if (!conversationId || getObservedRequestMethod(input, init[0]) !== 'GET') return result;
-      const captureSequence = ++bridgeState.captureSequence;
+      const requestSequence = ++bridgeState.requestSequence;
       Promise.resolve(result)
-        .then((response) => captureObservedResponse(response, requestUrl, conversationId, captureSequence))
+        .then((response) => captureObservedResponse(response, requestUrl, conversationId, requestSequence))
         .catch(() => {});
       return result;
     };
@@ -451,11 +456,7 @@
 
     return {
       conversationId,
-      buildFingerprint: null,
       rounds,
-      source: 'runtime-bridge',
-      origin: 'conversation-graph',
-      coverage: 'complete',
       branchKey: observed.currentNodeId,
       capturedAt: observed.capturedAt,
     };

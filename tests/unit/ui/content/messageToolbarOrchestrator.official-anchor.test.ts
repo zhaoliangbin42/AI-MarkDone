@@ -1,6 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { MessageToolbarOrchestrator } from '@/ui/content/controllers/MessageToolbarOrchestrator';
 import { SiteAdapter, type ThemeDetector } from '@/drivers/content/adapters/base';
+import { getChatGPTConversationIndex } from '@/drivers/content/chatgpt/ChatGPTConversationIndex';
 
 const detector: ThemeDetector = {
     detect: () => 'light',
@@ -486,7 +487,41 @@ describe('MessageToolbarOrchestrator official-anchor sync', () => {
         const adapter = new FakeOfficialToolbarAdapter();
         adapter.setStreaming(true);
         const readerPanel = { setTheme() {}, show: vi.fn(async () => undefined) } as any;
-        const orchestrator = new MessageToolbarOrchestrator(adapter, { readerPanel });
+        window.history.replaceState({}, '', '/c/conv-1');
+        const snapshot = {
+            conversationId: 'conv-1',
+            revision: 1,
+            proof: 'observed-graph' as const,
+            branchKey: 'm1',
+            capturedAt: 1,
+            rounds: [{
+                id: 'round-1',
+                position: 1,
+                userPrompt: 'Prompt',
+                assistantContent: 'First',
+                preview: 'Prompt',
+                messageId: 'm1',
+                userMessageId: 'u1',
+                assistantMessageId: 'm1',
+            }],
+        };
+        const state = {
+            status: 'ready' as const,
+            routeEpoch: 1,
+            revision: 1,
+            conversationId: 'conv-1',
+            snapshot,
+        };
+        const chatGptConversationSource = {
+            getState: vi.fn(() => state),
+            ensureReady: vi.fn(async () => snapshot),
+            subscribe: vi.fn(() => vi.fn()),
+        };
+        getChatGPTConversationIndex(adapter).bindConversationSource(chatGptConversationSource);
+        const orchestrator = new MessageToolbarOrchestrator(adapter, {
+            readerPanel,
+            chatGptConversationSource,
+        });
         orchestrator.setBehaviorFlags({ showWordCount: false, showSaveMessages: false });
 
         (orchestrator as any).scanAndInject(new Set(['init']));
@@ -506,9 +541,6 @@ describe('MessageToolbarOrchestrator official-anchor sync', () => {
 
         adapter.setStreaming(false);
         readerButton?.click();
-        await Promise.resolve();
-        await Promise.resolve();
-
-        expect(readerPanel.show).toHaveBeenCalledTimes(1);
+        await vi.waitFor(() => expect(readerPanel.show).toHaveBeenCalledTimes(1));
     });
 });

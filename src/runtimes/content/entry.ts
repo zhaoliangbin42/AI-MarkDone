@@ -24,12 +24,16 @@ import { ChatGPTPromptAutocompleteController } from '../../ui/content/controller
 import { ChatGPTOfficialNavigationVisibilityController } from '../../ui/content/controllers/ChatGPTOfficialNavigationVisibilityController';
 import { ChatGPTPageWidthController } from '../../ui/content/controllers/ChatGPTPageWidthController';
 import { ChatGPTAtomicSelectionController } from '../../ui/content/controllers/ChatGPTAtomicSelectionController';
+import { ChatGPTConversationReaderBinding } from '../../ui/content/controllers/ChatGPTConversationReaderBinding';
 import { createPromptLibraryClient } from '../../drivers/content/prompts/promptLibraryClient';
 import { OverlaySession } from '../../ui/content/overlay/OverlaySession';
 import { ViewportResizeSuspendController } from '../../ui/content/controllers/ViewportResizeSuspendController';
 import { navigateChatGPTDirectoryTarget } from '../../ui/content/chatgptDirectory/navigation';
-import { collectFreshReaderContent } from '../../services/reader/readerContentSource';
-import { ChatGPTLiveDomContent } from '../../services/content/ChatGPTLiveDomContent';
+import {
+    collectFreshReaderContent,
+    isReaderContentSourceRevisionCurrent,
+} from '../../services/reader/readerContentSource';
+import { ChatGPTDomTurnFactSource } from '../../services/content/ChatGPTDomTurnFactSource';
 import { setCanonicalMarkdownCopyFormulaFormat } from '../../services/copy/canonicalMarkdownCopy';
 import { buildReaderSessionSnapshot } from '../../services/reader/readerSessionSnapshot';
 import { sendText } from '../../services/sending/sendService';
@@ -107,14 +111,15 @@ if (adapter) {
     const sendController = new SendController();
     const settingsClient = new SettingsClient();
     const bookmarksController = new BookmarksPanelController(adapter);
-    const chatGptConversationEngine = adapter.getPlatformId() === 'chatgpt' ? new ChatGPTConversationEngine(adapter) : null;
-    const chatGptLiveDomContent = chatGptConversationEngine
-        ? new ChatGPTLiveDomContent(adapter, chatGptConversationEngine)
+    const chatGptConversationEngine = adapter.getPlatformId() === 'chatgpt'
+        ? new ChatGPTConversationEngine(adapter, {
+            domFacts: new ChatGPTDomTurnFactSource(adapter),
+        })
         : null;
     let chatGptConversationIndexBound = false;
     const bindChatGptConversationIndex = () => {
         if (!chatGptConversationEngine || chatGptConversationIndexBound) return;
-        getChatGPTConversationIndex(adapter).bindSnapshotSource(chatGptConversationEngine);
+        getChatGPTConversationIndex(adapter).bindConversationSource(chatGptConversationEngine);
         chatGptConversationIndexBound = true;
     };
     const chatGptDirectory = adapter.getPlatformId() === 'chatgpt' && chatGptConversationEngine
@@ -211,8 +216,30 @@ if (adapter) {
         saveMessagesDialog,
         bookmarkSaveDialog,
         copyMessagePng,
-        chatGptConversationEngine: chatGptConversationEngine ?? undefined,
+        chatGptConversationSource: chatGptConversationEngine ?? undefined,
     });
+    const chatGptConversationReaderBinding = chatGptConversationEngine
+        ? new ChatGPTConversationReaderBinding({
+            adapter,
+            source: chatGptConversationEngine,
+            readerPanel,
+            pageUrl: () => window.location.href.split('#')[0] || window.location.href,
+            prepareItems: (items) => {
+                const url = window.location.href.split('#')[0] || window.location.href;
+                for (const item of items) {
+                    const position = Number(item.meta?.position ?? 0);
+                    item.meta = {
+                        ...(item.meta ?? {}),
+                        url,
+                        bookmarkable: position > 0,
+                        bookmarked: position > 0
+                            ? bookmarksController.isPositionBookmarked(url, position)
+                            : false,
+                    };
+                }
+            },
+        })
+        : null;
 
     settingsClient.init();
     const cachedSettings = settingsClient.getCached();
@@ -314,7 +341,7 @@ if (adapter) {
         if (!confirmed) return;
 
         const itemsResult = await collectFreshReaderContent(contentAdapter, null, {
-            chatGptConversationEngine,
+            chatGptConversationSource: chatGptConversationEngine,
             pageUrl: window.location.href,
         });
         const snapshot = await buildReaderSessionSnapshot({
@@ -323,6 +350,12 @@ if (adapter) {
             sourceUrl: window.location.href,
             theme: getCurrentAppearance().theme,
         });
+        if (!isReaderContentSourceRevisionCurrent(
+            chatGptConversationEngine,
+            itemsResult.sourceRevision,
+        )) {
+            return;
+        }
         const response = await sendExtRequest({
             v: PROTOCOL_VERSION,
             id: createRequestId(),
@@ -350,6 +383,7 @@ if (adapter) {
     const initChatGptIfNeeded = () => {
         if (!chatGptConversationEngine) return;
         bindChatGptConversationIndex();
+        chatGptConversationReaderBinding?.init();
         viewportResizeSuspend?.init();
         chatGptSendPositionRestore?.init();
         chatGptComposerEditing?.init();
@@ -358,7 +392,6 @@ if (adapter) {
         chatGptPageWidth?.init();
         syncChatGptBehaviorSettings(settingsClient.getCached()?.chatgptBehavior);
         chatGptConversationEngine.init();
-        chatGptLiveDomContent?.init();
         if (!chatGptDirectory) {
             writeDebugState({ ChatGptInit: 'directory-disabled' });
             return;
@@ -445,9 +478,9 @@ if (adapter) {
         runtimeEnabled = false;
         writeDebugState({ RuntimeEnabled: runtimeEnabled });
         messageToolbars.dispose();
+        chatGptConversationReaderBinding?.dispose();
         chatGptDirectory?.dispose();
         chatGptOfficialNavigationVisibility?.dispose();
-        chatGptLiveDomContent?.dispose();
         chatGptConversationEngine?.dispose?.();
         viewportResizeSuspend?.dispose();
         chatGptSendPositionRestore?.dispose();
@@ -518,7 +551,7 @@ if (adapter) {
         try {
             if (request.type === 'readerSession:refresh') {
                 const result = await collectFreshReaderContent(adapter, null, {
-                    chatGptConversationEngine,
+                    chatGptConversationSource: chatGptConversationEngine,
                     pageUrl: window.location.href,
                 });
                 const snapshot = await buildReaderSessionSnapshot({
@@ -527,6 +560,24 @@ if (adapter) {
                     sourceUrl: window.location.href,
                     theme: getCurrentAppearance().theme,
                 });
+                if (
+                    adapter.getPlatformId() === 'chatgpt'
+                    && !isReaderContentSourceRevisionCurrent(
+                        chatGptConversationEngine,
+                        result.sourceRevision,
+                    )
+                ) {
+                    return {
+                        v: PROTOCOL_VERSION,
+                        id: request.id,
+                        ok: false,
+                        type: request.type,
+                        error: {
+                            code: 'SOURCE_UNAVAILABLE',
+                            message: 'Conversation changed before Reader refreshed',
+                        },
+                    };
+                }
                 return { v: PROTOCOL_VERSION, id: request.id, ok: true, type: request.type, data: { snapshot } };
             }
 

@@ -8,6 +8,7 @@ import { ChatGPTDirectoryRail } from '@/ui/content/chatgptDirectory/ChatGPTDirec
 import { AIMD_VIEWPORT_RESIZE_IDLE_EVENT } from '@/ui/content/controllers/ViewportResizeSuspendController';
 import { setLocale } from '@/ui/content/components/i18n';
 import { getChatGPTConversationIndex } from '@/drivers/content/chatgpt/ChatGPTConversationIndex';
+import type { ChatGPTConversationSnapshot } from '@/drivers/content/chatgpt/types';
 
 const navigationMocks = vi.hoisted(() => ({
     scrollToBookmarkTargetWithRetry: vi.fn(),
@@ -114,10 +115,8 @@ class ChatGPTTestAdapter extends SiteAdapter {
 function buildSnapshot() {
     return {
         conversationId: DEFAULT_CONVERSATION_ID,
-        buildFingerprint: 'build-1',
-        source: 'runtime-bridge' as const,
-        origin: 'conversation-graph' as const,
-        coverage: 'complete' as const,
+        revision: 1,
+        proof: 'observed-graph' as const,
         branchKey: 'branch-1',
         capturedAt: Date.now(),
         rounds: [
@@ -145,16 +144,35 @@ function buildSnapshot() {
     };
 }
 
+function buildState(snapshot: ChatGPTConversationSnapshot | null) {
+    return {
+        status: snapshot ? 'ready' as const : 'collecting' as const,
+        routeEpoch: 1,
+        revision: snapshot?.revision ?? 0,
+        conversationId: snapshot?.conversationId ?? DEFAULT_CONVERSATION_ID,
+        snapshot,
+    };
+}
+
 function setCanonicalSnapshot(adapter: SiteAdapter, snapshot: ReturnType<typeof buildSnapshot> | null): void {
-    getChatGPTConversationIndex(adapter).setSnapshot(snapshot);
+    getChatGPTConversationIndex(adapter).bindConversationSource({
+        getState: () => buildState(snapshot),
+        subscribe: () => () => undefined,
+    });
 }
 
 function createDirectoryController(
     adapter: SiteAdapter,
-    engine: Parameters<ReturnType<typeof getChatGPTConversationIndex>['bindSnapshotSource']>[0],
+    engine: {
+        getState?: () => ReturnType<typeof buildState>;
+        subscribe: (listener: (state: ReturnType<typeof buildState>) => void) => () => void;
+    },
     bookmarksState: ConstructorParameters<typeof ChatGPTDirectoryController>[1] = null,
 ): ChatGPTDirectoryController {
-    getChatGPTConversationIndex(adapter).bindSnapshotSource(engine);
+    getChatGPTConversationIndex(adapter).bindConversationSource({
+        getState: engine.getState ?? (() => buildState(null)),
+        subscribe: engine.subscribe,
+    });
     return new ChatGPTDirectoryController(adapter, bookmarksState);
 }
 
@@ -324,7 +342,10 @@ describe('ChatGPTDirectoryController', () => {
                 preview: `Message ${round.position}`,
             })),
         };
-        const engine = { getSnapshot: vi.fn(async () => fallbackSnapshot), subscribe: vi.fn(() => () => undefined) } as any;
+        const engine = {
+            getState: vi.fn(() => buildState(fallbackSnapshot)),
+            subscribe: vi.fn(() => () => undefined),
+        } as any;
         const controller = createDirectoryController(adapter, engine);
         controller.init('light');
         await Promise.resolve();
@@ -343,11 +364,12 @@ describe('ChatGPTDirectoryController', () => {
     it('marks bookmarked rounds in the directory rail from the shared bookmarks controller state', async () => {
         window.history.replaceState({}, '', '/c/69e8d157-5fec-839c-9124-2179ba8b7d7c');
         const adapter = new ChatGPTTestAdapter();
+        const snapshot = {
+            ...buildSnapshot(),
+            conversationId: '69e8d157-5fec-839c-9124-2179ba8b7d7c',
+        };
         const engine = {
-            getSnapshot: vi.fn(async () => ({
-                ...buildSnapshot(),
-                conversationId: '69e8d157-5fec-839c-9124-2179ba8b7d7c',
-            })),
+            getState: vi.fn(() => buildState(snapshot)),
             subscribe: vi.fn(() => () => undefined),
         } as any;
         const bookmarksController = {
@@ -401,7 +423,7 @@ describe('ChatGPTDirectoryController', () => {
         window.history.replaceState({}, '', '/c/69e8d157-5fec-839c-9124-2179ba8b7d7c');
         document.body.innerHTML = '<main id="conversation-root"></main>';
         const adapter = new ChatGPTTestAdapter();
-        const engine = { getSnapshot: vi.fn(async () => null), subscribe: vi.fn(() => () => undefined) } as any;
+        const engine = { subscribe: vi.fn(() => () => undefined) } as any;
         const controller = createDirectoryController(adapter, engine);
 
         controller.init('light');
@@ -760,7 +782,7 @@ describe('ChatGPTDirectoryController', () => {
     it('hides the rail outside a canonical ChatGPT conversation route even when turn DOM is present', async () => {
         window.history.replaceState({}, '', '/');
         const adapter = new ChatGPTTestAdapter();
-        const engine = { getSnapshot: vi.fn(async () => null), subscribe: vi.fn(() => () => undefined) } as any;
+        const engine = { subscribe: vi.fn(() => () => undefined) } as any;
         const controller = createDirectoryController(adapter, engine);
 
         controller.init('light');
@@ -776,7 +798,6 @@ describe('ChatGPTDirectoryController', () => {
         const unsubscribe = vi.fn();
         const adapter = new ChatGPTTestAdapter();
         const engine = {
-            getSnapshot: vi.fn(async () => null),
             subscribe: vi.fn(() => unsubscribe),
         } as any;
         const controller = createDirectoryController(adapter, engine);
@@ -791,10 +812,10 @@ describe('ChatGPTDirectoryController', () => {
         expect(unsubscribe).not.toHaveBeenCalled();
     });
 
-    it('subscribes to snapshots passively so the directory does not start live snapshot refresh by itself', async () => {
+    it('subscribes passively and never starts semantic acquisition itself', async () => {
         const adapter = new ChatGPTTestAdapter();
         const engine = {
-            getSnapshot: vi.fn(async () => buildSnapshot()),
+            getState: vi.fn(() => buildState(buildSnapshot())),
             subscribe: vi.fn(() => () => undefined),
         } as any;
         const controller = createDirectoryController(adapter, engine);
@@ -802,7 +823,7 @@ describe('ChatGPTDirectoryController', () => {
         controller.init('light');
         await Promise.resolve();
 
-        expect(engine.subscribe).toHaveBeenCalledWith(expect.any(Function), { live: false });
+        expect(engine.subscribe).toHaveBeenCalledWith(expect.any(Function));
         controller.dispose();
     });
 
@@ -824,9 +845,7 @@ describe('ChatGPTDirectoryController', () => {
             conversationId: '69e8d157-5fec-839c-9124-2179ba8b7d7c',
         };
         const engine = {
-            peekCurrentSnapshot: vi.fn(() => canonicalSnapshot),
-            getSnapshot: vi.fn(async () => canonicalSnapshot),
-            forceRefreshCurrentConversation: vi.fn(async () => null),
+            getState: vi.fn(() => buildState(canonicalSnapshot)),
             subscribe: vi.fn(() => () => undefined),
         } as any;
         const controller = createDirectoryController(adapter, engine);
@@ -886,9 +905,7 @@ describe('ChatGPTDirectoryController', () => {
         };
         const adapter = new ChatGPTTestAdapter();
         const engine = {
-            peekCurrentSnapshot: vi.fn(() => null),
-            forceRefreshCurrentConversation: vi.fn(async () => null),
-            getSnapshot: vi.fn(async () => hydratedSnapshot),
+            getState: vi.fn(() => buildState(hydratedSnapshot)),
             subscribe: vi.fn(() => () => undefined),
         } as any;
         const controller = createDirectoryController(adapter, engine);
@@ -896,9 +913,6 @@ describe('ChatGPTDirectoryController', () => {
         controller.init('light');
         await Promise.resolve();
 
-        await vi.waitFor(() => {
-            expect(engine.getSnapshot).toHaveBeenCalledTimes(1);
-        });
         await vi.waitFor(() => {
             const railRoot = document.getElementById('aimd-chatgpt-directory-rail')?.shadowRoot;
             const labels = Array.from(railRoot?.querySelectorAll<HTMLButtonElement>('.rail__item') ?? [])
@@ -909,7 +923,6 @@ describe('ChatGPTDirectoryController', () => {
                 expect.stringContaining('Hydrated final question'),
             ]);
         });
-        expect(engine.forceRefreshCurrentConversation).not.toHaveBeenCalled();
         controller.dispose();
     });
 
@@ -923,9 +936,7 @@ describe('ChatGPTDirectoryController', () => {
         `;
         const adapter = new ChatGPTTestAdapter();
         const engine = {
-            peekCurrentSnapshot: vi.fn(() => null),
-            forceRefreshCurrentConversation: vi.fn(async () => buildSnapshot()),
-            getSnapshot: vi.fn(async () => null),
+            getState: vi.fn(() => buildState(null)),
             subscribe: vi.fn(() => () => undefined),
         } as any;
         const controller = createDirectoryController(adapter, engine);
@@ -934,8 +945,6 @@ describe('ChatGPTDirectoryController', () => {
         await Promise.resolve();
         await Promise.resolve();
 
-        expect(engine.forceRefreshCurrentConversation).not.toHaveBeenCalled();
-        expect(engine.getSnapshot).toHaveBeenCalledTimes(1);
         expect(document.getElementById('aimd-chatgpt-directory-rail')?.shadowRoot?.querySelectorAll('.rail__item')).toHaveLength(0);
         controller.dispose();
     });
@@ -962,17 +971,12 @@ describe('ChatGPTDirectoryController', () => {
         };
         const adapter = new ChatGPTTestAdapter();
         const engine = {
-            peekCurrentSnapshot: vi.fn(() => null),
-            forceRefreshCurrentConversation: vi.fn(async () => null),
-            getSnapshot: vi.fn(async () => snapshotWithExtraRound),
+            getState: vi.fn(() => buildState(snapshotWithExtraRound)),
             subscribe: vi.fn(() => () => undefined),
         } as any;
         const controller = createDirectoryController(adapter, engine);
 
         controller.init('light');
-        await vi.waitFor(() => {
-            expect(engine.getSnapshot).toHaveBeenCalledTimes(1);
-        });
         await vi.waitFor(() => {
             const railRoot = document.getElementById('aimd-chatgpt-directory-rail')?.shadowRoot;
             const items = Array.from(railRoot?.querySelectorAll<HTMLButtonElement>('.rail__item') ?? []);
@@ -994,9 +998,7 @@ describe('ChatGPTDirectoryController', () => {
         `;
         const adapter = new ChatGPTTestAdapter();
         const engine = {
-            peekCurrentSnapshot: vi.fn(() => null),
-            forceRefreshCurrentConversation: vi.fn(async () => buildSnapshot()),
-            getSnapshot: vi.fn(async () => null),
+            getState: vi.fn(() => buildState(null)),
             subscribe: vi.fn(() => () => undefined),
         } as any;
         const controller = createDirectoryController(adapter, engine);
@@ -1011,13 +1013,15 @@ describe('ChatGPTDirectoryController', () => {
         await Promise.resolve();
         await vi.advanceTimersByTimeAsync(0);
 
-        expect(engine.forceRefreshCurrentConversation).not.toHaveBeenCalled();
         controller.dispose();
     });
 
     it('ignores extension-owned DOM mutations instead of rebuilding the directory index', async () => {
         const adapter = new ChatGPTTestAdapter();
-        const engine = { getSnapshot: vi.fn(async () => buildSnapshot()), subscribe: vi.fn(() => () => undefined) } as any;
+        const engine = {
+            getState: vi.fn(() => buildState(buildSnapshot())),
+            subscribe: vi.fn(() => () => undefined),
+        } as any;
         const controller = createDirectoryController(adapter, engine);
 
         controller.init('light');
@@ -1039,12 +1043,13 @@ describe('ChatGPTDirectoryController', () => {
     });
 
     it('renders every canonical round when the engine publishes unmounted rounds', async () => {
-        let onSnapshot: ((snapshot: ReturnType<typeof buildSnapshot> | null) => void) | null = null;
+        let onState: ((state: ReturnType<typeof buildState>) => void) | null = null;
+        let currentState = buildState(null);
         const adapter = new ChatGPTTestAdapter();
         const engine = {
-            getSnapshot: vi.fn(async () => null),
-            subscribe: vi.fn((listener: typeof onSnapshot) => {
-                onSnapshot = listener;
+            getState: vi.fn(() => currentState),
+            subscribe: vi.fn((listener: typeof onState) => {
+                onState = listener;
                 return () => undefined;
             }),
         } as any;
@@ -1053,8 +1058,9 @@ describe('ChatGPTDirectoryController', () => {
         controller.init('light');
         await Promise.resolve();
 
-        onSnapshot?.({
+        const publishedSnapshot = {
             ...buildSnapshot(),
+            revision: 2,
             rounds: [
                 ...buildSnapshot().rounds,
                 {
@@ -1068,7 +1074,9 @@ describe('ChatGPTDirectoryController', () => {
                     assistantMessageId: 'a3',
                 },
             ],
-        });
+        };
+        currentState = buildState(publishedSnapshot);
+        onState?.(currentState);
         await vi.advanceTimersByTimeAsync(150);
 
         const railRoot = document.getElementById('aimd-chatgpt-directory-rail')?.shadowRoot;
@@ -1078,7 +1086,7 @@ describe('ChatGPTDirectoryController', () => {
 
     it('reattaches the rail host if the ChatGPT app removes the body-level node', async () => {
         const adapter = new ChatGPTTestAdapter();
-        const engine = { getSnapshot: vi.fn(async () => null), subscribe: vi.fn(() => () => undefined) } as any;
+        const engine = { subscribe: vi.fn(() => () => undefined) } as any;
         const controller = createDirectoryController(adapter, engine);
 
         controller.init('light');
@@ -1095,7 +1103,7 @@ describe('ChatGPTDirectoryController', () => {
 
     it('does not reattach a stale rail when another controller already owns the connected rail', async () => {
         const adapter = new ChatGPTTestAdapter();
-        const engine = { getSnapshot: vi.fn(async () => null), subscribe: vi.fn(() => () => undefined) } as any;
+        const engine = { subscribe: vi.fn(() => () => undefined) } as any;
         const staleController = createDirectoryController(adapter, engine);
         const currentController = createDirectoryController(adapter, engine);
 
@@ -1241,7 +1249,10 @@ describe('ChatGPTDirectoryController', () => {
             'assistant-2': [990, 1300],
         });
         const adapter = new ChatGPTTestAdapter();
-        const engine = { getSnapshot: vi.fn(async () => buildSnapshot()), subscribe: vi.fn(() => () => undefined) } as any;
+        const engine = {
+            getState: vi.fn(() => buildState(buildSnapshot())),
+            subscribe: vi.fn(() => () => undefined),
+        } as any;
         const controller = createDirectoryController(adapter, engine);
 
         controller.init('light');

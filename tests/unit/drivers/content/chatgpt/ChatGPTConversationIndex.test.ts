@@ -7,10 +7,8 @@ import type { ChatGPTConversationSnapshot } from '@/drivers/content/chatgpt/type
 function buildSnapshot(roundCount: number): ChatGPTConversationSnapshot {
     return {
         conversationId: '12345678-1234-1234-1234-123456789abc',
-        buildFingerprint: 'test-build',
-        source: 'runtime-bridge',
-        origin: 'conversation-graph',
-        coverage: 'complete',
+        revision: roundCount,
+        proof: 'observed-graph',
         branchKey: 'branch-test',
         capturedAt: Date.now(),
         rounds: Array.from({ length: roundCount }, (_, index) => {
@@ -27,6 +25,26 @@ function buildSnapshot(roundCount: number): ChatGPTConversationSnapshot {
             };
         }),
     };
+}
+
+function readyState(snapshot: ChatGPTConversationSnapshot) {
+    return {
+        status: 'ready' as const,
+        routeEpoch: 1,
+        revision: snapshot.revision,
+        conversationId: snapshot.conversationId,
+        snapshot,
+    };
+}
+
+function bindSnapshot(
+    index: ReturnType<typeof getChatGPTConversationIndex>,
+    snapshot: ChatGPTConversationSnapshot,
+): void {
+    index.bindConversationSource({
+        getState: () => readyState(snapshot),
+        subscribe: () => () => undefined,
+    });
 }
 
 function mountWindow(positions: number[]): void {
@@ -66,7 +84,7 @@ describe('ChatGPTConversationIndex', () => {
 
     it('keeps canonical order while the host materializes different DOM windows', async () => {
         const index = getChatGPTConversationIndex(adapter);
-        index.setSnapshot(buildSnapshot(50));
+        bindSnapshot(index, buildSnapshot(50));
 
         mountWindow([1, 2, 3, 4, 5, 6]);
         await deliverMutations();
@@ -87,7 +105,7 @@ describe('ChatGPTConversationIndex', () => {
 
     it('fails closed when user identity matches but the observable assistant identity conflicts', () => {
         const index = getChatGPTConversationIndex(adapter);
-        index.setSnapshot(buildSnapshot(1));
+        bindSnapshot(index, buildSnapshot(1));
         document.querySelector('main')!.innerHTML = `
             <article data-turn="user" data-turn-id="round-1">
                 <div data-message-author-role="user" data-message-id="user-1">Prompt 1</div>
@@ -110,7 +128,7 @@ describe('ChatGPTConversationIndex', () => {
             userMessageId: null,
             assistantMessageId: 'deep-assistant-turn',
         };
-        index.setSnapshot(snapshot);
+        bindSnapshot(index, snapshot);
         document.querySelector('main')!.innerHTML = `
             <article data-turn="user" data-turn-id="deep-user-turn" data-testid="conversation-turn-1">
                 <div data-message-author-role="user">Research this topic</div>
@@ -143,7 +161,7 @@ describe('ChatGPTConversationIndex', () => {
             userMessageId: 'deep-user-message',
             assistantMessageId: 'nested-report-message',
         };
-        index.setSnapshot(snapshot);
+        bindSnapshot(index, snapshot);
         document.querySelector('main')!.innerHTML = `
             <article data-turn="user" data-turn-id="deep-user-turn" data-testid="conversation-turn-1">
                 <div data-message-author-role="user" data-message-id="deep-user-message">Research this topic</div>
@@ -170,7 +188,7 @@ describe('ChatGPTConversationIndex', () => {
             messageId: 'shared-assistant',
             assistantMessageId: 'shared-assistant',
         }));
-        index.setSnapshot(snapshot);
+        bindSnapshot(index, snapshot);
 
         expect(resolveChatGPTCanonicalTarget(adapter, {
             position: 1,
@@ -178,99 +196,52 @@ describe('ChatGPTConversationIndex', () => {
         })).toBeNull();
     });
 
-    it('ensures the semantic snapshot through the bound source during startup', async () => {
+    it('projects the current state immediately when a source is bound', () => {
         const index = getChatGPTConversationIndex(adapter);
         const snapshot = buildSnapshot(3);
-        index.bindSnapshotSource({
+        index.bindConversationSource({
+            getState: () => readyState(snapshot),
             subscribe: () => () => undefined,
-            peekCurrentSnapshot: () => null,
-            getSnapshot: async () => snapshot,
         });
 
-        await expect(index.ensureSnapshot()).resolves.toBe(snapshot);
         expect(index.getRounds().map((round) => round.position)).toEqual([1, 2, 3]);
     });
 
     it('refuses to project a snapshot from a different conversation route', () => {
         window.history.replaceState({}, '', '/c/aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee');
         const index = getChatGPTConversationIndex(adapter);
-        index.setSnapshot(buildSnapshot(3));
+        bindSnapshot(index, buildSnapshot(3));
 
-        expect(index.getSnapshot()).toBeNull();
         expect(index.getRounds()).toEqual([]);
     });
 
-    it('does not let a pending normal ensure swallow a forced refresh', async () => {
+    it('updates only from published state and never acquires semantics itself', () => {
         const index = getChatGPTConversationIndex(adapter);
-        let resolveNormal!: (snapshot: ChatGPTConversationSnapshot | null) => void;
-        const normalRequest = new Promise<ChatGPTConversationSnapshot | null>((resolve) => {
-            resolveNormal = resolve;
-        });
-        const forceRefresh = vi.fn(async () => buildSnapshot(4));
-        index.bindSnapshotSource({
-            subscribe: () => () => undefined,
-            getSnapshot: () => normalRequest,
-            forceRefreshCurrentConversation: forceRefresh,
-        });
-
-        const pending = index.ensureSnapshot();
-        const forced = index.ensureSnapshot({ force: true });
-
-        expect(forceRefresh).toHaveBeenCalledTimes(1);
-        await expect(forced).resolves.toMatchObject({ rounds: expect.any(Array) });
-        resolveNormal(null);
-        await expect(pending).resolves.toMatchObject({ rounds: expect.any(Array) });
-    });
-
-    it('isolates pending snapshot requests by conversation and drops a late result from the previous route', async () => {
-        const index = getChatGPTConversationIndex(adapter);
-        const conversationB = 'aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee';
-        const snapshotA = buildSnapshot(2);
-        const snapshotB = { ...buildSnapshot(3), conversationId: conversationB };
-        let resolveA!: (snapshot: ChatGPTConversationSnapshot) => void;
-        const requestA = new Promise<ChatGPTConversationSnapshot>((resolve) => { resolveA = resolve; });
-        const getSnapshot = vi.fn()
-            .mockImplementationOnce(() => requestA)
-            .mockImplementationOnce(async () => snapshotB);
-        index.bindSnapshotSource({
-            subscribe: () => () => undefined,
-            getSnapshot,
+        const initial = buildSnapshot(1);
+        const updated = buildSnapshot(4);
+        let state = readyState(initial);
+        let listener: ((state: ReturnType<typeof readyState>) => void) | null = null;
+        const ensureReady = vi.fn();
+        index.bindConversationSource({
+            getState: () => state,
+            subscribe: (next) => {
+                listener = next;
+                return () => undefined;
+            },
         });
 
-        const pendingA = index.ensureSnapshot();
-        window.history.replaceState({}, '', `/c/${conversationB}`);
-        const pendingB = index.ensureSnapshot();
-        await Promise.resolve();
-        resolveA(snapshotA);
-        const [, resultB] = await Promise.all([pendingA, pendingB]);
-
-        expect(getSnapshot).toHaveBeenCalledTimes(2);
-        expect(resultB).toBe(snapshotB);
-        expect(index.getSnapshot()).toBe(snapshotB);
-        expect(index.getRounds()).toHaveLength(3);
-    });
-
-    it('refreshes semantics once when the DOM materializes an unknown typed identity', async () => {
-        mountWindow([1]);
-        const index = getChatGPTConversationIndex(adapter);
-        index.setSnapshot(buildSnapshot(1));
-        const forceRefresh = vi.fn(async () => buildSnapshot(2));
-        index.bindSnapshotSource({
-            subscribe: () => () => undefined,
-            forceRefreshCurrentConversation: forceRefresh,
-        });
-
-        mountWindow([1, 2]);
-        await deliverMutations();
-        await vi.waitFor(() => expect(forceRefresh).toHaveBeenCalledTimes(1));
-        await vi.waitFor(() => expect(index.getRounds()).toHaveLength(2));
+        expect(index.getRounds()).toHaveLength(1);
+        state = readyState(updated);
+        listener?.(state);
+        expect(index.getRounds()).toHaveLength(4);
+        expect(ensureReady).not.toHaveBeenCalled();
     });
 
     it('resolves a unique materialized round for an element and fails closed on ambiguity', async () => {
         mountWindow([1, 2]);
         await deliverMutations();
         const index = getChatGPTConversationIndex(adapter);
-        index.setSnapshot(buildSnapshot(2));
+        bindSnapshot(index, buildSnapshot(2));
         const assistantChild = document.querySelector('[data-message-id="assistant-1"] .markdown');
         if (!(assistantChild instanceof HTMLElement)) throw new Error('assistant child is missing');
 
@@ -287,7 +258,7 @@ describe('ChatGPTConversationIndex', () => {
             id: 'canonical-user-message',
             userMessageId: 'canonical-user-message',
         };
-        index.setSnapshot(snapshot);
+        bindSnapshot(index, snapshot);
         document.querySelector('main')!.innerHTML = `
             <article data-turn="user" data-turn-id="host-user-turn">
                 <div data-message-author-role="user" data-message-id="canonical-user-message">Prompt 1</div>
@@ -313,7 +284,7 @@ describe('ChatGPTConversationIndex', () => {
         });
         index.subscribe(survivingListener);
 
-        index.setSnapshot(buildSnapshot(1));
+        bindSnapshot(index, buildSnapshot(1));
 
         expect(survivingListener).toHaveBeenCalledTimes(1);
     });

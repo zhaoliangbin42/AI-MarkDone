@@ -73,8 +73,6 @@ export class ChatGPTDirectoryController {
     private rafId: number | null = null;
     private rebuildTimer: number | null = null;
     private pendingRebuildReasons = new Set<string>();
-    private snapshotRetryTimer: number | null = null;
-    private snapshotRetryCount = 0;
     private unsubscribeBookmarks: (() => void) | null = null;
     private unsubscribeRoundChanges: (() => void) | null = null;
     private unsubscribeLocale: (() => void) | null = null;
@@ -124,10 +122,6 @@ export class ChatGPTDirectoryController {
             this.rebuildTimer = null;
         }
         this.pendingRebuildReasons.clear();
-        if (this.snapshotRetryTimer !== null) {
-            window.clearTimeout(this.snapshotRetryTimer);
-            this.snapshotRetryTimer = null;
-        }
         this.routeWatcher?.stop();
         this.routeWatcher = null;
         this.unsubscribeBookmarks?.();
@@ -215,20 +209,16 @@ export class ChatGPTDirectoryController {
         this.ensureRail();
         this.rail?.setVisible(true);
         this.rebindScrollRoot();
-        const conversationIndex = this.getConversationIndex();
-        const cachedSnapshot = conversationIndex.getSnapshot();
         this.render();
         const bookmarkUrl = getDirectoryBookmarkUrl();
-        const snapshotRequest = conversationIndex.ensureSnapshot().catch(() => null);
-        const [snapshot] = await Promise.all([
-            snapshotRequest,
-            this.bookmarksState?.refreshPositionsForUrl?.(bookmarkUrl).catch(() => undefined) ?? Promise.resolve(),
-        ]);
+        await (
+            this.bookmarksState?.refreshPositionsForUrl?.(bookmarkUrl).catch(() => undefined)
+            ?? Promise.resolve()
+        );
         this.render();
-        if (!snapshot && !cachedSnapshot) this.scheduleSnapshotRetry();
         writeDebugState({
             DirectoryVisible: true,
-            DirectoryReason: snapshot || cachedSnapshot ? 'snapshot' : 'placeholder',
+            DirectoryReason: this.roundPositions.length > 0 ? 'snapshot' : 'placeholder',
             DirectoryRounds: this.roundPositions.length,
             DirectoryAnchors: this.roundPositions.filter((round) => round.jumpAnchor instanceof HTMLElement).length,
         });
@@ -253,19 +243,6 @@ export class ChatGPTDirectoryController {
             .filter((round) => this.bookmarksState!.isPositionBookmarked!(url, round.position))
             .map((round) => round.position);
         this.rail.setBookmarkedPositions(positions);
-    }
-
-    private scheduleSnapshotRetry(): void {
-        if (this.snapshotRetryTimer !== null) return;
-        if (this.snapshotRetryCount >= 4) return;
-        const delays = [700, 1400, 2800, 5000];
-        const delay = delays[this.snapshotRetryCount] ?? 5000;
-        this.snapshotRetryCount += 1;
-        this.snapshotRetryTimer = window.setTimeout(() => {
-            this.snapshotRetryTimer = null;
-            if (!this.enabled || this.getConversationIndex().getSnapshot()) return;
-            void this.refresh();
-        }, delay);
     }
 
     private handleScroll = () => {

@@ -37,10 +37,6 @@ function mutationAffectsHostPage(mutation: MutationRecord): boolean {
         return !isExtensionOwnedNode(mutation.target);
     }
 
-    if (mutation.type === 'characterData') {
-        return !isExtensionOwnedNode(mutation.target);
-    }
-
     const changedNodes = [...mutation.addedNodes, ...mutation.removedNodes];
     return changedNodes.some((node) => !isExtensionOwnedNode(node));
 }
@@ -134,8 +130,8 @@ export class ChatGPTPageIndex {
         });
         this.observer.observe(nextRoot, {
             attributes: true,
+            attributeFilter: Array.from(ROUND_IDENTITY_ATTRIBUTES),
             childList: true,
-            characterData: true,
             subtree: true,
         });
     }

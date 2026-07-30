@@ -1,11 +1,55 @@
 import type { ChatGPTConversationSnapshot } from '../../drivers/content/chatgpt/types';
-import { buildChatGPTConversationTurns, resolveChatGPTConversationStartIndex, type ChatGPTConversationStartTarget } from '../../drivers/content/chatgpt/chatgptConversationSource';
+import { normalizeChatGPTReaderMarkdown } from '../../drivers/content/chatgpt/normalizeReaderMarkdown';
 import type { ReaderItem } from './types';
 
-export type BuildChatGPTReaderItemsResult = {
+export type ChatGPTConversationStartTarget = {
+    position?: number | null;
+    positionSource?: 'snapshot';
+    messageId?: string | null;
+    roundId?: string | null;
+    userMessageId?: string | null;
+    assistantMessageId?: string | null;
+};
+
+type BuildChatGPTReaderItemsResult = {
     items: ReaderItem[];
     startIndex: number;
 };
+
+function normalizeMessageId(value: unknown): string | null {
+    return typeof value === 'string' && value.trim() ? value.trim() : null;
+}
+
+function resolveStartIndex(
+    snapshot: ChatGPTConversationSnapshot,
+    target: ChatGPTConversationStartTarget | null,
+): number {
+    if (!target) return Math.max(0, snapshot.rounds.length - 1);
+
+    const roundId = normalizeMessageId(target.roundId);
+    const userMessageId = normalizeMessageId(target.userMessageId);
+    const assistantMessageId = normalizeMessageId(target.assistantMessageId);
+    const messageId = normalizeMessageId(target.messageId);
+    const hasCanonicalIdentity = Boolean(roundId || userMessageId || assistantMessageId || messageId);
+    if (hasCanonicalIdentity) {
+        const matches = snapshot.rounds
+            .map((round, index) => ({ round, index }))
+            .filter(({ round }) => (
+                (!roundId || round.id === roundId)
+                && (!userMessageId || round.userMessageId === userMessageId)
+                && (!assistantMessageId || (round.assistantMessageId ?? round.messageId) === assistantMessageId)
+                && (!messageId || round.messageId === messageId || round.assistantMessageId === messageId)
+            ));
+        return matches.length === 1 ? matches[0]!.index : -1;
+    }
+
+    const position = Number(target.position ?? 0);
+    if (target.positionSource !== 'snapshot' || !Number.isInteger(position) || position <= 0) return -1;
+    const matches = snapshot.rounds
+        .map((round, index) => ({ round, index }))
+        .filter(({ round }) => round.position === position);
+    return matches.length === 1 ? matches[0]!.index : -1;
+}
 
 function stripHash(url: string): string {
     try {
@@ -23,11 +67,10 @@ export function buildChatGPTReaderItems(
     pageUrl: string = window.location.href
 ): BuildChatGPTReaderItemsResult {
     const normalizedUrl = stripHash(pageUrl);
-    const turns = buildChatGPTConversationTurns(snapshot);
-    const items: ReaderItem[] = snapshot.rounds.map((round, index) => ({
+    const items: ReaderItem[] = snapshot.rounds.map((round) => ({
         id: `chatgpt-${round.messageId ?? round.id}`,
         userPrompt: round.userPrompt,
-        content: turns[index]?.assistant ?? '',
+        content: normalizeChatGPTReaderMarkdown(round.assistantContent),
         meta: {
             platformId: 'chatgpt',
             messageId: round.messageId,
@@ -46,6 +89,6 @@ export function buildChatGPTReaderItems(
         typeof startTarget === 'string'
             ? { messageId: startTarget }
             : startTarget ?? null;
-    const startIndex = resolveChatGPTConversationStartIndex(snapshot, normalizedTarget);
+    const startIndex = resolveStartIndex(snapshot, normalizedTarget);
     return { items, startIndex };
 }

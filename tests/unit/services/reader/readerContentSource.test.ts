@@ -2,7 +2,9 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 import {
     collectFreshCurrentReaderItem,
     collectFreshReaderContent,
-    collectReaderContent,
+    isReaderContentSourceRevisionCurrent,
+    readCurrentReaderContent,
+    readCurrentReaderContentSourceRevision,
     readerItemsToChatTurns,
 } from '@/services/reader/readerContentSource';
 import type { ReaderItem } from '@/services/reader/types';
@@ -10,12 +12,10 @@ import { buildPdfPrintPlan } from '@/services/export/saveMessagesPdf';
 import { buildMessageExportDocument } from '@/services/export/messageExportDocument';
 import { renderMessageCardProfile } from '@/services/export/messageCardProfile';
 
-const setChatGptIndexSnapshot = vi.fn();
 const resolveChatGptRoundForElement = vi.fn();
 
 vi.mock('@/drivers/content/chatgpt/ChatGPTConversationIndex', () => ({
     getChatGPTConversationIndex: vi.fn(() => ({
-        setSnapshot: setChatGptIndexSnapshot,
         resolveRoundForElement: resolveChatGptRoundForElement,
     })),
 }));
@@ -52,6 +52,21 @@ vi.mock('@/services/reader/collectReaderItems', () => ({
 import { buildChatGPTReaderItems } from '@/services/reader/chatgptReaderItems';
 import { collectReaderItems } from '@/services/reader/collectReaderItems';
 
+function createChatGptConversationSource(snapshot: any) {
+    return {
+        ensureReady: vi.fn(async () => snapshot),
+        getState: vi.fn(() => ({
+            status: snapshot ? 'ready' : 'blocked',
+            routeEpoch: 1,
+            revision: snapshot?.revision ?? 1,
+            conversationId: snapshot?.conversationId ?? 'conv-1',
+            snapshot,
+            ...(snapshot ? {} : { reason: 'unproven-history' }),
+        })),
+        subscribe: vi.fn(),
+    };
+}
+
 describe('readerContentSource', () => {
     beforeEach(() => {
         vi.clearAllMocks();
@@ -65,33 +80,122 @@ describe('readerContentSource', () => {
             getMessageId: () => null,
             extractUserPrompt: () => null,
         };
-        const chatGptConversationEngine: any = {
-            getSnapshot: vi.fn(async () => ({
+        const snapshot: any = {
+            conversationId: 'conv-1',
+            revision: 8,
+            rounds: [
+                { id: 'fresh-1', position: 1, userPrompt: 'Fresh prompt 1', assistantContent: 'Fresh answer 1', messageId: 'fresh-a1' },
+                { id: 'fresh-2', position: 2, userPrompt: 'Fresh prompt 2', assistantContent: 'Fresh answer 2', messageId: 'fresh-a2' },
+            ],
+        };
+        const chatGptConversationSource: any = {
+            ensureReady: vi.fn(async () => snapshot),
+            getState: vi.fn(() => ({
+                status: 'ready',
+                routeEpoch: 4,
+                revision: 8,
                 conversationId: 'conv-1',
-                rounds: [
-                    { id: 'old-1', position: 1, userPrompt: 'Old prompt', assistantContent: 'Old answer', messageId: 'old-a1' },
-                ],
-            })),
-            forceRefreshCurrentConversation: vi.fn(async () => ({
-                conversationId: 'conv-1',
-                rounds: [
-                    { id: 'fresh-1', position: 1, userPrompt: 'Fresh prompt 1', assistantContent: 'Fresh answer 1', messageId: 'fresh-a1' },
-                    { id: 'fresh-2', position: 2, userPrompt: 'Fresh prompt 2', assistantContent: 'Fresh answer 2', messageId: 'fresh-a2' },
-                ],
+                snapshot,
             })),
         };
 
         const result = await collectFreshReaderContent(adapter, null, {
-            chatGptConversationEngine,
+            chatGptConversationSource,
             pageUrl: 'https://chatgpt.com/c/1',
         });
 
         expect(result.metadataSource).toBe('chatgpt-snapshot');
-        expect(chatGptConversationEngine.forceRefreshCurrentConversation).toHaveBeenCalledTimes(1);
-        expect(chatGptConversationEngine.getSnapshot).not.toHaveBeenCalled();
+        expect(chatGptConversationSource.ensureReady).toHaveBeenCalledOnce();
+        expect(chatGptConversationSource.ensureReady).toHaveBeenCalledWith();
+        expect(result.sourceRevision).toEqual({
+            routeEpoch: 4,
+            revision: 8,
+            conversationId: 'conv-1',
+        });
         expect(result.items).toHaveLength(2);
         expect(result.items[1]?.content).toBe('Fresh answer 2');
         expect(collectReaderItems).not.toHaveBeenCalled();
+    });
+
+    it('reads the published ChatGPT snapshot without triggering semantic acquisition', () => {
+        const adapter: any = {
+            getPlatformId: () => 'chatgpt',
+            getLastMessageElement: () => null,
+        };
+        const snapshot = {
+            conversationId: 'conv-1',
+            revision: 7,
+            proof: 'observed-graph' as const,
+            capturedAt: 1,
+            branchKey: 'branch-1',
+            rounds: [
+                {
+                    id: 'round-1',
+                    position: 1,
+                    userPrompt: 'Published prompt',
+                    assistantContent: 'Published answer',
+                    preview: 'Published prompt',
+                    messageId: 'a1',
+                    userMessageId: 'u1',
+                    assistantMessageId: 'a1',
+                },
+            ],
+        };
+        const chatGptConversationSource: any = {
+            getState: vi.fn(() => ({
+                status: 'ready',
+                routeEpoch: 3,
+                revision: 7,
+                conversationId: 'conv-1',
+                snapshot,
+            })),
+            ensureReady: vi.fn(),
+        };
+
+        const result = readCurrentReaderContent(adapter, null, {
+            chatGptConversationSource,
+            pageUrl: 'https://chatgpt.com/c/conv-1',
+        });
+
+        expect(chatGptConversationSource.ensureReady).not.toHaveBeenCalled();
+        expect(result).toMatchObject({
+            metadataSource: 'chatgpt-snapshot',
+            sourceRevision: {
+                routeEpoch: 3,
+                revision: 7,
+                conversationId: 'conv-1',
+            },
+            items: [{ content: 'Published answer' }],
+        });
+    });
+
+    it('treats route epoch, revision, and conversation id as one ephemeral transaction identity', () => {
+        const snapshot: any = {
+            conversationId: 'conv-1',
+            revision: 7,
+            rounds: [],
+        };
+        let state: any = {
+            status: 'ready',
+            routeEpoch: 4,
+            revision: 7,
+            conversationId: 'conv-1',
+            snapshot,
+        };
+        const source: any = {
+            getState: vi.fn(() => state),
+        };
+        const revision = readCurrentReaderContentSourceRevision(source);
+
+        expect(revision).toEqual({
+            routeEpoch: 4,
+            revision: 7,
+            conversationId: 'conv-1',
+        });
+        expect(isReaderContentSourceRevisionCurrent(source, revision)).toBe(true);
+
+        state = { ...state, routeEpoch: 5, revision: 0, snapshot: null };
+        expect(isReaderContentSourceRevisionCurrent(source, revision)).toBe(false);
     });
 
     it('collects the current fresh ChatGPT Reader item from the same ReaderItem snapshot', async () => {
@@ -101,16 +205,14 @@ describe('readerContentSource', () => {
             getMessageId: () => 'fresh-a2',
             extractUserPrompt: () => 'Fresh prompt 2',
         };
-        const chatGptConversationEngine: any = {
-            getSnapshot: vi.fn(),
-            forceRefreshCurrentConversation: vi.fn(async () => ({
+        const snapshot = {
                 conversationId: 'conv-1',
                 rounds: [
                     { id: 'fresh-1', position: 1, userPrompt: 'Fresh prompt 1', assistantContent: 'Fresh answer 1', messageId: 'fresh-a1' },
                     { id: 'fresh-2', position: 2, userPrompt: 'Fresh prompt 2', assistantContent: 'Fresh answer 2', messageId: 'fresh-a2' },
                 ],
-            })),
         };
+        const chatGptConversationSource = createChatGptConversationSource(snapshot);
         resolveChatGptRoundForElement.mockReturnValueOnce({
             position: 2,
             identity: {
@@ -129,12 +231,12 @@ describe('readerContentSource', () => {
             },
         });
 
-        const item = await collectFreshCurrentReaderItem(adapter, messageElement, {
-            chatGptConversationEngine,
+        const selection = await collectFreshCurrentReaderItem(adapter, messageElement, {
+            chatGptConversationSource,
             pageUrl: 'https://chatgpt.com/c/1',
         });
 
-        expect(chatGptConversationEngine.forceRefreshCurrentConversation).toHaveBeenCalledTimes(1);
+        expect(chatGptConversationSource.ensureReady).toHaveBeenCalledWith();
         expect(buildChatGPTReaderItems).toHaveBeenCalledWith(
             expect.objectContaining({ conversationId: 'conv-1' }),
             {
@@ -147,7 +249,12 @@ describe('readerContentSource', () => {
             },
             'https://chatgpt.com/c/1',
         );
-        expect(item?.content).toBe('Fresh answer 2');
+        expect(selection?.item.content).toBe('Fresh answer 2');
+        expect(selection?.sourceRevision).toEqual({
+            routeEpoch: 1,
+            revision: 1,
+            conversationId: 'conv-1',
+        });
     });
 
     it('fails closed when the mounted ChatGPT message identity is absent from the canonical snapshot', async () => {
@@ -157,18 +264,16 @@ describe('readerContentSource', () => {
             getMessageId: () => 'missing-assistant-id',
             extractUserPrompt: () => 'Duplicate prompt',
         };
-        const chatGptConversationEngine: any = {
-            forceRefreshCurrentConversation: vi.fn(async () => ({
+        const chatGptConversationSource = createChatGptConversationSource({
                 conversationId: 'conv-1',
                 rounds: [
                     { id: 'round-1', position: 1, userPrompt: 'Duplicate prompt', assistantContent: 'Answer 1', messageId: 'a1' },
                     { id: 'round-2', position: 2, userPrompt: 'Duplicate prompt', assistantContent: 'Answer 2', messageId: 'a2' },
                 ],
-            })),
-        };
+        });
 
         await expect(collectFreshCurrentReaderItem(adapter, messageElement, {
-            chatGptConversationEngine,
+            chatGptConversationSource,
         })).resolves.toBeNull();
     });
 
@@ -179,21 +284,12 @@ describe('readerContentSource', () => {
             getMessageId: () => 'dom-a1',
             extractUserPrompt: () => 'DOM prompt',
         };
-        const chatGptConversationEngine: any = {
-            getSnapshot: vi.fn(async () => ({
-                conversationId: 'conv-1',
-                rounds: [
-                    { id: 'old-1', position: 1, userPrompt: 'Old prompt', assistantContent: 'Old answer', messageId: 'old-a1' },
-                ],
-            })),
-            forceRefreshCurrentConversation: vi.fn(async () => null),
-        };
+        const chatGptConversationSource = createChatGptConversationSource(null);
 
-        const result = await collectFreshReaderContent(adapter, messageElement, { chatGptConversationEngine });
+        const result = await collectFreshReaderContent(adapter, messageElement, { chatGptConversationSource });
 
-        expect(result).toEqual({ items: [], startIndex: 0, metadataSource: 'chatgpt-snapshot' });
-        expect(chatGptConversationEngine.forceRefreshCurrentConversation).toHaveBeenCalledTimes(1);
-        expect(chatGptConversationEngine.getSnapshot).not.toHaveBeenCalled();
+        expect(result).toMatchObject({ items: [], startIndex: 0, metadataSource: 'chatgpt-snapshot' });
+        expect(chatGptConversationSource.ensureReady).toHaveBeenCalledTimes(1);
         expect(collectReaderItems).not.toHaveBeenCalled();
     });
 
@@ -204,12 +300,12 @@ describe('readerContentSource', () => {
             getMessageId: () => 'a1',
             extractUserPrompt: () => 'Payload prompt',
         };
-        const chatGptConversationEngine: any = {
-            getSnapshot: vi.fn(async () => ({
+        const chatGptConversationSource = createChatGptConversationSource({
                 conversationId: 'conv-1',
-                buildFingerprint: 'build-1',
+                revision: 1,
+                proof: 'observed-graph' as const,
                 capturedAt: 1,
-                source: 'runtime-bridge',
+                branchKey: 'branch-1',
                 rounds: [
                     {
                         id: 'round-1',
@@ -220,9 +316,7 @@ describe('readerContentSource', () => {
                         messageId: 'a1',
                     },
                 ],
-            })),
-            forceRefreshCurrentConversation: vi.fn(),
-        };
+        });
         resolveChatGptRoundForElement.mockReturnValueOnce({
             position: 1,
             identity: { roundId: 'round-1', userMessageId: null, assistantMessageId: 'a1' },
@@ -237,14 +331,13 @@ describe('readerContentSource', () => {
             },
         });
 
-        const result = await collectReaderContent(adapter, messageElement, {
-            chatGptConversationEngine,
+        const result = await collectFreshReaderContent(adapter, messageElement, {
+            chatGptConversationSource,
             pageUrl: 'https://chatgpt.com/c/1#hash',
         });
 
         expect(result.metadataSource).toBe('chatgpt-snapshot');
-        expect(chatGptConversationEngine.getSnapshot).toHaveBeenCalledTimes(1);
-        expect(chatGptConversationEngine.forceRefreshCurrentConversation).not.toHaveBeenCalled();
+        expect(chatGptConversationSource.ensureReady).toHaveBeenCalledTimes(1);
         expect(collectReaderItems).not.toHaveBeenCalled();
         expect(buildChatGPTReaderItems).toHaveBeenCalledTimes(1);
         expect(buildChatGPTReaderItems).toHaveBeenCalledWith(
@@ -262,19 +355,19 @@ describe('readerContentSource', () => {
         expect(result.items[0]?.content).toBe('- payload bullet');
     });
 
-    it('uses the ChatGPT snapshot path without forcing a refresh when DOM Reader collection is unavailable', async () => {
+    it('uses the published ChatGPT snapshot without forcing a refresh when DOM Reader collection is unavailable', () => {
         const adapter: any = {
             getPlatformId: () => 'chatgpt',
             getLastMessageElement: () => null,
             getMessageId: () => 'a1',
             extractUserPrompt: () => 'Payload prompt',
         };
-        const chatGptConversationEngine: any = {
-            getSnapshot: vi.fn(async () => ({
+        const chatGptConversationSource = createChatGptConversationSource({
                 conversationId: 'conv-1',
-                buildFingerprint: 'build-1',
+                revision: 1,
+                proof: 'observed-graph' as const,
                 capturedAt: 1,
-                source: 'runtime-bridge',
+                branchKey: 'branch-1',
                 rounds: [
                     {
                         id: 'round-1',
@@ -285,39 +378,33 @@ describe('readerContentSource', () => {
                         messageId: 'a1',
                     },
                 ],
-            })),
-            forceRefreshCurrentConversation: vi.fn(),
-        };
+        });
 
-        const result = await collectReaderContent(adapter, null, {
-            chatGptConversationEngine,
+        const result = readCurrentReaderContent(adapter, null, {
+            chatGptConversationSource,
             pageUrl: 'https://chatgpt.com/c/1#hash',
         });
 
         expect(result.metadataSource).toBe('chatgpt-snapshot');
-        expect(chatGptConversationEngine.getSnapshot).toHaveBeenCalledTimes(1);
-        expect(chatGptConversationEngine.forceRefreshCurrentConversation).not.toHaveBeenCalled();
+        expect(chatGptConversationSource.ensureReady).not.toHaveBeenCalled();
         expect(buildChatGPTReaderItems).toHaveBeenCalledTimes(1);
         expect(collectReaderItems).not.toHaveBeenCalled();
         expect(result.items[0]?.content).toBe('- payload bullet');
     });
 
-    it('fails closed instead of creating a third ChatGPT DOM body source when no snapshot is available', async () => {
+    it('fails closed instead of creating a third ChatGPT DOM body source when no snapshot is available', () => {
         const messageElement = document.createElement('article');
         const adapter: any = {
             getPlatformId: () => 'chatgpt',
             getMessageId: () => 'dom-a1',
             extractUserPrompt: () => 'DOM prompt',
         };
-        const chatGptConversationEngine: any = {
-            getSnapshot: vi.fn(async () => null),
-            forceRefreshCurrentConversation: vi.fn(),
-        };
+        const chatGptConversationSource = createChatGptConversationSource(null);
 
-        const result = await collectReaderContent(adapter, messageElement, { chatGptConversationEngine });
+        const result = readCurrentReaderContent(adapter, messageElement, { chatGptConversationSource });
 
         expect(result).toEqual({ items: [], startIndex: 0, metadataSource: 'chatgpt-snapshot' });
-        expect(chatGptConversationEngine.forceRefreshCurrentConversation).not.toHaveBeenCalled();
+        expect(chatGptConversationSource.ensureReady).not.toHaveBeenCalled();
         expect(collectReaderItems).not.toHaveBeenCalled();
     });
 
@@ -334,9 +421,7 @@ describe('readerContentSource', () => {
                 { id: 'round-50', position: 50, userPrompt: 'Prompt 50', assistantContent: 'Answer 50', messageId: 'a50' },
             ],
         };
-        const chatGptConversationEngine: any = {
-            getSnapshot: vi.fn(async () => snapshot),
-        };
+        const chatGptConversationSource = createChatGptConversationSource(snapshot);
         resolveChatGptRoundForElement.mockReturnValueOnce({
             position: 50,
             identity: { roundId: 'round-50', userMessageId: 'u50', assistantMessageId: 'a50' },
@@ -347,10 +432,9 @@ describe('readerContentSource', () => {
             },
         });
 
-        const result = await collectReaderContent(adapter, messageElement, { chatGptConversationEngine });
+        const result = await collectFreshReaderContent(adapter, messageElement, { chatGptConversationSource });
 
         expect(adapter.getMessageId).not.toHaveBeenCalled();
-        expect(setChatGptIndexSnapshot).toHaveBeenCalledWith(snapshot);
         expect(buildChatGPTReaderItems).toHaveBeenCalledWith(
             snapshot,
             {
@@ -372,20 +456,18 @@ describe('readerContentSource', () => {
             getPlatformId: () => 'chatgpt',
             getMessageId: vi.fn(() => 'a2'),
         };
-        const chatGptConversationEngine: any = {
-            getSnapshot: vi.fn(async () => ({
+        const chatGptConversationSource = createChatGptConversationSource({
                 conversationId: 'conv-1',
                 rounds: [
                     { id: 'round-1', position: 1, userPrompt: 'Prompt 1', assistantContent: 'Answer 1', messageId: 'a1' },
                     { id: 'round-2', position: 2, userPrompt: 'Prompt 2', assistantContent: 'Answer 2', messageId: 'a2' },
                 ],
-            })),
-        };
+        });
         resolveChatGptRoundForElement.mockReturnValueOnce(null);
 
-        const result = await collectReaderContent(adapter, messageElement, { chatGptConversationEngine });
+        const result = await collectFreshReaderContent(adapter, messageElement, { chatGptConversationSource });
 
-        expect(result).toEqual({ items: [], startIndex: 0, metadataSource: 'chatgpt-snapshot' });
+        expect(result).toMatchObject({ items: [], startIndex: 0, metadataSource: 'chatgpt-snapshot' });
         expect(adapter.getMessageId).not.toHaveBeenCalled();
         expect(buildChatGPTReaderItems).not.toHaveBeenCalled();
     });

@@ -16,7 +16,7 @@ function decodeDetail(detail: unknown): any {
 
 function requestSnapshot(
     conversationId: string,
-    options?: { force?: boolean; stringDetail?: boolean; onRawResponse?: (detail: unknown) => void },
+    options?: { stringDetail?: boolean; onRawResponse?: (detail: unknown) => void },
 ): Promise<any> {
     const requestId = `test-${Math.random().toString(36).slice(2)}`;
     return new Promise((resolve) => {
@@ -33,7 +33,6 @@ function requestSnapshot(
             requestId,
             type: 'snapshot',
             conversationId,
-            force: options?.force ?? true,
         };
         window.dispatchEvent(new CustomEvent(REQUEST_EVENT, {
             detail: options?.stringDetail ? JSON.stringify(detail) : detail,
@@ -215,6 +214,23 @@ describe('ChatGPT conversation bridge', () => {
         forbidden.forEach((value) => expect(source).not.toContain(value));
     });
 
+    it('keeps content-world discovery event-driven and free of active host transport', () => {
+        const engine = readFileSync('src/drivers/content/chatgpt/ChatGPTConversationEngine.ts', 'utf-8');
+        const facts = readFileSync('src/services/content/ChatGPTDomTurnFactSource.ts', 'utf-8');
+        const pageIndex = readFileSync('src/drivers/content/chatgpt/ChatGPTPageIndex.ts', 'utf-8');
+        const contentDiscovery = [engine, facts].join('\n');
+
+        expect(contentDiscovery).not.toMatch(/\bfetch\s*\(/);
+        expect(contentDiscovery).not.toContain('XMLHttpRequest');
+        expect(contentDiscovery).not.toContain('EventSource');
+        expect(contentDiscovery).not.toContain('WebSocket');
+        expect(contentDiscovery).not.toContain('setInterval(');
+        expect(contentDiscovery).not.toContain('visibilitychange');
+        expect(pageIndex).toContain('attributeFilter: Array.from(ROUND_IDENTITY_ATTRIBUTES)');
+        expect(pageIndex).not.toContain('characterData: true');
+        expect(facts).not.toContain('new MutationObserver');
+    });
+
     it('builds a canonical snapshot from a verified backend conversation graph', async () => {
         const conversationId = '69e8d157-5fec-839c-9124-2179ba8b7d7c';
         const payload = {
@@ -249,9 +265,6 @@ describe('ChatGPT conversation bridge', () => {
         expect(fetchMock).toHaveBeenCalledTimes(1);
         expect(fetchMock).toHaveBeenCalledWith(`/backend-api/conversation/${conversationId}`);
         expect(response.ok).toBe(true);
-        expect(response.snapshot.source).toBe('runtime-bridge');
-        expect(response.snapshot.origin).toBe('conversation-graph');
-        expect(response.snapshot.coverage).toBe('complete');
         expect(response.snapshot.branchKey).toBe('a2-node');
         expect(response.snapshot.rounds).toHaveLength(2);
         expect(response.snapshot.rounds.map((round: any) => round.userPrompt)).toEqual(['Question 1', 'Question 2']);
@@ -694,8 +707,8 @@ describe('ChatGPT conversation bridge', () => {
         vi.stubGlobal('fetch', fetchMock);
 
         installBridge();
-        const first = await requestSnapshot(conversationId, { force: false });
-        const second = await requestSnapshot(conversationId, { force: true });
+        const first = await requestSnapshot(conversationId);
+        const second = await requestSnapshot(conversationId);
 
         expect(first.ok).toBe(false);
         expect(second.ok).toBe(false);

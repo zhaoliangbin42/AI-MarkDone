@@ -2,7 +2,11 @@
 
 ## Status
 
-Accepted
+Superseded by `ADR-0007-chatgpt-conversation-fact-reducer.md`
+
+The decisions below describe the historical graph-baseline design. They are not
+the current implementation contract; ADR-0007 is authoritative for content
+discovery, canonical state, and consumer ownership.
 
 ## Context
 
@@ -12,7 +16,7 @@ ChatGPT 会按滚动位置水合和卸载长对话轮次。当前 DOM 因而只�
 
 - `ChatGPTConversationEngine` 只接受 conversation ID 一致、current leaf 存在、父链无缺失且无环，并终止于无 message 结构根的 conversation graph，生成 Canonical conversation snapshot；带 message 的 `parent:null` 节点视为局部水合窗口而 fail closed。
 - page bridge 以 manifest `document_start` 在页面主执行环境安装，只被动旁路观察 ChatGPT 页面自身的 same-origin `GET /backend-api/conversation/<id>`。完整 `mapping/current_node` graph 是可证明完整性的基线；bridge 不观察生成用 POST、请求体或 event stream。
-- 实时尾部更新复用 `ChatGPTPageIndex` 的单一 host mutation observer。只有当当前 canonical 尾轮次仍能通过 typed identity 唯一映射到 DOM，且其后出现 typed identity 完整、官方完成操作栏已挂载、正文非空的连续 successor 时，`ChatGPTLiveDomContent` 才通过既有 Markdown copy service 构造 live-tail round，并写回同一个 `ChatGPTConversationEngine` snapshot。DOM 不提供历史轮次数或缺失正文，也不允许跨未知前驱补链；后续完整 GET 可重新校准 live tail。
+- 实时尾部更新曾复用 `ChatGPTPageIndex` 的单一 host mutation observer，并由当时的 live-tail reconciler 向 graph snapshot 追加可验证 successor。该机制无法从空白新对话建立 canonical snapshot，现已由 ADR-0007 的 dual-proof reducer 取代。
 - AI-MarkDone 不主动发起 conversation/session 请求，不读取 Cookie、Token、认证请求头、请求体或生成响应，也不构造认证信息。bridge 只在内存中有界保留 graph，并只向 content world 发布规范化 snapshot；未知前驱、身份冲突、未完成或空白 DOM successor 均 fail closed，保留最近的 verified snapshot。
 - `ChatGPTConversationEngine` 是唯一 semantic SSOT；Reader、Copy、Save Messages、消息词数、书签 prompt 与书签正文通过 canonical round / `readerContentSource` 消费它的 Canonical conversation snapshot。
 - `ChatGPTConversationIndex` 是唯一 navigation projection；绝对顺序只来自 Engine snapshot，`ChatGPTPageIndex` 只缓存当前 connected anchors。

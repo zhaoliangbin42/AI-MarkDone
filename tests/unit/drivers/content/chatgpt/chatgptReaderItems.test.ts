@@ -1,16 +1,13 @@
 import { describe, expect, it } from 'vitest';
 import { buildChatGPTReaderItems } from '@/services/reader/chatgptReaderItems';
-import { buildChatGPTConversationTurns, resolveChatGPTConversationRound, resolveChatGPTConversationStartIndex } from '@/drivers/content/chatgpt/chatgptConversationSource';
 
 describe('buildChatGPTReaderItems', () => {
     it('maps ChatGPT rounds to shared reader items and starts at the requested message', () => {
         const { items, startIndex } = buildChatGPTReaderItems({
             conversationId: 'conv-1',
-            buildFingerprint: 'build-1',
+            revision: 1,
+            proof: 'observed-graph' as const,
             capturedAt: 1,
-            source: 'runtime-bridge',
-            origin: 'conversation-graph',
-            coverage: 'complete',
             branchKey: 'branch-leaf-2',
             rounds: [
                 {
@@ -66,9 +63,10 @@ describe('buildChatGPTReaderItems', () => {
     it('normalizes ChatGPT reader markdown without mutating round metadata', () => {
         const { items } = buildChatGPTReaderItems({
             conversationId: 'conv-1',
-            buildFingerprint: 'build-1',
+            revision: 1,
+            proof: 'observed-graph' as const,
             capturedAt: 1,
-            source: 'runtime-bridge',
+            branchKey: 'branch-1',
             rounds: [
                 {
                     id: 'round-1',
@@ -96,9 +94,10 @@ describe('buildChatGPTReaderItems', () => {
     it('removes ChatGPT citation and link noise from payload-backed Reader content', () => {
         const { items } = buildChatGPTReaderItems({
             conversationId: 'conv-1',
-            buildFingerprint: 'build-1',
+            revision: 1,
+            proof: 'observed-graph' as const,
             capturedAt: 1,
-            source: 'runtime-bridge',
+            branchKey: 'branch-1',
             rounds: [
                 {
                     id: 'round-1',
@@ -119,9 +118,10 @@ describe('buildChatGPTReaderItems', () => {
     it('keeps payload-backed inline double-dollar math while removing citation and link noise', () => {
         const { items } = buildChatGPTReaderItems({
             conversationId: 'conv-1',
-            buildFingerprint: 'build-1',
+            revision: 1,
+            proof: 'observed-graph' as const,
             capturedAt: 1,
-            source: 'runtime-bridge',
+            branchKey: 'branch-1',
             rounds: [
                 {
                     id: 'round-1',
@@ -142,9 +142,10 @@ describe('buildChatGPTReaderItems', () => {
     it('unwraps payload-backed ChatGPT component directives before exposing Reader content', () => {
         const { items } = buildChatGPTReaderItems({
             conversationId: 'conv-1',
-            buildFingerprint: 'build-1',
+            revision: 1,
+            proof: 'observed-graph' as const,
             capturedAt: 1,
-            source: 'runtime-bridge',
+            branchKey: 'branch-1',
             rounds: [
                 {
                     id: 'round-1',
@@ -175,9 +176,10 @@ describe('buildChatGPTReaderItems', () => {
     it('preserves code block urls while removing citation noise from payload-backed Reader content', () => {
         const { items } = buildChatGPTReaderItems({
             conversationId: 'conv-1',
-            buildFingerprint: 'build-1',
+            revision: 1,
+            proof: 'observed-graph' as const,
             capturedAt: 1,
-            source: 'runtime-bridge',
+            branchKey: 'branch-1',
             rounds: [
                 {
                     id: 'round-1',
@@ -212,9 +214,10 @@ describe('buildChatGPTReaderItems', () => {
     it('fails closed instead of treating DOM-local positions as payload positions when opening Reader', () => {
         const snapshot = {
             conversationId: 'conv-1',
-            buildFingerprint: 'build-1',
+            revision: 1,
+            proof: 'observed-graph' as const,
             capturedAt: 1,
-            source: 'runtime-bridge' as const,
+            branchKey: 'branch-1',
             rounds: [
                 {
                     id: 'round-1',
@@ -249,11 +252,6 @@ describe('buildChatGPTReaderItems', () => {
             ],
         };
 
-        expect(resolveChatGPTConversationStartIndex(snapshot, {
-            position: 2,
-            positionSource: 'dom',
-            messageId: 'dom-wrapper-id',
-        } as any)).toBe(-1);
         expect(buildChatGPTReaderItems(snapshot, {
             position: 2,
             positionSource: 'dom',
@@ -264,9 +262,10 @@ describe('buildChatGPTReaderItems', () => {
     it('prefers message id over prompt when resolving the initial Reader item', () => {
         const snapshot = {
             conversationId: 'conv-1',
-            buildFingerprint: 'build-1',
+            revision: 1,
+            proof: 'observed-graph' as const,
             capturedAt: 1,
-            source: 'runtime-bridge' as const,
+            branchKey: 'branch-1',
             rounds: [
                 {
                     id: 'round-1',
@@ -291,16 +290,18 @@ describe('buildChatGPTReaderItems', () => {
             ],
         };
 
-        expect(resolveChatGPTConversationStartIndex(snapshot, { messageId: 'a2' })).toBe(1);
-        expect(resolveChatGPTConversationRound(snapshot, { messageId: 'a2' })?.position).toBe(2);
+        const result = buildChatGPTReaderItems(snapshot, { messageId: 'a2' });
+        expect(result.startIndex).toBe(1);
+        expect(result.items[result.startIndex]?.meta?.position).toBe(2);
     });
 
     it('never treats prompt text as canonical round identity', () => {
         const snapshot = {
             conversationId: 'conv-1',
-            buildFingerprint: 'build-1',
+            revision: 1,
+            proof: 'observed-graph' as const,
             capturedAt: 1,
-            source: 'runtime-bridge' as const,
+            branchKey: 'branch-1',
             rounds: [
                 {
                     id: 'round-1',
@@ -326,16 +327,16 @@ describe('buildChatGPTReaderItems', () => {
         };
 
         const unresolved = { messageId: 'missing-id' };
-        expect(resolveChatGPTConversationStartIndex(snapshot, unresolved)).toBe(-1);
-        expect(resolveChatGPTConversationRound(snapshot, unresolved)).toBeNull();
+        expect(buildChatGPTReaderItems(snapshot, unresolved).startIndex).toBe(-1);
     });
 
     it('uses payload positions only when the caller marks the source as snapshot', () => {
         const snapshot = {
             conversationId: 'conv-1',
-            buildFingerprint: 'build-1',
+            revision: 1,
+            proof: 'observed-graph' as const,
             capturedAt: 1,
-            source: 'runtime-bridge' as const,
+            branchKey: 'branch-1',
             rounds: [
                 {
                     id: 'round-1',
@@ -360,16 +361,17 @@ describe('buildChatGPTReaderItems', () => {
             ],
         };
 
-        expect(resolveChatGPTConversationStartIndex(snapshot, { position: 1 })).toBe(-1);
-        expect(resolveChatGPTConversationStartIndex(snapshot, { position: 1, positionSource: 'snapshot' })).toBe(0);
+        expect(buildChatGPTReaderItems(snapshot, { position: 1 }).startIndex).toBe(-1);
+        expect(buildChatGPTReaderItems(snapshot, { position: 1, positionSource: 'snapshot' }).startIndex).toBe(0);
     });
 
     it('keeps typed ChatGPT identities in their own namespaces and requires a unique match', () => {
         const snapshot = {
             conversationId: 'conv-1',
-            buildFingerprint: 'build-1',
+            revision: 1,
+            proof: 'observed-graph' as const,
             capturedAt: 1,
-            source: 'runtime-bridge' as const,
+            branchKey: 'branch-1',
             rounds: [
                 {
                     id: 'round-1',
@@ -394,18 +396,20 @@ describe('buildChatGPTReaderItems', () => {
             ],
         };
 
-        expect(resolveChatGPTConversationRound(snapshot, { roundId: 'round-1' })?.position).toBe(1);
-        expect(resolveChatGPTConversationRound(snapshot, { userMessageId: 'round-1' })?.position).toBe(2);
-        expect(resolveChatGPTConversationRound(snapshot, { messageId: 'shared-assistant' })).toBeNull();
-        expect(resolveChatGPTConversationStartIndex(snapshot, { messageId: 'shared-assistant' })).toBe(-1);
+        const roundIdResult = buildChatGPTReaderItems(snapshot, { roundId: 'round-1' });
+        const userIdResult = buildChatGPTReaderItems(snapshot, { userMessageId: 'round-1' });
+        expect(roundIdResult.items[roundIdResult.startIndex]?.meta?.position).toBe(1);
+        expect(userIdResult.items[userIdResult.startIndex]?.meta?.position).toBe(2);
+        expect(buildChatGPTReaderItems(snapshot, { messageId: 'shared-assistant' }).startIndex).toBe(-1);
     });
 
     it('defaults a full Reader with no clicked target to the canonical tail', () => {
         const snapshot = {
             conversationId: 'conv-1',
-            buildFingerprint: 'build-1',
+            revision: 1,
+            proof: 'observed-graph' as const,
             capturedAt: 1,
-            source: 'runtime-bridge' as const,
+            branchKey: 'branch-1',
             rounds: [
                 {
                     id: 'round-1',
@@ -430,35 +434,6 @@ describe('buildChatGPTReaderItems', () => {
             ],
         };
 
-        expect(resolveChatGPTConversationStartIndex(snapshot, null)).toBe(1);
-    });
-
-    it('builds shared ChatGPT turns for Reader and export from the same snapshot content', () => {
-        const turns = buildChatGPTConversationTurns({
-            conversationId: 'conv-1',
-            buildFingerprint: 'build-1',
-            capturedAt: 1,
-            source: 'runtime-bridge',
-            rounds: [
-                {
-                    id: 'round-1',
-                    position: 1,
-                    userPrompt: 'Prompt 1',
-                    assistantContent: 'Inline: \\(x = y\\)',
-                    preview: 'Prompt 1',
-                    messageId: 'a1',
-                    userMessageId: 'u1',
-                    assistantMessageId: 'a1',
-                },
-            ],
-        });
-
-        expect(turns).toEqual([
-            {
-                user: 'Prompt 1',
-                assistant: 'Inline: $x = y$',
-                index: 0,
-            },
-        ]);
+        expect(buildChatGPTReaderItems(snapshot, null).startIndex).toBe(1);
     });
 });

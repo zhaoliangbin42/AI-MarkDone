@@ -194,7 +194,6 @@ export async function materializeChatGPTConversationTarget(
     options?: ChatGPTMaterializationOptions,
 ): Promise<ChatGPTMaterializationResult> {
     const index = getChatGPTConversationIndex(adapter);
-    await index.ensureSnapshot();
     const canonicalTarget = resolveChatGPTCanonicalTarget(adapter, target);
     if (!canonicalTarget) return { ok: false, message: 'Canonical target unavailable' };
     const exactTarget = toExactTarget(canonicalTarget);

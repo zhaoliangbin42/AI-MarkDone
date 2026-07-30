@@ -31,8 +31,14 @@ Both master switches preserve child values when disabled. Effective capability s
 
 ## ChatGPT Content Discovery
 
-- **Canonical conversation snapshot**: one verified, complete current-branch projection reconstructed from the ChatGPT conversation graph. It alone owns round content, absolute order, branch identity, and typed message identities.
-- **Conversation Engine**: the semantic SSOT that owns and publishes the Canonical conversation snapshot. Reader, copy, export, and bookmark-body flows consume it through `readerContentSource`.
+- **Conversation proof**: the root completeness proof for a canonical snapshot. `observed-graph` means the host's complete current-branch graph was passively observed; `birth-epoch` means the extension witnessed an empty new-conversation epoch and every published successor from streaming through official completion.
+- **Conversation state**: the single immutable `idle / collecting / ready / blocked` value for one route epoch. It owns the monotonic revision, conversation identity, canonical snapshot, and any fail-closed reason.
+- **Canonical conversation snapshot**: one proof-backed, contiguous stable-completion prefix. It alone owns round content, absolute order, branch identity, and typed message identities; it may come from `observed-graph` or a witnessed `birth-epoch`.
+- **Conversation reducer**: the pure SSOT transition function that reduces route, graph, and typed DOM-turn facts into Conversation state. Consumers never merge or recover semantic content themselves.
+- **Conversation Engine**: the current-route coordinator and state store. It exposes `getState`, `subscribe`, and one epoch-scoped `ensureReady` flush; it does not own retries, polling, or consumer-specific caches.
 - **Conversation Index**: the unique navigation projection that combines the Engine snapshot with optional currently materialized page anchors. Directory, stepper, locate, and bookmark navigation consume its ordered rounds plus anchors.
+- **Reader content source**: the sole projection from a published conversation snapshot to `ReaderItem[]`. Passive queries call `readCurrentReaderContent`; real user commands call `collectFreshReaderContent`, whose one no-argument confirmation policy is owned by the source rather than its callers.
+- **Source revision**: the ephemeral `routeEpoch + revision + conversationId` identity used to reject stale asynchronous UI work. It is not persisted in bookmark, export, annotation, or Reader schemas.
+- **Conversation Reader binding**: the source-only subscription that keeps the in-page Reader aligned with published revisions. It never discovers DOM turns or calls `ensureReady`, and it closes the Reader when canonical content is withdrawn.
 - **Materialization**: the host-controlled act of mounting a conversation round into the current ChatGPT DOM window. Materialization may add or remove anchors, but it never changes the Canonical conversation snapshot's round count or order.
 - **Round identity**: typed `userMessageId`, `assistantMessageId`, and graph round/node aliases used to join semantic rounds to materialized anchors. Prompt text and DOM-local position are presentation data, never identity.

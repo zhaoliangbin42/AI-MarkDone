@@ -18,4 +18,10 @@ describe('ChatGPT route identity', () => {
         expect(getChatGPTConversationId('https://chatgpt.com/g/gpt-id')).toBeNull();
         expect(isChatGPTConversationPage('https://chatgpt.com/')).toBe(false);
     });
+
+    it('requires an exact supported ChatGPT page host', () => {
+        expect(getChatGPTConversationId('https://evil.chatgpt.com/c/12345678-1234-1234-1234-123456789abc')).toBeNull();
+        expect(getChatGPTConversationId('https://chatgpt.com/share/12345678-1234-1234-1234-123456789abc')).toBeNull();
+        expect(getChatGPTConversationId('https://chat.com/c/12345678-1234-1234-1234-123456789abc')).toBeNull();
+    });
 });

@@ -128,13 +128,27 @@ function buildMaterializedRoundDom(): HTMLElement {
     return document.getElementById('user-1') as HTMLElement;
 }
 
+function setCanonicalSnapshot(
+    adapter: SiteAdapter,
+    snapshot: ChatGPTConversationSnapshot,
+): void {
+    getChatGPTConversationIndex(adapter).bindConversationSource({
+        getState: () => ({
+            status: 'ready',
+            routeEpoch: 1,
+            revision: snapshot.revision,
+            conversationId: snapshot.conversationId,
+            snapshot,
+        }),
+        subscribe: () => () => undefined,
+    });
+}
+
 function publishCanonicalRounds(adapter: SiteAdapter, assistantMessageIds: string[]): void {
-    getChatGPTConversationIndex(adapter).setSnapshot({
+    setCanonicalSnapshot(adapter, {
         conversationId: '12345678-1234-1234-1234-123456789abc',
-        buildFingerprint: 'test-build',
-        source: 'runtime-bridge',
-        origin: 'conversation-graph',
-        coverage: 'complete',
+        revision: 1,
+        proof: 'observed-graph' as const,
         branchKey: 'branch-test',
         capturedAt: Date.now(),
         rounds: assistantMessageIds.map((assistantMessageId, index) => ({
@@ -153,10 +167,8 @@ function publishCanonicalRounds(adapter: SiteAdapter, assistantMessageIds: strin
 function buildCanonicalSnapshot(roundCount: number): ChatGPTConversationSnapshot {
     return {
         conversationId: '12345678-1234-1234-1234-123456789abc',
-        buildFingerprint: 'test-build',
-        source: 'runtime-bridge',
-        origin: 'conversation-graph',
-        coverage: 'complete',
+        revision: 1,
+        proof: 'observed-graph' as const,
         branchKey: 'branch-test',
         capturedAt: Date.now(),
         rounds: Array.from({ length: roundCount }, (_, index) => {
@@ -446,7 +458,7 @@ describe('ChatGPT directory navigation', () => {
         const { navigateChatGPTDirectoryTarget } = await import('@/ui/content/chatgptDirectory/navigation');
         const adapter = new ChatGPTNavigationTestAdapter();
         mountRoleWindow([1, 2, 3, 4, 5, 6]);
-        getChatGPTConversationIndex(adapter).setSnapshot(buildCanonicalSnapshot(60));
+        setCanonicalSnapshot(adapter, buildCanonicalSnapshot(60));
 
         const scrollRoot = document.createElement('div');
         Object.defineProperties(scrollRoot, {
@@ -494,7 +506,7 @@ describe('ChatGPT directory navigation', () => {
         const { navigateChatGPTDirectoryTarget } = await import('@/ui/content/chatgptDirectory/navigation');
         const adapter = new ChatGPTNavigationTestAdapter();
         const slots = mountVirtualizedTurnSlots(14, [1, 13, 14]);
-        getChatGPTConversationIndex(adapter).setSnapshot(buildCanonicalSnapshot(14));
+        setCanonicalSnapshot(adapter, buildCanonicalSnapshot(14));
         const scrollRoot = attachTestScrollRoot(adapter);
         const targetSlot = slots.userSlots.get(10);
         if (!targetSlot) throw new Error('target slot is missing');
@@ -522,7 +534,7 @@ describe('ChatGPT directory navigation', () => {
         const { navigateChatGPTDirectoryTarget } = await import('@/ui/content/chatgptDirectory/navigation');
         const adapter = new ChatGPTNavigationTestAdapter();
         const slots = mountVirtualizedTurnSlots(14, [1, 13, 14]);
-        getChatGPTConversationIndex(adapter).setSnapshot(buildCanonicalSnapshot(14));
+        setCanonicalSnapshot(adapter, buildCanonicalSnapshot(14));
         const scrollRoot = attachTestScrollRoot(adapter);
         const targetSlot = slots.userSlots.get(10);
         if (!targetSlot) throw new Error('target slot is missing');
@@ -559,7 +571,7 @@ describe('ChatGPT directory navigation', () => {
         const { navigateChatGPTDirectoryTarget } = await import('@/ui/content/chatgptDirectory/navigation');
         const adapter = new ChatGPTNavigationTestAdapter();
         const slots = mountVirtualizedTurnSlots(14, [1, 13, 14]);
-        getChatGPTConversationIndex(adapter).setSnapshot(buildCanonicalSnapshot(14));
+        setCanonicalSnapshot(adapter, buildCanonicalSnapshot(14));
         const scrollRoot = attachTestScrollRoot(adapter);
         const targetSlot = slots.userSlots.get(2);
         if (!targetSlot) throw new Error('target slot is missing');
@@ -587,7 +599,7 @@ describe('ChatGPT directory navigation', () => {
         const { navigateChatGPTDirectoryTarget } = await import('@/ui/content/chatgptDirectory/navigation');
         const adapter = new ChatGPTNavigationTestAdapter();
         const slots = mountVirtualizedTurnSlots(14, [1, 13, 14]);
-        getChatGPTConversationIndex(adapter).setSnapshot(buildCanonicalSnapshot(14));
+        setCanonicalSnapshot(adapter, buildCanonicalSnapshot(14));
         const scrollRoot = attachTestScrollRoot(adapter);
         const targetSlot = slots.userSlots.get(2);
         if (!targetSlot) throw new Error('target slot is missing');
@@ -611,7 +623,7 @@ describe('ChatGPT directory navigation', () => {
         const { navigateChatGPTDirectoryTarget } = await import('@/ui/content/chatgptDirectory/navigation');
         const adapter = new ChatGPTNavigationTestAdapter();
         const slots = mountVirtualizedTurnSlots(200, [1, 199, 200]);
-        getChatGPTConversationIndex(adapter).setSnapshot(buildCanonicalSnapshot(200));
+        setCanonicalSnapshot(adapter, buildCanonicalSnapshot(200));
         const scrollRoot = attachTestScrollRoot(adapter);
         const targetSlot = slots.userSlots.get(100);
         if (!targetSlot) throw new Error('target slot is missing');
@@ -647,7 +659,7 @@ describe('ChatGPT directory navigation', () => {
         const { navigateChatGPTDirectoryTarget } = await import('@/ui/content/chatgptDirectory/navigation');
         const adapter = new ChatGPTNavigationTestAdapter();
         mountRoleWindow([1]);
-        getChatGPTConversationIndex(adapter).setSnapshot(buildCanonicalSnapshot(14));
+        setCanonicalSnapshot(adapter, buildCanonicalSnapshot(14));
 
         const scrollRoot = document.createElement('div');
         Object.defineProperties(scrollRoot, {
@@ -696,7 +708,7 @@ describe('ChatGPT directory navigation', () => {
         const { navigateChatGPTDirectoryTarget } = await import('@/ui/content/chatgptDirectory/navigation');
         const adapter = new ChatGPTNavigationTestAdapter();
         mountRoleWindow([1, 2, 3, 8, 9, 10]);
-        getChatGPTConversationIndex(adapter).setSnapshot(buildCanonicalSnapshot(10));
+        setCanonicalSnapshot(adapter, buildCanonicalSnapshot(10));
 
         const scrollRoot = document.createElement('div');
         Object.defineProperties(scrollRoot, {
@@ -761,7 +773,7 @@ describe('ChatGPT directory navigation', () => {
             }
         };
         mountMeasuredWindow([1, 2, 3, 8, 9, 10]);
-        getChatGPTConversationIndex(adapter).setSnapshot(buildCanonicalSnapshot(10));
+        setCanonicalSnapshot(adapter, buildCanonicalSnapshot(10));
         scrollRoot.scrollTo = vi.fn((options: ScrollToOptions) => {
             scrollRoot.scrollTop = Number(options.top ?? 0);
             if (scrollRoot.scrollTop >= 4500 && scrollRoot.scrollTop <= 6500) {
@@ -794,7 +806,7 @@ describe('ChatGPT directory navigation', () => {
         const { navigateChatGPTDirectoryTarget } = await import('@/ui/content/chatgptDirectory/navigation');
         const adapter = new ChatGPTNavigationTestAdapter();
         mountRoleWindow([1, 3, 13, 14]);
-        getChatGPTConversationIndex(adapter).setSnapshot(buildCanonicalSnapshot(14));
+        setCanonicalSnapshot(adapter, buildCanonicalSnapshot(14));
 
         const scrollRoot = document.createElement('div');
         Object.defineProperties(scrollRoot, {
@@ -830,7 +842,7 @@ describe('ChatGPT directory navigation', () => {
         const { navigateChatGPTDirectoryTarget } = await import('@/ui/content/chatgptDirectory/navigation');
         const adapter = new ChatGPTNavigationTestAdapter();
         mountRoleWindow([1, 3, 13, 14]);
-        getChatGPTConversationIndex(adapter).setSnapshot(buildCanonicalSnapshot(14));
+        setCanonicalSnapshot(adapter, buildCanonicalSnapshot(14));
 
         const scrollRoot = document.createElement('div');
         Object.defineProperties(scrollRoot, {
@@ -865,7 +877,7 @@ describe('ChatGPT directory navigation', () => {
         const { navigateChatGPTDirectoryTarget } = await import('@/ui/content/chatgptDirectory/navigation');
         const adapter = new ChatGPTNavigationTestAdapter();
         mountRoleWindow([1, 2, 3, 4, 5, 6]);
-        getChatGPTConversationIndex(adapter).setSnapshot(buildCanonicalSnapshot(60));
+        setCanonicalSnapshot(adapter, buildCanonicalSnapshot(60));
         attachTestScrollRoot(adapter);
 
         const resultPromise = navigateChatGPTDirectoryTarget(adapter, { position: 50 }, {
@@ -884,7 +896,7 @@ describe('ChatGPT directory navigation', () => {
         window.history.replaceState({}, '', '/c/12345678-1234-1234-1234-123456789abc');
         const adapter = new ChatGPTNavigationTestAdapter();
         mountRoleWindow([1, 2, 3, 4, 5, 6]);
-        getChatGPTConversationIndex(adapter).setSnapshot(buildCanonicalSnapshot(60));
+        setCanonicalSnapshot(adapter, buildCanonicalSnapshot(60));
         attachTestScrollRoot(adapter);
 
         const resultPromise = navigateChatGPTDirectoryTarget(adapter, { position: 50 }, {
@@ -902,7 +914,7 @@ describe('ChatGPT directory navigation', () => {
         const { navigateChatGPTDirectoryTarget } = await import('@/ui/content/chatgptDirectory/navigation');
         const adapter = new ChatGPTNavigationTestAdapter();
         mountRoleWindow([1, 2, 3, 4, 5, 6]);
-        getChatGPTConversationIndex(adapter).setSnapshot(buildCanonicalSnapshot(60));
+        setCanonicalSnapshot(adapter, buildCanonicalSnapshot(60));
         attachTestScrollRoot(adapter);
 
         const resultPromise = navigateChatGPTDirectoryTarget(adapter, { position: 50 }, {

@@ -10,7 +10,7 @@ vi.mock('@/drivers/content/clipboard/clipboard', () => ({
 
 vi.mock('@/services/reader/readerContentSource', () => ({
     collectFreshCurrentReaderItem: vi.fn(async () => (
-        { id: 'm1', userPrompt: 'Prompt', content: 'Fresh answer', meta: { position: 7 } }
+        { item: { id: 'm1', userPrompt: 'Prompt', content: 'Fresh answer', meta: { position: 7 } } }
     )),
     collectFreshReaderContent: vi.fn(async () => ({
         items: [
@@ -136,8 +136,8 @@ describe('MessageToolbarOrchestrator Copy PNG', () => {
         `;
 
         vi.mocked(collectFreshCurrentReaderItem)
-            .mockResolvedValueOnce({ id: 'm1', userPrompt: 'Prompt', content: 'Before update', meta: { position: 7 } } as any)
-            .mockResolvedValueOnce({ id: 'm1', userPrompt: 'Prompt', content: 'After update', meta: { position: 7 } } as any);
+            .mockResolvedValueOnce({ item: { id: 'm1', userPrompt: 'Prompt', content: 'Before update', meta: { position: 7 } } } as any)
+            .mockResolvedValueOnce({ item: { id: 'm1', userPrompt: 'Prompt', content: 'After update', meta: { position: 7 } } } as any);
 
         const orchestrator = new MessageToolbarOrchestrator(new TestAdapter(), {
             readerPanel: { show: vi.fn(), setTheme: vi.fn(), isShowingConversationReader: vi.fn(() => false) } as any,

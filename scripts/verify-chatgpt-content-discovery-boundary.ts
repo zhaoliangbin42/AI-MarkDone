@@ -36,4 +36,46 @@ for (const relativePath of relativePaths) {
     }
 }
 
+const consumerPaths = [
+    'src/drivers/content/chatgpt/ChatGPTConversationIndex.ts',
+    'src/ui/content/controllers/ChatGPTConversationReaderBinding.ts',
+    'src/ui/content/controllers/MessageToolbarOrchestrator.ts',
+    'src/ui/content/export/SaveMessagesDialog.ts',
+];
+const consumerForbidden = [
+    '.ensureReady(',
+    '.setSnapshot(',
+    'buildChatGPTReaderItems(',
+];
+for (const relativePath of consumerPaths) {
+    const source = readFileSync(resolve(relativePath), 'utf8');
+    for (const marker of consumerForbidden) {
+        if (source.includes(marker)) {
+            throw new Error(`ChatGPT consumer bypasses the canonical content source in ${relativePath}: ${marker}`);
+        }
+    }
+}
+
+const readerSource = readFileSync(resolve('src/services/reader/readerContentSource.ts'), 'utf8');
+const ensureReadyCount = readerSource.split('.ensureReady(').length - 1;
+const readerItemBuildCount = readerSource.split('buildChatGPTReaderItems(').length - 1;
+if (ensureReadyCount !== 1 || readerItemBuildCount !== 1) {
+    throw new Error(
+        `Expected one fresh confirmation and one Reader projection boundary; found ensureReady=${ensureReadyCount}, build=${readerItemBuildCount}.`,
+    );
+}
+if (readerSource.includes('collectReaderContent(')) {
+    throw new Error('Retired duplicate Reader content entrypoint is still present.');
+}
+
+const readerBinding = readFileSync(
+    resolve('src/ui/content/controllers/ChatGPTConversationReaderBinding.ts'),
+    'utf8',
+);
+for (const marker of ['collectConversationTurnRefs', 'new MutationObserver', 'fetch(']) {
+    if (readerBinding.includes(marker)) {
+        throw new Error(`ChatGPT Reader binding must remain source-only: ${marker}`);
+    }
+}
+
 console.log(`Verified passive ChatGPT content-discovery boundary for ${target}.`);
