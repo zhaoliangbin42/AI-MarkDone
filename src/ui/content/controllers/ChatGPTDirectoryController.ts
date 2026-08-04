@@ -19,11 +19,18 @@ import {
 import { AIMD_VIEWPORT_RESIZE_IDLE_EVENT } from './ViewportResizeSuspendController';
 import { subscribeLocaleChange, t } from '../components/i18n';
 import { isChatGPTConversationPage } from '../../../drivers/content/chatgpt/chatgptRoute';
+import type { ConversationContentSourceV1 } from '../../../contracts/conversationContent';
+import type { ConversationMaterializationPortV1 } from '../../../contracts/conversationMaterialization';
 
 type DirectoryBookmarksState = {
     refreshPositionsForUrl?: (url: string) => Promise<void>;
     isPositionBookmarked?: (url: string, position: number) => boolean;
     subscribe?: (listener: () => void) => () => void;
+};
+
+type ChatGPTDirectoryContentOptions = {
+    contentSource?: ConversationContentSourceV1 | null;
+    materialization?: ConversationMaterializationPortV1 | null;
 };
 
 function writeDebugState(patch: Record<string, string | boolean | number | null | undefined>): void {
@@ -75,15 +82,26 @@ export class ChatGPTDirectoryController {
     private pendingRebuildReasons = new Set<string>();
     private unsubscribeBookmarks: (() => void) | null = null;
     private unsubscribeRoundChanges: (() => void) | null = null;
+    private unsubscribeContent: (() => void) | null = null;
+    private unsubscribeMaterialization: (() => void) | null = null;
     private unsubscribeLocale: (() => void) | null = null;
     private initialized = false;
     private globalScrollFallbacksBound = false;
     private viewportResizeSuspendBound = false;
 
-    constructor(adapter: SiteAdapter, bookmarksState: DirectoryBookmarksState | null = null) {
+    constructor(
+        adapter: SiteAdapter,
+        bookmarksState: DirectoryBookmarksState | null = null,
+        contentOptions: ChatGPTDirectoryContentOptions = {},
+    ) {
         this.adapter = adapter;
         this.bookmarksState = bookmarksState;
+        this.contentSource = contentOptions.contentSource ?? null;
+        this.materialization = contentOptions.materialization ?? null;
     }
+
+    private readonly contentSource: ConversationContentSourceV1 | null;
+    private readonly materialization: ConversationMaterializationPortV1 | null;
 
     init(theme: Theme): void {
         if (this.adapter.getPlatformId() !== 'chatgpt') return;
@@ -105,6 +123,12 @@ export class ChatGPTDirectoryController {
         this.unsubscribeRoundChanges = this.conversationIndex.subscribe(() => {
             this.scheduleIndexRebuild('mutation');
         });
+        this.unsubscribeContent = this.contentSource?.subscribe(() => {
+            this.scheduleIndexRebuild('content');
+        }) ?? null;
+        this.unsubscribeMaterialization = this.materialization?.subscribe(() => {
+            this.scheduleIndexRebuild('materialization');
+        }) ?? null;
         this.unsubscribeBookmarks = this.bookmarksState?.subscribe?.(() => {
             this.render();
         }) ?? null;
@@ -128,6 +152,10 @@ export class ChatGPTDirectoryController {
         this.unsubscribeBookmarks = null;
         this.unsubscribeRoundChanges?.();
         this.unsubscribeRoundChanges = null;
+        this.unsubscribeContent?.();
+        this.unsubscribeContent = null;
+        this.unsubscribeMaterialization?.();
+        this.unsubscribeMaterialization = null;
         this.conversationIndex = null;
         this.unsubscribeLocale?.();
         this.unsubscribeLocale = null;
@@ -183,9 +211,11 @@ export class ChatGPTDirectoryController {
                     writeDebugState({ DirectoryHost: 'stale-disconnected' });
                     return;
                 }
-                document.body.appendChild(element);
+                this.rail.ensureAttached();
                 this.rail.setVisible(this.enabled);
                 writeDebugState({ DirectoryHost: 'reattached' });
+            } else {
+                this.rail.ensureAttached();
             }
             return;
         }
@@ -194,7 +224,7 @@ export class ChatGPTDirectoryController {
         }, this.appearance.overrides);
         this.rail.setDisplayMode(this.displayMode);
         this.rail.setPromptLabelMode(this.promptLabelMode);
-        document.body.appendChild(this.rail.getElement());
+        this.rail.ensureAttached();
         this.rail.setVisible(this.enabled);
         writeDebugState({ DirectoryHost: 'created' });
     }
@@ -226,6 +256,10 @@ export class ChatGPTDirectoryController {
 
     private render(): void {
         if (!this.rail) return;
+        // ChatGPT may replace body contents while hydrating a route. Keep the
+        // fixed page-level host aligned with the same body portal used by the
+        // lower-right controls before rendering the next list state.
+        this.rail.ensureAttached();
         this.refreshRoundPositions();
         const rounds = this.buildDirectoryRounds();
         this.rail.setRounds(rounds);
@@ -320,10 +354,52 @@ export class ChatGPTDirectoryController {
     }
 
     private refreshRoundPositions(): void {
+        const contentState = this.contentSource?.read();
+        if (contentState?.document && contentState.snapshot) {
+            const mountedByTarget = new Map(
+                (this.materialization?.read().entries ?? []).map((entry) => [
+                    `${entry.target.turnId}:${entry.target.assistantMessageId}`,
+                    entry.anchorElement,
+                ]),
+            );
+            this.roundPositions = contentState.snapshot.turns.map((turn) => {
+                const jumpAnchor = mountedByTarget.get(
+                    `${turn.identity.turnId}:${turn.identity.assistantMessageId}`,
+                ) ?? null;
+                return {
+                    position: turn.ordinal,
+                    id: turn.identity.turnId,
+                    messageId: turn.identity.assistantMessageId,
+                    roundId: turn.identity.turnId,
+                    userMessageId: turn.identity.userMessageId,
+                    assistantMessageId: turn.identity.assistantMessageId,
+                    userPromptText: turn.userText,
+                    userPromptQuality: 'real',
+                    jumpAnchor,
+                    userAnchor: jumpAnchor,
+                    assistantRoot: jumpAnchor,
+                    groupEls: jumpAnchor ? [jumpAnchor] : [],
+                };
+            });
+            return;
+        }
         this.roundPositions = collectChatGPTRoundPositions(this.adapter);
     }
 
     private buildDirectoryRounds(): ChatGPTConversationRound[] {
+        const snapshot = this.contentSource?.read().snapshot;
+        if (snapshot) {
+            return snapshot.turns.map((turn) => ({
+                id: turn.identity.turnId,
+                position: turn.ordinal,
+                userPrompt: turn.userText,
+                assistantContent: turn.assistantMarkdown,
+                preview: turn.userText,
+                messageId: turn.identity.assistantMessageId,
+                userMessageId: turn.identity.userMessageId,
+                assistantMessageId: turn.identity.assistantMessageId,
+            }));
+        }
         return this.getConversationIndex().getRounds().map(({ round }) => {
             const snapshotPrompt = round.userPrompt?.trim() ?? '';
             const usableSnapshotPrompt = isLowQualityPrompt(snapshotPrompt) ? '' : snapshotPrompt;
@@ -357,6 +433,29 @@ export class ChatGPTDirectoryController {
     }
 
     private async handleSelect(round: ChatGPTConversationRound): Promise<void> {
+        const contentState = this.contentSource?.read();
+        if (contentState?.document && contentState.snapshot && this.materialization) {
+            const turn = contentState.snapshot.turns.find((candidate) => (
+                candidate.identity.turnId === round.id
+                && candidate.identity.assistantMessageId === (round.assistantMessageId ?? round.messageId)
+            ));
+            if (turn) {
+                const located = await this.materialization.locate({
+                    documentKey: contentState.document.key,
+                    turnId: turn.identity.turnId,
+                    assistantMessageId: turn.identity.assistantMessageId,
+                    userMessageId: turn.identity.userMessageId,
+                });
+                if (located === 'located') {
+                    const entry = this.materialization.read().entries.find((candidate) => (
+                        candidate.target.turnId === turn.identity.turnId
+                        && candidate.target.assistantMessageId === turn.identity.assistantMessageId
+                    ));
+                    entry?.anchorElement.scrollIntoView({ behavior: 'auto', block: 'start' });
+                    return;
+                }
+            }
+        }
         const result = await navigateChatGPTDirectoryTarget(
             this.adapter,
             {

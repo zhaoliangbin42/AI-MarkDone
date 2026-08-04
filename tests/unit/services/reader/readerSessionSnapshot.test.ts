@@ -26,6 +26,11 @@ describe('buildReaderSessionSnapshot', () => {
             startIndex: 0,
             sourceUrl: 'https://chatgpt.com/c/mock',
             theme: 'dark',
+            annotationDocument: {
+                platform: 'chatgpt',
+                conversationId: 'conv-1',
+                lastKnownUrl: 'https://chatgpt.com/c/conv-1',
+            },
             now: 1234,
         });
 
@@ -51,6 +56,11 @@ describe('buildReaderSessionSnapshot', () => {
             theme: 'dark',
             createdAt: 1234,
             updatedAt: 1234,
+            annotationDocument: {
+                platform: 'chatgpt',
+                conversationId: 'conv-1',
+                lastKnownUrl: 'https://chatgpt.com/c/conv-1',
+            },
         });
     });
 });

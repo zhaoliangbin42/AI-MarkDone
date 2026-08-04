@@ -17,7 +17,6 @@ const baseSettings = {
         clickCopyMarkdown: true,
         clickCopyFormulaFormat: 'markdown-dollar',
         markdownCopyFormulaFormat: 'markdown-dollar',
-        richCopyFormulaFormat: 'markdown-dollar',
         assetFontSizePx: 36,
         assetActions: {
             copyPng: true,
@@ -56,7 +55,7 @@ const baseSettings = {
     },
     chatgptBehavior: {
         restorePositionAfterSend: true,
-        atomicMarkdownCopy: true,
+        atomicMarkdownCopyShortcut: 'mod-shift-c',
         inputEnhancement: {
             available: true,
             enabled: true,
@@ -123,7 +122,7 @@ describe('SettingsTabView', () => {
         const chatGptGroup = Array.from(root.querySelectorAll<HTMLElement>('.settings-group'))
             .find((group) => group.querySelector('.settings-group-title')?.textContent?.includes('chatgptReadingInputSettingsLabel'))!;
         expect(chatGptGroup.querySelector('[data-role="settings-chatgpt-restore-position-after-send"]')).toBeTruthy();
-        expect(chatGptGroup.querySelector('[data-role="settings-chatgpt-atomic-markdown-copy"]')).toBeTruthy();
+        expect(chatGptGroup.querySelector('[data-role="settings-chatgpt-atomic-markdown-copy-shortcut"]')).toBeTruthy();
         expect(chatGptGroup.querySelector('[data-role="settings-chatgpt-input-enhancement"]')).toBeTruthy();
         expect(chatGptGroup.querySelector('[data-role="settings-chatgpt-enter-key-newline"]')).toBeNull();
         expect(chatGptGroup.querySelector('[data-role="settings-chatgpt-markdown-composer-enabled"]')).toBeNull();
@@ -143,6 +142,7 @@ describe('SettingsTabView', () => {
         expect(readerGroup.querySelector('[data-role="settings-reader-default-open-mode"]')).toBeTruthy();
         expect(readerGroup.querySelector('[data-role="settings-render-code-reader"]')).toBeTruthy();
         expect(readerGroup.querySelector('[data-role="settings-reader-outline"]')).toBeTruthy();
+        expect(readerGroup.querySelector('[data-role="settings-reader-annotation-persistence"]')).toBeTruthy();
         expect(readerGroup.querySelector('[data-role="settings-reader-comment-prompt-position-bottom"]')).toBeTruthy();
         expect(readerGroup.querySelector('[data-role="settings-reader-comment-sort-mode"]')).toBeNull();
         expect(readerGroup.querySelector('[data-role="settings-reader-prompts"]')).toBeTruthy();
@@ -348,7 +348,7 @@ describe('SettingsTabView', () => {
         expect(onSetChatGptBehaviorSettings).toHaveBeenCalledWith({ restorePositionAfterSend: false });
     });
 
-    it('lets users disable ChatGPT atomic Markdown copy', () => {
+    it('lets users choose the ChatGPT Markdown selection shortcut', () => {
         const modal = { confirm: vi.fn(async () => true) } as any;
         const onSetChatGptBehaviorSettings = vi.fn(async () => undefined);
         const view = new SettingsTabView({
@@ -360,15 +360,17 @@ describe('SettingsTabView', () => {
             storageUsage: null,
         });
 
-        const toggle = view.getElement().querySelector<HTMLInputElement>(
-            '[data-role="settings-chatgpt-atomic-markdown-copy"]',
+        const select = view.getElement().querySelector<HTMLButtonElement>(
+            '[data-role="settings-chatgpt-atomic-markdown-copy-shortcut"]',
         )!;
-        expect(toggle.checked).toBe(true);
+        expect(select.textContent).toContain('chatgptAtomicMarkdownCopyModShiftC');
 
-        toggle.checked = false;
-        toggle.dispatchEvent(new Event('change', { bubbles: true }));
+        select.click();
+        view.getElement().querySelector<HTMLButtonElement>(
+            '[data-menu="chatgpt-atomic-markdown-copy-shortcut"][data-value="mod-c"]',
+        )!.click();
 
-        expect(onSetChatGptBehaviorSettings).toHaveBeenCalledWith({ atomicMarkdownCopy: false });
+        expect(onSetChatGptBehaviorSettings).toHaveBeenCalledWith({ atomicMarkdownCopyShortcut: 'mod-c' });
     });
 
     it('wires only input enhancement availability while preserving its detailed preferences', () => {
@@ -550,6 +552,20 @@ describe('SettingsTabView', () => {
         button.click();
 
         expect(onOpenPromptManager).toHaveBeenCalledWith(button);
+    });
+
+    it('persists the Reader annotation preference from the global Settings page', () => {
+        const modal = { confirm: vi.fn(async () => true) } as any;
+        const onSetReaderSettings = vi.fn(async () => undefined);
+        const view = new SettingsTabView({ modal, actions: { setReaderSettings: onSetReaderSettings } });
+        view.setState({ settings: structuredClone(baseSettings), storageUsage: null });
+
+        const toggle = view.getElement().querySelector<HTMLInputElement>('[data-role="settings-reader-annotation-persistence"]')!;
+        expect(toggle.checked).toBe(false);
+        toggle.checked = true;
+        toggle.dispatchEvent(new Event('change', { bubbles: true }));
+
+        expect(onSetReaderSettings).toHaveBeenCalledWith({ persistAnnotations: true });
     });
 
     it('renders shipped platform icon wrappers and storage/export content', async () => {
@@ -768,14 +784,13 @@ describe('SettingsTabView', () => {
         const markdownToggle = root.querySelector<HTMLInputElement>('[data-role="settings-formula-click-copy-markdown"]')!;
         const clickFormatSelect = root.querySelector<HTMLButtonElement>('[data-role="settings-formula-click-copy-format"]')!;
         const markdownFormatSelect = root.querySelector<HTMLButtonElement>('[data-role="settings-formula-markdown-copy-format"]')!;
-        const richFormatSelect = root.querySelector<HTMLButtonElement>('[data-role="settings-formula-rich-copy-format"]')!;
         const assetFontSizeInput = root.querySelector<HTMLInputElement>('[data-role="settings-formula-asset-font-size"]')!;
         const assetButton = root.querySelector<HTMLButtonElement>('[data-role="settings-formula-asset-actions"]')!;
 
         expect(markdownToggle.checked).toBe(true);
         expect(clickFormatSelect.textContent).toContain('formulaSourceFormatMarkdownDollar');
         expect(markdownFormatSelect.textContent).toContain('formulaSourceFormatMarkdownDollar');
-        expect(richFormatSelect.textContent).toContain('formulaSourceFormatMarkdownDollar');
+        expect(root.querySelector('[data-role="settings-formula-rich-copy-format"]')).toBeNull();
         expect(assetFontSizeInput.type).toBe('range');
         expect(assetFontSizeInput.min).toBe('16');
         expect(assetFontSizeInput.max).toBe('72');
@@ -790,17 +805,6 @@ describe('SettingsTabView', () => {
         markdownFormatSelect.click();
         root.querySelector<HTMLButtonElement>('[data-menu="formula-markdown-copy-format"][data-value="latex-brackets"]')!.click();
         expect(onSetFormulaSettings).toHaveBeenCalledWith({ markdownCopyFormulaFormat: 'latex-brackets' });
-        richFormatSelect.click();
-        expect(root.querySelector('[data-menu="formula-rich-copy-format"][data-value="word-office-math"]')).toBeNull();
-        expect(root.querySelector('[data-menu="formula-rich-copy-format"][data-value="mathml"]')).toBeNull();
-        root.querySelector<HTMLButtonElement>('[data-menu="formula-rich-copy-format"][data-value="raw"]')!.click();
-        expect(onSetFormulaSettings).toHaveBeenCalledWith({ richCopyFormulaFormat: 'raw' });
-        const storedSettings = structuredClone(baseSettings);
-        storedSettings.formula.richCopyFormulaFormat = 'equation-star';
-        view.setState({ settings: storedSettings, storageUsage: null });
-        expect(richFormatSelect.textContent).toContain('formulaSourceFormatEquationStar');
-        view.setState({ settings: structuredClone(baseSettings), storageUsage: null });
-        expect(richFormatSelect.textContent).toContain('formulaSourceFormatMarkdownDollar');
         assetFontSizeInput.value = '44';
         assetFontSizeInput.dispatchEvent(new Event('change', { bubbles: true }));
         expect(onSetFormulaSettings).toHaveBeenCalledWith({ assetFontSizePx: 44 });
@@ -907,6 +911,7 @@ describe('SettingsTabView', () => {
         expect(root.querySelector('[data-role="settings-reader-default-open-mode"]')).toBeTruthy();
         expect(root.querySelector('[data-role="settings-render-code-reader"]')).toBeTruthy();
         expect(root.querySelector('[data-role="settings-reader-outline"]')).toBeTruthy();
+        expect(root.querySelector('[data-role="settings-reader-annotation-persistence"]')).toBeTruthy();
         expect(root.querySelector('[data-role="settings-reader-comment-prompt-position-bottom"]')).toBeTruthy();
         expect(root.querySelector('[data-role="settings-reader-prompts"]')).toBeTruthy();
         expect(root.querySelector('[data-role="settings-reader-comment-template"]')).toBeTruthy();

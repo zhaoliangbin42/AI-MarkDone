@@ -1,28 +1,25 @@
 import type { SiteAdapter } from '../../drivers/content/adapters/base';
-import {
-    getChatGPTConversationIndex,
-    type ChatGPTIndexedRound,
-} from '../../drivers/content/chatgpt/ChatGPTConversationIndex';
-import type {
-    ChatGPTConversationSnapshot,
-    ChatGPTConversationSource,
-    ChatGPTConversationState,
-} from '../../drivers/content/chatgpt/types';
 import type { ChatTurn } from '../export/saveMessagesTypes';
 import {
-    buildChatGPTReaderContent,
     normalizeChatGPTReaderPageUrl,
-    resolveChatGPTReaderStartIndex,
-    type ChatGPTConversationStartTarget,
 } from './chatgptReaderItems';
+import { normalizeChatGPTReaderMarkdown } from '../../drivers/content/chatgpt/normalizeReaderMarkdown';
 import { collectReaderItems, type CollectReaderItemsResult } from './collectReaderItems';
 import { resolveContent, type ReaderItem } from './types';
 import type { ReaderAnnotationDocument } from '../../contracts/readerAnnotations';
+import type {
+    ConversationContentSourceV1,
+    ConversationContentStateV1,
+    ConversationSnapshotV1,
+} from '../../contracts/conversationContent';
+import type { ConversationMaterializationPortV1, ConversationTargetV1 } from '../../contracts/conversationMaterialization';
 
-export type ReaderContentMetadataSource = 'chatgpt-snapshot' | 'dom';
+export type ReaderContentMetadataSource = 'chatgpt-snapshot' | 'chatgpt-content-v1' | 'dom';
 
 export type ReaderContentSourceOptions = {
-    chatGptConversationSource?: ChatGPTConversationSource | null;
+    conversationContentSource?: ConversationContentSourceV1 | null;
+    /** DOM-only identity/materialization port used to resolve an initial item. */
+    conversationMaterialization?: ConversationMaterializationPortV1 | null;
     pageUrl?: string;
 };
 
@@ -30,6 +27,7 @@ export type ReaderContentSourceRevision = {
     routeEpoch: number;
     revision: number;
     conversationId: string;
+    contentToken?: string;
 };
 
 export type ReaderContentSourceStatus = 'ready' | 'unavailable' | 'target-unresolved';
@@ -39,6 +37,8 @@ export type ReaderContentSourceResult = CollectReaderItemsResult & {
     annotationDocument?: ReaderAnnotationDocument;
     sourceRevision?: ReaderContentSourceRevision;
     status?: ReaderContentSourceStatus;
+    /** Canonical ChatGPT coverage; exports must only use complete snapshots. */
+    coverage?: ConversationSnapshotV1['coverage'];
 };
 
 export type FreshReaderItemResult = {
@@ -46,67 +46,109 @@ export type FreshReaderItemResult = {
     sourceRevision?: ReaderContentSourceRevision;
 };
 
-type ChatGptStartTargetResolution =
-    | { ok: true; target: ChatGPTConversationStartTarget | null }
-    | { ok: false };
-
-type CachedChatGPTReaderContent = {
-    items: ReaderItem[];
-    annotationDocument: ReaderAnnotationDocument;
-};
-
-const chatGPTReaderContentCache = new WeakMap<
-    ChatGPTConversationSnapshot,
-    CachedChatGPTReaderContent
->();
-
-function toChatGptStartTarget(indexedRound: ChatGPTIndexedRound): ChatGPTConversationStartTarget {
-    return {
-        position: indexedRound.position,
-        positionSource: 'snapshot',
-        messageId: indexedRound.round.messageId,
-        roundId: indexedRound.identity.roundId,
-        userMessageId: indexedRound.identity.userMessageId,
-        assistantMessageId: indexedRound.identity.assistantMessageId,
-    };
-}
-
-function resolveChatGptStartTarget(
-    adapter: SiteAdapter,
-    messageElement: HTMLElement | null,
-): ChatGptStartTargetResolution {
-    if (!messageElement) return { ok: true, target: null };
-    const index = getChatGPTConversationIndex(adapter);
-    const indexedRound = index.resolveRoundForElement(messageElement);
-    return indexedRound
-        ? { ok: true, target: toChatGptStartTarget(indexedRound) }
-        : { ok: false };
-}
-
 function getFallbackStartElement(adapter: SiteAdapter, messageElement: HTMLElement | null): HTMLElement | null {
     return messageElement ?? adapter.getLastMessageElement();
 }
 
-function getChatGptConversationSource(
+function getConversationContentSource(
     options: ReaderContentSourceOptions,
-): ChatGPTConversationSource | null {
-    return options.chatGptConversationSource ?? null;
+): ConversationContentSourceV1 | null {
+    return options.conversationContentSource ?? null;
 }
 
-function getSourceRevision(
-    state: ChatGPTConversationState,
-    snapshot: ChatGPTConversationSnapshot,
-): ReaderContentSourceRevision | undefined {
-    if (
-        state.snapshot !== snapshot
-        || state.conversationId !== snapshot.conversationId
-    ) {
-        return undefined;
-    }
+function resolveConversationStartTarget(
+    materialization: ConversationMaterializationPortV1 | null | undefined,
+    messageElement: HTMLElement | null,
+    snapshot?: ConversationSnapshotV1,
+): { ok: true; target: ConversationTargetV1 | null } | { ok: false } {
+    if (!messageElement) return { ok: true, target: null };
+    const target = materialization?.resolveElement(messageElement) ?? null;
+    if (target) return { ok: true, target };
+    if (!snapshot) return { ok: false };
+
+    // The semantic source may become ready a few milliseconds before the DOM
+    // materialization index observes the same remount. The assistant message
+    // id is already a typed host identity, so it is safe to resolve the
+    // Reader start directly from the canonical snapshot instead of reporting
+    // a false "content not found" result.
+    const identityElement = messageElement.matches('[data-message-id]')
+        ? messageElement
+        : messageElement.closest<HTMLElement>('[data-message-id]');
+    const assistantMessageId = identityElement?.getAttribute('data-message-id')?.trim() || null;
+    const turnRoot = messageElement.closest<HTMLElement>('[data-turn-id]');
+    const turnId = turnRoot?.getAttribute('data-turn-id')?.trim() || null;
+    const matches = snapshot.turns.filter((turn) => assistantMessageId
+        ? turn.identity.assistantMessageId === assistantMessageId
+        : !turnId || turn.identity.turnId === turnId);
+    if (matches.length !== 1) return { ok: false };
+    const turn = matches[0]!;
     return {
-        routeEpoch: state.routeEpoch,
-        revision: state.revision,
-        conversationId: snapshot.conversationId,
+        ok: true,
+        target: {
+            documentKey: snapshot.document.key,
+            turnId: turn.identity.turnId,
+            assistantMessageId: turn.identity.assistantMessageId,
+            userMessageId: turn.identity.userMessageId,
+        },
+    };
+}
+
+function resolveConversationStartIndex(
+    snapshot: ConversationSnapshotV1,
+    target: ConversationTargetV1 | null,
+): number {
+    if (!target) return Math.max(0, snapshot.turns.length - 1);
+    const matches = snapshot.turns
+        .map((turn, index) => ({ turn, index }))
+        .filter(({ turn }) => (
+            turn.identity.turnId === target.turnId
+            && turn.identity.assistantMessageId === target.assistantMessageId
+            && (target.userMessageId === undefined || turn.identity.userMessageId === target.userMessageId)
+        ));
+    return matches.length === 1 ? matches[0]!.index : -1;
+}
+
+function buildConversationReaderContent(
+    snapshot: ConversationSnapshotV1,
+    pageUrl: string,
+): { items: ReaderItem[]; annotationDocument: ReaderAnnotationDocument } {
+    const normalizedUrl = normalizeChatGPTReaderPageUrl(pageUrl);
+    return {
+        items: snapshot.turns.map((turn) => ({
+            id: `chatgpt-${turn.identity.assistantMessageId}`,
+            userPrompt: turn.userText,
+            content: normalizeChatGPTReaderMarkdown(turn.assistantMarkdown),
+            meta: {
+                platformId: snapshot.document.platformId,
+                messageId: turn.identity.assistantMessageId,
+                roundId: turn.identity.turnId,
+                userMessageId: turn.identity.userMessageId,
+                assistantMessageId: turn.identity.assistantMessageId,
+                position: turn.ordinal,
+                url: normalizedUrl,
+                bookmarkable: true,
+                bookmarked: false,
+            },
+        })),
+        annotationDocument: {
+            platform: 'chatgpt',
+            conversationId: snapshot.document.conversationId,
+            title: snapshot.document.title,
+            lastKnownUrl: normalizedUrl,
+        },
+    };
+}
+
+function getConversationContentRevision(
+    state: ConversationContentStateV1,
+    snapshot: ConversationSnapshotV1,
+): ReaderContentSourceRevision | undefined {
+    if (state.snapshot !== snapshot || state.document?.key !== snapshot.document.key) return undefined;
+    return {
+        routeEpoch: 0,
+        revision: 0,
+        conversationId: snapshot.document.conversationId,
+        contentToken: snapshot.contentToken,
     };
 }
 
@@ -130,7 +172,7 @@ function createChatGPTEmptyResult(
     const result: ReaderContentSourceResult = {
         items: [],
         startIndex: 0,
-        metadataSource: 'chatgpt-snapshot',
+        metadataSource: 'chatgpt-content-v1',
         status,
     };
     const clonedRevision = cloneSourceRevision(sourceRevision);
@@ -138,76 +180,70 @@ function createChatGPTEmptyResult(
     return result;
 }
 
-function getOrCreateChatGPTReaderContent(
-    snapshot: ChatGPTConversationSnapshot,
-    pageUrl: string,
-): CachedChatGPTReaderContent {
-    const cached = chatGPTReaderContentCache.get(snapshot);
-    if (cached) return cached;
-
-    const next = buildChatGPTReaderContent(snapshot, pageUrl);
-    chatGPTReaderContentCache.set(snapshot, next);
-    return next;
-}
-
 export function readCurrentReaderContentSourceRevision(
-    source: ChatGPTConversationSource,
+    source: ConversationContentSourceV1,
 ): ReaderContentSourceRevision | undefined {
-    const state = source.getState();
+    const state = source.read();
     const snapshot = state.snapshot;
-    return snapshot ? getSourceRevision(state, snapshot) : undefined;
+    return snapshot ? getConversationContentRevision(state, snapshot) : undefined;
 }
 
 export function isReaderContentSourceRevisionCurrent(
-    source: ChatGPTConversationSource | null | undefined,
+    source: ConversationContentSourceV1 | null | undefined,
     expected: ReaderContentSourceRevision | undefined,
 ): boolean {
     if (!source || !expected) return false;
     const current = readCurrentReaderContentSourceRevision(source);
     return Boolean(
         current
-        && current.routeEpoch === expected.routeEpoch
-        && current.revision === expected.revision
         && current.conversationId === expected.conversationId
+        && (!expected.contentToken || current.contentToken === expected.contentToken),
     );
 }
 
-function projectChatGPTSnapshotReaderContent(
-    snapshot: ChatGPTConversationSnapshot,
-    state: ChatGPTConversationState,
-    startTargetResolution: ChatGptStartTargetResolution,
+function projectConversationContent(
+    state: ConversationContentStateV1,
+    snapshot: ConversationSnapshotV1,
+    startTargetResolution: { ok: true; target: ConversationTargetV1 | null } | { ok: false },
     options: ReaderContentSourceOptions,
 ): ReaderContentSourceResult {
-    const sourceRevision = getSourceRevision(state, snapshot);
-    if (!snapshot.rounds.length) return createChatGPTEmptyResult('unavailable', sourceRevision);
+    const sourceRevision = getConversationContentRevision(state, snapshot);
     if (!sourceRevision) return createChatGPTEmptyResult('unavailable');
     if (!startTargetResolution.ok) {
         return createChatGPTEmptyResult('target-unresolved', sourceRevision);
     }
-
     const pageUrl = options.pageUrl ?? window.location.href;
-    const normalizedPageUrl = normalizeChatGPTReaderPageUrl(pageUrl);
-    const cached = getOrCreateChatGPTReaderContent(snapshot, pageUrl);
-
-    const startIndex = resolveChatGPTReaderStartIndex(snapshot, startTargetResolution.target);
-    if (startIndex < 0) {
-        return createChatGPTEmptyResult('target-unresolved', sourceRevision);
-    }
-
+    const content = buildConversationReaderContent(snapshot, pageUrl);
+    const startIndex = resolveConversationStartIndex(snapshot, startTargetResolution.target);
+    if (startIndex < 0) return createChatGPTEmptyResult('target-unresolved', sourceRevision);
     return {
-        items: cached.items.map((item) => cloneReaderItem(
-            item,
-            normalizedPageUrl,
-        )),
+        items: content.items.map((item) => cloneReaderItem(item, normalizeChatGPTReaderPageUrl(pageUrl))),
         startIndex,
-        metadataSource: 'chatgpt-snapshot',
+        metadataSource: 'chatgpt-content-v1',
+        coverage: snapshot.coverage,
         annotationDocument: {
-            ...cached.annotationDocument,
-            lastKnownUrl: normalizedPageUrl,
+            ...content.annotationDocument,
+            lastKnownUrl: normalizeChatGPTReaderPageUrl(pageUrl),
         },
         sourceRevision: cloneSourceRevision(sourceRevision),
         status: 'ready',
     };
+}
+
+function readCurrentConversationContent(
+    startMessageElement: HTMLElement | null,
+    options: ReaderContentSourceOptions,
+): ReaderContentSourceResult {
+    const source = getConversationContentSource(options);
+    const state = source?.read();
+    const snapshot = state?.snapshot;
+    if (!source || !state || !snapshot) return createChatGPTEmptyResult('unavailable');
+    const startTargetResolution = resolveConversationStartTarget(
+        options.conversationMaterialization,
+        startMessageElement,
+        snapshot,
+    );
+    return projectConversationContent(state, snapshot, startTargetResolution, options);
 }
 
 export function readCurrentReaderContent(
@@ -216,51 +252,39 @@ export function readCurrentReaderContent(
     options: ReaderContentSourceOptions,
 ): ReaderContentSourceResult {
     if (adapter.getPlatformId?.() === 'chatgpt') {
-        const source = getChatGptConversationSource(options);
-        const state = source?.getState();
-        const snapshot = state?.snapshot;
-        if (!source || !state || !snapshot) {
-            return createChatGPTEmptyResult('unavailable');
-        }
-
-        const startTargetResolution = resolveChatGptStartTarget(adapter, startMessageElement);
-        return projectChatGPTSnapshotReaderContent(
-            snapshot,
-            state,
-            startTargetResolution,
-            options,
-        );
+        return readCurrentConversationContent(startMessageElement, options);
     }
     return collectDomFallbackReaderContent(adapter, startMessageElement);
 }
 
 async function collectChatGPTSnapshotReaderContent(
-    adapter: SiteAdapter,
+    _adapter: SiteAdapter,
     startMessageElement: HTMLElement | null,
     options: ReaderContentSourceOptions,
 ): Promise<ReaderContentSourceResult> {
-    const source = getChatGptConversationSource(options);
+    const source = getConversationContentSource(options);
     if (!source) return createChatGPTEmptyResult('unavailable');
 
-    const initialStartTarget = resolveChatGptStartTarget(adapter, startMessageElement);
+    const initialStartTarget = resolveConversationStartTarget(
+        options.conversationMaterialization,
+        startMessageElement,
+    );
 
     try {
-        await source.ensureReady();
-        const state = source.getState();
+        const state = await source.refresh();
         const snapshot = state.snapshot;
         if (!snapshot) return createChatGPTEmptyResult('unavailable');
 
         let startTargetResolution = initialStartTarget;
         if (!startTargetResolution.ok && startMessageElement) {
-            startTargetResolution = resolveChatGptStartTarget(adapter, startMessageElement);
+            startTargetResolution = resolveConversationStartTarget(
+                options.conversationMaterialization,
+                startMessageElement,
+                snapshot,
+            );
         }
 
-        return projectChatGPTSnapshotReaderContent(
-            snapshot,
-            state,
-            startTargetResolution,
-            options,
-        );
+        return projectConversationContent(state, snapshot, startTargetResolution, options);
     } catch {
         return createChatGPTEmptyResult('unavailable');
     }

@@ -19,6 +19,7 @@ export interface ReaderPanelPort {
     hide(): void;
     isShowingConversationReader(): boolean;
     getItemsSnapshot(): ReaderItem[];
+    focusAnnotation(annotationId: string, assistantMessageId?: string | null): Promise<boolean>;
     appendItem(item: ReaderItem): Promise<void>;
     replaceItems(items: ReaderItem[], options?: ReaderPanelReplaceItemsOptions): Promise<void>;
     getCommentExportContext(): ReaderCommentExportContext | null;

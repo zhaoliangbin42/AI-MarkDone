@@ -92,6 +92,13 @@ Content ↔ export renderer 的私有协议不经过 background runtime message�
 
 - `src/services/export/exportRenderHostProtocol.ts`
 
+Semantic ChatGPT content contracts are separate from runtime protocol contracts:
+
+- `src/contracts/conversationContent.ts` owns the provider-neutral `ConversationContentSourceV1`, document/turn identity, immutable snapshot, and state union.
+- `src/contracts/conversationMaterialization.ts` owns the content-runtime-only DOM target and materialization port.
+
+ChatGPT routes, selectors, bridge transport, provider payloads, graph decoding, and active-read policy remain inside `src/drivers/content/chatgpt/*` and `public/page-bridges/*`. Reader/Directory/Copy/Export/Bookmark/Annotation consumers may import the semantic contract or a downstream projection, but may not import those driver internals. Materialization may expose `HTMLElement` only inside content runtime; it must never cross background or extension-page boundaries.
+
 该协议必须版本化，只传语义 job、进度、稳定错误码、artifact metadata 与 transferable `ArrayBuffer` chunk；禁止 base64、大型 JSON 二进制、DOM、HTML/CSS 或 renderer function。
 
 禁止：

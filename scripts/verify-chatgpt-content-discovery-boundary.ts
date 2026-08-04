@@ -14,7 +14,10 @@ if (!isTarget(target)) {
 const relativePaths = [
     'public/page-bridges/chatgpt-conversation-bridge.js',
     'public/page-bridges/chatgpt-conversation-bootstrap.js',
-    'src/drivers/content/chatgpt/ChatGPTConversationEngine.ts',
+    'src/drivers/content/chatgpt/ChatGPTConversationDiscoveryAdapter.ts',
+    'src/drivers/content/chatgpt/ChatGPTConversationDiscoveryCoordinator.ts',
+    'src/drivers/content/chatgpt/ChatGPTConversationMaterialization.ts',
+    'src/services/content/ConversationContentRepository.ts',
     `${extensionTargets[target].distDir}/page-bridges/chatgpt-conversation-bridge.js`,
 ];
 const forbidden = [
@@ -34,6 +37,26 @@ for (const relativePath of relativePaths) {
             throw new Error(`Forbidden authentication marker in ChatGPT discovery artifact ${relativePath}: ${marker}`);
         }
     }
+}
+
+const activeReadSource = readFileSync(
+    resolve('public/page-bridges/chatgpt-conversation-bridge.js'),
+    'utf8',
+);
+for (const marker of [
+    'XMLHttpRequest',
+    'EventSource',
+    'WebSocket',
+    'Authorization',
+    'credentials',
+    'document.cookie',
+]) {
+    if (activeReadSource.includes(marker)) {
+        throw new Error(`ChatGPT bridge crosses the active-read safety boundary: ${marker}`);
+    }
+}
+if (!activeReadSource.includes("method: 'GET'")) {
+    throw new Error('ChatGPT bridge must keep the bounded active acquisition as an explicit GET.');
 }
 
 const consumerPaths = [
@@ -57,11 +80,11 @@ for (const relativePath of consumerPaths) {
 }
 
 const readerSource = readFileSync(resolve('src/services/reader/readerContentSource.ts'), 'utf8');
-const ensureReadyCount = readerSource.split('.ensureReady(').length - 1;
-const readerContentBuildCount = readerSource.split('buildChatGPTReaderContent(').length - 1;
-if (ensureReadyCount !== 1 || readerContentBuildCount !== 1) {
+const refreshCount = readerSource.split('await source.refresh(').length - 1;
+const readerContentBuildCount = readerSource.split('const content = buildConversationReaderContent(').length - 1;
+if (refreshCount !== 1 || readerContentBuildCount !== 1) {
     throw new Error(
-        `Expected one fresh confirmation and one Reader projection boundary; found ensureReady=${ensureReadyCount}, contentBuild=${readerContentBuildCount}.`,
+        `Expected one fresh V1 confirmation and one Reader projection boundary; found refresh=${refreshCount}, contentBuild=${readerContentBuildCount}.`,
     );
 }
 if (readerSource.includes('collectReaderContent(')) {
@@ -78,4 +101,4 @@ for (const marker of ['collectConversationTurnRefs', 'new MutationObserver', 'fe
     }
 }
 
-console.log(`Verified passive ChatGPT content-discovery boundary for ${target}.`);
+console.log(`Verified ChatGPT content-discovery boundary for ${target} (passive peek + bounded GET acquire).`);

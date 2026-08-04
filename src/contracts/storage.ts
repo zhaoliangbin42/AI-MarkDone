@@ -11,6 +11,7 @@ export const STORAGE_KEYS = {
     bookmarksQuarantinePrefixV1: 'aimd:bookmarks:quarantine:v1:',
     promptLibraryV1: 'aimd:prompts:library:v1',
     cloudBackupStatusGoogleDriveV1: 'aimd:cloud_backup:status:googleDrive:v1',
+    readerAnnotationsDocumentPrefixV1: 'aimd:reader_annotations:document:',
 } as const;
 
 export const LEGACY_STORAGE_KEYS = {

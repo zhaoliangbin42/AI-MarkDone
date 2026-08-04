@@ -203,7 +203,6 @@ function enabledFormulaSettings() {
         clickCopyMarkdown: true,
         clickCopyFormulaFormat: 'markdown-dollar',
         markdownCopyFormulaFormat: 'markdown-dollar',
-        richCopyFormulaFormat: 'markdown-dollar',
         assetFontSizePx: 36,
         assetActions: {
             copyPng: true,
@@ -220,7 +219,6 @@ function disabledFormulaSettings() {
         clickCopyMarkdown: false,
         clickCopyFormulaFormat: 'markdown-dollar',
         markdownCopyFormulaFormat: 'markdown-dollar',
-        richCopyFormulaFormat: 'markdown-dollar',
         assetFontSizePx: 36,
         assetActions: {
             copyPng: false,

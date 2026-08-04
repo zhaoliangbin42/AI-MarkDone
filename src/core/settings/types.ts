@@ -20,6 +20,7 @@ export type SettingsVersion = 4;
 
 export type ChatGPTDirectoryMode = 'preview' | 'expanded';
 export type ChatGPTDirectoryPromptLabelMode = 'head' | 'headTail';
+export type ChatGPTAtomicMarkdownCopyShortcut = 'none' | 'mod-c' | 'mod-shift-c';
 export const DEFAULT_CHATGPT_DIRECTORY_RIGHT_INSET_PX = 0;
 export const MIN_CHATGPT_DIRECTORY_RIGHT_INSET_PX = 0;
 export const MAX_CHATGPT_DIRECTORY_RIGHT_INSET_PX = 40;
@@ -53,7 +54,7 @@ export type ChatGPTInputEnhancementSettings = {
 
 export type ChatGPTBehaviorSettings = {
     restorePositionAfterSend: boolean;
-    atomicMarkdownCopy: boolean;
+    atomicMarkdownCopyShortcut: ChatGPTAtomicMarkdownCopyShortcut;
     inputEnhancement: ChatGPTInputEnhancementSettings;
     showMessageStepper: boolean;
     showPageBookmarkControl: boolean;
@@ -129,6 +130,7 @@ export type AppSettings = {
     reader: {
         renderCodeInReader: boolean;
         showOutlineInReader: boolean;
+        persistAnnotations: boolean;
         defaultOpenMode: ReaderOpenMode;
         panelSizeRatio: ReaderPanelSizeRatio;
         bodyFontSizePx: number;
@@ -166,6 +168,7 @@ export const DEFAULT_SETTINGS: AppSettings = {
     reader: {
         renderCodeInReader: true,
         showOutlineInReader: true,
+        persistAnnotations: false,
         defaultOpenMode: DEFAULT_READER_OPEN_MODE,
         panelSizeRatio: DEFAULT_READER_PANEL_SIZE_RATIO,
         bodyFontSizePx: DEFAULT_READER_BODY_FONT_SIZE_PX,
@@ -184,7 +187,7 @@ export const DEFAULT_SETTINGS: AppSettings = {
     },
     chatgptBehavior: {
         restorePositionAfterSend: true,
-        atomicMarkdownCopy: true,
+        atomicMarkdownCopyShortcut: 'mod-shift-c',
         inputEnhancement: {
             ...DEFAULT_CHATGPT_INPUT_ENHANCEMENT_SETTINGS,
             lists: { ...DEFAULT_CHATGPT_INPUT_ENHANCEMENT_SETTINGS.lists },

@@ -1,4 +1,5 @@
 import type { ReaderItem } from '../../../services/reader/types';
+import type { ReaderAnnotationDocument } from '../../../contracts/readerAnnotations';
 import { resolveReaderReplacementIndex } from '../../../services/reader/readerItemIdentity';
 import type {
     ReaderPanelAction,
@@ -16,6 +17,7 @@ export type ReaderWorkflowOptions = {
     actions: ReaderPanelAction[];
     onOpenConversation?: ReaderPanelShowOptions['onOpenConversation'];
     onRequestClose?: ReaderPanelShowOptions['onRequestClose'];
+    annotationDocument?: ReaderAnnotationDocument;
 };
 
 export type ReaderWorkflowSnapshot = {
@@ -74,6 +76,7 @@ export class ReaderWorkflow {
             ...resolveProfileOptions(options?.profile),
             onOpenConversation: options?.onOpenConversation,
             onRequestClose: options?.onRequestClose,
+            annotationDocument: options?.annotationDocument,
             actions: [...(options?.actions ?? [])],
         };
     }

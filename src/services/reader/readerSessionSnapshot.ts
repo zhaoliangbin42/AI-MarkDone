@@ -7,6 +7,7 @@ export async function buildReaderSessionSnapshot(params: {
     startIndex: number;
     sourceUrl: string;
     theme: Theme;
+    annotationDocument?: ReaderSessionSnapshot['annotationDocument'];
     now?: number;
 }): Promise<ReaderSessionSnapshot> {
     const now = params.now ?? Date.now();
@@ -26,5 +27,6 @@ export async function buildReaderSessionSnapshot(params: {
         theme: params.theme,
         createdAt: now,
         updatedAt: now,
+        ...(params.annotationDocument ? { annotationDocument: params.annotationDocument } : {}),
     };
 }

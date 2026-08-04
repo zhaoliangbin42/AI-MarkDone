@@ -456,12 +456,14 @@ function discoverChatGPTDomRoundRefs(adapter: SiteAdapter): ChatGPTDomRoundRef[]
 
 const pageIndexByAdapter = new WeakMap<SiteAdapter, ChatGPTPageIndex>();
 
-function getChatGPTPageIndex(adapter: SiteAdapter): ChatGPTPageIndex {
+export function getChatGPTPageIndex(adapter: SiteAdapter): ChatGPTPageIndex {
     const existing = pageIndexByAdapter.get(adapter);
     if (existing) return existing;
 
     const index = new ChatGPTPageIndex({
-        resolveRoot: () => adapter.getObserverContainer() ?? document,
+        // Observe the stable document element so body/main replacement is a
+        // signal instead of a missed mutation on a detached host root.
+        resolveRoot: () => document.documentElement ?? document,
         discover: () => discoverChatGPTDomRoundRefs(adapter),
     });
     pageIndexByAdapter.set(adapter, index);

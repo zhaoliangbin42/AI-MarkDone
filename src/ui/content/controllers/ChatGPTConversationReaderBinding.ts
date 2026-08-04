@@ -1,8 +1,9 @@
 import type { SiteAdapter } from '../../../drivers/content/adapters/base';
 import type {
-    ChatGPTConversationSource,
-    ChatGPTConversationState,
-} from '../../../drivers/content/chatgpt/types';
+    ConversationContentSourceV1,
+    ConversationContentStateV1,
+} from '../../../contracts/conversationContent';
+import type { ConversationMaterializationPortV1 } from '../../../contracts/conversationMaterialization';
 import {
     readCurrentReaderContent,
 } from '../../../services/reader/readerContentSource';
@@ -16,7 +17,8 @@ type ReaderUpdatePlan =
 
 type ChatGPTConversationReaderBindingOptions = {
     adapter: SiteAdapter;
-    source: ChatGPTConversationSource;
+    source: ConversationContentSourceV1;
+    materialization?: ConversationMaterializationPortV1 | null;
     readerPanel: ReaderPanelPort;
     pageUrl: () => string;
     prepareItems?: (items: ReaderItem[]) => void;
@@ -82,7 +84,7 @@ export class ChatGPTConversationReaderBinding {
         }
     }
 
-    private handleState(state: ChatGPTConversationState): void {
+    private handleState(state: ConversationContentStateV1): void {
         const version = ++this.applyVersion;
         if (!this.options.readerPanel.isShowingConversationReader()) return;
         if (!state.snapshot) {
@@ -91,7 +93,8 @@ export class ChatGPTConversationReaderBinding {
         }
 
         const result = readCurrentReaderContent(this.options.adapter, null, {
-            chatGptConversationSource: this.options.source,
+            conversationContentSource: this.options.source,
+            conversationMaterialization: this.options.materialization,
             pageUrl: this.options.pageUrl(),
         });
         const items = [...result.items];
@@ -99,18 +102,17 @@ export class ChatGPTConversationReaderBinding {
         void this.applyState(version, state, items);
     }
 
-    private isCurrent(version: number, state: ChatGPTConversationState): boolean {
-        const current = this.options.source.getState();
+    private isCurrent(version: number, state: ConversationContentStateV1): boolean {
+        const current = this.options.source.read();
         return version === this.applyVersion
             && this.options.readerPanel.isShowingConversationReader()
-            && current.routeEpoch === state.routeEpoch
-            && current.revision === state.revision
-            && current.conversationId === state.conversationId;
+            && current.document?.key === state.document?.key
+            && current.snapshot?.contentToken === state.snapshot?.contentToken;
     }
 
     private async applyState(
         version: number,
-        state: ChatGPTConversationState,
+        state: ConversationContentStateV1,
         nextItems: ReaderItem[],
     ): Promise<void> {
         if (!this.isCurrent(version, state)) return;

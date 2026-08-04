@@ -1,7 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { SiteAdapter, type ConversationGroupRef, type ThemeDetector } from '@/drivers/content/adapters/base';
 import { getChatGPTConversationIndex } from '@/drivers/content/chatgpt/ChatGPTConversationIndex';
-import type { ChatGPTConversationSnapshot } from '@/drivers/content/chatgpt/types';
+import { createConversationContentSource } from '../../../helpers/chatgptContentFixtures';
 
 const navigationMocks = vi.hoisted(() => ({
     scrollToBookmarkTargetWithRetry: vi.fn(),
@@ -130,18 +130,9 @@ function buildMaterializedRoundDom(): HTMLElement {
 
 function setCanonicalSnapshot(
     adapter: SiteAdapter,
-    snapshot: ChatGPTConversationSnapshot,
+    snapshot: any,
 ): void {
-    getChatGPTConversationIndex(adapter).bindConversationSource({
-        getState: () => ({
-            status: 'ready',
-            routeEpoch: 1,
-            revision: snapshot.revision,
-            conversationId: snapshot.conversationId,
-            snapshot,
-        }),
-        subscribe: () => () => undefined,
-    });
+    getChatGPTConversationIndex(adapter).bindConversationSource(createConversationContentSource(snapshot));
 }
 
 function publishCanonicalRounds(adapter: SiteAdapter, assistantMessageIds: string[]): void {
@@ -164,7 +155,7 @@ function publishCanonicalRounds(adapter: SiteAdapter, assistantMessageIds: strin
     });
 }
 
-function buildCanonicalSnapshot(roundCount: number): ChatGPTConversationSnapshot {
+function buildCanonicalSnapshot(roundCount: number): any {
     return {
         conversationId: '12345678-1234-1234-1234-123456789abc',
         revision: 1,

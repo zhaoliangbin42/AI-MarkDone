@@ -71,7 +71,19 @@
 
 ---
 
-## 5. Current Request Families
+## 5. ChatGPT page bridge (MAIN world ↔ content runtime)
+
+该桥接不是 content ↔ background 的扩展 runtime message，不新增扩展权限或 background handler。它只在当前 ChatGPT 页面内传递已规范化的语义候选：
+
+- request event: `aimd:chatgpt-conversation-bridge:request`
+  - `type: "peek"` 只读取 MAIN world 的最近内存 graph
+  - `type: "acquire"` 仅在显式启用 active gate 时对当前 conversation endpoint 发起一次同源 `GET`
+- response event: `aimd:chatgpt-conversation-bridge:response`
+- capture event: `aimd:chatgpt-conversation-bridge:capture` 只作失效/重调度信号
+
+桥边界固定为：不读取或传播 cookie、token、Authorization/session header，不解析 POST/SSE/generation payload，不持久化正文，不向消费者暴露 endpoint、DOM 或 provider graph。Chrome 使用对象 CustomEvent，Firefox 使用 JSON-string CustomEvent；两种 transport 必须产生相同的 `ConversationContentSourceV1` 状态序列。受限 active GET 在真实浏览器门禁通过前保持关闭。
+
+## 6. Current Request Families
 
 ### Connectivity
 
@@ -127,6 +139,25 @@
 - reader tab 关闭时，只删除 session，不关闭官方 ChatGPT 页；detached Reader 页内的 Reader close action 会发送 `readerSession:close` 并关闭当前扩展页
 - source tab frozen/discarded、content script 不可达或扩展重载导致 session 丢失时，调用方应展示只读快照、source unavailable 或 session expired 状态，不抛 unchecked runtime error
 - 当前合规边界接受 `src/contracts/protocol.ts` 对 `ReaderSessionSnapshot` 的外层结构校验配合 background sender-tab binding、Reader Markdown sanitize、extension session storage 共同作为 v1 防线；更细的 item-level schema/size validation 或 source URL 复核可以作为后续防御深度增强，但不是当前协议可用性的前置条件
+
+### Reader annotations
+
+- `annotations:list`
+- `annotations:create`
+- `annotations:update`
+- `annotations:remove`
+- `annotations:navigate`
+- background → content `annotations:focus`
+
+用途：
+
+- ChatGPT Reader 注释按已验证的 `conversationId` 分 bundle 写入 `browser.storage.local`；background 是唯一写入方，官网 Reader 与 detached Reader 复用同一协议客户端
+- `reader.persistAnnotations` 只 gate `annotations:create`：关闭时新建注释留在当前页面 runtime；`annotations:list` 仍读取并展示已有 durable 记录，已有记录的 `annotations:update` / `annotations:remove` 也不受该偏好影响
+- `annotations:list` 不建立持久化全局索引；省略 document 时由 background 扫描 annotation key 前缀，UI 在内存中完成搜索、会话分组与时间线排序
+- create/update/remove 每次只读写一个会话 bundle；update 携带 `expectedRevision`，版本不一致返回 `CONFLICT`，不做自动合并
+- `annotations:navigate` 只接受 ChatGPT exact-host document，background 创建一个新 ChatGPT tab 并把一次性 `{ tabId, conversationId, annotationId }` intent 放入 `storage.session`；新页面通过 `content:ready` 校验当前 conversationId 后收到 `annotations:focus`
+- `annotations:focus` 只在当前页面 conversationId 与 intent 一致时打开 Reader 并聚焦精确 annotation；验证失败不做近似跳转
+- annotation payload 只传可序列化的 document、target、quote、selectors、comment、timestamps 和 revision，不传 DOM、Range 或页面运行时对象
 
 ### Prompt library
 
@@ -265,7 +296,7 @@
 
 ---
 
-## 6. Compatibility Rules
+## 7. Compatibility Rules
 
 - `v` 变化代表协议版本变化，不能悄悄修改 shape
 - 增加新的 `type`、错误码、payload 语义时，必须同步：
@@ -276,7 +307,7 @@
 
 ---
 
-## 7. Ownership Boundaries
+## 8. Ownership Boundaries
 
 - content runtime 负责收集用户意图和页面上下文
 - background runtime 负责敏感副作用与持久化

@@ -332,6 +332,7 @@ async function run(): Promise<void> {
         applyAppearance(createAppearanceSnapshot(snapshot.theme, getThemeOverrides(settings)));
         await panel.show(items, snapshot.startIndex, snapshot.theme, {
             profile: 'conversation-reader',
+            annotationDocument: snapshot.annotationDocument,
             actions,
             onRequestClose: async () => {
                 disposeSettingsBackflow();

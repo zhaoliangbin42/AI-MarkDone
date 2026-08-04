@@ -16,6 +16,7 @@ import { ChatGPTAdapter } from '@/drivers/content/adapters/sites/chatgpt';
 import { getChatGPTConversationIndex } from '@/drivers/content/chatgpt/ChatGPTConversationIndex';
 import { MessageToolbarOrchestrator } from '@/ui/content/controllers/MessageToolbarOrchestrator';
 import { bookmarkSaveDialog } from '@/ui/content/bookmarks/save/bookmarkSaveDialogSingleton';
+import { createConversationContentSource } from '../../../helpers/chatgptContentFixtures';
 
 describe('ReaderPanel bookmark action injection', () => {
     function createOrchestrator(adapter: ChatGPTAdapter, options: any) {
@@ -37,22 +38,11 @@ describe('ReaderPanel bookmark action injection', () => {
                 assistantMessageId: 'a1',
             }],
         };
-        const state = {
-            status: 'ready' as const,
-            routeEpoch: 1,
-            revision: 1,
-            conversationId: 'conv-1',
-            snapshot,
-        };
-        const source = {
-            getState: vi.fn(() => state),
-            ensureReady: vi.fn(async () => snapshot),
-            subscribe: vi.fn(() => vi.fn()),
-        };
+        const source = createConversationContentSource(snapshot);
         getChatGPTConversationIndex(adapter).bindConversationSource(source);
         return new MessageToolbarOrchestrator(adapter, {
             ...options,
-            chatGptConversationSource: source,
+            conversationContentSource: source,
         });
     }
 

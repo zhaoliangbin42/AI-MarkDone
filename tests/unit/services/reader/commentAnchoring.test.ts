@@ -84,6 +84,69 @@ describe('commentAnchoring', () => {
         expect(record.selectors.textPosition.end).not.toBeNull();
     });
 
+    it('does not trust an atomic ref after its original quote changes', () => {
+        document.body.innerHTML = `
+          <div id="root">
+            <p>Before <span data-aimd-unit-id="u1" data-aimd-unit-kind="inline-code" data-aimd-md-start="8" data-aimd-md-end="20">code</span> after</p>
+          </div>
+        `;
+        const root = document.querySelector<HTMLElement>('#root')!;
+        const paragraph = root.querySelector('p')!;
+        const beforeNode = paragraph.firstChild as Text;
+        const afterNode = paragraph.lastChild as Text;
+        const unitEl = paragraph.querySelector<HTMLElement>('[data-aimd-unit-id="u1"]')!;
+        const range = document.createRange();
+        range.setStart(beforeNode, 1);
+        range.setEnd(afterNode, 3);
+        const record = createReaderCommentRecord({
+            id: 'c-stale-atomic',
+            itemId: 'item-1',
+            comment: 'note',
+            range,
+            root,
+            selectedUnits: [{
+                id: 'u1',
+                kind: 'inline-code',
+                mode: 'atomic',
+                start: 8,
+                end: 20,
+                source: '`inline code`',
+                element: unitEl,
+            }],
+        });
+
+        unitEl.textContent = 'changed';
+        const resolved = resolveReaderCommentAnchor(root, record);
+        expect(resolved.range).toBeNull();
+        expect(resolved.units).toEqual([]);
+        expect(resolved.unionRect).toBeNull();
+    });
+
+    it('keeps the selected occurrence when the same quote appears more than once', () => {
+        document.body.innerHTML = '<div id="root"><p>Repeat here.</p><p>Repeat here.</p></div>';
+        const root = document.querySelector<HTMLElement>('#root')!;
+        const secondText = root.querySelectorAll('p')[1].firstChild as Text;
+        const start = secondText.data.indexOf('Repeat');
+        const range = document.createRange();
+        range.setStart(secondText, start);
+        range.setEnd(secondText, start + 'Repeat'.length);
+
+        const record = createReaderCommentRecord({
+            id: 'c-repeat',
+            itemId: 'item-1',
+            comment: 'second',
+            range,
+            root,
+            selectedUnits: [],
+        });
+
+        expect(record.selectors.textQuote.prefix).toContain('Repeat here.');
+        expect(record.selectors.textPosition.start).toBe(12);
+        const resolved = resolveReaderCommentAnchor(root, record);
+        expect(resolved.range?.startContainer).toBe(secondText);
+        expect(resolved.range?.startOffset).toBe(start);
+    });
+
     it('captures zero text position when the selection starts at the first element boundary', () => {
         document.body.innerHTML = '<div id="root"><h2 data-aimd-unit-id="h1" data-aimd-unit-kind="heading" data-aimd-md-start="0" data-aimd-md-end="32">Response and latest decision</h2><p>Later content.</p></div>';
 

@@ -1,9 +1,27 @@
 import { describe, expect, it } from 'vitest';
-import { buildChatGPTReaderItems } from '@/services/reader/chatgptReaderItems';
+import {
+    buildChatGPTReaderItems as buildChatGPTReaderItemsV1,
+} from '@/services/reader/chatgptReaderItems';
+import {
+    toConversationSnapshotV1,
+    type ConversationSnapshotFixture,
+} from '../../../../helpers/chatgptContentFixtures';
+
+function buildChatGPTReaderItems(
+    snapshot: ConversationSnapshotFixture,
+    target?: Parameters<typeof buildChatGPTReaderItemsV1>[1],
+    pageUrl?: string,
+): ReturnType<typeof buildChatGPTReaderItemsV1> {
+    return buildChatGPTReaderItemsV1(
+        toConversationSnapshotV1(snapshot),
+        target,
+        pageUrl,
+    );
+}
 
 describe('buildChatGPTReaderItems', () => {
     it('maps ChatGPT rounds to shared reader items and starts at the requested message', () => {
-        const { items, startIndex } = buildChatGPTReaderItems({
+        const { items, startIndex, annotationDocument } = buildChatGPTReaderItems({
             conversationId: 'conv-1',
             revision: 1,
             proof: 'observed-graph' as const,
@@ -34,6 +52,12 @@ describe('buildChatGPTReaderItems', () => {
         }, { messageId: 'a1' }, 'https://chatgpt.com/c/abc#settings');
 
         expect(startIndex).toBe(0);
+        expect(annotationDocument).toEqual({
+            platform: 'chatgpt',
+            conversationId: 'conv-1',
+            title: null,
+            lastKnownUrl: 'https://chatgpt.com/c/abc',
+        });
         expect(items).toEqual([
             expect.objectContaining({
                 userPrompt: 'Prompt 1',
@@ -44,7 +68,7 @@ describe('buildChatGPTReaderItems', () => {
                     roundId: 'round-1',
                     userMessageId: 'u1',
                     assistantMessageId: 'a1',
-                    branchKey: 'branch-leaf-2',
+                    branchKey: 'a2',
                     position: 1,
                     url: 'https://chatgpt.com/c/abc',
                 }),

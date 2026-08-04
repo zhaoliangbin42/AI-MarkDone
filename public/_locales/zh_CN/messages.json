@@ -395,6 +395,28 @@
         "message": "文本位置",
         "description": "Label for annotation text position"
     },
+    "readerCommentCurrentConversation": { "message": "当前会话", "description": "Reader annotation manager current conversation tab" },
+    "readerCommentAllAnnotations": { "message": "全部注释", "description": "Reader annotation manager all annotations tab" },
+    "readerCommentSearch": { "message": "搜索注释", "description": "Reader annotation manager search" },
+    "readerCommentGroupByConversation": { "message": "按会话", "description": "Reader annotation manager conversation grouping" },
+    "readerCommentTimeline": { "message": "时间线", "description": "Reader annotation manager timeline view" },
+    "readerCommentBulkEdit": { "message": "批量编辑", "description": "Reader annotation manager bulk edit action" },
+    "readerCommentBulkCancel": { "message": "退出批量编辑", "description": "Reader annotation manager exit bulk edit action" },
+    "readerCommentSelectAll": { "message": "全选", "description": "Reader annotation manager select all" },
+    "readerCommentDeleteSelected": { "message": "删除已选", "description": "Reader annotation manager delete selected action" },
+    "readerCommentListLoading": { "message": "正在加载注释…", "description": "Reader annotation manager loading state" },
+    "readerCommentListError": { "message": "注释加载失败。", "description": "Reader annotation manager error state" },
+    "readerCommentUpdatedAt": { "message": "更新时间", "description": "Reader annotation manager update time" },
+    "readerCommentReply": { "message": "回复", "description": "Reader annotation manager reply position" },
+    "readerCommentUnanchored": { "message": "未定位", "description": "Reader annotation manager unanchored state" },
+    "readerCommentPersistenceUnavailable": { "message": "注释暂时无法加载。", "description": "Reader annotation persistence error" },
+    "readerCommentDeleteTitle": { "message": "删除注释？", "description": "Reader annotation delete confirmation title" },
+    "readerCommentDeleteMessage": { "message": "此注释将从当前浏览器扩展配置中删除。", "description": "Reader annotation delete confirmation message" },
+    "readerCommentOpenOtherConversation": { "message": "正在打开会话…", "description": "Reader annotation cross conversation navigation" },
+    "readerCommentSourceUnavailable": { "message": "当前 Reader 中找不到该回复。", "description": "Reader annotation source unavailable" },
+    "readerAnnotationPersistenceLabel": { "message": "持久化注释", "description": "Reader annotation persistence setting" },
+    "readerAnnotationPersistenceDesc": { "message": "开启后，新注释会保存到本地；已保存的注释始终显示。", "description": "Reader annotation persistence setting description" },
+    "readerAnnotationPersistenceTooltip": { "message": "开启后，新注释会持久化保存，关闭浏览器也不会消失，但建议定期清理。", "description": "Reader annotation persistence tooltip" },
     "readerCommentCopyEmpty": {
         "message": "当前还没有可复制的注释。",
         "description": "Message for readerCommentCopyEmpty"
@@ -1072,12 +1094,24 @@
         "description": "Message for chatgptRestorePositionAfterSendDesc"
     },
     "chatgptAtomicMarkdownCopyLabel": {
-        "message": "增强局部选区复制",
+        "message": "选区 Markdown 复制快捷键",
         "description": "Message for chatgptAtomicMarkdownCopyLabel"
     },
     "chatgptAtomicMarkdownCopyDesc": {
-        "message": "在 ChatGPT 中完整选中支持的内容时，Ctrl/Cmd+C 复制规范 Markdown，选区旁可按设置中的公式格式复制基础富文本；部分选区仍使用官网原生复制。",
+        "message": "选择将 ChatGPT 完整选区复制为规范 Markdown 的快捷键；其他复制操作保持官网行为。",
         "description": "Message for chatgptAtomicMarkdownCopyDesc"
+    },
+    "chatgptAtomicMarkdownCopyNone": {
+        "message": "关闭（原生复制）",
+        "description": "关闭 ChatGPT 选区 Markdown 复制快捷键的选项"
+    },
+    "chatgptAtomicMarkdownCopyModC": {
+        "message": "Ctrl/Cmd+C",
+        "description": "使用主 C 快捷键复制 ChatGPT 选区 Markdown 的选项"
+    },
+    "chatgptAtomicMarkdownCopyModShiftC": {
+        "message": "Ctrl/Cmd+Shift+C",
+        "description": "使用带 Shift 的主 C 快捷键复制 ChatGPT 选区 Markdown 的选项"
     },
     "chatgptInputEnhancementLabel": {
         "message": "输入增强",
@@ -1547,17 +1581,9 @@
         "message": "复制 Markdown",
         "description": "Message for copyMarkdown"
     },
-    "atomicCopyRich": {
-        "message": "带格式复制",
-        "description": "Label for rich copying a native page selection"
-    },
-    "atomicCopyRichTooltip": {
-        "message": "复制清洗后的基础样式 HTML，并使用设置中选择的公式源码格式",
-        "description": "Tooltip for a ready rich-copy selection action"
-    },
-    "atomicCopyRichWriteFailed": {
-        "message": "无法写入富文本与公式，且未改为复制 Markdown。",
-        "description": "Notice after a strict rich-copy clipboard write fails"
+    "atomicCopyMarkdownFailed": {
+        "message": "无法复制所选 Markdown。",
+        "description": "Notice after a Markdown selection copy fails"
     },
     "close": {
         "message": "关闭",
@@ -1670,14 +1696,6 @@
     "formulaMarkdownCopyFormulaFormatDesc": {
         "message": "设置复制或保存整段 Markdown 源码时的公式包围格式。",
         "description": "Message for formulaMarkdownCopyFormulaFormatDesc"
-    },
-    "formulaRichCopyFormulaFormatLabel": {
-        "message": "带格式复制公式格式",
-        "description": "Label for the formula representation used by formatted selection copy"
-    },
-    "formulaRichCopyFormulaFormatDesc": {
-        "message": "设置“带格式复制”中公式使用的源码包围格式；不会影响 Markdown 复制或点击单个公式。",
-        "description": "Description for the formatted-copy formula representation setting"
     },
     "formulaSourceFormatMarkdownDollar": {
         "message": "$...$ / $$...$$",

@@ -8,7 +8,10 @@ import { ChatGPTDirectoryRail } from '@/ui/content/chatgptDirectory/ChatGPTDirec
 import { AIMD_VIEWPORT_RESIZE_IDLE_EVENT } from '@/ui/content/controllers/ViewportResizeSuspendController';
 import { setLocale } from '@/ui/content/components/i18n';
 import { getChatGPTConversationIndex } from '@/drivers/content/chatgpt/ChatGPTConversationIndex';
-import type { ChatGPTConversationSnapshot } from '@/drivers/content/chatgpt/types';
+import {
+    createConversationContentSource,
+    readyConversationState,
+} from '../../../../helpers/chatgptContentFixtures';
 
 const navigationMocks = vi.hoisted(() => ({
     scrollToBookmarkTargetWithRetry: vi.fn(),
@@ -144,7 +147,7 @@ function buildSnapshot() {
     };
 }
 
-function buildState(snapshot: ChatGPTConversationSnapshot | null) {
+function buildState(snapshot: any) {
     return {
         status: snapshot ? 'ready' as const : 'collecting' as const,
         routeEpoch: 1,
@@ -155,10 +158,54 @@ function buildState(snapshot: ChatGPTConversationSnapshot | null) {
 }
 
 function setCanonicalSnapshot(adapter: SiteAdapter, snapshot: ReturnType<typeof buildSnapshot> | null): void {
-    getChatGPTConversationIndex(adapter).bindConversationSource({
-        getState: () => buildState(snapshot),
-        subscribe: () => () => undefined,
-    });
+    getChatGPTConversationIndex(adapter).bindConversationSource(
+        snapshot
+            ? createConversationContentSource(snapshot)
+            : createConversationContentSource({
+                kind: 'unavailable',
+                document: null,
+                snapshot: null,
+                reason: 'source-unavailable',
+                retryable: true,
+            }),
+    );
+}
+
+function createSourceFromEngine(engine: {
+    getState?: () => any;
+    subscribe: (listener: (state: any) => void) => () => void;
+}) {
+    const initialState = engine.getState?.() ?? buildState(null);
+    const source = createConversationContentSource(
+        initialState.snapshot
+            ? readyConversationState(initialState.snapshot)
+            : {
+                kind: 'unavailable',
+                document: null,
+                snapshot: null,
+                reason: 'source-unavailable' as const,
+                retryable: true,
+            },
+    );
+    return {
+        ...source,
+        subscribe: (listener: (state: any) => void) => {
+            const unsubscribeSource = source.subscribe(listener);
+            const unsubscribeEngine = engine.subscribe((next) => {
+                source.publish(next.snapshot ? readyConversationState(next.snapshot) : {
+                    kind: 'unavailable',
+                    document: null,
+                    snapshot: null,
+                    reason: 'source-unavailable' as const,
+                    retryable: true,
+                });
+            });
+            return () => {
+                unsubscribeEngine();
+                unsubscribeSource();
+            };
+        },
+    };
 }
 
 function createDirectoryController(
@@ -169,10 +216,7 @@ function createDirectoryController(
     },
     bookmarksState: ConstructorParameters<typeof ChatGPTDirectoryController>[1] = null,
 ): ChatGPTDirectoryController {
-    getChatGPTConversationIndex(adapter).bindConversationSource({
-        getState: engine.getState ?? (() => buildState(null)),
-        subscribe: engine.subscribe,
-    });
+    getChatGPTConversationIndex(adapter).bindConversationSource(createSourceFromEngine(engine));
     return new ChatGPTDirectoryController(adapter, bookmarksState);
 }
 
@@ -592,7 +636,7 @@ describe('ChatGPTDirectoryController', () => {
         rail.dispose();
     });
 
-    it('renders the directory preview as a body-level portal on hover', () => {
+    it('renders the directory preview as a page-root content portal on hover', () => {
         const adapter = new ChatGPTTestAdapter();
         const engine = { subscribe: vi.fn(() => () => undefined) } as any;
         const controller = createDirectoryController(adapter, engine);
@@ -617,7 +661,7 @@ describe('ChatGPTDirectoryController', () => {
         expect(preview?.dataset.open).toBe('0');
     });
 
-    it('does not rewrite body-level preview styles while showing hover previews', () => {
+    it('does not rewrite page-root preview styles while showing hover previews', () => {
         const rail = new ChatGPTDirectoryRail('light', () => undefined);
         document.body.appendChild(rail.getElement());
         rail.setRounds(buildSnapshot().rounds);
@@ -742,7 +786,7 @@ describe('ChatGPTDirectoryController', () => {
         rail.dispose();
     });
 
-    it('ships scoped token styles for the body-level directory preview', () => {
+    it('ships scoped token styles for the page-root directory preview', () => {
         const adapter = new ChatGPTTestAdapter();
         const engine = { subscribe: vi.fn(() => () => undefined) } as any;
         const controller = createDirectoryController(adapter, engine);
@@ -792,6 +836,27 @@ describe('ChatGPTDirectoryController', () => {
         const items = Array.from(host?.shadowRoot?.querySelectorAll<HTMLButtonElement>('.rail__item') ?? []);
         expect(host?.style.display).toBe('none');
         expect(items).toHaveLength(0);
+    });
+
+    it('mounts the host rail before semantic content becomes available', async () => {
+        window.history.replaceState({}, '', `/c/${DEFAULT_CONVERSATION_ID}`);
+        const adapter = new ChatGPTTestAdapter();
+        const engine = {
+            getState: vi.fn(() => buildState(null)),
+            subscribe: vi.fn(() => () => undefined),
+        } as any;
+        const controller = createDirectoryController(adapter, engine);
+
+        controller.init('light');
+
+        const host = document.getElementById('aimd-chatgpt-directory-rail');
+        expect(host).toBeInstanceOf(HTMLElement);
+        expect(host?.parentElement).toBe(document.body);
+        expect(host?.isConnected).toBe(true);
+        expect((host as HTMLElement | null)?.dataset.aimdRole).toBe('chatgpt-directory-rail');
+
+        await Promise.resolve();
+        controller.dispose();
     });
 
     it('makes init idempotent without unbinding the shared conversation index', async () => {
@@ -1084,7 +1149,7 @@ describe('ChatGPTDirectoryController', () => {
         expect(items).toHaveLength(3);
     });
 
-    it('reattaches the rail host if the ChatGPT app removes the body-level node', async () => {
+    it('reattaches the rail host if the ChatGPT app removes the page-root node', async () => {
         const adapter = new ChatGPTTestAdapter();
         const engine = { subscribe: vi.fn(() => () => undefined) } as any;
         const controller = createDirectoryController(adapter, engine);
@@ -1099,6 +1164,57 @@ describe('ChatGPTDirectoryController', () => {
         const items = Array.from(host?.shadowRoot?.querySelectorAll<HTMLButtonElement>('.rail__item') ?? []);
         expect(host?.isConnected).toBe(true);
         expect(items).toHaveLength(0);
+    });
+
+    it('keeps the page-root rail mounted when ChatGPT replaces the body element', async () => {
+        const adapter = new ChatGPTTestAdapter();
+        const engine = { subscribe: vi.fn(() => () => undefined) } as any;
+        const controller = createDirectoryController(adapter, engine);
+
+        controller.init('light');
+        await Promise.resolve();
+
+        const host = document.getElementById('aimd-chatgpt-directory-rail') as HTMLElement | null;
+        const preview = document.getElementById('aimd-chatgpt-directory-preview') as HTMLElement | null;
+        const previousBody = document.body;
+        const replacementBody = document.createElement('body');
+        replacementBody.innerHTML = '<main></main>';
+        document.documentElement.replaceChild(replacementBody, previousBody);
+        await (controller as any).refresh();
+
+        expect(host?.isConnected).toBe(true);
+        expect(host?.parentElement).toBe(document.body);
+        expect(preview?.isConnected).toBe(true);
+        expect(preview?.parentElement).toBe(document.body);
+        await Promise.resolve();
+
+        expect(host?.isConnected).toBe(true);
+        expect(host?.parentElement).toBe(document.body);
+        expect(preview?.isConnected).toBe(true);
+        expect(preview?.parentElement).toBe(document.body);
+
+        controller.dispose();
+    });
+
+    it('keeps the rail mounted when ChatGPT replaces the body contents', async () => {
+        const adapter = new ChatGPTTestAdapter();
+        const engine = { subscribe: vi.fn(() => () => undefined) } as any;
+        const controller = createDirectoryController(adapter, engine);
+
+        controller.init('light');
+        await Promise.resolve();
+
+        const host = document.getElementById('aimd-chatgpt-directory-rail') as HTMLElement | null;
+        const preview = document.getElementById('aimd-chatgpt-directory-preview') as HTMLElement | null;
+        document.body.replaceChildren(document.createElement('main'));
+        await (controller as any).refresh();
+
+        expect(host?.isConnected).toBe(true);
+        expect(host?.parentElement).toBe(document.body);
+        expect(preview?.isConnected).toBe(true);
+        expect(preview?.parentElement).toBe(document.body);
+
+        controller.dispose();
     });
 
     it('does not reattach a stale rail when another controller already owns the connected rail', async () => {

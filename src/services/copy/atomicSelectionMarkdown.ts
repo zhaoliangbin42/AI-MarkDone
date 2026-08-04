@@ -16,7 +16,6 @@ export type PageAtomicSelectionSnapshot = {
     root: HTMLElement;
     units: RenderedAtomicUnit[];
     canonicalMarkdown: string;
-    markdown: string;
 };
 
 type PageAtomicSelectionSnapshotParams = {
@@ -51,19 +50,17 @@ export function buildPageAtomicSelectionSnapshot(
     if (!result.ok || performance.now() - startedAt > maxProcessingTimeMs) return null;
     const canonicalMarkdown = result.markdown;
     if (!canonicalMarkdown) return null;
-    const markdown = formatCanonicalMarkdownForCopy(canonicalMarkdown);
-    if (!markdown) return null;
     return {
         range: range.cloneRange(),
         root,
         units: selection.units,
         canonicalMarkdown,
-        markdown,
     };
 }
 
 export function buildPageAtomicSelectionMarkdown(params: PageAtomicSelectionSnapshotParams): string | null {
-    return buildPageAtomicSelectionSnapshot(params)?.markdown ?? null;
+    const snapshot = buildPageAtomicSelectionSnapshot(params);
+    return snapshot ? formatCanonicalMarkdownForCopy(snapshot.canonicalMarkdown) || null : null;
 }
 
 function cloneClosedSelectionFragment(range: Range, root: HTMLElement): HTMLElement | null {

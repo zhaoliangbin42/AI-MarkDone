@@ -2,6 +2,7 @@ import type { AppSettings } from '../../../core/settings/types';
 import type { ReaderItem } from '../../../services/reader/types';
 import type { ReaderCommentExportSettings } from '../../../services/reader/commentExport';
 import type { ReaderCommentRecord } from '../../../services/reader/commentSession';
+import type { ReaderAnnotationDocument } from '../../../contracts/readerAnnotations';
 
 export type ReaderPanelActionContext = {
     item: ReaderItem;
@@ -30,6 +31,7 @@ export type ReaderPanelProfile = 'conversation-reader' | 'bookmark-preview';
 
 export type ReaderPanelShowOptions = {
     profile?: ReaderPanelProfile;
+    annotationDocument?: ReaderAnnotationDocument;
     onOpenConversation?: (ctx: ReaderPanelActionContext) => void | Promise<void>;
     onRequestClose?: () => void | Promise<void>;
     actions?: ReaderPanelAction[];

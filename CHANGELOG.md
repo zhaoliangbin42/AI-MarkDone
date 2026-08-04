@@ -7,10 +7,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+- Reader: ChatGPT annotations now persist locally per verified conversation and are shared between the in-page and detached Reader.
+- Reader: Added a compact annotation manager with current-conversation/all-annotation scopes, search, conversation/timeline views, unanchored-state visibility, deletion confirmation, and exact cross-conversation Reader navigation.
+- Reader: Added a “Persist annotations” switch in Reader Settings and the annotation manager. Saved annotations always remain visible and manageable when it is off; only future annotations stay in the current page session. Also added 50/50 source excerpts, clearer tokenized row separation, simple bulk select/delete controls, and Ctrl/Cmd+Enter comment saving while Enter remains a newline.
+
 ### Changed
+- ChatGPT: Simplified the right-side directory mount by attaching its fixed rail and hover preview directly to the page root, so ChatGPT body redraws cannot remove the surface and no portal observer is required.
+- Reader: Re-anchoring now validates DOM/atomic selectors, exact text positions, and unique text quotes before preserving a record as unanchored; Gemini, Claude, and DeepSeek keep their existing page-memory behavior.
+- ChatGPT: Complete local selections now use a settings-controlled Markdown shortcut (`Ctrl/Cmd+C` or `Ctrl/Cmd+Shift+C`) without a floating copy button; native, invalid, editable, and browser-owned copy paths remain with the host.
 - ChatGPT: Unified conversation discovery behind one proof-backed state reducer so a brand-new chat can publish its first completed reply without a conversation graph request, while continued, refreshed, virtualized, and regenerated conversations keep one route-safe source for the directory, Reader, exports, bookmarks, copy, and message statistics.
 - ChatGPT: Converged Reader, copy, PNG, export, bookmarks, and message statistics on one Reader content source; passive UI no longer triggers discovery, open Readers update by canonical revision, and stale export or bookmark dialogs are invalidated when the conversation changes.
-- ChatGPT: Detached Reader refresh now rejects conversation revisions that change during asynchronous preparation, while the navigation index reads the canonical Source directly instead of keeping a second snapshot reference.
+- ChatGPT: Detached Reader refresh and annotation focus now reject conversation revisions that change during asynchronous preparation, while the navigation index reads the canonical Source directly instead of keeping a second snapshot reference.
+- ChatGPT: Disabling and re-enabling the platform runtime now rebuilds content discovery and its directory anchors instead of leaving the previous page-scoped source permanently stopped.
 
 ## [5.0.2] - 2026-07-26
 

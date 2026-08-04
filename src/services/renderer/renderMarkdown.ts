@@ -8,11 +8,6 @@ import rehypeHighlight from 'rehype-highlight';
 import rehypeKatex from 'rehype-katex';
 import rehypeSanitize, { defaultSchema } from 'rehype-sanitize';
 import rehypeStringify from 'rehype-stringify';
-import {
-    formatFormulaSource,
-    normalizeFormulaSourceFormat,
-    type FormulaSourceFormat,
-} from '../../core/math/formulaSourceFormat';
 
 export type MarkdownRenderOptions = {
     softBreaks?: boolean;
@@ -207,49 +202,6 @@ function getProcessor(options?: MarkdownRenderOptions) {
 
 export function renderMarkdownToSanitizedHtml(markdown: string, options?: MarkdownRenderOptions): string {
     return String(getProcessor(options).processSync(markdown || ''));
-}
-
-export function renderCanonicalMarkdownToBasicRichHtml(
-    markdown: string,
-    formulaFormat: FormulaSourceFormat,
-): string {
-    const normalizedFormat = normalizeFormulaSourceFormat(formulaFormat);
-    const formulaHandler = (displayMode: boolean) => (
-        _state: unknown,
-        node: { value?: string },
-    ): HastNode => {
-        const formatted = formatFormulaSource(node.value ?? '', displayMode, normalizedFormat);
-        const lines = formatted.split(/\r?\n/);
-        const children: HastNode[] = [];
-        lines.forEach((line, index) => {
-            if (index > 0) {
-                children.push({ type: 'element', tagName: 'br', properties: {}, children: [] });
-            }
-            if (line) children.push({ type: 'text', value: line });
-        });
-        return {
-            type: 'element',
-            tagName: displayMode ? 'div' : 'span',
-            properties: {},
-            children,
-        };
-    };
-
-    return String(
-        unified()
-            .use(remarkParse)
-            .use(remarkGfm)
-            .use(remarkMath)
-            .use(remarkRehype, {
-                handlers: {
-                    inlineMath: formulaHandler(false),
-                    math: formulaHandler(true),
-                },
-            } as any)
-            .use(rehypeSanitize, markdownSanitizeSchema)
-            .use(rehypeStringify)
-            .processSync(markdown || ''),
-    );
 }
 
 function collectMdastText(node: MdastNode): string {

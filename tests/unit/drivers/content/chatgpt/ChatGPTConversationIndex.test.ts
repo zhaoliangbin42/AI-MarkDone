@@ -2,15 +2,14 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { ChatGPTAdapter } from '@/drivers/content/adapters/sites/chatgpt';
 import { getChatGPTConversationIndex } from '@/drivers/content/chatgpt/ChatGPTConversationIndex';
 import { resolveChatGPTCanonicalTarget } from '@/drivers/content/chatgpt/ChatGPTConversationNavigation';
-import type { ChatGPTConversationSnapshot } from '@/drivers/content/chatgpt/types';
+import {
+    createConversationContentSource,
+} from '../../../../helpers/chatgptContentFixtures';
 
-function buildSnapshot(roundCount: number): ChatGPTConversationSnapshot {
+function buildSnapshot(roundCount: number): any {
     return {
         conversationId: '12345678-1234-1234-1234-123456789abc',
         revision: roundCount,
-        proof: 'observed-graph',
-        branchKey: 'branch-test',
-        capturedAt: Date.now(),
         rounds: Array.from({ length: roundCount }, (_, index) => {
             const position = index + 1;
             return {
@@ -27,24 +26,11 @@ function buildSnapshot(roundCount: number): ChatGPTConversationSnapshot {
     };
 }
 
-function readyState(snapshot: ChatGPTConversationSnapshot) {
-    return {
-        status: 'ready' as const,
-        routeEpoch: 1,
-        revision: snapshot.revision,
-        conversationId: snapshot.conversationId,
-        snapshot,
-    };
-}
-
 function bindSnapshot(
     index: ReturnType<typeof getChatGPTConversationIndex>,
-    snapshot: ChatGPTConversationSnapshot,
+    snapshot: any,
 ): void {
-    index.bindConversationSource({
-        getState: () => readyState(snapshot),
-        subscribe: () => () => undefined,
-    });
+    index.bindConversationSource(createConversationContentSource(snapshot));
 }
 
 function mountWindow(positions: number[]): void {
@@ -101,6 +87,21 @@ describe('ChatGPTConversationIndex', () => {
         const rounds = index.getRounds();
         expect(rounds.map((round) => round.position)).toEqual(Array.from({ length: 50 }, (_, index) => index + 1));
         expect(rounds.filter((round) => round.materialized).map((round) => round.position)).toEqual([45, 46, 47, 48, 49, 50]);
+    });
+
+    it('rebinds DOM change signals after the content runtime is disabled and re-enabled', async () => {
+        const index = getChatGPTConversationIndex(adapter);
+        bindSnapshot(index, buildSnapshot(1));
+        adapter.dispose();
+
+        bindSnapshot(index, buildSnapshot(1));
+        const listener = vi.fn();
+        index.subscribe(listener);
+        mountWindow([1]);
+        await deliverMutations();
+
+        expect(listener).toHaveBeenCalled();
+        expect(index.getRounds()).toHaveLength(1);
     });
 
     it('fails closed when user identity matches but the observable assistant identity conflicts', () => {
@@ -199,10 +200,7 @@ describe('ChatGPTConversationIndex', () => {
     it('projects the current state immediately when a source is bound', () => {
         const index = getChatGPTConversationIndex(adapter);
         const snapshot = buildSnapshot(3);
-        index.bindConversationSource({
-            getState: () => readyState(snapshot),
-            subscribe: () => () => undefined,
-        });
+        bindSnapshot(index, snapshot);
 
         expect(index.getRounds().map((round) => round.position)).toEqual([1, 2, 3]);
     });
@@ -219,20 +217,12 @@ describe('ChatGPTConversationIndex', () => {
         const index = getChatGPTConversationIndex(adapter);
         const initial = buildSnapshot(1);
         const updated = buildSnapshot(4);
-        let state = readyState(initial);
-        let listener: ((state: ReturnType<typeof readyState>) => void) | null = null;
+        const source = createConversationContentSource(initial);
         const ensureReady = vi.fn();
-        index.bindConversationSource({
-            getState: () => state,
-            subscribe: (next) => {
-                listener = next;
-                return () => undefined;
-            },
-        });
+        index.bindConversationSource(source);
 
         expect(index.getRounds()).toHaveLength(1);
-        state = readyState(updated);
-        listener?.(state);
+        source.publish(updated);
         expect(index.getRounds()).toHaveLength(4);
         expect(ensureReady).not.toHaveBeenCalled();
     });

@@ -79,9 +79,33 @@ Token gate 通过 `tests/support/uiStyleInventory.ts` 自动扫描 `src/style/*`
 
 popup 静态 fallback 与导出/打印输出使用精确 declaration signature 的最小 exception list；每项必须记录 owner 和理由，不能按目录整体放行。快速 token closure 进入 `test:smoke`，token/Surface/style/visual-harness governance 进入 `test:acceptance`。
 
+### 2.4 Reader Annotation Manager Coverage (v1 shipped)
+
+The annotation manager is one Reader-family modal with two scopes, not a second workspace. Its required coverage proves:
+
+- the real Reader header trigger opens the manager even when the current conversation has no annotations;
+- current-conversation and all-annotation scopes share one client and one list model;
+- grouped and timeline projections, search, empty/loading/failure/pending/unanchored states, long quote/comment text, focus return, Escape, and delete confirmation;
+- same-conversation locate and cross-conversation new-tab navigation enter through the production trigger path;
+- with new-annotation persistence disabled, previously durable records and the global durable collection remain visible and durably editable/deletable, while newly created records stay only in the current page runtime;
+- light/dark, English/Chinese, 320/390/768/1024/1440 widths, 200% zoom, reduced motion, and no horizontal overflow;
+- two independent Reader instances do not share UI state accidentally, while both observe the same persisted annotation changes.
+
+The fixture must mount the production annotation manager and token injection. It must not redraw a representative list or replace the modal with a mock-only implementation. The data layer and runtime protocol require separate contract, storage, anchor, and cross-runtime integration tests; visual coverage does not replace those tests.
+
 ---
 
 ## 3. 当前测试分层
+
+### 3.0 ChatGPT content discovery contract
+
+The discovery refactor has a dedicated contract and lifecycle layer in addition to the existing driver and consumer suites:
+
+- `tests/unit/contracts/conversationContent.test.ts` locks document identity, deep immutability, contiguous typed turns, coverage, and content-token semantics.
+- Repository scenario tests cover one reconcile path, epoch cancellation, single-flight acquisition, coalescing, last-good stale recovery, branch replacement, and explicit unavailable states.
+- Adapter/bridge tests cover passive cache, bounded same-origin GET policy, malformed/partial payloads, typed DOM evidence, and Chrome object versus Firefox JSON transport parity.
+- Materialization and consumer-boundary tests prove DOM remounts do not change semantic tokens and ChatGPT consumers do not add DOM fallback discovery.
+- Installed Chrome MV3 and Firefox MV2 tests remain separate acceptance evidence; unit/integration green is not a substitute for real host verification.
 
 测试按目的和 runtime boundary 组织：
 

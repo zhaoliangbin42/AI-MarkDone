@@ -1,26 +1,19 @@
 import type { SiteAdapter } from '../../../drivers/content/adapters/base';
+import type { ChatGPTAtomicMarkdownCopyShortcut } from '../../../core/settings/types';
 import {
     buildPageAtomicSelectionSnapshot,
     type PageAtomicSelectionSnapshot,
 } from '../../../services/copy/atomicSelectionMarkdown';
-import type {
-    AtomicSelectionRichPayload,
-    CanonicalMarkdownRichPayloadParams,
-} from '../../../services/copy/atomicSelectionRichHtml';
-import { copyRichTextToClipboard } from '../../../drivers/content/clipboard/copyRichTextToClipboard';
 import {
-    DEFAULT_FORMULA_RICH_COPY_FORMAT,
-    normalizeFormulaRichCopyFormat,
-    type FormulaRichCopyFormat,
-} from '../../../core/settings/formula';
+    copyCanonicalMarkdownToClipboard,
+    formatCanonicalMarkdownForCopy,
+} from '../../../services/copy/canonicalMarkdownCopy';
 import {
     resolveStrictRenderedAtomicUnits,
     type RenderedAtomicUnit,
 } from '../../../services/reader/atomicSelection';
-import type { AppearanceSnapshot } from '../../../style/appearance';
 import { showToast } from '../../../utils/toast';
 import { t } from '../components/i18n';
-import { ToolbarHoverActionPortal } from '../components/ToolbarHoverActionPortal';
 
 const STYLE_ID = 'aimd-chatgpt-atomic-selection-style';
 const STATE_ATTRIBUTE = 'data-aimd-page-atomic-state';
@@ -30,28 +23,23 @@ type SelectionContext = {
     root: HTMLElement;
 };
 
-export type AtomicSelectionRichPayloadBuilder = (
-    params: CanonicalMarkdownRichPayloadParams,
-) => Promise<AtomicSelectionRichPayload | null>;
-
 export class ChatGPTAtomicSelectionController {
     private readonly selectedElements = new Set<HTMLElement>();
-    private readonly richCopyPortal = new ToolbarHoverActionPortal('light');
     private initialized = false;
     private rafId: number | null = null;
     private lastSelection: PageAtomicSelectionSnapshot | null = null;
-    private richCopyFormulaFormat: FormulaRichCopyFormat = DEFAULT_FORMULA_RICH_COPY_FORMAT;
+    private markdownCopyShortcut: ChatGPTAtomicMarkdownCopyShortcut = 'mod-shift-c';
+    private pendingModCopy = false;
 
-    constructor(
-        private readonly adapter: SiteAdapter,
-        private readonly buildRichPayload: AtomicSelectionRichPayloadBuilder,
-    ) {}
+    constructor(private readonly adapter: SiteAdapter) {}
 
     init(): void {
         if (this.initialized) return;
         this.initialized = true;
         this.ensureStyle();
         document.addEventListener('selectionchange', this.handleSelectionChange);
+        window.addEventListener('keydown', this.handleKeyDown);
+        window.addEventListener('keyup', this.handleKeyUp);
         // ChatGPT may rewrite formula clipboard data from a document-level React handler.
         window.addEventListener('copy', this.handleCopy);
     }
@@ -60,38 +48,23 @@ export class ChatGPTAtomicSelectionController {
         if (!this.initialized) return;
         this.initialized = false;
         document.removeEventListener('selectionchange', this.handleSelectionChange);
+        window.removeEventListener('keydown', this.handleKeyDown);
+        window.removeEventListener('keyup', this.handleKeyUp);
         window.removeEventListener('copy', this.handleCopy);
         if (this.rafId !== null) {
             window.cancelAnimationFrame(this.rafId);
             this.rafId = null;
         }
         this.applySelectedElements([]);
-        this.clearRichCopy();
+        this.clearSelectionSnapshot();
         document.getElementById(STYLE_ID)?.remove();
     }
 
-    setAppearance(snapshot: AppearanceSnapshot): void {
-        this.richCopyPortal.setAppearance(snapshot);
-    }
-
-    setRichCopyFormulaFormat(format: FormulaRichCopyFormat): void {
-        const next = normalizeFormulaRichCopyFormat(format);
-        this.richCopyFormulaFormat = next;
-        // Runtime formula-settings delivery also invalidates the snapshot's
-        // canonical Markdown representation, even when this rich format did not change.
-        if (!this.lastSelection) return;
-        const context = this.resolveSelectionContext();
-        const snapshot = context
-            ? buildPageAtomicSelectionSnapshot({
-                adapter: this.adapter,
-                range: context.range,
-                root: context.root,
-            })
-            : null;
-        this.applySelectedElements(
-            context ? resolveStrictRenderedAtomicUnits(context.range, context.root) : [],
-        );
-        this.syncRichCopy(snapshot);
+    setMarkdownCopyShortcut(shortcut: ChatGPTAtomicMarkdownCopyShortcut): void {
+        const next = isChatGPTAtomicMarkdownCopyShortcut(shortcut) ? shortcut : 'none';
+        if (this.markdownCopyShortcut === next) return;
+        this.markdownCopyShortcut = next;
+        this.pendingModCopy = false;
     }
 
     private readonly handleSelectionChange = (): void => {
@@ -102,24 +75,36 @@ export class ChatGPTAtomicSelectionController {
         });
     };
 
-    private readonly handleCopy = (event: ClipboardEvent): void => {
-        if (!event.clipboardData) return;
-        const context = this.resolveSelectionContext();
-        if (!context) return;
-        const selectedUnits = resolveStrictRenderedAtomicUnits(context.range, context.root);
-        this.applySelectedElements(selectedUnits);
-        if (selectedUnits.length === 0) return;
-        const snapshot = this.lastSelection && this.isSameSelection(context, this.lastSelection)
-            ? this.lastSelection
-            : buildPageAtomicSelectionSnapshot({
-                adapter: this.adapter,
-                range: context.range,
-                root: context.root,
-            });
+    private readonly handleKeyDown = (event: KeyboardEvent): void => {
+        if (event.repeat || !isPrimaryCopyKey(event) || isEditableTarget(event.target)) return;
+        const snapshot = this.resolveCurrentSelectionSnapshot();
         if (!snapshot) return;
+
+        if (this.markdownCopyShortcut === 'mod-c' && !event.shiftKey) {
+            this.pendingModCopy = true;
+            return;
+        }
+        if (this.markdownCopyShortcut !== 'mod-shift-c' || !event.shiftKey) return;
+
+        event.preventDefault();
+        void this.handleMarkdownShortcut(snapshot);
+    };
+
+    private readonly handleKeyUp = (event: KeyboardEvent): void => {
+        if (event.key.toLowerCase() === 'c') this.pendingModCopy = false;
+    };
+
+    private readonly handleCopy = (event: ClipboardEvent): void => {
+        if (this.markdownCopyShortcut !== 'mod-c' || !this.pendingModCopy) return;
+        this.pendingModCopy = false;
+        if (!event.clipboardData) return;
+        const snapshot = this.resolveCurrentSelectionSnapshot();
+        if (!snapshot) return;
+        const markdown = formatCanonicalMarkdownForCopy(snapshot.canonicalMarkdown);
+        if (!markdown) return;
         try {
             event.clipboardData.clearData?.();
-            event.clipboardData.setData('text/plain', snapshot.markdown);
+            event.clipboardData.setData('text/plain', markdown);
             event.preventDefault();
         } catch {
             // Clipboard failures must leave the host page's native copy path available.
@@ -143,89 +128,43 @@ export class ChatGPTAtomicSelectionController {
             })
             : null;
         this.applySelectedElements(selectedUnits);
-        this.syncRichCopy(snapshot);
-    }
-
-    private syncRichCopy(snapshot: PageAtomicSelectionSnapshot | null): void {
         this.lastSelection = snapshot;
-        this.richCopyPortal.close();
-
-        if (!snapshot) return;
-        this.openRichCopyAction(snapshot);
     }
 
-    private openRichCopyAction(snapshot: PageAtomicSelectionSnapshot): void {
-        const rect = resolveSelectionRect(snapshot.range, snapshot.units);
-        if (!rect) return;
-        const richLabel = resolveLocalizedLabel(t('atomicCopyRich'), 'atomicCopyRich', 'Copy with formatting');
-        const richTooltip = resolveLocalizedLabel(
-            t('atomicCopyRichTooltip'),
-            'atomicCopyRichTooltip',
-            'Copy cleaned basic HTML using the configured formula source format',
-        );
-        this.richCopyPortal.open({
-            anchorEl: snapshot.root,
-            anchorRect: rect,
-            actions: [{
-                id: 'copy-rich-selection',
-                label: richLabel,
-                displayLabel: richLabel,
-                tooltip: richTooltip,
-                showLabel: true,
-                onClick: () => { void this.handleRichCopy(); },
-            }],
-            onRequestClose: () => this.richCopyPortal.close(),
-        });
+    private async handleMarkdownShortcut(snapshot: PageAtomicSelectionSnapshot): Promise<void> {
+        const copied = await copyCanonicalMarkdownToClipboard(snapshot.canonicalMarkdown);
+        if (!copied && this.lastSelection === snapshot) this.showCopyFailure();
     }
 
-    private async handleRichCopy(): Promise<void> {
-        const snapshot = this.lastSelection;
-        if (!snapshot) {
-            this.showRichCopyWriteFailure();
-            return;
-        }
-
-        let payload: AtomicSelectionRichPayload | null;
-        try {
-            payload = await this.buildRichPayload({
-                canonicalMarkdown: snapshot.canonicalMarkdown,
-                plainText: snapshot.markdown,
-                formulaFormat: this.richCopyFormulaFormat,
-            });
-        } catch {
-            if (this.lastSelection === snapshot) this.showRichCopyWriteFailure();
-            return;
-        }
-        if (this.lastSelection !== snapshot) return;
-        if (!payload) {
-            this.showRichCopyWriteFailure();
-            return;
-        }
-        const result = await copyRichTextToClipboard({
-            html: payload.html,
-            plainText: payload.plainText,
-        });
-        if (!result.ok) {
-            this.showRichCopyWriteFailure();
-            return;
-        }
-        this.richCopyPortal.close();
-    }
-
-    private showRichCopyWriteFailure(): void {
+    private showCopyFailure(): void {
         showToast({
             text: resolveLocalizedLabel(
-                t('atomicCopyRichWriteFailed'),
-                'atomicCopyRichWriteFailed',
-                'Formatted content and equations could not be written. Markdown was not copied.',
+                t('atomicCopyMarkdownFailed'),
+                'atomicCopyMarkdownFailed',
+                'The Markdown selection could not be copied.',
             ),
             tone: 'error',
         });
     }
 
-    private clearRichCopy(): void {
+    private resolveCurrentSelectionSnapshot(): PageAtomicSelectionSnapshot | null {
+        const context = this.resolveSelectionContext();
+        if (!context) return null;
+        const selectedUnits = resolveStrictRenderedAtomicUnits(context.range, context.root);
+        this.applySelectedElements(selectedUnits);
+        if (selectedUnits.length === 0) return null;
+        const snapshot = this.lastSelection;
+        if (snapshot && this.isSameSelection(context, snapshot)) return snapshot;
+        return buildPageAtomicSelectionSnapshot({
+            adapter: this.adapter,
+            range: context.range,
+            root: context.root,
+        });
+    }
+
+    private clearSelectionSnapshot(): void {
         this.lastSelection = null;
-        this.richCopyPortal.close();
+        this.pendingModCopy = false;
     }
 
     private isSameSelection(context: SelectionContext, snapshot: PageAtomicSelectionSnapshot): boolean {
@@ -304,38 +243,25 @@ function getElementForNode(node: Node): HTMLElement | null {
     return node.parentElement;
 }
 
+function isChatGPTAtomicMarkdownCopyShortcut(value: unknown): value is ChatGPTAtomicMarkdownCopyShortcut {
+    return value === 'none' || value === 'mod-c' || value === 'mod-shift-c';
+}
+
+function isPrimaryCopyKey(event: KeyboardEvent): boolean {
+    return event.key.toLowerCase() === 'c'
+        && (event.metaKey || event.ctrlKey)
+        && !event.altKey;
+}
+
+function isEditableTarget(target: EventTarget | null): boolean {
+    const element = target instanceof HTMLElement ? target : document.activeElement;
+    if (!(element instanceof HTMLElement)) return false;
+    return element instanceof HTMLInputElement
+        || element instanceof HTMLTextAreaElement
+        || element.isContentEditable
+        || Boolean(element.closest('input, textarea, [contenteditable]:not([contenteditable="false"])'));
+}
+
 function resolveLocalizedLabel(translated: string, key: string, fallback: string): string {
     return !translated || translated === key ? fallback : translated;
-}
-
-function resolveSelectionRect(range: Range, units: RenderedAtomicUnit[]): DOMRect | null {
-    const rects = typeof range.getClientRects === 'function'
-        ? Array.from(range.getClientRects()).filter((rect) => rect.width > 0 || rect.height > 0)
-        : [];
-    if (rects.length > 0) {
-        const left = Math.min(...rects.map((rect) => rect.left));
-        const top = Math.min(...rects.map((rect) => rect.top));
-        const right = Math.max(...rects.map((rect) => rect.right));
-        const bottom = Math.max(...rects.map((rect) => rect.bottom));
-        return makeRect(left, top, right, bottom);
-    }
-    const first = units[0]?.element;
-    return first?.getBoundingClientRect() ?? null;
-}
-
-function makeRect(left: number, top: number, right: number, bottom: number): DOMRect {
-    const width = Math.max(0, right - left);
-    const height = Math.max(0, bottom - top);
-    if (typeof DOMRect === 'function') return new DOMRect(left, top, width, height);
-    return {
-        left,
-        top,
-        right,
-        bottom,
-        width,
-        height,
-        x: left,
-        y: top,
-        toJSON: () => ({ left, top, right, bottom, width, height, x: left, y: top }),
-    } as DOMRect;
 }

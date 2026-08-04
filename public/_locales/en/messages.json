@@ -395,6 +395,28 @@
         "message": "Position",
         "description": "Label for annotation text position"
     },
+    "readerCommentCurrentConversation": { "message": "Current conversation", "description": "Reader annotation manager current conversation tab" },
+    "readerCommentAllAnnotations": { "message": "All annotations", "description": "Reader annotation manager all annotations tab" },
+    "readerCommentSearch": { "message": "Search annotations", "description": "Reader annotation manager search" },
+    "readerCommentGroupByConversation": { "message": "By conversation", "description": "Reader annotation manager conversation grouping" },
+    "readerCommentTimeline": { "message": "Timeline", "description": "Reader annotation manager timeline view" },
+    "readerCommentBulkEdit": { "message": "Bulk edit", "description": "Reader annotation manager bulk edit action" },
+    "readerCommentBulkCancel": { "message": "Cancel bulk edit", "description": "Reader annotation manager exit bulk edit action" },
+    "readerCommentSelectAll": { "message": "Select all", "description": "Reader annotation manager select all" },
+    "readerCommentDeleteSelected": { "message": "Delete selected", "description": "Reader annotation manager delete selected action" },
+    "readerCommentListLoading": { "message": "Loading annotations…", "description": "Reader annotation manager loading state" },
+    "readerCommentListError": { "message": "Could not load annotations.", "description": "Reader annotation manager error state" },
+    "readerCommentUpdatedAt": { "message": "Updated", "description": "Reader annotation manager update time" },
+    "readerCommentReply": { "message": "Reply", "description": "Reader annotation manager reply position" },
+    "readerCommentUnanchored": { "message": "Not located", "description": "Reader annotation manager unanchored state" },
+    "readerCommentPersistenceUnavailable": { "message": "Annotations could not be loaded.", "description": "Reader annotation persistence error" },
+    "readerCommentDeleteTitle": { "message": "Delete annotation?", "description": "Reader annotation delete confirmation title" },
+    "readerCommentDeleteMessage": { "message": "This annotation will be deleted from this browser profile.", "description": "Reader annotation delete confirmation message" },
+    "readerCommentOpenOtherConversation": { "message": "Opening the conversation…", "description": "Reader annotation cross conversation navigation" },
+    "readerCommentSourceUnavailable": { "message": "The source reply is not available in this Reader.", "description": "Reader annotation source unavailable" },
+    "readerAnnotationPersistenceLabel": { "message": "Persist annotations", "description": "Reader annotation persistence setting" },
+    "readerAnnotationPersistenceDesc": { "message": "When enabled, new annotations are saved locally; existing annotations always remain visible.", "description": "Reader annotation persistence setting description" },
+    "readerAnnotationPersistenceTooltip": { "message": "When enabled, new annotations are saved locally and remain after you close the browser, but consider cleaning them up regularly.", "description": "Reader annotation persistence tooltip" },
     "readerCommentCopyEmpty": {
         "message": "No annotations to copy yet.",
         "description": "Message for readerCommentCopyEmpty"
@@ -1072,12 +1094,24 @@
         "description": "Message for chatgptRestorePositionAfterSendDesc"
     },
     "chatgptAtomicMarkdownCopyLabel": {
-        "message": "Enhanced selection copy",
+        "message": "Markdown selection shortcut",
         "description": "Message for chatgptAtomicMarkdownCopyLabel"
     },
     "chatgptAtomicMarkdownCopyDesc": {
-        "message": "When complete supported content is selected on ChatGPT, Ctrl/Cmd+C copies canonical Markdown and a nearby action copies basic formatted HTML using the configured formula format. Partial selections keep ChatGPT's native copy.",
+        "message": "Choose the shortcut for copying a complete ChatGPT selection as canonical Markdown. Other copy actions keep the host behavior.",
         "description": "Message for chatgptAtomicMarkdownCopyDesc"
+    },
+    "chatgptAtomicMarkdownCopyNone": {
+        "message": "Off (native copy)",
+        "description": "Option for disabling ChatGPT Markdown selection shortcut"
+    },
+    "chatgptAtomicMarkdownCopyModC": {
+        "message": "Ctrl/Cmd+C",
+        "description": "Option for using the primary C shortcut for ChatGPT Markdown selection copy"
+    },
+    "chatgptAtomicMarkdownCopyModShiftC": {
+        "message": "Ctrl/Cmd+Shift+C",
+        "description": "Option for using the shifted primary C shortcut for ChatGPT Markdown selection copy"
     },
     "chatgptInputEnhancementLabel": {
         "message": "Input enhancement",
@@ -1547,17 +1581,9 @@
         "message": "Copy Markdown",
         "description": "Message for copyMarkdown"
     },
-    "atomicCopyRich": {
-        "message": "Copy with formatting",
-        "description": "Label for rich copying a native page selection"
-    },
-    "atomicCopyRichTooltip": {
-        "message": "Copy cleaned basic HTML using the configured formula source format",
-        "description": "Tooltip for a ready rich-copy selection action"
-    },
-    "atomicCopyRichWriteFailed": {
-        "message": "Formatted content and equations could not be written. Markdown was not copied.",
-        "description": "Notice after a strict rich-copy clipboard write fails"
+    "atomicCopyMarkdownFailed": {
+        "message": "The Markdown selection could not be copied.",
+        "description": "Notice after a Markdown selection copy fails"
     },
     "close": {
         "message": "Close",
@@ -1670,14 +1696,6 @@
     "formulaMarkdownCopyFormulaFormatDesc": {
         "message": "Choose how formulas are wrapped when copying or saving Markdown source.",
         "description": "Message for formulaMarkdownCopyFormulaFormatDesc"
-    },
-    "formulaRichCopyFormulaFormatLabel": {
-        "message": "Formatted copy formula format",
-        "description": "Label for the formula representation used by formatted selection copy"
-    },
-    "formulaRichCopyFormulaFormatDesc": {
-        "message": "Choose the source wrapper used for formulas in Copy with formatting. This does not change Markdown or single-formula copy.",
-        "description": "Description for the formatted-copy formula representation setting"
     },
     "formulaSourceFormatMarkdownDollar": {
         "message": "$...$ / $$...$$",

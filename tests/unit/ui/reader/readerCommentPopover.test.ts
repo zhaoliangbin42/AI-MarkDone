@@ -64,7 +64,7 @@ describe('ReaderCommentPopover', () => {
         expect(shadow.querySelector<HTMLElement>('.reader-comment-popover__selection-value')?.textContent).toContain('Before `code` and $x+y$ after');
     });
 
-    it('submits on Enter, keeps Shift+Enter as newline, and ignores composing Enter', () => {
+    it('keeps Enter as newline and submits on Ctrl/Cmd+Enter without saving during composition', async () => {
         const { shadow, container } = createHost();
         const popover = new ReaderCommentPopover();
         const onSave = vi.fn();
@@ -92,16 +92,22 @@ describe('ReaderCommentPopover', () => {
         expect(input).toBeTruthy();
 
         input!.value = 'line 1';
+        input!.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', bubbles: true, cancelable: true }));
+        expect(onSave).not.toHaveBeenCalled();
         input!.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', shiftKey: true, bubbles: true, cancelable: true }));
         expect(onSave).not.toHaveBeenCalled();
 
         input!.dispatchEvent(new CompositionEvent('compositionstart', { bubbles: true }));
-        input!.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', bubbles: true, cancelable: true }));
+        input!.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', ctrlKey: true, bubbles: true, cancelable: true }));
         expect(onSave).not.toHaveBeenCalled();
         input!.dispatchEvent(new CompositionEvent('compositionend', { bubbles: true }));
 
         input!.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', bubbles: true, cancelable: true }));
+        expect(onSave).not.toHaveBeenCalled();
+
+        input!.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', metaKey: true, bubbles: true, cancelable: true }));
         expect(onSave).toHaveBeenCalledWith('line 1');
+        await Promise.resolve();
     });
 
     it('uses Delete in edit mode and routes it through onDelete instead of cancel', () => {

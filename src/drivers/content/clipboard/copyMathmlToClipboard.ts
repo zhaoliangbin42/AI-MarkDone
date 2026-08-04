@@ -1,5 +1,3 @@
-import { copyRichTextToClipboard } from './copyRichTextToClipboard';
-
 export type ClipboardMathmlWriteResult =
     | { ok: true }
     | {
@@ -9,23 +7,43 @@ export type ClipboardMathmlWriteResult =
         errorMessage?: string;
     };
 
-export function htmlDocumentForMathml(mathml: string): string {
+function htmlDocumentForMathml(mathml: string): string {
     return `<!doctype html><html><body>${mathml}</body></html>`;
 }
 
 export async function copyMathmlToClipboard(mathml: string): Promise<ClipboardMathmlWriteResult> {
     const source = mathml.trim();
     if (!source) return { ok: false, reason: 'empty' };
-    const result = await copyRichTextToClipboard({
-        html: htmlDocumentForMathml(source),
-        plainText: source,
-        allowPlainTextFallback: true,
-    });
-    if (result.ok) return { ok: true };
-    return {
-        ok: false,
-        reason: result.reason === 'empty' ? 'empty' : 'write_failed',
-        errorName: result.errorName,
-        errorMessage: result.errorMessage,
-    };
+
+    const clipboard = navigator.clipboard as Clipboard | undefined;
+    const ClipboardItemCtor = (window as Window & {
+        ClipboardItem?: typeof ClipboardItem & { supports?: (type: string) => boolean };
+    }).ClipboardItem;
+
+    if (clipboard?.write && ClipboardItemCtor) {
+        try {
+            const items: Record<string, Blob> = {
+                'text/plain': new Blob([source], { type: 'text/plain' }),
+            };
+            if (typeof ClipboardItemCtor.supports !== 'function' || ClipboardItemCtor.supports('text/html')) {
+                items['text/html'] = new Blob([htmlDocumentForMathml(source)], { type: 'text/html' });
+            }
+            await clipboard.write([new ClipboardItemCtor(items)]);
+            return { ok: true };
+        } catch {
+            // Fall through to text-only copy for browsers that reject rich clipboard writes.
+        }
+    }
+
+    try {
+        await navigator.clipboard.writeText(source);
+        return { ok: true };
+    } catch (error) {
+        return {
+            ok: false,
+            reason: 'write_failed',
+            errorName: error instanceof Error ? error.name : undefined,
+            errorMessage: error instanceof Error ? error.message : undefined,
+        };
+    }
 }

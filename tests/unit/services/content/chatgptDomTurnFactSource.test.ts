@@ -1,4 +1,4 @@
-import { afterEach, beforeEach, describe, expect, it } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { ChatGPTAdapter } from '@/drivers/content/adapters/sites/chatgpt';
 import { ChatGPTDomTurnFactSource } from '@/services/content/ChatGPTDomTurnFactSource';
 
@@ -49,17 +49,39 @@ describe('ChatGPTDomTurnFactSource', () => {
         }]);
     });
 
-    it('keeps a turn incomplete until the official completion action appears', () => {
+    it('keeps a turn incomplete while ChatGPT still exposes its stop control', () => {
         appendRound(1, false);
+        document.body.insertAdjacentHTML('beforeend', '<button aria-label="Stop generating">Stop</button>');
 
         expect(source.read().rounds[0]).toMatchObject({
             assistantMessageId: 'assistant-1',
             assistantContent: '',
-            status: 'incomplete',
+            status: 'streaming',
         });
     });
 
-    it('keeps a completed-looking turn incomplete until typed identity is complete', () => {
+    it('accepts a typed completed turn before the official action row mounts', () => {
+        document.querySelector('main')?.insertAdjacentHTML('beforeend', `
+            <article data-turn="user" data-turn-id="user-turn-1">
+                <div data-message-author-role="user" data-message-id="user-1">
+                    <div class="whitespace-pre-wrap">Question 1</div>
+                </div>
+            </article>
+            <article data-turn="assistant" data-turn-id="assistant-turn-1">
+                <div data-message-author-role="assistant" data-message-id="assistant-1">
+                    <div class="markdown prose">Answer 1</div>
+                </div>
+            </article>
+        `);
+
+        expect(source.read().rounds[0]).toMatchObject({
+            assistantMessageId: 'assistant-1',
+            assistantContent: 'Answer 1',
+            status: 'complete',
+        });
+    });
+
+    it('keeps a completed-looking turn incomplete until the assistant identity is complete', () => {
         document.querySelector('main')?.insertAdjacentHTML('beforeend', `
             <article data-turn="user" data-turn-id="user-turn-1">
                 <div data-message-author-role="user">Question 1</div>
@@ -75,7 +97,28 @@ describe('ChatGPTDomTurnFactSource', () => {
         expect(source.read().rounds[0]).toMatchObject({
             userMessageId: null,
             assistantMessageId: 'assistant-1',
-            status: 'incomplete',
+            status: 'complete',
+        });
+    });
+
+    it('does not require a user message id when the turn and assistant ids are verified', () => {
+        document.querySelector('main')?.insertAdjacentHTML('beforeend', `
+            <article data-turn="user" data-turn-id="user-turn-1">
+                <div data-message-author-role="user">Question 1</div>
+            </article>
+            <article data-turn="assistant" data-turn-id="assistant-turn-1">
+                <div data-message-author-role="assistant" data-message-id="assistant-1">
+                    <div class="markdown prose">Answer 1</div>
+                </div>
+                <div class="z-0 flex"><button data-testid="copy-turn-action-button">Copy</button></div>
+            </article>
+        `);
+
+        expect(source.read().rounds[0]).toMatchObject({
+            userMessageId: null,
+            assistantMessageId: 'assistant-1',
+            status: 'complete',
+            assistantContent: 'Answer 1',
         });
     });
 
@@ -98,6 +141,65 @@ describe('ChatGPTDomTurnFactSource', () => {
         expect(source.read().rounds[0]).toMatchObject({
             status: 'complete',
             assistantContent: 'First segment\n\nSecond segment',
+        });
+    });
+
+    it('matches content refs by typed DOM identity rather than array position', () => {
+        appendRound(1);
+        appendRound(2);
+        const original = adapter.getConversationGroupRefs?.bind(adapter);
+        if (!original) throw new Error('ChatGPT grouping hook is missing');
+        vi.spyOn(adapter, 'getConversationGroupRefs').mockImplementation(() => original().reverse());
+
+        const rounds = source.read().rounds;
+        expect(rounds.map((round) => round.assistantMessageId)).toEqual(['assistant-1', 'assistant-2']);
+        expect(rounds.map((round) => round.assistantContent)).toEqual(['**Answer 1**', '**Answer 2**']);
+    });
+
+    it('reads the assistant node directly when the legacy turn index is temporarily unavailable', () => {
+        appendRound(1);
+        vi.spyOn(adapter, 'getConversationGroupRefs').mockReturnValue([]);
+
+        expect(source.read().rounds[0]).toMatchObject({
+            assistantMessageId: 'assistant-1',
+            assistantContent: '**Answer 1**',
+            status: 'complete',
+        });
+    });
+
+    it('publishes a typed assistant fallback when the turn wrapper is temporarily absent', () => {
+        document.querySelector('main')?.insertAdjacentHTML('beforeend', `
+            <div class="message-shell">
+                <div data-message-author-role="assistant" data-message-id="assistant-fallback">
+                    <div class="markdown prose">Answer without a turn wrapper</div>
+                </div>
+            </div>
+        `);
+
+        expect(source.read().rounds[0]).toMatchObject({
+            assistantMessageId: 'assistant-fallback',
+            userPrompt: 'Message 1',
+            assistantContent: 'Answer without a turn wrapper',
+            status: 'complete',
+        });
+    });
+
+    it('keeps the preceding typed user message when only host turn wrappers are late', () => {
+        document.querySelector('main')?.insertAdjacentHTML('beforeend', `
+            <div data-message-author-role="user" data-message-id="user-fallback">Question from the late wrapper</div>
+            <div class="message-shell">
+                <div data-message-author-role="assistant" data-message-id="assistant-fallback-2">
+                    <div class="markdown prose">Answer from the late wrapper</div>
+                </div>
+            </div>
+        `);
+
+        expect(source.read().rounds[0]).toMatchObject({
+            assistantMessageId: 'assistant-fallback-2',
+            userMessageId: 'user-fallback',
+            userPrompt: 'Question from the late wrapper',
+            assistantContent: 'Answer from the late wrapper',
+            status: 'complete',
         });
     });
 });

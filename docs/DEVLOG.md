@@ -4,6 +4,14 @@ Purpose: evidence log for major changes (commands run + observed results). Keep 
 
 ---
 
+## 2026-08-04 — ChatGPT content port and directory closeout
+
+- Removed the production Engine/Reducer discovery path; ChatGPT semantic consumers now use the V1 content repository, while `ChatGPTConversationIndex` remains the typed navigation projection.
+- Mounted the Directory rail and preview in the same `document.body` page-level portal as the working lower-right controls, kept the host independent from semantic acquisition, and reattached it after body replacement.
+- Made page-scoped discovery resumable after a platform runtime disable/re-enable so the repository and ConversationIndex DOM signals are not left permanently stopped.
+- Kept historical ADR/DEVLOG references intact; updated active SSOT and current test gates to use Content Port V1 terminology.
+- Verification: discovery 9 files / 62 tests, core 260 files / 1,772 tests, smoke 6 files / 47 tests, acceptance 24 files / 228 tests, discovery harness 20/20, UI visual 41/41, type-check and Chrome/Firefox build/boundary/bundle gates passed. `perf:chatgpt` remains open at the pre-existing atomic-selection assertion; installed-browser acceptance and same-origin probe remain open.
+
 ## 2026-05-20 — Reader Sticky temporary excerpts
 
 - Added a Reader-local Sticky workspace for temporary Markdown excerpts in the `conversation-reader` profile.

@@ -4,10 +4,6 @@ import type { ReaderPanelPort } from '../../ui/content/reader/ReaderPanelPort';
 import type { copyMessagePng as copyMessagePngImplementation } from '../../services/copy/copy-turn-png';
 import type { runFormulaAssetAction as runFormulaAssetActionImplementation } from '../../services/math/formulaAssetActions';
 import type { renderFormulaSvgAsset as renderFormulaSvgAssetImplementation } from '../../services/math/formulaAssetRenderer';
-import type {
-    AtomicSelectionRichPayload,
-    CanonicalMarkdownRichPayloadParams,
-} from '../../services/copy/atomicSelectionRichHtml';
 import type { UiLocale } from '../../ui/content/components/i18n';
 
 export async function setContentFeatureLocale(locale: UiLocale): Promise<void> {
@@ -53,12 +49,3 @@ export const renderFormulaSvgAsset: typeof renderFormulaSvgAssetImplementation =
     const { renderFormulaSvgAsset: implementation } = await import('../../services/math/formulaAssetRenderer');
     return implementation(...args);
 };
-
-export async function buildCanonicalMarkdownRichPayload(
-    params: CanonicalMarkdownRichPayloadParams,
-): Promise<AtomicSelectionRichPayload | null> {
-    const { buildCanonicalMarkdownRichPayload: implementation } = await import(
-        '../../services/copy/atomicSelectionRichHtml'
-    );
-    return implementation(params);
-}

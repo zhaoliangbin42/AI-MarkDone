@@ -15,6 +15,7 @@ import {
     type ThemeAccentColor,
 } from '../../../../../core/settings/types';
 import {
+    normalizeChatGPTAtomicMarkdownCopyShortcut,
     normalizeChatGPTDirectoryRightInsetPx,
     normalizeChatGPTDirectorySettings,
     normalizeChatGPTPageWidthScale,
@@ -42,8 +43,6 @@ import {
     MIN_FORMULA_ASSET_FONT_SIZE_PX,
     normalizeLegacyClickCopyFormulaFormat,
     normalizeFormulaAssetFontSizePx,
-    normalizeFormulaRichCopyFormat,
-    type FormulaRichCopyFormat,
     type FormulaSettings,
 } from '../../../../../core/settings/formula';
 import { normalizeFormulaSourceFormat, type FormulaSourceFormat } from '../../../../../core/math/formulaSourceFormat';
@@ -117,7 +116,6 @@ type Refs = {
         clickCopyMarkdown: HTMLInputElement;
         clickCopyFormulaFormat: SelectRef;
         markdownCopyFormulaFormat: SelectRef;
-        richCopyFormulaFormat: SelectRef;
         assetActionsButton: HTMLButtonElement;
         assetActionsSummary: HTMLElement;
         assetFontSize: SliderFieldRef;
@@ -135,7 +133,7 @@ type Refs = {
     };
     chatgptDirectory: {
         restorePositionAfterSend: HTMLInputElement;
-        atomicMarkdownCopy: HTMLInputElement;
+        atomicMarkdownCopyShortcut: SelectRef;
         inputEnhancement: HTMLInputElement;
         promptAutocomplete: HTMLInputElement;
         showMessageStepper: HTMLInputElement;
@@ -153,6 +151,7 @@ type Refs = {
         defaultOpenMode: SelectRef;
         renderCode: HTMLInputElement;
         showOutline: HTMLInputElement;
+        persistAnnotations: HTMLInputElement;
         promptPositionBottom: HTMLInputElement;
         promptsButton: HTMLButtonElement;
         promptsSummary: HTMLElement;
@@ -300,10 +299,16 @@ export class SettingsTabView {
             t('chatgptRestorePositionAfterSendLabel'),
             t('chatgptRestorePositionAfterSendDesc'),
         );
-        const chatGptAtomicMarkdownCopy = this.createToggle(
+        const chatGptAtomicMarkdownCopyShortcut = this.createSelect(
             chatGptDirectoryGroup.body,
             t('chatgptAtomicMarkdownCopyLabel'),
             t('chatgptAtomicMarkdownCopyDesc'),
+            [
+                { value: 'none', label: t('chatgptAtomicMarkdownCopyNone') },
+                { value: 'mod-c', label: t('chatgptAtomicMarkdownCopyModC') },
+                { value: 'mod-shift-c', label: t('chatgptAtomicMarkdownCopyModShiftC') },
+            ],
+            'chatgpt-atomic-markdown-copy-shortcut',
         );
         const chatGptInputEnhancement = this.createToggle(
             chatGptDirectoryGroup.body,
@@ -344,6 +349,7 @@ export class SettingsTabView {
         );
         const readerRenderCode = this.createToggle(readerGroup.body, t('renderCodeBlocksLabel'), t('renderCodeBlocksDesc'));
         const readerShowOutline = this.createToggle(readerGroup.body, t('readerOutlineToggleLabel'), t('readerOutlineToggleDesc'));
+        const readerPersistAnnotations = this.createToggle(readerGroup.body, t('readerAnnotationPersistenceLabel'), t('readerAnnotationPersistenceDesc'));
         const readerPromptPositionBottom = this.createToggle(
             readerGroup.body,
             t('readerCommentPromptPositionBottomLabel'),
@@ -382,13 +388,6 @@ export class SettingsTabView {
             t('formulaMarkdownCopyFormulaFormatDesc'),
             this.getFormulaSourceFormatOptions(),
             'formula-markdown-copy-format',
-        );
-        const formulaRichCopyFormulaFormat = this.createSelect(
-            copyExportGroup.body,
-            t('formulaRichCopyFormulaFormatLabel'),
-            t('formulaRichCopyFormulaFormatDesc'),
-            this.getFormulaRichCopyFormatOptions(),
-            'formula-rich-copy-format',
         );
         const formulaAssetFontSize = this.createSliderRow(
             copyExportGroup.body,
@@ -531,7 +530,6 @@ export class SettingsTabView {
                 clickCopyMarkdown: formulaClickCopyMarkdown.input,
                 clickCopyFormulaFormat: formulaClickCopyFormulaFormat,
                 markdownCopyFormulaFormat: formulaMarkdownCopyFormulaFormat,
-                richCopyFormulaFormat: formulaRichCopyFormulaFormat,
                 assetActionsButton: formulaAssetActions.button,
                 assetActionsSummary: formulaAssetActions.summary,
                 assetFontSize: formulaAssetFontSize,
@@ -544,7 +542,7 @@ export class SettingsTabView {
             },
             chatgptDirectory: {
                 restorePositionAfterSend: chatGptRestorePositionAfterSend.input,
-                atomicMarkdownCopy: chatGptAtomicMarkdownCopy.input,
+                atomicMarkdownCopyShortcut: chatGptAtomicMarkdownCopyShortcut,
                 inputEnhancement: chatGptInputEnhancement.input,
                 promptAutocomplete: chatGptPromptAutocomplete.input,
                 showMessageStepper: chatGptShowMessageStepper.input,
@@ -562,6 +560,7 @@ export class SettingsTabView {
                 defaultOpenMode: readerDefaultOpenMode,
                 renderCode: readerRenderCode.input,
                 showOutline: readerShowOutline.input,
+                persistAnnotations: readerPersistAnnotations.input,
                 promptPositionBottom: readerPromptPositionBottom.input,
                 promptsButton: readerPrompts.button,
                 promptsSummary: readerPrompts.summary,
@@ -582,14 +581,13 @@ export class SettingsTabView {
         this.refs.formula.clickCopyMarkdown.dataset.role = 'settings-formula-click-copy-markdown';
         this.refs.formula.clickCopyFormulaFormat.trigger.dataset.role = 'settings-formula-click-copy-format';
         this.refs.formula.markdownCopyFormulaFormat.trigger.dataset.role = 'settings-formula-markdown-copy-format';
-        this.refs.formula.richCopyFormulaFormat.trigger.dataset.role = 'settings-formula-rich-copy-format';
         this.refs.formula.assetActionsButton.dataset.role = 'settings-formula-asset-actions';
         this.refs.formula.assetFontSize.input.dataset.role = 'settings-formula-asset-font-size';
         this.refs.export.pngWidthPreset.trigger.dataset.role = 'settings-export-png-width-preset';
         this.refs.export.pngWidth.input.dataset.role = 'settings-export-png-width';
         this.refs.export.pngPixelRatio.input.dataset.role = 'settings-export-png-pixel-ratio';
         this.refs.chatgptDirectory.restorePositionAfterSend.dataset.role = 'settings-chatgpt-restore-position-after-send';
-        this.refs.chatgptDirectory.atomicMarkdownCopy.dataset.role = 'settings-chatgpt-atomic-markdown-copy';
+        this.refs.chatgptDirectory.atomicMarkdownCopyShortcut.trigger.dataset.role = 'settings-chatgpt-atomic-markdown-copy-shortcut';
         this.refs.chatgptDirectory.inputEnhancement.dataset.role = 'settings-chatgpt-input-enhancement';
         this.refs.chatgptDirectory.promptAutocomplete.dataset.role = 'settings-chatgpt-prompt-autocomplete';
         this.refs.chatgptDirectory.showMessageStepper.dataset.role = 'settings-chatgpt-show-message-stepper';
@@ -605,6 +603,7 @@ export class SettingsTabView {
         this.refs.reader.defaultOpenMode.trigger.dataset.role = 'settings-reader-default-open-mode';
         this.refs.reader.renderCode.dataset.role = 'settings-render-code-reader';
         this.refs.reader.showOutline.dataset.role = 'settings-reader-outline';
+        this.refs.reader.persistAnnotations.dataset.role = 'settings-reader-annotation-persistence';
         this.refs.reader.promptPositionBottom.dataset.role = 'settings-reader-comment-prompt-position-bottom';
         this.refs.reader.promptsButton.dataset.role = 'settings-reader-prompts';
         this.refs.reader.templateButton.dataset.role = 'settings-reader-comment-template';
@@ -772,15 +771,6 @@ export class SettingsTabView {
             this.applySettingsToDom();
             void this.actions.setFormulaSettings?.({ markdownCopyFormulaFormat: next });
         });
-        this.refs.formula.richCopyFormulaFormat.onChange((value) => {
-            const next = normalizeFormulaRichCopyFormat(value);
-            this.settings.formula = this.normalizeFormulaSettings({
-                ...this.settings.formula,
-                richCopyFormulaFormat: next,
-            });
-            this.applySettingsToDom();
-            void this.actions.setFormulaSettings?.({ richCopyFormulaFormat: next });
-        });
         this.refs.formula.assetActionsButton.addEventListener('click', (event) => {
             event.preventDefault();
             this.openFormulaAssetSettingsPopover();
@@ -830,10 +820,10 @@ export class SettingsTabView {
             this.settings.chatgptBehavior.restorePositionAfterSend = next;
             void this.actions.setChatGptBehaviorSettings?.({ restorePositionAfterSend: next });
         });
-        this.refs.chatgptDirectory.atomicMarkdownCopy.addEventListener('change', () => {
-            const next = this.refs.chatgptDirectory.atomicMarkdownCopy.checked;
-            this.settings.chatgptBehavior.atomicMarkdownCopy = next;
-            void this.actions.setChatGptBehaviorSettings?.({ atomicMarkdownCopy: next });
+        this.refs.chatgptDirectory.atomicMarkdownCopyShortcut.onChange((value) => {
+            const next = normalizeChatGPTAtomicMarkdownCopyShortcut(value);
+            this.settings.chatgptBehavior.atomicMarkdownCopyShortcut = next;
+            void this.actions.setChatGptBehaviorSettings?.({ atomicMarkdownCopyShortcut: next });
         });
         this.refs.chatgptDirectory.inputEnhancement.addEventListener('change', () => {
             const inputEnhancement = {
@@ -921,6 +911,11 @@ export class SettingsTabView {
             this.settings.reader.showOutlineInReader = next;
             void this.actions.setReaderSettings?.({ showOutlineInReader: next });
         });
+        this.refs.reader.persistAnnotations.addEventListener('change', () => {
+            const next = this.refs.reader.persistAnnotations.checked;
+            this.settings.reader.persistAnnotations = next;
+            void this.actions.setReaderSettings?.({ persistAnnotations: next });
+        });
         this.refs.reader.promptPositionBottom.addEventListener('change', () => {
             const commentExport = normalizeReaderCommentExportSettings({
                 ...this.settings.reader.commentExport,
@@ -986,7 +981,6 @@ export class SettingsTabView {
         this.refs.formula.clickCopyMarkdown.checked = Boolean(s.formula.clickCopyMarkdown);
         this.refs.formula.clickCopyFormulaFormat.setValue(s.formula.clickCopyFormulaFormat);
         this.refs.formula.markdownCopyFormulaFormat.setValue(s.formula.markdownCopyFormulaFormat);
-        this.refs.formula.richCopyFormulaFormat.setValue(s.formula.richCopyFormulaFormat);
         this.refs.formula.assetActionsSummary.textContent = this.formatFormulaAssetActionsSummary(s.formula);
         this.syncSliderValue(this.refs.formula.assetFontSize, normalizeFormulaAssetFontSizePx(s.formula.assetFontSizePx));
         this.refs.export.pngWidthPreset.setValue(s.export.pngWidthPreset);
@@ -995,7 +989,9 @@ export class SettingsTabView {
         this.refs.export.pngWidth.field.dataset.disabled = this.refs.export.pngWidth.input.disabled ? '1' : '0';
         this.syncSliderValue(this.refs.export.pngPixelRatio, resolvePngExportPixelRatio(s.export));
         this.refs.chatgptDirectory.restorePositionAfterSend.checked = Boolean(s.chatgptBehavior.restorePositionAfterSend);
-        this.refs.chatgptDirectory.atomicMarkdownCopy.checked = Boolean(s.chatgptBehavior.atomicMarkdownCopy);
+        this.refs.chatgptDirectory.atomicMarkdownCopyShortcut.setValue(
+            normalizeChatGPTAtomicMarkdownCopyShortcut(s.chatgptBehavior.atomicMarkdownCopyShortcut),
+        );
         this.refs.chatgptDirectory.inputEnhancement.checked = Boolean(s.chatgptBehavior.inputEnhancement.available);
         this.refs.chatgptDirectory.promptAutocomplete.checked = Boolean(s.chatgptBehavior.promptAutocomplete);
         this.refs.chatgptDirectory.showMessageStepper.checked = Boolean(s.chatgptBehavior.showMessageStepper);
@@ -1011,6 +1007,7 @@ export class SettingsTabView {
         this.refs.reader.defaultOpenMode.setValue(normalizeReaderOpenMode(s.reader.defaultOpenMode));
         this.refs.reader.renderCode.checked = Boolean(s.reader.renderCodeInReader);
         this.refs.reader.showOutline.checked = Boolean(s.reader.showOutlineInReader);
+        this.refs.reader.persistAnnotations.checked = Boolean(s.reader.persistAnnotations);
         this.refs.reader.promptPositionBottom.checked = s.reader.commentExport?.promptPosition === 'bottom';
         this.refs.reader.promptsSummary.textContent = this.formatReaderPromptSummary();
         this.refs.reader.templateSummary.textContent = this.formatReaderTemplateSummary(s.reader.commentExport?.template ?? []);
@@ -1026,7 +1023,6 @@ export class SettingsTabView {
         this.syncToggle(this.refs.behavior.saveContextOnly);
         this.syncToggle(this.refs.formula.clickCopyMarkdown);
         this.syncToggle(this.refs.chatgptDirectory.restorePositionAfterSend);
-        this.syncToggle(this.refs.chatgptDirectory.atomicMarkdownCopy);
         this.syncToggle(this.refs.chatgptDirectory.inputEnhancement);
         this.syncToggle(this.refs.chatgptDirectory.promptAutocomplete);
         this.syncToggle(this.refs.chatgptDirectory.showMessageStepper);
@@ -1038,6 +1034,7 @@ export class SettingsTabView {
         this.syncToggle(this.refs.chatgptDirectory.promptLabelMode);
         this.syncToggle(this.refs.reader.renderCode);
         this.syncToggle(this.refs.reader.showOutline);
+        this.syncToggle(this.refs.reader.persistAnnotations);
         this.syncToggle(this.refs.reader.promptPositionBottom);
 
         this.refs.storageText.textContent = usagePercent;
@@ -1466,10 +1463,6 @@ export class SettingsTabView {
         ];
     }
 
-    private getFormulaRichCopyFormatOptions(): Array<{ value: FormulaRichCopyFormat; label: string }> {
-        return this.getFormulaSourceFormatOptions();
-    }
-
     private closeSelectMenus(): void {
         for (const selectRef of this.selectRefs) selectRef.close();
     }
@@ -1483,7 +1476,6 @@ export class SettingsTabView {
             clickCopyMarkdown: Boolean(record.clickCopyMarkdown ?? DEFAULT_FORMULA_SETTINGS.clickCopyMarkdown),
             clickCopyFormulaFormat: normalizeLegacyClickCopyFormulaFormat(record as Record<string, unknown>),
             markdownCopyFormulaFormat: normalizeFormulaSourceFormat(record.markdownCopyFormulaFormat),
-            richCopyFormulaFormat: normalizeFormulaRichCopyFormat(record.richCopyFormulaFormat),
             assetFontSizePx: normalizeFormulaAssetFontSizePx(record.assetFontSizePx),
             assetActions: {
                 copyPng: Boolean(assetActions.copyPng ?? DEFAULT_FORMULA_SETTINGS.assetActions.copyPng),

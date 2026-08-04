@@ -154,6 +154,23 @@ describe('SaveMessagesDialog', () => {
         expect(exportTurnsMarkdown).not.toHaveBeenCalled();
     });
 
+    it('refuses to open a full export from a partial V1 content snapshot', async () => {
+        await setLocale('en');
+        const adapter = { getPlatformId: () => 'chatgpt' } as any;
+        const conversationContentSource = { read: vi.fn() } as any;
+        vi.mocked(collectFreshReaderContent).mockResolvedValueOnce({
+            items: [{ id: 'r1', userPrompt: 'u1', content: 'a1', meta: { position: 1 } }],
+            startIndex: 0,
+            metadataSource: 'chatgpt-content-v1',
+            status: 'ready',
+            coverage: 'partial',
+        });
+
+        const dlg = new SaveMessagesDialog();
+        await expect(dlg.open(adapter, 'light', { conversationContentSource })).resolves.toBe(false);
+        expect(document.getElementById('aimd-save-messages-dialog-host')).toBeNull();
+    });
+
     it('uses the Reader source startIndex as the default selected export item', async () => {
         await setLocale('en');
         const adapter = { getPlatformId: () => 'chatgpt' } as any;
@@ -193,26 +210,34 @@ describe('SaveMessagesDialog', () => {
             getMessageId: () => 'a1',
             extractUserPrompt: () => 'u1',
         } as any;
-        const chatGptConversationSource: any = {
-            ensureReady: vi.fn(async () => null),
+        const conversationContentSource: any = {
+            read: vi.fn(() => ({ kind: 'unavailable', document: null, snapshot: null, reason: 'source-unavailable', retryable: true })),
+            subscribe: vi.fn(() => vi.fn()),
+            refresh: vi.fn(async () => ({ kind: 'unavailable', document: null, snapshot: null, reason: 'source-unavailable', retryable: true })),
+            isCurrent: vi.fn(() => false),
         };
 
         const dlg = new SaveMessagesDialog();
-        await dlg.open(adapter, 'light', { chatGptConversationSource });
+        await dlg.open(adapter, 'light', { conversationContentSource });
 
         expect(collectFreshReaderContent).toHaveBeenCalledWith(adapter, null, {
-            chatGptConversationSource,
+            conversationContentSource,
         });
     });
 
     it('does not mount a stale ChatGPT export after the source revision changes during collection', async () => {
         await setLocale('en');
         const adapter = { getPlatformId: () => 'chatgpt' } as any;
-        const chatGptConversationSource = { getState: vi.fn() } as any;
+        const conversationContentSource = {
+            read: vi.fn(() => ({ kind: 'unavailable', document: null, snapshot: null, reason: 'source-unavailable', retryable: true })),
+            subscribe: vi.fn(() => vi.fn()),
+            refresh: vi.fn(async () => ({ kind: 'unavailable', document: null, snapshot: null, reason: 'source-unavailable', retryable: true })),
+            isCurrent: vi.fn(() => false),
+        } as any;
         vi.mocked(isReaderContentSourceRevisionCurrent).mockReturnValueOnce(false);
 
         const dlg = new SaveMessagesDialog();
-        await dlg.open(adapter, 'light', { chatGptConversationSource });
+        await dlg.open(adapter, 'light', { conversationContentSource });
 
         expect(document.getElementById('aimd-save-messages-dialog-host')).toBeNull();
     });

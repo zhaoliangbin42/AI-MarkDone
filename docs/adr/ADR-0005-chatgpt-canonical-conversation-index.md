@@ -2,11 +2,12 @@
 
 ## Status
 
-Superseded by `ADR-0007-chatgpt-conversation-fact-reducer.md`
+Superseded by `ADR-0007-chatgpt-conversation-fact-reducer.md`, then by
+`ADR-0009-conversation-content-port-v1.md`.
 
 The decisions below describe the historical graph-baseline design. They are not
-the current implementation contract; ADR-0007 is authoritative for content
-discovery, canonical state, and consumer ownership.
+the current implementation contract; ADR-0009 is authoritative for content
+discovery, semantic state, and consumer ownership.
 
 ## Context
 
@@ -18,7 +19,7 @@ ChatGPT 会按滚动位置水合和卸载长对话轮次。当前 DOM 因而只�
 - page bridge 以 manifest `document_start` 在页面主执行环境安装，只被动旁路观察 ChatGPT 页面自身的 same-origin `GET /backend-api/conversation/<id>`。完整 `mapping/current_node` graph 是可证明完整性的基线；bridge 不观察生成用 POST、请求体或 event stream。
 - 实时尾部更新曾复用 `ChatGPTPageIndex` 的单一 host mutation observer，并由当时的 live-tail reconciler 向 graph snapshot 追加可验证 successor。该机制无法从空白新对话建立 canonical snapshot，现已由 ADR-0007 的 dual-proof reducer 取代。
 - AI-MarkDone 不主动发起 conversation/session 请求，不读取 Cookie、Token、认证请求头、请求体或生成响应，也不构造认证信息。bridge 只在内存中有界保留 graph，并只向 content world 发布规范化 snapshot；未知前驱、身份冲突、未完成或空白 DOM successor 均 fail closed，保留最近的 verified snapshot。
-- `ChatGPTConversationEngine` 是唯一 semantic SSOT；Reader、Copy、Save Messages、消息词数、书签 prompt 与书签正文通过 canonical round / `readerContentSource` 消费它的 Canonical conversation snapshot。
+- 历史实现曾由 `ChatGPTConversationEngine` 作为 semantic SSOT；Reader、Copy、Save Messages、消息词数、书签 prompt 与书签正文通过 canonical round / `readerContentSource` 消费它的 snapshot。该职责已由 ADR-0009 的 `ConversationContentRepository` 接管。
 - `ChatGPTConversationIndex` 是唯一 navigation projection；绝对顺序只来自 Engine snapshot，`ChatGPTPageIndex` 只缓存当前 connected anchors。
 - 语义轮次与 DOM anchor 只能通过 typed Round identity 连接。传入已挂载 assistant message element 时，其唯一 `data-message-id` 直接解析到 canonical `assistantMessageId`；宿主 hydration 产生的 wrapper/turn ID 不得否定该精确消息身份。缺少直接消息身份时才允许用 materialized anchor containment 解析，任一 identity 发生歧义均 fail closed。Prompt 文本和 DOM-local position 不得作为 identity。
 - React props、内部 bundle/store discovery 与 DOM Markdown 不再作为 ChatGPT 完整正文 fallback。完整 graph 暂不可用时保留同 conversation/branch 的最后 verified snapshot，或 fail closed。

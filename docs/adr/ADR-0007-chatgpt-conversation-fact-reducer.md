@@ -2,7 +2,12 @@
 
 ## Status
 
-Accepted
+Superseded by `ADR-0009-conversation-content-port-v1.md`.
+
+This ADR records the reducer-era design for historical context. The reducer and
+engine implementation have been removed; `ConversationContentRepository` and
+the V1 content port are the only production semantic path. Keep this document
+as an historical decision record, not an implementation contract.
 
 Supersedes `ADR-0005-chatgpt-canonical-conversation-index.md`.
 
@@ -42,8 +47,10 @@ ChatGPT 的长对话 DOM 是宿主按需 materialize 的窗口，不能证明完
 Consumer control-plane convergence is implemented:
 
 - `readerContentSource` is the sole `ReaderItem[]` projection boundary, with a passive current read and one fresh user-action read.
+- Fresh ChatGPT content captures the typed start identity before confirmation, permits one post-confirmation lookup for a newly materialized node, and returns additive `ready / unavailable / target-unresolved` status without changing the legacy empty-result surface.
+- Normalized ChatGPT content is cached only by source revision and snapshot identity; each caller receives a mutable compatibility view so consumer metadata decoration cannot alter the cached source projection.
 - `ChatGPTConversationIndex` is source-bound, reads the current immutable snapshot directly, and stores only navigation subscribers rather than a canonical snapshot copy.
 - The in-page Reader follows source revisions through `ChatGPTConversationReaderBinding`; it appends exact successors, atomically replaces corrected content, and closes when the snapshot is withdrawn.
 - Word count and bookmark-active queries are passive. Copy, PNG, Reader open, export, and bookmark commands confirm once through the fresh Reader source.
 - Save Messages closes on any source revision change; bookmark dialogs validate the captured route epoch, revision, and conversation ID before writing.
-- Detached Reader refresh revalidates the captured source revision at its final asynchronous commit point and fail closed when it changes.
+- Detached Reader refresh and in-page annotation focus revalidate the captured source revision at their final asynchronous commit points and fail closed when it changes.

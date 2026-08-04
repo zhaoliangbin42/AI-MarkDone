@@ -82,7 +82,6 @@ const required_exports = [
   'copyMessagePng',
   'runFormulaAssetAction',
   'renderFormulaSvgAsset',
-  'buildCanonicalMarkdownRichPayload',
 ];
 for (const name of required_exports) {
   if (typeof featureModule[name] !== "function") {

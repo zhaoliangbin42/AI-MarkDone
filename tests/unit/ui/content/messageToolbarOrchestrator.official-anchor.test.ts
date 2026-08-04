@@ -1,5 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { MessageToolbarOrchestrator } from '@/ui/content/controllers/MessageToolbarOrchestrator';
+import { createConversationContentSource } from '../../../helpers/chatgptContentFixtures';
 import { SiteAdapter, type ThemeDetector } from '@/drivers/content/adapters/base';
 import { getChatGPTConversationIndex } from '@/drivers/content/chatgpt/ChatGPTConversationIndex';
 
@@ -505,22 +506,11 @@ describe('MessageToolbarOrchestrator official-anchor sync', () => {
                 assistantMessageId: 'm1',
             }],
         };
-        const state = {
-            status: 'ready' as const,
-            routeEpoch: 1,
-            revision: 1,
-            conversationId: 'conv-1',
-            snapshot,
-        };
-        const chatGptConversationSource = {
-            getState: vi.fn(() => state),
-            ensureReady: vi.fn(async () => snapshot),
-            subscribe: vi.fn(() => vi.fn()),
-        };
-        getChatGPTConversationIndex(adapter).bindConversationSource(chatGptConversationSource);
+        const conversationContentSource = createConversationContentSource(snapshot);
+        getChatGPTConversationIndex(adapter).bindConversationSource(conversationContentSource);
         const orchestrator = new MessageToolbarOrchestrator(adapter, {
             readerPanel,
-            chatGptConversationSource,
+            conversationContentSource,
         });
         orchestrator.setBehaviorFlags({ showWordCount: false, showSaveMessages: false });
 

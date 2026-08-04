@@ -1,0 +1,129 @@
+import { beforeEach, describe, expect, it } from 'vitest';
+
+import { ChatGPTConversationMaterialization } from '@/drivers/content/chatgpt/ChatGPTConversationMaterialization';
+import { ChatGPTAdapter } from '@/drivers/content/adapters/sites/chatgpt';
+import { createConversationDocumentKeyV1, type ConversationContentStateV1 } from '@/contracts/conversationContent';
+
+const conversationId = '695499b7-464c-8323-a998-119f661ac953';
+const documentKey = createConversationDocumentKeyV1('chatgpt', conversationId);
+
+function readyState(anchor: HTMLElement): ConversationContentStateV1 {
+    return {
+        kind: 'ready',
+        document: {
+            key: documentKey,
+            platformId: 'chatgpt',
+            conversationId,
+        },
+        snapshot: {
+            schemaVersion: 1,
+            document: {
+                key: documentKey,
+                platformId: 'chatgpt',
+                conversationId,
+            },
+            contentToken: 'content-token-1',
+            coverage: 'complete',
+            turns: [{
+                key: 'turn-1:assistant-1',
+                ordinal: 1,
+                identity: {
+                    turnId: 'turn-1',
+                    userMessageId: 'user-1',
+                    assistantMessageId: 'assistant-1',
+                },
+                userText: 'Question',
+                assistantMarkdown: 'Answer',
+            }],
+        },
+    };
+}
+
+describe('ChatGPTConversationMaterialization', () => {
+    beforeEach(() => {
+        history.replaceState({}, '', `/c/${conversationId}`);
+    });
+
+    it('keeps materialized anchors separate from semantic content and resolves typed targets', () => {
+        const adapter = new ChatGPTAdapter();
+        const anchor = document.createElement('article');
+        document.body.appendChild(anchor);
+        let state = readyState(anchor);
+        const content = {
+            read: () => state,
+            subscribe: (listener: (next: ConversationContentStateV1) => void) => {
+                listener(state);
+                return () => undefined;
+            },
+            refresh: async () => state,
+            isCurrent: (token: string) => token === state.snapshot?.contentToken,
+        };
+        const indexedRound = {
+            position: 1,
+            round: {
+                id: 'turn-1',
+                position: 1,
+                userPrompt: 'Question',
+                assistantContent: 'Answer',
+                preview: 'Question',
+                messageId: 'assistant-1',
+                userMessageId: 'user-1',
+                assistantMessageId: 'assistant-1',
+            },
+            identity: {
+                roundId: 'turn-1',
+                userMessageId: 'user-1',
+                assistantMessageId: 'assistant-1',
+            },
+            materialized: {
+                anchorEl: anchor,
+                jumpAnchorEl: anchor,
+                userRootEl: anchor,
+                userMessageEl: anchor,
+                assistantRootEl: anchor,
+                assistantMessageEl: anchor,
+                groupEls: [anchor],
+            },
+        };
+        const index = {
+            subscribe: (listener: () => void) => {
+                void listener;
+                return () => undefined;
+            },
+            getRounds: () => [indexedRound],
+            resolveRoundForElement: () => indexedRound,
+        };
+        const materialization = new ChatGPTConversationMaterialization({
+            adapter,
+            content,
+            index: index as any,
+        });
+
+        expect(materialization.read()).toMatchObject({
+            contentToken: 'content-token-1',
+            entries: [{
+                target: {
+                    documentKey,
+                    turnId: 'turn-1',
+                    assistantMessageId: 'assistant-1',
+                },
+                anchorElement: anchor,
+            }],
+        });
+        expect(materialization.resolveElement(anchor)).toMatchObject({
+            documentKey,
+            turnId: 'turn-1',
+            assistantMessageId: 'assistant-1',
+        });
+
+        const oldToken = materialization.read().materializationToken;
+        state = {
+            ...state,
+            snapshot: { ...state.snapshot!, contentToken: 'content-token-2' },
+        };
+        // A semantic update is observed through the source subscription in production.
+        expect(materialization.read().materializationToken).toBe(oldToken);
+        materialization.dispose();
+        adapter.dispose();
+    });
+});

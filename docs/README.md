@@ -39,6 +39,10 @@ These documents record bounded refactor execution and closeout evidence. They do
   - product capabilities, acceptance boundaries, and platform support policy
 - `CONTEXT.md`
   - concise shared product vocabulary for Input Enhancement and other cross-document terms
+- `src/contracts/conversationContent.ts`
+  - frozen provider-neutral ChatGPT semantic content port V1
+- `src/contracts/conversationMaterialization.ts`
+  - content-runtime-only typed DOM materialization port V1
 - `src/drivers/content/adapters/base.ts`
   - source-level site adapter contract
 - `docs/architecture/CURRENT_STATE.md`

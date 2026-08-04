@@ -111,6 +111,32 @@ describe('protocol', () => {
         })).toBe(false);
     });
 
+    it('validates annotation CRUD and navigation messages', () => {
+        const annotation = {
+            id: 'a1',
+            itemId: 'item-1',
+            target: { assistantMessageId: 'assistant-1' },
+            quoteText: 'Quote',
+            sourceMarkdown: 'Quote',
+            comment: 'Note',
+            selectors: {
+                textQuote: { exact: 'Quote', prefix: '', suffix: '' },
+                textPosition: { start: 0, end: 5 },
+                domRange: null,
+                atomicRefs: [],
+            },
+            createdAt: 1,
+            updatedAt: 1,
+            revision: 1,
+            lastKnownAnchorState: 'anchored',
+        };
+        const document = { platform: 'chatgpt', conversationId: 'conv-1' };
+        expect(isExtRequest({ v: PROTOCOL_VERSION, id: createRequestId(), type: 'annotations:create', payload: { document, annotation } })).toBe(true);
+        expect(isExtRequest({ v: PROTOCOL_VERSION, id: createRequestId(), type: 'annotations:update', payload: { document, annotation, expectedRevision: 1 } })).toBe(true);
+        expect(isExtRequest({ v: PROTOCOL_VERSION, id: createRequestId(), type: 'annotations:navigate', payload: { document, annotationId: 'a1' } })).toBe(true);
+        expect(isExtRequest({ v: PROTOCOL_VERSION, id: createRequestId(), type: 'annotations:focus', payload: { document, annotationId: '' } })).toBe(false);
+    });
+
     it('accepts prompt library requests and rejects malformed save payloads', () => {
         expect(isExtRequest({
             v: PROTOCOL_VERSION,

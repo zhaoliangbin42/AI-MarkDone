@@ -48,9 +48,10 @@ import type { BookmarkSaveDialogPort, SaveMessagesDialogPort } from '../ContentD
 import { resolveMessageKey, stripHash } from './messageToolbarKeys';
 import { getChatGPTConversationIndex } from '../../../drivers/content/chatgpt/ChatGPTConversationIndex';
 import type {
-    ChatGPTConversationSource,
-    ChatGPTConversationState,
-} from '../../../drivers/content/chatgpt/types';
+    ConversationContentSourceV1,
+    ConversationContentStateV1,
+} from '../../../contracts/conversationContent';
+import type { ConversationMaterializationPortV1 } from '../../../contracts/conversationMaterialization';
 import { navigateChatGPTDirectoryTarget } from '../chatgptDirectory/navigation';
 import {
     presentImageExportProgress,
@@ -132,7 +133,8 @@ export class MessageToolbarOrchestrator {
     private readerPanel: ReaderPanelPort;
     private sendController: SendController | null = null;
     private bookmarksController: BookmarksPanelController | null = null;
-    private chatGptConversationSource: ChatGPTConversationSource | null = null;
+    private conversationContentSource: ConversationContentSourceV1 | null = null;
+    private conversationMaterialization: ConversationMaterializationPortV1 | null = null;
     private behavior: MessageToolbarBehaviorFlags = {
         showMessageToolbar: true,
         showSaveMessages: true,
@@ -151,6 +153,8 @@ export class MessageToolbarOrchestrator {
     private chatGptToolbarRecoveryTimer: number | null = null;
     private currentReaderItemByMessageKey = new Map<string, Promise<FreshReaderItemResult | null>>();
     private conversationSnapshotRevision = 0;
+    private lastConversationSemanticKey: string | null = null;
+    private lastConversationHadSnapshot = false;
     private intentionallyRemovedToolbarHosts = new WeakSet<HTMLElement>();
     private readonly saveMessagesDialog: SaveMessagesDialogPort | null;
     private readonly bookmarkSaveDialog: BookmarkSaveDialogPort | null;
@@ -215,12 +219,28 @@ export class MessageToolbarOrchestrator {
         this.clearReaderItemCache();
     }
 
-    private handleChatGptConversationState(state: ChatGPTConversationState): void {
-        const revision = ++this.conversationSnapshotRevision;
-        this.clearReaderItemCache();
-        if (this.saveMessagesDialog?.isOpen()) {
-            this.saveMessagesDialog.close();
+    private handleChatGptConversationState(state: ConversationContentStateV1): void {
+        // A content refresh reports a transient collecting state while keeping
+        // the same last-good snapshot. That state must not tear down an export
+        // dialog which is already presenting that snapshot.
+        const semanticKey = state.snapshot
+            ? `${state.document?.key ?? ''}:${state.snapshot.contentToken}`
+            : `missing:${state.document?.key ?? ''}:${state.kind}`;
+        const semanticChanged = semanticKey !== this.lastConversationSemanticKey;
+        if (semanticChanged) {
+            const shouldCloseDialog = Boolean(
+                this.saveMessagesDialog?.isOpen()
+                && (!state.snapshot || (this.lastConversationSemanticKey !== null && this.lastConversationHadSnapshot)),
+            );
+            this.lastConversationSemanticKey = semanticKey;
+            this.lastConversationHadSnapshot = Boolean(state.snapshot);
+            this.conversationSnapshotRevision += 1;
+            this.clearReaderItemCache();
+            if (shouldCloseDialog) {
+                this.saveMessagesDialog?.close();
+            }
         }
+        const revision = this.conversationSnapshotRevision;
         if (!state.snapshot) {
             for (const record of this.recordsByMessageKey.values()) {
                 record.toolbar.setActionActive('bookmark_toggle', false);
@@ -231,7 +251,8 @@ export class MessageToolbarOrchestrator {
         }
 
         const result = readCurrentReaderContent(this.adapter, null, {
-            chatGptConversationSource: this.chatGptConversationSource,
+            conversationContentSource: this.conversationContentSource,
+            conversationMaterialization: this.conversationMaterialization,
             pageUrl: this.getBookmarkPageUrl(),
         });
         const index = getChatGPTConversationIndex(this.adapter);
@@ -267,7 +288,8 @@ export class MessageToolbarOrchestrator {
 
     private async resolveCurrentReaderItemForElement(messageElement: HTMLElement): Promise<FreshReaderItemResult | null> {
         return collectFreshCurrentReaderItem(this.adapter, messageElement, {
-            chatGptConversationSource: this.chatGptConversationSource,
+            conversationContentSource: this.conversationContentSource,
+            conversationMaterialization: this.conversationMaterialization,
             pageUrl: this.getBookmarkPageUrl(),
         });
     }
@@ -316,14 +338,16 @@ export class MessageToolbarOrchestrator {
     }
 
     private captureCurrentSourceRevision(): ReaderContentSourceRevision | undefined {
-        if (this.adapter.getPlatformId() !== 'chatgpt' || !this.chatGptConversationSource) return undefined;
-        return readCurrentReaderContentSourceRevision(this.chatGptConversationSource);
+        if (this.adapter.getPlatformId() !== 'chatgpt') return undefined;
+        const source = this.conversationContentSource;
+        return source ? readCurrentReaderContentSourceRevision(source) : undefined;
     }
 
     private isSourceRevisionCurrent(expected: ReaderContentSourceRevision | undefined): boolean {
         if (this.adapter.getPlatformId() !== 'chatgpt') return true;
+        const source = this.conversationContentSource;
         return isReaderContentSourceRevisionCurrent(
-            this.chatGptConversationSource,
+            source,
             expected,
         );
     }
@@ -418,7 +442,8 @@ export class MessageToolbarOrchestrator {
 
     private async refreshConversationReader(messageElement: HTMLElement, ctx: ReaderPanelActionContext): Promise<void> {
         const result = await collectFreshReaderContent(this.adapter, null, {
-            chatGptConversationSource: this.chatGptConversationSource,
+            conversationContentSource: this.conversationContentSource,
+            conversationMaterialization: this.conversationMaterialization,
             pageUrl: this.getBookmarkPageUrl(),
         });
         const { items } = result;
@@ -496,7 +521,8 @@ export class MessageToolbarOrchestrator {
             readerPanel: ReaderPanelPort;
             sendController?: SendController;
             bookmarksController?: BookmarksPanelController;
-            chatGptConversationSource?: ChatGPTConversationSource;
+            conversationContentSource?: ConversationContentSourceV1 | null;
+            conversationMaterialization?: ConversationMaterializationPortV1 | null;
             saveMessagesDialog?: SaveMessagesDialogPort;
             bookmarkSaveDialog?: BookmarkSaveDialogPort;
             copyMessagePng?: typeof copyMessagePng;
@@ -506,7 +532,8 @@ export class MessageToolbarOrchestrator {
         this.readerPanel = opts.readerPanel;
         this.sendController = opts.sendController ?? null;
         this.bookmarksController = opts.bookmarksController || null;
-        this.chatGptConversationSource = opts.chatGptConversationSource ?? null;
+        this.conversationContentSource = opts.conversationContentSource ?? null;
+        this.conversationMaterialization = opts.conversationMaterialization ?? null;
         this.saveMessagesDialog = opts.saveMessagesDialog ?? null;
         this.bookmarkSaveDialog = opts.bookmarkSaveDialog ?? null;
         this.copyMessagePng = opts.copyMessagePng ?? null;
@@ -576,10 +603,10 @@ export class MessageToolbarOrchestrator {
         });
         if (
             this.adapter.getPlatformId() === 'chatgpt'
-            && this.chatGptConversationSource
+            && this.conversationContentSource
             && !this.unsubscribeConversationSnapshot
         ) {
-            this.unsubscribeConversationSnapshot = this.chatGptConversationSource.subscribe(
+            this.unsubscribeConversationSnapshot = this.conversationContentSource.subscribe(
                 (state) => this.handleChatGptConversationState(state),
             );
         }
@@ -605,6 +632,8 @@ export class MessageToolbarOrchestrator {
         }
         this.chatGptToolbarRecoveryAttemptsByMessageKey.clear();
         this.clearReaderItemCache();
+        this.lastConversationSemanticKey = null;
+        this.lastConversationHadSnapshot = false;
         this.clearAllToolbars();
     }
 
@@ -895,7 +924,8 @@ export class MessageToolbarOrchestrator {
                 const guard = this.guardMessageReady(messageElement);
                 if (guard) return guard;
                 const itemsResult = await collectFreshReaderContent(this.adapter, messageElement, {
-                    chatGptConversationSource: this.chatGptConversationSource,
+                    conversationContentSource: this.conversationContentSource,
+                    conversationMaterialization: this.conversationMaterialization,
                     pageUrl: this.getBookmarkPageUrl(),
                 });
                 const { items, startIndex } = itemsResult;
@@ -924,10 +954,14 @@ export class MessageToolbarOrchestrator {
                 onClick: async () => {
                     const guard = this.guardMessageReady(messageElement);
                     if (guard) return guard;
-                    await this.saveMessagesDialog!.open(this.adapter, this.appearance.theme, {
-                        chatGptConversationSource: this.chatGptConversationSource,
+                    const opened = await this.saveMessagesDialog!.open(this.adapter, this.appearance.theme, {
+                        conversationContentSource: this.conversationContentSource,
+                        conversationMaterialization: this.conversationMaterialization,
                         startMessageElement: messageElement,
                     });
+                    if (opened === false) {
+                        return { ok: false, message: t('contentNotFound') };
+                    }
                 },
             });
         }
@@ -1252,7 +1286,7 @@ export class MessageToolbarOrchestrator {
     private refreshBookmarkStateForToolbar(toolbar: MessageToolbar, messageElement: HTMLElement, fallbackPosition: number): void {
         if (!this.bookmarksController) return;
         const url = this.getBookmarkPageUrl();
-        if (this.adapter.getPlatformId() !== 'chatgpt' || !this.chatGptConversationSource) {
+                if (this.adapter.getPlatformId() !== 'chatgpt' || !this.conversationContentSource) {
             const active = this.bookmarksController.isPositionBookmarked(url, fallbackPosition);
             toolbar.setActionActive('bookmark_toggle', active);
             return;
@@ -1285,7 +1319,8 @@ export class MessageToolbarOrchestrator {
             const index = getChatGPTConversationIndex(this.adapter);
             const indexedRound = index.resolveRoundForElement(messageElement);
             const result = readCurrentReaderContent(this.adapter, null, {
-                chatGptConversationSource: this.chatGptConversationSource,
+                conversationContentSource: this.conversationContentSource,
+                conversationMaterialization: this.conversationMaterialization,
                 pageUrl: this.getBookmarkPageUrl(),
             });
             const item = indexedRound

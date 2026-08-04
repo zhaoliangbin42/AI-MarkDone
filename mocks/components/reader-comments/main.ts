@@ -6,7 +6,10 @@ import { createIcon } from '../../../src/ui/content/components/Icon';
 import { getMarkdownThemeCss } from '../../../src/services/renderer/markdownTheme';
 import { ReaderCommentPopover } from '../../../src/ui/content/reader/ReaderCommentPopover';
 import { ReaderCommentListPopover } from '../../../src/ui/content/reader/ReaderCommentListPopover';
+import { ReaderAnnotationManagerPopover } from '../../../src/ui/content/reader/ReaderAnnotationManagerPopover';
+import { getReaderSurfaceCss } from '../../../src/ui/content/reader/ReaderRendering';
 import { ModalHost } from '../../../src/ui/content/components/ModalHost';
+import type { ReaderAnnotationDocument, ReaderAnnotationListEntry } from '../../../src/contracts/readerAnnotations';
 import { renderMarkdownForReader, type ReaderAtomicUnit } from '../../../src/services/renderer/renderMarkdown';
 import {
     annotateRenderedAtomicUnits,
@@ -57,6 +60,12 @@ type CommentPromptState = {
 };
 
 const SCOPE_ID = 'mock-reader-comments-v1';
+const MOCK_ANNOTATION_DOCUMENT: ReaderAnnotationDocument = {
+    platform: 'chatgpt',
+    conversationId: 'visual-conversation-1',
+    title: 'Reader annotation visual fixture',
+    lastKnownUrl: 'https://chatgpt.com/c/visual-conversation-1',
+};
 
 const items: MockItem[] = [
     {
@@ -353,6 +362,7 @@ class ReaderCommentsMock {
     private selectionRange: Range | null = null;
     private commentPopover = new ReaderCommentPopover();
     private commentListPopover = new ReaderCommentListPopover();
+    private annotationManagerPopover = new ReaderAnnotationManagerPopover();
     private modalHost: ModalHost | null = null;
     private commentSortMode: 'created' | 'position' = 'created';
     private visible = true;
@@ -461,6 +471,7 @@ class ReaderCommentsMock {
         host.appendChild(shadowHost);
         const shadow = shadowHost.attachShadow({ mode: 'open' });
         ensureStyle(shadow, getTokenCss(this.theme), { id: 'aimd-reader-comments-tokens' });
+        ensureStyle(shadow, getReaderSurfaceCss(), { id: 'aimd-reader-production-surface', cache: 'shared' });
         ensureStyle(shadow, getCommentsMockCss(), { id: 'aimd-reader-comments-base', cache: 'shared' });
         const katex = document.createElement('link');
         katex.rel = 'stylesheet';
@@ -509,7 +520,7 @@ class ReaderCommentsMock {
             clearReaderCommentScope(this.scopeId);
             this.renderComments();
         });
-        this.shadow.querySelector<HTMLButtonElement>('.list-comments')?.addEventListener('click', () => this.openCommentList());
+        this.shadow.querySelector<HTMLButtonElement>('.list-comments')?.addEventListener('click', () => this.openAnnotationManager());
 
         this.renderMarkdown();
         document.addEventListener('selectionchange', this.onSelectionChange);
@@ -522,6 +533,7 @@ class ReaderCommentsMock {
         if (this.shadow) {
             this.commentPopover.destroy();
             this.commentListPopover.close();
+            this.annotationManagerPopover.close();
         }
         document.removeEventListener('selectionchange', this.onSelectionChange);
         document.removeEventListener('pointerup', this.onSelectionChange);
@@ -569,7 +581,7 @@ class ReaderCommentsMock {
 
         const comments = listReaderComments(this.scopeId, this.item.id);
         const listButton = this.shadow.querySelector<HTMLButtonElement>('.list-comments');
-        if (listButton) listButton.disabled = comments.length < 1;
+        if (listButton) listButton.disabled = false;
         const occupiedAnchorTops: number[] = [];
         for (const record of comments) {
             const resolved = resolveReaderCommentAnchor(this.markdownRoot, record);
@@ -639,6 +651,106 @@ class ReaderCommentsMock {
                 });
                 this.renderComments();
             },
+        });
+    }
+
+    private annotationEntries(): ReaderAnnotationListEntry[] {
+        return listReaderComments(this.scopeId, this.item.id).map((record, index) => ({
+            document: MOCK_ANNOTATION_DOCUMENT,
+            annotation: {
+                ...record,
+                target: { assistantMessageId: `visual-assistant-${index + 1}`, position: index + 1 },
+                revision: record.revision ?? 1,
+                lastKnownAnchorState: record.lastKnownAnchorState ?? 'anchored',
+            },
+        }));
+    }
+
+    private openAnnotationManager(): void {
+        if (!this.shadow || !this.modalHost) return;
+        const zh = document.documentElement.lang === 'zh-CN';
+        const currentEntries = this.annotationEntries();
+        const otherEntry: ReaderAnnotationListEntry = {
+            document: {
+                platform: 'chatgpt',
+                conversationId: 'visual-conversation-2',
+                title: zh ? '另一个用于验证分组的较长会话标题' : 'A second conversation with a longer title for grouping',
+                lastKnownUrl: 'https://chatgpt.com/c/visual-conversation-2',
+            },
+            annotation: {
+                id: 'visual-other-annotation',
+                itemId: 'visual-other-item',
+                target: { assistantMessageId: 'visual-other-assistant', position: 4 },
+                quoteText: zh ? '这是来自另一个会话、用于验证全局管理面板的摘录。' : 'A second conversation quote used by the manager fixture.',
+                sourceMarkdown: zh ? '这是来自另一个会话、用于验证全局管理面板的摘录。' : 'A second conversation quote used by the manager fixture.',
+                comment: zh ? '这是一条跨会话注释。' : 'A cross-conversation annotation row.',
+                selectors: {
+                    textQuote: { exact: 'A second conversation quote used by the manager fixture.', prefix: '', suffix: '' },
+                    textPosition: { start: 0, end: 56 },
+                    domRange: null,
+                    atomicRefs: [],
+                },
+                createdAt: 200,
+                updatedAt: 200,
+                revision: 1,
+                lastKnownAnchorState: 'unanchored',
+            },
+        };
+        this.annotationManagerPopover.open({
+            shadow: this.shadow,
+            modalHost: this.modalHost,
+            appearance: createAppearanceSnapshot(this.theme),
+            currentDocument: MOCK_ANNOTATION_DOCUMENT,
+            currentEntries,
+            loadAll: async () => [...currentEntries, otherEntry],
+            labels: zh ? {
+                title: '注释', close: '关闭', current: '当前会话', all: '全部注释', search: '搜索注释',
+                byConversation: '按会话', timeline: '时间线', empty: '还没有注释。', loading: '正在加载注释…', error: '无法加载注释。',
+                quote: '所选内容', comment: '注释', updated: '更新于', reply: '回复', unanchored: '未定位', delete: '删除',
+                bulkEdit: '批量编辑', bulkCancel: '取消批量编辑', selectAll: '全选', deleteSelected: '删除所选',
+                persistence: '持久化注释', persistenceTooltip: '开启后，新注释会持久化保存，关闭浏览器也不会消失，但建议定期清理。',
+            } : {
+                title: 'Annotations', close: 'Close', current: 'Current conversation', all: 'All annotations', search: 'Search annotations',
+                byConversation: 'By conversation', timeline: 'Timeline', empty: 'No annotations yet.', loading: 'Loading annotations…', error: 'Could not load annotations.',
+                quote: 'Selected content', comment: 'Annotation', updated: 'Updated', reply: 'Reply', unanchored: 'Not located', delete: 'Delete',
+                bulkEdit: 'Bulk edit', bulkCancel: 'Cancel bulk edit', selectAll: 'Select all', deleteSelected: 'Delete selected',
+                persistence: 'Persist annotations', persistenceTooltip: 'When enabled, new annotations are saved locally and remain after you close the browser, but consider cleaning them up regularly.',
+            },
+            onSelect: (entry) => {
+                if (entry.document.conversationId !== MOCK_ANNOTATION_DOCUMENT.conversationId) {
+                    this.copyFeedback = 'Exact conversation navigation is represented in the production Reader.';
+                    this.renderComments();
+                    return;
+                }
+                const record = listReaderComments(this.scopeId, this.item.id).find((candidate) => candidate.id === entry.annotation.id);
+                if (record) this.openCommentPopover({
+                    mode: 'edit',
+                    initialText: record.comment,
+                    selectedSource: record.sourceMarkdown,
+                    onSave: (value) => {
+                        saveReaderComment(this.scopeId, { ...record, comment: value, updatedAt: Date.now() });
+                        this.renderComments();
+                    },
+                });
+            },
+            onDelete: async (entry) => {
+                if (entry.document.conversationId === MOCK_ANNOTATION_DOCUMENT.conversationId) {
+                    removeReaderComment(this.scopeId, entry.annotation.itemId, entry.annotation.id);
+                    this.renderComments();
+                }
+                return true;
+            },
+            onDeleteMany: async (entries) => {
+                entries.forEach((entry) => {
+                    if (entry.document.conversationId === MOCK_ANNOTATION_DOCUMENT.conversationId) {
+                        removeReaderComment(this.scopeId, entry.annotation.itemId, entry.annotation.id);
+                    }
+                });
+                this.renderComments();
+                return true;
+            },
+            persistenceEnabled: false,
+            onPersistenceChange: () => undefined,
         });
     }
 
@@ -788,6 +900,45 @@ class ReaderCommentsMock {
 
     prepareForAudit(): void {
         const zh = document.documentElement.lang === 'zh-CN';
+        clearReaderCommentScope(this.scopeId);
+        const sourceMarkdown = zh
+            ? `${'前文摘录'.repeat(18)}这里是中间会被省略的内容${'后文摘录'.repeat(18)}`
+            : `${'Opening context for the annotation. '.repeat(5)}The omitted middle stays compact.${' Closing context for the annotation.'.repeat(5)}`;
+        saveReaderComment(this.scopeId, {
+            id: 'visual-persisted-annotation',
+            itemId: this.item.id,
+            quoteText: sourceMarkdown,
+            sourceMarkdown,
+            comment: zh ? '这条已保存的注释在开关关闭时仍然展示。' : 'This saved annotation remains visible while the switch is off.',
+            selectors: {
+                textQuote: { exact: sourceMarkdown, prefix: '', suffix: '' },
+                textPosition: { start: 0, end: sourceMarkdown.length },
+                domRange: null,
+                atomicRefs: [],
+            },
+            createdAt: 1_753_689_600_000,
+            updatedAt: 1_753_689_600_000,
+            revision: 2,
+            lastKnownAnchorState: 'anchored',
+        });
+        saveReaderComment(this.scopeId, {
+            id: 'visual-unanchored-annotation',
+            itemId: this.item.id,
+            quoteText: zh ? '无法重新定位但仍然保留的摘录。' : 'A quote that can no longer be located but remains available.',
+            sourceMarkdown: zh ? '无法重新定位但仍然保留的摘录。' : 'A quote that can no longer be located but remains available.',
+            comment: zh ? '来源变化后仍保留这条注释。' : 'Keep this annotation even after its source changes.',
+            selectors: {
+                textQuote: { exact: '', prefix: '', suffix: '' },
+                textPosition: { start: null, end: null },
+                domRange: null,
+                atomicRefs: [],
+            },
+            createdAt: 1_753_689_700_000,
+            updatedAt: 1_753_689_700_000,
+            revision: 1,
+            lastKnownAnchorState: 'unanchored',
+        });
+        this.renderComments();
         this.openCommentPopover({
             mode: 'create',
             initialText: zh ? '这里是一段用于检查长文案与短视口布局的批注。' : 'A concise annotation for long-copy and short-viewport checks.',
@@ -796,6 +947,7 @@ class ReaderCommentsMock {
                 : 'A longer selected passage used to verify the anchored comment surface across narrow layouts, themes, and zoom.',
             onSave: () => undefined,
         });
+        this.openAnnotationManager();
     }
 
     private syncStatus(currentSelection: SelectionState | undefined, comments: ReaderCommentRecord[]): void {
@@ -859,7 +1011,10 @@ installVisualHarnessBridge({
     },
     getState: () => ({
         ...visualVariant,
-        expectedOpenSurfaces: [{ role: 'reader-comment-popover', count: 1 }],
+        expectedOpenSurfaces: [
+            { role: 'reader-comment-popover', count: 1 },
+            { role: 'reader-annotation-manager', count: 1 },
+        ],
         localeEvidence: document.querySelector('h1')?.textContent ?? '',
     }),
 });

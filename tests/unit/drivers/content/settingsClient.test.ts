@@ -44,7 +44,6 @@ describe('SettingsClient', () => {
                 clickCopyMarkdown: true,
                 clickCopyFormulaFormat: 'markdown-dollar',
                 markdownCopyFormulaFormat: 'markdown-dollar',
-                richCopyFormulaFormat: 'markdown-dollar',
                 assetFontSizePx: 36,
                 assetActions: {
                     copyPng: true,

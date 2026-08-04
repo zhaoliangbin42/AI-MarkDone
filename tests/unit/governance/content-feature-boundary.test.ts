@@ -25,7 +25,6 @@ describe('content feature bundle boundary', () => {
             '../../services/copy/copy-turn-png',
             '../../../services/math/formulaAssetActions',
             '../../../services/math/formulaAssetRenderer',
-            '../../services/copy/atomicSelectionRichHtml',
         ];
 
         for (const source of startupSources) {
@@ -54,7 +53,6 @@ describe('content feature bundle boundary', () => {
             '../../services/copy/copy-turn-png',
             '../../services/math/formulaAssetActions',
             '../../services/math/formulaAssetRenderer',
-            '../../services/copy/atomicSelectionRichHtml',
         ];
 
         const imports = runtimeImportSpecifiers(source);
@@ -67,7 +65,6 @@ describe('content feature bundle boundary', () => {
         expect(source).toContain("await import('../../services/copy/copy-turn-png')");
         expect(source).toContain("await import('../../services/math/formulaAssetActions')");
         expect(source).toContain("await import('../../services/math/formulaAssetRenderer')");
-        expect(source).toContain("await import(\n        '../../services/copy/atomicSelectionRichHtml'\n    )");
     });
 
     it('makes the production entry gate execute and validate the feature facade exports', () => {
@@ -82,7 +79,6 @@ describe('content feature bundle boundary', () => {
             'copyMessagePng',
             'runFormulaAssetAction',
             'renderFormulaSvgAsset',
-            'buildCanonicalMarkdownRichPayload',
         ]) {
             expect(source).toContain(exportName);
         }

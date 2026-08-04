@@ -164,15 +164,30 @@ function isTextOffsetExcludedUnitTextNode(node: Node): boolean {
         || kind === 'thematic-break';
 }
 
-function buildTextQuote(root: HTMLElement, exact: string): ReaderCommentTextQuoteSelector {
+function buildTextQuote(root: HTMLElement, exact: string, startHint: number | null): ReaderCommentTextQuoteSelector {
     const fullText = collectVisibleText(root);
     const trimmed = exact.trim();
     if (!trimmed) return { exact: '', prefix: '', suffix: '' };
 
-    const index = fullText.indexOf(trimmed);
+    const hint = typeof startHint === 'number' && Number.isFinite(startHint)
+        ? Math.max(0, Math.min(startHint, fullText.length))
+        : null;
+    let index = -1;
+    if (hint !== null) {
+        const candidates: number[] = [];
+        let searchFrom = 0;
+        while (searchFrom <= fullText.length) {
+            const candidate = fullText.indexOf(trimmed, searchFrom);
+            if (candidate < 0) break;
+            candidates.push(candidate);
+            searchFrom = candidate + Math.max(1, trimmed.length);
+        }
+        index = candidates.sort((left, right) => Math.abs(left - hint) - Math.abs(right - hint))[0] ?? -1;
+    }
+    if (index < 0) index = fullText.indexOf(trimmed);
     if (index < 0) return { exact: trimmed, prefix: '', suffix: '' };
 
-    const radius = 32;
+    const radius = 50;
     return {
         exact: trimmed,
         prefix: fullText.slice(Math.max(0, index - radius), index),
@@ -309,6 +324,64 @@ function resolveAtomicRef(root: HTMLElement, ref: ReaderCommentAtomicRef): Selec
     };
 }
 
+function resolveTextOffset(root: HTMLElement, offset: number): { node: Text; offset: number } | null {
+    const target = Math.max(0, offset);
+    const walker = document.createTreeWalker(root, NodeFilter.SHOW_TEXT, {
+        acceptNode(node) {
+            if (!node.textContent || isTextOffsetExcludedUnitTextNode(node)) return NodeFilter.FILTER_REJECT;
+            return NodeFilter.FILTER_ACCEPT;
+        },
+    });
+    let consumed = 0;
+    let last: Text | null = null;
+    while (walker.nextNode()) {
+        const node = walker.currentNode as Text;
+        last = node;
+        const length = node.data.length;
+        if (target <= consumed + length) return { node, offset: target - consumed };
+        consumed += length;
+    }
+    return last ? { node: last, offset: last.data.length } : null;
+}
+
+function createRangeFromTextOffsets(root: HTMLElement, start: number | null, end: number | null): Range | null {
+    if (start === null || end === null || start < 0 || end < start) return null;
+    const startPoint = resolveTextOffset(root, start);
+    const endPoint = resolveTextOffset(root, end);
+    if (!startPoint || !endPoint) return null;
+    const range = document.createRange();
+    try {
+        range.setStart(startPoint.node, startPoint.offset);
+        range.setEnd(endPoint.node, endPoint.offset);
+        return range;
+    } catch {
+        return null;
+    }
+}
+
+function rangeMatchesQuote(range: Range | null, quoteText: string): boolean {
+    return Boolean(range && range.toString().trim() === quoteText.trim());
+}
+
+function resolveTextQuoteRange(root: HTMLElement, selector: ReaderCommentTextQuoteSelector): Range | null {
+    const exact = selector.exact.trim();
+    if (!exact) return null;
+    const fullText = collectVisibleText(root);
+    const candidates: number[] = [];
+    let searchFrom = 0;
+    while (searchFrom <= fullText.length) {
+        const index = fullText.indexOf(exact, searchFrom);
+        if (index < 0) break;
+        const prefixMatches = !selector.prefix || fullText.slice(Math.max(0, index - selector.prefix.length), index) === selector.prefix;
+        const suffixStart = index + exact.length;
+        const suffixMatches = !selector.suffix || fullText.slice(suffixStart, suffixStart + selector.suffix.length) === selector.suffix;
+        if (prefixMatches && suffixMatches) candidates.push(index);
+        searchFrom = index + Math.max(1, exact.length);
+    }
+    if (candidates.length !== 1) return null;
+    return createRangeFromTextOffsets(root, candidates[0], candidates[0] + exact.length);
+}
+
 export function resolveSelectionLayout(params: {
     root: HTMLElement;
     range: Range | null;
@@ -349,9 +422,10 @@ export function captureCommentSelectors(params: {
     selectedUnits: SelectedAtomicUnit[];
 }): ReaderCommentSelectors {
     const quoteText = params.range.toString();
+    const textPosition = buildTextPosition(params.root, params.range);
     return {
-        textQuote: buildTextQuote(params.root, quoteText),
-        textPosition: buildTextPosition(params.root, params.range),
+        textQuote: buildTextQuote(params.root, quoteText, textPosition.start),
+        textPosition,
         domRange: createDomRange(params.root, params.range),
         atomicRefs: params.selectedUnits.map((unit) => ({
             kind: unit.kind,
@@ -391,9 +465,39 @@ export function createReaderCommentRecord(params: {
 }
 
 export function resolveReaderCommentAnchor(root: HTMLElement, record: ReaderCommentRecord): ReaderCommentResolvedAnchor {
-    const range = restoreDomRange(root, record.selectors.domRange);
-    const units = record.selectors.atomicRefs
-        .map((ref) => resolveAtomicRef(root, ref))
-        .filter((value): value is SelectedAtomicUnit => Boolean(value));
-    return resolveSelectionLayout({ root, range, selectedUnits: units });
+    const domRange = restoreDomRange(root, record.selectors.domRange);
+    const atomicRefs = record.selectors.atomicRefs ?? [];
+    const atomicUnits = atomicRefs
+        .map((ref) => resolveAtomicRef(root, ref));
+    const atomicQuoteValidated = !record.quoteText.trim() || rangeMatchesQuote(domRange, record.quoteText);
+    if (atomicRefs.length > 0 && atomicUnits.every(Boolean) && atomicQuoteValidated) {
+        return resolveSelectionLayout({
+            root,
+            range: rangeMatchesQuote(domRange, record.quoteText) ? domRange : null,
+            selectedUnits: atomicUnits.filter((value): value is SelectedAtomicUnit => Boolean(value)),
+        });
+    }
+    if (rangeMatchesQuote(domRange, record.quoteText)) {
+        return resolveSelectionLayout({
+            root,
+            range: domRange,
+            selectedUnits: [],
+        });
+    }
+
+    const positionRange = createRangeFromTextOffsets(
+        root,
+        record.selectors.textPosition.start,
+        record.selectors.textPosition.end,
+    );
+    if (rangeMatchesQuote(positionRange, record.quoteText)) {
+        return resolveSelectionLayout({ root, range: positionRange, selectedUnits: [] });
+    }
+
+    const quoteRange = resolveTextQuoteRange(root, record.selectors.textQuote);
+    if (rangeMatchesQuote(quoteRange, record.quoteText)) {
+        return resolveSelectionLayout({ root, range: quoteRange, selectedUnits: [] });
+    }
+
+    return { range: null, units: [], rects: [], unionRect: null };
 }

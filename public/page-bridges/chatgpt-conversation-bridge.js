@@ -462,10 +462,57 @@
     };
   }
 
+  async function acquireSnapshot(conversationId) {
+    const controller = new AbortController();
+    const timeoutId = window.setTimeout(() => controller.abort(), 3000);
+    try {
+      const response = await window.fetch(
+        `/backend-api/conversation/${encodeURIComponent(conversationId)}`,
+        { method: 'GET', signal: controller.signal },
+      );
+      if (!response?.ok) {
+        return {
+          snapshot: null,
+          error: {
+            code: `HTTP_${response?.status || 0}`,
+            retryable: response?.status === 408
+              || response?.status === 425
+              || response?.status === 500
+              || response?.status === 502
+              || response?.status === 503
+              || response?.status === 504,
+          },
+        };
+      }
+      const contentType = response.headers?.get?.('content-type') || '';
+      if (contentType && !contentType.toLowerCase().includes('json')) {
+        return { snapshot: null, error: { code: 'INVALID_CONTENT_TYPE', retryable: false } };
+      }
+      const payload = await response.json();
+      if (!rememberObservedPayload(conversationId, payload, ++bridgeState.requestSequence)) {
+        return { snapshot: null, error: { code: 'INVALID_PAYLOAD', retryable: false } };
+      }
+      const snapshot = getSnapshot(conversationId);
+      return snapshot
+        ? { snapshot, error: undefined }
+        : { snapshot: null, error: { code: 'INVALID_PAYLOAD', retryable: false } };
+    } catch (error) {
+      return {
+        snapshot: null,
+        error: {
+          code: controller.signal.aborted ? 'SOURCE_TIMEOUT' : 'SOURCE_UNAVAILABLE',
+          retryable: true,
+        },
+      };
+    } finally {
+      window.clearTimeout(timeoutId);
+    }
+  }
+
   const handleSnapshotRequest = (event) => {
     const rawDetail = event instanceof CustomEvent ? event.detail : null;
     const detail = decodeBridgeDetail(rawDetail);
-    if (!detail || detail.type !== 'snapshot') return;
+    if (!detail || !['snapshot', 'peek', 'acquire'].includes(detail.type)) return;
     const requestWasString = typeof rawDetail === 'string';
     const respond = (payload) => {
       window.dispatchEvent(new CustomEvent(RESPONSE_EVENT, {
@@ -473,14 +520,19 @@
       }));
     };
 
-    Promise.resolve()
-      .then(() => getSnapshot(detail.conversationId))
-      .then((snapshot) => {
+    const result = detail.type === 'acquire'
+      ? acquireSnapshot(detail.conversationId)
+      : Promise.resolve({ snapshot: getSnapshot(detail.conversationId), error: undefined });
+
+    Promise.resolve(result)
+      .then(({ snapshot, error }) => {
         respond({
           requestId: detail.requestId,
           ok: Boolean(snapshot),
           snapshot: snapshot || undefined,
-          error: snapshot ? undefined : { code: 'BRIDGE_UNAVAILABLE', message: 'ChatGPT runtime bridge unavailable.' },
+          error: snapshot
+            ? undefined
+            : error || { code: 'BRIDGE_UNAVAILABLE', message: 'ChatGPT runtime bridge unavailable.' },
         });
       })
       .catch((error) => {

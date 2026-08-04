@@ -37,7 +37,6 @@ import {
     DEFAULT_FORMULA_SETTINGS,
     normalizeFormulaAssetFontSizePx,
     normalizeLegacyClickCopyFormulaFormat,
-    normalizeFormulaRichCopyFormat,
     type FormulaSettings,
 } from './formula';
 import { normalizeFormulaSourceFormat } from '../math/formulaSourceFormat';
@@ -80,7 +79,6 @@ export function normalizeFormulaSettings(formula: unknown, legacyBehavior?: unkn
         clickCopyMarkdown: Boolean((record as any).clickCopyMarkdown ?? fallbackClickCopyMarkdown),
         clickCopyFormulaFormat: normalizeLegacyClickCopyFormulaFormat(record),
         markdownCopyFormulaFormat: normalizeFormulaSourceFormat((record as any).markdownCopyFormulaFormat),
-        richCopyFormulaFormat: normalizeFormulaRichCopyFormat((record as any).richCopyFormulaFormat),
         assetActions: {
             copyPng: Boolean((assetActions as any).copyPng ?? DEFAULT_FORMULA_SETTINGS.assetActions.copyPng),
             copySvg: Boolean((assetActions as any).copySvg ?? DEFAULT_FORMULA_SETTINGS.assetActions.copySvg),
@@ -170,7 +168,10 @@ export function normalizeChatGPTBehaviorSettings(value: unknown): AppSettings['c
     const record = isRecord(value) ? value : {};
     return {
         restorePositionAfterSend: Boolean((record as any).restorePositionAfterSend ?? DEFAULT_SETTINGS.chatgptBehavior.restorePositionAfterSend),
-        atomicMarkdownCopy: Boolean((record as any).atomicMarkdownCopy ?? DEFAULT_SETTINGS.chatgptBehavior.atomicMarkdownCopy),
+        atomicMarkdownCopyShortcut: normalizeChatGPTAtomicMarkdownCopyShortcut(
+            (record as any).atomicMarkdownCopyShortcut,
+            (record as any).atomicMarkdownCopy,
+        ),
         inputEnhancement: normalizeChatGPTInputEnhancementSettings(record.inputEnhancement, record),
         showMessageStepper: Boolean((record as any).showMessageStepper ?? DEFAULT_SETTINGS.chatgptBehavior.showMessageStepper),
         showPageBookmarkControl: Boolean((record as any).showPageBookmarkControl ?? DEFAULT_SETTINGS.chatgptBehavior.showPageBookmarkControl),
@@ -180,6 +181,16 @@ export function normalizeChatGPTBehaviorSettings(value: unknown): AppSettings['c
         enableArrowKeyMessageNavigation: Boolean((record as any).enableArrowKeyMessageNavigation ?? DEFAULT_SETTINGS.chatgptBehavior.enableArrowKeyMessageNavigation),
         pageWidthScale: normalizeChatGPTPageWidthScale((record as any).pageWidthScale),
     };
+}
+
+export function normalizeChatGPTAtomicMarkdownCopyShortcut(
+    value: unknown,
+    legacyValue?: unknown,
+): AppSettings['chatgptBehavior']['atomicMarkdownCopyShortcut'] {
+    if (value === 'none' || value === 'mod-c' || value === 'mod-shift-c') return value;
+    if (legacyValue === true) return 'mod-c';
+    if (legacyValue === false) return 'none';
+    return DEFAULT_SETTINGS.chatgptBehavior.atomicMarkdownCopyShortcut;
 }
 
 export function normalizeChatGPTPageWidthScale(value: unknown): number {
@@ -266,6 +277,7 @@ export function mergeWithDefaults(stored: AppSettings): AppSettings {
         reader: {
             renderCodeInReader: Boolean((stored.reader as any)?.renderCodeInReader ?? DEFAULT_SETTINGS.reader.renderCodeInReader),
             showOutlineInReader: Boolean((stored.reader as any)?.showOutlineInReader ?? DEFAULT_SETTINGS.reader.showOutlineInReader),
+            persistAnnotations: Boolean((stored.reader as any)?.persistAnnotations ?? DEFAULT_SETTINGS.reader.persistAnnotations),
             defaultOpenMode: normalizeReaderOpenMode((stored.reader as any)?.defaultOpenMode),
             panelSizeRatio: normalizeReaderPanelSizeRatio((stored.reader as any)?.panelSizeRatio),
             bodyFontSizePx: normalizeReaderBodyFontSizePx((stored.reader as any)?.bodyFontSizePx),
@@ -300,6 +312,7 @@ export function migrateFromV1(v1: unknown): AppSettings {
     const platforms = isRecord(rec.platforms) ? rec.platforms : {};
     const behavior = isRecord(rec.behavior) ? rec.behavior : {};
     const storage = isRecord((rec as any).storage) ? (rec as any).storage : {};
+    const reader = isRecord((rec as any).reader) ? (rec as any).reader : {};
 
     return {
         version: DEFAULT_SETTINGS.version,
@@ -313,6 +326,7 @@ export function migrateFromV1(v1: unknown): AppSettings {
             ...DEFAULT_SETTINGS.reader,
             renderCodeInReader: Boolean((behavior as any).renderCodeInReader ?? true),
             showOutlineInReader: Boolean((behavior as any).showOutlineInReader ?? DEFAULT_SETTINGS.reader.showOutlineInReader),
+            persistAnnotations: Boolean((reader as any).persistAnnotations ?? DEFAULT_SETTINGS.reader.persistAnnotations),
             defaultOpenMode: normalizeReaderOpenMode((behavior as any).defaultOpenMode),
             panelSizeRatio: normalizeReaderPanelSizeRatio((behavior as any).panelSizeRatio),
             bodyFontSizePx: normalizeReaderBodyFontSizePx((behavior as any).bodyFontSizePx),
@@ -352,6 +366,7 @@ export function migrateFromV2(v2: unknown): AppSettings {
         reader: {
             renderCodeInReader: Boolean((reader as any).renderCodeInReader ?? DEFAULT_SETTINGS.reader.renderCodeInReader),
             showOutlineInReader: Boolean((reader as any).showOutlineInReader ?? DEFAULT_SETTINGS.reader.showOutlineInReader),
+            persistAnnotations: Boolean((reader as any).persistAnnotations ?? DEFAULT_SETTINGS.reader.persistAnnotations),
             defaultOpenMode: normalizeReaderOpenMode((reader as any).defaultOpenMode),
             panelSizeRatio: normalizeReaderPanelSizeRatio((reader as any).panelSizeRatio),
             bodyFontSizePx: normalizeReaderBodyFontSizePx((reader as any).bodyFontSizePx),

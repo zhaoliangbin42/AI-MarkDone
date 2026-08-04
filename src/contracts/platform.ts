@@ -1,3 +1,5 @@
+import { isChatGPTPageHostname } from './chatgptHosts';
+
 export type PlatformId = 'chatgpt' | 'unknown';
 
 export function platformDisplayName(id: PlatformId): string {
@@ -10,8 +12,7 @@ export function platformDisplayName(id: PlatformId): string {
 }
 
 export function detectPlatformId(hostname: string): PlatformId {
-    const h = hostname.toLowerCase();
-    if (h === 'chat.openai.com' || h.endsWith('.chat.openai.com') || h === 'chatgpt.com' || h.endsWith('.chatgpt.com')) return 'chatgpt';
+    if (isChatGPTPageHostname(hostname)) return 'chatgpt';
     return 'unknown';
 }
 

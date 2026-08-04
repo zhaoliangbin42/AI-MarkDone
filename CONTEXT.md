@@ -44,3 +44,22 @@ Both master switches preserve child values when disabled. Effective capability s
 - **Conversation Reader binding**: the source-only subscription that keeps the in-page Reader aligned with published revisions. It never discovers DOM turns or calls `ensureReady`, and it closes the Reader when canonical content is withdrawn.
 - **Materialization**: the host-controlled act of mounting a conversation round into the current ChatGPT DOM window. Materialization may add or remove anchors, but it never changes the Canonical conversation snapshot's round count or order.
 - **Round identity**: typed `userMessageId`, `assistantMessageId`, and graph round/node aliases used to join semantic rounds to materialized anchors. Prompt text and DOM-local position are presentation data, never identity.
+- **Conversation Content Port V1**: the frozen semantic `read / subscribe / refresh / isCurrent` boundary that publishes one immutable, typed conversation snapshot to every ChatGPT content consumer. It never exposes DOM, selectors, provider payloads, transport, or route epochs.
+- **Conversation Materialization Port V1**: the content-runtime-only projection of the current DOM window into typed message targets. Virtualization and remounts may change materialization anchors without changing semantic content or its token.
+- **Reconcile**: the single coalesced coordinator entry point for bootstrap, route, `pageshow`, PageIndex, passive bridge, and explicit refresh signals. It owns one epoch, one in-flight acquisition, and stale-result rejection.
+- **Content token**: the immutable semantic snapshot token. It changes only when document identity, typed order/identity, or Markdown changes; state transitions and DOM remounts do not manufacture a new token.
+
+## ChatGPT Atomic Selection Copy
+
+- **Atomic Markdown shortcut**: `chatgptBehavior.atomicMarkdownCopyShortcut` is the only ChatGPT direct-selection Markdown copy control. It is `none`, `mod-c` (`Ctrl/Cmd+C`), or `mod-shift-c` (`Ctrl/Cmd+Shift+C`); fresh installs default to `mod-shift-c`, while legacy `atomicMarkdownCopy` values migrate to `mod-c` or `none`.
+- **Keyboard-only exit**: ChatGPT direct selection no longer creates a copy button or inverse action. The controller keeps only selection highlighting and a short-lived canonical snapshot; invalid, editable, streaming, cross-message, or DevTools-consumed shortcuts fail open to the host.
+
+## Reader Annotations (v1 shipped)
+
+- **Annotation document**: one verified ChatGPT conversation identified by `{ platform: 'chatgpt', conversationId }`. Its title and last URL are display/navigation hints, never identity.
+- **Annotation target**: the selected source inside a canonical assistant message. `assistantMessageId` is the required semantic identity; round/user IDs and position are supporting or presentation data.
+- **Re-anchoring**: restoring a saved selection after Reader content or DOM structure changes. v1 accepts only a validated exact match through DOM/atomic selectors, TextPosition, or TextQuote; an ambiguous match becomes `unanchored`.
+- **Pending annotation navigation intent**: a short-lived background-owned request bound to a newly created ChatGPT tab. After the tab exposes a verified conversation identity, it opens Reader at the target assistant message and focuses the annotation. It is navigation state, not annotation data or conversation identity.
+- **Annotation persistence preference**: `reader.persistAnnotations`, an explicit opt-in setting shared by Reader Settings and the annotation manager. It controls whether newly created ChatGPT annotations enter the profile-local per-conversation bundle. Existing durable annotations are always read, displayed, edited, and deleted normally; disabling the preference only keeps future annotations in the current page runtime.
+- **Annotation excerpt**: the manager’s source preview keeps up to 50 Unicode characters at each end and replaces omitted middle content with one ellipsis.
+- **Bulk annotation edit**: a simple manager selection mode with select-all for visible rows and one confirmed batch deletion; it is not a separate notes workspace or export surface.

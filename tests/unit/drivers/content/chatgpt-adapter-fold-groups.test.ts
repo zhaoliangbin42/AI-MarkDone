@@ -6,6 +6,15 @@ import { collectConversationTurnRefs } from '@/drivers/content/conversation/coll
 import { copyMarkdownFromTurn } from '@/services/copy/copy-turn-markdown';
 
 describe('ChatGPTAdapter fold groups', () => {
+    it('accepts only exact ChatGPT page hosts', () => {
+        const adapter = new ChatGPTAdapter();
+
+        expect(adapter.matches('https://chatgpt.com/c/one')).toBe(true);
+        expect(adapter.matches('https://chat.openai.com/c/one?branch=main#reader')).toBe(true);
+        expect(adapter.matches('https://evil.chatgpt.com/c/one')).toBe(false);
+        expect(adapter.matches('https://chat.com/c/one')).toBe(false);
+    });
+
     it('pairs assistant turns with their preceding user turns on the fold fixture', () => {
         const html = readFileSync('tests/testdata/chatgpt/fold-groups.html', 'utf-8');
         document.documentElement.innerHTML = `<head></head><body>${html}</body>`;

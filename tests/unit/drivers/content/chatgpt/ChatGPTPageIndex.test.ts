@@ -8,6 +8,7 @@ import {
 import { collectConversationTurnRefs } from '@/drivers/content/conversation/collectConversationTurnRefs';
 import { collectChatGPTRoundPositions } from '@/ui/content/chatgptDirectory/navigation';
 import { getChatGPTConversationIndex } from '@/drivers/content/chatgpt/ChatGPTConversationIndex';
+import { createConversationContentSource } from '../../../../helpers/chatgptContentFixtures';
 
 function appendRound(index: number): void {
     const main = document.querySelector('main');
@@ -80,16 +81,9 @@ describe('ChatGPTPageIndex', () => {
                 assistantMessageId: 'assistant-1',
             }],
         } as const;
-        getChatGPTConversationIndex(adapter).bindConversationSource({
-            getState: () => ({
-                status: 'ready',
-                routeEpoch: 1,
-                revision: 1,
-                conversationId: snapshot.conversationId,
-                snapshot,
-            }),
-            subscribe: () => () => undefined,
-        });
+        getChatGPTConversationIndex(adapter).bindConversationSource(
+            createConversationContentSource(snapshot),
+        );
         const positions = collectChatGPTRoundPositions(adapter);
 
         expect(secondTurns).toBe(firstTurns);

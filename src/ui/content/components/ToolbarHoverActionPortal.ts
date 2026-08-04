@@ -21,6 +21,7 @@ export type ToolbarHoverPortalAction = {
     showLabel?: boolean;
     disabled?: boolean;
     busy?: boolean;
+    preserveSelection?: boolean;
     onClick: () => void;
 };
 
@@ -216,6 +217,9 @@ export class ToolbarHoverActionPortal {
                 button.replaceChildren(createIcon(action.icon));
             } else {
                 button.textContent = visibleLabel;
+            }
+            if (action.preserveSelection) {
+                button.addEventListener('pointerdown', (event) => event.preventDefault());
             }
             button.addEventListener('click', (event) => {
                 if (button.disabled) return;

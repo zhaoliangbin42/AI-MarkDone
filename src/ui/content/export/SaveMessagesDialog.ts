@@ -11,7 +11,8 @@ import {
     type FormulaSourceFormat,
 } from '../../../core/math/formulaSourceFormat';
 import type { SiteAdapter } from '../../../drivers/content/adapters/base';
-import type { ChatGPTConversationSource } from '../../../drivers/content/chatgpt/types';
+import type { ConversationContentSourceV1 } from '../../../contracts/conversationContent';
+import type { ConversationMaterializationPortV1 } from '../../../contracts/conversationMaterialization';
 import { buildConversationMetadata } from '../../../drivers/content/conversation/metadata';
 import { subscribeLocaleChange, t } from '../components/i18n';
 import type { ExportProgressEvent, TranslateFn, SaveFormat } from '../../../services/export/saveMessagesTypes';
@@ -108,17 +109,37 @@ export class SaveMessagesDialog {
         adapter: SiteAdapter,
         theme: Theme,
         options?: {
-            chatGptConversationSource?: ChatGPTConversationSource | null;
+            conversationContentSource?: ConversationContentSourceV1 | null;
+            conversationMaterialization?: ConversationMaterializationPortV1 | null;
             startMessageElement?: HTMLElement | null;
         }
-    ): Promise<void> {
+    ): Promise<boolean> {
         this.focusLifecycle.capture();
         this.adapter = adapter;
         this.setAppearance(createAppearanceSnapshot(theme, this.appearance.overrides));
 
-        const content = await collectFreshReaderContent(adapter, options?.startMessageElement ?? null, {
-            chatGptConversationSource: options?.chatGptConversationSource ?? null,
-        });
+        const readerOptions: Parameters<typeof collectFreshReaderContent>[2] = {};
+        if (options?.conversationContentSource) {
+            readerOptions.conversationContentSource = options.conversationContentSource;
+        }
+        if (options?.conversationMaterialization) {
+            readerOptions.conversationMaterialization = options.conversationMaterialization;
+        }
+        const content = await collectFreshReaderContent(
+            adapter,
+            options?.startMessageElement ?? null,
+            readerOptions,
+        );
+        if (
+            adapter.getPlatformId() === 'chatgpt'
+            && options?.conversationContentSource
+            && (content.status !== 'ready' || content.coverage !== 'complete')
+        ) {
+            // Full export must never present a partial semantic snapshot as complete.
+            this.adapter = null;
+            this.focusLifecycle.restore(document);
+            return false;
+        }
         const { items, startIndex } = content;
         const turns = await readerItemsToChatTurns(items);
         const shouldValidateSourceRevision = adapter.getPlatformId() === 'chatgpt'
@@ -126,11 +147,13 @@ export class SaveMessagesDialog {
         if (
             shouldValidateSourceRevision
             && !isReaderContentSourceRevisionCurrent(
-                options?.chatGptConversationSource,
+                options?.conversationContentSource,
                 content.sourceRevision,
             )
         ) {
-            return;
+            this.adapter = null;
+            this.focusLifecycle.restore(document);
+            return false;
         }
         const metadata = buildConversationMetadata(adapter, turns.length);
         this.turns = turns;
@@ -151,6 +174,7 @@ export class SaveMessagesDialog {
 
         this.mount();
         this.render();
+        return true;
     }
 
     close(): void {

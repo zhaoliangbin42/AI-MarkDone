@@ -70,6 +70,11 @@ export function planSetCategory(current: AppSettings, category: SettingsCategory
                         ?? cur.reader.showOutlineInReader
                         ?? DEFAULT_SETTINGS.reader.showOutlineInReader
                     ),
+                    persistAnnotations: Boolean(
+                        patch.persistAnnotations
+                        ?? cur.reader.persistAnnotations
+                        ?? DEFAULT_SETTINGS.reader.persistAnnotations
+                    ),
                     defaultOpenMode: normalizeReaderOpenMode(
                         patch.defaultOpenMode
                         ?? cur.reader.defaultOpenMode

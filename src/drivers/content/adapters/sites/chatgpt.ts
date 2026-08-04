@@ -10,6 +10,7 @@ import {
     type ChatGPTDomRoundRef,
 } from '../../chatgpt/domConversationDiscovery';
 import { disposeChatGPTConversationIndex } from '../../chatgpt/ChatGPTConversationIndex';
+import { isChatGPTPageUrl } from '../../../../contracts/chatgptHosts';
 
 const DEEP_RESEARCH_SCREENSHOT_ROOT_SELECTOR = '[data-conversation-screenshot-content]';
 const DEEP_RESEARCH_IFRAME_SELECTOR = `${DEEP_RESEARCH_SCREENSHOT_ROOT_SELECTOR} iframe[title="internal://deep-research"]`;
@@ -81,7 +82,7 @@ export class ChatGPTAdapter extends SiteAdapter {
     }
 
     matches(url: string): boolean {
-        return url.includes('chatgpt.com') || url.includes('chat.openai.com');
+        return isChatGPTPageUrl(url);
     }
 
     getPlatformId(): string {

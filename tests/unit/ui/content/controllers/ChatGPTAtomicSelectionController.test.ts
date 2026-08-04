@@ -1,17 +1,13 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
 import { ChatGPTAdapter } from '@/drivers/content/adapters/sites/chatgpt';
-import { buildCanonicalMarkdownRichPayload } from '@/services/copy/atomicSelectionRichHtml';
 import { setCanonicalMarkdownCopyFormulaFormat } from '@/services/copy/canonicalMarkdownCopy';
 import { ChatGPTAtomicSelectionController } from '@/ui/content/controllers/ChatGPTAtomicSelectionController';
 
 const originalExecCommand = document.execCommand;
 
 function createController(adapter = new ChatGPTAdapter()): ChatGPTAtomicSelectionController {
-    return new ChatGPTAtomicSelectionController(
-        adapter,
-        async (params) => buildCanonicalMarkdownRichPayload(params),
-    );
+    return new ChatGPTAtomicSelectionController(adapter);
 }
 
 function mountMessage(content: string, id = 'assistant-1'): HTMLElement {
@@ -31,20 +27,6 @@ function selectRange(range: Range): void {
 
 async function flushSelectionFrame(): Promise<void> {
     await new Promise<void>((resolve) => window.requestAnimationFrame(() => resolve()));
-}
-
-async function flushMicrotasks(): Promise<void> {
-    await Promise.resolve();
-    await Promise.resolve();
-}
-
-function readBlob(blob: Blob): Promise<string> {
-    return new Promise((resolve, reject) => {
-        const reader = new FileReader();
-        reader.addEventListener('load', () => resolve(String(reader.result ?? '')));
-        reader.addEventListener('error', () => reject(reader.error));
-        reader.readAsText(blob);
-    });
 }
 
 function dispatchCopy(target: EventTarget = document.body): {
@@ -77,25 +59,16 @@ function dispatchCopy(target: EventTarget = document.body): {
     };
 }
 
-function installNativeCopyCommand(): {
-    clipboardData: Map<string, string>;
-    execCommand: ReturnType<typeof vi.fn>;
-} {
-    const clipboardData = new Map<string, string>();
-    const execCommand = vi.fn(() => {
-        const event = new Event('copy', { bubbles: true, cancelable: true }) as ClipboardEvent;
-        Object.defineProperty(event, 'clipboardData', {
-            configurable: true,
-            value: {
-                clearData: () => clipboardData.clear(),
-                setData: (type: string, value: string) => clipboardData.set(type, value),
-            },
-        });
-        document.body.dispatchEvent(event);
-        return true;
+function dispatchKeyboardCopy(shiftKey = false): KeyboardEvent {
+    const event = new KeyboardEvent('keydown', {
+        key: 'c',
+        ctrlKey: true,
+        shiftKey,
+        bubbles: true,
+        cancelable: true,
     });
-    Object.defineProperty(document, 'execCommand', { configurable: true, value: execCommand });
-    return { clipboardData, execCommand };
+    window.dispatchEvent(event);
+    return event;
 }
 
 afterEach(() => {
@@ -107,6 +80,55 @@ afterEach(() => {
 });
 
 describe('ChatGPTAtomicSelectionController', () => {
+    it('does not create a selection copy action portal', async () => {
+        const message = mountMessage('<p><code>answer</code></p>');
+        const range = document.createRange();
+        range.selectNodeContents(message.querySelector('code')!);
+        selectRange(range);
+
+        const controller = createController();
+        controller.init();
+        document.dispatchEvent(new Event('selectionchange'));
+        await flushSelectionFrame();
+
+        expect(document.querySelector('.aimd-toolbar-hover-action-host')).toBeNull();
+        controller.dispose();
+    });
+
+    it('only intercepts Ctrl/Cmd+C after a matching keyboard intent', async () => {
+        const message = mountMessage('<p><code>answer</code></p>');
+        const range = document.createRange();
+        range.selectNodeContents(message.querySelector('code')!);
+        selectRange(range);
+
+        const controller = createController();
+        controller.setMarkdownCopyShortcut('mod-c');
+        controller.init();
+        const nativeCopy = dispatchCopy();
+        expect(nativeCopy.event.defaultPrevented).toBe(false);
+
+        dispatchKeyboardCopy();
+        const markdownCopy = dispatchCopy();
+        expect(markdownCopy.event.defaultPrevented).toBe(true);
+        expect(markdownCopy.readText()).toBe('`answer`');
+        controller.dispose();
+    });
+
+    it('leaves the host copy path untouched when the shortcut is disabled', async () => {
+        const message = mountMessage('<p><code>answer</code></p>');
+        const range = document.createRange();
+        range.selectNodeContents(message.querySelector('code')!);
+        selectRange(range);
+
+        const controller = createController();
+        controller.setMarkdownCopyShortcut('none');
+        controller.init();
+        const copy = dispatchCopy();
+        expect(copy.event.defaultPrevented).toBe(false);
+        expect(copy.setData).not.toHaveBeenCalled();
+        controller.dispose();
+    });
+
     it('highlights and source-copies only a completely selected atom', async () => {
         const message = mountMessage('<p>Before <code>answer</code> after</p>');
         const code = message.querySelector('code')!;
@@ -117,6 +139,7 @@ describe('ChatGPTAtomicSelectionController', () => {
         selectRange(range);
 
         const controller = createController();
+        controller.setMarkdownCopyShortcut('mod-c');
         controller.init();
         document.dispatchEvent(new Event('selectionchange'));
         await flushSelectionFrame();
@@ -126,6 +149,7 @@ describe('ChatGPTAtomicSelectionController', () => {
             (event as ClipboardEvent).clipboardData?.setData('text/html', '<p>host visual copy</p>');
         };
         document.addEventListener('copy', hostHtml, { capture: true });
+        dispatchKeyboardCopy();
         const copy = dispatchCopy();
         document.removeEventListener('copy', hostHtml, { capture: true });
         expect(copy.event.defaultPrevented).toBe(true);
@@ -151,6 +175,7 @@ describe('ChatGPTAtomicSelectionController', () => {
         selectRange(range);
 
         const controller = createController();
+        controller.setMarkdownCopyShortcut('mod-c');
         controller.init();
         document.dispatchEvent(new Event('selectionchange'));
         await flushSelectionFrame();
@@ -276,6 +301,7 @@ describe('ChatGPTAtomicSelectionController', () => {
         selectRange(range);
 
         const controller = createController();
+        controller.setMarkdownCopyShortcut('mod-c');
         controller.init();
         const hostCopy = (event: Event) => {
             const clipboardEvent = event as ClipboardEvent;
@@ -286,6 +312,7 @@ describe('ChatGPTAtomicSelectionController', () => {
         const laterListener = vi.fn();
         document.addEventListener('copy', laterListener);
 
+        dispatchKeyboardCopy();
         const handled = dispatchCopy();
         const copiedText = handled.readText();
         document.removeEventListener('copy', hostCopy, { capture: true });
@@ -326,6 +353,8 @@ describe('ChatGPTAtomicSelectionController', () => {
         };
         document.addEventListener('copy', hostLateWrite);
 
+        controller.setMarkdownCopyShortcut('mod-c');
+        dispatchKeyboardCopy();
         const handled = dispatchCopy(formula);
         const copiedText = handled.readText();
         document.removeEventListener('copy', hostLateWrite);
@@ -360,6 +389,8 @@ describe('ChatGPTAtomicSelectionController', () => {
         };
         document.addEventListener('copy', hostCopy);
 
+        controller.setMarkdownCopyShortcut('mod-c');
+        dispatchKeyboardCopy();
         const handled = dispatchCopy(formula);
         document.removeEventListener('copy', hostCopy);
         controller.dispose();
@@ -400,402 +431,167 @@ describe('ChatGPTAtomicSelectionController', () => {
         controller.dispose();
     });
 
-    it('opens the rich-copy action from the real native selection path', async () => {
-        const message = mountMessage('<p>Before <code>answer</code> after</p>');
-        const code = message.querySelector('code')!;
-        const text = code.firstChild as Text;
-        const range = document.createRange();
-        range.setStart(text, 0);
-        range.setEnd(text, text.data.length);
-        selectRange(range);
-
-        const originalClipboard = navigator.clipboard;
-        const originalClipboardItem = (window as Window & { ClipboardItem?: unknown }).ClipboardItem;
-        const write = vi.fn(async () => undefined);
-        const ClipboardItemStub = vi.fn(function ClipboardItem(this: any, items: Record<string, Blob>) {
-            this.items = items;
-        });
-        (ClipboardItemStub as any).supports = vi.fn(() => true);
-        Object.defineProperty(navigator, 'clipboard', { configurable: true, value: { write } });
-        Object.defineProperty(window, 'ClipboardItem', { configurable: true, value: ClipboardItemStub });
-        const nativeCopy = installNativeCopyCommand();
-
-        const controller = createController();
-        controller.init();
-        document.dispatchEvent(new Event('selectionchange'));
-        await flushSelectionFrame();
-
-        const host = document.querySelector('.aimd-toolbar-hover-action-host') as HTMLElement | null;
-        const markdownButton = host?.shadowRoot?.querySelector<HTMLButtonElement>('[data-action="copy-markdown-selection"]');
-        const richButton = host?.shadowRoot?.querySelector<HTMLButtonElement>('[data-action="copy-rich-selection"]');
-        expect(markdownButton).toBeNull();
-        expect(richButton?.textContent).toBe('Copy with formatting');
-        expect(richButton?.disabled).toBe(false);
-        richButton?.click();
-        await Promise.resolve();
-
-        expect(write).toHaveBeenCalledTimes(1);
-        expect(nativeCopy.execCommand).not.toHaveBeenCalled();
-        const item = (ClipboardItemStub as any).mock.instances[0];
-        expect(Object.keys(item.items)).toEqual(['text/html', 'text/plain']);
-        expect(await readBlob(item.items['text/html'])).toContain('<code>answer</code>');
-        expect(await readBlob(item.items['text/plain'])).toBe('`answer`');
-
-        controller.dispose();
-        Object.defineProperty(navigator, 'clipboard', { configurable: true, value: originalClipboard });
-        Object.defineProperty(window, 'ClipboardItem', { configurable: true, value: originalClipboardItem });
-    });
-
-    it('copies formula source as semantic HTML only after the rich action is clicked', async () => {
-        const message = mountMessage(`
-            <p>Result
-                <span class="katex" data-latex="\\frac{x}{y}">
-                    <span class="katex-mathml">
-                        <math><semantics><mrow><mfrac><mi>x</mi><mi>y</mi></mfrac></mrow><annotation encoding="application/x-tex">\\frac{x}{y}</annotation></semantics></math>
-                    </span>
-                    <span class="katex-html" aria-hidden="true">x/y</span>
-                </span>
-            </p>
-        `);
-        const formula = message.querySelector<HTMLElement>('.katex')!;
-        const range = document.createRange();
-        range.selectNodeContents(formula);
-        selectRange(range);
-
-        const originalClipboard = navigator.clipboard;
-        const originalClipboardItem = (window as Window & { ClipboardItem?: unknown }).ClipboardItem;
-        const write = vi.fn(async () => undefined);
-        const ClipboardItemStub = vi.fn(function ClipboardItem(this: any, items: Record<string, Blob>) {
-            this.items = items;
-        });
-        (ClipboardItemStub as any).supports = vi.fn(() => true);
-        Object.defineProperty(navigator, 'clipboard', { configurable: true, value: { write } });
-        Object.defineProperty(window, 'ClipboardItem', { configurable: true, value: ClipboardItemStub });
-
-        const controller = createController();
-        try {
-            controller.init();
-            document.dispatchEvent(new Event('selectionchange'));
-            await flushSelectionFrame();
-
-            expect(write).not.toHaveBeenCalled();
-            expect(ClipboardItemStub).not.toHaveBeenCalled();
-            const host = document.querySelector('.aimd-toolbar-hover-action-host') as HTMLElement | null;
-            const richButton = host?.shadowRoot?.querySelector<HTMLButtonElement>('[data-action="copy-rich-selection"]');
-            expect(richButton?.disabled).toBe(false);
-            richButton?.click();
-            await flushMicrotasks();
-
-            expect(write).toHaveBeenCalledTimes(1);
-            const item = (ClipboardItemStub as any).mock.instances[0];
-            expect(await readBlob(item.items['text/plain'])).toBe('$\\frac{x}{y}$');
-            expect(await readBlob(item.items['text/html'])).toContain('<span>$\\frac{x}{y}$</span>');
-            expect(await readBlob(item.items['text/html'])).not.toContain('<math');
-            expect(await readBlob(item.items['text/html'])).not.toContain('<m:oMath');
-            expect(window.getSelection()?.toString()).toContain('x/y');
-        } finally {
-            controller.dispose();
-            Object.defineProperty(navigator, 'clipboard', { configurable: true, value: originalClipboard });
-            Object.defineProperty(window, 'ClipboardItem', { configurable: true, value: originalClipboardItem });
-        }
-    });
-
-    it('reports a rich-copy failure without silently copying Markdown', async () => {
-        const message = mountMessage('<p>Before <code>answer</code> after</p>');
-        const code = message.querySelector('code')!;
-        const range = document.createRange();
-        range.selectNodeContents(code);
-        selectRange(range);
-
-        const originalClipboard = navigator.clipboard;
-        const originalClipboardItem = (window as Window & { ClipboardItem?: unknown }).ClipboardItem;
-        const writeText = vi.fn(async () => undefined);
-        Object.defineProperty(navigator, 'clipboard', { configurable: true, value: { writeText } });
-        Object.defineProperty(window, 'ClipboardItem', { configurable: true, value: undefined });
-
-        const controller = createController();
-        try {
-            controller.init();
-            document.dispatchEvent(new Event('selectionchange'));
-            await flushSelectionFrame();
-
-            const host = document.querySelector('.aimd-toolbar-hover-action-host') as HTMLElement | null;
-            const richButton = host?.shadowRoot?.querySelector<HTMLButtonElement>('[data-action="copy-rich-selection"]');
-            richButton?.dispatchEvent(new Event('pointerdown', { bubbles: true }));
-            richButton?.click();
-            await flushMicrotasks();
-
-            expect(writeText).not.toHaveBeenCalled();
-            expect(document.querySelector('[data-aimd-role="toast-viewport"]')?.textContent)
-                .toContain('not copied');
-            expect(document.querySelector('.aimd-toolbar-hover-action-host')).not.toBeNull();
-        } finally {
-            controller.dispose();
-            Object.defineProperty(navigator, 'clipboard', { configurable: true, value: originalClipboard });
-            Object.defineProperty(window, 'ClipboardItem', { configurable: true, value: originalClipboardItem });
-        }
-    });
-
-    it('does not write or prepare rich clipboard content while the user only selects or Markdown-copies a formula', async () => {
+    it('uses the current Markdown formula format for the shifted shortcut', async () => {
         const message = mountMessage('<p><span class="katex" data-latex-source="x^2"><span class="katex-html" aria-hidden="true">x²</span></span></p>');
         const formula = message.querySelector<HTMLElement>('.katex')!;
         const range = document.createRange();
         range.selectNodeContents(formula);
         selectRange(range);
         const originalClipboard = navigator.clipboard;
-        const originalClipboardItem = (window as Window & { ClipboardItem?: unknown }).ClipboardItem;
-        const write = vi.fn(async () => undefined);
-        const ClipboardItemStub = vi.fn();
-        Object.defineProperty(navigator, 'clipboard', { configurable: true, value: { write } });
-        Object.defineProperty(window, 'ClipboardItem', { configurable: true, value: ClipboardItemStub });
+        const writeText = vi.fn(async (_text: string) => undefined);
+        Object.defineProperty(navigator, 'clipboard', { configurable: true, value: { writeText } });
 
         const controller = createController();
         try {
-            controller.init();
-            document.dispatchEvent(new Event('selectionchange'));
-            await flushSelectionFrame();
-            const copied = dispatchCopy(formula);
-
-            expect(copied.readText()).toBe('$x^2$');
-            expect(write).not.toHaveBeenCalled();
-            expect(ClipboardItemStub).not.toHaveBeenCalled();
-        } finally {
-            controller.dispose();
-            Object.defineProperty(navigator, 'clipboard', { configurable: true, value: originalClipboard });
-            Object.defineProperty(window, 'ClipboardItem', { configurable: true, value: originalClipboardItem });
-        }
-    });
-
-    it('copies the configured rich formula source format without a preparation state', async () => {
-        const message = mountMessage('<p><span class="katex" data-latex="x^2"><span class="katex-html" aria-hidden="true">x²</span></span></p>');
-        const formula = message.querySelector<HTMLElement>('.katex')!;
-        const range = document.createRange();
-        range.selectNodeContents(formula);
-        selectRange(range);
-
-        const originalClipboard = navigator.clipboard;
-        const originalClipboardItem = (window as Window & { ClipboardItem?: unknown }).ClipboardItem;
-        const write = vi.fn(async () => undefined);
-        const ClipboardItemStub = vi.fn(function ClipboardItem(this: any, items: Record<string, Blob>) {
-            this.items = items;
-        });
-        (ClipboardItemStub as any).supports = vi.fn(() => true);
-        Object.defineProperty(navigator, 'clipboard', { configurable: true, value: { write } });
-        Object.defineProperty(window, 'ClipboardItem', { configurable: true, value: ClipboardItemStub });
-        const nativeCopy = installNativeCopyCommand();
-
-        const controller = createController();
-        try {
-            controller.setRichCopyFormulaFormat('raw');
-            controller.init();
-            document.dispatchEvent(new Event('selectionchange'));
-            await flushSelectionFrame();
-
-            const host = document.querySelector('.aimd-toolbar-hover-action-host') as HTMLElement | null;
-            const richButton = host?.shadowRoot?.querySelector<HTMLButtonElement>('[data-action="copy-rich-selection"]');
-            expect(richButton?.disabled).toBe(false);
-            richButton?.click();
-            await flushMicrotasks();
-
-            expect(write).toHaveBeenCalledTimes(1);
-            expect(nativeCopy.execCommand).not.toHaveBeenCalled();
-            const item = (ClipboardItemStub as any).mock.instances[0];
-            expect(await readBlob(item.items['text/html'])).toContain('<span>x^2</span>');
-            expect(await readBlob(item.items['text/html'])).not.toContain('<math');
-            expect(await readBlob(item.items['text/plain'])).toBe('$x^2$');
-        } finally {
-            controller.dispose();
-            Object.defineProperty(navigator, 'clipboard', { configurable: true, value: originalClipboard });
-            Object.defineProperty(window, 'ClipboardItem', { configurable: true, value: originalClipboardItem });
-        }
-    });
-
-    it('rebuilds the current payload when Markdown formula settings change independently', async () => {
-        const message = mountMessage(`
-            <p><span class="katex" data-latex="x^2">
-                <span class="katex-mathml"><math><msup><mi>x</mi><mn>2</mn></msup></math></span>
-                <span class="katex-html" aria-hidden="true">x²</span>
-            </span></p>
-        `);
-        const formula = message.querySelector<HTMLElement>('.katex')!;
-        const range = document.createRange();
-        range.selectNodeContents(formula);
-        selectRange(range);
-        const nativeCopy = installNativeCopyCommand();
-
-        const controller = createController();
-        try {
+            controller.setMarkdownCopyShortcut('mod-shift-c');
             controller.init();
             document.dispatchEvent(new Event('selectionchange'));
             await flushSelectionFrame();
 
             setCanonicalMarkdownCopyFormulaFormat('latex-brackets');
-            controller.setRichCopyFormulaFormat('raw');
-            document.querySelector('.aimd-toolbar-hover-action-host')
-                ?.shadowRoot
-                ?.querySelector<HTMLButtonElement>('[data-action="copy-rich-selection"]')
-                ?.click();
-            await flushMicrotasks();
+            window.dispatchEvent(new KeyboardEvent('keydown', {
+                key: 'c',
+                ctrlKey: true,
+                shiftKey: true,
+                bubbles: true,
+                cancelable: true,
+            }));
+            await Promise.resolve();
 
-            expect(nativeCopy.clipboardData.get('text/plain')).toBe('\\(x^2\\)');
+            expect(writeText).toHaveBeenCalledWith('\\(x^2\\)');
         } finally {
             controller.dispose();
+            Object.defineProperty(navigator, 'clipboard', { configurable: true, value: originalClipboard });
         }
     });
 
-    it('ignores page MathML and uses the configured source format for rich copy', async () => {
-        const message = mountMessage(`
-            <p>Result</p>
-            <span class="katex-display">
-                <span class="katex">
-                    <span class="katex-mathml"><math><semantics><mrow><mfrac><mi>x</mi><mi>y</mi></mfrac></mrow><annotation encoding="application/x-tex">\\frac{x}{y}</annotation></semantics></math></span>
-                    <span class="katex-html" aria-hidden="true"><span>x/y</span></span>
-                </span>
-            </span>
-        `);
-        const formula = message.querySelector<HTMLElement>('.katex-display')!;
+    it('does not intercept a shifted shortcut while an editable control is focused', async () => {
+        const message = mountMessage('<p><code>answer</code></p>');
         const range = document.createRange();
-        range.selectNodeContents(formula);
+        range.selectNodeContents(message.querySelector('code')!);
         selectRange(range);
-
         const originalClipboard = navigator.clipboard;
-        const originalClipboardItem = (window as Window & { ClipboardItem?: unknown }).ClipboardItem;
-        const write = vi.fn(async () => undefined);
-        const ClipboardItemStub = vi.fn(function ClipboardItem(this: any, items: Record<string, Blob>) {
-            this.items = items;
-        });
-        (ClipboardItemStub as any).supports = vi.fn(() => true);
-        Object.defineProperty(navigator, 'clipboard', { configurable: true, value: { write } });
-        Object.defineProperty(window, 'ClipboardItem', { configurable: true, value: ClipboardItemStub });
-        const nativeCopy = installNativeCopyCommand();
+        const writeText = vi.fn(async (_text: string) => undefined);
+        Object.defineProperty(navigator, 'clipboard', { configurable: true, value: { writeText } });
+        const input = document.createElement('textarea');
+        document.body.appendChild(input);
+
         const controller = createController();
         try {
-            controller.setRichCopyFormulaFormat('latex-brackets');
+            controller.setMarkdownCopyShortcut('mod-shift-c');
             controller.init();
-            document.dispatchEvent(new Event('selectionchange'));
-            await flushSelectionFrame();
+            input.focus();
+            window.dispatchEvent(new KeyboardEvent('keydown', {
+                key: 'c',
+                ctrlKey: true,
+                shiftKey: true,
+                bubbles: true,
+                cancelable: true,
+            }));
 
-            const host = document.querySelector('.aimd-toolbar-hover-action-host') as HTMLElement | null;
-            const markdownButton = host?.shadowRoot?.querySelector<HTMLButtonElement>('[data-action="copy-markdown-selection"]');
-            const richButton = host?.shadowRoot?.querySelector<HTMLButtonElement>('[data-action="copy-rich-selection"]');
-            expect(markdownButton).toBeNull();
-            expect(richButton?.disabled).toBe(false);
-            expect(richButton?.textContent).toBe('Copy with formatting');
-            richButton?.click();
-            await flushMicrotasks();
-
-            expect(nativeCopy.execCommand).not.toHaveBeenCalled();
-            expect(write).toHaveBeenCalledTimes(1);
-            const item = (ClipboardItemStub as any).mock.instances[0];
-            expect(await readBlob(item.items['text/plain'])).toBe('$$\n\\frac{x}{y}\n$$');
-            expect(await readBlob(item.items['text/html'])).toContain('<div>\\[<br>\\frac{x}{y}<br>\\]</div>');
-            expect(await readBlob(item.items['text/html'])).not.toContain('<math');
-            expect(await readBlob(item.items['text/html'])).not.toContain('<m:oMath');
+            expect(writeText).not.toHaveBeenCalled();
         } finally {
             controller.dispose();
+            input.remove();
             Object.defineProperty(navigator, 'clipboard', { configurable: true, value: originalClipboard });
-            Object.defineProperty(window, 'ClipboardItem', { configurable: true, value: originalClipboardItem });
         }
     });
 
-    it('discards a rich payload that finishes after the native selection changes', async () => {
-        const message = mountMessage('<p><code>first</code> and <code>second</code></p>');
-        const [first, second] = Array.from(message.querySelectorAll<HTMLElement>('code'));
-        const firstRange = document.createRange();
-        firstRange.selectNodeContents(first);
-        selectRange(firstRange);
-
-        const originalClipboard = navigator.clipboard;
-        const originalClipboardItem = (window as Window & { ClipboardItem?: unknown }).ClipboardItem;
-        const write = vi.fn(async () => undefined);
-        const ClipboardItemStub = vi.fn(function ClipboardItem(this: any, items: Record<string, Blob>) {
-            this.items = items;
-        });
-        (ClipboardItemStub as any).supports = vi.fn(() => true);
-        Object.defineProperty(navigator, 'clipboard', { configurable: true, value: { write } });
-        Object.defineProperty(window, 'ClipboardItem', { configurable: true, value: ClipboardItemStub });
-
-        let finishBuilding: ((payload: { html: string; plainText: string }) => void) | undefined;
-        const buildRichPayload = vi.fn(() => new Promise<{ html: string; plainText: string }>((resolve) => {
-            finishBuilding = resolve;
-        }));
-        const controller = new ChatGPTAtomicSelectionController(
-            new ChatGPTAdapter(),
-            buildRichPayload,
-        );
-        try {
-            controller.init();
-            document.dispatchEvent(new Event('selectionchange'));
-            await flushSelectionFrame();
-
-            document.querySelector('.aimd-toolbar-hover-action-host')
-                ?.shadowRoot
-                ?.querySelector<HTMLButtonElement>('[data-action="copy-rich-selection"]')
-                ?.click();
-
-            const secondRange = document.createRange();
-            secondRange.selectNodeContents(second);
-            selectRange(secondRange);
-            document.dispatchEvent(new Event('selectionchange'));
-            await flushSelectionFrame();
-
-            finishBuilding?.({
-                html: '<p><code>first</code></p>',
-                plainText: '`first`',
-            });
-            await flushMicrotasks();
-
-            expect(buildRichPayload).toHaveBeenCalledTimes(1);
-            expect(write).not.toHaveBeenCalled();
-        } finally {
-            controller.dispose();
-            Object.defineProperty(navigator, 'clipboard', { configurable: true, value: originalClipboard });
-            Object.defineProperty(window, 'ClipboardItem', { configurable: true, value: originalClipboardItem });
-        }
-    });
-
-    it('uses the newest selection when the action is clicked', async () => {
+    it('updates the shortcut without rebuilding a selection portal', async () => {
         const message = mountMessage(`
             <span class="katex" data-latex="x^2">x²</span>
             <p><code>answer</code></p>
         `);
         const formula = message.querySelector<HTMLElement>('.katex')!;
-        const code = message.querySelector<HTMLElement>('code')!;
         const formulaRange = document.createRange();
         formulaRange.selectNodeContents(formula);
         selectRange(formulaRange);
 
-        const originalClipboard = navigator.clipboard;
-        const originalClipboardItem = (window as Window & { ClipboardItem?: unknown }).ClipboardItem;
-        const write = vi.fn(async () => undefined);
-        const ClipboardItemStub = vi.fn(function ClipboardItem(this: any, items: Record<string, Blob>) {
-            this.items = items;
-        });
-        (ClipboardItemStub as any).supports = vi.fn(() => true);
-        Object.defineProperty(navigator, 'clipboard', { configurable: true, value: { write } });
-        Object.defineProperty(window, 'ClipboardItem', { configurable: true, value: ClipboardItemStub });
         const controller = createController();
         controller.init();
         document.dispatchEvent(new Event('selectionchange'));
         await flushSelectionFrame();
 
-        const codeRange = document.createRange();
-        codeRange.selectNodeContents(code);
-        selectRange(codeRange);
-        document.dispatchEvent(new Event('selectionchange'));
-        await flushSelectionFrame();
+        expect(document.querySelector('.aimd-toolbar-hover-action-host')).toBeNull();
+        controller.setMarkdownCopyShortcut('mod-c');
+        controller.setMarkdownCopyShortcut('none');
+        expect(document.querySelector('.aimd-toolbar-hover-action-host')).toBeNull();
 
-        const host = document.querySelector('.aimd-toolbar-hover-action-host') as HTMLElement | null;
-        expect(host?.shadowRoot?.querySelector<HTMLButtonElement>('[data-action="copy-markdown-selection"]')).toBeNull();
-        expect(host?.shadowRoot?.querySelector<HTMLButtonElement>('[data-action="copy-rich-selection"]')?.disabled).toBe(false);
-        host?.shadowRoot?.querySelector<HTMLButtonElement>('[data-action="copy-rich-selection"]')?.click();
-        await flushMicrotasks();
-        const item = (ClipboardItemStub as any).mock.instances[0];
-        expect(await readBlob(item.items['text/plain'])).toBe('`answer`');
-        expect(await readBlob(item.items['text/html'])).toContain('<code>answer</code>');
-        expect(await readBlob(item.items['text/html'])).not.toContain('x^2');
         controller.dispose();
-        Object.defineProperty(navigator, 'clipboard', { configurable: true, value: originalClipboard });
-        Object.defineProperty(window, 'ClipboardItem', { configurable: true, value: originalClipboardItem });
+    });
+
+    it('reports shifted-shortcut failure without silently invoking native copy', async () => {
+        const message = mountMessage('<p><code>answer</code></p>');
+        const range = document.createRange();
+        range.selectNodeContents(message.querySelector('code')!);
+        selectRange(range);
+        const originalClipboard = navigator.clipboard;
+        const writeText = vi.fn(async () => {
+            throw new DOMException('Denied', 'NotAllowedError');
+        });
+        Object.defineProperty(navigator, 'clipboard', { configurable: true, value: { writeText } });
+        const execCommand = vi.fn(() => false);
+        Object.defineProperty(document, 'execCommand', { configurable: true, value: execCommand });
+
+        const controller = createController();
+        try {
+            controller.setMarkdownCopyShortcut('mod-shift-c');
+            controller.init();
+            document.dispatchEvent(new Event('selectionchange'));
+            await flushSelectionFrame();
+
+            window.dispatchEvent(new KeyboardEvent('keydown', {
+                key: 'c',
+                ctrlKey: true,
+                shiftKey: true,
+                bubbles: true,
+                cancelable: true,
+            }));
+
+            await vi.waitFor(() => {
+                expect(document.querySelector('[data-aimd-role="toast-viewport"]')?.textContent)
+                    .toContain('Markdown selection could not be copied');
+            });
+            expect(writeText).toHaveBeenCalledWith('`answer`');
+            expect(execCommand).toHaveBeenCalledTimes(1);
+            expect(document.querySelector('.aimd-toolbar-hover-action-host')).toBeNull();
+        } finally {
+            controller.dispose();
+            Object.defineProperty(navigator, 'clipboard', { configurable: true, value: originalClipboard });
+        }
+    });
+
+    it('does not intercept a shortcut after the selection becomes invalid', async () => {
+        const message = mountMessage('<p><code>first</code> and <code>second</code></p>');
+        const [first, second] = Array.from(message.querySelectorAll('code'));
+        const firstRange = document.createRange();
+        firstRange.selectNodeContents(first!);
+        selectRange(firstRange);
+        const originalClipboard = navigator.clipboard;
+        const writeText = vi.fn(async (_text: string) => undefined);
+        Object.defineProperty(navigator, 'clipboard', { configurable: true, value: { writeText } });
+
+        const controller = createController();
+        try {
+            controller.setMarkdownCopyShortcut('mod-shift-c');
+            controller.init();
+            document.dispatchEvent(new Event('selectionchange'));
+            await flushSelectionFrame();
+
+            window.getSelection()!.removeAllRanges();
+            window.dispatchEvent(new KeyboardEvent('keydown', {
+                key: 'c',
+                ctrlKey: true,
+                shiftKey: true,
+                bubbles: true,
+                cancelable: true,
+            }));
+
+            expect(writeText).not.toHaveBeenCalled();
+            expect(document.querySelector('.aimd-toolbar-hover-action-host')).toBeNull();
+        } finally {
+            controller.dispose();
+            Object.defineProperty(navigator, 'clipboard', { configurable: true, value: originalClipboard });
+        }
     });
 });

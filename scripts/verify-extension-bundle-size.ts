@@ -70,8 +70,11 @@ async function verifyTarget(target: Target): Promise<string[]> {
         const featureBuffers = await Promise.all(featureFiles.map((file) => readFile(file)));
         const rawBytes = featureBuffers.reduce((total, content) => total + content.byteLength, 0);
         const gzipBytes = featureBuffers.reduce((total, content) => total + gzipSync(content).byteLength, 0);
-        const maxRawBytes = 1_670_000;
-        const maxGzipBytes = 450_000;
+        // Reader annotation management adds one shared Reader surface, including its
+        // opt-in persistence and bulk management controls. Keep the aggregate gate
+        // tight while allowing the measured v1 surface overhead.
+        const maxRawBytes = 1_720_000;
+        const maxGzipBytes = 465_000;
         rows.push(
             `${target}/content feature graph: raw ${formatBytes(rawBytes)} / ${formatBytes(maxRawBytes)}, gzip ${formatBytes(gzipBytes)} / ${formatBytes(maxGzipBytes)}`,
         );

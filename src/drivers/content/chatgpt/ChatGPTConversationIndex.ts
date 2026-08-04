@@ -1,13 +1,12 @@
 import type { SiteAdapter } from '../adapters/base';
+import type { ConversationContentSourceV1, ConversationSnapshotV1 } from '../../../contracts/conversationContent';
 import {
     collectChatGPTDomRoundRefs,
     subscribeChatGPTDomRoundChanges,
     type ChatGPTDomRoundRef,
 } from './domConversationDiscovery';
 import type {
-    ChatGPTConversationSource,
     ChatGPTConversationRound,
-    ChatGPTConversationSnapshot,
 } from './types';
 import { getChatGPTConversationId } from './chatgptRoute';
 import { logger } from '../../../core/logger';
@@ -103,17 +102,16 @@ function resolveMaterializedRound(
 
 export class ChatGPTConversationIndex {
     private readonly subscribers = new Set<() => void>();
-    private stateSource: Pick<ChatGPTConversationSource, 'getState' | 'subscribe'> | null = null;
+    private stateSource: ConversationContentSourceV1 | null = null;
     private unsubscribeStateSource: (() => void) | null = null;
-    private readonly unsubscribeDomRoundChanges: () => void;
+    private unsubscribeDomRoundChanges: (() => void) | null = null;
 
     constructor(private readonly adapter: SiteAdapter) {
-        this.unsubscribeDomRoundChanges = subscribeChatGPTDomRoundChanges(adapter, () => {
-            this.notify();
-        });
+        this.ensureDomSubscription();
     }
 
-    bindConversationSource(source: Pick<ChatGPTConversationSource, 'getState' | 'subscribe'>): void {
+    bindConversationSource(source: ConversationContentSourceV1): void {
+        this.ensureDomSubscription();
         if (source === this.stateSource) return;
         this.unsubscribeStateSource?.();
         this.stateSource = source;
@@ -125,11 +123,11 @@ export class ChatGPTConversationIndex {
         subscribing = false;
     }
 
-    private readCurrentSnapshot(): ChatGPTConversationSnapshot | null {
-        const snapshot = this.stateSource?.getState().snapshot ?? null;
+    private readCurrentSnapshot(): ConversationSnapshotV1 | null {
+        const snapshot = this.stateSource?.read().snapshot ?? null;
         if (!snapshot) return null;
         const routeConversationId = getChatGPTConversationId(window.location.href)?.toLowerCase() ?? null;
-        if (!routeConversationId || snapshot.conversationId.toLowerCase() !== routeConversationId) return null;
+        if (!routeConversationId || snapshot.document.conversationId.toLowerCase() !== routeConversationId) return null;
         return snapshot;
     }
 
@@ -151,7 +149,8 @@ export class ChatGPTConversationIndex {
             addUniqueIdentity(indexes.byAssistantTurnId, round.identity.assistantTurnId, round);
         }
 
-        return snapshot.rounds.map((round) => {
+        return snapshot.turns.map((turn) => {
+            const round = toPresentationRound(turn);
             const identity = getRoundIdentity(round);
             return {
                 position: round.position,
@@ -201,11 +200,19 @@ export class ChatGPTConversationIndex {
     }
 
     dispose(): void {
-        this.unsubscribeDomRoundChanges();
+        this.unsubscribeDomRoundChanges?.();
+        this.unsubscribeDomRoundChanges = null;
         this.unsubscribeStateSource?.();
         this.unsubscribeStateSource = null;
         this.stateSource = null;
         this.subscribers.clear();
+    }
+
+    private ensureDomSubscription(): void {
+        if (this.unsubscribeDomRoundChanges) return;
+        this.unsubscribeDomRoundChanges = subscribeChatGPTDomRoundChanges(this.adapter, () => {
+            this.notify();
+        });
     }
 
     private notify(): void {
@@ -217,6 +224,24 @@ export class ChatGPTConversationIndex {
             }
         }
     }
+}
+
+function toPresentationRound(turn: ConversationSnapshotV1['turns'][number]): ChatGPTConversationRound {
+    return Object.freeze({
+        id: turn.identity.turnId,
+        position: turn.ordinal,
+        userPrompt: turn.userText,
+        assistantContent: turn.assistantMarkdown,
+        preview: truncatePreview(turn.userText),
+        messageId: turn.identity.assistantMessageId,
+        userMessageId: turn.identity.userMessageId,
+        assistantMessageId: turn.identity.assistantMessageId,
+    });
+}
+
+function truncatePreview(value: string, max = 180): string {
+    const normalized = value.replace(/\s+/g, ' ').trim();
+    return normalized.length > max ? `${normalized.slice(0, max - 1)}…` : normalized;
 }
 
 const indexByAdapter = new WeakMap<SiteAdapter, ChatGPTConversationIndex>();

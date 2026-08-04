@@ -16,7 +16,7 @@ function decodeDetail(detail: unknown): any {
 
 function requestSnapshot(
     conversationId: string,
-    options?: { stringDetail?: boolean; onRawResponse?: (detail: unknown) => void },
+    options?: { stringDetail?: boolean; onRawResponse?: (detail: unknown) => void; type?: 'snapshot' | 'peek' | 'acquire' },
 ): Promise<any> {
     const requestId = `test-${Math.random().toString(36).slice(2)}`;
     return new Promise((resolve) => {
@@ -31,7 +31,7 @@ function requestSnapshot(
         window.addEventListener(RESPONSE_EVENT, listener);
         const detail = {
             requestId,
-            type: 'snapshot',
+            type: options?.type ?? 'snapshot',
             conversationId,
         };
         window.dispatchEvent(new CustomEvent(REQUEST_EVENT, {
@@ -201,7 +201,8 @@ describe('ChatGPT conversation bridge', () => {
         const source = [
             BRIDGE_PATH,
             'public/page-bridges/chatgpt-conversation-bootstrap.js',
-            'src/drivers/content/chatgpt/ChatGPTConversationEngine.ts',
+            'src/drivers/content/chatgpt/ChatGPTConversationDiscoveryAdapter.ts',
+            'src/services/content/ConversationContentRepository.ts',
         ].map((path) => readFileSync(path, 'utf-8')).join('\n');
         const forbidden = [
             ['', 'api', 'auth', 'session'].join('/'),
@@ -215,10 +216,10 @@ describe('ChatGPT conversation bridge', () => {
     });
 
     it('keeps content-world discovery event-driven and free of active host transport', () => {
-        const engine = readFileSync('src/drivers/content/chatgpt/ChatGPTConversationEngine.ts', 'utf-8');
+        const adapter = readFileSync('src/drivers/content/chatgpt/ChatGPTConversationDiscoveryAdapter.ts', 'utf-8');
         const facts = readFileSync('src/services/content/ChatGPTDomTurnFactSource.ts', 'utf-8');
         const pageIndex = readFileSync('src/drivers/content/chatgpt/ChatGPTPageIndex.ts', 'utf-8');
-        const contentDiscovery = [engine, facts].join('\n');
+        const contentDiscovery = [adapter, facts].join('\n');
 
         expect(contentDiscovery).not.toMatch(/\bfetch\s*\(/);
         expect(contentDiscovery).not.toContain('XMLHttpRequest');
@@ -713,6 +714,42 @@ describe('ChatGPT conversation bridge', () => {
         expect(first.ok).toBe(false);
         expect(second.ok).toBe(false);
         expect(fetchMock).not.toHaveBeenCalled();
+    });
+
+    it('allows one bounded same-origin GET only for an explicit acquire request', async () => {
+        const conversationId = '69e8d157-5fec-839c-9124-2179ba8b7d7c';
+        const payload = {
+            conversation_id: conversationId,
+            current_node: 'assistant-node',
+            mapping: {
+                root: { id: 'root', parent: null, message: null },
+                'user-node': {
+                    id: 'user-node',
+                    parent: 'root',
+                    message: message('user-message', 'user', 'Question'),
+                },
+                'assistant-node': {
+                    id: 'assistant-node',
+                    parent: 'user-node',
+                    message: message('assistant-message', 'assistant', 'Answer'),
+                },
+            },
+        };
+        const fetchMock = vi.fn(async () => new Response(JSON.stringify(payload), {
+            status: 200,
+            headers: { 'Content-Type': 'application/json' },
+        }));
+        Object.defineProperty(window, 'fetch', { configurable: true, value: fetchMock });
+        vi.stubGlobal('fetch', fetchMock);
+
+        installBridge();
+        const response = await requestSnapshot(conversationId, { type: 'acquire' });
+
+        expect(fetchMock).toHaveBeenCalledTimes(1);
+        expect(fetchMock.mock.calls[0]?.[0]).toBe(`/backend-api/conversation/${conversationId}`);
+        expect(fetchMock.mock.calls[0]?.[1]).toMatchObject({ method: 'GET' });
+        expect(response.ok).toBe(true);
+        expect(response.snapshot.rounds).toHaveLength(1);
     });
 
     it('does not inspect responses outside the conversation graph transport', async () => {

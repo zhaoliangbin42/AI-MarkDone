@@ -44,6 +44,13 @@ function normalizeRightInsetPx(value: unknown): number {
     return Math.round(clamped / CHATGPT_DIRECTORY_RIGHT_INSET_STEP_PX) * CHATGPT_DIRECTORY_RIGHT_INSET_STEP_PX;
 }
 
+function getDirectoryPortalHost(): HTMLElement | null {
+    // Match the already-proven lower-right ChatGPT controls: a page-level
+    // fixed host under body, with documentElement only as the early-start
+    // fallback before body has been created.
+    return document.body ?? document.documentElement ?? null;
+}
+
 export class ChatGPTDirectoryRail {
     private rootEl: HTMLElement;
     private shadowRoot: ShadowRoot;
@@ -81,6 +88,7 @@ export class ChatGPTDirectoryRail {
         this.rootEl = document.createElement('div');
         this.rootEl.id = RAIL_ID;
         this.rootEl.className = 'aimd-chatgpt-directory-rail';
+        this.rootEl.dataset.aimdRole = 'chatgpt-directory-rail';
         this.rootEl.dataset.mode = this.displayMode;
         this.rootEl.dataset.expanded = '0';
         this.rootEl.setAttribute('data-aimd-theme', theme);
@@ -141,6 +149,7 @@ export class ChatGPTDirectoryRail {
         this.previewEl = document.createElement('div');
         this.previewEl.id = PREVIEW_ID;
         this.previewEl.className = 'aimd-chatgpt-directory-preview';
+        this.previewEl.dataset.aimdRole = 'chatgpt-directory-preview';
         this.previewEl.dataset.open = '0';
         this.previewEl.setAttribute('data-aimd-theme', theme);
         this.previewEl.innerHTML = '<div class="aimd-chatgpt-directory-preview__title"></div><div class="aimd-chatgpt-directory-preview__body"></div>';
@@ -153,11 +162,17 @@ export class ChatGPTDirectoryRail {
         this.syncViewportScrollbarWidth();
         window.addEventListener('resize', this.handleViewportResize, { passive: true });
         this.ensurePreviewStyle();
-        document.body.appendChild(this.previewEl);
+        getDirectoryPortalHost()?.appendChild(this.previewEl);
     }
 
     getElement(): HTMLElement {
         return this.rootEl;
+    }
+
+    ensureAttached(): void {
+        const portalHost = getDirectoryPortalHost();
+        if (portalHost && this.rootEl.parentElement !== portalHost) portalHost.appendChild(this.rootEl);
+        this.ensurePreviewAttached();
     }
 
     dispose(): void {
@@ -417,7 +432,8 @@ export class ChatGPTDirectoryRail {
     private ensurePreviewAttached(): void {
         this.previewAppearanceScope.apply(this.appearance);
         this.ensurePreviewStyle();
-        if (!this.previewEl.isConnected) document.body.appendChild(this.previewEl);
+        const portalHost = getDirectoryPortalHost();
+        if (portalHost && this.previewEl.parentElement !== portalHost) portalHost.appendChild(this.previewEl);
     }
 
     private ensurePreviewStyle(options: { force?: boolean } = {}): void {

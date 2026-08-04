@@ -150,6 +150,12 @@ export class ReaderSettingsPopover {
                 (checked) => this.applyPatch({ showOutlineInReader: checked }),
             ),
             this.createToggleRow(
+                t('readerAnnotationPersistenceLabel'),
+                t('readerAnnotationPersistenceDesc'),
+                settings.persistAnnotations,
+                (checked) => this.applyPatch({ persistAnnotations: checked }),
+            ),
+            this.createToggleRow(
                 t('readerCommentPromptPositionBottomLabel'),
                 t('readerCommentPromptPositionBottomDesc'),
                 settings.commentExport.promptPosition === 'bottom',
@@ -427,6 +433,7 @@ export class ReaderSettingsPopover {
         return {
             renderCodeInReader: Boolean(settings.renderCodeInReader),
             showOutlineInReader: Boolean(settings.showOutlineInReader),
+            persistAnnotations: Boolean(settings.persistAnnotations),
             defaultOpenMode: settings.defaultOpenMode === 'panel' ? 'panel' : DEFAULT_READER_OPEN_MODE,
             panelSizeRatio: {
                 widthRatio: Number.isFinite(settings.panelSizeRatio?.widthRatio) ? settings.panelSizeRatio.widthRatio : 0.72,

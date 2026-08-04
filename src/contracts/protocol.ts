@@ -1,3 +1,10 @@
+import {
+    isReaderAnnotationDocument,
+    isReaderAnnotationRecord,
+    type ReaderAnnotationDocument,
+    type ReaderAnnotationRecord,
+} from './readerAnnotations';
+
 export const PROTOCOL_VERSION = 1 as const;
 export type ProtocolVersion = typeof PROTOCOL_VERSION;
 
@@ -215,6 +222,7 @@ export type ReaderSessionSnapshot = {
     theme: 'light' | 'dark';
     createdAt: number;
     updatedAt: number;
+    annotationDocument?: ReaderAnnotationDocument;
 };
 
 export type ReaderSessionCreatePayload = {
@@ -231,6 +239,34 @@ export type ReaderSessionLocatePayload = {
     messageId?: string | null;
 };
 
+export type ReaderAnnotationListPayload = {
+    document?: ReaderAnnotationDocument;
+};
+
+export type ReaderAnnotationCreatePayload = {
+    document: ReaderAnnotationDocument;
+    annotation: ReaderAnnotationRecord;
+};
+
+export type ReaderAnnotationUpdatePayload = {
+    document: ReaderAnnotationDocument;
+    annotation: ReaderAnnotationRecord;
+    expectedRevision: number;
+};
+
+export type ReaderAnnotationRemovePayload = {
+    document: ReaderAnnotationDocument;
+    annotationId: string;
+    expectedRevision?: number;
+};
+
+export type ReaderAnnotationNavigatePayload = {
+    document: ReaderAnnotationDocument;
+    annotationId: string;
+};
+
+export type ReaderAnnotationFocusPayload = ReaderAnnotationNavigatePayload;
+
 export type ExtRequest =
     | { v: ProtocolVersion; id: RequestId; type: 'ping' }
     | { v: ProtocolVersion; id: RequestId; type: 'content:ready'; payload: ContentReadyPayload }
@@ -243,6 +279,12 @@ export type ExtRequest =
     | { v: ProtocolVersion; id: RequestId; type: 'readerSession:send'; payload: ReaderSessionSendPayload }
     | { v: ProtocolVersion; id: RequestId; type: 'readerSession:locate'; payload: ReaderSessionLocatePayload }
     | { v: ProtocolVersion; id: RequestId; type: 'readerSession:close'; payload: ReaderSessionByIdPayload }
+    | { v: ProtocolVersion; id: RequestId; type: 'annotations:list'; payload?: ReaderAnnotationListPayload }
+    | { v: ProtocolVersion; id: RequestId; type: 'annotations:create'; payload: ReaderAnnotationCreatePayload }
+    | { v: ProtocolVersion; id: RequestId; type: 'annotations:update'; payload: ReaderAnnotationUpdatePayload }
+    | { v: ProtocolVersion; id: RequestId; type: 'annotations:remove'; payload: ReaderAnnotationRemovePayload }
+    | { v: ProtocolVersion; id: RequestId; type: 'annotations:navigate'; payload: ReaderAnnotationNavigatePayload }
+    | { v: ProtocolVersion; id: RequestId; type: 'annotations:focus'; payload: ReaderAnnotationFocusPayload }
     | { v: ProtocolVersion; id: RequestId; type: 'prompts:list'; payload?: PromptsListPayload }
     | { v: ProtocolVersion; id: RequestId; type: 'prompts:save'; payload: PromptsSavePayload }
     | { v: ProtocolVersion; id: RequestId; type: 'prompts:delete'; payload: PromptsDeletePayload }
@@ -335,6 +377,12 @@ export function isExtRequest(value: unknown): value is ExtRequest {
         'readerSession:send',
         'readerSession:locate',
         'readerSession:close',
+        'annotations:list',
+        'annotations:create',
+        'annotations:update',
+        'annotations:remove',
+        'annotations:navigate',
+        'annotations:focus',
         'prompts:list',
         'prompts:save',
         'prompts:delete',
@@ -406,7 +454,8 @@ export function isExtRequest(value: unknown): value is ExtRequest {
                 && typeof snapshot.sourceUrl === 'string'
                 && (snapshot.theme === 'light' || snapshot.theme === 'dark')
                 && typeof snapshot.createdAt === 'number'
-                && typeof snapshot.updatedAt === 'number';
+                && typeof snapshot.updatedAt === 'number'
+                && (snapshot.annotationDocument === undefined || isReaderAnnotationDocument(snapshot.annotationDocument));
         }
         if (typeof sessionPayload.sessionId !== 'string' || sessionPayload.sessionId.trim().length === 0) return false;
         if (type === 'readerSession:draft' && sessionPayload.text !== undefined) {
@@ -417,6 +466,35 @@ export function isExtRequest(value: unknown): value is ExtRequest {
         }
         if (type === 'readerSession:locate') {
             return sessionPayload.position === undefined || typeof sessionPayload.position === 'number' || typeof sessionPayload.messageId === 'string' || sessionPayload.messageId === null;
+        }
+        return true;
+    }
+
+    if (type.startsWith('annotations:')) {
+        const payload = rec.payload;
+        if (type === 'annotations:list') {
+            if (payload === undefined) return true;
+            if (typeof payload !== 'object' || payload === null) return false;
+            const listPayload = payload as Record<string, unknown>;
+            return listPayload.document === undefined || isReaderAnnotationDocument(listPayload.document);
+        }
+        if (typeof payload !== 'object' || payload === null) return false;
+        const annotationPayload = payload as Record<string, unknown>;
+        if (!isReaderAnnotationDocument(annotationPayload.document)) return false;
+        if (type === 'annotations:remove') {
+            return typeof annotationPayload.annotationId === 'string'
+                && annotationPayload.annotationId.trim().length > 0
+                && (annotationPayload.expectedRevision === undefined
+                    || (typeof annotationPayload.expectedRevision === 'number' && Number.isInteger(annotationPayload.expectedRevision) && annotationPayload.expectedRevision > 0));
+        }
+        if (type === 'annotations:navigate' || type === 'annotations:focus') {
+            return typeof annotationPayload.annotationId === 'string' && annotationPayload.annotationId.trim().length > 0;
+        }
+        if (!isReaderAnnotationRecord(annotationPayload.annotation)) return false;
+        if (type === 'annotations:update') {
+            return typeof annotationPayload.expectedRevision === 'number'
+                && Number.isInteger(annotationPayload.expectedRevision)
+                && annotationPayload.expectedRevision > 0;
         }
         return true;
     }

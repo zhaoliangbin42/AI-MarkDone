@@ -3,15 +3,34 @@ import { DEFAULT_SETTINGS } from '../../../../src/core/settings/types';
 import { loadAndNormalize } from '../../../../src/services/settings/settingsService';
 
 describe('settings migrations', () => {
-    it('keeps ChatGPT atomic Markdown copy enabled by default and preserves an explicit opt-out', () => {
-        expect(loadAndNormalize(null).chatgptBehavior.atomicMarkdownCopy).toBe(true);
+    it('defaults ChatGPT atomic Markdown copy to the shifted primary shortcut', () => {
+        expect(loadAndNormalize(null).chatgptBehavior.atomicMarkdownCopyShortcut).toBe('mod-shift-c');
+    });
+
+    it('migrates the legacy ChatGPT atomic Markdown copy toggle', () => {
         expect(loadAndNormalize({
             ...DEFAULT_SETTINGS,
             chatgptBehavior: {
                 ...DEFAULT_SETTINGS.chatgptBehavior,
+                atomicMarkdownCopyShortcut: undefined,
+                atomicMarkdownCopy: true,
+            },
+        } as any).chatgptBehavior.atomicMarkdownCopyShortcut).toBe('mod-c');
+        expect(loadAndNormalize({
+            ...DEFAULT_SETTINGS,
+            chatgptBehavior: {
+                ...DEFAULT_SETTINGS.chatgptBehavior,
+                atomicMarkdownCopyShortcut: undefined,
                 atomicMarkdownCopy: false,
             },
-        }).chatgptBehavior.atomicMarkdownCopy).toBe(false);
+        } as any).chatgptBehavior.atomicMarkdownCopyShortcut).toBe('none');
+    });
+
+    it('falls back from an invalid ChatGPT atomic Markdown shortcut', () => {
+        expect(loadAndNormalize({
+            version: 4,
+            chatgptBehavior: { atomicMarkdownCopyShortcut: 'alt-c' },
+        } as any).chatgptBehavior.atomicMarkdownCopyShortcut).toBe('mod-shift-c');
     });
 
     it('enables every ChatGPT input enhancement for a fresh install', () => {
@@ -73,6 +92,11 @@ describe('settings migrations', () => {
         expect(loadAndNormalize(null)).toEqual(DEFAULT_SETTINGS);
         expect(loadAndNormalize(undefined)).toEqual(DEFAULT_SETTINGS);
         expect(loadAndNormalize('bad')).toEqual(DEFAULT_SETTINGS);
+        expect(loadAndNormalize(null).reader.persistAnnotations).toBe(false);
+    });
+
+    it('preserves the explicit Reader annotation persistence preference', () => {
+        expect(loadAndNormalize({ version: 4, reader: { persistAnnotations: true } } as any).reader.persistAnnotations).toBe(true);
     });
 
     it('merges v3 stored settings with defaults, migrates missing formula asset actions off, and preserves platform runtime fields', () => {
@@ -133,21 +157,16 @@ describe('settings migrations', () => {
         expect(next.platforms).toEqual({ chatgpt: true, gemini: false, claude: true, deepseek: false });
     });
 
-    it.each([
-        ['word-office-math', 'markdown-dollar'],
-        ['mathml', 'markdown-dollar'],
-        ['equation-star', 'equation-star'],
-        ['unsupported', 'markdown-dollar'],
-    ])('normalizes the rich-copy formula format %s to %s', (stored, expected) => {
+    it('drops the retired rich-copy formula format from normalized settings', () => {
         const next = loadAndNormalize({
             version: 4,
             formula: {
                 ...DEFAULT_SETTINGS.formula,
-                richCopyFormulaFormat: stored,
+                richCopyFormulaFormat: 'word-office-math',
             },
         } as any);
 
-        expect(next.formula.richCopyFormulaFormat).toBe(expected);
+        expect(next.formula).not.toHaveProperty('richCopyFormulaFormat');
     });
 
     it('normalizes v3 appearance font size settings', () => {
@@ -250,7 +269,7 @@ describe('settings migrations', () => {
 
         expect(defaulted.chatgptBehavior).toEqual({
             restorePositionAfterSend: true,
-            atomicMarkdownCopy: true,
+            atomicMarkdownCopyShortcut: 'mod-shift-c',
             inputEnhancement: {
                 available: true,
                 enabled: false,
@@ -270,7 +289,7 @@ describe('settings migrations', () => {
         });
         expect(disabled.chatgptBehavior).toEqual({
             restorePositionAfterSend: false,
-            atomicMarkdownCopy: true,
+            atomicMarkdownCopyShortcut: 'mod-shift-c',
             inputEnhancement: {
                 available: true,
                 enabled: true,
@@ -367,7 +386,6 @@ describe('settings migrations', () => {
             clickCopyMarkdown: false,
             clickCopyFormulaFormat: 'raw',
             markdownCopyFormulaFormat: 'markdown-dollar',
-            richCopyFormulaFormat: 'markdown-dollar',
             assetFontSizePx: 72,
             assetActions: { copyPng: false, copySvg: true, copyMathml: false, savePng: false, saveSvg: true },
         });

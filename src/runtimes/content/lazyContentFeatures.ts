@@ -19,10 +19,6 @@ import type { ExportSettings } from '../../core/settings/export';
 import type { copyMessagePng } from '../../services/copy/copy-turn-png';
 import type { runFormulaAssetAction } from '../../services/math/formulaAssetActions';
 import type { renderFormulaSvgAsset } from '../../services/math/formulaAssetRenderer';
-import type {
-    AtomicSelectionRichPayload,
-    CanonicalMarkdownRichPayloadParams,
-} from '../../services/copy/atomicSelectionRichHtml';
 import type { UiLocale } from '../../ui/content/components/i18n';
 import type * as ContentFeatureModuleExports from './contentFeatures';
 import {
@@ -195,6 +191,11 @@ class LazyReaderPanel implements ReaderPanelPort {
         return this.lazy.current?.getItemsSnapshot() ?? [];
     }
 
+    async focusAnnotation(annotationId: string, assistantMessageId?: string | null): Promise<boolean> {
+        if (!this.lazy.current) return false;
+        return this.lazy.current.focusAnnotation(annotationId, assistantMessageId);
+    }
+
     async appendItem(item: ReaderItem): Promise<void> {
         if (!this.lazy.current) return;
         await this.lazy.current.appendItem(item);
@@ -284,10 +285,10 @@ class LazySaveMessagesDialog implements SaveMessagesDialogPort {
         this.lazy.current?.close();
     }
 
-    async open(...args: Parameters<SaveMessagesDialogPort['open']>): Promise<void> {
+    async open(...args: Parameters<SaveMessagesDialogPort['open']>) {
         this.setAppearance(createAppearanceSnapshot(args[1], this.appearance.overrides));
         const instance = await this.lazy.resolve();
-        await instance.open(...args);
+        return instance.open(...args);
     }
 }
 
@@ -366,18 +367,5 @@ export function createLazyRenderFormulaSvgAsset(
     return async (...args) => {
         const module = await loader.load();
         return module.renderFormulaSvgAsset(...args);
-    };
-}
-
-export type CanonicalMarkdownRichPayloadBuilder = (
-    params: CanonicalMarkdownRichPayloadParams,
-) => Promise<AtomicSelectionRichPayload | null>;
-
-export function createLazyBuildCanonicalMarkdownRichPayload(
-    loader: ContentFeatureModuleLoader = defaultLoader,
-): CanonicalMarkdownRichPayloadBuilder {
-    return async (params) => {
-        const module = await loader.load();
-        return module.buildCanonicalMarkdownRichPayload(params);
     };
 }

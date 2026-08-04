@@ -1,9 +1,12 @@
 import { describe, expect, it, vi } from 'vitest';
-import type { ChatGPTConversationState } from '@/drivers/content/chatgpt/types';
 import { ChatGPTConversationReaderBinding } from '@/ui/content/controllers/ChatGPTConversationReaderBinding';
 import type { ReaderItem } from '@/services/reader/types';
+import {
+    createConversationContentSource,
+    readyConversationState,
+} from '../../../../helpers/chatgptContentFixtures';
 
-function buildState(roundCount: number): ChatGPTConversationState {
+function buildState(roundCount: number): any {
     const revision = roundCount;
     return {
         status: 'ready',
@@ -49,24 +52,26 @@ function buildReaderItem(position: number): ReaderItem {
     };
 }
 
-function createSource(initialState: ChatGPTConversationState) {
-    let state = initialState;
-    const listeners = new Set<(next: ChatGPTConversationState) => void>();
-    const ensureReady = vi.fn(async () => state.snapshot);
+function normalizeState(input: any) {
+    if (input?.kind) return input;
+    if (input?.snapshot) return readyConversationState(input.snapshot);
     return {
-        source: {
-            getState: () => state,
-            ensureReady,
-            subscribe: (listener: (next: ChatGPTConversationState) => void) => {
-                listeners.add(listener);
-                listener(state);
-                return () => listeners.delete(listener);
-            },
-        },
+        kind: 'unavailable' as const,
+        document: null,
+        snapshot: null,
+        reason: 'source-unavailable' as const,
+        retryable: true,
+    };
+}
+
+function createSource(initialState: any) {
+    const source = createConversationContentSource(normalizeState(initialState));
+    const ensureReady = vi.fn(async () => source.read().snapshot);
+    return {
+        source,
         ensureReady,
-        publish(next: ChatGPTConversationState) {
-            state = next;
-            for (const listener of listeners) listener(state);
+        publish(next: any) {
+            source.publish(normalizeState(next));
         },
     };
 }

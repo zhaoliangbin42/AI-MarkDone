@@ -1,5 +1,11 @@
 import type { ReaderAtomicUnitKind } from '../renderer/renderMarkdown';
 import type { ReaderCommentSortMode } from '../../core/settings/readerCommentExport';
+import type {
+    ReaderAnnotationDocument,
+    ReaderAnnotationTarget,
+    ReaderAnnotationAnchorState,
+    ReaderAnnotationRecord,
+} from '../../contracts/readerAnnotations';
 
 export type ReaderCommentTextQuoteSelector = {
     exact: string;
@@ -44,7 +50,47 @@ export type ReaderCommentRecord = {
     selectors: ReaderCommentSelectors;
     createdAt: number;
     updatedAt: number;
+    document?: ReaderAnnotationDocument;
+    target?: ReaderAnnotationTarget;
+    revision?: number;
+    lastKnownAnchorState?: ReaderAnnotationAnchorState;
 };
+
+export function toReaderAnnotationRecord(
+    record: ReaderCommentRecord,
+    target: ReaderAnnotationTarget,
+): ReaderAnnotationRecord {
+    return {
+        id: record.id,
+        itemId: record.itemId,
+        target,
+        quoteText: record.quoteText,
+        sourceMarkdown: record.sourceMarkdown,
+        comment: record.comment,
+        selectors: record.selectors,
+        createdAt: record.createdAt,
+        updatedAt: record.updatedAt,
+        revision: record.revision ?? 1,
+        lastKnownAnchorState: record.lastKnownAnchorState ?? 'anchored',
+    };
+}
+
+export function fromReaderAnnotationRecord(record: ReaderAnnotationRecord, document?: ReaderAnnotationDocument): ReaderCommentRecord {
+    return {
+        id: record.id,
+        itemId: record.itemId,
+        quoteText: record.quoteText,
+        sourceMarkdown: record.sourceMarkdown,
+        comment: record.comment,
+        selectors: record.selectors as unknown as ReaderCommentSelectors,
+        createdAt: record.createdAt,
+        updatedAt: record.updatedAt,
+        document,
+        target: record.target,
+        revision: record.revision,
+        lastKnownAnchorState: record.lastKnownAnchorState,
+    };
+}
 
 const scopes = new Map<string, Map<string, ReaderCommentRecord[]>>();
 

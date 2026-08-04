@@ -3,6 +3,7 @@ import { handleBookmarksRequest, recoverJournalIfAny, recordPendingChangelogNoti
 import { handleCloudBackupRequest } from './handlers/cloudBackup';
 import { handlePromptsRequest } from './handlers/prompts';
 import { handleReaderSessionRequest, handleReaderSessionTabRemoved } from './handlers/readerSession';
+import { consumeReaderAnnotationNavigationIntent, handleReaderAnnotationRequest } from './handlers/annotations';
 import { handleSettingsRequest } from './handlers/settings';
 import { browserCompat } from '../../drivers/shared/browser';
 import { logger } from '../../core/logger';
@@ -15,7 +16,7 @@ function matchesHostPatterns(url: string | undefined, patterns: readonly string[
         return patterns.some((p) => {
             try {
                 const ph = new URL(p.replace('*://', 'https://').replace('/*', '/')).hostname;
-                return hostname === ph || hostname.endsWith(`.${ph}`);
+                return hostname === ph;
             } catch {
                 return false;
             }
@@ -239,6 +240,15 @@ runtime?.onMessage?.addListener?.((msg: unknown, sender: any, sendResponse: (r: 
             return true;
         }
         void updateActionState(tabId, sender?.tab?.url ?? msg.payload.url);
+        void consumeReaderAnnotationNavigationIntent(tabId, sender?.tab?.url ?? msg.payload.url).then((intent) => {
+            if (!intent) return;
+            void safeSendTabMessage(tabId, {
+                v: PROTOCOL_VERSION,
+                id: createRequestId(),
+                type: 'annotations:focus',
+                payload: intent,
+            });
+        });
         sendResponse({ v: PROTOCOL_VERSION, id: msg.id, ok: true, type: msg.type, data: { ready: true } });
         return true;
     }
@@ -246,6 +256,8 @@ runtime?.onMessage?.addListener?.((msg: unknown, sender: any, sendResponse: (r: 
     void (async () => {
         const readerSession = await handleReaderSessionRequest(msg, sender);
         if (readerSession) return readerSession;
+        const annotations = await handleReaderAnnotationRequest(msg);
+        if (annotations) return annotations;
         const prompts = await handlePromptsRequest(msg);
         if (prompts) return prompts;
         const settings = await handleSettingsRequest(msg);

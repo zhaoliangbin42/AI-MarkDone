@@ -1,4 +1,4 @@
-import type { ChatGPTConversationSnapshot } from '../../drivers/content/chatgpt/types';
+import type { ConversationSnapshotV1 } from '../../contracts/conversationContent';
 import { normalizeChatGPTReaderMarkdown } from '../../drivers/content/chatgpt/normalizeReaderMarkdown';
 import type { ReaderItem } from './types';
 import type { ReaderAnnotationDocument } from '../../contracts/readerAnnotations';
@@ -26,10 +26,10 @@ function normalizeMessageId(value: unknown): string | null {
 }
 
 export function resolveChatGPTReaderStartIndex(
-    snapshot: ChatGPTConversationSnapshot,
+    snapshot: ConversationSnapshotV1,
     target: ChatGPTConversationStartTarget | null,
 ): number {
-    if (!target) return Math.max(0, snapshot.rounds.length - 1);
+    if (!target) return Math.max(0, snapshot.turns.length - 1);
 
     const roundId = normalizeMessageId(target.roundId);
     const userMessageId = normalizeMessageId(target.userMessageId);
@@ -37,22 +37,22 @@ export function resolveChatGPTReaderStartIndex(
     const messageId = normalizeMessageId(target.messageId);
     const hasCanonicalIdentity = Boolean(roundId || userMessageId || assistantMessageId || messageId);
     if (hasCanonicalIdentity) {
-        const matches = snapshot.rounds
-            .map((round, index) => ({ round, index }))
-            .filter(({ round }) => (
-                (!roundId || round.id === roundId)
-                && (!userMessageId || round.userMessageId === userMessageId)
-                && (!assistantMessageId || (round.assistantMessageId ?? round.messageId) === assistantMessageId)
-                && (!messageId || round.messageId === messageId || round.assistantMessageId === messageId)
+        const matches = snapshot.turns
+            .map((turn, index) => ({ turn, index }))
+            .filter(({ turn }) => (
+                (!roundId || turn.identity.turnId === roundId)
+                && (!userMessageId || turn.identity.userMessageId === userMessageId)
+                && (!assistantMessageId || turn.identity.assistantMessageId === assistantMessageId)
+                && (!messageId || turn.identity.assistantMessageId === messageId)
             ));
         return matches.length === 1 ? matches[0]!.index : -1;
     }
 
     const position = Number(target.position ?? 0);
     if (target.positionSource !== 'snapshot' || !Number.isInteger(position) || position <= 0) return -1;
-    const matches = snapshot.rounds
-        .map((round, index) => ({ round, index }))
-        .filter(({ round }) => round.position === position);
+    const matches = snapshot.turns
+        .map((turn, index) => ({ turn, index }))
+        .filter(({ turn }) => turn.ordinal === position);
     return matches.length === 1 ? matches[0]!.index : -1;
 }
 
@@ -76,22 +76,23 @@ function resolveConversationTitle(): string | null {
 }
 
 export function buildChatGPTReaderContent(
-    snapshot: ChatGPTConversationSnapshot,
+    snapshot: ConversationSnapshotV1,
     pageUrl: string = window.location.href,
 ): ChatGPTReaderContentBuildResult {
     const normalizedUrl = normalizeChatGPTReaderPageUrl(pageUrl);
-    const items: ReaderItem[] = snapshot.rounds.map((round) => ({
-        id: `chatgpt-${round.messageId ?? round.id}`,
-        userPrompt: round.userPrompt,
-        content: normalizeChatGPTReaderMarkdown(round.assistantContent),
+    const branchKey = snapshot.turns[snapshot.turns.length - 1]?.identity.assistantMessageId ?? null;
+    const items: ReaderItem[] = snapshot.turns.map((turn) => ({
+        id: `chatgpt-${turn.identity.assistantMessageId}`,
+        userPrompt: turn.userText,
+        content: normalizeChatGPTReaderMarkdown(turn.assistantMarkdown),
         meta: {
-            platformId: 'chatgpt',
-            messageId: round.messageId,
-            roundId: round.id,
-            userMessageId: round.userMessageId,
-            assistantMessageId: round.assistantMessageId,
-            branchKey: snapshot.branchKey,
-            position: round.position,
+            platformId: snapshot.document.platformId,
+            messageId: turn.identity.assistantMessageId,
+            roundId: turn.identity.turnId,
+            userMessageId: turn.identity.userMessageId,
+            assistantMessageId: turn.identity.assistantMessageId,
+            branchKey,
+            position: turn.ordinal,
             url: normalizedUrl,
             bookmarkable: true,
             bookmarked: false,
@@ -102,15 +103,15 @@ export function buildChatGPTReaderContent(
         items,
         annotationDocument: {
             platform: 'chatgpt',
-            conversationId: snapshot.conversationId,
-            title: resolveConversationTitle(),
+            conversationId: snapshot.document.conversationId,
+            title: snapshot.document.title ?? resolveConversationTitle(),
             lastKnownUrl: normalizedUrl,
         },
     };
 }
 
 export function buildChatGPTReaderItems(
-    snapshot: ChatGPTConversationSnapshot,
+    snapshot: ConversationSnapshotV1,
     startTarget?: ChatGPTConversationStartTarget | string | null,
     pageUrl: string = window.location.href
 ): BuildChatGPTReaderItemsResult {

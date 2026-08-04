@@ -35,7 +35,7 @@ type OpenParams = {
         delete?: string;
         save?: string;
     };
-    onSave: (value: string) => void;
+    onSave: (value: string) => void | Promise<void>;
     onCancel?: () => void;
     onDelete?: () => void;
 };
@@ -354,11 +354,19 @@ export class ReaderCommentPopover {
         session.open({ surface: popover });
         session.scheduleInitialFocus({ surface: popover, selectors: ['[data-role="input"]'] });
 
-        const saveCurrentValue = () => {
+        const saveCurrentValue = async () => {
             const value = textarea?.value.trim() ?? '';
             if (!value) return;
-            params.onSave(value);
-            this.close(params.shadow, false);
+            const save = popover.querySelector<HTMLButtonElement>('[data-action="save"]');
+            if (save) save.disabled = true;
+            try {
+                const result = params.onSave(value);
+                if (result && typeof (result as Promise<void>).then === 'function') await result;
+                this.close(params.shadow, false);
+            } catch (error) {
+                if (save) save.disabled = false;
+                throw error;
+            }
         };
 
         const syncSaveState = () => {
@@ -383,7 +391,7 @@ export class ReaderCommentPopover {
         });
 
         popover.querySelector<HTMLButtonElement>('[data-action="save"]')?.addEventListener('click', () => {
-            saveCurrentValue();
+            void saveCurrentValue().catch(() => undefined);
         });
 
         textarea?.addEventListener('keydown', (event) => {
@@ -397,15 +405,14 @@ export class ReaderCommentPopover {
             if (
                 event.key === 'Enter' &&
                 !event.shiftKey &&
-                !event.metaKey &&
-                !event.ctrlKey &&
+                (event.metaKey || event.ctrlKey) &&
                 !event.altKey &&
                 !event.isComposing &&
                 !this.composing
             ) {
                 event.preventDefault();
                 event.stopPropagation();
-                saveCurrentValue();
+                void saveCurrentValue().catch(() => undefined);
             }
         });
     }
