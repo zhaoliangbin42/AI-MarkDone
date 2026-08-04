@@ -11,10 +11,12 @@ import type {
 import type { ChatTurn } from '../export/saveMessagesTypes';
 import {
     buildChatGPTReaderItems,
+    resolveChatGPTReaderStartIndex,
     type ChatGPTConversationStartTarget,
 } from './chatgptReaderItems';
 import { collectReaderItems, type CollectReaderItemsResult } from './collectReaderItems';
 import { resolveContent, type ReaderItem } from './types';
+import type { ReaderAnnotationDocument } from '../../contracts/readerAnnotations';
 
 export type ReaderContentMetadataSource = 'chatgpt-snapshot' | 'dom';
 
@@ -29,9 +31,13 @@ export type ReaderContentSourceRevision = {
     conversationId: string;
 };
 
+export type ReaderContentSourceStatus = 'ready' | 'unavailable' | 'target-unresolved';
+
 export type ReaderContentSourceResult = CollectReaderItemsResult & {
     metadataSource: ReaderContentMetadataSource;
+    annotationDocument?: ReaderAnnotationDocument;
     sourceRevision?: ReaderContentSourceRevision;
+    status?: ReaderContentSourceStatus;
 };
 
 export type FreshReaderItemResult = {
@@ -42,6 +48,19 @@ export type FreshReaderItemResult = {
 type ChatGptStartTargetResolution =
     | { ok: true; target: ChatGPTConversationStartTarget | null }
     | { ok: false };
+
+type CachedChatGPTReaderContent = {
+    snapshot: ChatGPTConversationSnapshot;
+    sourceRevision: ReaderContentSourceRevision;
+    pageUrl: string;
+    items: ReaderItem[];
+    annotationDocument?: ReaderAnnotationDocument;
+};
+
+const chatGPTReaderContentCache = new WeakMap<
+    ChatGPTConversationSource,
+    CachedChatGPTReaderContent
+>();
 
 function toChatGptStartTarget(indexedRound: ChatGPTIndexedRound): ChatGPTConversationStartTarget {
     return {
@@ -93,6 +112,76 @@ function getSourceRevision(
     };
 }
 
+function cloneSourceRevision(
+    revision: ReaderContentSourceRevision | undefined,
+): ReaderContentSourceRevision | undefined {
+    return revision ? { ...revision } : undefined;
+}
+
+function areSourceRevisionsEqual(
+    left: ReaderContentSourceRevision,
+    right: ReaderContentSourceRevision,
+): boolean {
+    return left.routeEpoch === right.routeEpoch
+        && left.revision === right.revision
+        && left.conversationId === right.conversationId;
+}
+
+function cloneReaderItem(item: ReaderItem): ReaderItem {
+    return {
+        ...item,
+        meta: item.meta ? { ...item.meta } : undefined,
+    };
+}
+
+function createChatGPTEmptyResult(
+    status: ReaderContentSourceStatus,
+    sourceRevision?: ReaderContentSourceRevision,
+): ReaderContentSourceResult {
+    const result: ReaderContentSourceResult = {
+        items: [],
+        startIndex: 0,
+        metadataSource: 'chatgpt-snapshot',
+        status,
+    };
+    const clonedRevision = cloneSourceRevision(sourceRevision);
+    if (clonedRevision) result.sourceRevision = clonedRevision;
+    return result;
+}
+
+function getOrCreateChatGPTReaderContent(
+    source: ChatGPTConversationSource,
+    snapshot: ChatGPTConversationSnapshot,
+    state: ChatGPTConversationState,
+    startTarget: ChatGPTConversationStartTarget | null,
+    options: ReaderContentSourceOptions,
+): CachedChatGPTReaderContent | null {
+    const sourceRevision = getSourceRevision(state, snapshot);
+    if (!sourceRevision) return null;
+
+    const pageUrl = options.pageUrl ?? window.location.href;
+    const cached = chatGPTReaderContentCache.get(source);
+    if (
+        cached
+        && cached.snapshot === snapshot
+        && cached.pageUrl === pageUrl
+        && areSourceRevisionsEqual(cached.sourceRevision, sourceRevision)
+    ) {
+        return cached;
+    }
+
+    const built = buildChatGPTReaderItems(snapshot, startTarget, pageUrl);
+    const next: CachedChatGPTReaderContent = {
+        snapshot,
+        sourceRevision,
+        pageUrl,
+        items: built.items,
+        annotationDocument: built.annotationDocument,
+    };
+    chatGPTReaderContentCache.set(source, next);
+    return next;
+}
+
 export function readCurrentReaderContentSourceRevision(
     source: ChatGPTConversationSource,
 ): ReaderContentSourceRevision | undefined {
@@ -116,31 +205,42 @@ export function isReaderContentSourceRevisionCurrent(
 }
 
 function projectChatGPTSnapshotReaderContent(
-    adapter: SiteAdapter,
     snapshot: ChatGPTConversationSnapshot,
     state: ChatGPTConversationState,
-    startMessageElement: HTMLElement | null,
+    startTargetResolution: ChatGptStartTargetResolution,
     options: ReaderContentSourceOptions,
+    source: ChatGPTConversationSource,
 ): ReaderContentSourceResult | null {
-    if (!snapshot.rounds.length) return null;
-    const startTarget = resolveChatGptStartTarget(adapter, startMessageElement);
-    if (!startTarget.ok) {
-        return {
-            items: [],
-            startIndex: 0,
-            metadataSource: 'chatgpt-snapshot',
-            sourceRevision: getSourceRevision(state, snapshot),
-        };
+    const sourceRevision = getSourceRevision(state, snapshot);
+    if (!snapshot.rounds.length) return createChatGPTEmptyResult('unavailable', sourceRevision);
+    if (!sourceRevision) return createChatGPTEmptyResult('unavailable');
+    if (!startTargetResolution.ok) {
+        return createChatGPTEmptyResult('target-unresolved', sourceRevision);
     }
-    const result = buildChatGPTReaderItems(
+
+    const cached = getOrCreateChatGPTReaderContent(
+        source,
         snapshot,
-        startTarget.target,
-        options.pageUrl ?? window.location.href,
+        state,
+        startTargetResolution.target,
+        options,
     );
+    if (!cached) return createChatGPTEmptyResult('unavailable');
+
+    const startIndex = resolveChatGPTReaderStartIndex(snapshot, startTargetResolution.target);
+    if (startIndex < 0) {
+        return createChatGPTEmptyResult('target-unresolved', sourceRevision);
+    }
+
     return {
-        ...result,
+        items: cached.items.map(cloneReaderItem),
+        startIndex,
         metadataSource: 'chatgpt-snapshot',
-        sourceRevision: getSourceRevision(state, snapshot),
+        annotationDocument: cached.annotationDocument
+            ? { ...cached.annotationDocument }
+            : undefined,
+        sourceRevision: cloneSourceRevision(sourceRevision),
+        status: 'ready',
     };
 }
 
@@ -153,15 +253,17 @@ export function readCurrentReaderContent(
         const source = getChatGptConversationSource(options);
         const state = source?.getState();
         const snapshot = state?.snapshot;
-        if (!state || !snapshot) {
-            return { items: [], startIndex: 0, metadataSource: 'chatgpt-snapshot' };
+        if (!source || !state || !snapshot) {
+            return createChatGPTEmptyResult('unavailable');
         }
+
+        const startTargetResolution = resolveChatGptStartTarget(adapter, startMessageElement);
         return projectChatGPTSnapshotReaderContent(
-            adapter,
             snapshot,
             state,
-            startMessageElement,
+            startTargetResolution,
             options,
+            source,
         ) ?? { items: [], startIndex: 0, metadataSource: 'chatgpt-snapshot' };
     }
     return collectDomFallbackReaderContent(adapter, startMessageElement);
@@ -172,23 +274,32 @@ async function collectChatGPTSnapshotReaderContent(
     startMessageElement: HTMLElement | null,
     options: ReaderContentSourceOptions,
 ): Promise<ReaderContentSourceResult | null> {
+    if (adapter.getPlatformId?.() !== 'chatgpt') return null;
     const source = getChatGptConversationSource(options);
-    if (adapter.getPlatformId?.() !== 'chatgpt' || !source) return null;
+    if (!source) return createChatGPTEmptyResult('unavailable');
+
+    const initialStartTarget = resolveChatGptStartTarget(adapter, startMessageElement);
 
     try {
         await source.ensureReady();
         const state = source.getState();
         const snapshot = state.snapshot;
-        if (!snapshot?.rounds?.length) return null;
+        if (!snapshot) return createChatGPTEmptyResult('unavailable');
+
+        let startTargetResolution = initialStartTarget;
+        if (!startTargetResolution.ok && startMessageElement) {
+            startTargetResolution = resolveChatGptStartTarget(adapter, startMessageElement);
+        }
+
         return projectChatGPTSnapshotReaderContent(
-            adapter,
             snapshot,
             state,
-            startMessageElement,
+            startTargetResolution,
             options,
+            source,
         );
     } catch {
-        return null;
+        return createChatGPTEmptyResult('unavailable');
     }
 }
 
@@ -216,7 +327,7 @@ export async function collectFreshReaderContent(
         options,
     );
     if (adapter.getPlatformId?.() === 'chatgpt') {
-        return chatGptSnapshotContent ?? { items: [], startIndex: 0, metadataSource: 'chatgpt-snapshot' };
+        return chatGptSnapshotContent ?? createChatGPTEmptyResult('unavailable');
     }
     return chatGptSnapshotContent ?? collectDomFallbackReaderContent(adapter, startMessageElement);
 }

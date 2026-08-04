@@ -121,8 +121,10 @@ export class SaveMessagesDialog {
         });
         const { items, startIndex } = content;
         const turns = await readerItemsToChatTurns(items);
+        const shouldValidateSourceRevision = adapter.getPlatformId() === 'chatgpt'
+            && (content.status === undefined || content.status === 'ready');
         if (
-            adapter.getPlatformId() === 'chatgpt'
+            shouldValidateSourceRevision
             && !isReaderContentSourceRevisionCurrent(
                 options?.chatGptConversationSource,
                 content.sourceRevision,

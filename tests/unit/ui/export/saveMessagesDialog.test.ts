@@ -131,6 +131,29 @@ describe('SaveMessagesDialog', () => {
         expect(exportTurnsPng).toHaveBeenCalledTimes(1);
     });
 
+    it('keeps an unavailable ChatGPT source mountable without enabling an empty export', async () => {
+        await setLocale('en');
+        const adapter = { getPlatformId: () => 'chatgpt' } as any;
+        vi.mocked(collectFreshReaderContent).mockResolvedValueOnce({
+            items: [],
+            startIndex: 0,
+            metadataSource: 'chatgpt-snapshot',
+            status: 'unavailable',
+        });
+        vi.mocked(isReaderContentSourceRevisionCurrent).mockReturnValueOnce(false);
+
+        const dlg = new SaveMessagesDialog();
+        await dlg.open(adapter, 'light');
+
+        const host = document.getElementById('aimd-save-messages-dialog-host');
+        expect(host).toBeTruthy();
+        const saveButton = host!.shadowRoot!.querySelector<HTMLButtonElement>('[data-action="save-turns"]');
+        expect(saveButton?.disabled).toBe(true);
+        saveButton?.click();
+        await Promise.resolve();
+        expect(exportTurnsMarkdown).not.toHaveBeenCalled();
+    });
+
     it('uses the Reader source startIndex as the default selected export item', async () => {
         await setLocale('en');
         const adapter = { getPlatformId: () => 'chatgpt' } as any;

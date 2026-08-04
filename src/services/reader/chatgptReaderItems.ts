@@ -1,6 +1,7 @@
 import type { ChatGPTConversationSnapshot } from '../../drivers/content/chatgpt/types';
 import { normalizeChatGPTReaderMarkdown } from '../../drivers/content/chatgpt/normalizeReaderMarkdown';
 import type { ReaderItem } from './types';
+import type { ReaderAnnotationDocument } from '../../contracts/readerAnnotations';
 
 export type ChatGPTConversationStartTarget = {
     position?: number | null;
@@ -14,13 +15,14 @@ export type ChatGPTConversationStartTarget = {
 type BuildChatGPTReaderItemsResult = {
     items: ReaderItem[];
     startIndex: number;
+    annotationDocument: ReaderAnnotationDocument;
 };
 
 function normalizeMessageId(value: unknown): string | null {
     return typeof value === 'string' && value.trim() ? value.trim() : null;
 }
 
-function resolveStartIndex(
+export function resolveChatGPTReaderStartIndex(
     snapshot: ChatGPTConversationSnapshot,
     target: ChatGPTConversationStartTarget | null,
 ): number {
@@ -61,6 +63,15 @@ function stripHash(url: string): string {
     }
 }
 
+function resolveConversationTitle(): string | null {
+    if (typeof document === 'undefined') return null;
+    const title = document.title
+        .replace(/\s*[|·-]\s*ChatGPT\s*$/i, '')
+        .replace(/^ChatGPT\s*[|·-]\s*/i, '')
+        .trim();
+    return title && !/^chatgpt$/i.test(title) ? title : null;
+}
+
 export function buildChatGPTReaderItems(
     snapshot: ChatGPTConversationSnapshot,
     startTarget?: ChatGPTConversationStartTarget | string | null,
@@ -89,6 +100,15 @@ export function buildChatGPTReaderItems(
         typeof startTarget === 'string'
             ? { messageId: startTarget }
             : startTarget ?? null;
-    const startIndex = resolveStartIndex(snapshot, normalizedTarget);
-    return { items, startIndex };
+    const startIndex = resolveChatGPTReaderStartIndex(snapshot, normalizedTarget);
+    return {
+        items,
+        startIndex,
+        annotationDocument: {
+            platform: 'chatgpt',
+            conversationId: snapshot.conversationId,
+            title: resolveConversationTitle(),
+            lastKnownUrl: normalizedUrl,
+        },
+    };
 }

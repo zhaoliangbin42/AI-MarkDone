@@ -435,6 +435,7 @@ export class MessageToolbarOrchestrator {
         const nextIndex = this.resolveRefreshedReaderIndex(items, ctx.item, ctx.index);
         await this.readerPanel.show(items, nextIndex, this.appearance.theme, {
             profile: 'conversation-reader',
+            annotationDocument: result.annotationDocument,
             actions: this.getReaderActions(messageElement),
         });
     }
@@ -898,12 +899,15 @@ export class MessageToolbarOrchestrator {
                     pageUrl: this.getBookmarkPageUrl(),
                 });
                 const { items, startIndex } = itemsResult;
-                if (!this.isSourceRevisionCurrent(itemsResult.sourceRevision)) {
+                const shouldValidateSourceRevision = itemsResult.status === undefined
+                    || itemsResult.status === 'ready';
+                if (shouldValidateSourceRevision && !this.isSourceRevisionCurrent(itemsResult.sourceRevision)) {
                     return { ok: false, message: t('contentNotFound') };
                 }
                 this.decorateReaderItems(items as Array<{ meta?: Record<string, unknown> }>);
                 await this.readerPanel.show(items, startIndex, this.appearance.theme, {
                     profile: 'conversation-reader',
+                    annotationDocument: itemsResult.annotationDocument,
                     actions: this.getReaderActions(messageElement) as any,
                 });
             },
