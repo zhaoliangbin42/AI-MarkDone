@@ -31,15 +31,26 @@ vi.mock('@/drivers/content/chatgpt/ChatGPTConversationIndex', () => ({
 }));
 
 vi.mock('@/services/reader/chatgptReaderItems', () => ({
-    buildChatGPTReaderItems: vi.fn((snapshot: any, startTarget: any) => ({
+    buildChatGPTReaderContent: vi.fn((snapshot: any, pageUrl = '') => ({
         items: snapshot.rounds.map((round: any) => ({
             id: `chatgpt-${round.messageId}`,
             userPrompt: round.userPrompt,
             content: round.assistantContent,
-            meta: { platformId: 'chatgpt', messageId: round.messageId, position: round.position },
+            meta: {
+                platformId: 'chatgpt',
+                messageId: round.messageId,
+                position: round.position,
+                url: pageUrl.split('#')[0],
+            },
         })),
-        startIndex: resolveChatGptReaderStartIndex(snapshot, startTarget),
+        annotationDocument: {
+            platform: 'chatgpt',
+            conversationId: snapshot.conversationId,
+            title: null,
+            lastKnownUrl: pageUrl.split('#')[0],
+        },
     })),
+    normalizeChatGPTReaderPageUrl: (url: string) => url.split('#')[0],
     resolveChatGPTReaderStartIndex: resolveChatGptReaderStartIndex,
 }));
 
@@ -58,7 +69,7 @@ vi.mock('@/services/reader/collectReaderItems', () => ({
     stripHash: (url: string) => url.split('#')[0],
 }));
 
-import { buildChatGPTReaderItems } from '@/services/reader/chatgptReaderItems';
+import { buildChatGPTReaderContent } from '@/services/reader/chatgptReaderItems';
 import { collectReaderItems } from '@/services/reader/collectReaderItems';
 
 function createChatGptConversationSource(snapshot: any) {
@@ -177,7 +188,7 @@ describe('readerContentSource', () => {
 
         expect(result.status).toBe('ready');
         expect(result.startIndex).toBe(1);
-        expect(buildChatGPTReaderItems).toHaveBeenCalledWith(snapshot, target, 'https://chatgpt.com/c/conv-remount');
+        expect(buildChatGPTReaderContent).toHaveBeenCalledWith(snapshot, 'https://chatgpt.com/c/conv-remount');
         expect(resolveChatGptRoundForElement).toHaveBeenCalledTimes(1);
     });
 
@@ -252,7 +263,7 @@ describe('readerContentSource', () => {
             chatGptConversationSource: source,
         });
 
-        expect(buildChatGPTReaderItems).toHaveBeenCalledTimes(1);
+        expect(buildChatGPTReaderContent).toHaveBeenCalledTimes(1);
         expect(first.items).not.toBe(second.items);
         first.items[0]!.meta = { ...(first.items[0]!.meta || {}), bookmarked: true };
         expect(second.items[0]?.meta?.bookmarked).not.toBe(true);
@@ -275,8 +286,42 @@ describe('readerContentSource', () => {
             chatGptConversationSource: source,
         });
 
-        expect(buildChatGPTReaderItems).toHaveBeenCalledTimes(2);
+        expect(buildChatGPTReaderContent).toHaveBeenCalledTimes(2);
         expect(updated.items[1]?.content).toBe('Updated answer 2');
+    });
+
+    it('reuses normalized content across a same-snapshot revision while refreshing caller metadata', () => {
+        const snapshot: any = {
+            conversationId: 'conv-snapshot-cache',
+            revision: 1,
+            rounds: [
+                { id: 'round-1', position: 1, userPrompt: 'Prompt 1', assistantContent: 'Answer 1', messageId: 'a1' },
+            ],
+        };
+        let state: any = {
+            status: 'ready',
+            routeEpoch: 1,
+            revision: 1,
+            conversationId: 'conv-snapshot-cache',
+            snapshot,
+        };
+        const source: any = { getState: vi.fn(() => state) };
+        const adapter: any = { getPlatformId: () => 'chatgpt' };
+
+        const first = readCurrentReaderContent(adapter, null, {
+            chatGptConversationSource: source,
+            pageUrl: 'https://chatgpt.com/c/conv-snapshot-cache?view=one',
+        });
+        state = { ...state, revision: 2 };
+        const second = readCurrentReaderContent(adapter, null, {
+            chatGptConversationSource: source,
+            pageUrl: 'https://chatgpt.com/c/conv-snapshot-cache?view=two',
+        });
+
+        expect(buildChatGPTReaderContent).toHaveBeenCalledTimes(1);
+        expect(first.items[0]?.meta?.url).toBe('https://chatgpt.com/c/conv-snapshot-cache?view=one');
+        expect(second.items[0]?.meta?.url).toBe('https://chatgpt.com/c/conv-snapshot-cache?view=two');
+        expect(second.annotationDocument?.lastKnownUrl).toBe('https://chatgpt.com/c/conv-snapshot-cache?view=two');
     });
 
     it('reads the published ChatGPT snapshot without triggering semantic acquisition', () => {
@@ -399,16 +444,8 @@ describe('readerContentSource', () => {
         });
 
         expect(chatGptConversationSource.ensureReady).toHaveBeenCalledWith();
-        expect(buildChatGPTReaderItems).toHaveBeenCalledWith(
+        expect(buildChatGPTReaderContent).toHaveBeenCalledWith(
             expect.objectContaining({ conversationId: 'conv-1' }),
-            {
-                position: 2,
-                positionSource: 'snapshot',
-                messageId: 'fresh-a2',
-                roundId: 'fresh-2',
-                userMessageId: null,
-                assistantMessageId: 'fresh-a2',
-            },
             'https://chatgpt.com/c/1',
         );
         expect(selection?.item.content).toBe('Fresh answer 2');
@@ -501,17 +538,9 @@ describe('readerContentSource', () => {
         expect(result.metadataSource).toBe('chatgpt-snapshot');
         expect(chatGptConversationSource.ensureReady).toHaveBeenCalledTimes(1);
         expect(collectReaderItems).not.toHaveBeenCalled();
-        expect(buildChatGPTReaderItems).toHaveBeenCalledTimes(1);
-        expect(buildChatGPTReaderItems).toHaveBeenCalledWith(
+        expect(buildChatGPTReaderContent).toHaveBeenCalledTimes(1);
+        expect(buildChatGPTReaderContent).toHaveBeenCalledWith(
             expect.objectContaining({ conversationId: 'conv-1' }),
-            {
-                position: 1,
-                positionSource: 'snapshot',
-                messageId: 'a1',
-                roundId: 'round-1',
-                userMessageId: null,
-                assistantMessageId: 'a1',
-            },
             'https://chatgpt.com/c/1#hash',
         );
         expect(result.items[0]?.content).toBe('- payload bullet');
@@ -549,7 +578,7 @@ describe('readerContentSource', () => {
 
         expect(result.metadataSource).toBe('chatgpt-snapshot');
         expect(chatGptConversationSource.ensureReady).not.toHaveBeenCalled();
-        expect(buildChatGPTReaderItems).toHaveBeenCalledTimes(1);
+        expect(buildChatGPTReaderContent).toHaveBeenCalledTimes(1);
         expect(collectReaderItems).not.toHaveBeenCalled();
         expect(result.items[0]?.content).toBe('- payload bullet');
     });
@@ -602,16 +631,8 @@ describe('readerContentSource', () => {
         const result = await collectFreshReaderContent(adapter, messageElement, { chatGptConversationSource });
 
         expect(adapter.getMessageId).not.toHaveBeenCalled();
-        expect(buildChatGPTReaderItems).toHaveBeenCalledWith(
+        expect(buildChatGPTReaderContent).toHaveBeenCalledWith(
             snapshot,
-            {
-                position: 50,
-                positionSource: 'snapshot',
-                messageId: 'a50',
-                roundId: 'round-50',
-                userMessageId: 'u50',
-                assistantMessageId: 'a50',
-            },
             expect.any(String),
         );
         expect(result.startIndex).toBe(1);
@@ -636,7 +657,7 @@ describe('readerContentSource', () => {
 
         expect(result).toMatchObject({ items: [], startIndex: 0, metadataSource: 'chatgpt-snapshot' });
         expect(adapter.getMessageId).not.toHaveBeenCalled();
-        expect(buildChatGPTReaderItems).not.toHaveBeenCalled();
+        expect(buildChatGPTReaderContent).not.toHaveBeenCalled();
     });
 
     it('converts Reader items to export turns after resolving lazy content', async () => {

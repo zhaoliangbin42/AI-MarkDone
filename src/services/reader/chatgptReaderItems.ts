@@ -12,10 +12,13 @@ export type ChatGPTConversationStartTarget = {
     assistantMessageId?: string | null;
 };
 
-type BuildChatGPTReaderItemsResult = {
+export type ChatGPTReaderContentBuildResult = {
     items: ReaderItem[];
-    startIndex: number;
     annotationDocument: ReaderAnnotationDocument;
+};
+
+type BuildChatGPTReaderItemsResult = ChatGPTReaderContentBuildResult & {
+    startIndex: number;
 };
 
 function normalizeMessageId(value: unknown): string | null {
@@ -53,7 +56,7 @@ export function resolveChatGPTReaderStartIndex(
     return matches.length === 1 ? matches[0]!.index : -1;
 }
 
-function stripHash(url: string): string {
+export function normalizeChatGPTReaderPageUrl(url: string): string {
     try {
         const parsed = new URL(url);
         parsed.hash = '';
@@ -72,12 +75,11 @@ function resolveConversationTitle(): string | null {
     return title && !/^chatgpt$/i.test(title) ? title : null;
 }
 
-export function buildChatGPTReaderItems(
+export function buildChatGPTReaderContent(
     snapshot: ChatGPTConversationSnapshot,
-    startTarget?: ChatGPTConversationStartTarget | string | null,
-    pageUrl: string = window.location.href
-): BuildChatGPTReaderItemsResult {
-    const normalizedUrl = stripHash(pageUrl);
+    pageUrl: string = window.location.href,
+): ChatGPTReaderContentBuildResult {
+    const normalizedUrl = normalizeChatGPTReaderPageUrl(pageUrl);
     const items: ReaderItem[] = snapshot.rounds.map((round) => ({
         id: `chatgpt-${round.messageId ?? round.id}`,
         userPrompt: round.userPrompt,
@@ -96,19 +98,29 @@ export function buildChatGPTReaderItems(
         },
     }));
 
-    const normalizedTarget: ChatGPTConversationStartTarget | null =
-        typeof startTarget === 'string'
-            ? { messageId: startTarget }
-            : startTarget ?? null;
-    const startIndex = resolveChatGPTReaderStartIndex(snapshot, normalizedTarget);
     return {
         items,
-        startIndex,
         annotationDocument: {
             platform: 'chatgpt',
             conversationId: snapshot.conversationId,
             title: resolveConversationTitle(),
             lastKnownUrl: normalizedUrl,
         },
+    };
+}
+
+export function buildChatGPTReaderItems(
+    snapshot: ChatGPTConversationSnapshot,
+    startTarget?: ChatGPTConversationStartTarget | string | null,
+    pageUrl: string = window.location.href
+): BuildChatGPTReaderItemsResult {
+    const normalizedTarget: ChatGPTConversationStartTarget | null =
+        typeof startTarget === 'string'
+            ? { messageId: startTarget }
+            : startTarget ?? null;
+    const content = buildChatGPTReaderContent(snapshot, pageUrl);
+    return {
+        ...content,
+        startIndex: resolveChatGPTReaderStartIndex(snapshot, normalizedTarget),
     };
 }

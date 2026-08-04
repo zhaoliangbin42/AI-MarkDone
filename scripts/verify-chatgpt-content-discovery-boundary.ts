@@ -58,10 +58,10 @@ for (const relativePath of consumerPaths) {
 
 const readerSource = readFileSync(resolve('src/services/reader/readerContentSource.ts'), 'utf8');
 const ensureReadyCount = readerSource.split('.ensureReady(').length - 1;
-const readerItemBuildCount = readerSource.split('buildChatGPTReaderItems(').length - 1;
-if (ensureReadyCount !== 1 || readerItemBuildCount !== 1) {
+const readerContentBuildCount = readerSource.split('buildChatGPTReaderContent(').length - 1;
+if (ensureReadyCount !== 1 || readerContentBuildCount !== 1) {
     throw new Error(
-        `Expected one fresh confirmation and one Reader projection boundary; found ensureReady=${ensureReadyCount}, build=${readerItemBuildCount}.`,
+        `Expected one fresh confirmation and one Reader projection boundary; found ensureReady=${ensureReadyCount}, contentBuild=${readerContentBuildCount}.`,
     );
 }
 if (readerSource.includes('collectReaderContent(')) {
