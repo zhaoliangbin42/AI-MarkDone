@@ -273,8 +273,6 @@ const contentRuntimeCtor = vi.fn(function () {
     };
 });
 const domTurnFactSource = {
-    start: vi.fn(),
-    stop: vi.fn(),
     read: vi.fn(() => ({ observedAt: 1, rounds: [] })),
 };
 const domTurnFactSourceCtor = vi.fn(function () {
@@ -947,6 +945,10 @@ describe('content runtime entry', () => {
         await import('@/runtimes/content/entry');
 
         expect(contentRuntimeCtor).toHaveBeenCalledTimes(1);
+        expect(contentRuntimeCtor).toHaveBeenCalledWith(
+            expect.anything(),
+            expect.objectContaining({ allowActiveAcquisition: true }),
+        );
         expect(directoryCtor).toHaveBeenCalledTimes(1);
         expect(contentRuntimeInit).toHaveBeenCalledTimes(1);
         expect(directoryInit).toHaveBeenCalledTimes(1);

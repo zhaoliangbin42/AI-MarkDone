@@ -1987,6 +1987,7 @@ export class ReaderPanel {
                 cancel: this.getLabel('btnCancel', 'Cancel'),
                 delete: this.getLabel('btnDelete', 'Delete'),
                 save: this.getLabel('readerCommentSave', 'Save annotation'),
+                saveShortcut: this.getLabel('readerCommentSaveShortcut', 'Ctrl/Cmd + Enter to save'),
             },
             onSave: (value) => {
                 const result = params.onSave(value);

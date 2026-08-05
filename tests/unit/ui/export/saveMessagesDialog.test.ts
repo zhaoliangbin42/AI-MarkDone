@@ -171,6 +171,23 @@ describe('SaveMessagesDialog', () => {
         expect(document.getElementById('aimd-save-messages-dialog-host')).toBeNull();
     });
 
+    it('refuses to open a full export from a stale last-good snapshot', async () => {
+        await setLocale('en');
+        const adapter = { getPlatformId: () => 'chatgpt' } as any;
+        const conversationContentSource = { read: vi.fn() } as any;
+        vi.mocked(collectFreshReaderContent).mockResolvedValueOnce({
+            items: [{ id: 'r1', userPrompt: 'u1', content: 'a1', meta: { position: 1 } }],
+            startIndex: 0,
+            metadataSource: 'chatgpt-content-v1',
+            status: 'stale',
+            coverage: 'complete',
+        });
+
+        const dlg = new SaveMessagesDialog();
+        await expect(dlg.open(adapter, 'light', { conversationContentSource })).resolves.toBe(false);
+        expect(document.getElementById('aimd-save-messages-dialog-host')).toBeNull();
+    });
+
     it('uses the Reader source startIndex as the default selected export item', async () => {
         await setLocale('en');
         const adapter = { getPlatformId: () => 'chatgpt' } as any;

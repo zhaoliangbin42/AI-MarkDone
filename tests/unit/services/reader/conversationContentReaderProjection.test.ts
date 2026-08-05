@@ -99,7 +99,7 @@ describe('Reader Content Port V1 projection', () => {
         expect(result.sourceRevision?.contentToken).toBe('conversation-content-v1:abc12345');
     });
 
-    it('keeps a same-document last-good snapshot available while the source is stale', async () => {
+    it('keeps a same-document last-good snapshot available and labels it stale', async () => {
         const source = createSource(createState('stale'));
         const result = await collectFreshReaderContent(
             { getPlatformId: () => 'chatgpt' } as any,
@@ -107,7 +107,7 @@ describe('Reader Content Port V1 projection', () => {
             { conversationContentSource: source, pageUrl: 'https://chatgpt.com/c/conversation-v1' },
         );
 
-        expect(result.status).toBe('ready');
+        expect(result.status).toBe('stale');
         expect(result.items).toHaveLength(1);
         expect(isReaderContentSourceRevisionCurrent(source, result.sourceRevision)).toBe(true);
     });

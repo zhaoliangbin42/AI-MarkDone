@@ -77,11 +77,14 @@
 
 - request event: `aimd:chatgpt-conversation-bridge:request`
   - `type: "peek"` 只读取 MAIN world 的最近内存 graph
-  - `type: "acquire"` 仅在显式启用 active gate 时对当前 conversation endpoint 发起一次同源 `GET`
+  - `type: "acquire"` 在被动 graph 缺失或与 typed DOM 冲突时，对当前 conversation endpoint 发起一次三秒上限的同源 `GET`
 - response event: `aimd:chatgpt-conversation-bridge:response`
 - capture event: `aimd:chatgpt-conversation-bridge:capture` 只作失效/重调度信号
+  - `kind: "graph"` 表示当前 conversation graph 已更新
+  - `kind: "generation-start"` 清除当前 assistant 的旧完成证明
+  - `kind: "generation-complete"` 表示浏览器已观察到与已登记 generation request 匹配的资源完成，只携带 `conversationId` 与 `assistantMessageId`
 
-桥边界固定为：不读取或传播 cookie、token、Authorization/session header，不解析 POST/SSE/generation payload，不持久化正文，不向消费者暴露 endpoint、DOM 或 provider graph。Chrome 使用对象 CustomEvent，Firefox 使用 JSON-string CustomEvent；两种 transport 必须产生相同的 `ConversationContentSourceV1` 状态序列。受限 active GET 在真实浏览器门禁通过前保持关闭。
+桥边界固定为：不读取或传播 cookie、token、Authorization/session header，不解析 POST/SSE/generation payload，不 clone 生成响应，不持久化正文。Active read 只使用 bridge 安装前保存的原生 `fetch`、`method: GET` 与 abort signal，不自定义 header，也不进入被动 observer 二次捕获。生成完成信号只来自同源 URL/method 与浏览器 resource timing；有 conversation ID 的请求必须在完成时仍处于同一 route，从空白 `/` 发起的首轮请求才允许采用随后生成的 canonical route ID，未匹配或跨 route 的 timing 直接丢弃。request/response 在 Chrome 使用 object detail、Firefox 使用 JSON-string detail；capture event 在两者都使用 JSON string。两种 transport 必须产生相同的 `ConversationContentSourceV1` 状态序列。
 
 ## 6. Current Request Families
 

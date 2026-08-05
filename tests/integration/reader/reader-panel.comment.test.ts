@@ -269,6 +269,8 @@ describe('ReaderPanel comments', () => {
         shadow.querySelectorAll<HTMLButtonElement>('.reader-comment-action__button')[1]!.click();
         await Promise.resolve();
         const textarea = shadow.querySelector<HTMLTextAreaElement>('.reader-comment-popover__input')!;
+        expect(shadow.querySelector<HTMLElement>('.reader-comment-popover__shortcut')?.textContent)
+            .toBe('Ctrl/Cmd + Enter to save');
         textarea.value = 'Needs clarification';
         textarea.dispatchEvent(new Event('input', { bubbles: true }));
         shadow.querySelector<HTMLButtonElement>('.reader-comment-popover [data-action="save"]')!.click();

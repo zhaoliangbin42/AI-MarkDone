@@ -2,7 +2,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { ChatGPTAdapter } from '@/drivers/content/adapters/sites/chatgpt';
 import {
     collectChatGPTDomRoundRefs,
-    subscribeChatGPTDomMutations,
+    getChatGPTPageIndex,
     subscribeChatGPTDomRoundChanges,
 } from '@/drivers/content/chatgpt/domConversationDiscovery';
 import { collectConversationTurnRefs } from '@/drivers/content/conversation/collectConversationTurnRefs';
@@ -262,7 +262,7 @@ describe('ChatGPTPageIndex', () => {
     it('notifies content-discovery subscribers when the official completion action row mounts', async () => {
         document.querySelector('.z-0.flex')?.remove();
         const listener = vi.fn();
-        const unsubscribe = subscribeChatGPTDomMutations(adapter, listener);
+        const unsubscribe = getChatGPTPageIndex(adapter).subscribeMutations(listener);
         const assistantTurn = document.querySelector('[data-turn="assistant"]');
         if (!(assistantTurn instanceof HTMLElement)) throw new Error('fixture assistant turn is missing');
 
@@ -273,6 +273,51 @@ describe('ChatGPTPageIndex', () => {
         await deliverMutations();
 
         expect(listener).toHaveBeenCalledTimes(1);
+        unsubscribe();
+    });
+
+    it('notifies content-discovery subscribers when streaming controls change in place', async () => {
+        const assistantTurn = document.querySelector('[data-turn="assistant"]');
+        if (!(assistantTurn instanceof HTMLElement)) throw new Error('fixture assistant turn is missing');
+        const stopButton = document.createElement('button');
+        stopButton.dataset.testid = 'stop-button';
+        assistantTurn.appendChild(stopButton);
+
+        const listener = vi.fn();
+        const unsubscribe = getChatGPTPageIndex(adapter).subscribeMutations(listener);
+
+        stopButton.dataset.testid = 'copy-turn-action-button';
+        await deliverMutations();
+
+        expect(listener).toHaveBeenCalledTimes(1);
+        unsubscribe();
+    });
+
+    it('does not treat localized aria-label changes as content lifecycle signals', async () => {
+        const assistantTurn = document.querySelector('[data-turn="assistant"]');
+        if (!(assistantTurn instanceof HTMLElement)) throw new Error('fixture assistant turn is missing');
+        const unrelatedButton = document.createElement('button');
+        unrelatedButton.setAttribute('aria-label', 'Stop sharing');
+        assistantTurn.appendChild(unrelatedButton);
+
+        const listener = vi.fn();
+        const unsubscribe = getChatGPTPageIndex(adapter).subscribeMutations(listener);
+
+        unrelatedButton.setAttribute('aria-label', '停止共享');
+        await deliverMutations();
+
+        expect(listener).not.toHaveBeenCalled();
+        unsubscribe();
+    });
+
+    it('ignores unrelated host child-list churn outside conversation lifecycle nodes', async () => {
+        const listener = vi.fn();
+        const unsubscribe = getChatGPTPageIndex(adapter).subscribeMutations(listener);
+
+        document.body.insertAdjacentHTML('beforeend', '<aside><span>Unrelated live-region update</span></aside>');
+        await deliverMutations();
+
+        expect(listener).not.toHaveBeenCalled();
         unsubscribe();
     });
 

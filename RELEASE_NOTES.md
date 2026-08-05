@@ -1,5 +1,33 @@
 # Release Notes
 
+## v5.1.1 (2026-08-05)
+
+Thank you for all your support—AI-MarkDone has earned the Chrome Web Store's Featured badge! I’ll continue holding every release to a high standard, with the goal of giving everyone who uses ChatGPT a better experience on the web.
+
+This release restores stability after recent ChatGPT website changes and adds local Reader annotation workflows.
+
+### Added
+- Added local persistence for Reader annotations per ChatGPT conversation, shared by the in-page and detached Reader. Thanks to GitHub user @KryogenBlue.
+- Added an annotation manager with current/all views, search, conversation and timeline grouping, exact navigation, and bulk deletion. Thanks to Xiaohongshu user @小红薯67542EF1.
+- Added `Ctrl/Cmd+Enter` annotation saving while keeping Enter as a newline. Thanks to Xiaohongshu user @小红薯Jesse.
+- Added configurable `Ctrl/Cmd+C` and `Ctrl/Cmd+Shift+C` shortcuts for copying complete ChatGPT units as canonical Markdown.
+
+### Fixed
+- Upgraded ChatGPT content discovery to stabilize the Reader directory rail, message word counts, Reader content, copy, export, and bookmark flows after new replies, refreshes, and page virtualization. Thanks to the Xiaohongshu community.
+
+## v5.1.0 (2026-08-04)
+
+This release restores stability after recent ChatGPT website changes and adds local Reader annotation workflows.
+
+### Added
+- Added local persistence for Reader annotations per ChatGPT conversation, shared by the in-page and detached Reader. Thanks to GitHub user @KryogenBlue.
+- Added an annotation manager with current/all views, search, conversation and timeline grouping, exact navigation, and bulk deletion. Thanks to Xiaohongshu user @小红薯67542EF1.
+- Added `Ctrl/Cmd+Enter` annotation saving while keeping Enter as a newline. Thanks to Xiaohongshu user @小红薯Jesse.
+- Added configurable `Ctrl/Cmd+C` and `Ctrl/Cmd+Shift+C` shortcuts for copying complete ChatGPT units as canonical Markdown.
+
+### Fixed
+- Upgraded ChatGPT content discovery to stabilize the Reader directory rail, message word counts, Reader content, copy, export, and bookmark flows after new replies, refreshes, and page virtualization. Thanks to the Xiaohongshu community.
+
 ## v5.0.2 (2026-07-26)
 
 ### Fixed

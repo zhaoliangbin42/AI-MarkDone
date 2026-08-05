@@ -7,11 +7,9 @@ import { listAssistantSegmentElements } from '../../drivers/content/conversation
 import {
     collectChatGPTDomRoundRefs,
     invalidateChatGPTDomRoundSnapshot,
-    subscribeChatGPTDomMutations,
 } from '../../drivers/content/chatgpt/domConversationDiscovery';
 import type {
     ChatGPTDomTurnFact,
-    ChatGPTDomTurnFactSource as ChatGPTDomTurnFactSourceContract,
     ChatGPTDomTurnObservation,
 } from '../../drivers/content/chatgpt/types';
 import { copyMarkdownFromTurn } from '../copy/copy-turn-markdown';
@@ -61,34 +59,10 @@ function resolveTurnForDomRound(
     return typed.length === 1 ? typed[0]! : null;
 }
 
-export class ChatGPTDomTurnFactSource implements ChatGPTDomTurnFactSourceContract {
-    private listener: ((observation: ChatGPTDomTurnObservation) => void) | null = null;
-    private unsubscribe: (() => void) | null = null;
-    private queued = false;
-
+export class ChatGPTDomTurnFactSource {
     constructor(private readonly adapter: SiteAdapter) {}
 
-    start(listener: (observation: ChatGPTDomTurnObservation) => void): void {
-        this.listener = listener;
-        if (this.unsubscribe || this.adapter.getPlatformId() !== 'chatgpt') return;
-        this.unsubscribe = subscribeChatGPTDomMutations(this.adapter, () => {
-            if (this.queued) return;
-            this.queued = true;
-            queueMicrotask(() => {
-                this.queued = false;
-                this.listener?.(this.read());
-            });
-        });
-    }
-
-    stop(): void {
-        this.unsubscribe?.();
-        this.unsubscribe = null;
-        this.listener = null;
-        this.queued = false;
-    }
-
-    read(): ChatGPTDomTurnObservation {
+    read(options: { completedAssistantMessageId?: string | null } = {}): ChatGPTDomTurnObservation {
         invalidateChatGPTDomRoundSnapshot(this.adapter);
         const domRounds = collectChatGPTDomRoundRefs(this.adapter);
         const turns = collectConversationTurnRefs(this.adapter);
@@ -96,7 +70,9 @@ export class ChatGPTDomTurnFactSource implements ChatGPTDomTurnFactSourceContrac
             ? domRounds.map((domRound, index) => {
                 const turn = resolveTurnForDomRound(domRound, turns);
                 const assistantElement = turn?.primaryMessageEl ?? domRound.assistantMessageEl;
-                const copied = !domRound.isStreaming && domRound.identity.assistantMessageId
+                const isStreaming = domRound.isStreaming
+                    && domRound.identity.assistantMessageId !== options.completedAssistantMessageId;
+                const copied = !isStreaming && domRound.identity.assistantMessageId
                     ? turn
                         ? copyMarkdownFromTurn(this.adapter, turn.messageEls)
                         : copyMarkdownFromMessage(this.adapter, assistantElement)
@@ -113,7 +89,7 @@ export class ChatGPTDomTurnFactSource implements ChatGPTDomTurnFactSourceContrac
                         || domRound.identity.assistantMessageId)
                     && domRound.identity.assistantMessageId,
                 );
-                const status: ChatGPTDomTurnFact['status'] = domRound.isStreaming
+                const status: ChatGPTDomTurnFact['status'] = isStreaming
                     ? 'streaming'
                     : hasTypedIdentity && userPrompt && assistantContent
                         ? 'complete'
@@ -129,7 +105,11 @@ export class ChatGPTDomTurnFactSource implements ChatGPTDomTurnFactSourceContrac
                     status,
                 };
             })
-            : buildFallbackFacts(this.adapter, turns.length > 0 ? turns : buildLegacyTurns(this.adapter));
+            : buildFallbackFacts(
+                this.adapter,
+                turns.length > 0 ? turns : buildLegacyTurns(this.adapter),
+                options.completedAssistantMessageId,
+            );
         return {
             observedAt: Date.now(),
             rounds,
@@ -181,7 +161,11 @@ function findPreviousUserMessage(message: HTMLElement): HTMLElement | null {
  * assistant identity in that window; expose it as partial evidence instead
  * of publishing an empty conversation and making Directory/Reader disappear.
  */
-function buildFallbackFacts(adapter: SiteAdapter, turns: ConversationTurnRef[]): ChatGPTDomTurnFact[] {
+function buildFallbackFacts(
+    adapter: SiteAdapter,
+    turns: ConversationTurnRef[],
+    completedAssistantMessageId?: string | null,
+): ChatGPTDomTurnFact[] {
     return turns.map((turn, index) => {
         const assistantElement = turn.primaryMessageEl;
         const assistantMessageId = normalizeIdentity(
@@ -203,12 +187,13 @@ function buildFallbackFacts(adapter: SiteAdapter, turns: ConversationTurnRef[]):
             turn.userRootEl?.getAttribute('data-message-id')
                 || turn.userRootEl?.querySelector('[data-message-author-role="user"]')?.getAttribute('data-message-id'),
         );
-        const copied = !turn.isStreaming && assistantMessageId
+        const isStreaming = turn.isStreaming && assistantMessageId !== completedAssistantMessageId;
+        const copied = !isStreaming && assistantMessageId
             ? copyMarkdownFromTurn(adapter, turn.messageEls)
             : null;
         const assistantContent = copied?.ok ? copied.markdown.trim() : '';
         const userPrompt = normalizeText(turn.userPrompt);
-        const status: ChatGPTDomTurnFact['status'] = turn.isStreaming
+        const status: ChatGPTDomTurnFact['status'] = isStreaming
             ? 'streaming'
             : assistantMessageId && userPrompt && assistantContent
                 ? 'complete'

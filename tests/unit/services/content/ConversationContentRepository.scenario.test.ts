@@ -38,6 +38,27 @@ function candidate(ref: ConversationDocumentRefV1, answer = 'Answer'): Conversat
     };
 }
 
+function partialCandidate(
+    ref: ConversationDocumentRefV1,
+    answers: readonly string[],
+): ConversationContentCandidateV1 {
+    return {
+        document: ref,
+        coverage: 'partial',
+        turns: answers.map((answer, index) => ({
+            key: `turn-${index + 1}`,
+            ordinal: index + 1,
+            identity: {
+                turnId: `turn-${index + 1}`,
+                userMessageId: `user-${index + 1}`,
+                assistantMessageId: `assistant-${index + 1}`,
+            },
+            userText: `Question ${index + 1}`,
+            assistantMarkdown: answer,
+        })),
+    };
+}
+
 function deferred<T>(): {
     promise: Promise<T>;
     resolve(value: T): void;
@@ -226,5 +247,62 @@ describe('ConversationContentRepository', () => {
         expect(complete.snapshot.contentToken).toBe(partial.snapshot.contentToken);
         expect(states).toContain('ready:partial');
         expect(states).toContain('ready:complete');
+    });
+
+    it('keeps a longer same-document partial snapshot when a virtualized DOM window shrinks', async () => {
+        const ref = document('conversation-partial-window');
+        let next = partialCandidate(ref, ['Answer 1', 'Answer 2']);
+        const repository = new ConversationContentRepository({
+            resolveDocument: () => ref,
+            acquire: async () => next,
+        });
+
+        const first = await repository.refresh();
+        next = partialCandidate(ref, ['Answer 1']);
+        const regressed = await repository.refresh();
+
+        expect(first.kind).toBe('ready');
+        expect(regressed.kind).toBe('stale');
+        if (regressed.kind !== 'stale') throw new Error('expected stale state');
+        expect(regressed.reason).toBe('identity-conflict');
+        expect(regressed.snapshot.turns.map((turn) => turn.assistantMarkdown)).toEqual([
+            'Answer 1',
+            'Answer 2',
+        ]);
+    });
+
+    it('accepts only strict-prefix growth while a same-document snapshot is partial', async () => {
+        const ref = document('conversation-partial-growth');
+        let next = partialCandidate(ref, ['Answer 1']);
+        const repository = new ConversationContentRepository({
+            resolveDocument: () => ref,
+            acquire: async () => next,
+        });
+
+        await repository.refresh();
+        next = partialCandidate(ref, ['Answer 1', 'Answer 2']);
+        const grown = await repository.refresh();
+
+        expect(grown.kind).toBe('ready');
+        if (grown.kind !== 'ready') throw new Error('expected ready state');
+        expect(grown.snapshot.turns).toHaveLength(2);
+    });
+
+    it('does not downgrade complete coverage when partial evidence contains the same turns', async () => {
+        const ref = document('conversation-complete-coverage');
+        let next: ConversationContentCandidateV1 = candidate(ref);
+        const repository = new ConversationContentRepository({
+            resolveDocument: () => ref,
+            acquire: async () => next,
+        });
+
+        const complete = await repository.refresh();
+        next = { ...candidate(ref), coverage: 'partial' };
+        const unchanged = await repository.refresh();
+
+        expect(complete.kind).toBe('ready');
+        expect(unchanged.kind).toBe('ready');
+        if (unchanged.kind !== 'ready') throw new Error('expected ready state');
+        expect(unchanged.snapshot.coverage).toBe('complete');
     });
 });

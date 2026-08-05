@@ -164,6 +164,7 @@ describe('ReaderAnnotationManagerPopover', () => {
         const toggle = shadow.querySelector<HTMLInputElement>('[data-role="persistence-toggle"]')!;
         const help = shadow.querySelector<HTMLButtonElement>('.reader-annotation-manager__persistence-help');
         expect(help?.dataset.tooltip).toBe('Keep annotations');
+        expect(help?.dataset.tooltipVariant).toBe('preview');
         expect(help?.getAttribute('aria-label')).toBe('Keep annotations');
         toggle.click();
         await Promise.resolve();

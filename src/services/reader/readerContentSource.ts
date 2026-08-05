@@ -30,7 +30,7 @@ export type ReaderContentSourceRevision = {
     contentToken?: string;
 };
 
-export type ReaderContentSourceStatus = 'ready' | 'unavailable' | 'target-unresolved';
+export type ReaderContentSourceStatus = 'ready' | 'stale' | 'unavailable' | 'target-unresolved';
 
 export type ReaderContentSourceResult = CollectReaderItemsResult & {
     metadataSource: ReaderContentMetadataSource;
@@ -226,7 +226,7 @@ function projectConversationContent(
             lastKnownUrl: normalizeChatGPTReaderPageUrl(pageUrl),
         },
         sourceRevision: cloneSourceRevision(sourceRevision),
-        status: 'ready',
+        status: state.kind === 'stale' ? 'stale' : 'ready',
     };
 }
 

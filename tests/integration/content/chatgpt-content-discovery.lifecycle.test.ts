@@ -181,6 +181,185 @@ describe('ChatGPT content discovery lifecycle', () => {
         }
     });
 
+    it('publishes the first completed turn in a newly created conversation', async () => {
+        document.documentElement.innerHTML = '<head></head><body><main></main></body>';
+        history.replaceState({}, '', '/c/6a72103d-0a30-83ec-b432-b27dab6e72e2');
+        document.querySelector('main')?.insertAdjacentHTML('beforeend', `
+            <section data-testid="conversation-turn-1" data-turn="user" data-turn-id="4bc0f3fc-3432-4579-8052-f184e4e94775">
+                <div data-message-author-role="user" data-message-id="4bc0f3fc-3432-4579-8052-f184e4e94775">
+                    <div class="whitespace-pre-wrap">请只回复：测试完成</div>
+                </div>
+            </section>
+            <section data-testid="conversation-turn-2" data-turn="assistant" data-turn-id="request-WEB:68fd340e-b1b6-4435-8dc7-a9d9152e87f4-0">
+                <div data-message-author-role="assistant" data-message-id="df373b17-35a9-4e33-8b86-30bebeaab455">
+                    <div class="markdown prose">测试完成</div>
+                </div>
+                <div class="z-0 flex"><button data-testid="copy-turn-action-button">Copy</button></div>
+            </section>
+        `);
+        const adapter = new ChatGPTAdapter();
+        const runtime = new ChatGPTConversationContentRuntime(adapter, {
+            domFacts: new ChatGPTDomTurnFactSource(adapter),
+        });
+        const responder = ((event: Event) => {
+            const request = (event as CustomEvent<any>).detail;
+            window.dispatchEvent(new CustomEvent('aimd:chatgpt-conversation-bridge:response', {
+                detail: {
+                    requestId: request.requestId,
+                    ok: false,
+                    error: { code: 'BRIDGE_UNAVAILABLE', retryable: true },
+                },
+            }));
+        }) as EventListener;
+        window.addEventListener('aimd:chatgpt-conversation-bridge:request', responder);
+        try {
+            expect(runtime.domFacts.read().rounds).toHaveLength(1);
+            const state = await runtime.source.refresh();
+            expect(state.kind).toBe('ready');
+            if (state.kind !== 'ready') throw new Error('expected first turn to be ready');
+            expect(state.snapshot.turns).toHaveLength(1);
+            expect(state.snapshot.turns[0]?.assistantMarkdown).toBe('测试完成');
+        } finally {
+            window.removeEventListener('aimd:chatgpt-conversation-bridge:request', responder);
+            runtime.dispose();
+            adapter.dispose();
+        }
+    });
+
+    it('publishes a completed first turn when the transport finishes before the stop control clears', async () => {
+        document.documentElement.innerHTML = '<head></head><body><main></main></body>';
+        history.replaceState({}, '', '/c/6a721381-e3ec-83ec-ba07-2c2885d2b9c6');
+        document.querySelector('main')?.insertAdjacentHTML('beforeend', `
+            <section data-testid="conversation-turn-1" data-turn="user" data-turn-id="49d91808-f25e-4fd0-9cb8-314c43d83fed">
+                <div data-message-author-role="user" data-message-id="49d91808-f25e-4fd0-9cb8-314c43d83fed">
+                    <div class="whitespace-pre-wrap">请只回复：首轮探针</div>
+                </div>
+            </section>
+            <section data-testid="conversation-turn-2" data-turn="assistant" data-turn-id="request-WEB:0f334e86-fcac-460a-9dc0-5b3dd2a6977a-0">
+                <div data-message-author-role="assistant" data-message-id="ac579e24-71d7-45a4-8b8b-5fc07f3761f5">
+                    <div class="markdown prose"></div>
+                </div>
+                <div class="z-0 flex">
+                    <button data-testid="copy-turn-action-button">Copy</button>
+                    <button data-testid="stop-button">Stop</button>
+                </div>
+            </section>
+        `);
+        const adapter = new ChatGPTAdapter();
+        const runtime = new ChatGPTConversationContentRuntime(adapter, {
+            domFacts: new ChatGPTDomTurnFactSource(adapter),
+        });
+        const responder = ((event: Event) => {
+            const request = (event as CustomEvent<any>).detail;
+            window.dispatchEvent(new CustomEvent('aimd:chatgpt-conversation-bridge:response', {
+                detail: {
+                    requestId: request.requestId,
+                    ok: false,
+                    error: { code: 'BRIDGE_UNAVAILABLE', retryable: true },
+                },
+            }));
+        }) as EventListener;
+        window.addEventListener('aimd:chatgpt-conversation-bridge:request', responder);
+        try {
+            runtime.init();
+            const collecting = await runtime.source.refresh();
+            expect(collecting.kind).toBe('unavailable');
+
+            const markdown = document.querySelector('.markdown.prose');
+            const stop = document.querySelector('button[data-testid="stop-button"]');
+            if (!(markdown instanceof HTMLElement) || !(stop instanceof HTMLElement)) {
+                throw new Error('first-turn completion controls are missing');
+            }
+            markdown.textContent = '首轮探针完成';
+            window.dispatchEvent(new CustomEvent('aimd:chatgpt-conversation-bridge:capture', {
+                detail: {
+                    kind: 'generation-complete',
+                    conversationId: '6a721381-e3ec-83ec-ba07-2c2885d2b9c6',
+                    assistantMessageId: 'ac579e24-71d7-45a4-8b8b-5fc07f3761f5',
+                },
+            }));
+
+            await new Promise((resolve) => window.setTimeout(resolve, 220));
+            const ready = runtime.source.read();
+            expect(ready.kind).toBe('ready');
+            if (ready.kind !== 'ready') throw new Error('expected in-place completion to publish');
+            expect(ready.snapshot.turns.map((turn) => turn.identity.assistantMessageId)).toEqual([
+                'ac579e24-71d7-45a4-8b8b-5fc07f3761f5',
+            ]);
+        } finally {
+            window.removeEventListener('aimd:chatgpt-conversation-bridge:request', responder);
+            runtime.dispose();
+            adapter.dispose();
+        }
+    });
+
+    it('recovers the first turn when a fresh route starts at the home page', async () => {
+        document.documentElement.innerHTML = '<head></head><body><main></main></body>';
+        history.replaceState({}, '', '/');
+        const adapter = new ChatGPTAdapter();
+        const runtime = new ChatGPTConversationContentRuntime(adapter, {
+            domFacts: new ChatGPTDomTurnFactSource(adapter),
+        });
+        const responder = ((event: Event) => {
+            const request = (event as CustomEvent<any>).detail;
+            window.dispatchEvent(new CustomEvent('aimd:chatgpt-conversation-bridge:response', {
+                detail: {
+                    requestId: request.requestId,
+                    ok: false,
+                    error: { code: 'BRIDGE_UNAVAILABLE', retryable: true },
+                },
+            }));
+        }) as EventListener;
+        window.addEventListener('aimd:chatgpt-conversation-bridge:request', responder);
+        try {
+            runtime.init();
+            history.pushState({}, '', '/c/WEB:68fd340e-b1b6-4435-8dc7-a9d9152e87f4');
+            document.querySelector('main')?.insertAdjacentHTML('beforeend', `
+                <div class="conversation-root">
+                    <div data-turn-id-container="client-created-root"></div>
+                    <div data-turn-id-container="4bc0f3fc-3432-4579-8052-f184e4e94775">
+                        <section data-testid="conversation-turn-1" data-turn="user" data-turn-id="4bc0f3fc-3432-4579-8052-f184e4e94775" data-turn-id-container="4bc0f3fc-3432-4579-8052-f184e4e94775">
+                            <div data-message-author-role="user" data-message-id="4bc0f3fc-3432-4579-8052-f184e4e94775">首轮问题</div>
+                        </section>
+                    </div>
+                    <div data-turn-id-container="request-WEB:68fd340e-b1b6-4435-8dc7-a9d9152e87f4-0">
+                        <section data-testid="conversation-turn-2" data-turn="assistant" data-turn-id="request-WEB:68fd340e-b1b6-4435-8dc7-a9d9152e87f4-0" data-turn-id-container="request-WEB:68fd340e-b1b6-4435-8dc7-a9d9152e87f4-0">
+                            <div data-message-author-role="assistant" data-message-id="request-placeholder-request-WEB:68fd340e-b1b6-4435-8dc7-a9d9152e87f4-0">
+                                <div class="streaming-animation markdown prose"></div>
+                            </div>
+                            <div class="z-0 flex"><button data-testid="copy-turn-action-button">Copy</button></div>
+                        </section>
+                    </div>
+                </div>
+            `);
+            document.body.insertAdjacentHTML('beforeend', '<button data-testid="stop-button">Stop</button>');
+
+            await new Promise((resolve) => window.setTimeout(resolve, 20));
+            history.replaceState({}, '', '/c/6a72103d-0a30-83ec-b432-b27dab6e72e2');
+            const assistant = document.querySelector('[data-message-author-role="assistant"]');
+            const markdown = document.querySelector('.markdown.prose');
+            if (!(assistant instanceof HTMLElement) || !(markdown instanceof HTMLElement)) {
+                throw new Error('real first-turn fixture is incomplete');
+            }
+            assistant.dataset.messageId = 'df373b17-35a9-4e33-8b86-30bebeaab455';
+            markdown.classList.remove('streaming-animation');
+            markdown.textContent = '首轮回答';
+            document.querySelector('button[data-testid="stop-button"]')?.remove();
+
+            await new Promise((resolve) => window.setTimeout(resolve, 250));
+            const state = runtime.source.read();
+            expect(state.kind).toBe('ready');
+            if (state.kind !== 'ready') throw new Error('expected home-to-conversation first turn to be ready');
+            expect(state.snapshot.turns.map((turn) => turn.identity.assistantMessageId)).toEqual([
+                'df373b17-35a9-4e33-8b86-30bebeaab455',
+            ]);
+        } finally {
+            window.removeEventListener('aimd:chatgpt-conversation-bridge:request', responder);
+            runtime.dispose();
+            adapter.dispose();
+        }
+    });
+
     it('keeps the directory mounted when ChatGPT briefly omits turn wrappers', async () => {
         document.documentElement.innerHTML = '<head></head><body><main></main></body>';
         history.replaceState({}, '', '/c/695499b7-464c-8323-a998-119f661ac953');

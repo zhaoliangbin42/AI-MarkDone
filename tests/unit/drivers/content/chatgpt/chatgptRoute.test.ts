@@ -8,6 +8,7 @@ describe('ChatGPT route identity', () => {
     it.each([
         ['https://chatgpt.com/c/12345678-1234-1234-1234-123456789abc', '12345678-1234-1234-1234-123456789abc'],
         ['https://chatgpt.com/conversation/aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee', 'aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee'],
+        ['https://chatgpt.com/g/project-id/c/12345678-1234-1234-1234-123456789abc?model=auto#latest', '12345678-1234-1234-1234-123456789abc'],
     ])('recognizes supported conversation paths', (url, expectedId) => {
         expect(getChatGPTConversationId(url)).toBe(expectedId);
         expect(isChatGPTConversationPage(url)).toBe(true);

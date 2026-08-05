@@ -1,6 +1,6 @@
 (() => {
   const BRIDGE_KEY = '__AIMD_CHATGPT_CONVERSATION_BRIDGE__';
-  const BRIDGE_VERSION = 2;
+  const BRIDGE_VERSION = 3;
   const existingBridge = window[BRIDGE_KEY];
   if (existingBridge?.version === BRIDGE_VERSION) return;
   existingBridge?.dispose?.();
@@ -9,8 +9,12 @@
   const RESPONSE_EVENT = 'aimd:chatgpt-conversation-bridge:response';
   const CAPTURE_EVENT = 'aimd:chatgpt-conversation-bridge:capture';
   const MAX_CAPTURED_CONVERSATIONS = 3;
+  const MAX_PENDING_GENERATIONS = 4;
   const bridgeState = {
     graphsByConversation: new Map(),
+    pendingGenerations: [],
+    completedGeneration: null,
+    hostFetch: null,
     requestSequence: 0,
     captureSequence: 0,
   };
@@ -401,6 +405,7 @@
     const captureSequence = ++bridgeState.captureSequence;
     window.dispatchEvent(new CustomEvent(CAPTURE_EVENT, {
       detail: JSON.stringify({
+        kind: 'graph',
         conversationId,
         captureSequence,
       }),
@@ -425,12 +430,17 @@
   function installFetchObserver() {
     const nativeFetch = window.fetch;
     if (typeof nativeFetch !== 'function') return () => {};
+    bridgeState.hostFetch = nativeFetch.bind(window);
 
     const observedFetch = function observedFetch(input, ...init) {
       const requestUrl = getObservedRequestUrl(input);
+      const requestMethod = getObservedRequestMethod(input, init[0]);
       const conversationId = getObservedConversationId(requestUrl);
+      if (requestMethod === 'POST' && isGenerationRequestUrl(requestUrl)) {
+        rememberGenerationRequest(requestUrl);
+      }
       const result = nativeFetch.call(this, input, ...init);
-      if (!conversationId || getObservedRequestMethod(input, init[0]) !== 'GET') return result;
+      if (!conversationId || requestMethod !== 'GET') return result;
       const requestSequence = ++bridgeState.requestSequence;
       Promise.resolve(result)
         .then((response) => captureObservedResponse(response, requestUrl, conversationId, requestSequence))
@@ -440,7 +450,115 @@
     window.fetch = observedFetch;
     return () => {
       if (window.fetch === observedFetch) window.fetch = nativeFetch;
+      bridgeState.hostFetch = null;
     };
+  }
+
+  function getCurrentConversationId() {
+    return window.location.pathname.match(/(?:^|\/)(?:c|conversation)\/([0-9a-f-]{8,})(?:\/|$)/i)?.[1] || null;
+  }
+
+  function getCurrentAssistantMessageId() {
+    const messages = document.querySelectorAll('[data-message-author-role="assistant"][data-message-id]');
+    return messages[messages.length - 1]?.getAttribute('data-message-id')?.trim() || null;
+  }
+
+  function isGenerationRequestUrl(value) {
+    if (typeof value !== 'string' || !value) return false;
+    try {
+      const url = new URL(value, window.location.href);
+      return url.origin === window.location.origin
+        && /^\/backend-api(?:\/f)?\/conversation\/?$/.test(url.pathname);
+    } catch {
+      return false;
+    }
+  }
+
+  function getGenerationRequestKey(value) {
+    if (!isGenerationRequestUrl(value)) return null;
+    try {
+      const url = new URL(value, window.location.href);
+      return `${url.origin}${url.pathname}`;
+    } catch {
+      return null;
+    }
+  }
+
+  function rememberGenerationRequest(requestUrl) {
+    const requestKey = getGenerationRequestKey(requestUrl);
+    if (!requestKey) return;
+    const conversationId = getCurrentConversationId();
+    bridgeState.completedGeneration = null;
+    bridgeState.pendingGenerations.push({
+      requestKey,
+      conversationId,
+      assistantMessageIdAtStart: getCurrentAssistantMessageId(),
+    });
+    while (bridgeState.pendingGenerations.length > MAX_PENDING_GENERATIONS) {
+      bridgeState.pendingGenerations.shift();
+    }
+    if (conversationId) {
+      dispatchGenerationLifecycle('generation-start', conversationId, null);
+    }
+  }
+
+  function takePendingGeneration(resourceUrl) {
+    const requestKey = getGenerationRequestKey(resourceUrl);
+    if (!requestKey) return null;
+    const index = bridgeState.pendingGenerations.findIndex((pending) => (
+      pending.requestKey === requestKey
+    ));
+    if (index < 0) return null;
+    return bridgeState.pendingGenerations.splice(index, 1)[0] || null;
+  }
+
+  function dispatchGenerationLifecycle(kind, conversationId, assistantMessageId) {
+    window.dispatchEvent(new CustomEvent(CAPTURE_EVENT, {
+      detail: JSON.stringify({
+        kind,
+        conversationId,
+        assistantMessageId: assistantMessageId || undefined,
+      }),
+    }));
+  }
+
+  function flushCompletedGeneration() {
+    const completed = bridgeState.completedGeneration;
+    if (!completed) return;
+    const currentConversationId = getCurrentConversationId();
+    if (completed.conversationId && completed.conversationId !== currentConversationId) {
+      bridgeState.completedGeneration = null;
+      return;
+    }
+    const conversationId = completed.conversationId || currentConversationId;
+    const assistantMessageId = getCurrentAssistantMessageId();
+    if (!conversationId || !assistantMessageId) return;
+    if (assistantMessageId === completed.assistantMessageIdAtStart) return;
+    bridgeState.completedGeneration = null;
+    dispatchGenerationLifecycle('generation-complete', conversationId, assistantMessageId);
+  }
+
+  function installGenerationCompletionObserver() {
+    const Observer = window.PerformanceObserver;
+    if (typeof Observer !== 'function') return () => {};
+
+    const observer = new Observer((list) => {
+      for (const entry of list.getEntries()) {
+        if (
+          entry.entryType !== 'resource'
+          || entry.initiatorType !== 'fetch'
+          || !isGenerationRequestUrl(entry.name)
+        ) continue;
+        const pending = takePendingGeneration(entry.name);
+        if (!pending) continue;
+        const currentConversationId = getCurrentConversationId();
+        if (pending.conversationId && pending.conversationId !== currentConversationId) continue;
+        bridgeState.completedGeneration = pending;
+        flushCompletedGeneration();
+      }
+    });
+    observer.observe({ type: 'resource', buffered: true });
+    return () => observer.disconnect();
   }
 
   function getSnapshot(conversationId) {
@@ -463,10 +581,20 @@
   }
 
   async function acquireSnapshot(conversationId) {
+    const currentConversationId = getCurrentConversationId();
+    if (
+      !currentConversationId
+      || currentConversationId.toLowerCase() !== String(conversationId || '').trim().toLowerCase()
+    ) {
+      return {
+        snapshot: null,
+        error: { code: 'IDENTITY_CONFLICT', retryable: false },
+      };
+    }
     const controller = new AbortController();
     const timeoutId = window.setTimeout(() => controller.abort(), 3000);
     try {
-      const response = await window.fetch(
+      const response = await (bridgeState.hostFetch || window.fetch.bind(window))(
         `/backend-api/conversation/${encodeURIComponent(conversationId)}`,
         { method: 'GET', signal: controller.signal },
       );
@@ -513,6 +641,7 @@
     const rawDetail = event instanceof CustomEvent ? event.detail : null;
     const detail = decodeBridgeDetail(rawDetail);
     if (!detail || !['snapshot', 'peek', 'acquire'].includes(detail.type)) return;
+    flushCompletedGeneration();
     const requestWasString = typeof rawDetail === 'string';
     const respond = (payload) => {
       window.dispatchEvent(new CustomEvent(RESPONSE_EVENT, {
@@ -548,13 +677,17 @@
   };
 
   const restoreFetch = installFetchObserver();
+  const disconnectGenerationCompletionObserver = installGenerationCompletionObserver();
   window.addEventListener(REQUEST_EVENT, handleSnapshotRequest);
   window[BRIDGE_KEY] = {
     version: BRIDGE_VERSION,
     dispose() {
       window.removeEventListener(REQUEST_EVENT, handleSnapshotRequest);
+      disconnectGenerationCompletionObserver();
       restoreFetch();
       bridgeState.graphsByConversation.clear();
+      bridgeState.pendingGenerations.length = 0;
+      bridgeState.completedGeneration = null;
     },
   };
 })();

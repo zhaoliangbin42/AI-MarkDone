@@ -5,21 +5,27 @@ All notable changes to AI-MarkDone will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [Unreleased]
+## [5.1.1] - 2026-08-05
 
-### Added
-- Reader: ChatGPT annotations now persist locally per verified conversation and are shared between the in-page and detached Reader.
-- Reader: Added a compact annotation manager with current-conversation/all-annotation scopes, search, conversation/timeline views, unanchored-state visibility, deletion confirmation, and exact cross-conversation Reader navigation.
-- Reader: Added a “Persist annotations” switch in Reader Settings and the annotation manager. Saved annotations always remain visible and manageable when it is off; only future annotations stay in the current page session. Also added 50/50 source excerpts, clearer tokenized row separation, simple bulk select/delete controls, and Ctrl/Cmd+Enter comment saving while Enter remains a newline.
+Thank you for all your support—AI-MarkDone has earned the Chrome Web Store's Featured badge! I’ll continue holding every release to a high standard, with the goal of giving everyone who uses ChatGPT a better experience on the web.
 
-### Changed
-- ChatGPT: Simplified the right-side directory mount by attaching its fixed rail and hover preview directly to the page root, so ChatGPT body redraws cannot remove the surface and no portal observer is required.
-- Reader: Re-anchoring now validates DOM/atomic selectors, exact text positions, and unique text quotes before preserving a record as unanchored; Gemini, Claude, and DeepSeek keep their existing page-memory behavior.
-- ChatGPT: Complete local selections now use a settings-controlled Markdown shortcut (`Ctrl/Cmd+C` or `Ctrl/Cmd+Shift+C`) without a floating copy button; native, invalid, editable, and browser-owned copy paths remain with the host.
-- ChatGPT: Unified conversation discovery behind one proof-backed state reducer so a brand-new chat can publish its first completed reply without a conversation graph request, while continued, refreshed, virtualized, and regenerated conversations keep one route-safe source for the directory, Reader, exports, bookmarks, copy, and message statistics.
-- ChatGPT: Converged Reader, copy, PNG, export, bookmarks, and message statistics on one Reader content source; passive UI no longer triggers discovery, open Readers update by canonical revision, and stale export or bookmark dialogs are invalidated when the conversation changes.
-- ChatGPT: Detached Reader refresh and annotation focus now reject conversation revisions that change during asynchronous preparation, while the navigation index reads the canonical Source directly instead of keeping a second snapshot reference.
-- ChatGPT: Disabling and re-enabling the platform runtime now rebuilds content discovery and its directory anchors instead of leaving the previous page-scoped source permanently stopped.
+Recent ChatGPT website changes could cause the directory rail and message word counts to stop working. Thanks to everyone who reported it; this release restores those paths and adds Reader annotation workflows.
+
+1. Added local Reader annotation persistence. Thanks to GitHub user @KryogenBlue.
+2. Added a centralized Reader annotation manager. Thanks to Xiaohongshu user @小红薯67542EF1.
+3. Added `Ctrl/Cmd+Enter` to save annotations while Enter remains a newline. Thanks to Xiaohongshu user @小红薯Jesse.
+4. Upgraded ChatGPT content discovery to stabilize the Reader directory rail and message word counts. Thanks to the Xiaohongshu community.
+5. Added configurable `Ctrl/Cmd+C` and `Ctrl/Cmd+Shift+C` shortcuts for canonical Markdown selection copy.
+
+## [5.1.0] - 2026-08-04
+
+大家好，最近网站有一定的更新，导致目录条和字数统计等功能可能失效。感谢各位反馈的小伙伴，我抽空修复了这个问题，欢迎大家更新使用。
+
+1. 增加阅读器注释内容的持久化（感谢 GitHub 用户 @KryogenBlue）。
+2. 在阅读器中增加批注汇总能力（感谢小红书用户 @小红薯67542EF1）。
+3. 注释支持 `Ctrl/Cmd + Enter` 保存，普通 Enter 继续换行（感谢小红书用户 @小红薯Jesse）。
+4. 升级了内容发现链路，解决了阅读器目录条以及字数统计等不稳定的问题（感谢小红书各位群里的小伙伴）。
+5. 局部复制支持 `Ctrl/Cmd+C` 或 `Ctrl/Cmd+Shift+C` 快捷键，可在设置里配置。
 
 ## [5.0.2] - 2026-07-26
 

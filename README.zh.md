@@ -8,7 +8,7 @@
     <a href="./LICENSE">
       <img src="https://img.shields.io/github/license/zhaoliangbin42/AI-MarkDone?label=License" alt="License">
     </a>
-    <img src="https://img.shields.io/badge/Version-5.0.2-10A37F" alt="Version 5.0.2">
+    <img src="https://img.shields.io/badge/Version-5.1.1-10A37F" alt="Version 5.1.1">
     </br>
     <img src="https://img.shields.io/badge/Browsers-Chrome%20%7C%20Firefox-10A37F" alt="Browsers">
     <img src="https://img.shields.io/badge/Primary%20Platform-ChatGPT-10A37F" alt="Primary Platform">
@@ -199,10 +199,11 @@ npm run build
 
 ## 📅 最新更新
 
-### 5.0.2
-- 修复 ChatGPT 长对话中目录定位不准确的问题。
-- 原子化复制现改为纯 Markdown 文本复制，避免公式在 Markdown 编辑器中出现错误。
-- 提升 ChatGPT 消息统计的稳定性。
+### 5.1.1
+- 获得 Chrome 应用商店“精选”徽章。
+- 新增阅读器注释的本地持久化与统一管理。
+- 升级 ChatGPT 内容发现链路，提升阅读器目录条与字数统计的稳定性。
+- 新增可配置的 `Ctrl/Cmd+C` 与 `Ctrl/Cmd+Shift+C` 规范 Markdown 选区复制快捷键。
 
 [完整更新日志](./CHANGELOG.md)
 [版本说明](./RELEASE_NOTES.md)

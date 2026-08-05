@@ -207,6 +207,11 @@ Closeout evidence from the current worktree:
 
 The automated counts, bundle sizes, and performance medians above were produced from this closeout worktree. The manual row stays explicitly partial rather than inferring Firefox or current-build installed behavior from automated evidence.
 
+### ChatGPT content-discovery convergence — 2026-08-05
+
+- Functional closeout passed the 16-file / 226-test discovery gate, 1,798 core tests, 47 smoke tests, 237 acceptance tests, TypeScript checking, Chrome MV3 and Firefox MV2 builds, entry/boundary checks, and bundle budgets. Both `content.js` bundles are 759.94 kB raw / 199.81 kB gzip; both content-feature graphs are 1,695.71 kB raw / 451.12 kB gzip.
+- `npm run perf:chatgpt` still stops at the pre-existing Atomic Selection assertion (`selected=1`, `cleared=0`, empty copied payload, two writes, zero long tasks). This run does not establish a new content-discovery performance regression, but the performance gate remains open until that assertion and the installed-browser matrix pass.
+
 ## Scope protections
 
 - Do not use viewport-lazy toolbars; users must retain immediate actions on every hydrated official action row.

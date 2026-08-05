@@ -102,8 +102,9 @@ The fixture must mount the production annotation manager and token injection. It
 The discovery refactor has a dedicated contract and lifecycle layer in addition to the existing driver and consumer suites:
 
 - `tests/unit/contracts/conversationContent.test.ts` locks document identity, deep immutability, contiguous typed turns, coverage, and content-token semantics.
-- Repository scenario tests cover one reconcile path, epoch cancellation, single-flight acquisition, coalescing, last-good stale recovery, branch replacement, and explicit unavailable states.
-- Adapter/bridge tests cover passive cache, bounded same-origin GET policy, malformed/partial payloads, typed DOM evidence, and Chrome object versus Firefox JSON transport parity.
+- Repository scenario tests cover one reconcile path, epoch cancellation, single-flight acquisition, coalescing, last-good stale recovery, strict-prefix partial growth, virtualized-window regression, branch replacement, and explicit unavailable states.
+- Adapter/bridge tests cover passive cache, partial-to-complete active promotion, bounded same-origin GET policy, malformed/partial payloads, ambiguous identity fail-closed behavior, and Chrome object versus Firefox JSON transport parity.
+- The first-turn lifecycle fixture follows `/` → temporary `/c/WEB:*` → canonical `/c/:id`, proves resource completion is bound to the generation request's start identity even while a stop control lags, and confirms PageIndex ignores unrelated host churn without observing localized `aria-label` or `characterData` changes.
 - Materialization and consumer-boundary tests prove DOM remounts do not change semantic tokens and ChatGPT consumers do not add DOM fallback discovery.
 - Installed Chrome MV3 and Firefox MV2 tests remain separate acceptance evidence; unit/integration green is not a substitute for real host verification.
 

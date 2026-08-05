@@ -363,6 +363,10 @@
         "message": "保存注释",
         "description": "Message for readerCommentSave"
     },
+    "readerCommentSaveShortcut": {
+        "message": "Ctrl/Cmd + Enter 保存",
+        "description": "Reader 注释保存按钮旁显示的键盘快捷键提示"
+    },
     "readerCommentSaved": {
         "message": "注释已保存",
         "description": "Message for readerCommentSaved"
@@ -1098,7 +1102,7 @@
         "description": "Message for chatgptAtomicMarkdownCopyLabel"
     },
     "chatgptAtomicMarkdownCopyDesc": {
-        "message": "选择将 ChatGPT 完整选区复制为规范 Markdown 的快捷键；其他复制操作保持官网行为。",
+        "message": "选中 ChatGPT 中完整的公式、代码块、表格或图片等内容单元时，使用 Ctrl/Cmd+C 或 Ctrl/Cmd+Shift+C 将其复制为规范 Markdown；其他复制操作保持官网行为。",
         "description": "Message for chatgptAtomicMarkdownCopyDesc"
     },
     "chatgptAtomicMarkdownCopyNone": {

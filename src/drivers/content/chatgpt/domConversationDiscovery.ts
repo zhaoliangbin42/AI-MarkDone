@@ -478,10 +478,6 @@ export function subscribeChatGPTDomRoundChanges(adapter: SiteAdapter, listener: 
     return getChatGPTPageIndex(adapter).subscribe(listener);
 }
 
-export function subscribeChatGPTDomMutations(adapter: SiteAdapter, listener: () => void): () => void {
-    return getChatGPTPageIndex(adapter).subscribeMutations(listener);
-}
-
 export function invalidateChatGPTDomRoundSnapshot(adapter: SiteAdapter): void {
     getChatGPTPageIndex(adapter).invalidate();
 }

@@ -82,7 +82,7 @@ describe('ReaderPanel presentation', () => {
         vi.mocked(bookmarksClient.getChangelogNotice).mockResolvedValueOnce({
             ok: true,
             data: {
-                pendingVersion: '5.0.2',
+                pendingVersion: '5.1.1',
                 lastShownVersion: null,
                 reason: 'update',
                 previousVersion: '4.4.6',
@@ -100,16 +100,17 @@ describe('ReaderPanel presentation', () => {
             const shadow = host.shadowRoot as ShadowRoot;
             const modal = shadow.querySelector<HTMLElement>('.mock-modal');
 
-            expect(modal?.querySelector('.mock-modal__title-copy strong')?.textContent).toBe("What's new in AI-MarkDone 5.0.2");
-            expect(modal?.textContent).toContain('2026-07-26');
-            expect(modal?.textContent).toContain('plain Markdown text');
+            expect(modal?.querySelector('.mock-modal__title-copy strong')?.textContent).toBe("What's new in AI-MarkDone 5.1.1");
+            expect(modal?.textContent).toContain('2026-08-05');
+            expect(modal?.textContent).toContain('Featured badge');
+            expect(modal?.textContent).toContain('canonical Markdown');
             expect(Array.from(modal?.querySelectorAll<HTMLButtonElement>('.mock-modal__button') ?? []).map((button) => button.textContent)).toEqual(['OK']);
 
             const okButton = modal?.querySelector<HTMLButtonElement>('.mock-modal__button');
             okButton?.click();
             await Promise.resolve();
 
-            expect(bookmarksClient.ackChangelogNotice).toHaveBeenCalledWith('5.0.2');
+            expect(bookmarksClient.ackChangelogNotice).toHaveBeenCalledWith('5.1.1');
         } finally {
             panel.hide();
         }

@@ -203,6 +203,7 @@ export class ReaderAnnotationManagerPopover {
         persistenceHelp.textContent = '?';
         persistenceHelp.setAttribute('aria-label', params.labels.persistenceTooltip);
         persistenceHelp.dataset.tooltip = params.labels.persistenceTooltip;
+        persistenceHelp.dataset.tooltipVariant = 'preview';
         persistenceHelp.dataset.tooltipPlacement = 'bottom';
         const persistenceControl = document.createElement('label');
         persistenceControl.className = 'reader-settings-toggle';

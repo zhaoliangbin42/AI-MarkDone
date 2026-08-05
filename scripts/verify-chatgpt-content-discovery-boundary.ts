@@ -101,4 +101,4 @@ for (const marker of ['collectConversationTurnRefs', 'new MutationObserver', 'fe
     }
 }
 
-console.log(`Verified ChatGPT content-discovery boundary for ${target} (passive peek + bounded GET acquire).`);
+console.log(`Verified ChatGPT content-discovery boundary for ${target} (passive graph + metadata-only generation lifecycle + bounded GET acquire).`);

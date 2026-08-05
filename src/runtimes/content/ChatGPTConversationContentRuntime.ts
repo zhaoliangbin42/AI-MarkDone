@@ -11,7 +11,7 @@ import { ChatGPTConversationDiscoveryCoordinator } from '../../drivers/content/c
 import { ChatGPTConversationMaterialization } from '../../drivers/content/chatgpt/ChatGPTConversationMaterialization';
 
 export type ChatGPTConversationContentRuntimeOptions = Readonly<{
-    /** Active acquisition stays off until the real-browser gate is green. */
+    /** Allows the bounded same-origin graph read used to converge partial evidence. */
     allowActiveAcquisition?: boolean;
     domFacts?: ChatGPTDomTurnFactSource;
 }>;
@@ -42,15 +42,11 @@ export class ChatGPTConversationContentRuntime {
                 if (!document) return null;
                 return createChatGPTPartialCandidateFromDomObservation(
                     document,
-                    this.domFacts.read(),
+                    this.domFacts.read({
+                        completedAssistantMessageId: this.discoveryAdapter
+                            .getCompletedAssistantMessageId(document.conversationId),
+                    }),
                 );
-            },
-            hasTypedDomEvidence: () => {
-                const document = this.discoveryAdapter.resolveDocument();
-                return Boolean(document && createChatGPTPartialCandidateFromDomObservation(
-                    document,
-                    this.domFacts.read(),
-                ));
             },
         });
         this.repository = new ConversationContentRepository({

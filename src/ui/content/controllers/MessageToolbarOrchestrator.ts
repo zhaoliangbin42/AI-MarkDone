@@ -930,7 +930,8 @@ export class MessageToolbarOrchestrator {
                 });
                 const { items, startIndex } = itemsResult;
                 const shouldValidateSourceRevision = itemsResult.status === undefined
-                    || itemsResult.status === 'ready';
+                    || itemsResult.status === 'ready'
+                    || itemsResult.status === 'stale';
                 if (shouldValidateSourceRevision && !this.isSourceRevisionCurrent(itemsResult.sourceRevision)) {
                     return { ok: false, message: t('contentNotFound') };
                 }

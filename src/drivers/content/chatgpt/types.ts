@@ -24,9 +24,3 @@ export type ChatGPTDomTurnObservation = {
     observedAt: number;
     rounds: readonly ChatGPTDomTurnFact[];
 };
-
-export type ChatGPTDomTurnFactSource = {
-    start(listener: (observation: ChatGPTDomTurnObservation) => void): void;
-    stop(): void;
-    read(): ChatGPTDomTurnObservation;
-};

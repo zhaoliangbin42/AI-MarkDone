@@ -110,6 +110,55 @@ describe('ChatGPTAdapter injection contract', () => {
         });
     });
 
+    it('keeps the active generation target streaming from the locale-independent stop control', () => {
+        const html = `
+            <div data-testid="conversation-turn-1">
+              <article data-turn="assistant">
+                <div data-message-author-role="assistant" data-message-id="a1">
+                  <div class="markdown prose">正在生成</div>
+                </div>
+              </article>
+              <div class="z-0 flex justify-end">
+                <button data-testid="copy-turn-action-button">copy</button>
+                <button data-testid="stop-button">stop</button>
+              </div>
+            </div>
+        `;
+
+        withDom(html, 'https://chatgpt.com/c/mock', () => {
+            const adapter = new ChatGPTAdapter();
+            const message = document.querySelector(adapter.getMessageSelector()) as HTMLElement | null;
+            expect(message).toBeTruthy();
+            if (!message) return;
+
+            expect(adapter.isStreamingMessage(message)).toBe(true);
+            expect(adapter.isComposerStreaming()).toBe(true);
+        });
+    });
+
+    it('does not infer generation state from localized control text', () => {
+        const html = `
+            <div data-testid="conversation-turn-1">
+              <article data-turn="assistant">
+                <div data-message-author-role="assistant" data-message-id="a1">
+                  <div class="markdown prose">Complete answer</div>
+                </div>
+              </article>
+              <button aria-label="Stop sharing">unrelated control</button>
+            </div>
+        `;
+
+        withDom(html, 'https://chatgpt.com/c/mock', () => {
+            const adapter = new ChatGPTAdapter();
+            const message = document.querySelector(adapter.getMessageSelector()) as HTMLElement | null;
+            expect(message).toBeTruthy();
+            if (!message) return;
+
+            expect(adapter.isStreamingMessage(message)).toBe(false);
+            expect(adapter.isComposerStreaming()).toBe(false);
+        });
+    });
+
     it('finds and injects into an official action row that is a sibling of the assistant message container', () => {
         const html = `
             <div data-testid="conversation-turn-1">

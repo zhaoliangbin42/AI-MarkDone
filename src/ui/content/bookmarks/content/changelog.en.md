@@ -1,5 +1,29 @@
 # Changelog
 
+# 5.1.1
+2026-08-05
+
+Thank you for all your support—AI-MarkDone has earned the Chrome Web Store's Featured badge! I’ll continue holding every release to a high standard, with the goal of giving everyone who uses ChatGPT a better experience on the web.
+
+Recent ChatGPT website changes could cause the directory rail and message word counts to stop working. Thanks to everyone who reported it; this release restores those paths and adds Reader annotation workflows.
+
+1. Added local Reader annotation persistence. Thanks to GitHub user @KryogenBlue.
+2. Added a centralized Reader annotation manager. Thanks to Xiaohongshu user @小红薯67542EF1.
+3. Added `Ctrl/Cmd+Enter` to save annotations while Enter remains a newline. Thanks to Xiaohongshu user @小红薯Jesse.
+4. Upgraded ChatGPT content discovery to stabilize the Reader directory rail and message word counts. Thanks to the Xiaohongshu community.
+5. Added configurable `Ctrl/Cmd+C` and `Ctrl/Cmd+Shift+C` shortcuts for canonical Markdown selection copy.
+
+# 5.1.0
+2026-08-04
+
+Recent ChatGPT website changes could cause the directory rail and message word counts to stop working. Thanks to everyone who reported it; this release restores those paths and adds Reader annotation workflows.
+
+1. Added local Reader annotation persistence. Thanks to GitHub user @KryogenBlue.
+2. Added a centralized Reader annotation manager. Thanks to Xiaohongshu user @小红薯67542EF1.
+3. Added `Ctrl/Cmd+Enter` to save annotations while Enter remains a newline. Thanks to Xiaohongshu user @小红薯Jesse.
+4. Upgraded ChatGPT content discovery to stabilize the Reader directory rail and message word counts. Thanks to the Xiaohongshu community.
+5. Added configurable `Ctrl/Cmd+C` and `Ctrl/Cmd+Shift+C` shortcuts for canonical Markdown selection copy.
+
 # 5.0.2
 2026-07-26
 

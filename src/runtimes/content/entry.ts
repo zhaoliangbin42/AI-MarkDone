@@ -112,6 +112,7 @@ if (adapter) {
     const bookmarksController = new BookmarksPanelController(adapter);
     const chatGptConversationContentRuntime = adapter.getPlatformId() === 'chatgpt'
         ? new ChatGPTConversationContentRuntime(adapter, {
+            allowActiveAcquisition: true,
             domFacts: new ChatGPTDomTurnFactSource(adapter),
         })
         : null;

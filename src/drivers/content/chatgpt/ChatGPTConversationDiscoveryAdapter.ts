@@ -35,22 +35,39 @@ type BridgeResponse = {
 };
 
 export type ChatGPTConversationDiscoveryAdapterOptions = Readonly<{
-    /** Active reads remain opt-in until the real-browser Phase 0 gate passes. */
+    /** Allows the bounded same-origin graph read used to converge partial evidence. */
     allowActiveAcquisition?: boolean;
     /** Verified, typed DOM successor evidence; never a positional content fallback. */
     readTypedDomCandidate?: () => ConversationContentCandidateV1 | null;
-    hasTypedDomEvidence?: () => boolean;
 }>;
 
 export class ChatGPTConversationDiscoveryAdapter {
     private readonly signalListeners = new Set<() => void>();
+    private completedGeneration: { conversationId: string; assistantMessageId: string } | null = null;
     private readonly handleCapture = (event: Event) => {
-        const detail = decodeBridgeDetail<{ conversationId?: unknown }>(
+        const detail = decodeBridgeDetail<{
+            kind?: unknown;
+            conversationId?: unknown;
+            assistantMessageId?: unknown;
+        }>(
             (event as CustomEvent<unknown>).detail,
         );
         if (typeof detail?.conversationId !== 'string') return;
         const currentId = getChatGPTConversationId(window.location.href)?.trim().toLowerCase() ?? null;
-        if (detail.conversationId.trim().toLowerCase() !== currentId) return;
+        const conversationId = detail.conversationId.trim().toLowerCase();
+        if (conversationId !== currentId) return;
+        if (detail.kind === 'generation-start') {
+            this.completedGeneration = null;
+        } else if (
+            detail.kind === 'generation-complete'
+            && typeof detail.assistantMessageId === 'string'
+            && detail.assistantMessageId.trim()
+        ) {
+            this.completedGeneration = {
+                conversationId,
+                assistantMessageId: detail.assistantMessageId.trim(),
+            };
+        }
         for (const listener of Array.from(this.signalListeners)) listener();
     };
 
@@ -80,6 +97,13 @@ export class ChatGPTConversationDiscoveryAdapter {
         };
     }
 
+    getCompletedAssistantMessageId(conversationId: string): string | null {
+        const normalizedId = conversationId.trim().toLowerCase();
+        return this.completedGeneration?.conversationId === normalizedId
+            ? this.completedGeneration.assistantMessageId
+            : null;
+    }
+
     peek(signal?: AbortSignal): Promise<ConversationContentCandidateV1 | null> {
         const document = this.resolveDocument();
         if (!document) return Promise.resolve(null);
@@ -92,44 +116,61 @@ export class ChatGPTConversationDiscoveryAdapter {
             throw new ConversationContentAcquisitionError('source-unavailable', { retryable: true });
         }
 
+        let passive: ConversationContentCandidateV1 | null = null;
         try {
-            const passive = await this.peek(signal);
-            const typedDomCandidate = this.options.readTypedDomCandidate?.() ?? null;
-            if (passive) {
-                // The passive graph is usually the strongest source, but it is
-                // intentionally a snapshot of the last host GET. ChatGPT can
-                // add a new reply through a POST/SSE path without refreshing
-                // that graph. Merge only an identity-overlapping DOM suffix;
-                // this keeps the graph's history and branch proof while making
-                // the newest completed turn visible immediately.
-                return typedDomCandidate
-                    ? mergePassiveCandidateWithTypedDom(passive, typedDomCandidate)
-                    : passive;
-            }
+            passive = await this.peek(signal);
         } catch (error) {
             if (!isRetryableSourceError(error)) throw error;
         }
 
         const typedDomCandidate = this.options.readTypedDomCandidate?.() ?? null;
-        if (typedDomCandidate) return typedDomCandidate;
+        let passiveConflict = false;
+        if (passive && !typedDomCandidate) return passive;
+        if (passive && typedDomCandidate) {
+            // A graph captured before the latest POST may safely accept only
+            // an identity-overlapping DOM successor. Ambiguous evidence must
+            // converge through a fresh graph instead of reviving the old one.
+            const merged = mergePassiveCandidateWithTypedDom(passive, typedDomCandidate);
+            if (merged) return merged;
+            passiveConflict = true;
+        }
 
         if (this.options.allowActiveAcquisition !== true) {
+            if (passiveConflict) {
+                throw new ConversationContentAcquisitionError('identity-conflict', { retryable: false });
+            }
+            if (typedDomCandidate) return typedDomCandidate;
             throw new ConversationContentAcquisitionError('source-unavailable', { retryable: true });
         }
 
         try {
             return await this.request('acquire', document, ACQUIRE_TIMEOUT_MS, signal);
         } catch (error) {
-            const hasTypedDomEvidence = this.options.hasTypedDomEvidence?.()
-                ?? Boolean(this.options.readTypedDomCandidate?.());
-            if (!isRetryableSourceError(error) || !hasTypedDomEvidence) throw error;
-            await wait(RETRY_DELAY_MS, signal);
-            return this.request('acquire', document, ACQUIRE_TIMEOUT_MS, signal);
+            if (signal.aborted) throw error;
+            let fallbackTypedDomCandidate = typedDomCandidate
+                ?? this.options.readTypedDomCandidate?.()
+                ?? null;
+            if (isRetryableSourceError(error) && fallbackTypedDomCandidate) {
+                try {
+                    await wait(RETRY_DELAY_MS, signal);
+                    return await this.request('acquire', document, ACQUIRE_TIMEOUT_MS, signal);
+                } catch (retryError) {
+                    if (signal.aborted) throw retryError;
+                    fallbackTypedDomCandidate = fallbackTypedDomCandidate
+                        ?? this.options.readTypedDomCandidate?.()
+                        ?? null;
+                    if (!fallbackTypedDomCandidate) throw retryError;
+                }
+            } else if (!fallbackTypedDomCandidate) {
+                throw error;
+            }
+            return fallbackTypedDomCandidate;
         }
     }
 
     dispose(): void {
         window.removeEventListener(CAPTURE_EVENT, this.handleCapture as EventListener);
+        this.completedGeneration = null;
         this.signalListeners.clear();
     }
 
@@ -203,9 +244,9 @@ export class ChatGPTConversationDiscoveryAdapter {
 function mergePassiveCandidateWithTypedDom(
     passive: ConversationContentCandidateV1,
     typedDom: ConversationContentCandidateV1,
-): ConversationContentCandidateV1 {
+): ConversationContentCandidateV1 | null {
     if (passive.document.key !== typedDom.document.key || typedDom.turns.length === 0) {
-        return passive;
+        return null;
     }
 
     const graphTurns = passive.turns.map((turn) => ({
@@ -242,8 +283,8 @@ function mergePassiveCandidateWithTypedDom(
     }
 
     // Without a shared typed assistant id there is no safe way to tell a new
-    // branch from a different DOM window. Keep the verified graph unchanged.
-    if (!best || best.length === 0) return passive;
+    // branch from a different DOM window. A fresh graph must decide.
+    if (!best || best.length === 0) return null;
 
     const merged = graphTurns.slice();
     for (let index = 0; index < best.length; index += 1) {
@@ -260,7 +301,7 @@ function mergePassiveCandidateWithTypedDom(
             // branch replacement. Any later old graph suffix is no longer the
             // verified current branch and must not be mixed into the result.
             if (!sameKnownUserMessage(merged[graphSuccessorIndex]!, domSuccessors[0]!)) {
-                return passive;
+                return null;
             }
             merged.splice(graphSuccessorIndex);
         }
@@ -393,6 +434,9 @@ function toCandidate(
 function mapBridgeError(error: BridgeResponse['error']): ConversationContentAcquisitionError {
     const code = typeof error?.code === 'string' ? error.code : '';
     if (code === 'SOURCE_TIMEOUT') return new ConversationContentAcquisitionError('source-timeout');
+    if (code === 'BRIDGE_UNAVAILABLE') {
+        return new ConversationContentAcquisitionError('source-unavailable', { retryable: true });
+    }
     if (code === 'INVALID_PAYLOAD' || code === 'INVALID_CONTENT_TYPE') {
         return new ConversationContentAcquisitionError('invalid-payload', { retryable: false });
     }
@@ -416,11 +460,17 @@ function isRetryableSourceError(error: unknown): boolean {
 
 function wait(delayMs: number, signal: AbortSignal): Promise<void> {
     return new Promise((resolve, reject) => {
-        const timer = window.setTimeout(resolve, delayMs);
+        const finish = () => {
+            signal.removeEventListener('abort', onAbort);
+            resolve();
+        };
+        const timer = window.setTimeout(finish, delayMs);
         const onAbort = () => {
             window.clearTimeout(timer);
+            signal.removeEventListener('abort', onAbort);
             reject(new ConversationContentAcquisitionError('source-unavailable', { retryable: true }));
         };
         signal.addEventListener('abort', onAbort, { once: true });
+        if (signal.aborted) onAbort();
     });
 }

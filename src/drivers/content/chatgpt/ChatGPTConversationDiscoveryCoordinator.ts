@@ -1,6 +1,5 @@
 import type {
     ConversationContentCoordinatorV1,
-    ConversationContentSourceV1,
 } from '../../../contracts/conversationContent';
 import { RouteWatcher } from '../injection/routeWatcher';
 import { getChatGPTPageIndex } from './domConversationDiscovery';
@@ -11,7 +10,7 @@ import type { SiteAdapter } from '../adapters/base';
 export type ChatGPTConversationDiscoveryCoordinatorOptions = Readonly<{
     adapter: SiteAdapter;
     discoveryAdapter: ChatGPTConversationDiscoveryAdapter;
-    repository: ConversationContentCoordinatorV1 & ConversationContentSourceV1;
+    repository: ConversationContentCoordinatorV1;
     pageIndex?: ChatGPTPageIndex;
 }>;
 
@@ -51,10 +50,6 @@ export class ChatGPTConversationDiscoveryCoordinator {
         window.addEventListener('pageshow', this.handlePageShow);
         this.routeWatcher.start();
         void this.options.repository.reconcile();
-    }
-
-    refresh(): Promise<ReturnType<ConversationContentSourceV1['read']>> {
-        return this.options.repository.refresh();
     }
 
     dispose(): void {

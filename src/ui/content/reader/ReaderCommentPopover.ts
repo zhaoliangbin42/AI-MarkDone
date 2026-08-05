@@ -34,6 +34,7 @@ type OpenParams = {
         cancel?: string;
         delete?: string;
         save?: string;
+        saveShortcut?: string;
     };
     onSave: (value: string) => void | Promise<void>;
     onCancel?: () => void;
@@ -200,6 +201,14 @@ ${getAnchoredMotionCss()}
   cursor: not-allowed;
 }
 
+.reader-comment-popover__shortcut {
+  color: var(--aimd-text-tertiary);
+  font-size: var(--aimd-text-xs);
+  line-height: 1.2;
+  white-space: nowrap;
+  user-select: none;
+}
+
 @media (max-width: 560px) {
   .reader-comment-popover {
     width: calc(100% - (var(--aimd-space-2) * 2));
@@ -259,6 +268,7 @@ export class ReaderCommentPopover {
             cancel: params.labels?.cancel ?? 'Cancel',
             delete: params.labels?.delete ?? 'Delete',
             save: params.labels?.save ?? 'Save annotation',
+            saveShortcut: params.labels?.saveShortcut ?? 'Ctrl/Cmd + Enter to save',
         };
         const secondaryActionLabel = params.mode === 'edit' ? labels.delete : labels.cancel;
 
@@ -285,6 +295,7 @@ export class ReaderCommentPopover {
           <div class="reader-comment-popover__actions">
             <button class="secondary-btn reader-comment-popover__btn" type="button" data-action="cancel">${secondaryActionLabel}</button>
             <button class="secondary-btn secondary-btn--primary reader-comment-popover__btn" type="button" data-action="save">${labels.save}</button>
+            <span class="reader-comment-popover__shortcut" aria-hidden="true">${labels.saveShortcut}</span>
           </div>
         `;
 

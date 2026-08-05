@@ -8,6 +8,7 @@ import { createConversationDocumentKeyV1 } from '@/contracts/conversationContent
 
 const REQUEST_EVENT = 'aimd:chatgpt-conversation-bridge:request';
 const RESPONSE_EVENT = 'aimd:chatgpt-conversation-bridge:response';
+const CAPTURE_EVENT = 'aimd:chatgpt-conversation-bridge:capture';
 const conversationId = '695499b7-464c-8323-a998-119f661ac953';
 
 function dispatchResponse(request: any, snapshot?: any, error?: any): void {
@@ -132,6 +133,45 @@ describe('ChatGPTConversationDiscoveryAdapter', () => {
         }
     });
 
+    it('fails closed when passive graph and typed DOM evidence have no shared identity', async () => {
+        const typedDocument = {
+            key: createConversationDocumentKeyV1('chatgpt', conversationId),
+            platformId: 'chatgpt',
+            conversationId,
+        } as const;
+        const adapter = new ChatGPTConversationDiscoveryAdapter({
+            readTypedDomCandidate: () => ({
+                document: typedDocument,
+                coverage: 'partial',
+                turns: [{
+                    key: 'turn-new:assistant-new',
+                    ordinal: 1,
+                    identity: {
+                        turnId: 'turn-new',
+                        userMessageId: 'user-new',
+                        assistantMessageId: 'assistant-new',
+                    },
+                    userText: 'Different branch',
+                    assistantMarkdown: 'Different answer',
+                }],
+            }),
+        });
+        const responder = ((event: Event) => {
+            const request = (event as CustomEvent<any>).detail;
+            dispatchResponse(request, snapshot());
+        }) as EventListener;
+        window.addEventListener(REQUEST_EVENT, responder);
+
+        try {
+            await expect(adapter.acquire(new AbortController().signal)).rejects.toMatchObject({
+                reason: 'identity-conflict',
+            });
+        } finally {
+            window.removeEventListener(REQUEST_EVENT, responder);
+            adapter.dispose();
+        }
+    });
+
     it('does not perform active acquisition until the real-browser gate enables it', async () => {
         const adapter = new ChatGPTConversationDiscoveryAdapter();
         const requests: string[] = [];
@@ -150,11 +190,221 @@ describe('ChatGPTConversationDiscoveryAdapter', () => {
         adapter.dispose();
     });
 
+    it('uses complete typed DOM evidence when a new conversation has no passive graph', async () => {
+        const typedDocument = {
+            key: createConversationDocumentKeyV1('chatgpt', conversationId),
+            platformId: 'chatgpt',
+            conversationId,
+        } as const;
+        const adapter = new ChatGPTConversationDiscoveryAdapter({
+            readTypedDomCandidate: () => ({
+                document: typedDocument,
+                coverage: 'partial',
+                turns: [{
+                    key: 'turn-1:assistant-1',
+                    ordinal: 1,
+                    identity: {
+                        turnId: 'turn-1',
+                        userMessageId: 'user-1',
+                        assistantMessageId: 'assistant-1',
+                    },
+                    userText: 'Question',
+                    assistantMarkdown: 'Answer',
+                }],
+            }),
+        });
+        const responder = ((event: Event) => {
+            const request = (event as CustomEvent<any>).detail;
+            expect(request.type).toBe('peek');
+            dispatchResponse(request, undefined, { code: 'BRIDGE_UNAVAILABLE' });
+        }) as EventListener;
+        window.addEventListener(REQUEST_EVENT, responder);
+
+        try {
+            const result = await adapter.acquire(new AbortController().signal);
+
+            expect(result).toMatchObject({
+                coverage: 'partial',
+                turns: [{
+                    identity: { assistantMessageId: 'assistant-1' },
+                    assistantMarkdown: 'Answer',
+                }],
+            });
+        } finally {
+            window.removeEventListener(REQUEST_EVENT, responder);
+            adapter.dispose();
+        }
+    });
+
+    it('uses active acquisition to promote a new-conversation DOM candidate to a complete graph', async () => {
+        const typedDocument = {
+            key: createConversationDocumentKeyV1('chatgpt', conversationId),
+            platformId: 'chatgpt',
+            conversationId,
+        } as const;
+        const adapter = new ChatGPTConversationDiscoveryAdapter({
+            allowActiveAcquisition: true,
+            readTypedDomCandidate: () => ({
+                document: typedDocument,
+                coverage: 'partial',
+                turns: [{
+                    key: 'turn-1:assistant-1',
+                    ordinal: 1,
+                    identity: {
+                        turnId: 'turn-1',
+                        userMessageId: 'user-1',
+                        assistantMessageId: 'assistant-1',
+                    },
+                    userText: 'Question',
+                    assistantMarkdown: 'Answer',
+                }],
+            }),
+        });
+        const requests: string[] = [];
+        const responder = ((event: Event) => {
+            const request = (event as CustomEvent<any>).detail;
+            requests.push(request.type);
+            if (request.type === 'peek') {
+                dispatchResponse(request, undefined, { code: 'BRIDGE_UNAVAILABLE', retryable: true });
+                return;
+            }
+            dispatchResponse(request, snapshot());
+        }) as EventListener;
+        window.addEventListener(REQUEST_EVENT, responder);
+
+        try {
+            const result = await adapter.acquire(new AbortController().signal);
+
+            expect(requests).toEqual(['peek', 'acquire']);
+            expect(result?.coverage).toBe('complete');
+        } finally {
+            window.removeEventListener(REQUEST_EVENT, responder);
+            adapter.dispose();
+        }
+    });
+
+    it('falls back to verified partial DOM evidence after a non-retryable active read failure', async () => {
+        const typedDocument = {
+            key: createConversationDocumentKeyV1('chatgpt', conversationId),
+            platformId: 'chatgpt',
+            conversationId,
+        } as const;
+        const adapter = new ChatGPTConversationDiscoveryAdapter({
+            allowActiveAcquisition: true,
+            readTypedDomCandidate: () => ({
+                document: typedDocument,
+                coverage: 'partial',
+                turns: [{
+                    key: 'turn-1:assistant-1',
+                    ordinal: 1,
+                    identity: {
+                        turnId: 'turn-1',
+                        userMessageId: 'user-1',
+                        assistantMessageId: 'assistant-1',
+                    },
+                    userText: 'Question',
+                    assistantMarkdown: 'Answer',
+                }],
+            }),
+        });
+        const requests: string[] = [];
+        const responder = ((event: Event) => {
+            const request = (event as CustomEvent<any>).detail;
+            requests.push(request.type);
+            dispatchResponse(request, undefined, request.type === 'peek'
+                ? { code: 'BRIDGE_UNAVAILABLE', retryable: true }
+                : { code: 'HTTP_401', retryable: false });
+        }) as EventListener;
+        window.addEventListener(REQUEST_EVENT, responder);
+
+        try {
+            const result = await adapter.acquire(new AbortController().signal);
+
+            expect(requests).toEqual(['peek', 'acquire']);
+            expect(result?.coverage).toBe('partial');
+        } finally {
+            window.removeEventListener(REQUEST_EVENT, responder);
+            adapter.dispose();
+        }
+    });
+
+    it('scopes transport completion evidence to the current assistant generation', () => {
+        const adapter = new ChatGPTConversationDiscoveryAdapter();
+        const listener = vi.fn();
+        const unsubscribe = adapter.subscribeSignals(listener);
+
+        window.dispatchEvent(new CustomEvent(CAPTURE_EVENT, {
+            detail: JSON.stringify({
+                kind: 'generation-complete',
+                conversationId,
+                assistantMessageId: 'assistant-1',
+            }),
+        }));
+        expect(adapter.getCompletedAssistantMessageId(conversationId)).toBe('assistant-1');
+
+        window.dispatchEvent(new CustomEvent(CAPTURE_EVENT, {
+            detail: JSON.stringify({
+                kind: 'generation-start',
+                conversationId,
+            }),
+        }));
+        expect(adapter.getCompletedAssistantMessageId(conversationId)).toBeNull();
+        expect(listener).toHaveBeenCalledTimes(2);
+
+        unsubscribe();
+        adapter.dispose();
+    });
+
+    it('retains completion evidence only for the current conversation', () => {
+        const adapter = new ChatGPTConversationDiscoveryAdapter();
+        const unsubscribe = adapter.subscribeSignals(() => undefined);
+        window.dispatchEvent(new CustomEvent(CAPTURE_EVENT, {
+            detail: JSON.stringify({
+                kind: 'generation-complete',
+                conversationId,
+                assistantMessageId: 'assistant-1',
+            }),
+        }));
+
+        const nextConversationId = '795499b7-464c-8323-a998-119f661ac954';
+        history.replaceState({}, '', `/c/${nextConversationId}`);
+        window.dispatchEvent(new CustomEvent(CAPTURE_EVENT, {
+            detail: JSON.stringify({
+                kind: 'generation-complete',
+                conversationId: nextConversationId,
+                assistantMessageId: 'assistant-2',
+            }),
+        }));
+
+        expect(adapter.getCompletedAssistantMessageId(conversationId)).toBeNull();
+        expect(adapter.getCompletedAssistantMessageId(nextConversationId)).toBe('assistant-2');
+        unsubscribe();
+        adapter.dispose();
+    });
+
     it('retries one timeout/5xx acquisition only when typed DOM evidence exists', async () => {
         vi.useFakeTimers();
         const adapter = new ChatGPTConversationDiscoveryAdapter({
             allowActiveAcquisition: true,
-            hasTypedDomEvidence: () => true,
+            readTypedDomCandidate: () => ({
+                document: {
+                    key: createConversationDocumentKeyV1('chatgpt', conversationId),
+                    platformId: 'chatgpt',
+                    conversationId,
+                },
+                coverage: 'partial',
+                turns: [{
+                    key: 'turn-1:assistant-1',
+                    ordinal: 1,
+                    identity: {
+                        turnId: 'turn-1',
+                        userMessageId: 'user-1',
+                        assistantMessageId: 'assistant-1',
+                    },
+                    userText: 'Question',
+                    assistantMarkdown: 'Answer',
+                }],
+            }),
         });
         const requests: string[] = [];
         const responder = ((event: Event) => {

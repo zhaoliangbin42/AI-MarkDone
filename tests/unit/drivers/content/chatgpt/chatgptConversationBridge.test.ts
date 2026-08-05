@@ -4,6 +4,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 const BRIDGE_PATH = 'public/page-bridges/chatgpt-conversation-bridge.js';
 const REQUEST_EVENT = 'aimd:chatgpt-conversation-bridge:request';
 const RESPONSE_EVENT = 'aimd:chatgpt-conversation-bridge:response';
+const CAPTURE_EVENT = 'aimd:chatgpt-conversation-bridge:capture';
 
 function installBridge(): void {
     const script = readFileSync(BRIDGE_PATH, 'utf-8');
@@ -227,9 +228,318 @@ describe('ChatGPT conversation bridge', () => {
         expect(contentDiscovery).not.toContain('WebSocket');
         expect(contentDiscovery).not.toContain('setInterval(');
         expect(contentDiscovery).not.toContain('visibilitychange');
-        expect(pageIndex).toContain('attributeFilter: Array.from(ROUND_IDENTITY_ATTRIBUTES)');
+        expect(pageIndex).toContain('attributeFilter: Array.from(HOST_LIFECYCLE_ATTRIBUTES)');
         expect(pageIndex).not.toContain('characterData: true');
         expect(facts).not.toContain('new MutationObserver');
+    });
+
+    it('signals generation completion from resource timing without reading the response', async () => {
+        const conversationId = '69e8d157-5fec-839c-9124-2179ba8b7d7c';
+        history.replaceState({}, '', `/c/${conversationId}`);
+        document.body.innerHTML = '<main></main>';
+        let observerCallback: ((list: { getEntries(): Array<Record<string, unknown>> }) => void) | null = null;
+        const observe = vi.fn();
+        const disconnect = vi.fn();
+        class MockPerformanceObserver {
+            constructor(callback: typeof observerCallback) {
+                observerCallback = callback;
+            }
+
+            observe = observe;
+            disconnect = disconnect;
+        }
+        const originalObserver = window.PerformanceObserver;
+        Object.defineProperty(window, 'PerformanceObserver', {
+            configurable: true,
+            value: MockPerformanceObserver,
+        });
+        const fetchMock = vi.fn(async () => new Response('', { status: 200 }));
+        Object.defineProperty(window, 'fetch', { configurable: true, value: fetchMock });
+        vi.stubGlobal('fetch', fetchMock);
+        const captures: any[] = [];
+        const listener = ((event: Event) => {
+            captures.push(decodeDetail((event as CustomEvent<unknown>).detail));
+        }) as EventListener;
+        window.addEventListener(CAPTURE_EVENT, listener);
+
+        try {
+            installBridge();
+            expect(observe).toHaveBeenCalledWith({ type: 'resource', buffered: true });
+            await window.fetch('/backend-api/f/conversation', { method: 'POST' });
+            document.querySelector('main')?.insertAdjacentHTML(
+                'beforeend',
+                '<div data-message-author-role="assistant" data-message-id="assistant-live"></div>',
+            );
+            observerCallback?.({
+                getEntries: () => [{
+                    entryType: 'resource',
+                    initiatorType: 'fetch',
+                    name: new URL('/backend-api/f/conversation', window.location.href).href,
+                }],
+            });
+
+            expect(captures).toContainEqual({
+                kind: 'generation-complete',
+                conversationId,
+                assistantMessageId: 'assistant-live',
+            });
+            (window as any).__AIMD_CHATGPT_CONVERSATION_BRIDGE__?.dispose?.();
+            expect(disconnect).toHaveBeenCalledTimes(1);
+        } finally {
+            window.removeEventListener(CAPTURE_EVENT, listener);
+            Object.defineProperty(window, 'PerformanceObserver', {
+                configurable: true,
+                value: originalObserver,
+            });
+        }
+    });
+
+    it('does not bind a generation completion to a conversation entered after the request started', async () => {
+        const conversationA = '69e8d157-5fec-839c-9124-2179ba8b7d7a';
+        const conversationB = '69e8d157-5fec-839c-9124-2179ba8b7d7b';
+        history.replaceState({}, '', `/c/${conversationA}`);
+        document.body.innerHTML = `
+          <main>
+            <div data-message-author-role="assistant" data-message-id="assistant-a"></div>
+          </main>
+        `;
+        let observerCallback: ((list: { getEntries(): Array<Record<string, unknown>> }) => void) | null = null;
+        class MockPerformanceObserver {
+            constructor(callback: typeof observerCallback) {
+                observerCallback = callback;
+            }
+
+            observe = vi.fn();
+            disconnect = vi.fn();
+        }
+        const originalObserver = window.PerformanceObserver;
+        Object.defineProperty(window, 'PerformanceObserver', {
+            configurable: true,
+            value: MockPerformanceObserver,
+        });
+        const fetchMock = vi.fn(async () => new Response('', { status: 200 }));
+        Object.defineProperty(window, 'fetch', { configurable: true, value: fetchMock });
+        vi.stubGlobal('fetch', fetchMock);
+        const captures: any[] = [];
+        const listener = ((event: Event) => {
+            captures.push(decodeDetail((event as CustomEvent<unknown>).detail));
+        }) as EventListener;
+        window.addEventListener(CAPTURE_EVENT, listener);
+
+        try {
+            installBridge();
+            await window.fetch('/backend-api/f/conversation', { method: 'POST' });
+            history.replaceState({}, '', `/c/${conversationB}`);
+            document.body.innerHTML = `
+              <main>
+                <div data-message-author-role="assistant" data-message-id="assistant-b"></div>
+              </main>
+            `;
+            observerCallback?.({
+                getEntries: () => [{
+                    entryType: 'resource',
+                    initiatorType: 'fetch',
+                    name: new URL('/backend-api/f/conversation', window.location.href).href,
+                }],
+            });
+
+            expect(captures).toContainEqual({
+                kind: 'generation-start',
+                conversationId: conversationA,
+            });
+            expect(captures.filter((capture) => capture.kind === 'generation-complete')).toEqual([]);
+        } finally {
+            window.removeEventListener(CAPTURE_EVENT, listener);
+            (window as any).__AIMD_CHATGPT_CONVERSATION_BRIDGE__?.dispose?.();
+            Object.defineProperty(window, 'PerformanceObserver', {
+                configurable: true,
+                value: originalObserver,
+            });
+        }
+    });
+
+    it('binds a generation started on the blank route to the canonical conversation created by that request', async () => {
+        const createdConversationId = '69e8d157-5fec-839c-9124-2179ba8b7d7c';
+        history.replaceState({}, '', '/');
+        let observerCallback: ((list: { getEntries(): Array<Record<string, unknown>> }) => void) | null = null;
+        class MockPerformanceObserver {
+            constructor(callback: typeof observerCallback) {
+                observerCallback = callback;
+            }
+
+            observe = vi.fn();
+            disconnect = vi.fn();
+        }
+        const originalObserver = window.PerformanceObserver;
+        Object.defineProperty(window, 'PerformanceObserver', {
+            configurable: true,
+            value: MockPerformanceObserver,
+        });
+        const fetchMock = vi.fn(async () => new Response('', { status: 200 }));
+        Object.defineProperty(window, 'fetch', { configurable: true, value: fetchMock });
+        vi.stubGlobal('fetch', fetchMock);
+        const captures: any[] = [];
+        const listener = ((event: Event) => {
+            captures.push(decodeDetail((event as CustomEvent<unknown>).detail));
+        }) as EventListener;
+        window.addEventListener(CAPTURE_EVENT, listener);
+
+        try {
+            installBridge();
+            await window.fetch('/backend-api/f/conversation', { method: 'POST' });
+            history.replaceState({}, '', `/c/${createdConversationId}`);
+            document.body.innerHTML = `
+              <main>
+                <div data-message-author-role="assistant" data-message-id="assistant-created"></div>
+              </main>
+            `;
+            observerCallback?.({
+                getEntries: () => [{
+                    entryType: 'resource',
+                    initiatorType: 'fetch',
+                    name: new URL('/backend-api/f/conversation', window.location.href).href,
+                }],
+            });
+
+            expect(captures.filter((capture) => capture.kind === 'generation-start')).toEqual([]);
+            expect(captures).toContainEqual({
+                kind: 'generation-complete',
+                conversationId: createdConversationId,
+                assistantMessageId: 'assistant-created',
+            });
+        } finally {
+            window.removeEventListener(CAPTURE_EVENT, listener);
+            (window as any).__AIMD_CHATGPT_CONVERSATION_BRIDGE__?.dispose?.();
+            Object.defineProperty(window, 'PerformanceObserver', {
+                configurable: true,
+                value: originalObserver,
+            });
+        }
+    });
+
+    it('retains blank-route completion evidence until the canonical route and assistant identity mount', async () => {
+        const createdConversationId = '69e8d157-5fec-839c-9124-2179ba8b7d7c';
+        history.replaceState({}, '', '/');
+        let observerCallback: ((list: { getEntries(): Array<Record<string, unknown>> }) => void) | null = null;
+        class MockPerformanceObserver {
+            constructor(callback: typeof observerCallback) {
+                observerCallback = callback;
+            }
+
+            observe = vi.fn();
+            disconnect = vi.fn();
+        }
+        const originalObserver = window.PerformanceObserver;
+        Object.defineProperty(window, 'PerformanceObserver', {
+            configurable: true,
+            value: MockPerformanceObserver,
+        });
+        const fetchMock = vi.fn(async () => new Response('', { status: 200 }));
+        Object.defineProperty(window, 'fetch', { configurable: true, value: fetchMock });
+        vi.stubGlobal('fetch', fetchMock);
+        const captures: any[] = [];
+        const listener = ((event: Event) => {
+            captures.push(decodeDetail((event as CustomEvent<unknown>).detail));
+        }) as EventListener;
+        window.addEventListener(CAPTURE_EVENT, listener);
+
+        try {
+            installBridge();
+            await window.fetch('/backend-api/f/conversation', { method: 'POST' });
+            observerCallback?.({
+                getEntries: () => [{
+                    entryType: 'resource',
+                    initiatorType: 'fetch',
+                    name: new URL('/backend-api/f/conversation', window.location.href).href,
+                }],
+            });
+            expect(captures.filter((capture) => capture.kind === 'generation-complete')).toEqual([]);
+
+            history.replaceState({}, '', `/c/${createdConversationId}`);
+            document.body.innerHTML = `
+              <main>
+                <div data-message-author-role="assistant" data-message-id="assistant-created"></div>
+              </main>
+            `;
+            await requestSnapshot(createdConversationId, { type: 'peek' });
+
+            expect(captures).toContainEqual({
+                kind: 'generation-complete',
+                conversationId: createdConversationId,
+                assistantMessageId: 'assistant-created',
+            });
+        } finally {
+            window.removeEventListener(CAPTURE_EVENT, listener);
+            (window as any).__AIMD_CHATGPT_CONVERSATION_BRIDGE__?.dispose?.();
+            Object.defineProperty(window, 'PerformanceObserver', {
+                configurable: true,
+                value: originalObserver,
+            });
+        }
+    });
+
+    it('waits for a new assistant identity instead of completing the previous turn', async () => {
+        const conversationId = '69e8d157-5fec-839c-9124-2179ba8b7d7c';
+        history.replaceState({}, '', `/c/${conversationId}`);
+        document.body.innerHTML = `
+          <main>
+            <div data-message-author-role="assistant" data-message-id="assistant-old"></div>
+          </main>
+        `;
+        let observerCallback: ((list: { getEntries(): Array<Record<string, unknown>> }) => void) | null = null;
+        class MockPerformanceObserver {
+            constructor(callback: typeof observerCallback) {
+                observerCallback = callback;
+            }
+
+            observe = vi.fn();
+            disconnect = vi.fn();
+        }
+        const originalObserver = window.PerformanceObserver;
+        Object.defineProperty(window, 'PerformanceObserver', {
+            configurable: true,
+            value: MockPerformanceObserver,
+        });
+        const fetchMock = vi.fn(async () => new Response('', { status: 200 }));
+        Object.defineProperty(window, 'fetch', { configurable: true, value: fetchMock });
+        vi.stubGlobal('fetch', fetchMock);
+        const captures: any[] = [];
+        const listener = ((event: Event) => {
+            captures.push(decodeDetail((event as CustomEvent<unknown>).detail));
+        }) as EventListener;
+        window.addEventListener(CAPTURE_EVENT, listener);
+
+        try {
+            installBridge();
+            await window.fetch('/backend-api/f/conversation', { method: 'POST' });
+            observerCallback?.({
+                getEntries: () => [{
+                    entryType: 'resource',
+                    initiatorType: 'fetch',
+                    name: new URL('/backend-api/f/conversation', window.location.href).href,
+                }],
+            });
+            expect(captures.filter((capture) => capture.kind === 'generation-complete')).toEqual([]);
+
+            document.querySelector('main')?.insertAdjacentHTML(
+                'beforeend',
+                '<div data-message-author-role="assistant" data-message-id="assistant-new"></div>',
+            );
+            await requestSnapshot(conversationId, { type: 'peek' });
+
+            expect(captures).toContainEqual({
+                kind: 'generation-complete',
+                conversationId,
+                assistantMessageId: 'assistant-new',
+            });
+        } finally {
+            window.removeEventListener(CAPTURE_EVENT, listener);
+            (window as any).__AIMD_CHATGPT_CONVERSATION_BRIDGE__?.dispose?.();
+            Object.defineProperty(window, 'PerformanceObserver', {
+                configurable: true,
+                value: originalObserver,
+            });
+        }
     });
 
     it('builds a canonical snapshot from a verified backend conversation graph', async () => {
@@ -718,6 +1028,7 @@ describe('ChatGPT conversation bridge', () => {
 
     it('allows one bounded same-origin GET only for an explicit acquire request', async () => {
         const conversationId = '69e8d157-5fec-839c-9124-2179ba8b7d7c';
+        history.replaceState({}, '', `/c/${conversationId}`);
         const payload = {
             conversation_id: conversationId,
             current_node: 'assistant-node',
@@ -750,6 +1061,41 @@ describe('ChatGPT conversation bridge', () => {
         expect(fetchMock.mock.calls[0]?.[1]).toMatchObject({ method: 'GET' });
         expect(response.ok).toBe(true);
         expect(response.snapshot.rounds).toHaveLength(1);
+    });
+
+    it('rejects an active acquire request that does not match the current route identity', async () => {
+        const currentConversationId = '69e8d157-5fec-839c-9124-2179ba8b7d7c';
+        const requestedConversationId = '79e8d157-5fec-839c-9124-2179ba8b7d7d';
+        history.replaceState({}, '', `/c/${currentConversationId}`);
+        const fetchMock = vi.fn(async () => new Response('', { status: 404 }));
+        Object.defineProperty(window, 'fetch', { configurable: true, value: fetchMock });
+        vi.stubGlobal('fetch', fetchMock);
+
+        installBridge();
+        const response = await requestSnapshot(requestedConversationId, { type: 'acquire' });
+
+        expect(fetchMock).not.toHaveBeenCalled();
+        expect(response).toMatchObject({
+            ok: false,
+            error: { code: 'IDENTITY_CONFLICT', retryable: false },
+        });
+    });
+
+    it('uses the canonical conversation identity on a nested project route', async () => {
+        const conversationId = '69e8d157-5fec-839c-9124-2179ba8b7d7c';
+        history.replaceState({}, '', `/g/project-id/c/${conversationId}`);
+        const fetchMock = vi.fn(async () => new Response(JSON.stringify(graphPayload(conversationId)), {
+            status: 200,
+            headers: { 'Content-Type': 'application/json' },
+        }));
+        Object.defineProperty(window, 'fetch', { configurable: true, value: fetchMock });
+        vi.stubGlobal('fetch', fetchMock);
+
+        installBridge();
+        const response = await requestSnapshot(conversationId, { type: 'acquire' });
+
+        expect(response.ok).toBe(true);
+        expect(fetchMock).toHaveBeenCalledTimes(1);
     });
 
     it('does not inspect responses outside the conversation graph transport', async () => {

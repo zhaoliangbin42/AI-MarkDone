@@ -30,7 +30,6 @@ describe('ChatGPTDomTurnFactSource', () => {
     });
 
     afterEach(() => {
-        source.stop();
         adapter.dispose();
     });
 
@@ -51,7 +50,10 @@ describe('ChatGPTDomTurnFactSource', () => {
 
     it('keeps a turn incomplete while ChatGPT still exposes its stop control', () => {
         appendRound(1, false);
-        document.body.insertAdjacentHTML('beforeend', '<button aria-label="Stop generating">Stop</button>');
+        document.body.insertAdjacentHTML('beforeend', '<button data-testid="stop-button">Stop</button>');
+
+        const message = document.querySelector('[data-message-author-role="assistant"]');
+        expect(message instanceof HTMLElement && adapter.isStreamingMessage(message)).toBe(true);
 
         expect(source.read().rounds[0]).toMatchObject({
             assistantMessageId: 'assistant-1',

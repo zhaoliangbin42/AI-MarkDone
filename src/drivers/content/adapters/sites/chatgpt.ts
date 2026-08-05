@@ -14,6 +14,7 @@ import { isChatGPTPageUrl } from '../../../../contracts/chatgptHosts';
 
 const DEEP_RESEARCH_SCREENSHOT_ROOT_SELECTOR = '[data-conversation-screenshot-content]';
 const DEEP_RESEARCH_IFRAME_SELECTOR = `${DEEP_RESEARCH_SCREENSHOT_ROOT_SELECTOR} iframe[title="internal://deep-research"]`;
+const ACTIVE_GENERATION_CONTROL_SELECTOR = 'button[data-testid="stop-button"]';
 
 const detector: ThemeDetector = {
     detect(): Theme | null {
@@ -40,6 +41,10 @@ export class ChatGPTAdapter extends SiteAdapter {
 
     private normalizePromptText(text: string): string {
         return text.replace(/\s+\n/g, '\n').replace(/\n{3,}/g, '\n\n').replace(/[ \t]{2,}/g, ' ').trim();
+    }
+
+    private hasActiveGenerationControl(): boolean {
+        return document.querySelector(ACTIVE_GENERATION_CONTROL_SELECTOR) instanceof HTMLElement;
     }
 
     private findOfficialActionAnchor(assistantMessageElement: HTMLElement): HTMLElement | null {
@@ -219,12 +224,10 @@ export class ChatGPTAdapter extends SiteAdapter {
     }
 
     isStreamingMessage(element: HTMLElement): boolean {
-        if (this.findOfficialActionAnchor(element)) {
-            return false;
-        }
-
-        const stopButton = document.querySelector('button[aria-label*="Stop"]');
-        if (!stopButton) return false;
+        // ChatGPT can mount the copy action row before the answer has finished.
+        // Use the host's locale-independent generation state; visible labels
+        // are translated UI copy and are not content-lifecycle evidence.
+        if (!this.hasActiveGenerationControl()) return false;
 
         const messages = document.querySelectorAll(this.getMessageSelector());
         if (messages.length === 0) return false;
@@ -363,9 +366,7 @@ export class ChatGPTAdapter extends SiteAdapter {
     }
 
     isComposerStreaming(): boolean {
-        // Best-effort: if Stop button exists, streaming is likely in progress.
-        const stopButton = document.querySelector('button[aria-label*="Stop"], button[aria-label*="停止"]');
-        return !!stopButton;
+        return this.hasActiveGenerationControl();
     }
 
     normalizeDOM(root: HTMLElement): void {

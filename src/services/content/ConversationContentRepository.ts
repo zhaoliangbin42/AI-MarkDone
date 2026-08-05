@@ -114,15 +114,16 @@ export class ConversationContentRepository implements ConversationContentSourceV
             .then(() => this.options.acquire(this.currentDocument!, controller.signal))
             .then((candidate) => {
                 if (this.isObsolete(epoch, controller)) return this.state;
-                const snapshot = candidate
+                const discoveredSnapshot = candidate
                     ? this.createSnapshot(candidate, this.currentDocument!)
                     : null;
-                if (!snapshot) {
+                if (!discoveredSnapshot) {
                     throw new ConversationContentAcquisitionError(
                         'source-unavailable',
                         { retryable: true },
                     );
                 }
+                const snapshot = this.selectMonotonicSnapshot(discoveredSnapshot);
                 this.lastGood = snapshot;
                 this.publish({
                     kind: 'ready',
@@ -244,6 +245,27 @@ export class ConversationContentRepository implements ConversationContentSourceV
         return snapshot;
     }
 
+    private selectMonotonicSnapshot(
+        candidate: ConversationSnapshotV1,
+    ): ConversationSnapshotV1 {
+        const previous = this.lastGood;
+        if (
+            !previous
+            || previous.document.key !== candidate.document.key
+            || candidate.coverage === 'complete'
+        ) {
+            return candidate;
+        }
+
+        if (previous.coverage === 'complete') {
+            if (sameTurnSequence(previous.turns, candidate.turns)) return previous;
+            throw new ConversationContentAcquisitionError('identity-conflict', { retryable: false });
+        }
+
+        if (isTurnSequencePrefix(previous.turns, candidate.turns)) return candidate;
+        throw new ConversationContentAcquisitionError('identity-conflict', { retryable: false });
+    }
+
     private isObsolete(epoch: number, controller: AbortController): boolean {
         return controller.signal.aborted || this.disposed || epoch !== this.epoch;
     }
@@ -311,6 +333,32 @@ function freezeSnapshotDocument(
     document: ConversationDocumentRefV1,
 ): ConversationSnapshotV1 {
     return freezeConversationSnapshotV1({ ...snapshot, document });
+}
+
+function sameTurnSequence(
+    left: ConversationSnapshotV1['turns'],
+    right: ConversationSnapshotV1['turns'],
+): boolean {
+    return left.length === right.length && isTurnSequencePrefix(left, right);
+}
+
+function isTurnSequencePrefix(
+    prefix: ConversationSnapshotV1['turns'],
+    sequence: ConversationSnapshotV1['turns'],
+): boolean {
+    return prefix.length <= sequence.length && prefix.every((turn, index) => {
+        const other = sequence[index];
+        return Boolean(
+            other
+            && turn.key === other.key
+            && turn.ordinal === other.ordinal
+            && turn.identity.turnId === other.identity.turnId
+            && turn.identity.userMessageId === other.identity.userMessageId
+            && turn.identity.assistantMessageId === other.identity.assistantMessageId
+            && turn.userText === other.userText
+            && turn.assistantMarkdown === other.assistantMarkdown,
+        );
+    });
 }
 
 function createContentToken(

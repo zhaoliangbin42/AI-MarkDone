@@ -4,6 +4,14 @@ Purpose: evidence log for major changes (commands run + observed results). Keep 
 
 ---
 
+## 2026-08-05 — ChatGPT discovery convergence and cleanup
+
+- Made partial snapshots monotonic in `ConversationContentRepository`: only prefix-preserving growth is accepted; virtualization shrink or divergent identity retains last-good as stale, while a complete graph replaces atomically.
+- Enabled the bounded same-origin graph acquisition in the ChatGPT composition root. Passive graph remains first; missing or ambiguous evidence performs one three-second GET, retries once only for timeout/5xx with typed DOM evidence, and otherwise falls back to verified partial content without reading credentials or generation payloads.
+- Bound resource completion to the generation request's start route and previous assistant identity. Blank-route completion can wait in bridge memory until the next existing reconcile sees the canonical route and new assistant; cross-route and old-assistant matches fail closed without polling or another observer.
+- Removed the DOM-fact source's unused subscription lifecycle, the coordinator's duplicate refresh facade, the mutation-subscription wrapper, and the Repository-only synthetic harness. Expanded the focused discovery command to bridge, adapter, Repository, route, PageIndex, Index, materialization, Reader, Directory, export, entry, and lifecycle coverage.
+- Verification: discovery 16 files / 226 tests, core 260 files / 1,798 tests, smoke 6 files / 47 tests, acceptance 24 files / 237 tests, type-check, Chrome/Firefox boundary checks, dual-browser build, and bundle budgets passed. `perf:chatgpt` remains open at the pre-existing Atomic Selection assertion with zero long tasks; installed Chrome/Firefox acceptance remains pending.
+
 ## 2026-08-04 — ChatGPT content port and directory closeout
 
 - Removed the production Engine/Reducer discovery path; ChatGPT semantic consumers now use the V1 content repository, while `ChatGPTConversationIndex` remains the typed navigation projection.

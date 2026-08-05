@@ -363,6 +363,10 @@
         "message": "Save annotation",
         "description": "Message for readerCommentSave"
     },
+    "readerCommentSaveShortcut": {
+        "message": "Ctrl/Cmd + Enter to save",
+        "description": "Keyboard shortcut hint shown beside the Reader annotation save button"
+    },
     "readerCommentSaved": {
         "message": "Annotation saved",
         "description": "Message for readerCommentSaved"
@@ -1098,7 +1102,7 @@
         "description": "Message for chatgptAtomicMarkdownCopyLabel"
     },
     "chatgptAtomicMarkdownCopyDesc": {
-        "message": "Choose the shortcut for copying a complete ChatGPT selection as canonical Markdown. Other copy actions keep the host behavior.",
+        "message": "When a complete ChatGPT unit such as a formula, code block, table, or image is selected, use Ctrl/Cmd+C or Ctrl/Cmd+Shift+C to copy it as canonical Markdown. Other copy actions keep the host behavior.",
         "description": "Message for chatgptAtomicMarkdownCopyDesc"
     },
     "chatgptAtomicMarkdownCopyNone": {
