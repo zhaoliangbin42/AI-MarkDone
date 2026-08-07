@@ -22,7 +22,9 @@ const geminiFormulaParserAdapter: MarkdownParserAdapter = {
         const element = node as HTMLElement;
         const mathContainer = element.closest?.('[data-math]');
         if (mathContainer && mathContainer !== element) return false;
-        return element.classList.contains('math-inline') || element.classList.contains('math-block');
+        return element.classList.contains('math-inline')
+            || element.classList.contains('math-block')
+            || element.matches('mjx-container, math');
     },
     isCodeBlockNode(): boolean {
         return false;
@@ -67,6 +69,7 @@ const deepseekFormulaParserAdapter: MarkdownParserAdapter = {
         const element = node as HTMLElement;
         const mathContainer = element.closest?.('[data-math]');
         if (mathContainer && mathContainer !== element) return false;
+        if (element.closest('.ds-think-content')) return false;
         return element.classList.contains('katex') || element.classList.contains('katex-display');
     },
     isCodeBlockNode(): boolean {

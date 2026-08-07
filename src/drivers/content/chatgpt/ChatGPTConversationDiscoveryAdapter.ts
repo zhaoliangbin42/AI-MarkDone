@@ -4,20 +4,18 @@ import {
     type ConversationContentCandidateV1,
     createConversationDocumentKeyV1,
     type ConversationDocumentRefV1,
-    type ConversationTurnV1,
 } from '../../../contracts/conversationContent';
 import { decodeBridgeDetail, encodeBridgeRequest, type BridgeWireDetail } from './bridgeTransport';
 import { getChatGPTConversationId, isChatGPTConversationPage } from './chatgptRoute';
-import type { ChatGPTConversationRound, ChatGPTDomTurnObservation } from './types';
+import { normalizeChatGPTReaderMarkdown } from './normalizeReaderMarkdown';
+import type { ChatGPTConversationRound } from './types';
 
 const REQUEST_EVENT = 'aimd:chatgpt-conversation-bridge:request';
 const RESPONSE_EVENT = 'aimd:chatgpt-conversation-bridge:response';
 const CAPTURE_EVENT = 'aimd:chatgpt-conversation-bridge:capture';
 const PEEK_TIMEOUT_MS = 800;
-const ACQUIRE_TIMEOUT_MS = 3000;
-const RETRY_DELAY_MS = 500;
 
-type BridgeRequestType = 'peek' | 'acquire';
+type BridgeRequestType = 'peek';
 
 type BridgeResponse = {
     requestId: string;
@@ -25,7 +23,9 @@ type BridgeResponse = {
     snapshot?: {
         conversationId: string;
         rounds: ChatGPTConversationRound[];
+        coverage?: 'complete' | 'partial';
         capturedAt: number;
+        captureSequence?: number;
         branchKey: string;
     };
     error?: {
@@ -35,10 +35,8 @@ type BridgeResponse = {
 };
 
 export type ChatGPTConversationDiscoveryAdapterOptions = Readonly<{
-    /** Allows the bounded same-origin graph read used to converge partial evidence. */
+    /** Kept as a source-compatible no-op; ChatGPT never actively acquires graph data. */
     allowActiveAcquisition?: boolean;
-    /** Verified, typed DOM successor evidence; never a positional content fallback. */
-    readTypedDomCandidate?: () => ConversationContentCandidateV1 | null;
 }>;
 
 export class ChatGPTConversationDiscoveryAdapter {
@@ -71,7 +69,7 @@ export class ChatGPTConversationDiscoveryAdapter {
         for (const listener of Array.from(this.signalListeners)) listener();
     };
 
-    constructor(private readonly options: ChatGPTConversationDiscoveryAdapterOptions = {}) {}
+    constructor(_options: ChatGPTConversationDiscoveryAdapterOptions = {}) {}
 
     resolveDocument(): ConversationDocumentRefV1 | null {
         const conversationId = getChatGPTConversationId(window.location.href)?.trim().toLowerCase() ?? null;
@@ -104,6 +102,11 @@ export class ChatGPTConversationDiscoveryAdapter {
             : null;
     }
 
+    notifyLifecycleSignal(): void {
+        // Retained for the shared coordinator contract. A lifecycle signal
+        // may trigger another peek, but never an extension-issued request.
+    }
+
     peek(signal?: AbortSignal): Promise<ConversationContentCandidateV1 | null> {
         const document = this.resolveDocument();
         if (!document) return Promise.resolve(null);
@@ -111,61 +114,17 @@ export class ChatGPTConversationDiscoveryAdapter {
     }
 
     async acquire(signal: AbortSignal): Promise<ConversationContentCandidateV1 | null> {
+        return this.peek(signal);
+    }
+
+    async acquireEvidence(
+        signal: AbortSignal,
+    ): Promise<ConversationContentCandidateV1 | null> {
         const document = this.resolveDocument();
         if (!document) {
             throw new ConversationContentAcquisitionError('source-unavailable', { retryable: true });
         }
-
-        let passive: ConversationContentCandidateV1 | null = null;
-        try {
-            passive = await this.peek(signal);
-        } catch (error) {
-            if (!isRetryableSourceError(error)) throw error;
-        }
-
-        const typedDomCandidate = this.options.readTypedDomCandidate?.() ?? null;
-        let passiveConflict = false;
-        if (passive && !typedDomCandidate) return passive;
-        if (passive && typedDomCandidate) {
-            // A graph captured before the latest POST may safely accept only
-            // an identity-overlapping DOM successor. Ambiguous evidence must
-            // converge through a fresh graph instead of reviving the old one.
-            const merged = mergePassiveCandidateWithTypedDom(passive, typedDomCandidate);
-            if (merged) return merged;
-            passiveConflict = true;
-        }
-
-        if (this.options.allowActiveAcquisition !== true) {
-            if (passiveConflict) {
-                throw new ConversationContentAcquisitionError('identity-conflict', { retryable: false });
-            }
-            if (typedDomCandidate) return typedDomCandidate;
-            throw new ConversationContentAcquisitionError('source-unavailable', { retryable: true });
-        }
-
-        try {
-            return await this.request('acquire', document, ACQUIRE_TIMEOUT_MS, signal);
-        } catch (error) {
-            if (signal.aborted) throw error;
-            let fallbackTypedDomCandidate = typedDomCandidate
-                ?? this.options.readTypedDomCandidate?.()
-                ?? null;
-            if (isRetryableSourceError(error) && fallbackTypedDomCandidate) {
-                try {
-                    await wait(RETRY_DELAY_MS, signal);
-                    return await this.request('acquire', document, ACQUIRE_TIMEOUT_MS, signal);
-                } catch (retryError) {
-                    if (signal.aborted) throw retryError;
-                    fallbackTypedDomCandidate = fallbackTypedDomCandidate
-                        ?? this.options.readTypedDomCandidate?.()
-                        ?? null;
-                    if (!fallbackTypedDomCandidate) throw retryError;
-                }
-            } else if (!fallbackTypedDomCandidate) {
-                throw error;
-            }
-            return fallbackTypedDomCandidate;
-        }
+        return this.peek(signal);
     }
 
     dispose(): void {
@@ -241,165 +200,6 @@ export class ChatGPTConversationDiscoveryAdapter {
     }
 }
 
-function mergePassiveCandidateWithTypedDom(
-    passive: ConversationContentCandidateV1,
-    typedDom: ConversationContentCandidateV1,
-): ConversationContentCandidateV1 | null {
-    if (passive.document.key !== typedDom.document.key || typedDom.turns.length === 0) {
-        return null;
-    }
-
-    const graphTurns = passive.turns.map((turn) => ({
-        ...turn,
-        identity: { ...turn.identity },
-    }));
-    const domTurns = typedDom.turns;
-    const graphIndexByAssistantId = new Map<string, number>();
-    graphTurns.forEach((turn, index) => {
-        graphIndexByAssistantId.set(turn.identity.assistantMessageId, index);
-    });
-
-    let best: { domStart: number; graphStart: number; length: number } | null = null;
-    for (let domStart = 0; domStart < domTurns.length; domStart += 1) {
-        const graphStart = graphIndexByAssistantId.get(
-            domTurns[domStart]!.identity.assistantMessageId,
-        );
-        if (graphStart === undefined) continue;
-
-        let length = 0;
-        while (
-            domStart + length < domTurns.length
-            && graphStart + length < graphTurns.length
-        ) {
-            const graphTurn = graphTurns[graphStart + length]!;
-            const domTurn = domTurns[domStart + length]!;
-            if (graphTurn.identity.assistantMessageId !== domTurn.identity.assistantMessageId) break;
-            if (!compatibleUserMessageId(graphTurn, domTurn)) break;
-            length += 1;
-        }
-        if (!best || length > best.length) {
-            best = { domStart, graphStart, length };
-        }
-    }
-
-    // Without a shared typed assistant id there is no safe way to tell a new
-    // branch from a different DOM window. A fresh graph must decide.
-    if (!best || best.length === 0) return null;
-
-    const merged = graphTurns.slice();
-    for (let index = 0; index < best.length; index += 1) {
-        const graphIndex = best.graphStart + index;
-        const domTurn = domTurns[best.domStart + index]!;
-        merged[graphIndex] = mergeTurnText(merged[graphIndex]!, domTurn);
-    }
-
-    const domSuccessors = domTurns.slice(best.domStart + best.length);
-    if (domSuccessors.length > 0) {
-        const graphSuccessorIndex = best.graphStart + best.length;
-        if (graphSuccessorIndex < merged.length) {
-            // A changed assistant id for the same user turn is a regenerate /
-            // branch replacement. Any later old graph suffix is no longer the
-            // verified current branch and must not be mixed into the result.
-            if (!sameKnownUserMessage(merged[graphSuccessorIndex]!, domSuccessors[0]!)) {
-                return null;
-            }
-            merged.splice(graphSuccessorIndex);
-        }
-        merged.push(...domSuccessors.map((turn) => ({
-            ...turn,
-            identity: { ...turn.identity },
-        })));
-    }
-
-    const turns = normalizeMergedTurns(merged);
-    const changed = turns.length !== passive.turns.length
-        || turns.some((turn, index) => (
-            turn.identity.assistantMessageId !== passive.turns[index]?.identity.assistantMessageId
-            || turn.userText !== passive.turns[index]?.userText
-            || turn.assistantMarkdown !== passive.turns[index]?.assistantMarkdown
-        ));
-    return changed
-        ? { document: passive.document, coverage: passive.coverage, turns }
-        : passive;
-}
-
-function compatibleUserMessageId(left: ConversationTurnV1, right: ConversationTurnV1): boolean {
-    return !left.identity.userMessageId
-        || !right.identity.userMessageId
-        || left.identity.userMessageId === right.identity.userMessageId;
-}
-
-function sameKnownUserMessage(left: ConversationTurnV1, right: ConversationTurnV1): boolean {
-    return Boolean(
-        left.identity.userMessageId
-        && right.identity.userMessageId
-        && left.identity.userMessageId === right.identity.userMessageId,
-    );
-}
-
-function mergeTurnText(left: ConversationTurnV1, right: ConversationTurnV1): ConversationTurnV1 {
-    return {
-        ...left,
-        userText: right.userText.trim() ? right.userText : left.userText,
-        assistantMarkdown: right.assistantMarkdown.trim() ? right.assistantMarkdown : left.assistantMarkdown,
-    };
-}
-
-function normalizeMergedTurns(turns: ConversationTurnV1[]): ConversationTurnV1[] {
-    return turns.map((turn, index) => ({
-        ...turn,
-        key: `${turn.identity.turnId}:${turn.identity.assistantMessageId}`,
-        ordinal: index + 1,
-        identity: { ...turn.identity },
-    }));
-}
-
-export function createChatGPTPartialCandidateFromDomObservation(
-    document: ConversationDocumentRefV1,
-    observation: ChatGPTDomTurnObservation,
-): ConversationContentCandidateV1 | null {
-    const turns: ConversationContentCandidateV1['turns'][number][] = [];
-    const turnIds = new Set<string>();
-    const assistantIds = new Set<string>();
-    let previousObservedPosition = 0;
-    for (const fact of observation.rounds) {
-        if (!Number.isInteger(fact.position) || fact.position <= previousObservedPosition) break;
-        previousObservedPosition = fact.position;
-        // A streaming or malformed turn must not erase the completed typed
-        // window that surrounds it. The DOM order remains the only safe local
-        // ordering signal, so completed successors are retained as a partial
-        // candidate and the repository still marks the snapshot partial.
-        if (fact.status !== 'complete') continue;
-        const turnId = fact.roundId?.trim()
-            || fact.assistantTurnId?.trim()
-            || fact.assistantMessageId?.trim()
-            || '';
-        const assistantMessageId = fact.assistantMessageId?.trim() || '';
-        if (
-            !turnId
-            || !assistantMessageId
-            || !fact.userPrompt.trim()
-            || !fact.assistantContent.trim()
-            || turnIds.has(turnId)
-            || assistantIds.has(assistantMessageId)
-        ) continue;
-        turnIds.add(turnId);
-        assistantIds.add(assistantMessageId);
-        turns.push({
-            key: `${turnId}:${assistantMessageId}`,
-            ordinal: turns.length + 1,
-            identity: {
-                turnId,
-                userMessageId: fact.userMessageId?.trim() || null,
-                assistantMessageId,
-            },
-            userText: fact.userPrompt,
-            assistantMarkdown: fact.assistantContent,
-        });
-    }
-    return turns.length > 0 ? { document, coverage: 'partial', turns } : null;
-}
-
 function toCandidate(
     snapshot: NonNullable<BridgeResponse['snapshot']>,
     document: ConversationDocumentRefV1,
@@ -407,29 +207,52 @@ function toCandidate(
     if (snapshot.conversationId !== document.conversationId) {
         throw new ConversationContentAcquisitionError('identity-conflict', { retryable: false });
     }
-    const turns = snapshot.rounds.map((round) => {
+    const turns = snapshot.rounds.map((round, index) => {
         const assistantMessageId = round.assistantMessageId ?? round.messageId;
         if (!assistantMessageId || !round.id) {
             throw new ConversationContentAcquisitionError('invalid-payload', { retryable: false });
         }
         return {
             key: `${round.id}:${assistantMessageId}`,
-            ordinal: round.position,
+            // Provider positions can have gaps after the bridge omits an
+            // unfinished head; ordinals are local V1 display order only.
+            ordinal: index + 1,
             identity: {
                 turnId: round.id,
                 userMessageId: round.userMessageId,
                 assistantMessageId,
             },
             userText: round.userPrompt,
-            assistantMarkdown: round.assistantContent,
+            // Provider dialect adaptation happens once at the source edge so
+            // every upper consumer receives the same canonical Markdown.
+            assistantMarkdown: normalizeChatGPTReaderMarkdown(round.assistantContent),
+            assistantProvenance: SOURCE_BACKED_PROVENANCE,
         };
     });
     return {
         document,
-        coverage: 'complete',
+        coverage: snapshot.coverage === 'partial' ? 'partial' : 'complete',
         turns,
+        branchKey: snapshot.branchKey,
+        captureId: `chatgpt-bridge:${snapshot.branchKey}:${
+            Number.isInteger(snapshot.captureSequence) && snapshot.captureSequence! > 0
+                ? snapshot.captureSequence
+                : snapshot.capturedAt
+        }`,
+        sourceRevision: Number.isInteger(snapshot.captureSequence) && snapshot.captureSequence! > 0
+            ? snapshot.captureSequence
+            : snapshot.capturedAt,
+        origin: 'source',
+        tail: snapshot.coverage === 'partial' ? 'streaming' : 'stable',
     };
 }
+
+const SOURCE_BACKED_PROVENANCE = Object.freeze({
+    authority: 'verified-derived' as const,
+    fidelity: 'normalized' as const,
+    producer: 'chatgpt-markdown-source-adapter',
+});
+
 
 function mapBridgeError(error: BridgeResponse['error']): ConversationContentAcquisitionError {
     const code = typeof error?.code === 'string' ? error.code : '';
@@ -452,25 +275,4 @@ function mapBridgeError(error: BridgeResponse['error']): ConversationContentAcqu
         retryable ? 'source-timeout' : 'source-unavailable',
         { retryable },
     );
-}
-
-function isRetryableSourceError(error: unknown): boolean {
-    return error instanceof ConversationContentAcquisitionError && error.retryable;
-}
-
-function wait(delayMs: number, signal: AbortSignal): Promise<void> {
-    return new Promise((resolve, reject) => {
-        const finish = () => {
-            signal.removeEventListener('abort', onAbort);
-            resolve();
-        };
-        const timer = window.setTimeout(finish, delayMs);
-        const onAbort = () => {
-            window.clearTimeout(timer);
-            signal.removeEventListener('abort', onAbort);
-            reject(new ConversationContentAcquisitionError('source-unavailable', { retryable: true }));
-        };
-        signal.addEventListener('abort', onAbort, { once: true });
-        if (signal.aborted) onAbort();
-    });
 }

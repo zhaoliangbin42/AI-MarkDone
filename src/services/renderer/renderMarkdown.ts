@@ -8,42 +8,29 @@ import rehypeHighlight from 'rehype-highlight';
 import rehypeKatex from 'rehype-katex';
 import rehypeSanitize, { defaultSchema } from 'rehype-sanitize';
 import rehypeStringify from 'rehype-stringify';
+import type {
+    SemanticOutlineItemV1,
+    SemanticReaderUnitKindV1,
+    SemanticReaderUnitModeV1,
+    SemanticReaderUnitV1,
+} from '../../contracts/semanticContent';
+import {
+    createCanonicalMarkdownSource,
+    semanticContent,
+} from '../semantic-content/SemanticContent';
 
 export type MarkdownRenderOptions = {
     softBreaks?: boolean;
     highlightCode?: boolean;
 };
 
-export type ReaderAtomicUnitKind =
-    | 'inline-math'
-    | 'display-math'
-    | 'inline-code'
-    | 'code-block'
-    | 'table'
-    | 'image'
-    | 'heading'
-    | 'list-item'
-    | 'blockquote'
-    | 'thematic-break';
+export type ReaderAtomicUnitKind = SemanticReaderUnitKindV1;
 
-export type ReaderAtomicUnitMode = 'atomic' | 'structural';
+export type ReaderAtomicUnitMode = SemanticReaderUnitModeV1;
 
-export type ReaderAtomicUnit = {
-    id: string;
-    kind: ReaderAtomicUnitKind;
-    mode: ReaderAtomicUnitMode;
-    start: number;
-    end: number;
-    source: string;
-};
+export type ReaderAtomicUnit = SemanticReaderUnitV1;
 
-export type ReaderOutlineItem = {
-    id: string;
-    level: number;
-    text: string;
-    start: number;
-    end: number;
-};
+export type ReaderOutlineItem = SemanticOutlineItemV1;
 
 export type ReaderRenderedMarkdown = {
     html: string;
@@ -58,18 +45,6 @@ type HastNode = {
     value?: string;
     properties?: Record<string, unknown>;
     children?: HastNode[];
-};
-
-type MdastNode = {
-    type?: string;
-    value?: string;
-    alt?: string;
-    depth?: number;
-    position?: {
-        start?: { offset?: number };
-        end?: { offset?: number };
-    };
-    children?: MdastNode[];
 };
 
 const markdownSanitizeSchema: any = {
@@ -140,11 +115,6 @@ function visitTree(node: HastNode, visitor: (node: HastNode) => void): void {
     node.children?.forEach((child) => visitTree(child, visitor));
 }
 
-function visitMdast(node: MdastNode, visitor: (node: MdastNode) => void): void {
-    visitor(node);
-    node.children?.forEach((child) => visitMdast(child, visitor));
-}
-
 function createProcessor(options?: MarkdownRenderOptions) {
     const processor = unified()
         .use(remarkParse)
@@ -204,105 +174,22 @@ export function renderMarkdownToSanitizedHtml(markdown: string, options?: Markdo
     return String(getProcessor(options).processSync(markdown || ''));
 }
 
-function collectMdastText(node: MdastNode): string {
-    if (typeof node.value === 'string') return node.value;
-    if (typeof node.alt === 'string') return node.alt;
-    if (!node.children?.length) return '';
-    return node.children.map((child) => collectMdastText(child)).join('');
-}
-
-function normalizeOutlineText(value: string): string {
-    return value.replace(/\s+/g, ' ').trim();
-}
-
-function collectReaderStructure(markdown: string): { atomicUnits: ReaderAtomicUnit[]; outlineItems: ReaderOutlineItem[] } {
-    const tree = unified().use(remarkParse).use(remarkGfm).use(remarkMath).parse(markdown || '') as MdastNode;
-    const atomicUnits: ReaderAtomicUnit[] = [];
-    const outlineItems: ReaderOutlineItem[] = [];
-
-    visitMdast(tree, (node) => {
-        const start = node.position?.start?.offset;
-        const end = node.position?.end?.offset;
-        if (typeof start !== 'number' || typeof end !== 'number' || end <= start) return;
-
-        let kind: ReaderAtomicUnitKind | null = null;
-        let mode: ReaderAtomicUnitMode = 'atomic';
-        switch (node.type) {
-            case 'inlineMath':
-                kind = 'inline-math';
-                break;
-            case 'math':
-                kind = 'display-math';
-                break;
-            case 'inlineCode':
-                kind = 'inline-code';
-                break;
-            case 'code':
-                kind = 'code-block';
-                break;
-            case 'table':
-                kind = 'table';
-                break;
-            case 'image':
-                kind = 'image';
-                break;
-            case 'heading':
-                kind = 'heading';
-                mode = 'structural';
-                break;
-            case 'listItem':
-                kind = 'list-item';
-                mode = 'structural';
-                break;
-            case 'blockquote':
-                kind = 'blockquote';
-                mode = 'structural';
-                break;
-            case 'thematicBreak':
-                kind = 'thematic-break';
-                mode = 'structural';
-                break;
-            default:
-                break;
-        }
-
-        if (!kind) return;
-        const unit: ReaderAtomicUnit = {
-            id: `aimd-reader-unit-${atomicUnits.length + 1}`,
-            kind,
-            mode,
-            start,
-            end,
-            source: markdown.slice(start, end),
-        };
-        atomicUnits.push(unit);
-
-        if (kind === 'heading') {
-            const text = normalizeOutlineText(collectMdastText(node));
-            if (!text) return;
-            const level = typeof node.depth === 'number'
-                ? Math.max(1, Math.min(6, Math.round(node.depth)))
-                : 1;
-            outlineItems.push({
-                id: unit.id,
-                level,
-                text,
-                start,
-                end,
-            });
-        }
-    });
-
-    return { atomicUnits, outlineItems };
-}
-
 export function renderMarkdownForReader(markdown: string, options?: MarkdownRenderOptions): ReaderRenderedMarkdown {
     const markdownSource = markdown || '';
-    const structure = collectReaderStructure(markdownSource);
+    const compiled = semanticContent.compile(createCanonicalMarkdownSource(markdownSource, {
+        producer: 'reader-renderer',
+    }));
+    const structure = compiled.status === 'ready'
+        ? semanticContent.project(compiled.document, { kind: 'reader-structure' })
+        : null;
     return {
         html: renderMarkdownToSanitizedHtml(markdownSource, options),
         markdownSource,
-        atomicUnits: structure.atomicUnits,
-        outlineItems: structure.outlineItems,
+        atomicUnits: structure?.status === 'ready' && structure.kind === 'reader-structure'
+            ? [...structure.units]
+            : [],
+        outlineItems: structure?.status === 'ready' && structure.kind === 'reader-structure'
+            ? [...structure.outline]
+            : [],
     };
 }

@@ -38,6 +38,49 @@ function candidate(ref: ConversationDocumentRefV1, answer = 'Answer'): Conversat
     };
 }
 
+function candidateTurn(
+    ref: ConversationDocumentRefV1,
+    turnId: string,
+    answer: string,
+): ConversationContentCandidateV1 {
+    return {
+        document: ref,
+        coverage: 'complete',
+        turns: [{
+            key: `${turnId}:assistant-${turnId}`,
+            ordinal: 1,
+            identity: {
+                turnId,
+                userMessageId: `user-${turnId}`,
+                assistantMessageId: `assistant-${turnId}`,
+            },
+            userText: `Question ${turnId}`,
+            assistantMarkdown: answer,
+        }],
+    };
+}
+
+function completeCandidate(
+    ref: ConversationDocumentRefV1,
+    answers: readonly string[],
+): ConversationContentCandidateV1 {
+    return {
+        document: ref,
+        coverage: 'complete',
+        turns: answers.map((answer, index) => ({
+            key: `turn-${index + 1}:assistant-${index + 1}`,
+            ordinal: index + 1,
+            identity: {
+                turnId: `turn-${index + 1}`,
+                userMessageId: `user-${index + 1}`,
+                assistantMessageId: `assistant-${index + 1}`,
+            },
+            userText: index === 0 ? 'Question' : `Question ${index + 1}`,
+            assistantMarkdown: answer,
+        })),
+    };
+}
+
 function partialCandidate(
     ref: ConversationDocumentRefV1,
     answers: readonly string[],
@@ -116,7 +159,7 @@ describe('ConversationContentRepository', () => {
         const first = deferred<ConversationContentCandidateV1 | null>();
         const acquire = vi.fn()
             .mockImplementationOnce(() => first.promise)
-            .mockResolvedValueOnce(candidate(ref, 'Answer 2'));
+            .mockResolvedValueOnce(completeCandidate(ref, ['Answer 1', 'Answer 2']));
         const repository = new ConversationContentRepository({
             resolveDocument: () => ref,
             acquire,
@@ -139,7 +182,10 @@ describe('ConversationContentRepository', () => {
         const state = repository.read();
         expect(state.kind).toBe('ready');
         if (state.kind !== 'ready') throw new Error('expected ready state');
-        expect(state.snapshot.turns[0]?.assistantMarkdown).toBe('Answer 2');
+        expect(state.snapshot.turns.map((turn) => turn.assistantMarkdown)).toEqual([
+            'Answer 1',
+            'Answer 2',
+        ]);
     });
 
     it('keeps the last-good snapshot as stale after a same-document timeout', async () => {
@@ -227,31 +273,25 @@ describe('ConversationContentRepository', () => {
         expect(repository.isCurrent('')).toBe(false);
     });
 
-    it('does not change the content token for a coverage-only state change', async () => {
+    it('does not publish a partial source graph before a complete graph', async () => {
         const ref = document('conversation-coverage');
-        let coverage: ConversationContentCandidateV1['coverage'] = 'partial';
+        let next: ConversationContentCandidateV1 = partialCandidate(ref, ['Answer']);
         const repository = new ConversationContentRepository({
             resolveDocument: () => ref,
-            acquire: async () => ({ ...candidate(ref), coverage }),
+            acquire: async () => next,
         });
-        const states: string[] = [];
-        repository.subscribe((state) => states.push(
-            state.kind === 'ready' ? `ready:${state.snapshot.coverage}` : state.kind,
-        ));
         const partial = await repository.refresh();
-        coverage = 'complete';
+        next = candidate(ref);
         const complete = await repository.refresh();
-        expect(partial.kind).toBe('ready');
+        expect(partial.kind).toBe('unavailable');
         expect(complete.kind).toBe('ready');
-        if (partial.kind !== 'ready' || complete.kind !== 'ready') throw new Error('expected ready state');
-        expect(complete.snapshot.contentToken).toBe(partial.snapshot.contentToken);
-        expect(states).toContain('ready:partial');
-        expect(states).toContain('ready:complete');
+        if (complete.kind !== 'ready') throw new Error('expected ready state');
+        expect(complete.snapshot.coverage).toBe('complete');
     });
 
-    it('keeps a longer same-document partial snapshot when a virtualized DOM window shrinks', async () => {
+    it('keeps the last sealed snapshot when a partial source update arrives', async () => {
         const ref = document('conversation-partial-window');
-        let next = partialCandidate(ref, ['Answer 1', 'Answer 2']);
+        let next: ConversationContentCandidateV1 = completeCandidate(ref, ['Answer 1', 'Answer 2']);
         const repository = new ConversationContentRepository({
             resolveDocument: () => ref,
             acquire: async () => next,
@@ -264,14 +304,19 @@ describe('ConversationContentRepository', () => {
         expect(first.kind).toBe('ready');
         expect(regressed.kind).toBe('stale');
         if (regressed.kind !== 'stale') throw new Error('expected stale state');
-        expect(regressed.reason).toBe('identity-conflict');
         expect(regressed.snapshot.turns.map((turn) => turn.assistantMarkdown)).toEqual([
             'Answer 1',
             'Answer 2',
         ]);
+        expect(regressed.snapshot.proof).toMatchObject({
+            order: 'complete',
+            bodies: 'complete',
+            tail: 'stable',
+            gaps: [],
+        });
     });
 
-    it('accepts only strict-prefix growth while a same-document snapshot is partial', async () => {
+    it('publishes a complete source graph after an unavailable partial graph', async () => {
         const ref = document('conversation-partial-growth');
         let next = partialCandidate(ref, ['Answer 1']);
         const repository = new ConversationContentRepository({
@@ -279,13 +324,36 @@ describe('ConversationContentRepository', () => {
             acquire: async () => next,
         });
 
-        await repository.refresh();
-        next = partialCandidate(ref, ['Answer 1', 'Answer 2']);
+        const partial = await repository.refresh();
+        next = completeCandidate(ref, ['Answer 1', 'Answer 2']);
         const grown = await repository.refresh();
 
+        expect(partial.kind).toBe('unavailable');
         expect(grown.kind).toBe('ready');
         if (grown.kind !== 'ready') throw new Error('expected ready state');
         expect(grown.snapshot.turns).toHaveLength(2);
+    });
+
+    it('does not publish host evidence as canonical content', async () => {
+        const ref = document('conversation-independent-evidence');
+        const hostTurn = {
+            ...candidateTurn(ref, 'turn-2', 'Rendered answer'),
+            branchKey: undefined,
+            captureId: 'host-window',
+            sourceRevision: 2,
+            origin: 'host' as const,
+            coverage: 'complete' as const,
+            tail: 'stable' as const,
+        };
+        const repository = new ConversationContentRepository({
+            resolveDocument: () => ref,
+            acquire: async () => hostTurn,
+        });
+
+        const state = await repository.refresh();
+
+        expect(state.kind).toBe('unavailable');
+        expect(repository.read().snapshot).toBeNull();
     });
 
     it('does not downgrade complete coverage when partial evidence contains the same turns', async () => {
@@ -301,8 +369,37 @@ describe('ConversationContentRepository', () => {
         const unchanged = await repository.refresh();
 
         expect(complete.kind).toBe('ready');
-        expect(unchanged.kind).toBe('ready');
-        if (unchanged.kind !== 'ready') throw new Error('expected ready state');
+        expect(unchanged.kind).toBe('stale');
+        if (unchanged.kind !== 'stale') throw new Error('expected stale state');
         expect(unchanged.snapshot.coverage).toBe('complete');
+    });
+
+    it('keeps the first sealed body when a later host observation conflicts', async () => {
+        const ref = document('conversation-sealed-conflict');
+        let next: ConversationContentCandidateV1 = candidate(ref, 'Canonical answer');
+        const repository = new ConversationContentRepository({
+            resolveDocument: () => ref,
+            acquire: async () => next,
+        });
+
+        await repository.refresh();
+        next = {
+            ...candidate(ref, 'Rendered divergent answer'),
+            coverage: 'partial',
+            origin: 'host',
+            captureId: 'host-conflict',
+        };
+        const conflicted = await repository.refresh();
+
+        expect(conflicted.kind).toBe('stale');
+        expect(repository.readTurn({
+            documentKey: ref.key,
+            turnId: 'turn-1',
+            assistantMessageId: 'assistant-1',
+            userMessageId: 'user-1',
+        })).toMatchObject({
+            kind: 'ready',
+            turn: { assistantMarkdown: 'Canonical answer' },
+        });
     });
 });

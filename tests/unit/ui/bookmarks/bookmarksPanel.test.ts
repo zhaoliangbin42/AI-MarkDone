@@ -1563,6 +1563,30 @@ describe('BookmarksPanel', () => {
         expect(settingsClientRpc.setCategory).toHaveBeenCalledWith('language', 'zh_CN');
     });
 
+    it('does not commit an optimistic settings value when persistence is disconnected', async () => {
+        vi.mocked(settingsClientRpc.setCategory).mockResolvedValueOnce({
+            ok: false,
+            errorCode: 'RECEIVER_UNAVAILABLE',
+            message: 'Could not establish connection. Receiving end does not exist.',
+            failure: {
+                kind: 'transport',
+                code: 'RECEIVER_UNAVAILABLE',
+                message: 'Could not establish connection. Receiving end does not exist.',
+                delivery: 'not-sent',
+            },
+        } as any);
+        const panel = new BookmarksPanel({} as any, { show: vi.fn(), hide: vi.fn() } as any);
+        const actions = (panel as any).createSettingsActions();
+        const before = await actions.loadState();
+
+        await expect(actions.setPlatforms({ chatgpt: false })).resolves.toBe(false);
+
+        const after = await actions.loadState();
+        expect(before.settings.platforms.chatgpt).toBe(true);
+        expect(after.settings.platforms.chatgpt).toBe(true);
+        expect(after.dataState).toEqual(expect.objectContaining({ kind: 'error' }));
+    });
+
     it('adds a backdrop overlay and closes the panel when clicking outside the panel surface', async () => {
         const snapshot = {
             vm: {

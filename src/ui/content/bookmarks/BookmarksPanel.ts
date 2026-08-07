@@ -8,6 +8,7 @@ import type { BookmarksPanelController, BookmarksPanelSnapshot } from './Bookmar
 import { BookmarksTabView } from './ui/tabs/BookmarksTabView';
 import { createBookmarksTabActions } from './ui/tabs/bookmarksTabActions';
 import { SettingsTabView, type SettingsTabViewActions } from './ui/tabs/SettingsTabView';
+import type { SettingsDataState } from './ui/tabs/SettingsTabView';
 import { ChangelogTabView } from './ui/tabs/ChangelogTabView';
 import { FeedbackTabView } from './ui/tabs/FeedbackTabView';
 import { AboutTabView } from './ui/tabs/AboutTabView';
@@ -34,6 +35,8 @@ import {
     type BookmarksPanelTabId,
 } from './workflows/BookmarksPanelTabWorkflow';
 import { BookmarksCloudBackupWorkflow } from './workflows/BookmarksCloudBackupWorkflow';
+import type { SettingsCategory } from '../../../contracts/protocol';
+import type { RuntimeClientFailure } from '../../../drivers/shared/clients/clientResult';
 
 type UiState = {
     settings: AppSettings;
@@ -107,6 +110,7 @@ export class BookmarksPanel {
     private readonly uiState: UiState = {
         settings: structuredClone(DEFAULT_SETTINGS),
     };
+    private settingsDataState: SettingsDataState = { kind: 'ready' };
     private readonly tabWorkflow: BookmarksPanelTabWorkflow;
     private readonly cloudBackupWorkflow: BookmarksCloudBackupWorkflow;
 
@@ -208,6 +212,7 @@ export class BookmarksPanel {
         this.closing = false;
         this.motionNeedsOpen = true;
         this.changelogNoticeCheckedForSession = false;
+        this.settingsDataState = { kind: 'loading' };
         const appearance = this.controller.getAppearance();
         this.overlaySession = new OverlaySession({
             id: 'aimd-bookmarks-panel-host',
@@ -330,9 +335,50 @@ export class BookmarksPanel {
     }
 
     private async loadSettings(): Promise<void> {
+        this.settingsDataState = { kind: 'loading' };
+        this.syncSettingsViewState();
         const result = await settingsClientRpc.getAll();
-        if (!result.ok) return;
+        if (!result.ok) {
+            this.settingsDataState = { kind: 'error', failure: this.resolveClientFailure(result) };
+            this.syncSettingsViewState();
+            return;
+        }
         this.uiState.settings = mergeSettings(result.data.settings);
+        this.settingsDataState = { kind: 'ready' };
+        this.syncSettingsViewState();
+    }
+
+    private resolveClientFailure(result: { message: string; failure?: RuntimeClientFailure }): RuntimeClientFailure {
+        return result.failure ?? {
+            kind: 'protocol',
+            code: 'INTERNAL_ERROR',
+            message: result.message,
+        };
+    }
+
+    private syncSettingsViewState(): void {
+        (this.settingsView as SettingsTabView | null)?.setState({
+            settings: this.uiState.settings,
+            storageUsage: this.snapshot?.storageUsage ?? null,
+            dataState: this.settingsDataState,
+        });
+    }
+
+    private async persistSettingsCategory(
+        category: SettingsCategory,
+        value: unknown,
+        apply: (current: AppSettings) => AppSettings,
+    ): Promise<boolean> {
+        if (this.settingsDataState.kind !== 'ready') return false;
+        const result = await settingsClientRpc.setCategory(category, value);
+        if (!result.ok) {
+            this.settingsDataState = { kind: 'error', failure: this.resolveClientFailure(result) };
+            this.syncSettingsViewState();
+            return false;
+        }
+        this.uiState.settings = apply(this.uiState.settings);
+        this.syncSettingsViewState();
+        return true;
     }
 
     private createSettingsActions(): SettingsTabViewActions {
@@ -340,100 +386,73 @@ export class BookmarksPanel {
             loadState: async () => ({
                 settings: this.uiState.settings,
                 storageUsage: this.snapshot?.storageUsage ?? null,
+                dataState: this.settingsDataState,
             }),
-            setPlatforms: async (patch) => {
-                this.uiState.settings = {
-                    ...this.uiState.settings,
-                    platforms: {
-                        ...this.uiState.settings.platforms,
-                        ...patch,
+            retryLoad: async () => await this.loadSettings(),
+            setPlatforms: async (patch) => await this.persistSettingsCategory('platforms', patch, (current) => ({
+                ...current,
+                platforms: {
+                    ...current.platforms,
+                    ...patch,
+                },
+            })),
+            setBehaviorSettings: async (patch) => await this.persistSettingsCategory('behavior', patch, (current) => ({
+                ...current,
+                behavior: {
+                    ...current.behavior,
+                    ...patch,
+                },
+            })),
+            setReaderSettings: async (patch) => await this.persistSettingsCategory('reader', patch, (current) => ({
+                ...current,
+                reader: {
+                    ...current.reader,
+                    ...patch,
+                },
+            })),
+            setFormulaSettings: async (patch) => await this.persistSettingsCategory('formula', patch, (current) => ({
+                ...current,
+                formula: {
+                    ...current.formula,
+                    ...patch,
+                    assetActions: {
+                        ...current.formula.assetActions,
+                        ...patch.assetActions,
                     },
-                };
-                await settingsClientRpc.setCategory('platforms', patch);
-            },
-            setBehaviorSettings: async (patch) => {
-                this.uiState.settings = {
-                    ...this.uiState.settings,
-                    behavior: {
-                        ...this.uiState.settings.behavior,
-                        ...patch,
-                    },
-                };
-                await settingsClientRpc.setCategory('behavior', patch);
-            },
-            setReaderSettings: async (patch) => {
-                this.uiState.settings = {
-                    ...this.uiState.settings,
-                    reader: {
-                        ...this.uiState.settings.reader,
-                        ...patch,
-                    },
-                };
-                await settingsClientRpc.setCategory('reader', patch);
-            },
-            setFormulaSettings: async (patch) => {
-                this.uiState.settings = {
-                    ...this.uiState.settings,
-                    formula: {
-                        ...this.uiState.settings.formula,
-                        ...patch,
-                        assetActions: {
-                            ...this.uiState.settings.formula.assetActions,
-                            ...patch.assetActions,
-                        },
-                    },
-                };
-                await settingsClientRpc.setCategory('formula', patch);
-            },
-            setExportSettings: async (patch) => {
-                this.uiState.settings = {
-                    ...this.uiState.settings,
-                    export: {
-                        ...this.uiState.settings.export,
-                        ...patch,
-                    },
-                };
-                await settingsClientRpc.setCategory('export', patch);
-            },
-            setChatGptDirectorySettings: async (patch) => {
-                this.uiState.settings = {
-                    ...this.uiState.settings,
-                    chatgptDirectory: {
-                        ...this.uiState.settings.chatgptDirectory,
-                        ...patch,
-                    },
-                };
-                await settingsClientRpc.setCategory('chatgptDirectory', patch);
-            },
-            setChatGptBehaviorSettings: async (patch) => {
-                this.uiState.settings = {
-                    ...this.uiState.settings,
-                    chatgptBehavior: {
-                        ...this.uiState.settings.chatgptBehavior,
-                        ...patch,
-                    },
-                };
-                await settingsClientRpc.setCategory('chatgptBehavior', patch);
-            },
-            setAppearanceSettings: async (patch) => {
-                this.uiState.settings = {
-                    ...this.uiState.settings,
-                    appearance: {
-                        ...this.uiState.settings.appearance,
-                        ...patch,
-                    },
-                };
-                await settingsClientRpc.setCategory('appearance', patch);
-            },
-            setLanguage: async (value) => {
-                const result = await settingsClientRpc.setCategory('language', value);
-                if (!result.ok) return false;
-                this.uiState.settings = {
-                    ...this.uiState.settings,
-                    language: value,
-                };
-                return true;
-            },
+                },
+            })),
+            setExportSettings: async (patch) => await this.persistSettingsCategory('export', patch, (current) => ({
+                ...current,
+                export: {
+                    ...current.export,
+                    ...patch,
+                },
+            })),
+            setChatGptDirectorySettings: async (patch) => await this.persistSettingsCategory('chatgptDirectory', patch, (current) => ({
+                ...current,
+                chatgptDirectory: {
+                    ...current.chatgptDirectory,
+                    ...patch,
+                },
+            })),
+            setChatGptBehaviorSettings: async (patch) => await this.persistSettingsCategory('chatgptBehavior', patch, (current) => ({
+                ...current,
+                chatgptBehavior: {
+                    ...current.chatgptBehavior,
+                    ...patch,
+                },
+            })),
+            setAppearanceSettings: async (patch) => await this.persistSettingsCategory('appearance', patch, (current) => ({
+                ...current,
+                appearance: {
+                    ...current.appearance,
+                    ...patch,
+                },
+            })),
+            setLanguage: async (value) => await this.persistSettingsCategory('language', value, (current) => ({
+                ...current,
+                language: value,
+            })),
             exportAllBookmarks: async () => {
                 await this.exportAll();
             },
@@ -705,6 +724,7 @@ export class BookmarksPanel {
         (this.settingsView as SettingsTabView | null)?.setState({
             settings: this.uiState.settings,
             storageUsage: this.snapshot?.storageUsage ?? null,
+            dataState: this.settingsDataState,
         });
     }
 

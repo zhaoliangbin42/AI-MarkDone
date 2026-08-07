@@ -1,6 +1,10 @@
 import { describe, expect, it, vi } from 'vitest';
 const navigationMocks = vi.hoisted(() => ({
     navigateChatGPTDirectoryTarget: vi.fn(async () => ({ ok: true })),
+    conversationNavigation: {
+        navigate: vi.fn(async () => ({ ok: true as const })),
+        cancelActive: vi.fn(),
+    },
 }));
 
 vi.mock('@/ui/content/bookmarks/save/bookmarkSaveDialogSingleton', () => ({
@@ -92,7 +96,7 @@ describe('ReaderPanel bookmark action injection', () => {
         expect(locateAction.tooltip).toBe('jumpToMessage');
     });
 
-    it('reuses the ChatGPT directory navigation helper for reader locate actions', async () => {
+    it('uses the shared navigation port for reader locate actions', async () => {
         document.body.innerHTML = `
           <div data-turn-id-container id="user-1"><section data-turn="user"></section></div>
           <div data-turn-id-container id="assistant-1">
@@ -105,6 +109,7 @@ describe('ReaderPanel bookmark action injection', () => {
         `;
 
         navigationMocks.navigateChatGPTDirectoryTarget.mockClear();
+        navigationMocks.conversationNavigation.navigate.mockClear();
 
         const adapter = new ChatGPTAdapter();
         const readerPanel = {
@@ -115,7 +120,11 @@ describe('ReaderPanel bookmark action injection', () => {
         const bookmarksController = {
             isPositionBookmarked: vi.fn(() => false),
         } as any;
-        const orchestrator = createOrchestrator(adapter, { readerPanel, bookmarksController });
+        const orchestrator = createOrchestrator(adapter, {
+            readerPanel,
+            bookmarksController,
+            conversationNavigation: navigationMocks.conversationNavigation,
+        });
         const assistant = document.querySelector('[data-message-author-role="assistant"][data-message-id]') as HTMLElement;
 
         (orchestrator as any).rebuildTurnIndex();
@@ -136,10 +145,14 @@ describe('ReaderPanel bookmark action injection', () => {
         });
 
         expect(readerPanel.hide).toHaveBeenCalledTimes(1);
-        expect(navigationMocks.navigateChatGPTDirectoryTarget).toHaveBeenCalledWith(
-            adapter,
-            { position: 1, messageId: 'a1' },
-            { timeoutMs: 2500, intervalMs: 200 },
+        expect(navigationMocks.conversationNavigation.navigate).toHaveBeenCalledWith(
+            {
+                position: 1,
+                messageId: 'a1',
+                assistantMessageId: 'a1',
+                source: 'reader',
+            },
+            { timeoutMs: 15000, align: 'start' },
         );
     });
 
@@ -283,8 +296,9 @@ describe('ReaderPanel bookmark action injection', () => {
         const readerPanel = { show: vi.fn(async () => undefined) } as any;
         const bookmarksController = {
             isPositionBookmarked: vi.fn(() => false),
+            readPositionBookmarkStatus: vi.fn(async () => ({ ok: true, data: { saved: false } })),
             getDefaultFolderPath: vi.fn(() => '/Inbox'),
-            toggleBookmarkFromToolbar: vi.fn(async () => ({ ok: true, data: { saved: true } })),
+            setPositionBookmarkSaved: vi.fn(async () => ({ ok: true, data: { saved: true } })),
         } as any;
         const orchestrator = createOrchestrator(adapter, {
             readerPanel,
@@ -301,23 +315,24 @@ describe('ReaderPanel bookmark action injection', () => {
 
         const options = readerPanel.show.mock.calls[0][3];
         const bookmarkAction = options.actions.find((action: any) => action.id === 'bookmark_toggle');
+        const currentUrl = window.location.href.split('#')[0] || window.location.href;
         const item = {
             userPrompt: 'Hello from user',
             content: 'Hi',
-            meta: { position: 1, messageId: 'a1', url: 'https://example.com/chat', bookmarked: false, bookmarkable: true },
+            meta: { position: 1, messageId: 'a1', url: currentUrl, bookmarked: false, bookmarkable: true },
         };
         const notify = vi.fn();
         const rerender = vi.fn();
 
         await bookmarkAction.onClick({ item, notify, rerender });
 
-        expect(bookmarksController.toggleBookmarkFromToolbar).toHaveBeenCalledWith(expect.objectContaining({
+        expect(bookmarksController.setPositionBookmarkSaved).toHaveBeenCalledWith(expect.objectContaining({
             platform: 'ChatGPT',
             position: 1,
             messageId: 'a1',
             folderPath: '/Inbox',
             title: 'Hello from user',
-        }));
+        }), true);
         expect(item.meta.messageId).toBe('a1');
         expect(item.meta.bookmarked).toBe(true);
         expect(rerender).toHaveBeenCalledTimes(1);

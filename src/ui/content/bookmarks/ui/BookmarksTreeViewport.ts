@@ -17,6 +17,7 @@ import {
     trashIcon,
 } from '../../../../assets/icons';
 import { t } from '../../components/i18n';
+import { getRuntimeFailurePresentation } from '../../components/runtimeFailurePresentation';
 
 type TreeRenderPlan =
     | { mode: 'inline'; html: string }
@@ -64,6 +65,8 @@ type BookmarksTreeViewportActions = {
     renameFolder: (path: string) => Promise<void> | void;
     moveFolder: (path: string) => Promise<void> | void;
     deleteFolder: (path: string) => Promise<void> | void;
+    retryLoad: () => Promise<void> | void;
+    reloadPage: () => void;
 };
 
 const TREE_VIRTUALIZE_THRESHOLD = 240;
@@ -412,6 +415,31 @@ export class BookmarksTreeViewport {
     }
 
     private getTreeRenderPlan(snapshot: BookmarksPanelSnapshot): TreeRenderPlan {
+        if (snapshot.vm.folderTree.length === 0 && snapshot.dataState?.kind === 'loading') {
+            return {
+                mode: 'inline',
+                html: `<div class="empty-state" data-role="bookmarks-loading">${escapeHtml(tr('loading', 'Loading…'))}</div>`,
+            };
+        }
+
+        if (snapshot.vm.folderTree.length === 0 && snapshot.dataState?.kind === 'error') {
+            const presentation = getRuntimeFailurePresentation(snapshot.dataState.failure, tr);
+            const action = presentation.action === 'reload' ? 'reload-bookmarks-page' : 'retry-bookmarks-load';
+            return {
+                mode: 'inline',
+                html: `
+                  <div class="empty-state" data-role="bookmarks-runtime-error" role="alert">
+                    <div class="empty-icon">${icon(folderIcon)}</div>
+                    <strong>${escapeHtml(presentation.title)}</strong>
+                    <p>${escapeHtml(presentation.message)}</p>
+                    <div class="empty-actions">
+                      <button class="${buttonClass('primary')}" type="button" data-action="${action}">${escapeHtml(presentation.actionLabel)}</button>
+                    </div>
+                  </div>
+                `,
+            };
+        }
+
         const virtualModel = buildVirtualTreeModel(snapshot, this.controller);
         if (virtualModel) {
             return { mode: 'virtualized', model: virtualModel };
@@ -561,6 +589,14 @@ export class BookmarksTreeViewport {
         }
         if (actionEl.dataset.action === 'import-bookmarks-empty') {
             await this.actions.importBookmarks();
+            return;
+        }
+        if (actionEl.dataset.action === 'retry-bookmarks-load') {
+            await this.actions.retryLoad();
+            return;
+        }
+        if (actionEl.dataset.action === 'reload-bookmarks-page') {
+            this.actions.reloadPage();
         }
     }
 

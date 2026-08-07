@@ -14,23 +14,6 @@ import {
     type FormulaSourceFormat,
 } from '../../../core/math/formulaSourceFormat';
 
-export const FORMULA_CANDIDATE_SELECTOR = [
-    '.katex-display',
-    '.math-block',
-    'mjx-container[display="true"]',
-    'mjx-container[display="block"]',
-    '.math-inline',
-    'mjx-container',
-    '.MathJax',
-    '.katex',
-    '.katex-error',
-    '[data-latex-source]',
-    '[data-latex]',
-    '[data-tex]',
-    '[data-math]',
-    '[data-original-tex]',
-].join(', ');
-
 type ListenerRecord = {
     target: HTMLElement;
     mouseenter: EventListener;
@@ -53,6 +36,11 @@ type ResolvedFormula = {
     displayMode: boolean;
 };
 
+type CanonicalFormulaResolver = (element: Element) => {
+    latex: string;
+    isBlock: boolean;
+} | null;
+
 export type MathClickHandlerOptions = {
     onFormulaHoverEnter?: (context: MathFormulaHoverContext) => void;
     onFormulaHoverLeave?: () => void;
@@ -60,6 +48,8 @@ export type MathClickHandlerOptions = {
     clickCopyMarkdown?: boolean;
     clickCopyFormulaFormat?: FormulaSourceFormat;
     parserAdapter?: Pick<MarkdownParserAdapter, 'isMathNode' | 'extractLatex' | 'isBlockMath'>;
+    /** When provided, ChatGPT formulas fail closed unless canonical content resolves them. */
+    canonicalFormulaResolver?: CanonicalFormulaResolver;
 };
 
 /**
@@ -91,6 +81,10 @@ export class MathClickHandler {
         this.options.clickCopyFormulaFormat = normalizeFormulaSourceFormat(format);
     }
 
+    setCanonicalFormulaResolver(resolver: CanonicalFormulaResolver | undefined): void {
+        this.options.canonicalFormulaResolver = resolver;
+    }
+
     enable(container: HTMLElement): void {
         if (this.containers.has(container)) return;
         getDocumentTooltipDelegate();
@@ -103,6 +97,15 @@ export class MathClickHandler {
         this.containerDiscovery.set(root, selector);
         this.discoverContainers(root, selector);
         this.ensureObserver();
+    }
+
+    /**
+     * Observe one semantic host root. Formula ownership is delegated to the
+     * injected parser capability; the handler does not need a platform's
+     * formula-node selector list to discover future descendants.
+     */
+    observeSemanticRoot(root: HTMLElement): void {
+        this.enable(root);
     }
 
     private ensureObserver(): void {
@@ -131,11 +134,12 @@ export class MathClickHandler {
                 if (this.handleRemovedNode(node)) queued = true;
             }
             for (const node of Array.from(mutation.addedNodes)) {
-                if (!(node instanceof Element)) continue;
-                this.discoverContainersFromAddedNode(node);
-                if (!this.getEnabledContainer(node)) continue;
+                if (node.nodeType !== 1) continue;
+                const element = node as Element;
+                this.discoverContainersFromAddedNode(element);
+                if (!this.getEnabledContainer(element)) continue;
                 queued = true;
-                this.queueNodeForProcessing(node);
+                this.queueNodeForProcessing(element);
             }
         }
 
@@ -147,7 +151,7 @@ export class MathClickHandler {
     }
 
     private handleRemovedNode(node: Node): boolean {
-        const removedElement = node instanceof Element ? node : null;
+        const removedElement = node.nodeType === 1 ? node as Element : null;
         if (!removedElement) return false;
 
         for (const root of Array.from(this.containerDiscovery.keys())) {
@@ -223,37 +227,21 @@ export class MathClickHandler {
             addUnique(el);
         };
 
-        const considerCandidate = (element: Element): void => {
-            if (element.matches('.katex-display, .math-block, mjx-container[display="true"], mjx-container[display="block"]')) {
-                addCandidate(element);
-                return;
-            }
-            if (element.matches('.math-inline, mjx-container, .MathJax')) {
-                addCandidate(element);
-                return;
-            }
-            if (element.matches('.katex')) {
-                if (!element.closest('.katex-display, .math-block, .math-inline')) addCandidate(element);
-                return;
-            }
-            if (element.matches('.katex-error')) {
-                const text = element.textContent?.trim() || '';
-                if (text.length > 0 && text.length < 200) addCandidate(element);
-                return;
-            }
-            if (!element.closest('.katex, .katex-display, .math-block, .math-inline, mjx-container, .MathJax')) {
-                addCandidate(element);
-            }
-        };
-
-        if (container.matches(FORMULA_CANDIDATE_SELECTOR)) considerCandidate(container);
-        container.querySelectorAll(FORMULA_CANDIDATE_SELECTOR).forEach(considerCandidate);
+        const nodes = [container, ...Array.from(container.querySelectorAll('*'))];
+        nodes.forEach((element) => {
+            if (!this.isFormulaElement(element)) return;
+            if (elements.some((parent) => parent.contains(element))) return;
+            // Parser capability adapters identify the semantic math owner;
+            // nested generated descendants are ignored by the adapter rather
+            // than by a platform-specific selector list here.
+            addCandidate(element);
+        });
 
         return elements;
     }
 
     private isFormulaElement(element: Element): boolean {
-        if (!this.options.parserAdapter) return true;
+        if (!this.options.parserAdapter) return isGenericFormulaElement(element);
         try {
             return this.options.parserAdapter.isMathNode(element);
         } catch (error) {
@@ -326,11 +314,7 @@ export class MathClickHandler {
     }
 
     private attachHandlers(element: Element): void {
-        const mathEl = element as HTMLElement;
-
-        const targetEl = element.classList.contains('katex-display')
-            ? mathEl
-            : (mathEl.querySelector('.katex') as HTMLElement) || mathEl;
+        const targetEl = this.resolveInteractionTarget(element);
         const hoverBackground = this.getHoverBackground(element, targetEl);
 
         targetEl.style.cursor = 'pointer';
@@ -375,6 +359,18 @@ export class MathClickHandler {
             focusout: mouseleaveHandler,
             click: clickHandler,
         });
+    }
+
+    private resolveInteractionTarget(element: Element): HTMLElement {
+        if (
+            (this.options.parserAdapter ? this.isFormulaElement(element) : false)
+            || element.matches('.katex-display, .math-block, mjx-container[display="true"], mjx-container[display="block"]')
+        ) {
+            return element as HTMLElement;
+        }
+        const nested = Array.from(element.querySelectorAll('*'))
+            .find((candidate) => this.isFormulaElement(candidate));
+        return nested?.nodeType === 1 ? nested as HTMLElement : element as HTMLElement;
     }
 
     private getHoverBackground(element: Element, targetEl?: HTMLElement): string {
@@ -427,6 +423,15 @@ export class MathClickHandler {
     }
 
     private resolveFormula(element: Element): ResolvedFormula | null {
+        if (this.options.canonicalFormulaResolver) {
+            const canonical = this.options.canonicalFormulaResolver(element);
+            if (!canonical?.latex.trim()) return null;
+            return {
+                texSource: canonical.latex.trim(),
+                assetSource: { kind: 'tex', value: canonical.latex.trim(), confidence: 'authoritative' },
+                displayMode: canonical.isBlock,
+            };
+        }
         const adapter = this.options.parserAdapter;
         if (adapter && element instanceof HTMLElement) {
             try {
@@ -480,6 +485,12 @@ export class MathClickHandler {
             }
         }, 1500);
     }
+}
+
+function isGenericFormulaElement(element: Element): boolean {
+    return element.matches(
+        '.katex-display, .math-block, .math-inline, mjx-container, .MathJax, .katex, .katex-error, [data-latex-source], [data-latex], [data-tex], [data-math], [data-original-tex]',
+    );
 }
 
 export function formatFormulaClickCopySource(source: string, displayMode: boolean, format: FormulaSourceFormat): string {

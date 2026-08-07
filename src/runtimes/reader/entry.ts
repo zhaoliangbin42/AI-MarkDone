@@ -1,7 +1,12 @@
 import { PROTOCOL_VERSION, createRequestId, type ReaderSessionSnapshot } from '../../contracts/protocol';
+import { isReaderAnnotationDocument } from '../../contracts/readerAnnotations';
 import { DEFAULT_GLOBAL_FONT_SIZE_PX, DEFAULT_SETTINGS, type AppSettings } from '../../core/settings/types';
 import { normalizeGlobalFontSizePx, normalizeThemeAccentColor } from '../../core/settings/migrations';
-import { sendExtRequest } from '../../drivers/shared/rpc';
+import {
+    createInvalidResponseClientFailure,
+    requestRuntimeClient,
+    RuntimeClientRequestError,
+} from '../../drivers/shared/clients/clientResult';
 import { ensurePageTokens } from '../../style/pageTokens';
 import type { UserThemeOverrides } from '../../style/tokens';
 import { ReaderPanel } from '../../ui/content/reader/ReaderPanel';
@@ -15,6 +20,8 @@ import type { ReaderItem } from '../../services/reader/types';
 import { setCanonicalMarkdownCopyFormulaFormat } from '../../services/copy/canonicalMarkdownCopy';
 import { bookmarkSaveDialog } from '../../ui/content/bookmarks/save/bookmarkSaveDialogSingleton';
 import { SettingsClient } from '../../drivers/content/settings/settingsClient';
+import { hasFields, isRecord, readArrayField } from '../../drivers/shared/clients/payloadValidation';
+import { bookmarksClient } from '../../drivers/shared/clients/bookmarksClient';
 import {
     areAppearanceSnapshotsEqual,
     createAppearanceSnapshot,
@@ -28,6 +35,65 @@ type ReaderSessionRecord = {
     sourceUrl: string;
     snapshot: ReaderSessionSnapshot;
 };
+
+function isOptionalNullableString(value: unknown): boolean {
+    return value === undefined || value === null || typeof value === 'string';
+}
+
+function isReaderSessionItemMeta(value: unknown): boolean {
+    if (!isRecord(value)) return false;
+    if (!['platformId', 'url'].every((field) => value[field] === undefined || typeof value[field] === 'string')) return false;
+    if (!['messageId', 'roundId', 'userMessageId', 'assistantMessageId', 'branchKey']
+        .every((field) => isOptionalNullableString(value[field]))) return false;
+    if (value.position !== undefined && (typeof value.position !== 'number' || !Number.isFinite(value.position))) return false;
+    if (value.bookmarkable !== undefined && typeof value.bookmarkable !== 'boolean') return false;
+    return value.bookmarked === undefined || typeof value.bookmarked === 'boolean';
+}
+
+function isReaderSessionSnapshot(value: unknown): value is ReaderSessionSnapshot {
+    if (!hasFields(value, ['sourceUrl'], ['startIndex', 'createdAt', 'updatedAt'])) return false;
+    const items = readArrayField(value, 'items', (item) => (
+        hasFields(item, ['id', 'userPrompt', 'content'])
+        && (item.meta === undefined || isReaderSessionItemMeta(item.meta))
+    ));
+    if (!items) return false;
+    return typeof value.startIndex === 'number'
+        && Number.isInteger(value.startIndex)
+        && value.startIndex >= 0
+        && typeof value.sourceUrl === 'string'
+        && (value.theme === 'light' || value.theme === 'dark')
+        && typeof value.createdAt === 'number'
+        && Number.isFinite(value.createdAt)
+        && typeof value.updatedAt === 'number'
+        && Number.isFinite(value.updatedAt)
+        && (value.annotationDocument === undefined || isReaderAnnotationDocument(value.annotationDocument));
+}
+
+function isReaderSessionRecord(value: unknown): value is ReaderSessionRecord {
+    return hasFields(value, ['sessionId', 'sourceUrl'], ['sourceTabId'])
+        && Number.isInteger(value.sourceTabId)
+        && (value.readerTabId === null || (typeof value.readerTabId === 'number' && Number.isInteger(value.readerTabId)))
+        && isReaderSessionSnapshot(value.snapshot);
+}
+
+function invalidPayloadError(message: string): RuntimeClientRequestError {
+    return new RuntimeClientRequestError(createInvalidResponseClientFailure(message).failure);
+}
+
+function decodeReaderSessionPayload(
+    data: unknown,
+    requestType: 'readerSession:get' | 'readerSession:refresh',
+    options: { allowNull: boolean },
+): ReaderSessionRecord | null {
+    if (!isRecord(data) || !Object.prototype.hasOwnProperty.call(data, 'session')) {
+        throw invalidPayloadError(`Invalid ${requestType} response payload`);
+    }
+    if (data.session === null && options.allowNull) return null;
+    if (!isReaderSessionRecord(data.session)) {
+        throw invalidPayloadError(`Invalid ${requestType} response payload`);
+    }
+    return data.session;
+}
 
 function getSessionId(): string | null {
     const hash = window.location.hash.replace(/^#/, '');
@@ -77,49 +143,43 @@ function renderStatus(message: string): void {
 }
 
 async function loadSettings(): Promise<AppSettings> {
-    const response = await sendExtRequest({
+    const response = await requestRuntimeClient<{ settings?: unknown }>({
         v: PROTOCOL_VERSION,
         id: createRequestId(),
         type: 'settings:getAll',
     });
-    if (response.ok && response.data && typeof response.data === 'object' && 'settings' in response.data) {
-        return (response.data as { settings: AppSettings }).settings;
+    if (!response.ok) throw new RuntimeClientRequestError(response.failure);
+    if (!response.data?.settings || typeof response.data.settings !== 'object') {
+        throw new Error('Settings response is invalid.');
     }
-    return DEFAULT_SETTINGS;
+    return response.data.settings as AppSettings;
 }
 
 async function getSession(sessionId: string): Promise<ReaderSessionRecord | null> {
-    const response = await sendExtRequest({
+    const response = await requestRuntimeClient<unknown>({
         v: PROTOCOL_VERSION,
         id: createRequestId(),
         type: 'readerSession:get',
         payload: { sessionId },
     });
-    if (!response.ok || !response.data || typeof response.data !== 'object') return null;
-    return (response.data as { session?: ReaderSessionRecord }).session ?? null;
+    if (!response.ok) throw new RuntimeClientRequestError(response.failure);
+    return decodeReaderSessionPayload(response.data, 'readerSession:get', { allowNull: true });
 }
 
 async function closeSession(sessionId: string): Promise<void> {
-    await sendExtRequest({
+    const response = await requestRuntimeClient({
         v: PROTOCOL_VERSION,
         id: createRequestId(),
         type: 'readerSession:close',
         payload: { sessionId },
     }, { timeoutMs: 4000 });
+    if (!response.ok) throw new RuntimeClientRequestError(response.failure);
 }
 
 async function readBookmarkedPositions(url: string): Promise<Set<number>> {
-    const response = await sendExtRequest({
-        v: PROTOCOL_VERSION,
-        id: createRequestId(),
-        type: 'bookmarks:positions',
-        payload: { url },
-    }, { timeoutMs: 4000 });
-    if (!response.ok || !response.data || typeof response.data !== 'object') return new Set();
-    const positions = (response.data as { positions?: unknown }).positions;
-    return Array.isArray(positions)
-        ? new Set(positions.map((position) => Number(position)).filter((position) => Number.isFinite(position)))
-        : new Set();
+    const response = await bookmarksClient.positions({ url });
+    if (!response.ok) throw new RuntimeClientRequestError(response.failure);
+    return new Set(response.data.positions);
 }
 
 async function run(): Promise<void> {
@@ -165,23 +225,29 @@ async function run(): Promise<void> {
     sendPopover.setPromptAutocompleteController(promptManager);
     promptManager.setEnabled(Boolean(settings.chatgptBehavior?.promptAutocomplete ?? DEFAULT_SETTINGS.chatgptBehavior.promptAutocomplete));
     panel.setReaderSettings(settings.reader);
+    let readerSettingsWriteQueue: Promise<void> = Promise.resolve();
     panel.setReaderSettingsController({
-        onChange: async (patch) => {
-            settings = {
-                ...settings,
-                reader: {
-                    ...settings.reader,
-                    ...patch,
-                    commentExport: patch.commentExport ?? settings.reader.commentExport,
-                },
-            };
-            applyAppearance(createAppearanceSnapshot(session?.snapshot.theme ?? 'light', getThemeOverrides(settings)));
-            await sendExtRequest({
-                v: PROTOCOL_VERSION,
-                id: createRequestId(),
-                type: 'settings:setCategory',
-                payload: { category: 'reader', value: settings.reader },
+        onChange: (patch) => {
+            const write = readerSettingsWriteQueue.then(async () => {
+                const nextSettings = {
+                    ...settings,
+                    reader: {
+                        ...settings.reader,
+                        ...patch,
+                        commentExport: patch.commentExport ?? settings.reader.commentExport,
+                    },
+                };
+                const response = await settingsClient.setCategoryResult('reader', nextSettings.reader);
+                if (!response.ok) {
+                    panel.setReaderSettings(settings.reader);
+                    throw new RuntimeClientRequestError(response.failure);
+                }
+                settings = nextSettings;
+                panel.setReaderSettings(settings.reader);
+                applyAppearance(createAppearanceSnapshot(session?.snapshot.theme ?? 'light', getThemeOverrides(settings)));
             });
+            readerSettingsWriteQueue = write.catch(() => undefined);
+            return write;
         },
     });
     panel.setPromptManagerController({
@@ -222,21 +288,22 @@ async function run(): Promise<void> {
         const actions = createConversationReaderActions({
             refresh: {
                 refresh: async (ctx) => {
-                    const response = await sendExtRequest({
+                    const response = await requestRuntimeClient<unknown>({
                         v: PROTOCOL_VERSION,
                         id: createRequestId(),
                         type: 'readerSession:refresh',
                         payload: { sessionId },
                     }, { timeoutMs: 12000 });
-                    if (!response.ok || !response.data || typeof response.data !== 'object') {
-                        ctx.notify(response.ok ? t('detachedReaderSourceUnavailable') : response.error.message);
+                    if (!response.ok) {
+                        ctx.notify(response.message);
                         return;
                     }
-                    const refreshedSession = (response.data as { session?: ReaderSessionRecord }).session ?? session;
-                    if (!refreshedSession) {
-                        ctx.notify(t('detachedReaderSourceUnavailable'));
-                        return;
-                    }
+                    const refreshedSession = decodeReaderSessionPayload(
+                        response.data,
+                        'readerSession:refresh',
+                        { allowNull: false },
+                    );
+                    if (!refreshedSession) throw invalidPayloadError('Invalid readerSession:refresh response payload');
                     session = refreshedSession;
                     const refreshedBookmarkedPositions = await readBookmarkedPositions(refreshedSession.snapshot.sourceUrl);
                     bookmarkedPositions.clear();
@@ -259,14 +326,12 @@ async function run(): Promise<void> {
                     if (!position) return { ok: false, message: t('positionNotAvailable') };
                     const userPrompt = input.userPrompt.trim();
                     if (!userPrompt) return { ok: false, message: t('failedToExtractUserMessage') };
-                    if (input.alreadyBookmarked) {
-                        const response = await sendExtRequest({
-                            v: PROTOCOL_VERSION,
-                            id: createRequestId(),
-                            type: 'bookmarks:remove',
-                            payload: { url: input.url, position },
-                        }, { timeoutMs: 4000 });
-                        if (!response.ok) return { ok: false, message: response.error.message };
+                    const canonical = await bookmarksClient.positions({ url: input.url });
+                    if (!canonical.ok) return { ok: false, message: canonical.message };
+                    const alreadyBookmarked = canonical.data.positions.includes(position);
+                    if (alreadyBookmarked) {
+                        const response = await bookmarksClient.remove({ url: input.url, position });
+                        if (!response.ok) return { ok: false, message: response.message };
                         bookmarkedPositions.delete(position);
                         return { ok: true, bookmarked: false, message: t('removedStatus') };
                     }
@@ -278,22 +343,17 @@ async function run(): Promise<void> {
                         mode: 'create',
                     });
                     if (!dialogResult.ok) return { ok: false, cancelled: true };
-                    const response = await sendExtRequest({
-                        v: PROTOCOL_VERSION,
-                        id: createRequestId(),
-                        type: 'bookmarks:save',
-                        payload: {
-                            url: input.url,
-                            position,
-                            messageId: input.messageId,
-                            userMessage: userPrompt,
-                            aiResponse: input.markdown,
-                            platform: 'ChatGPT',
-                            title: dialogResult.title,
-                            folderPath: dialogResult.folderPath,
-                        },
-                    }, { timeoutMs: 4000 });
-                    if (!response.ok) return { ok: false, message: response.error.message };
+                    const response = await bookmarksClient.save({
+                        url: input.url,
+                        position,
+                        messageId: input.messageId,
+                        userMessage: userPrompt,
+                        aiResponse: input.markdown,
+                        platform: 'ChatGPT',
+                        title: dialogResult.title,
+                        folderPath: dialogResult.folderPath,
+                    });
+                    if (!response.ok) return { ok: false, message: response.message };
                     bookmarkedPositions.add(position);
                     return { ok: true, bookmarked: true, message: t('savedStatus') };
                 },
@@ -315,7 +375,7 @@ async function run(): Promise<void> {
             },
             locate: {
                 locate: async ({ position, messageId }) => {
-                    const response = await sendExtRequest({
+                    const response = await requestRuntimeClient({
                         v: PROTOCOL_VERSION,
                         id: createRequestId(),
                         type: 'readerSession:locate',
@@ -323,7 +383,7 @@ async function run(): Promise<void> {
                     }, { timeoutMs: 12000 });
                     return response.ok
                         ? { ok: true, message: t('detachedReaderLocated') }
-                        : { ok: false, message: response.error.message };
+                        : { ok: false, message: response.message };
                 },
             },
         });

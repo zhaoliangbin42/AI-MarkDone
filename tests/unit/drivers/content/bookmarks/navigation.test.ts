@@ -63,6 +63,21 @@ describe('bookmark navigation', () => {
         });
     });
 
+    it('treats the ChatGPT host migration as one conversation page identity', async () => {
+        const { getBookmarkUrlCandidates, isSamePageUrl } = await import('@/drivers/content/bookmarks/navigation');
+
+        expect(isSamePageUrl(
+            'https://chat.openai.com/c/abc?mweb_fallback=1',
+            'https://chatgpt.com/c/abc',
+        )).toBe(true);
+        expect(getBookmarkUrlCandidates('https://chat.openai.com/c/abc?mweb_fallback=1')).toEqual([
+            'https://chatgpt.com/c/abc',
+            'https://chat.openai.com/c/abc',
+            'https://chatgpt.com/c/abc?mweb_fallback=1',
+            'https://chat.openai.com/c/abc?mweb_fallback=1',
+        ]);
+    });
+
     it('tries messageId first and falls back to legacy position when needed', async () => {
         const { scrollToBookmarkTargetWithRetry } = await import('@/drivers/content/bookmarks/navigation');
         scrollToConversationTargetWithRetry

@@ -123,6 +123,11 @@ export class ChatGPTConversationIndex {
         subscribing = false;
     }
 
+    /** Return the canonical source already bound by the composition root. */
+    getConversationSource(): ConversationContentSourceV1 | null {
+        return this.stateSource;
+    }
+
     private readCurrentSnapshot(): ConversationSnapshotV1 | null {
         const snapshot = this.stateSource?.read().snapshot ?? null;
         if (!snapshot) return null;

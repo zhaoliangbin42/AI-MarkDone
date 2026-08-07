@@ -54,7 +54,7 @@ export type SendPortResult = { ok: true; message?: string } | { ok: false; messa
 export type SendPort = {
     readDraft?: () => string | Promise<string>;
     writeDraft?: (text: string) => void | Promise<void>;
-    beforeSubmit?: () => void;
+    beforeSubmit?: () => void | Promise<void>;
     submit: (text: string) => Promise<SendPortResult>;
 };
 
@@ -541,7 +541,10 @@ export class SendPopover {
         this.setPending(true);
         this.setStatus(t('sendingStatus'));
         try {
-            sendPort.beforeSubmit?.();
+            const preparation = sendPort.beforeSubmit?.();
+            if (preparation && typeof (preparation as Promise<void>).then === 'function') {
+                await preparation;
+            }
             const res = await sendPort.submit(text);
             if (!res.ok) {
                 this.setStatus(res.message || t('sendFailed'), 'error');
@@ -549,6 +552,8 @@ export class SendPopover {
             }
             this.setStatus(t('sentStatus'));
             window.setTimeout(() => this.close(shadow, { syncBack: false }), 120);
+        } catch (error) {
+            this.setStatus(error instanceof Error ? error.message : t('sendFailed'), 'error');
         } finally {
             window.setTimeout(() => this.setStatus(''), 1200);
             this.setPending(false);

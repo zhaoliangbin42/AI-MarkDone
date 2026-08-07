@@ -2,9 +2,15 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { DEFAULT_SETTINGS } from '@/core/settings/types';
 
 let storageListener: ((changes: any, areaName: string) => void) | null = null;
-const sendExtRequest = vi.fn(async () => ({
-    ok: true,
-    data: { settings: structuredClone(DEFAULT_SETTINGS) },
+const sendExtRequest = vi.fn(async (request: any) => ({
+    kind: 'response',
+    response: {
+        v: 1,
+        id: request.id,
+        type: request.type,
+        ok: true,
+        data: { settings: structuredClone(DEFAULT_SETTINGS) },
+    },
 }));
 
 vi.mock('@/drivers/shared/browser', () => ({
@@ -94,14 +100,20 @@ describe('SettingsClient', () => {
 
     it('returns normalized settings from refresh', async () => {
         sendExtRequest.mockResolvedValueOnce({
-            ok: true,
-            data: {
-                settings: {
-                    version: 3,
-                    behavior: { enableClickToCopy: false },
+            kind: 'response',
+            response: {
+                v: 1,
+                id: 'settings-request',
+                type: 'settings:getAll',
+                ok: true,
+                data: {
+                    settings: {
+                        version: 3,
+                        behavior: { enableClickToCopy: false },
+                    },
                 },
             },
-        });
+        } as any);
         const { SettingsClient } = await import('@/drivers/content/settings/settingsClient');
         const client = new SettingsClient();
 
@@ -111,5 +123,72 @@ describe('SettingsClient', () => {
         expect(settings?.formula.clickCopyMarkdown).toBe(false);
         expect(settings?.formula.assetActions.copyPng).toBe(false);
         expect(settings?.formula.assetFontSizePx).toBe(36);
+    });
+
+    it('preserves transport failure details when a category write is not confirmed', async () => {
+        sendExtRequest.mockResolvedValueOnce({
+            kind: 'transport-failure',
+            failure: {
+                code: 'CONTEXT_INVALIDATED',
+                message: 'Extension context invalidated.',
+                delivery: 'not-sent',
+            },
+        } as any);
+        const { SettingsClient } = await import('@/drivers/content/settings/settingsClient');
+        const client = new SettingsClient();
+
+        const result = await client.setCategoryResult('reader', { showOutlineInReader: false });
+
+        expect(result).toEqual(expect.objectContaining({
+            ok: false,
+            errorCode: 'CONTEXT_INVALIDATED',
+            failure: expect.objectContaining({
+                kind: 'transport',
+                code: 'CONTEXT_INVALIDATED',
+                delivery: 'not-sent',
+            }),
+        }));
+    });
+
+    it('rejects a successful category response whose payload is missing the canonical value', async () => {
+        sendExtRequest.mockImplementationOnce(async (request: any) => ({
+            kind: 'response',
+            response: {
+                v: 1,
+                id: request.id,
+                type: request.type,
+                ok: true,
+                data: {},
+            },
+        }));
+        const { SettingsClient } = await import('@/drivers/content/settings/settingsClient');
+
+        const result = await new SettingsClient().getCategoryResult('reader');
+
+        expect(result).toEqual(expect.objectContaining({
+            ok: false,
+            errorCode: 'INVALID_RESPONSE',
+            failure: expect.objectContaining({ kind: 'transport', code: 'INVALID_RESPONSE' }),
+        }));
+    });
+
+    it('rejects category reads and writes acknowledged for a different category', async () => {
+        sendExtRequest.mockImplementation(async (request: any) => ({
+            kind: 'response',
+            response: {
+                v: 1,
+                id: request.id,
+                type: request.type,
+                ok: true,
+                data: request.type === 'settings:getCategory'
+                    ? { category: 'formula', value: structuredClone(DEFAULT_SETTINGS.reader) }
+                    : { category: 'formula' },
+            },
+        }));
+        const { SettingsClient } = await import('@/drivers/content/settings/settingsClient');
+        const client = new SettingsClient();
+
+        await expect(client.getCategoryResult('reader')).resolves.toMatchObject({ ok: false, errorCode: 'INVALID_RESPONSE' });
+        await expect(client.setCategoryResult('reader', DEFAULT_SETTINGS.reader)).resolves.toMatchObject({ ok: false, errorCode: 'INVALID_RESPONSE' });
     });
 });

@@ -10,14 +10,11 @@ export type ChatGPTConversationRound = {
 };
 
 export type ChatGPTDomTurnFact = {
-    position: number;
     roundId: string | null;
     userMessageId: string | null;
     assistantMessageId: string | null;
     assistantTurnId: string | null;
-    userPrompt: string;
-    assistantContent: string;
-    status: 'streaming' | 'complete' | 'incomplete';
+    status: 'streaming' | 'mounted' | 'incomplete';
 };
 
 export type ChatGPTDomTurnObservation = {

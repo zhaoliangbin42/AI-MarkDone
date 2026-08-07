@@ -6,15 +6,83 @@ import {
 import { highlightNavigationTarget } from '../conversation/highlight';
 import { materializeChatGPTConversationTarget } from '../chatgpt/ChatGPTConversationNavigation';
 import { releaseChatGPTSendPositionRestore } from '../chatgpt/sendPositionRestoreEvents';
+import { isChatGPTPageHostname } from '../../../contracts/chatgptHosts';
 
 const NAV_KEY = 'aimd:bookmarkNavigate:v1';
+export const PENDING_NAVIGATION_EVENT = 'aimd:pending-navigation';
 
-function normalizePageUrl(url: string): string {
-    return url
-        .replace(/^https?:\/\//, '')
-        .replace(/\/$/, '')
-        .replace(/#.*$/, '')
-        .replace(/\?.*$/, '');
+function normalizeUrlForComparison(url: string, canonicalizeChatGPTHost: boolean): string {
+    try {
+        const parsed = new URL(url, typeof window !== 'undefined' ? window.location.href : 'https://chatgpt.com');
+        parsed.hash = '';
+        parsed.search = '';
+        if (canonicalizeChatGPTHost && isChatGPTPageHostname(parsed.hostname)) {
+            parsed.protocol = 'https:';
+            parsed.hostname = 'chatgpt.com';
+            parsed.port = '';
+        }
+        return parsed.toString().replace(/\/$/, '');
+    } catch {
+        return url
+            .replace(/^https?:\/\//, '')
+            .replace(/\/$/, '')
+            .replace(/#.*$/, '')
+            .replace(/\?.*$/, '');
+    }
+}
+
+function normalizeUrlForStorage(url: string, canonicalizeChatGPTHost: boolean): string {
+    try {
+        const parsed = new URL(url, typeof window !== 'undefined' ? window.location.href : 'https://chatgpt.com');
+        parsed.hash = '';
+        if (canonicalizeChatGPTHost && isChatGPTPageHostname(parsed.hostname)) {
+            parsed.protocol = 'https:';
+            parsed.hostname = 'chatgpt.com';
+            parsed.port = '';
+        }
+        return parsed.toString().replace(/\/$/, '');
+    } catch {
+        return url.replace(/#.*$/, '').replace(/\/$/, '');
+    }
+}
+
+/**
+ * ChatGPT moved the public conversation host from chat.openai.com to
+ * chatgpt.com. Treat that host change as the same page identity while
+ * leaving the persisted bookmark URL untouched for compatibility.
+ */
+export function isSamePageUrl(a: string, b: string): boolean {
+    return normalizeUrlForComparison(a, true) === normalizeUrlForComparison(b, true);
+}
+
+/** Return canonical and legacy URL forms used for read/remove compatibility. */
+export function getBookmarkUrlCandidates(url: string): string[] {
+    const canonical = normalizeUrlForComparison(url, true);
+    const raw = normalizeUrlForComparison(url, false);
+    const canonicalWithQuery = normalizeUrlForStorage(url, true);
+    const rawWithQuery = normalizeUrlForStorage(url, false);
+    let isChatGPTUrl = false;
+    try {
+        isChatGPTUrl = isChatGPTPageHostname(new URL(
+            url,
+            typeof window !== 'undefined' ? window.location.href : 'https://chatgpt.com',
+        ).hostname);
+    } catch {
+        // Keep malformed/non-ChatGPT values on the legacy single-candidate path.
+    }
+    if (isChatGPTUrl) {
+        const legacyHost = canonical.replace('://chatgpt.com', '://chat.openai.com');
+        const legacyHostWithQuery = rawWithQuery.replace('://chatgpt.com', '://chat.openai.com');
+        return Array.from(new Set([
+            canonical,
+            legacyHost,
+            canonicalWithQuery,
+            legacyHostWithQuery,
+            raw,
+            rawWithQuery,
+        ]));
+    }
+    return Array.from(new Set([canonical, raw, rawWithQuery]));
 }
 
 export type PendingNavigation = {
@@ -26,15 +94,15 @@ export type PendingNavigation = {
 export function setPendingNavigation(nav: PendingNavigation): void {
     try {
         sessionStorage.setItem(NAV_KEY, JSON.stringify(nav));
+        window.dispatchEvent(new Event(PENDING_NAVIGATION_EVENT));
     } catch {
         // ignore
     }
 }
 
-export function consumePendingNavigation(): PendingNavigation | null {
+function readPendingNavigation(): PendingNavigation | null {
     try {
         const raw = sessionStorage.getItem(NAV_KEY);
-        sessionStorage.removeItem(NAV_KEY);
         if (!raw) return null;
         const parsed = JSON.parse(raw) as any;
         if (!parsed || typeof parsed.url !== 'string' || typeof parsed.position !== 'number') return null;
@@ -48,8 +116,23 @@ export function consumePendingNavigation(): PendingNavigation | null {
     }
 }
 
-export function isSamePageUrl(a: string, b: string): boolean {
-    return normalizePageUrl(a) === normalizePageUrl(b);
+/** Read a pending target without consuming it. SPA navigation may keep this runtime alive. */
+export function peekPendingNavigation(): PendingNavigation | null {
+    return readPendingNavigation();
+}
+
+export function clearPendingNavigation(): void {
+    try {
+        sessionStorage.removeItem(NAV_KEY);
+    } catch {
+        // ignore
+    }
+}
+
+export function consumePendingNavigation(): PendingNavigation | null {
+    const pending = readPendingNavigation();
+    if (pending) clearPendingNavigation();
+    return pending;
 }
 
 export type ScrollResult = { ok: true } | { ok: false; message: string };

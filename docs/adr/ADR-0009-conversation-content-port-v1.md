@@ -2,7 +2,7 @@
 
 ## Status
 
-Accepted — implementation active; installed-browser release acceptance open. This decision supersedes the passive-only acquisition constraint in ADR-0007.
+Accepted — implementation active; installed-browser release acceptance open. This decision supersedes the passive-only acquisition constraint in ADR-0007. The candidate-merge and strict-prefix portions are superseded by ADR-0013.
 
 ## Context
 
@@ -19,9 +19,9 @@ Introduce two content-runtime contracts:
 
 ChatGPT uses one `ConversationContentRepository` and one `reconcile()` path. Bootstrap, route, `pageshow`, the shared typed PageIndex observer, passive bridge signals, and explicit refresh only schedule that path. An epoch has at most one acquisition; a new route aborts the previous epoch and late results are discarded.
 
-The adapter first consumes a validated passive graph. If the graph is missing or conflicts with typed DOM, it performs one same-origin `GET` for the current conversation with a three-second timeout and one bounded retry only after timeout/5xx when typed conversation DOM is present. It must not read cookies, authorization headers, tokens, generation POST/SSE payloads, or use an endpoint list/fallback transport. A failed read falls back to verified typed DOM partial evidence when available; it never triggers credential discovery or an endpoint cascade. Installed Chrome and Firefox must still verify this path before the release gate is called fully green.
+The adapter first consumes a validated passive graph. If the graph is missing, it performs one same-origin `GET` for the current conversation with a three-second timeout when a real route, lifecycle, generation, host, or explicit refresh signal permits acquisition. It must not read cookies, authorization headers, tokens, generation POST/SSE payloads, or use an endpoint list/fallback transport. A failed read never falls back to DOM body or position evidence; the public result is unavailable unless a complete source graph is later verified. Installed Chrome and Firefox must still verify this path before the release gate is called fully green.
 
-The graph owns canonical branch, order, and history. Typed DOM evidence may only refresh an identity-overlapping turn or add a verified continuous successor; an ambiguous window must converge through a fresh graph or fail closed. A completed DOM turn requires a unique typed assistant message id, non-streaming state, and non-empty user/assistant text; the host's official action row is a toolbar lifecycle signal, not a content-completeness prerequisite. A user-message id is an optional consistency check because ChatGPT does not expose it on every visible user node, while the assistant message id remains required. Partial snapshots may only grow by strict semantic prefix; a virtualized shrink or divergent partial retains the same-document last-good snapshot as `stale`. A document change clears it and publishes `unavailable` until the new identity is verified. Consumers never receive DOM nodes, selectors, route epochs, proofs, transport, or provider payloads through the semantic port.
+The graph/source adapter owns canonical branch, order, history, and body. Host observations are lifecycle/materialization facts only; they never enter the Ledger as content, position, or Markdown. The first validated semantic digest is sealed, duplicate evidence is idempotent, and divergent evidence is an explicit conflict. `ConversationSnapshotV1.proof` distinguishes order, body, tail, and gap completeness; `ready` means a complete source snapshot exists for the published turns, not that an unfinished tail was guessed. `ConversationTurnReadPortV1` reads an already sealed turn while a newer tail remains unavailable. A document change clears all page-local evidence and publishes `unavailable` until the new source identity is verified. Consumers never receive DOM nodes, selectors, route epochs, proofs, transport, or provider payloads through the semantic port.
 
 ## Consequences
 

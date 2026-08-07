@@ -1,7 +1,10 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 const sendExtRequestMock = vi.fn(async (req: any) => {
-    return { v: 1, id: req.id, ok: true, type: req.type, data: {} };
+    return {
+        kind: 'response',
+        response: { v: 1, id: req.id, ok: true, type: req.type, data: {} },
+    };
 });
 
 vi.mock('../../../../src/drivers/shared/rpc', () => {

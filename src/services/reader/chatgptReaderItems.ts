@@ -1,4 +1,7 @@
-import type { ConversationSnapshotV1 } from '../../contracts/conversationContent';
+import {
+    getConversationTurnSourceQualityV1,
+    type ConversationSnapshotV1,
+} from '../../contracts/conversationContent';
 import { normalizeChatGPTReaderMarkdown } from '../../drivers/content/chatgpt/normalizeReaderMarkdown';
 import type { ReaderItem } from './types';
 import type { ReaderAnnotationDocument } from '../../contracts/readerAnnotations';
@@ -96,6 +99,7 @@ export function buildChatGPTReaderContent(
             url: normalizedUrl,
             bookmarkable: true,
             bookmarked: false,
+            sourceQuality: getConversationTurnSourceQualityV1(turn),
         },
     }));
 

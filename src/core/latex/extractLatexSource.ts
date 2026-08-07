@@ -1,4 +1,5 @@
 const LATEX_ATTRIBUTE_KEYS = [
+    'data-math-source',
     'data-latex-source',
     'data-latex',
     'data-tex',

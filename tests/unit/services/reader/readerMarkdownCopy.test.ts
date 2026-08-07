@@ -37,4 +37,15 @@ describe('readerMarkdownCopy formula formatting', () => {
 
         expect(copyTextToClipboard).toHaveBeenCalledWith('Block:\n\n\\begin{equation}\na^2+b^2=c^2\n\\end{equation}');
     });
+
+    it('does not publish reconstructed DOM content as canonical Markdown', async () => {
+        await expect(copyReaderItemMarkdownToClipboard({
+            id: 'item-reconstructed',
+            userPrompt: 'Prompt',
+            content: '**visually inferred**',
+            meta: { sourceQuality: 'reconstructed' },
+        })).resolves.toBe(false);
+
+        expect(copyTextToClipboard).not.toHaveBeenCalled();
+    });
 });

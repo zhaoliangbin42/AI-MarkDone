@@ -1425,6 +1425,38 @@
         "message": "No folders yet",
         "description": "Message for noFoldersYet"
     },
+    "runtimeConnectionUnavailableTitle": {
+        "message": "AI-MarkDone is disconnected",
+        "description": "Title shown when a content surface cannot reach the extension runtime"
+    },
+    "runtimeConnectionUnavailableMessage": {
+        "message": "AI-MarkDone could not connect to the extension runtime. Retry, or refresh this page if the problem continues.",
+        "description": "Recovery guidance for a temporary extension runtime connection failure"
+    },
+    "runtimeContextInvalidatedMessage": {
+        "message": "AI-MarkDone was updated or reloaded. Refresh this page to reconnect.",
+        "description": "Recovery guidance when the page content script belongs to an old extension context"
+    },
+    "runtimeRequestFailedTitle": {
+        "message": "AI-MarkDone could not load this data",
+        "description": "Title shown when a valid runtime request returns an application error"
+    },
+    "refreshPageAction": {
+        "message": "Refresh page",
+        "description": "Action that refreshes the current page to reconnect the content script"
+    },
+    "retryAction": {
+        "message": "Retry",
+        "description": "Action that retries a failed read operation"
+    },
+    "settingsLoadingTitle": {
+        "message": "Loading settings…",
+        "description": "Title shown while canonical settings are loading"
+    },
+    "settingsLoadingMessage": {
+        "message": "Waiting for the extension runtime.",
+        "description": "Message shown while canonical settings are loading"
+    },
     "createFirstFolder": {
         "message": "Create your first folder to organize bookmarks",
         "description": "Message for createFirstFolder"

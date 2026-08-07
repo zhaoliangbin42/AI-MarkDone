@@ -79,6 +79,37 @@ const baseSettings = {
 } as any;
 
 describe('SettingsTabView', () => {
+    it('blocks editing and offers retry when the runtime is disconnected', async () => {
+        const modal = { confirm: vi.fn(async () => true) } as any;
+        const retryLoad = vi.fn(async () => undefined);
+        const view = new SettingsTabView({ modal, actions: { retryLoad } as any });
+
+        view.setState({
+            settings: structuredClone(baseSettings),
+            storageUsage: null,
+            dataState: {
+                kind: 'error',
+                failure: {
+                    kind: 'transport',
+                    code: 'RECEIVER_UNAVAILABLE',
+                    message: 'Could not establish connection. Receiving end does not exist.',
+                    delivery: 'not-sent',
+                },
+            },
+        } as any);
+
+        const root = view.getElement();
+        const notice = root.querySelector<HTMLElement>('[data-role="settings-runtime-error"]')!;
+        const scroll = root.querySelector<HTMLElement>('.settings-panel-scroll')!;
+        expect(notice.hidden).toBe(false);
+        expect(notice.textContent).toContain('AI-MarkDone is disconnected');
+        expect(notice.textContent).toContain('Retry');
+        expect(scroll.inert).toBe(true);
+
+        notice.querySelector<HTMLButtonElement>('[data-action="settings-runtime-retry"]')!.click();
+        await vi.waitFor(() => expect(retryLoad).toHaveBeenCalledTimes(1));
+    });
+
     it('orders the main settings page by reading flow and moves button visibility into a secondary page', () => {
         const modal = { confirm: vi.fn(async () => true) } as any;
         const view = new SettingsTabView({ modal });

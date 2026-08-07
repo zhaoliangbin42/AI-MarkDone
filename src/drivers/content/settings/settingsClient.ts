@@ -1,20 +1,21 @@
 import type { SettingsCategory } from '../../../contracts/protocol';
 import type { AppSettings } from '../../../core/settings/types';
 import { browser } from '../../shared/browser';
-import { sendExtRequest } from '../../shared/rpc';
+import {
+    createInvalidResponseClientFailure,
+    requestRuntimeClient,
+    type RuntimeClientResult,
+} from '../../shared/clients/clientResult';
 import { createRequestId, PROTOCOL_VERSION } from '../../../contracts/protocol';
 import { LEGACY_STORAGE_KEYS } from '../../../contracts/storage';
 import { loadAndNormalize } from '../../../core/settings/migrations';
+import { isRecord } from '../../shared/clients/payloadValidation';
 
 export type SettingsSnapshot = {
     settings: AppSettings;
 };
 
 type Listener = (snap: SettingsSnapshot) => void;
-
-function isRecord(value: unknown): value is Record<string, unknown> {
-    return typeof value === 'object' && value !== null;
-}
 
 function normalizeAppSettings(value: unknown): AppSettings | null {
     if (!isRecord(value)) return null;
@@ -56,13 +57,13 @@ export class SettingsClient {
     }
 
     async refresh(): Promise<AppSettings | null> {
-        const res = await sendExtRequest({
+        const res = await requestRuntimeClient<{ settings?: unknown }>({
             v: PROTOCOL_VERSION,
             id: createRequestId(),
             type: 'settings:getAll',
         } as any);
-        if (!res?.ok) return null;
-        const settings = (res.data as any)?.settings;
+        if (!res.ok) return null;
+        const settings = res.data?.settings;
         const normalized = normalizeAppSettings(settings);
         if (!normalized) return null;
         this.cache = normalized;
@@ -71,36 +72,56 @@ export class SettingsClient {
     }
 
     async getCategory(category: SettingsCategory): Promise<unknown | null> {
-        const res = await sendExtRequest({
+        const res = await this.getCategoryResult(category);
+        return res.ok ? res.data : null;
+    }
+
+    async getCategoryResult(category: SettingsCategory): Promise<RuntimeClientResult<unknown>> {
+        const res = await requestRuntimeClient<{ category?: unknown; value?: unknown }>({
             v: PROTOCOL_VERSION,
             id: createRequestId(),
             type: 'settings:getCategory',
             payload: { category },
         } as any);
-        if (!res?.ok) return null;
-        return (res.data as any)?.value ?? null;
+        if (!res.ok) return res;
+        if (
+            !isRecord(res.data)
+            || res.data.category !== category
+            || !Object.prototype.hasOwnProperty.call(res.data, 'value')
+        ) {
+            return createInvalidResponseClientFailure('Invalid settings category response');
+        }
+        return { ok: true, data: res.data.value };
     }
 
     async setCategory(category: SettingsCategory, value: unknown): Promise<boolean> {
-        const res = await sendExtRequest({
+        const res = await this.setCategoryResult(category, value);
+        return res.ok;
+    }
+
+    async setCategoryResult(category: SettingsCategory, value: unknown): Promise<RuntimeClientResult<unknown>> {
+        const res = await requestRuntimeClient<{ category?: unknown }>({
             v: PROTOCOL_VERSION,
             id: createRequestId(),
             type: 'settings:setCategory',
             payload: { category, value },
         } as any);
-        if (!res?.ok) return false;
+        if (!res.ok) return res;
+        if (!isRecord(res.data) || res.data.category !== category) {
+            return createInvalidResponseClientFailure('Invalid settings write response');
+        }
         // Refresh is best-effort; storage.onChanged should also cover updates.
         void this.refresh();
-        return true;
+        return res;
     }
 
     async reset(): Promise<boolean> {
-        const res = await sendExtRequest({
+        const res = await requestRuntimeClient({
             v: PROTOCOL_VERSION,
             id: createRequestId(),
             type: 'settings:reset',
         } as any);
-        if (!res?.ok) return false;
+        if (!res.ok) return false;
         void this.refresh();
         return true;
     }

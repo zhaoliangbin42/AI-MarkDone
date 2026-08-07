@@ -230,6 +230,12 @@ ${COMPOSER_SUGGESTION_LIST_CSS}
   color: var(--aimd-text-secondary);
   font-size: var(--aimd-font-size-xs);
 }
+.prompt-status--error {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--aimd-space-2);
+}
 @media (max-width: 420px) {
   .prompt-header,
   .prompt-toolbar,

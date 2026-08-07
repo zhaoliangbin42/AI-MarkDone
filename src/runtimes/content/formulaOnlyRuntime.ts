@@ -18,7 +18,6 @@ import {
     createLazyReaderPanel,
     createLazyRunFormulaAssetAction,
 } from './lazyContentFeatures';
-import { FORMULA_CANDIDATE_SELECTOR } from '../../drivers/content/math/math-click';
 import { normalizeGlobalFontSizePx, normalizeThemeAccentColor } from '../../core/settings/migrations';
 import { areAppearanceSnapshotsEqual, createAppearanceSnapshot, type AppearanceSnapshot } from '../../style/appearance';
 import { ensurePageTokens } from '../../style/pageTokens';
@@ -297,11 +296,36 @@ export class FormulaOnlyRuntime {
         const contentSelector = this.profile.contentRootSelectors.join(',');
         roots.forEach((root) => {
             this.formulaController.observeContainers(root, contentSelector);
-            if (root.matches(contentSelector) || root.querySelector(contentSelector)) return;
-            if (root.matches(FORMULA_CANDIDATE_SELECTOR)) this.formulaController.enable(root);
-            root.querySelectorAll<HTMLElement>(FORMULA_CANDIDATE_SELECTOR).forEach((formula) => {
-                this.formulaController.enable(formula);
-            });
+            const observeSemanticRoot = (this.formulaController as Partial<FormulaAssetHoverController>).observeSemanticRoot;
+            if (typeof observeSemanticRoot === 'function') {
+                // The parser capability discovers semantic formula owners
+                // within this root; the runtime does not maintain a platform
+                // selector list for individual formula nodes.
+                observeSemanticRoot.call(this.formulaController, root);
+                return;
+            }
+
+            // Compatibility for lightweight test doubles and older controller
+            // implementations: discover only top-level semantic owners using
+            // the injected parser capability, never a selector list here.
+            const contentRoots = [
+                ...(root.matches(contentSelector) ? [root] : []),
+                ...Array.from(root.querySelectorAll<HTMLElement>(contentSelector)),
+            ];
+            const semanticElements = [root, ...Array.from(root.querySelectorAll('*'))]
+                .filter((element): element is HTMLElement => element instanceof HTMLElement)
+                .filter((element) => {
+                    try {
+                        return this.profile.parserAdapter.isMathNode(element);
+                    } catch {
+                        return false;
+                    }
+                })
+                .filter((element) => !contentRoots.some((contentRoot) => contentRoot.contains(element)))
+                .filter((element, index, elements) => !elements.some((parent, parentIndex) => (
+                    parentIndex < index && parent.contains(element)
+                )));
+            semanticElements.forEach((element) => this.formulaController.enable(element));
         });
     }
 

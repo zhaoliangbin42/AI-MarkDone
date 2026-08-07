@@ -5,6 +5,21 @@ All notable changes to AI-MarkDone will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Fixed
+
+- ChatGPT: Restored legacy bookmark highlighting across host changes and virtualized conversations by resolving persisted `messageId` first and using position only as a read-only compatibility fallback; existing bookmark records and storage format are unchanged.
+- ChatGPT: Aligned Directory, message-toolbar and Reader bookmark state on the same canonical resolver, failing closed while source or bookmark records are unavailable instead of using a stale position-only highlight.
+- Runtime: Distinguished extension disconnects from real empty data, preserved last-known bookmarks, made settings fail closed, and added explicit retry or page-refresh recovery without replaying uncertain mutations.
+- ChatGPT: Restored clean Markdown output by keeping provider-backed content authoritative and routing Reader structure, ordinary page selections, and structured selections through one semantic content model.
+- ChatGPT: Kept atomic selection highlighting available while canonical Markdown is still resolving, while continuing to fail open instead of copying unproven DOM content.
+- ChatGPT: Restored formula click-copy and formula asset actions for the current semantic formula wrapper, including authoritative `data-math-source` carried by an ancestor of the rendered KaTeX node.
+- ChatGPT: Prevented reconstructed DOM content from being silently copied, bookmarked, or exported as canonical Markdown when source fidelity cannot be proven.
+- ChatGPT: Added a page-scoped Evidence Ledger and Stable Turn Capture so virtualized/remounted message windows no longer erase sealed content, and a single stable message can be read while the full conversation is still converging.
+- ChatGPT: Added proof-driven completeness and a provider-neutral rendered-content compiler; source, host observation, materialization, formula, and local selection paths now share typed contracts without consumer-side DOM Markdown reconstruction.
+- ChatGPT: Made Source Graph the only canonical body/position authority, removed timer-based discovery recovery and DOM Markdown fallback, and aligned bookmarks, Reader selection, and formula copy with sealed turn reads.
+
 ## [5.1.1] - 2026-08-05
 
 Thank you for all your support—AI-MarkDone has earned the Chrome Web Store's Featured badge! I’ll continue holding every release to a high standard, with the goal of giving everyone who uses ChatGPT a better experience on the web.
@@ -798,3 +813,7 @@ AI-MarkDone 当前没有任何联网功能，代码也全部公开在 GitHub 上
 
 [2.0.0]: https://github.com/zhaoliangbin42/AI-MarkDone/releases/tag/v2.0.0
 [0.5.0]: https://github.com/zhaoliangbin42/AI-MarkDone/releases/tag/v0.5.0
+## Unreleased
+
+- Rebuilt ChatGPT content discovery around V2 slot topology and one-shot hydration capture. Directory/Stepper now use the complete public shell topology, while Reader, bookmarks, local Markdown selection, formula copy, word count, and export consume the same verified sealed turn records.
+- ChatGPT no longer uses the conversation backend GET, page bridge, DOM-window position fallback, or rendered glyph text as canonical Markdown/TeX. Ambiguous topology, unstable/unsupported content, stale selection evidence, and incomplete turns fail closed.

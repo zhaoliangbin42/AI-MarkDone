@@ -96,6 +96,26 @@ describe('buildPageAtomicSelectionMarkdown', () => {
         expect(markdown).toBe('$x+y$');
     });
 
+    it('delegates a host formula source attribute to the ChatGPT parser adapter', () => {
+        const root = document.createElement('div');
+        root.innerHTML = `
+            <p><span role="math" data-math-source="\\frac{x}{y}"><span class="katex"><span class="katex-html" aria-hidden="true">x/y</span></span></span></p>
+        `;
+        const visualText = root.querySelector('.katex-html')!.firstChild as Text;
+        const range = document.createRange();
+        range.setStart(visualText, 0);
+        range.setEnd(visualText, visualText.data.length);
+
+        const markdown = buildPageAtomicSelectionMarkdown({
+            adapter: new ChatGPTAdapter(),
+            range,
+            root,
+            maxProcessingTimeMs: 1_000,
+        });
+
+        expect(markdown).toBe('$\\frac{x}{y}$');
+    });
+
     it.each([
         ['$x+y$', '$x+y$'],
         ['$$x+y$$', '$x+y$'],

@@ -60,17 +60,31 @@ import { CloudBackupSettingsPanel, type CloudBackupSettingsPanelActions } from '
 import { createDefaultCommentTemplate, type CommentTemplateSegment } from '../../../../../core/settings/readerCommentExport';
 import { buildCommentsExport, normalizeCommentTemplate, normalizeReaderCommentExportSettings } from '../../../../../services/reader/commentExport';
 import { ReaderCommentTemplateSettingsPopover } from '../../../reader/ReaderCommentTemplateSettingsPopover';
+import type { RuntimeClientFailure } from '../../../../../drivers/shared/clients/clientResult';
+import { getRuntimeFailurePresentation } from '../../../components/runtimeFailurePresentation';
+
+export type SettingsDataState =
+    | { kind: 'loading' }
+    | { kind: 'ready' }
+    | { kind: 'error'; failure: RuntimeClientFailure };
+
+export type SettingsTabViewState = {
+    settings: AppSettings;
+    storageUsage: BookmarksStorageUsageResponse | null;
+    dataState?: SettingsDataState;
+};
 
 export type SettingsTabViewActions = {
-    loadState?: () => Promise<{ settings: AppSettings; storageUsage: BookmarksStorageUsageResponse | null } | null>;
-    setPlatforms?: (patch: Partial<AppSettings['platforms']>) => Promise<void> | void;
-    setBehaviorSettings?: (patch: Partial<AppSettings['behavior']>) => Promise<void> | void;
-    setReaderSettings?: (patch: Partial<AppSettings['reader']>) => Promise<void> | void;
-    setFormulaSettings?: (patch: Partial<AppSettings['formula']>) => Promise<void> | void;
-    setExportSettings?: (patch: Partial<AppSettings['export']>) => Promise<void> | void;
-    setChatGptDirectorySettings?: (patch: Partial<AppSettings['chatgptDirectory']>) => Promise<void> | void;
-    setChatGptBehaviorSettings?: (patch: Partial<AppSettings['chatgptBehavior']>) => Promise<void> | void;
-    setAppearanceSettings?: (patch: Partial<AppSettings['appearance']>) => Promise<void> | void;
+    loadState?: () => Promise<SettingsTabViewState | null>;
+    retryLoad?: () => Promise<void> | void;
+    setPlatforms?: (patch: Partial<AppSettings['platforms']>) => Promise<boolean | void> | boolean | void;
+    setBehaviorSettings?: (patch: Partial<AppSettings['behavior']>) => Promise<boolean | void> | boolean | void;
+    setReaderSettings?: (patch: Partial<AppSettings['reader']>) => Promise<boolean | void> | boolean | void;
+    setFormulaSettings?: (patch: Partial<AppSettings['formula']>) => Promise<boolean | void> | boolean | void;
+    setExportSettings?: (patch: Partial<AppSettings['export']>) => Promise<boolean | void> | boolean | void;
+    setChatGptDirectorySettings?: (patch: Partial<AppSettings['chatgptDirectory']>) => Promise<boolean | void> | boolean | void;
+    setChatGptBehaviorSettings?: (patch: Partial<AppSettings['chatgptBehavior']>) => Promise<boolean | void> | boolean | void;
+    setAppearanceSettings?: (patch: Partial<AppSettings['appearance']>) => Promise<boolean | void> | boolean | void;
     setLanguage?: (value: AppSettings['language']) => Promise<boolean | void> | boolean | void;
     exportAllBookmarks?: () => Promise<void> | void;
     cloudBackup?: CloudBackupSettingsPanelActions;
@@ -168,6 +182,12 @@ export class SettingsTabView {
     private actions: SettingsTabViewActions;
     private settings: AppSettings = { ...DEFAULT_SETTINGS };
     private storageUsage: BookmarksStorageUsageResponse | null = null;
+    private dataState: SettingsDataState = { kind: 'ready' };
+    private runtimeNotice: HTMLElement;
+    private runtimeNoticeTitle: HTMLElement;
+    private runtimeNoticeMessage: HTMLElement;
+    private runtimeNoticeAction: HTMLButtonElement;
+    private scrollRoot: HTMLElement;
     private refs: Refs;
     private selectRefs: SelectRef[] = [];
     private readonly formulaAssetSettingsPopover = new FormulaAssetSettingsPopover();
@@ -192,8 +212,28 @@ export class SettingsTabView {
             onDismiss: () => this.dismissTransientUi(),
         });
 
+        const runtimeNotice = document.createElement('aside');
+        runtimeNotice.className = 'bookmarks-runtime-notice settings-runtime-notice';
+        runtimeNotice.dataset.role = 'settings-runtime-error';
+        runtimeNotice.hidden = true;
+        const runtimeNoticeCopy = document.createElement('div');
+        const runtimeNoticeTitle = document.createElement('strong');
+        const runtimeNoticeMessage = document.createElement('p');
+        runtimeNoticeCopy.append(runtimeNoticeTitle, runtimeNoticeMessage);
+        const runtimeNoticeAction = document.createElement('button');
+        runtimeNoticeAction.type = 'button';
+        runtimeNoticeAction.className = 'secondary-btn';
+        runtimeNoticeAction.dataset.action = 'settings-runtime-retry';
+        runtimeNoticeAction.addEventListener('click', () => void this.handleRuntimeRecovery());
+        runtimeNotice.append(runtimeNoticeCopy, runtimeNoticeAction);
+        this.runtimeNotice = runtimeNotice;
+        this.runtimeNoticeTitle = runtimeNoticeTitle;
+        this.runtimeNoticeMessage = runtimeNoticeMessage;
+        this.runtimeNoticeAction = runtimeNoticeAction;
+
         const scroll = document.createElement('div');
         scroll.className = 'aimd-scroll settings-panel-scroll';
+        this.scrollRoot = scroll;
 
         const content = document.createElement('div');
         content.className = 'settings-grid settings-content';
@@ -505,7 +545,7 @@ export class SettingsTabView {
             advancedGroup.root,
         );
         scroll.append(content, buttonsContent);
-        this.root.appendChild(scroll);
+        this.root.append(runtimeNotice, scroll);
         this.mainPageRoot = content;
         this.buttonsPageRoot = buttonsContent;
         buttonsEntry.button.addEventListener('click', () => this.showSettingsPage('buttons'));
@@ -654,7 +694,7 @@ export class SettingsTabView {
         this.setState(next);
     }
 
-    setState(params: { settings: AppSettings; storageUsage: BookmarksStorageUsageResponse | null }): void {
+    setState(params: SettingsTabViewState): void {
         this.settings = {
             ...DEFAULT_SETTINGS,
             ...params.settings,
@@ -681,7 +721,9 @@ export class SettingsTabView {
             },
         };
         this.storageUsage = params.storageUsage;
+        this.dataState = params.dataState ?? { kind: 'ready' };
         this.applySettingsToDom();
+        this.applyDataStateToDom();
     }
 
     destroy(): void {
@@ -696,6 +738,49 @@ export class SettingsTabView {
         this.mainPageRoot.hidden = showButtons;
         this.buttonsPageRoot.hidden = !showButtons;
     }
+
+    private async handleRuntimeRecovery(): Promise<void> {
+        if (this.dataState.kind !== 'error') return;
+        const presentation = getRuntimeFailurePresentation(this.dataState.failure, this.translate);
+        if (presentation.action === 'reload') {
+            window.location.reload();
+            return;
+        }
+        await this.actions.retryLoad?.();
+    }
+
+    private applyDataStateToDom(): void {
+        this.scrollRoot.inert = this.dataState.kind !== 'ready';
+        this.root.toggleAttribute('aria-busy', this.dataState.kind === 'loading');
+        if (this.dataState.kind === 'ready') {
+            this.runtimeNotice.hidden = true;
+            return;
+        }
+
+        this.runtimeNotice.hidden = false;
+        if (this.dataState.kind === 'loading') {
+            this.runtimeNotice.dataset.state = 'loading';
+            this.runtimeNoticeTitle.textContent = this.translate('settingsLoadingTitle', 'Loading settings…');
+            this.runtimeNoticeMessage.textContent = this.translate(
+                'settingsLoadingMessage',
+                'Waiting for the extension runtime.',
+            );
+            this.runtimeNoticeAction.hidden = true;
+            return;
+        }
+
+        const presentation = getRuntimeFailurePresentation(this.dataState.failure, this.translate);
+        this.runtimeNotice.dataset.state = 'error';
+        this.runtimeNoticeTitle.textContent = presentation.title;
+        this.runtimeNoticeMessage.textContent = presentation.message;
+        this.runtimeNoticeAction.hidden = false;
+        this.runtimeNoticeAction.textContent = presentation.actionLabel;
+    }
+
+    private readonly translate = (key: string, fallback: string): string => {
+        const translated = t(key);
+        return !translated || translated === key ? fallback : translated;
+    };
 
     private bindHandlers(): void {
         // Platforms

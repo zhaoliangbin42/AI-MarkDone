@@ -17,6 +17,10 @@ const bookmarkSaveDialogOpen = vi.fn(async () => ({ ok: true, title: 'Saved titl
 const bookmarkSaveDialogSetAppearance = vi.fn();
 let settingsSnapshotListener: ((snapshot: { settings: any }) => void) | null = null;
 const settingsClientInit = vi.fn();
+const settingsClientSetCategoryResult = vi.fn(async () => ({
+    ok: true as const,
+    data: { category: 'reader' as const },
+}));
 const settingsClientUnsubscribe = vi.fn(() => {
     settingsSnapshotListener = null;
 });
@@ -28,6 +32,7 @@ const settingsClientCtor = vi.fn(function () {
     return {
         init: settingsClientInit,
         subscribe: settingsClientSubscribe,
+        setCategoryResult: settingsClientSetCategoryResult,
     };
 });
 const readerPanelCtor = vi.fn(function () {
@@ -47,8 +52,32 @@ vi.mock('@/style/pageTokens', () => ({
     ensurePageTokens,
 }));
 
-vi.mock('@/drivers/shared/rpc', () => ({
-    sendExtRequest,
+vi.mock('@/drivers/shared/clients/clientResult', () => ({
+    requestRuntimeClient: sendExtRequest,
+    createInvalidResponseClientFailure: (message: string) => ({
+        ok: false,
+        errorCode: 'INVALID_RESPONSE',
+        message,
+        failure: {
+            kind: 'transport',
+            code: 'INVALID_RESPONSE',
+            message,
+            delivery: 'unknown',
+        },
+    }),
+    unwrapRuntimeClientResult: (result: any) => {
+        if (result.ok) return result.data;
+        throw new Error(result.message ?? 'Request failed');
+    },
+    RuntimeClientRequestError: class RuntimeClientRequestError extends Error {
+        readonly failure: unknown;
+
+        constructor(failure: { message: string }) {
+            super(failure.message);
+            this.name = 'RuntimeClientRequestError';
+            this.failure = failure;
+        }
+    },
 }));
 
 vi.mock('@/drivers/content/settings/settingsClient', () => ({
@@ -78,6 +107,8 @@ afterEach(() => {
     vi.clearAllMocks();
     settingsSnapshotListener = null;
     panelGetCommentExportContext.mockReturnValue(null);
+    settingsClientSetCategoryResult.mockReset();
+    settingsClientSetCategoryResult.mockResolvedValue({ ok: true, data: { category: 'reader' } });
     vi.resetModules();
     document.documentElement.removeAttribute('data-aimd-theme');
     window.location.hash = '';
@@ -85,6 +116,358 @@ afterEach(() => {
 });
 
 describe('detached reader runtime entry', () => {
+    it('shows a runtime failure instead of misreporting a disconnected session as expired', async () => {
+        window.location.hash = '#sessionId=session-1';
+        sendExtRequest.mockResolvedValue({
+            ok: false,
+            errorCode: 'CONTEXT_INVALIDATED',
+            message: 'Extension context invalidated.',
+            failure: {
+                kind: 'transport',
+                code: 'CONTEXT_INVALIDATED',
+                message: 'Extension context invalidated.',
+                delivery: 'not-sent',
+            },
+        });
+
+        await import('@/runtimes/reader/entry');
+        await vi.waitFor(() => expect(document.body.textContent).toContain('Extension context invalidated.'));
+
+        expect(document.body.textContent).not.toContain('detachedReaderSessionExpired');
+        expect(panelShow).not.toHaveBeenCalled();
+    });
+
+    it('does not interpret a missing reader session payload as an expired session', async () => {
+        const { DEFAULT_SETTINGS } = await import('@/core/settings/types');
+        window.location.hash = '#sessionId=session-1';
+        sendExtRequest.mockImplementation(async (request: any) => {
+            if (request.type === 'settings:getAll') {
+                return { ok: true, data: { settings: structuredClone(DEFAULT_SETTINGS) } };
+            }
+            if (request.type === 'readerSession:get') return { ok: true, data: {} };
+            return { ok: true, data: {} };
+        });
+
+        await import('@/runtimes/reader/entry');
+        await vi.waitFor(() => expect(document.body.textContent).toContain('Invalid readerSession:get response payload'));
+
+        expect(document.body.textContent).not.toContain('detachedReaderSessionExpired');
+        expect(panelShow).not.toHaveBeenCalled();
+    });
+
+    it('treats only an explicit null reader session as expired', async () => {
+        const { DEFAULT_SETTINGS } = await import('@/core/settings/types');
+        window.location.hash = '#sessionId=session-1';
+        sendExtRequest.mockImplementation(async (request: any) => {
+            if (request.type === 'settings:getAll') {
+                return { ok: true, data: { settings: structuredClone(DEFAULT_SETTINGS) } };
+            }
+            if (request.type === 'readerSession:get') return { ok: true, data: { session: null } };
+            return { ok: true, data: {} };
+        });
+
+        await import('@/runtimes/reader/entry');
+        await vi.waitFor(() => expect(document.body.textContent).toContain('detachedReaderSessionExpired'));
+
+        expect(panelShow).not.toHaveBeenCalled();
+    });
+
+    it('rejects a malformed reader session record instead of mounting or reporting expiration', async () => {
+        const { DEFAULT_SETTINGS } = await import('@/core/settings/types');
+        window.location.hash = '#sessionId=session-1';
+        sendExtRequest.mockImplementation(async (request: any) => {
+            if (request.type === 'settings:getAll') {
+                return { ok: true, data: { settings: structuredClone(DEFAULT_SETTINGS) } };
+            }
+            if (request.type === 'readerSession:get') {
+                return { ok: true, data: { session: { sessionId: 'session-1', snapshot: 'malformed' } } };
+            }
+            return { ok: true, data: {} };
+        });
+
+        await import('@/runtimes/reader/entry');
+        await vi.waitFor(() => expect(document.body.textContent).toContain('Invalid readerSession:get response payload'));
+
+        expect(document.body.textContent).not.toContain('detachedReaderSessionExpired');
+        expect(panelShow).not.toHaveBeenCalled();
+    });
+
+    it('rejects malformed reader item metadata instead of coercing session identity fields', async () => {
+        const { DEFAULT_SETTINGS } = await import('@/core/settings/types');
+        const session = {
+            sessionId: 'session-1',
+            sourceTabId: 10,
+            readerTabId: 11,
+            sourceUrl: 'https://chatgpt.com/c/mock',
+            snapshot: {
+                items: [{ id: 'item-1', userPrompt: 'Prompt', content: 'Answer', meta: { position: '1' } }],
+                startIndex: 0,
+                sourceUrl: 'https://chatgpt.com/c/mock',
+                theme: 'light' as const,
+                createdAt: 1,
+                updatedAt: 1,
+            },
+        };
+        window.location.hash = '#sessionId=session-1';
+        sendExtRequest.mockImplementation(async (request: any) => {
+            if (request.type === 'settings:getAll') {
+                return { ok: true, data: { settings: structuredClone(DEFAULT_SETTINGS) } };
+            }
+            if (request.type === 'readerSession:get') return { ok: true, data: { session } };
+            return { ok: true, data: {} };
+        });
+
+        await import('@/runtimes/reader/entry');
+        await vi.waitFor(() => expect(document.body.textContent).toContain('Invalid readerSession:get response payload'));
+
+        expect(panelShow).not.toHaveBeenCalled();
+    });
+
+    it('rejects a malformed annotation document inside an otherwise valid reader session', async () => {
+        const { DEFAULT_SETTINGS } = await import('@/core/settings/types');
+        const session = {
+            sessionId: 'session-1',
+            sourceTabId: 10,
+            readerTabId: 11,
+            sourceUrl: 'https://chatgpt.com/c/mock',
+            snapshot: {
+                items: [{ id: 'item-1', userPrompt: 'Prompt', content: 'Answer' }],
+                startIndex: 0,
+                sourceUrl: 'https://chatgpt.com/c/mock',
+                theme: 'light' as const,
+                createdAt: 1,
+                updatedAt: 1,
+                annotationDocument: { platform: 'chatgpt', conversationId: 42 },
+            },
+        };
+        window.location.hash = '#sessionId=session-1';
+        sendExtRequest.mockImplementation(async (request: any) => {
+            if (request.type === 'settings:getAll') {
+                return { ok: true, data: { settings: structuredClone(DEFAULT_SETTINGS) } };
+            }
+            if (request.type === 'readerSession:get') return { ok: true, data: { session } };
+            return { ok: true, data: {} };
+        });
+
+        await import('@/runtimes/reader/entry');
+        await vi.waitFor(() => expect(document.body.textContent).toContain('Invalid readerSession:get response payload'));
+
+        expect(panelShow).not.toHaveBeenCalled();
+    });
+
+    it('rejects a missing bookmarked positions payload instead of treating every item as unbookmarked', async () => {
+        const { DEFAULT_SETTINGS } = await import('@/core/settings/types');
+        const session = {
+            sessionId: 'session-1',
+            sourceTabId: 10,
+            readerTabId: 11,
+            sourceUrl: 'https://chatgpt.com/c/mock',
+            snapshot: {
+                items: [{ id: 'item-1', userPrompt: 'Prompt', content: 'Answer', meta: { position: 1 } }],
+                startIndex: 0,
+                sourceUrl: 'https://chatgpt.com/c/mock',
+                theme: 'light' as const,
+                createdAt: 1,
+                updatedAt: 1,
+            },
+        };
+        window.location.hash = '#sessionId=session-1';
+        sendExtRequest.mockImplementation(async (request: any) => {
+            if (request.type === 'settings:getAll') {
+                return { ok: true, data: { settings: structuredClone(DEFAULT_SETTINGS) } };
+            }
+            if (request.type === 'readerSession:get') return { ok: true, data: { session } };
+            if (request.type === 'bookmarks:positions') return { ok: true, data: {} };
+            return { ok: true, data: {} };
+        });
+
+        await import('@/runtimes/reader/entry');
+        await vi.waitFor(() => expect(document.body.textContent).toContain('Invalid bookmarks:positions response payload'));
+
+        expect(panelShow).not.toHaveBeenCalled();
+    });
+
+    it('rejects malformed bookmarked positions instead of coercing them into bookmark state', async () => {
+        const { DEFAULT_SETTINGS } = await import('@/core/settings/types');
+        const session = {
+            sessionId: 'session-1',
+            sourceTabId: 10,
+            readerTabId: 11,
+            sourceUrl: 'https://chatgpt.com/c/mock',
+            snapshot: {
+                items: [{ id: 'item-1', userPrompt: 'Prompt', content: 'Answer', meta: { position: 1 } }],
+                startIndex: 0,
+                sourceUrl: 'https://chatgpt.com/c/mock',
+                theme: 'light' as const,
+                createdAt: 1,
+                updatedAt: 1,
+            },
+        };
+        window.location.hash = '#sessionId=session-1';
+        sendExtRequest.mockImplementation(async (request: any) => {
+            if (request.type === 'settings:getAll') {
+                return { ok: true, data: { settings: structuredClone(DEFAULT_SETTINGS) } };
+            }
+            if (request.type === 'readerSession:get') return { ok: true, data: { session } };
+            if (request.type === 'bookmarks:positions') return { ok: true, data: { positions: [1, '2', Number.NaN] } };
+            return { ok: true, data: {} };
+        });
+
+        await import('@/runtimes/reader/entry');
+        await vi.waitFor(() => expect(document.body.textContent).toContain('Invalid bookmarks:positions response payload'));
+
+        expect(panelShow).not.toHaveBeenCalled();
+    });
+
+    it('does not carry a failed Reader settings write into the next category save', async () => {
+        const { DEFAULT_SETTINGS } = await import('@/core/settings/types');
+        const settings = structuredClone(DEFAULT_SETTINGS);
+        const session = {
+            sessionId: 'session-1',
+            sourceTabId: 10,
+            readerTabId: 11,
+            sourceUrl: 'https://chatgpt.com/c/mock',
+            snapshot: {
+                items: [{ id: 'item-1', userPrompt: 'Prompt', content: 'Answer' }],
+                startIndex: 0,
+                sourceUrl: 'https://chatgpt.com/c/mock',
+                theme: 'light' as const,
+                createdAt: 1,
+                updatedAt: 1,
+            },
+        };
+        sendExtRequest.mockImplementation(async (request: any) => {
+            if (request.type === 'settings:getAll') return { ok: true, data: { settings } };
+            if (request.type === 'readerSession:get') return { ok: true, data: { session } };
+            if (request.type === 'bookmarks:positions') return { ok: true, data: { positions: [] } };
+            return { ok: true, data: {} };
+        });
+        settingsClientSetCategoryResult
+            .mockResolvedValueOnce({
+                ok: false,
+                errorCode: 'RECEIVER_UNAVAILABLE',
+                message: 'Receiving end does not exist.',
+                failure: {
+                    kind: 'transport',
+                    code: 'RECEIVER_UNAVAILABLE',
+                    message: 'Receiving end does not exist.',
+                    delivery: 'not-sent',
+                },
+            } as any)
+            .mockResolvedValueOnce({ ok: true, data: { category: 'reader' } });
+        window.location.hash = '#sessionId=session-1';
+
+        await import('@/runtimes/reader/entry');
+        await vi.waitFor(() => expect(panelShow).toHaveBeenCalledTimes(1));
+        const controller = panelSetReaderSettingsController.mock.calls[0][0];
+
+        await expect(controller.onChange({ bodyFontSizePx: 22 })).rejects.toThrow('Receiving end does not exist.');
+        await controller.onChange({ showOutlineInReader: false });
+
+        expect(settingsClientSetCategoryResult.mock.calls[1][1].bodyFontSizePx)
+            .toBe(settings.reader.bodyFontSizePx);
+        expect(settingsClientSetCategoryResult.mock.calls[1][1].showOutlineInReader).toBe(false);
+    });
+
+    it('serializes detached Reader settings writes and composes queued patches from the latest confirmed settings', async () => {
+        const { DEFAULT_SETTINGS } = await import('@/core/settings/types');
+        const settings = structuredClone(DEFAULT_SETTINGS);
+        const session = {
+            sessionId: 'session-1',
+            sourceTabId: 10,
+            readerTabId: 11,
+            sourceUrl: 'https://chatgpt.com/c/mock',
+            snapshot: {
+                items: [{ id: 'item-1', userPrompt: 'Prompt', content: 'Answer' }],
+                startIndex: 0,
+                sourceUrl: 'https://chatgpt.com/c/mock',
+                theme: 'light' as const,
+                createdAt: 1,
+                updatedAt: 1,
+            },
+        };
+        let resolveFirstWrite: ((result: { ok: true; data: { category: 'reader' } }) => void) | null = null;
+        sendExtRequest.mockImplementation((request: any) => {
+            if (request.type === 'settings:getAll') return Promise.resolve({ ok: true, data: { settings } });
+            if (request.type === 'readerSession:get') return Promise.resolve({ ok: true, data: { session } });
+            if (request.type === 'bookmarks:positions') return Promise.resolve({ ok: true, data: { positions: [] } });
+            return Promise.resolve({ ok: true, data: {} });
+        });
+        settingsClientSetCategoryResult
+            .mockImplementationOnce(() => new Promise((resolve) => {
+                resolveFirstWrite = resolve;
+            }))
+            .mockResolvedValueOnce({ ok: true, data: { category: 'reader' } });
+        window.location.hash = '#sessionId=session-1';
+
+        await import('@/runtimes/reader/entry');
+        await vi.waitFor(() => expect(panelShow).toHaveBeenCalledTimes(1));
+        const controller = panelSetReaderSettingsController.mock.calls[0][0];
+        const firstWrite = controller.onChange({ bodyFontSizePx: 22 });
+        const secondWrite = controller.onChange({ showOutlineInReader: false });
+
+        await Promise.resolve();
+        expect(settingsClientSetCategoryResult).toHaveBeenCalledTimes(1);
+
+        resolveFirstWrite?.({ ok: true, data: { category: 'reader' } });
+        await Promise.all([firstWrite, secondWrite]);
+
+        expect(settingsClientSetCategoryResult.mock.calls[1]).toEqual(['reader', {
+            ...settings.reader,
+            bodyFontSizePx: 22,
+            showOutlineInReader: false,
+        }]);
+    });
+
+    it('rejects a successful refresh envelope whose reader session payload is missing', async () => {
+        const { DEFAULT_SETTINGS } = await import('@/core/settings/types');
+        const settings = structuredClone(DEFAULT_SETTINGS);
+        const session = {
+            sessionId: 'session-1',
+            sourceTabId: 10,
+            readerTabId: 11,
+            sourceUrl: 'https://chatgpt.com/c/mock',
+            snapshot: {
+                items: [{ id: 'item-1', userPrompt: 'Prompt', content: 'Answer' }],
+                startIndex: 0,
+                sourceUrl: 'https://chatgpt.com/c/mock',
+                theme: 'light' as const,
+                createdAt: 1,
+                updatedAt: 1,
+            },
+        };
+        window.location.hash = '#sessionId=session-1';
+        sendExtRequest.mockImplementation(async (request: any) => {
+            if (request.type === 'settings:getAll') return { ok: true, data: { settings } };
+            if (request.type === 'readerSession:get') return { ok: true, data: { session } };
+            if (request.type === 'readerSession:refresh') return { ok: true, data: {} };
+            if (request.type === 'bookmarks:positions') return { ok: true, data: { positions: [] } };
+            return { ok: true, data: {} };
+        });
+
+        await import('@/runtimes/reader/entry');
+        await vi.waitFor(() => expect(panelShow).toHaveBeenCalledTimes(1));
+        const refreshAction = panelShow.mock.calls[0][3].actions.find((action: any) => action.id === 'refresh');
+        const currentItem = panelShow.mock.calls[0][0][0];
+
+        await expect(refreshAction.onClick({
+            item: currentItem,
+            index: 0,
+            items: panelShow.mock.calls[0][0],
+            notify: vi.fn(),
+            rerender: vi.fn(),
+        })).rejects.toMatchObject({
+            name: 'RuntimeClientRequestError',
+            failure: {
+                kind: 'transport',
+                code: 'INVALID_RESPONSE',
+                delivery: 'unknown',
+            },
+        });
+        expect(panelReplaceItems).not.toHaveBeenCalled();
+    });
+
+
     it('refreshes in place and preserves the current typed identity instead of reopening at the fresh tail', async () => {
         const { DEFAULT_SETTINGS } = await import('@/core/settings/types');
         const settings = { ...structuredClone(DEFAULT_SETTINGS), language: 'en' as const };
@@ -220,6 +603,7 @@ describe('detached reader runtime entry', () => {
                     },
                 };
             }
+            if (request.type === 'bookmarks:positions') return { ok: true, data: { positions: [] } };
             return { ok: true, data: {} };
         });
 
@@ -285,6 +669,7 @@ describe('detached reader runtime entry', () => {
         sendExtRequest.mockImplementation(async (request: any) => {
             if (request.type === 'settings:getAll') return { ok: true, data: { settings } };
             if (request.type === 'readerSession:get') return { ok: true, data: { session } };
+            if (request.type === 'bookmarks:positions') return { ok: true, data: { positions: [] } };
             return { ok: true, data: {} };
         });
 
@@ -344,6 +729,7 @@ describe('detached reader runtime entry', () => {
         sendExtRequest.mockImplementation(async (request: any) => {
             if (request.type === 'settings:getAll') return { ok: true, data: { settings } };
             if (request.type === 'readerSession:get') return { ok: true, data: { session } };
+            if (request.type === 'bookmarks:positions') return { ok: true, data: { positions: [] } };
             return { ok: true, data: {} };
         });
 
@@ -415,6 +801,7 @@ describe('detached reader runtime entry', () => {
                     },
                 };
             }
+            if (request.type === 'bookmarks:positions') return { ok: true, data: { positions: [] } };
             return { ok: true, data: {} };
         });
 
@@ -518,6 +905,9 @@ describe('detached reader runtime entry', () => {
                     },
                 };
             }
+            if (request.type === 'bookmarks:positions') return { ok: true, data: { positions: [] } };
+            if (request.type === 'readerSession:beforeSend') return { ok: true, data: { ready: true } };
+            if (request.type === 'readerSession:send') return { ok: true, data: { sent: true } };
             return { ok: true, data: {} };
         });
         const promptSpy = vi.spyOn(window, 'prompt');
@@ -622,6 +1012,7 @@ describe('detached reader runtime entry', () => {
             if (request.type === 'readerSession:draft') {
                 return { ok: true, data: { text: 'source composer draft' } };
             }
+            if (request.type === 'bookmarks:positions') return { ok: true, data: { positions: [] } };
             return { ok: true, data: {} };
         });
 
@@ -671,6 +1062,7 @@ describe('detached reader runtime entry', () => {
     it('renders bookmark actions in detached reader and toggles through the shared bookmarks protocol', async () => {
         const { DEFAULT_SETTINGS } = await import('@/core/settings/types');
         const settings = { ...DEFAULT_SETTINGS, language: 'en' };
+        const canonicalPositions = new Set([1]);
         const session = {
             sessionId: 'session-1',
             sourceTabId: 10,
@@ -705,12 +1097,14 @@ describe('detached reader runtime entry', () => {
                 return { ok: true, data: { session } };
             }
             if (request.type === 'bookmarks:positions') {
-                return { ok: true, data: { positions: [1] } };
+                return { ok: true, data: { positions: [...canonicalPositions] } };
             }
             if (request.type === 'bookmarks:remove') {
+                canonicalPositions.delete(request.payload.position);
                 return { ok: true, data: { removed: 1 } };
             }
             if (request.type === 'bookmarks:save') {
+                canonicalPositions.add(request.payload.position);
                 return { ok: true, data: { warnings: [] } };
             }
             return { ok: true, data: {} };
@@ -763,7 +1157,7 @@ describe('detached reader runtime entry', () => {
         expect(sendExtRequest).toHaveBeenCalledWith(expect.objectContaining({
             type: 'bookmarks:remove',
             payload: { url: 'https://chatgpt.com/c/mock', position: 1 },
-        }), { timeoutMs: 4000 });
+        }));
         expect(item.meta.bookmarked).toBe(false);
         expect(notify).toHaveBeenCalledWith('removedStatus');
         expect(rerender).toHaveBeenCalled();
@@ -788,7 +1182,7 @@ describe('detached reader runtime entry', () => {
                 title: 'Saved title',
                 folderPath: 'Saved/Folder',
             }),
-        }), { timeoutMs: 4000 });
+        }));
         expect(bookmarkSaveDialogOpen).toHaveBeenCalledWith(expect.objectContaining({
             theme: 'light',
             userPrompt: 'Prompt',
@@ -797,5 +1191,127 @@ describe('detached reader runtime entry', () => {
         }));
         expect(item.meta.bookmarked).toBe(true);
         expect(notify).toHaveBeenCalledWith('savedStatus');
+    });
+
+    it('fails closed when the canonical bookmark status response is malformed', async () => {
+        const { DEFAULT_SETTINGS } = await import('@/core/settings/types');
+        const settings = { ...DEFAULT_SETTINGS, language: 'en' };
+        const session = {
+            sessionId: 'session-1',
+            sourceTabId: 10,
+            readerTabId: 11,
+            sourceUrl: 'https://chatgpt.com/c/mock',
+            snapshot: {
+                items: [{
+                    id: 'item-1',
+                    userPrompt: 'Prompt',
+                    content: 'Answer',
+                    meta: { position: 1, messageId: 'assistant-1', url: 'https://chatgpt.com/c/mock' },
+                }],
+                startIndex: 0,
+                sourceUrl: 'https://chatgpt.com/c/mock',
+                theme: 'light',
+                createdAt: 1,
+                updatedAt: 1,
+            },
+        };
+        let positionReadCount = 0;
+        sendExtRequest.mockImplementation(async (request: any) => {
+            if (request.type === 'settings:getAll') return { ok: true, data: { settings } };
+            if (request.type === 'readerSession:get') return { ok: true, data: { session } };
+            if (request.type === 'bookmarks:positions') {
+                positionReadCount += 1;
+                return positionReadCount === 1
+                    ? { ok: true, data: { positions: [] } }
+                    : { ok: true, data: {} };
+            }
+            return { ok: true, data: {} };
+        });
+        window.location.hash = '#sessionId=session-1';
+
+        await import('@/runtimes/reader/entry');
+        await vi.waitFor(() => expect(panelShow).toHaveBeenCalledTimes(1));
+        const bookmarkAction = panelShow.mock.calls[0][3].actions
+            .find((action: any) => action.id === 'bookmark_toggle');
+        const item = {
+            id: 'item-1',
+            userPrompt: 'Prompt',
+            content: 'Answer',
+            meta: {
+                position: 1,
+                messageId: 'assistant-1',
+                url: 'https://chatgpt.com/c/mock',
+                bookmarked: false,
+            },
+        };
+        const notify = vi.fn();
+        const rerender = vi.fn();
+
+        await bookmarkAction.onClick({ item, index: 0, items: [item], notify, rerender });
+
+        expect(bookmarkSaveDialogOpen).not.toHaveBeenCalled();
+        expect(sendExtRequest.mock.calls.some(([request]) => (
+            request.type === 'bookmarks:save' || request.type === 'bookmarks:remove'
+        ))).toBe(false);
+        expect(item.meta.bookmarked).toBe(false);
+        expect(rerender).not.toHaveBeenCalled();
+        expect(notify).toHaveBeenCalledWith('Invalid bookmarks:positions response payload');
+    });
+
+    it('does not update detached Reader bookmark state for a malformed save acknowledgement', async () => {
+        const { DEFAULT_SETTINGS } = await import('@/core/settings/types');
+        const settings = { ...DEFAULT_SETTINGS, language: 'en' };
+        const session = {
+            sessionId: 'session-1',
+            sourceTabId: 10,
+            readerTabId: 11,
+            sourceUrl: 'https://chatgpt.com/c/mock',
+            snapshot: {
+                items: [{
+                    id: 'item-1',
+                    userPrompt: 'Prompt',
+                    content: 'Answer',
+                    meta: { position: 1, messageId: 'assistant-1', url: 'https://chatgpt.com/c/mock' },
+                }],
+                startIndex: 0,
+                sourceUrl: 'https://chatgpt.com/c/mock',
+                theme: 'light',
+                createdAt: 1,
+                updatedAt: 1,
+            },
+        };
+        sendExtRequest.mockImplementation(async (request: any) => {
+            if (request.type === 'settings:getAll') return { ok: true, data: { settings } };
+            if (request.type === 'readerSession:get') return { ok: true, data: { session } };
+            if (request.type === 'bookmarks:positions') return { ok: true, data: { positions: [] } };
+            if (request.type === 'bookmarks:save') return { ok: true, data: {} };
+            return { ok: true, data: {} };
+        });
+        window.location.hash = '#sessionId=session-1';
+
+        await import('@/runtimes/reader/entry');
+        await vi.waitFor(() => expect(panelShow).toHaveBeenCalledTimes(1));
+        const bookmarkAction = panelShow.mock.calls[0][3].actions
+            .find((action: any) => action.id === 'bookmark_toggle');
+        const item = {
+            id: 'item-1',
+            userPrompt: 'Prompt',
+            content: 'Answer',
+            meta: {
+                position: 1,
+                messageId: 'assistant-1',
+                url: 'https://chatgpt.com/c/mock',
+                bookmarked: false,
+            },
+        };
+        const notify = vi.fn();
+        const rerender = vi.fn();
+
+        await bookmarkAction.onClick({ item, index: 0, items: [item], notify, rerender });
+
+        expect(bookmarkSaveDialogOpen).toHaveBeenCalledTimes(1);
+        expect(item.meta.bookmarked).toBe(false);
+        expect(rerender).not.toHaveBeenCalled();
+        expect(notify).toHaveBeenCalledWith('Invalid bookmarks:save response payload');
     });
 });

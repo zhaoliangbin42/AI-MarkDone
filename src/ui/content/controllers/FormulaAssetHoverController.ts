@@ -15,10 +15,12 @@ import { createAppearanceSnapshot, type AppearanceSnapshot } from '../../../styl
 import { targetSurfacePolicy } from '../../../config/targetSurface';
 import { copyIcon, downloadIcon } from '../../../assets/icons';
 import type { MarkdownParserAdapter } from '../../../drivers/content/adapters/parser/MarkdownParserAdapter';
+import type { CanonicalFormulaResolution } from '../../../services/semantic-content/canonicalFormula';
 
 export type FormulaAssetHoverControllerOptions = {
     parserAdapter?: Pick<MarkdownParserAdapter, 'isMathNode' | 'extractLatex' | 'isBlockMath'>;
     runFormulaAssetAction?: typeof runFormulaAssetAction;
+    canonicalFormulaResolver?: (element: Element) => CanonicalFormulaResolution | null;
 };
 
 type FormulaAssetControllerSettings = Pick<
@@ -55,6 +57,7 @@ export class FormulaAssetHoverController {
             onFormulaHoverLeave: () => this.scheduleHoverActionClose(),
             onFormulaDisable: () => this.disposePortal(),
             parserAdapter: options.parserAdapter,
+            canonicalFormulaResolver: options.canonicalFormulaResolver,
         });
     }
 
@@ -64,6 +67,10 @@ export class FormulaAssetHoverController {
 
     observeContainers(root: HTMLElement, selector: string): void {
         this.mathClick.observeContainers(root, selector);
+    }
+
+    observeSemanticRoot(root: HTMLElement): void {
+        this.mathClick.observeSemanticRoot(root);
     }
 
     disable(): void {
@@ -83,6 +90,12 @@ export class FormulaAssetHoverController {
         this.mathClick.setClickCopyMarkdown(this.formulaSettings.clickCopyMarkdown);
         this.mathClick.setClickCopyFormulaFormat(this.formulaSettings.clickCopyFormulaFormat);
         if (!this.hasEnabledAssetAction()) this.closeHoverAction();
+    }
+
+    setCanonicalFormulaResolver(
+        resolver: ((element: Element) => CanonicalFormulaResolution | null) | undefined,
+    ): void {
+        this.mathClick.setCanonicalFormulaResolver(resolver);
     }
 
     setAppearance(snapshot: AppearanceSnapshot): void {

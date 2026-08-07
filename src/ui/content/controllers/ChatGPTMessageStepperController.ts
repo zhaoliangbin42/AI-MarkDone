@@ -16,11 +16,26 @@ import {
     type ChatGPTRoundPosition,
 } from '../chatgptDirectory/navigation';
 import { isChatGPTConversationPage } from '../../../drivers/content/chatgpt/chatgptRoute';
+import { showEphemeralTooltip } from '../../../utils/tooltip';
+import type { ConversationContentSourceV1 } from '../../../contracts/conversationContent';
+import type { ConversationMaterializationPortV1 } from '../../../contracts/conversationMaterialization';
+import type { ConversationNavigationPortV1 } from '../../../contracts/conversationNavigation';
 
 const HOST_ID = 'aimd-chatgpt-message-stepper';
 const STYLE_ID = 'aimd-chatgpt-message-stepper-style';
 const TOKEN_STYLE_ID = 'aimd-chatgpt-message-stepper-tokens';
 const NAVIGATION_SETTLE_MS = 1200;
+
+export type PageBookmarkStatusResult =
+    | { ok: true; saved: boolean }
+    | { ok: false; message: string };
+
+export type PageBookmarkMutationResult =
+    | { ok: true; saved: boolean }
+    | { ok: false; message: string }
+    | { ok: false; cancelled: true };
+
+type PageBookmarkState = 'unknown' | 'saved' | 'unsaved';
 
 function isEditableElement(node: EventTarget | null): boolean {
     if (!(node instanceof HTMLElement)) return false;
@@ -53,8 +68,11 @@ export class ChatGPTMessageStepperController {
     private pageBookmarkVisibleEnabled = true;
     private detachedReaderVisibleEnabled = true;
     private promptVisibleEnabled = true;
-    private pageBookmarked = false;
+    private pageBookmarkState: PageBookmarkState = 'unknown';
+    private pageBookmarkError: string | null = null;
+    private pageBookmarkMutationPending = false;
     private pageBookmarkStatusUrl: string | null = null;
+    private pageBookmarkRequestId = 0;
     private host: HTMLDivElement | null = null;
     private appearanceScope: AppearanceScope | null = null;
     private appearance: AppearanceSnapshot = createAppearanceSnapshot(this.resolveInitialTheme());
@@ -67,6 +85,8 @@ export class ChatGPTMessageStepperController {
     private rounds: ChatGPTRoundPosition[] = [];
     private activePosition = 0;
     private unsubscribeRoundChanges: (() => void) | null = null;
+    private unsubscribeContent: (() => void) | null = null;
+    private unsubscribeMaterialization: (() => void) | null = null;
     private unsubscribeLocale: (() => void) | null = null;
     private refreshAnimationFrame: number | null = null;
     private navigationLockUntil = 0;
@@ -78,10 +98,21 @@ export class ChatGPTMessageStepperController {
             onOpenBookmarksPanel?: () => Promise<void> | void;
             onOpenDetachedReader?: () => Promise<void> | void;
             onOpenPrompts?: (anchor: HTMLElement) => Promise<void> | void;
-            onTogglePageBookmark?: () => Promise<{ saved: boolean }> | { saved: boolean } | void;
-            onRefreshPageBookmarkState?: (url: string) => Promise<boolean> | boolean;
+            onTogglePageBookmark?: (url: string) => Promise<PageBookmarkMutationResult> | PageBookmarkMutationResult;
+            onRefreshPageBookmarkState?: (url: string) => Promise<PageBookmarkStatusResult> | PageBookmarkStatusResult;
+            contentSource?: ConversationContentSourceV1 | null;
+            materialization?: ConversationMaterializationPortV1 | null;
+            navigation?: ConversationNavigationPortV1 | null;
         } = {},
     ) {}
+
+    private get contentSource(): ConversationContentSourceV1 | null {
+        return this.options.contentSource ?? null;
+    }
+
+    private get materialization(): ConversationMaterializationPortV1 | null {
+        return this.options.materialization ?? null;
+    }
 
     init(): void {
         if (this.initialized) return;
@@ -92,7 +123,10 @@ export class ChatGPTMessageStepperController {
         document.addEventListener('keydown', this.onKeyDownCapture, { capture: true });
         window.addEventListener('scroll', this.onScroll, { capture: true, passive: true });
         document.addEventListener('scroll', this.onScroll, { capture: true, passive: true });
-        this.unsubscribeRoundChanges = getChatGPTConversationIndex(this.adapter).subscribe(() => this.scheduleRefreshState());
+        this.unsubscribeRoundChanges = getChatGPTConversationIndex(this.adapter)
+            .subscribe(() => this.scheduleRefreshState());
+        this.unsubscribeContent = this.contentSource?.subscribe(() => this.scheduleRefreshState()) ?? null;
+        this.unsubscribeMaterialization = this.materialization?.subscribe(() => this.scheduleRefreshState()) ?? null;
     }
 
     dispose(): void {
@@ -103,6 +137,10 @@ export class ChatGPTMessageStepperController {
         document.removeEventListener('scroll', this.onScroll, { capture: true } as any);
         this.unsubscribeRoundChanges?.();
         this.unsubscribeRoundChanges = null;
+        this.unsubscribeContent?.();
+        this.unsubscribeContent = null;
+        this.unsubscribeMaterialization?.();
+        this.unsubscribeMaterialization = null;
         this.unsubscribeLocale?.();
         this.unsubscribeLocale = null;
         if (this.refreshAnimationFrame !== null) {
@@ -123,7 +161,11 @@ export class ChatGPTMessageStepperController {
         this.activePosition = 0;
         this.navigationLockUntil = 0;
         this.navigationRequestId += 1;
+        this.pageBookmarkRequestId += 1;
         this.pageBookmarkStatusUrl = null;
+        this.pageBookmarkState = 'unknown';
+        this.pageBookmarkError = null;
+        this.pageBookmarkMutationPending = false;
     }
 
     setKeyboardEnabled(enabled: boolean): void {
@@ -163,7 +205,8 @@ export class ChatGPTMessageStepperController {
     }
 
     setPageBookmarked(saved: boolean): void {
-        this.pageBookmarked = saved;
+        this.pageBookmarkState = saved ? 'saved' : 'unsaved';
+        this.pageBookmarkError = null;
         this.syncPageBookmarkButton();
     }
 
@@ -382,13 +425,23 @@ export class ChatGPTMessageStepperController {
         this.activePosition = target.position;
         this.navigationLockUntil = Date.now() + NAVIGATION_SETTLE_MS;
         this.syncButtons();
-        void navigateChatGPTDirectoryTarget(this.adapter, {
-            position: target.position,
-            messageId: target.messageId,
-            roundId: target.roundId,
-            userMessageId: target.userMessageId,
-            assistantMessageId: target.assistantMessageId,
-        }).then((result) => {
+        const navigation = this.options.navigation
+            ? this.options.navigation.navigate({
+                position: target.position,
+                messageId: target.messageId,
+                roundId: target.roundId,
+                userMessageId: target.userMessageId,
+                assistantMessageId: target.assistantMessageId,
+                source: 'stepper',
+            }, { timeoutMs: 15_000, align: 'start' }).then((result) => ({ ok: result.ok }))
+            : navigateChatGPTDirectoryTarget(this.adapter, {
+                position: target.position,
+                messageId: target.messageId,
+                roundId: target.roundId,
+                userMessageId: target.userMessageId,
+                assistantMessageId: target.assistantMessageId,
+            }).then((result) => ({ ok: result.ok }));
+        void navigation.then((result) => {
             if (requestId !== this.navigationRequestId) return;
             if (!result.ok) {
                 this.navigationLockUntil = 0;
@@ -409,7 +462,10 @@ export class ChatGPTMessageStepperController {
     private refreshState(options: { preserveLogicalPosition?: boolean } = {}): void {
         if (!this.initialized) return;
         this.ensureHost();
-        this.rounds = collectChatGPTRoundPositions(this.adapter);
+        const contentState = this.contentSource?.read();
+        this.rounds = contentState && !contentState.snapshot
+            ? []
+            : collectChatGPTRoundPositions(this.adapter);
         const visible = this.adapter.getPlatformId() === 'chatgpt' && Boolean(this.bookmarksPanelButton);
         if (this.host) {
             this.host.dataset.visible = visible ? '1' : '0';
@@ -469,21 +525,34 @@ export class ChatGPTMessageStepperController {
         if (!this.pageBookmarkButton) return;
         const visible = this.pageBookmarkVisibleEnabled && isChatGPTConversationPage(window.location.href);
         this.pageBookmarkButton.hidden = !visible;
-        this.pageBookmarkButton.dataset.active = this.pageBookmarked ? '1' : '0';
-        const label = this.pageBookmarked
+        this.pageBookmarkButton.disabled = this.pageBookmarkMutationPending;
+        this.pageBookmarkButton.dataset.pending = this.pageBookmarkMutationPending ? '1' : '0';
+        this.pageBookmarkButton.dataset.active = this.pageBookmarkState === 'saved'
+            ? '1'
+            : this.pageBookmarkState === 'unsaved' ? '0' : 'unknown';
+        this.pageBookmarkButton.dataset.bookmarkState = this.pageBookmarkError ? 'error' : this.pageBookmarkState;
+        if (this.pageBookmarkState === 'unknown') {
+            this.pageBookmarkButton.removeAttribute('aria-pressed');
+        } else {
+            this.pageBookmarkButton.setAttribute('aria-pressed', this.pageBookmarkState === 'saved' ? 'true' : 'false');
+        }
+        const label = this.pageBookmarkState === 'saved'
             ? this.getLabel('chatgptPageControlRemoveBookmark', 'Remove page bookmark')
             : this.getLabel('chatgptPageControlBookmark', 'Bookmark current page');
         this.pageBookmarkButton.setAttribute('aria-label', label);
-        this.pageBookmarkButton.setAttribute('title', label);
+        this.pageBookmarkButton.setAttribute('title', this.pageBookmarkError ?? label);
         const iconEl = this.pageBookmarkButton.querySelector<HTMLElement>('.aimd-chatgpt-message-stepper__icon');
-        if (iconEl) iconEl.innerHTML = this.pageBookmarked ? bookmarkCheckIcon : bookmarkIcon;
+        if (iconEl) iconEl.innerHTML = this.pageBookmarkState === 'saved' ? bookmarkCheckIcon : bookmarkIcon;
     }
 
     private refreshPageBookmarkStatusIfNeeded(): void {
         const url = window.location.href.split('#')[0] || window.location.href;
         if (!this.pageBookmarkVisibleEnabled || !isChatGPTConversationPage(url)) {
+            this.pageBookmarkRequestId += 1;
             this.pageBookmarkStatusUrl = null;
-            this.pageBookmarked = false;
+            this.pageBookmarkState = 'unknown';
+            this.pageBookmarkError = null;
+            this.pageBookmarkMutationPending = false;
             this.syncPageBookmarkButton();
             return;
         }
@@ -492,20 +561,75 @@ export class ChatGPTMessageStepperController {
             return;
         }
         this.pageBookmarkStatusUrl = url;
-        void Promise.resolve(this.options.onRefreshPageBookmarkState?.(url) ?? false).then((saved) => {
-            if (this.pageBookmarkStatusUrl !== url) return;
-            this.setPageBookmarked(Boolean(saved));
-        }).catch(() => {
-            if (this.pageBookmarkStatusUrl === url) this.setPageBookmarked(false);
+        const requestId = this.pageBookmarkRequestId + 1;
+        this.pageBookmarkRequestId = requestId;
+        this.pageBookmarkState = 'unknown';
+        this.pageBookmarkError = null;
+        this.pageBookmarkMutationPending = false;
+        this.syncPageBookmarkButton();
+        const refresh = this.options.onRefreshPageBookmarkState;
+        if (!refresh) return;
+        void Promise.resolve(refresh(url)).then((result) => {
+            if (requestId !== this.pageBookmarkRequestId || this.pageBookmarkStatusUrl !== url) return;
+            if (result.ok) {
+                this.setPageBookmarked(result.saved);
+                return;
+            }
+            this.pageBookmarkError = result.message;
+            this.syncPageBookmarkButton();
+        }).catch((error: unknown) => {
+            if (requestId !== this.pageBookmarkRequestId || this.pageBookmarkStatusUrl !== url) return;
+            this.pageBookmarkError = error instanceof Error && error.message
+                ? error.message
+                : this.getLabel('failedToToggleBookmark', 'Failed to refresh bookmark status');
+            this.syncPageBookmarkButton();
         });
     }
 
     private async handlePageBookmarkClick(): Promise<void> {
         if (!this.pageBookmarkButton || this.pageBookmarkButton.hidden || this.pageBookmarkButton.disabled) return;
-        const result = await this.options.onTogglePageBookmark?.();
-        if (result && typeof result.saved === 'boolean') {
-            this.setPageBookmarked(result.saved);
+        const toggle = this.options.onTogglePageBookmark;
+        if (!toggle) return;
+        const url = window.location.href.split('#')[0] || window.location.href;
+        const requestId = this.pageBookmarkRequestId + 1;
+        this.pageBookmarkRequestId = requestId;
+        this.pageBookmarkMutationPending = true;
+        this.pageBookmarkError = null;
+        this.syncPageBookmarkButton();
+        try {
+            const result = await toggle(url);
+            if (
+                requestId !== this.pageBookmarkRequestId
+                || (window.location.href.split('#')[0] || window.location.href) !== url
+            ) return;
+            if (result.ok) {
+                this.setPageBookmarked(result.saved);
+            } else if ('message' in result) {
+                this.presentPageBookmarkMutationError(result.message);
+            }
+        } catch (error: unknown) {
+            if (
+                requestId !== this.pageBookmarkRequestId
+                || (window.location.href.split('#')[0] || window.location.href) !== url
+            ) return;
+            this.presentPageBookmarkMutationError(error instanceof Error && error.message
+                ? error.message
+                : this.getLabel('failedToToggleBookmark', 'Failed to toggle bookmark'));
+        } finally {
+            if (requestId !== this.pageBookmarkRequestId) return;
+            this.pageBookmarkMutationPending = false;
+            if ((window.location.href.split('#')[0] || window.location.href) !== url) {
+                this.refreshPageBookmarkStatusIfNeeded();
+            } else {
+                this.syncPageBookmarkButton();
+            }
         }
+    }
+
+    private presentPageBookmarkMutationError(message: string): void {
+        this.pageBookmarkError = message;
+        if (!this.pageBookmarkButton) return;
+        showEphemeralTooltip({ anchor: this.pageBookmarkButton, text: message });
     }
 
     private resolveInitialTheme(): Theme {

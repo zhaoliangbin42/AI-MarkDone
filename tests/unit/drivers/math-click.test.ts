@@ -1,6 +1,7 @@
 import { describe, expect, it, vi } from 'vitest';
 
 import { MathClickHandler } from '@/drivers/content/math/math-click';
+import { chatgptMarkdownParserAdapter } from '@/drivers/content/adapters/parser/chatgpt';
 import { getFormulaPlatformParserAdapter } from '@/runtimes/content/formulaPlatformParsers';
 
 function setClipboardMock() {
@@ -13,6 +14,54 @@ function setClipboardMock() {
 }
 
 describe('MathClickHandler', () => {
+    it('copies only the canonical formula source when a resolver is provided', async () => {
+        const { writeText } = setClipboardMock();
+        const container = document.createElement('div');
+        container.innerHTML = '<span class="katex"><annotation encoding="application/x-tex">x + y</annotation></span>';
+        document.body.appendChild(container);
+        const handler = new MathClickHandler({
+            parserAdapter: chatgptMarkdownParserAdapter,
+            canonicalFormulaResolver: () => ({ latex: 'x+y', isBlock: false }),
+        });
+
+        try {
+            handler.enable(container);
+            container.querySelector<HTMLElement>('.katex')?.dispatchEvent(new MouseEvent('click', {
+                bubbles: true,
+                cancelable: true,
+            }));
+            await Promise.resolve();
+            expect(writeText).toHaveBeenCalledWith('$x+y$');
+        } finally {
+            handler.disable();
+            container.remove();
+        }
+    });
+
+    it('fails closed when the canonical formula resolver cannot resolve a turn', async () => {
+        const { writeText } = setClipboardMock();
+        const container = document.createElement('div');
+        container.innerHTML = '<span class="katex"><annotation encoding="application/x-tex">x + y</annotation></span>';
+        document.body.appendChild(container);
+        const handler = new MathClickHandler({
+            parserAdapter: chatgptMarkdownParserAdapter,
+            canonicalFormulaResolver: () => null,
+        });
+
+        try {
+            handler.enable(container);
+            container.querySelector<HTMLElement>('.katex')?.dispatchEvent(new MouseEvent('click', {
+                bubbles: true,
+                cancelable: true,
+            }));
+            await Promise.resolve();
+            expect(writeText).not.toHaveBeenCalled();
+        } finally {
+            handler.disable();
+            container.remove();
+        }
+    });
+
     it('does not add an empty style element when math click handling is enabled', () => {
         const container = document.createElement('div');
         document.body.appendChild(container);
@@ -328,6 +377,30 @@ describe('MathClickHandler', () => {
         expect(parserAdapter.extractLatex).toHaveBeenCalledWith(target);
         handler.disable();
         container.remove();
+    });
+
+    it('copies from the current ChatGPT semantic formula wrapper through the real click path', async () => {
+        const { writeText } = setClipboardMock();
+        const container = document.createElement('div');
+        container.innerHTML = `
+          <span role="math" data-math-source="\\frac{x}{y}">
+            <span class="katex"><span class="katex-html" aria-hidden="true">x/y</span></span>
+          </span>
+        `;
+        document.body.appendChild(container);
+        const handler = new MathClickHandler({ parserAdapter: chatgptMarkdownParserAdapter });
+
+        try {
+            handler.enable(container);
+            const target = container.querySelector('.katex') as HTMLElement;
+            target.dispatchEvent(new MouseEvent('click', { bubbles: true, cancelable: true }));
+            await Promise.resolve();
+
+            expect(writeText).toHaveBeenCalledWith('$\\frac{x}{y}$');
+        } finally {
+            handler.disable();
+            container.remove();
+        }
     });
 
     it('restores the DeepSeek KaTeX annotation chain for click copy', async () => {

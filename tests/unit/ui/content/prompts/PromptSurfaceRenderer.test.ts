@@ -9,6 +9,22 @@ const prompt: PromptRecord = {
 };
 
 describe('PromptSurfaceRenderer', () => {
+    it('renders retry rather than a false empty state after manager load failure', () => {
+        const root = document.createElement('div');
+        const onAction = vi.fn();
+        const renderer = new PromptSurfaceRenderer(root, { onAction });
+        renderer.render({
+            mode: 'manager', prompts: [], suggestions: [], selectedIndex: 0,
+            managerQuery: '', editPrompt: null, statusMessage: 'Extension context invalidated.',
+            dataState: 'error',
+        });
+
+        expect(root.textContent).not.toContain('promptNoPrompts');
+        root.querySelector<HTMLButtonElement>('[data-action="retry-prompts"]')!.click();
+        expect(onAction).toHaveBeenCalledWith({ type: 'retry-load' });
+        renderer.destroy();
+    });
+
     it('renders manager DOM through one delegated action interface', () => {
         const root = document.createElement('div');
         const onAction = vi.fn();

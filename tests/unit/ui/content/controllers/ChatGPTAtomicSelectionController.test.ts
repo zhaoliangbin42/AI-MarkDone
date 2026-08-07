@@ -1,6 +1,8 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
 import { ChatGPTAdapter } from '@/drivers/content/adapters/sites/chatgpt';
+import type { ConversationContentSourceV1 } from '@/contracts/conversationContent';
+import type { ConversationMaterializationPortV1 } from '@/contracts/conversationMaterialization';
 import { setCanonicalMarkdownCopyFormulaFormat } from '@/services/copy/canonicalMarkdownCopy';
 import { ChatGPTAtomicSelectionController } from '@/ui/content/controllers/ChatGPTAtomicSelectionController';
 
@@ -8,6 +10,83 @@ const originalExecCommand = document.execCommand;
 
 function createController(adapter = new ChatGPTAdapter()): ChatGPTAtomicSelectionController {
     return new ChatGPTAtomicSelectionController(adapter);
+}
+
+function createCanonicalSelectionController(
+    message: HTMLElement,
+    options: Readonly<{
+        markdown?: string;
+        authority?: 'primary' | 'reconstructed';
+    }> = {},
+): ChatGPTAtomicSelectionController {
+    const documentKey = 'chatgpt:conversation:conversation-1';
+    const contentToken = 'conversation-content-v1:test';
+    const target = {
+        documentKey,
+        turnId: 'turn-1',
+        userMessageId: 'user-1',
+        assistantMessageId: 'assistant-1',
+    } as const;
+    const state = {
+        kind: 'ready',
+        document: {
+            key: documentKey,
+            platformId: 'chatgpt',
+            conversationId: 'conversation-1',
+        },
+        snapshot: {
+            schemaVersion: 1,
+            document: {
+                key: documentKey,
+                platformId: 'chatgpt',
+                conversationId: 'conversation-1',
+            },
+            contentToken,
+            coverage: 'complete',
+            turns: [{
+                key: 'turn-1:assistant-1',
+                ordinal: 1,
+                identity: {
+                    turnId: 'turn-1',
+                    userMessageId: 'user-1',
+                    assistantMessageId: 'assistant-1',
+                },
+                userText: 'Question',
+                assistantMarkdown: options.markdown ?? 'Before **clean Markdown** after.',
+                assistantProvenance: {
+                    authority: options.authority ?? 'primary',
+                    fidelity: options.authority === 'reconstructed' ? 'lossy' : 'exact',
+                    producer: options.authority === 'reconstructed' ? 'test-dom' : 'test-provider',
+                },
+            }],
+        },
+    } as const;
+    const source: ConversationContentSourceV1 = {
+        read: () => state,
+        subscribe: (listener) => {
+            listener(state);
+            return () => undefined;
+        },
+        refresh: async () => state,
+        isCurrent: (candidate) => candidate === contentToken,
+    };
+    const materialization: ConversationMaterializationPortV1 = {
+        read: () => ({
+            materializationToken: 'materialization-1',
+            contentToken,
+            entries: [{ target, anchorElement: message }],
+        }),
+        subscribe: (listener) => {
+            listener(materialization.read());
+            return () => undefined;
+        },
+        resolveElement: () => target,
+        locate: async () => 'located',
+    };
+    return new ChatGPTAtomicSelectionController(new ChatGPTAdapter(), {
+        contentSource: source,
+        materialization,
+    });
 }
 
 function mountMessage(content: string, id = 'assistant-1'): HTMLElement {
@@ -112,6 +191,103 @@ describe('ChatGPTAtomicSelectionController', () => {
         expect(markdownCopy.event.defaultPrevented).toBe(true);
         expect(markdownCopy.readText()).toBe('`answer`');
         controller.dispose();
+    });
+
+    it('projects an ordinary host text selection from canonical Markdown instead of cloning DOM', async () => {
+        const message = mountMessage('<p>Before <strong><span>clean Markdown</span></strong> after.</p>');
+        const selectedText = message.querySelector('strong span')!.firstChild as Text;
+        const range = document.createRange();
+        range.selectNodeContents(selectedText);
+        selectRange(range);
+
+        const controller = createCanonicalSelectionController(message);
+        controller.setMarkdownCopyShortcut('mod-c');
+        controller.init();
+        document.dispatchEvent(new Event('selectionchange'));
+        await flushSelectionFrame();
+
+        dispatchKeyboardCopy();
+        const copy = dispatchCopy();
+
+        expect(copy.event.defaultPrevented).toBe(true);
+        expect(copy.readText()).toBe('**clean Markdown**');
+        controller.dispose();
+    });
+
+    it('copies the complete canonical Markdown for a local multi-wrapper selection', async () => {
+        const canonicalMarkdown = 'Before **clean Markdown** after with [a link](https://example.com) and `code`.';
+        const message = mountMessage(
+            '<p>Before <strong>clean Markdown</strong> after with <a href="https://example.com">a link</a> and <code>code</code>.</p>',
+        );
+        const paragraph = message.querySelector('p')!;
+        const range = document.createRange();
+        range.selectNodeContents(paragraph);
+        selectRange(range);
+
+        const controller = createCanonicalSelectionController(message, { markdown: canonicalMarkdown });
+        controller.setMarkdownCopyShortcut('mod-c');
+        controller.init();
+        document.dispatchEvent(new Event('selectionchange'));
+        await flushSelectionFrame();
+
+        dispatchKeyboardCopy();
+        const copy = dispatchCopy();
+
+        expect(copy.event.defaultPrevented).toBe(true);
+        expect(copy.readText()).toBe(canonicalMarkdown);
+        controller.dispose();
+    });
+
+    it('copies canonical TeX when the rendered selection contains a visual formula', async () => {
+        const message = mountMessage(
+            '<p>Result <span class="katex" data-math-source="\\frac{x}{y}"><span class="katex-html">x y</span></span>.</p>',
+        );
+        const formula = message.querySelector('.katex-html')!;
+        const range = document.createRange();
+        range.selectNodeContents(formula);
+        selectRange(range);
+
+        const controller = createCanonicalSelectionController(message, {
+            markdown: 'Result $\\frac{x}{y}$.',
+        });
+        controller.setMarkdownCopyShortcut('mod-c');
+        controller.init();
+        document.dispatchEvent(new Event('selectionchange'));
+        await flushSelectionFrame();
+
+        dispatchKeyboardCopy();
+        const copy = dispatchCopy();
+
+        expect(copy.event.defaultPrevented).toBe(true);
+        expect(copy.readText()).toBe('$\\frac{x}{y}$');
+        controller.dispose();
+    });
+
+    it('does not revive the DOM compatibility converter when canonical source quality is rejected', async () => {
+        const message = mountMessage('<p><code>answer</code></p>');
+        const range = document.createRange();
+        range.selectNodeContents(message.querySelector('code')!);
+        selectRange(range);
+
+        const controller = createCanonicalSelectionController(message, {
+            markdown: '`answer`',
+            authority: 'reconstructed',
+        });
+        try {
+            controller.setMarkdownCopyShortcut('mod-c');
+            controller.init();
+            document.dispatchEvent(new Event('selectionchange'));
+            await flushSelectionFrame();
+
+            dispatchKeyboardCopy();
+            const copy = dispatchCopy();
+
+            expect(copy.event.defaultPrevented).toBe(true);
+            expect(copy.setData).not.toHaveBeenCalled();
+            expect(message.querySelector('code')?.getAttribute('data-aimd-page-atomic-state')).toBe('selected');
+        } finally {
+            controller.dispose();
+        }
     });
 
     it('leaves the host copy path untouched when the shortcut is disabled', async () => {

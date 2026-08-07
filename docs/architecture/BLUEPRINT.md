@@ -2,6 +2,15 @@
 
 本文定义 AI-MarkDone 的目标架构蓝图，用于指导当前主线代码的持续演进。蓝图的目标不是复刻旧实现，而是把边界做成可执行的契约，并让模块能并行演进、互不干扰，且更符合 MV3 的可审计/可恢复要求。
 
+> **Active ChatGPT production seam:** the website-owned conversation GET is
+> passively observed by the document-start bridge, validated by the ChatGPT
+> Source Adapter, and published through one `ConversationContentRepository`.
+> `ConversationContentSourceV1` owns prompt, Markdown, identity and canonical
+> order for Directory, Reader, Bookmark, Copy, Formula, Word Count and Export;
+> `ConversationMaterializationPortV1` owns only current DOM anchors. The V2
+> slot/compiler modules remain isolated experiments and are not injected into
+> production consumers. See [ADR-0015](../adr/ADR-0015-chatgpt-passive-graph-directory.md).
+
 重写总纲见：
 
 - `docs/rewrite/PROGRAM.md`
@@ -68,20 +77,67 @@
 
 ### 2.3.0 ChatGPT content discovery V1
 
-ChatGPT semantic content follows one explicit pipeline:
+ChatGPT content follows one source pipeline plus two orthogonal DOM projections:
 
-```text
-bootstrap / route / pageshow / PageIndex / bridge capture / refresh
-    -> one coalesced reconcile()
-    -> ChatGPT discovery adapter
-    -> ConversationContentRepository
-    -> ConversationContentSourceV1
-    -> Reader / Directory / Copy / Export / Bookmark / Annotation
+```mermaid
+flowchart LR
+    Signals["bootstrap / route / pageshow<br/>PageIndex / bridge / refresh"]
+    Reconcile["one coalesced reconcile()"]
+    SourceAdapter["ChatGPT Content Source Adapter<br/>decode + dialect normalize + provenance"]
+    ContentPort["ConversationContentSourceV1<br/>canonical snapshot + content token"]
+    Semantic["Semantic Content Module<br/>compile / resolve / project"]
+    ReaderSource["readerContentSource"]
+    ReaderItems["ReaderItem[]"]
+    Body["Whole-message Copy / Bookmark / Export / Word count"]
+    Structure["Reader structure / outline"]
+    Render["Reader HTML / PDF / PNG render"]
+
+    DOM["materialized host DOM"]
+    Materialization["Materialization Port<br/>typed target + token"]
+    SurfaceAdapter["Content Surface Adapter<br/>Range -> neutral evidence"]
+    SurfaceProjection["Surface Projection"]
+    ParserAdapter["Parser Capability Adapter<br/>formula/code source hints"]
+    Formula["formula click / assets"]
+    Selection["local selection / annotation anchor"]
+    ConversationIndex["Conversation Index<br/>order + optional anchors"]
+    Navigation["Directory / Stepper / Locate"]
+
+    Signals --> Reconcile --> SourceAdapter --> ContentPort
+    ContentPort --> ReaderSource --> ReaderItems
+    ReaderItems --> Body
+    ReaderItems --> Semantic --> Structure
+    ReaderItems --> Render
+    DOM --> SurfaceAdapter --> SurfaceProjection
+    DOM --> Materialization --> SurfaceProjection
+    ContentPort --> SurfaceProjection --> Selection
+    SurfaceProjection -. "compile / resolve / project" .-> Semantic
+    DOM --> ParserAdapter --> Formula
+    ContentPort --> ConversationIndex --> Navigation
+    Materialization --> ConversationIndex
 ```
 
-`ConversationContentSourceV1` is the stable consumer contract. It publishes immutable typed snapshots and explicit `idle`, `syncing`, `ready`, `stale`, and `unavailable` states. The adapter owns ChatGPT routes, endpoint details, bridge transport, provider decoding, and typed DOM evidence. Consumers do not read ChatGPT DOM or provider payloads. `ConversationMaterializationPortV1` is a separate content-runtime projection for currently mounted anchors and navigation; remounting the DOM changes only its materialization token.
+`ConversationContentSourceV1` remains the stable content interface. The Source Adapter owns ChatGPT routes, endpoint details, bridge transport, provider decoding, provider-dialect normalization, and source evidence. `ConversationContentRepository` is the single production owner of the page-scoped canonical snapshot; the materialization adapter owns only current host lifecycle, typed anchors and navigation. Consumers do not read ChatGPT payloads or reconstruct a second body source. The V2 slot/compiler modules remain isolated experiments/tests rather than a second production source.
 
-The graph is authoritative for branch, history, and absolute order. Typed DOM evidence can only refresh an identity-overlapping turn, add a verified continuous successor, or provide a clearly marked partial snapshot while ChatGPT's turn wrapper is late; an ambiguous DOM window must converge through a fresh graph or fail closed. Partial snapshots may only grow by strict semantic prefix, so virtualization cannot shrink last-good content. A completed DOM turn requires typed assistant identity, non-streaming state, and non-empty text; the host action row is only a toolbar lifecycle signal. A same-document transient failure keeps the last-good snapshot as `stale`; a verified document change is the only event that removes the previous document snapshot. Active acquisition is one bounded same-origin GET with no token/header/cookie access, no POST/SSE parsing, no endpoint guessing, and no permanent polling. The real-browser probe and the phase gates are authoritative in `docs/testing/CHATGPT_CONTENT_DISCOVERY_GATES.md`.
+```mermaid
+flowchart LR
+    Site["Website-owned conversation GET"] --> Bridge["document_start passive bridge"]
+    Bridge --> Adapter["ChatGPT Source Adapter\nvalidate + normalize graph"]
+    Adapter --> Content["ConversationContentSourceV1\ncanonical snapshot"]
+    Content --> Reader["Reader / Copy / Bookmark / Export / Word count"]
+    Content --> Index["Conversation Index\nidentity + canonical order"]
+    Index --> Navigation["Directory / Stepper / Locate"]
+    DOM["materialized host DOM"] --> Materialization["Materialization Port\nanchors only"]
+    Materialization --> Navigation
+    Materialization --> Surface["Surface Projection"]
+    Content --> Surface
+    Parser["Parser capability adapter"] --> Formula["Formula / semantic projection"]
+```
+
+`SemanticContentModuleV1` is provider-neutral and browser-independent. It accepts canonical Markdown and emits one immutable AI-MarkDone model, UTF-16 half-open source spans, Reader structure, plain text, and canonical Markdown projections. Parser libraries remain implementation details. `ContentSurfaceAdapter` keeps DOM/Range/selector knowledge in the driver and emits only typed target, content/materialization/surface tokens, and TextQuote evidence. `SurfaceProjection` is the only source/surface join; ambiguous, stale, reconstructed, or unproven mappings fail open instead of estimating source offsets.
+
+`ConversationMaterializationPortV1` remains parallel: it answers where a typed turn is currently mounted and supports navigation. Directory/Stepper/Locate do not depend on body parsing or Semantic Document. Formula source recovery is a parser-Adapter capability; authoritative semantic attributes/annotations can enter the TeX path, while visual glyph text remains `dom-only` compatibility evidence.
+
+The active content coordinator is signal-driven: the document-start bridge replays its latest passive graph, and the repository publishes an immutable V1 snapshot to every consumer. It never creates a second DOM-derived body source, performs active conversation acquisition or uses a permanent timer. Full rationale and consumer ownership are recorded in `docs/adr/ADR-0015-chatgpt-passive-graph-directory.md`; the V2 slot/compiler rationale remains historical in ADR-0014, and executable gates are in `docs/testing/CURRENT_TEST_GATES.md`.
 
 ### 2.3.1 扩展启动闭环（Boot）
 
@@ -91,8 +147,8 @@ The graph is authoritative for branch, history, and absolute order. Typed DOM ev
 
 ### 2.3.2 Reader 闭环（预览/复制/发送）
 
-1. Driver（adapter/datasource）采集 `ReaderItem[]`（live page / bookmarks 等来源）；ChatGPT live page 只允许 `ConversationContentRepository` 发布的 V1 snapshot 作为 canonical semantic source。完整性根只能是被动观察的完整当前分支 graph，或在无历史 graph 时由 typed DOM 连续见证的当前窗口；共享 PageIndex 只提供 typed DOM turn facts 和当前 anchors。Graph 决定完整分支与绝对顺序，typed DOM 只能校验重叠身份并追加连续 successor，不能补齐未知历史；typed identity 冲突必须保留同文档 last-good 为 stale，等待 graph 重新校准，消费者不能拥有第二套恢复链路
-2. Service 进行编排：解析/渲染策略、缓存、错误回退、性能节流
+1. Driver（Source/Host Adapter）把 provider graph 或稳定渲染事实适配成 typed evidence；`ConversationEvidenceLedger` 按 `documentEpoch → branch → typed identity` 归并并发布 V1 snapshot；`readerContentSource` 是唯一 `ReaderItem[]` 投影。Source graph 决定完整分支与绝对顺序，host 只提供独立 sealed turn，不能覆盖已 sealed 内容或补齐未知历史；`readTurn()` 支持局部消息先读，完整导出必须等待 proof 闭合，消费者不能拥有第二套恢复链路
+2. Service 通过 Semantic Content Module 编译稳定语义、source spans 与 Reader structure；HTML/KaTeX/highlight/sanitize 属于独立 Render Module。预览、复制、书签、导出只能选择 projection/policy，不能各自重新解释宿主 DOM
 3. UI 只负责呈现与交互（分页/复制/打开浮层/触发发送）
 4. 副作用（写书签、写设置、网络等）通过 Background 执行并返回结果
 
@@ -176,6 +232,11 @@ v1 的正式领域契约、排除项和失败语义见 `docs/adr/ADR-0006-reader
 目标：站点差异只能存在于 adapter（driver）实现里，Service 层不感知 DOM 选择器，也不按 platform id 分支选择 parser 实现。
 
 补充约束：
+
+- Adapter 按 capability 拆分，不把所有站点知识堆进一个浅层 `SiteAdapter`：Content Source Adapter 负责 provider payload/dialect/provenance；Content Surface Adapter 负责把 DOM Range 转为中立 evidence；Markdown parser Adapter 负责公式/代码等宿主语义源码提示。三者输出稳定 Interface，任何一个都不能直接产出某个 UI consumer 的最终行为
+- `SemanticContentModuleV1` 只能依赖 provider-neutral contract 和纯 parser library；不得 import driver/UI/runtime，不得出现 DOM/browser global/platform id/host selector。它必须输出项目自有 immutable model，不把 mdast/hast 作为跨模块 contract
+- `SurfaceProjection` 是唯一同时依赖 canonical content contract 与 surface evidence contract 的 service seam；它校验 content/materialization revision，交互 controller 必须在复用 snapshot 前重新采样并比对 surface token、Range 与 TextQuote。UI、Reader、copy、bookmark、export 与 annotation 不得私自 join DOM selection 和 source Markdown
+- `coverage` 与 source quality 必须分离。完整 snapshot 中只要存在 reconstructed body，仍可用于明确标记的降级展示，但不得进入 canonical Copy、Bookmark、PNG/PDF/Markdown export 或持久 annotation source success path
 
 - 页面级入口必须由 AI-MarkDone 自有 surface 承载，不得为入口修改宿主页面 header 的内部 DOM；若未来新增宿主锚点，相关 DOM 差异仍必须收敛在 adapter 契约内
 - ChatGPT conversation group discovery、turn root、conversation root、streaming 判定同样属于 adapter/driver 契约的一部分；UI/controller 只能消费已经抽象好的 structural refs，不得在 UI 层按 ChatGPT selector 重新推导轮次、正文或 identity

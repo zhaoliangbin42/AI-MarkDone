@@ -236,6 +236,11 @@ ${getPanelChromeCss()}
   position: relative;
 }
 
+.aimd-settings {
+  display: flex;
+  flex-direction: column;
+}
+
 .tab-panel {
   display: none;
 }
@@ -284,6 +289,39 @@ ${getPanelChromeCss()}
   min-height: 0;
   height: 100%;
   background: color-mix(in srgb, var(--aimd-bg-primary) 96%, transparent);
+}
+
+.bookmarks-runtime-notice {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--aimd-space-3);
+  margin: 0 var(--aimd-space-5) var(--aimd-space-2);
+  padding: var(--aimd-space-3) var(--aimd-space-4);
+  border: 1px solid color-mix(in srgb, var(--aimd-color-warning) 38%, var(--aimd-border-default));
+  border-radius: var(--aimd-radius-lg);
+  background: color-mix(in srgb, var(--aimd-color-warning) 8%, var(--aimd-bg-surface));
+  color: var(--aimd-text-primary);
+  font-size: var(--aimd-text-sm);
+  line-height: 1.4;
+}
+
+.bookmarks-runtime-notice[hidden] {
+  display: none;
+}
+
+.settings-runtime-notice {
+  flex: 0 0 auto;
+  margin-top: var(--aimd-space-5);
+}
+
+.settings-runtime-notice p {
+  margin: var(--aimd-space-1) 0 0;
+  color: var(--aimd-text-secondary);
+}
+
+.settings-panel-scroll[inert] {
+  opacity: 0.56;
 }
 
 /* Bookmark tree toolbar */

@@ -184,6 +184,42 @@ describe('readerContentSource', () => {
         expect(result?.sourceRevision?.contentToken).toBe('1');
     });
 
+    it('reads a sealed mounted turn directly while the global snapshot is still incomplete', async () => {
+        const base = buildSource(1);
+        const documentKey = toConversationSnapshotV1({ conversationId: 'conv-1', rounds: [] }).document.key;
+        const target = {
+            documentKey,
+            turnId: 'round-2',
+            assistantMessageId: 'assistant-2',
+            userMessageId: 'user-2',
+        };
+        const source = {
+            ...base,
+            readTurn: vi.fn(() => ({
+                kind: 'ready' as const,
+                target,
+                turn: {
+                    key: 'round-2:assistant-2',
+                    ordinal: 2,
+                    identity: target,
+                    userText: 'Prompt 2',
+                    assistantMarkdown: 'Answer 2',
+                },
+                contentToken: 'turn-2-token',
+            })),
+        };
+
+        const result = await collectFreshCurrentReaderItem(chatgptAdapter(), document.createElement('article'), {
+            conversationContentSource: source,
+            conversationMaterialization: { resolveElement: () => target } as any,
+            pageUrl: 'https://chatgpt.com/c/conv-1',
+        });
+
+        expect(result?.item.content).toBe('Answer 2');
+        expect(result?.sourceRevision?.contentToken).toBe('turn-2-token');
+        expect(source.readTurn).toHaveBeenCalledWith(target);
+    });
+
     it('converts Reader items to export turns after resolving lazy content', async () => {
         const items: ReaderItem[] = [
             {

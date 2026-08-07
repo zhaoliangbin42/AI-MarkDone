@@ -172,6 +172,46 @@ describe('ReaderAnnotationManagerPopover', () => {
         expect(toggle.checked).toBe(true);
     });
 
+    it('rolls back a rejected persistence toggle and exposes the write error inline', async () => {
+        const host = document.createElement('div');
+        document.body.appendChild(host);
+        const shadow = host.attachShadow({ mode: 'open' });
+        const modalHost = new ModalHost(shadow);
+        const manager = new ReaderAnnotationManagerPopover();
+        const current = entry('toggle-error', 'conversation-toggle', 100);
+        manager.open({
+            shadow,
+            modalHost,
+            appearance: {} as any,
+            currentDocument: current.document,
+            currentEntries: [],
+            loadAll: async () => [],
+            labels: {
+                title: 'Annotations', close: 'Close', current: 'Current', all: 'All', search: 'Search', byConversation: 'By conversation', timeline: 'Timeline',
+                empty: 'Empty', loading: 'Loading', error: 'Could not save annotation persistence', quote: 'Quote', comment: 'Comment', updated: 'Updated', reply: 'Reply', unanchored: 'Not located', delete: 'Delete',
+                bulkEdit: 'Bulk edit', bulkCancel: 'Cancel bulk edit', selectAll: 'Select all', deleteSelected: 'Delete selected', persistence: 'Persist annotations', persistenceTooltip: 'Keep annotations',
+            },
+            onSelect: vi.fn(),
+            onDelete: vi.fn(async () => true),
+            onDeleteMany: vi.fn(async () => true),
+            persistenceEnabled: false,
+            onPersistenceChange: vi.fn(async () => {
+                throw new Error('Settings write was not confirmed');
+            }),
+        });
+        await Promise.resolve();
+
+        const toggle = shadow.querySelector<HTMLInputElement>('[data-role="persistence-toggle"]')!;
+        toggle.click();
+
+        await vi.waitFor(() => {
+            expect(toggle.checked).toBe(false);
+            const error = shadow.querySelector<HTMLElement>('[data-role="persistence-error"]');
+            expect(error?.hidden).toBe(false);
+            expect(error?.textContent).toBe('Settings write was not confirmed');
+        });
+    });
+
     it('does not hide loaded annotations when persistence for new annotations is turned off', async () => {
         const host = document.createElement('div');
         document.body.appendChild(host);

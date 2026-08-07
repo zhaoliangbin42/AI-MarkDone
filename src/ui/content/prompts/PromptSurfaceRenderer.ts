@@ -3,7 +3,7 @@ import { checkIcon, gripHorizontalIcon, messageSquareTextIcon, pencilIcon, plusI
 import { installInputEventBoundary } from '../components/inputEventBoundary';
 import { t } from '../components/i18n';
 import { renderComposerSuggestionList } from '../components/ComposerSuggestionList';
-import type { PromptEditorDraft, PromptWorkflowMode } from './PromptWorkflow';
+import type { PromptDataState, PromptEditorDraft, PromptWorkflowMode } from './PromptWorkflow';
 
 export type PromptSurfaceView = {
     mode: Exclude<PromptWorkflowMode, null>;
@@ -13,6 +13,7 @@ export type PromptSurfaceView = {
     managerQuery: string;
     editPrompt: PromptRecord | null;
     statusMessage: string;
+    dataState?: PromptDataState;
 };
 
 export type PromptSurfaceAction =
@@ -24,6 +25,7 @@ export type PromptSurfaceAction =
     | { type: 'delete'; promptId: string }
     | { type: 'cancel-edit' }
     | { type: 'save'; draft: PromptEditorDraft }
+    | { type: 'retry-load' }
     | { type: 'select'; index: number }
     | { type: 'hover'; index: number }
     | { type: 'reorder-start'; promptId: string; event: PointerEvent }
@@ -169,6 +171,13 @@ export class PromptSurfaceRenderer {
               <button class="icon-btn icon-btn--danger" type="button" data-action="delete-prompt" data-prompt-id="${escapeHtml(prompt.id)}" aria-label="${escapeHtml(t('promptDelete'))}">${trashIcon}</button>
             </div>`;
         }).join('');
+        const loadFailed = view.dataState === 'error';
+        const status = view.statusMessage
+            ? `<div class="prompt-status${loadFailed ? ' prompt-status--error' : ''}">
+                <span>${escapeHtml(view.statusMessage)}</span>
+                ${loadFailed ? `<button class="secondary-btn" type="button" data-action="retry-prompts">${escapeHtml(t('retryAction'))}</button>` : ''}
+              </div>`
+            : '';
         this.root.className = 'prompt-popover prompt-popover--manager';
         this.root.innerHTML = `
           <div class="prompt-header">
@@ -179,8 +188,8 @@ export class PromptSurfaceRenderer {
             <input class="prompt-search" data-role="prompt-search" type="search" placeholder="${escapeHtml(t('promptSearchPlaceholder'))}" value="${escapeHtml(view.managerQuery)}" />
             <button class="primary-btn" type="button" data-action="add-prompt">${plusIcon}<span>${escapeHtml(t('promptAdd'))}</span></button>
           </div>
-          ${view.statusMessage ? `<div class="prompt-status">${escapeHtml(view.statusMessage)}</div>` : ''}
-          <div class="manager-list">${rows || `<div class="prompt-empty">${escapeHtml(t('promptNoPrompts'))}</div>`}</div>`;
+          ${status}
+          <div class="manager-list">${rows || (loadFailed ? '' : `<div class="prompt-empty">${escapeHtml(t('promptNoPrompts'))}</div>`)}</div>`;
         this.installInputBoundaries();
     }
 
@@ -265,6 +274,7 @@ export class PromptSurfaceRenderer {
         else if (action === 'add-prompt') this.options.onAction({ type: 'add' });
         else if (action === 'edit-prompt' && promptId) this.options.onAction({ type: 'edit', promptId });
         else if (action === 'delete-prompt' && promptId) this.options.onAction({ type: 'delete', promptId });
+        else if (action === 'retry-prompts') this.options.onAction({ type: 'retry-load' });
         else if (action === 'cancel-edit') this.options.onAction({ type: 'cancel-edit' });
         else if (action === 'save-prompt') this.options.onAction({ type: 'save', draft: this.readEditorDraft() });
         else if (action === 'insert-cursor-placeholder') this.insertCursorPlaceholder();

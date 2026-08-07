@@ -53,7 +53,6 @@ export function prepareExtensionTarget(target: ExtensionTarget): void {
         target === 'safari' ? extensionIconFiles : undefined,
     );
     copyLocales(target, resolve(process.cwd(), 'public/_locales'), join(distDir, '_locales'));
-    cpSync(resolve(process.cwd(), 'public/page-bridges'), join(distDir, 'page-bridges'), { recursive: true });
     cpSync(resolve(process.cwd(), 'public/export-renderer.html'), join(distDir, 'export-renderer.html'));
     cpSync(resolve(process.cwd(), 'public/reader.html'), join(distDir, 'reader.html'));
     mkdirSync(join(distDir, 'src/popup'), { recursive: true });

@@ -10,12 +10,11 @@ import type {
     CloudBackupProviderId,
     CloudBackupStatusPayload,
     ExtRequest,
-    ProtocolErrorCode,
 } from '../../../contracts/protocol';
 import { createRequestId, PROTOCOL_VERSION } from '../../../contracts/protocol';
-import { sendExtRequest } from '../rpc';
+import { requestRuntimeClient, type RuntimeClientResult } from './clientResult';
 
-export type Result<T> = { ok: true; data: T } | { ok: false; errorCode: ProtocolErrorCode; message: string };
+export type Result<T> = RuntimeClientResult<T>;
 
 export const CLOUD_BACKUP_RPC_TIMEOUT_MS = {
     quick: 8_000,
@@ -28,22 +27,11 @@ export const CLOUD_BACKUP_RPC_TIMEOUT_MS = {
     deleteSnapshot: 60_000,
 } as const;
 
-function toResult<T>(res: any): Result<T> {
-    if (!res || typeof res !== 'object') return { ok: false, errorCode: 'INTERNAL_ERROR', message: 'Invalid response' };
-    if (res.ok) return { ok: true, data: (res.data ?? null) as T };
-    return {
-        ok: false,
-        errorCode: (res.error?.code as ProtocolErrorCode | undefined) ?? 'INTERNAL_ERROR',
-        message: (res.error?.message as string | undefined) ?? 'Request failed',
-    };
-}
-
 async function call<T extends ExtRequest['type']>(type: T, payload?: any, timeoutMs: number = CLOUD_BACKUP_RPC_TIMEOUT_MS.quick): Promise<Result<any>> {
     const req: ExtRequest = payload === undefined
         ? ({ v: PROTOCOL_VERSION, id: createRequestId(), type } as any)
         : ({ v: PROTOCOL_VERSION, id: createRequestId(), type, payload } as any);
-    const res = await sendExtRequest(req as any, { timeoutMs });
-    return toResult(res as any);
+    return requestRuntimeClient(req, { timeoutMs });
 }
 
 export const cloudBackupClient = {

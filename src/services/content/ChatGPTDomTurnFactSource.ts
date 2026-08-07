@@ -1,88 +1,46 @@
 import type { SiteAdapter } from '../../drivers/content/adapters/base';
-import {
-    collectConversationTurnRefs,
-    type ConversationTurnRef,
-} from '../../drivers/content/conversation/collectConversationTurnRefs';
 import { listAssistantSegmentElements } from '../../drivers/content/conversation/assistantSegments';
 import {
     collectChatGPTDomRoundRefs,
+    getChatGPTPageIndex,
     invalidateChatGPTDomRoundSnapshot,
 } from '../../drivers/content/chatgpt/domConversationDiscovery';
+import type { ChatGPTPageIndex } from '../../drivers/content/chatgpt/ChatGPTPageIndex';
 import type {
     ChatGPTDomTurnFact,
     ChatGPTDomTurnObservation,
 } from '../../drivers/content/chatgpt/types';
-import { copyMarkdownFromTurn } from '../copy/copy-turn-markdown';
-import { copyMarkdownFromMessage } from '../copy/copy-markdown';
-
-function normalizeText(value: string | null | undefined): string {
-    return String(value ?? '')
-        .replace(/\s+\n/g, '\n')
-        .replace(/\n{3,}/g, '\n\n')
-        .replace(/[ \t]{2,}/g, ' ')
-        .trim();
-}
 
 function normalizeIdentity(value: string | null | undefined): string | null {
     const normalized = value?.trim();
     return normalized || null;
 }
 
-function resolveTurnForDomRound(
-    domRound: ReturnType<typeof collectChatGPTDomRoundRefs>[number],
-    turns: ReturnType<typeof collectConversationTurnRefs>,
-): ReturnType<typeof collectConversationTurnRefs>[number] | null {
-    const structural = turns.filter((turn) => (
-        turn.assistantRootEl === domRound.assistantRootEl
-        || turn.userRootEl === domRound.userRootEl
-        || turn.turnRootEl === domRound.assistantRootEl
-    ));
-    if (structural.length === 1) return structural[0]!;
-
-    const expected = [
-        domRound.identity.roundId,
-        domRound.identity.userMessageId,
-        domRound.identity.assistantMessageId,
-        domRound.identity.assistantTurnId,
-    ].map(normalizeIdentity).filter((value): value is string => value !== null);
-    if (expected.length === 0) return null;
-    const typed = turns.filter((turn) => {
-        const observed = [
-            turn.messageId,
-            turn.primaryMessageEl.getAttribute('data-message-id'),
-            turn.assistantRootEl?.getAttribute('data-turn-id'),
-            turn.userRootEl?.getAttribute('data-message-id'),
-            turn.turnRootEl.getAttribute('data-turn-id'),
-        ].map(normalizeIdentity).filter((value): value is string => value !== null);
-        return expected.some((value) => observed.includes(value));
-    });
-    return typed.length === 1 ? typed[0]! : null;
-}
-
 export class ChatGPTDomTurnFactSource {
-    constructor(private readonly adapter: SiteAdapter) {}
+    private readonly pageIndex: ChatGPTPageIndex;
 
-    read(options: { completedAssistantMessageId?: string | null } = {}): ChatGPTDomTurnObservation {
+    constructor(private readonly adapter: SiteAdapter) {
+        this.pageIndex = getChatGPTPageIndex(adapter);
+    }
+
+    read(options: {
+        completedAssistantMessageId?: string | null;
+        assistantMessageIds?: readonly string[];
+        observationRevision?: number;
+    } = {}): ChatGPTDomTurnObservation {
         invalidateChatGPTDomRoundSnapshot(this.adapter);
         const domRounds = collectChatGPTDomRoundRefs(this.adapter);
-        const turns = collectConversationTurnRefs(this.adapter);
+        const requestedAssistantIds = options.assistantMessageIds
+            ? new Set(options.assistantMessageIds.map((id) => id.trim()).filter(Boolean))
+            : null;
+        const selectedDomRounds = requestedAssistantIds && requestedAssistantIds.size > 0
+            ? domRounds.filter((round) => round.identity.assistantMessageId
+                && requestedAssistantIds.has(round.identity.assistantMessageId))
+            : domRounds;
         const rounds: ChatGPTDomTurnFact[] = domRounds.length > 0
-            ? domRounds.map((domRound, index) => {
-                const turn = resolveTurnForDomRound(domRound, turns);
-                const assistantElement = turn?.primaryMessageEl ?? domRound.assistantMessageEl;
+            ? selectedDomRounds.map((domRound) => {
                 const isStreaming = domRound.isStreaming
                     && domRound.identity.assistantMessageId !== options.completedAssistantMessageId;
-                const copied = !isStreaming && domRound.identity.assistantMessageId
-                    ? turn
-                        ? copyMarkdownFromTurn(this.adapter, turn.messageEls)
-                        : copyMarkdownFromMessage(this.adapter, assistantElement)
-                    : null;
-                const assistantContent = copied?.ok ? copied.markdown.trim() : '';
-                const userPrompt = normalizeText(
-                    domRound.userMessageEl.textContent
-                    || turn?.userPrompt
-                    || this.adapter.extractUserPrompt(assistantElement),
-                );
                 const hasTypedIdentity = Boolean(
                     (domRound.identity.roundId
                         || domRound.identity.assistantTurnId
@@ -91,52 +49,55 @@ export class ChatGPTDomTurnFactSource {
                 );
                 const status: ChatGPTDomTurnFact['status'] = isStreaming
                     ? 'streaming'
-                    : hasTypedIdentity && userPrompt && assistantContent
-                        ? 'complete'
+                    : hasTypedIdentity
+                        ? 'mounted'
                         : 'incomplete';
                 return {
-                    position: index + 1,
                     roundId: domRound.identity.roundId,
                     userMessageId: domRound.identity.userMessageId,
                     assistantMessageId: domRound.identity.assistantMessageId,
                     assistantTurnId: domRound.identity.assistantTurnId,
-                    userPrompt,
-                    assistantContent,
                     status,
                 };
             })
             : buildFallbackFacts(
                 this.adapter,
-                turns.length > 0 ? turns : buildLegacyTurns(this.adapter),
+                buildLegacyTurns(this.adapter).filter((turn) => (
+                    !requestedAssistantIds
+                    || requestedAssistantIds.size === 0
+                    || (turn.messageId && requestedAssistantIds.has(turn.messageId))
+                )),
                 options.completedAssistantMessageId,
             );
         return {
-            observedAt: Date.now(),
+            observedAt: options.observationRevision ?? this.pageIndex.getObservationRevision(),
             rounds,
         };
     }
 }
 
-function buildLegacyTurns(adapter: SiteAdapter): ConversationTurnRef[] {
-    return listAssistantSegmentElements(adapter).map((message, index) => {
+type HostTurnRef = Readonly<{
+    primaryMessageEl: HTMLElement;
+    messageId: string | null;
+    turnRootEl: HTMLElement;
+    assistantRootEl: HTMLElement;
+    userRootEl: HTMLElement | null;
+    isStreaming: boolean;
+}>;
+
+function buildLegacyTurns(adapter: SiteAdapter): HostTurnRef[] {
+    return listAssistantSegmentElements(adapter).map((message) => {
         const turnRoot = adapter.getTurnRootElement?.(message) ?? message;
         const userMessage = findPreviousUserMessage(message);
         const userRoot = userMessage?.closest(
             '[data-turn-id-container], [data-testid^="conversation-turn-"], article[data-turn], section[data-turn], [data-turn]',
         );
-        const extractedPrompt = adapter.extractUserPrompt(message);
         return {
-            index,
             primaryMessageEl: message,
-            messageEls: [message],
-            userPrompt: normalizeText(extractedPrompt || userMessage?.textContent || `Message ${index + 1}`),
             messageId: normalizeIdentity(adapter.getMessageId(message) ?? message.getAttribute('data-message-id')),
             turnRootEl: turnRoot,
             assistantRootEl: turnRoot,
             userRootEl: userRoot instanceof HTMLElement ? userRoot : userMessage,
-            jumpAnchorEl: userRoot instanceof HTMLElement ? userRoot : userMessage ?? turnRoot,
-            groupEls: [userRoot instanceof HTMLElement ? userRoot : userMessage, turnRoot]
-                .filter((node): node is HTMLElement => node instanceof HTMLElement),
             isStreaming: adapter.isStreamingMessage(message),
         };
     });
@@ -156,17 +117,16 @@ function findPreviousUserMessage(message: HTMLElement): HTMLElement | null {
 
 /**
  * The ChatGPT DOM has shipped transient layouts where the typed turn wrapper
- * is absent even though the assistant message node and its visible Markdown
- * are already mounted. `collectConversationTurnRefs` still gives us a typed
- * assistant identity in that window; expose it as partial evidence instead
- * of publishing an empty conversation and making Directory/Reader disappear.
+ * is absent even though an assistant message node is already mounted.
+ * The direct assistant anchor still gives us a typed identity in that window;
+ * expose only that lifecycle fact and leave body discovery to the Source Graph.
  */
 function buildFallbackFacts(
     adapter: SiteAdapter,
-    turns: ConversationTurnRef[],
+    turns: HostTurnRef[],
     completedAssistantMessageId?: string | null,
 ): ChatGPTDomTurnFact[] {
-    return turns.map((turn, index) => {
+    return turns.map((turn) => {
         const assistantElement = turn.primaryMessageEl;
         const assistantMessageId = normalizeIdentity(
             turn.messageId
@@ -188,24 +148,16 @@ function buildFallbackFacts(
                 || turn.userRootEl?.querySelector('[data-message-author-role="user"]')?.getAttribute('data-message-id'),
         );
         const isStreaming = turn.isStreaming && assistantMessageId !== completedAssistantMessageId;
-        const copied = !isStreaming && assistantMessageId
-            ? copyMarkdownFromTurn(adapter, turn.messageEls)
-            : null;
-        const assistantContent = copied?.ok ? copied.markdown.trim() : '';
-        const userPrompt = normalizeText(turn.userPrompt);
         const status: ChatGPTDomTurnFact['status'] = isStreaming
             ? 'streaming'
-            : assistantMessageId && userPrompt && assistantContent
-                ? 'complete'
+            : assistantMessageId
+                ? 'mounted'
                 : 'incomplete';
         return {
-            position: index + 1,
             roundId,
             userMessageId,
             assistantMessageId,
             assistantTurnId,
-            userPrompt,
-            assistantContent,
             status,
         };
     });

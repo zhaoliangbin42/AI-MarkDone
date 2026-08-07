@@ -43,6 +43,10 @@ These documents record bounded refactor execution and closeout evidence. They do
   - frozen provider-neutral ChatGPT semantic content port V1
 - `src/contracts/conversationMaterialization.ts`
   - content-runtime-only typed DOM materialization port V1
+- `src/contracts/semanticContent.ts`
+  - provider-neutral Semantic Content Module interface, immutable document model, source spans, selectors, and projections
+- `src/contracts/contentSurface.ts`
+  - platform-neutral rendered-surface evidence; DOM Range and host selectors stay in content drivers
 - `src/drivers/content/adapters/base.ts`
   - source-level site adapter contract
 - `docs/architecture/CURRENT_STATE.md`
@@ -56,6 +60,10 @@ These documents record bounded refactor execution and closeout evidence. They do
 ### Decisions
 
 - `docs/adr/README.md`
+- `docs/adr/ADR-0011-semantic-content-and-surface-projection.md`
+  - canonical content, thin source/surface adapters, provenance, and the sole surface-to-source projection seam
+- `docs/adr/ADR-0013-evidence-ledger-stable-turn-capture.md`
+  - page-scoped evidence ledger, stable turn capture, proof-driven completeness, and the narrow direct-read port
 
 ### Style
 

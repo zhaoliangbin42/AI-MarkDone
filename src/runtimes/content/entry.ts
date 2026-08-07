@@ -3,7 +3,10 @@ import { ThemeManager } from '../../drivers/content/theme/theme-manager';
 import { FormulaAssetHoverController } from '../../ui/content/controllers/FormulaAssetHoverController';
 import { consumePendingNavigation, scrollToBookmarkTargetWithRetry } from '../../drivers/content/bookmarks/navigation';
 import { browser } from '../../drivers/shared/browser';
-import { sendExtRequest } from '../../drivers/shared/rpc';
+import {
+    requestRuntimeClient,
+    RuntimeClientRequestError,
+} from '../../drivers/shared/clients/clientResult';
 import { PROTOCOL_VERSION, createRequestId, isExtRequest, type ExtRequest, type ExtResponse } from '../../contracts/protocol';
 import { logger } from '../../core/logger';
 import { ensurePageTokens } from '../../style/pageTokens';
@@ -15,7 +18,6 @@ import { resolveChatGPTInputEnhancement } from '../../core/settings/inputEnhance
 import { setLocale, t } from '../../ui/content/components/i18n';
 import { SendController } from '../../ui/content/sending/SendController';
 import { ChatGPTConversationContentRuntime } from './ChatGPTConversationContentRuntime';
-import { getChatGPTConversationIndex } from '../../drivers/content/chatgpt/ChatGPTConversationIndex';
 import { ChatGPTDirectoryController } from '../../ui/content/controllers/ChatGPTDirectoryController';
 import { ChatGPTSendPositionRestoreController } from '../../ui/content/controllers/ChatGPTSendPositionRestoreController';
 import { ChatGPTComposerEditingController } from '../../ui/content/controllers/ChatGPTComposerEditingController';
@@ -29,12 +31,16 @@ import { createPromptLibraryClient } from '../../drivers/content/prompts/promptL
 import { OverlaySession } from '../../ui/content/overlay/OverlaySession';
 import { ViewportResizeSuspendController } from '../../ui/content/controllers/ViewportResizeSuspendController';
 import { navigateChatGPTDirectoryTarget } from '../../ui/content/chatgptDirectory/navigation';
+import { ConversationNavigationCoordinator } from '../../services/content/ConversationNavigationCoordinator';
+import { ConversationPendingNavigationRestorer } from '../../services/content/ConversationPendingNavigationRestorer';
 import {
     collectFreshReaderContent,
     isReaderContentSourceRevisionCurrent,
 } from '../../services/reader/readerContentSource';
-import { ChatGPTDomTurnFactSource } from '../../services/content/ChatGPTDomTurnFactSource';
 import { setCanonicalMarkdownCopyFormulaFormat } from '../../services/copy/canonicalMarkdownCopy';
+import {
+    createCanonicalFormulaResolver,
+} from '../../services/semantic-content/canonicalFormula';
 import { buildReaderSessionSnapshot } from '../../services/reader/readerSessionSnapshot';
 import { sendText } from '../../services/sending/sendService';
 import { readComposer, writeComposer } from '../../drivers/content/sending/composerPort';
@@ -44,6 +50,7 @@ import {
     normalizeChatGPTInputEnhancementSettings,
     normalizeGlobalFontSizePx,
     normalizeThemeAccentColor,
+    loadAndNormalize,
 } from '../../core/settings/migrations';
 import type { UserThemeOverrides } from '../../style/tokens';
 import { areAppearanceSnapshotsEqual, createAppearanceSnapshot, type AppearanceSnapshot } from '../../style/appearance';
@@ -101,6 +108,7 @@ if (adapter) {
     const contentAdapter = adapter;
     const themeManager = new ThemeManager();
     const mathClick = new FormulaAssetHoverController({
+        parserAdapter: contentAdapter.getMarkdownParserAdapter() ?? undefined,
         runFormulaAssetAction: createLazyRunFormulaAssetAction(),
     });
     const readerPanel = createLazyReaderPanel();
@@ -109,22 +117,53 @@ if (adapter) {
     const copyMessagePng = createLazyCopyMessagePng();
     const sendController = new SendController();
     const settingsClient = new SettingsClient();
-    const bookmarksController = new BookmarksPanelController(adapter);
     const chatGptConversationContentRuntime = adapter.getPlatformId() === 'chatgpt'
-        ? new ChatGPTConversationContentRuntime(adapter, {
-            allowActiveAcquisition: true,
-            domFacts: new ChatGPTDomTurnFactSource(adapter),
-        })
+        ? new ChatGPTConversationContentRuntime(adapter)
         : null;
     const conversationContentSource = adapter.getPlatformId() === 'chatgpt'
         ? chatGptConversationContentRuntime?.source ?? null
         : null;
-    let chatGptConversationIndexBound = false;
-    const bindChatGptConversationIndex = () => {
-        if (!conversationContentSource || chatGptConversationIndexBound) return;
-        getChatGPTConversationIndex(adapter).bindConversationSource(conversationContentSource);
-        chatGptConversationIndexBound = true;
-    };
+    // ChatGPT has one production content seam.  The passive graph-backed
+    // source owns identity, prompt, Markdown and canonical position; the
+    // materialization port owns only the current DOM anchor.  The V2 host
+    // discovery implementation remains isolated inside the runtime for
+    // compatibility tests, but must not become a second consumer source.
+    const conversationMaterialization = adapter.getPlatformId() === 'chatgpt'
+        ? chatGptConversationContentRuntime?.materialization ?? null
+        : null;
+    const conversationNavigation = adapter.getPlatformId() === 'chatgpt' && conversationContentSource
+        ? new ConversationNavigationCoordinator({
+            source: conversationContentSource,
+            execute: (target, options) => navigateChatGPTDirectoryTarget(adapter, target, {
+                timeoutMs: options.timeoutMs,
+                signal: options.signal,
+                alignmentTimeoutMs: Math.min(options.timeoutMs ?? 15000, 1500),
+            }),
+        })
+        : null;
+    const pendingNavigationRestorer = conversationNavigation
+        ? new ConversationPendingNavigationRestorer({
+            navigation: conversationNavigation,
+            source: conversationContentSource!,
+        })
+        : null;
+    if (chatGptConversationContentRuntime && typeof chatGptConversationContentRuntime.setNavigationPort === 'function') {
+        chatGptConversationContentRuntime.setNavigationPort(conversationNavigation);
+    }
+    const bookmarksController = new BookmarksPanelController(adapter, {
+        navigation: conversationNavigation,
+        conversationContentSource,
+    });
+    if (conversationContentSource && conversationMaterialization) {
+        const parser = contentAdapter.getMarkdownParserAdapter();
+        if (parser) {
+            mathClick.setCanonicalFormulaResolver?.(createCanonicalFormulaResolver(
+                conversationContentSource,
+                conversationMaterialization,
+                parser,
+            ));
+        }
+    }
     // The directory is a host surface, not a consequence of content
     // acquisition. Create and mount it even while the semantic source is
     // still unavailable so a transient discovery failure cannot remove the
@@ -132,7 +171,8 @@ if (adapter) {
     const chatGptDirectory = adapter.getPlatformId() === 'chatgpt'
         ? new ChatGPTDirectoryController(adapter, bookmarksController, {
             contentSource: conversationContentSource,
-            materialization: chatGptConversationContentRuntime?.materialization ?? null,
+            materialization: conversationMaterialization,
+            navigation: conversationNavigation,
         })
         : null;
     const chatGptOfficialNavigationVisibility = adapter.getPlatformId() === 'chatgpt'
@@ -171,12 +211,19 @@ if (adapter) {
     });
     const chatGptMessageStepper = adapter.getPlatformId() === 'chatgpt'
         ? new ChatGPTMessageStepperController(adapter, {
+            contentSource: conversationContentSource,
+            materialization: conversationMaterialization,
+            navigation: conversationNavigation,
             onOpenBookmarksPanel: () => bookmarksPanel.toggle(),
             onOpenDetachedReader: () => openDetachedReaderFromStepper(),
             onOpenPrompts: (anchor) => chatGptPromptAutocomplete?.openManager(anchor),
-            onTogglePageBookmark: async () => {
-                const url = window.location.href.split('#')[0] || window.location.href;
-                const alreadySaved = bookmarksController.isCurrentPageBookmarked(url);
+            onTogglePageBookmark: async (url) => {
+                const status = await bookmarksController.readPageBookmarkStatus(url);
+                if (!status.ok) {
+                    bookmarksController.setPanelStatus(status.message);
+                    return { ok: false as const, message: status.message };
+                }
+                const alreadySaved = status.data.saved;
                 let title = resolveCurrentPageBookmarkTitle(url);
                 let folderPath = bookmarksController.getDefaultFolderPath();
 
@@ -189,32 +236,44 @@ if (adapter) {
                         mode: 'create',
                     });
                     if (!dialogRes.ok) {
-                        return { saved: bookmarksController.isCurrentPageBookmarked(url) };
+                        return { ok: false as const, cancelled: true as const };
                     }
                     title = dialogRes.title;
                     folderPath = dialogRes.folderPath;
                 }
 
-                const res = await bookmarksController.togglePageBookmarkForCurrentPage({
+                if ((window.location.href.split('#')[0] || window.location.href) !== url) {
+                    return { ok: false as const, message: t('contentNotFound') };
+                }
+
+                const res = await bookmarksController.setPageBookmarkSaved({
                     url,
                     title,
                     platform: 'ChatGPT',
                     folderPath,
-                });
+                }, !alreadySaved);
                 if (!res.ok) {
                     bookmarksController.setPanelStatus(res.message);
-                    return { saved: bookmarksController.isCurrentPageBookmarked(url) };
+                    return { ok: false as const, message: res.message };
                 }
-                return res.data;
+                return { ok: true as const, saved: res.data.saved };
             },
-            onRefreshPageBookmarkState: async (url) => bookmarksController.refreshPageBookmarkStatus(url),
+            onRefreshPageBookmarkState: async (url) => {
+                const status = await bookmarksController.readPageBookmarkStatus(url);
+                return status.ok
+                    ? { ok: true as const, saved: status.data.saved }
+                    : { ok: false as const, message: status.message };
+            },
         })
         : null;
     const chatGptPageWidth = adapter.getPlatformId() === 'chatgpt'
         ? new ChatGPTPageWidthController()
         : null;
     const chatGptAtomicSelection = adapter.getPlatformId() === 'chatgpt'
-        ? new ChatGPTAtomicSelectionController(adapter)
+        ? new ChatGPTAtomicSelectionController(adapter, {
+            contentSource: conversationContentSource,
+            materialization: conversationMaterialization,
+        })
         : null;
     const messageToolbars = new MessageToolbarOrchestrator(adapter, {
         readerPanel,
@@ -224,17 +283,25 @@ if (adapter) {
         bookmarkSaveDialog,
         copyMessagePng,
         conversationContentSource,
-        conversationMaterialization: chatGptConversationContentRuntime?.materialization ?? null,
+        conversationMaterialization,
+        conversationNavigation,
     });
     const chatGptConversationReaderBinding = conversationContentSource
         ? new ChatGPTConversationReaderBinding({
             adapter,
             source: conversationContentSource,
-            materialization: chatGptConversationContentRuntime?.materialization ?? null,
+            materialization: conversationMaterialization,
             readerPanel,
             pageUrl: () => window.location.href.split('#')[0] || window.location.href,
             prepareItems: (items) => {
                 const url = window.location.href.split('#')[0] || window.location.href;
+                const turns = items
+                    .map((item) => ({
+                        position: Number(item.meta?.position ?? 0),
+                        assistantMessageId: String(item.meta?.assistantMessageId ?? item.meta?.messageId ?? '').trim(),
+                    }))
+                    .filter((turn) => turn.position > 0 && turn.assistantMessageId.length > 0);
+                const bookmarkedPositions = bookmarksController.resolveConversationBookmarkPositions(url, turns);
                 for (const item of items) {
                     const position = Number(item.meta?.position ?? 0);
                     item.meta = {
@@ -242,7 +309,7 @@ if (adapter) {
                         url,
                         bookmarkable: position > 0,
                         bookmarked: position > 0
-                            ? bookmarksController.isPositionBookmarked(url, position)
+                            ? bookmarkedPositions.has(position)
                             : false,
                     };
                 }
@@ -350,7 +417,7 @@ if (adapter) {
 
         const itemsResult = await collectFreshReaderContent(contentAdapter, null, {
             conversationContentSource,
-            conversationMaterialization: chatGptConversationContentRuntime?.materialization ?? null,
+            conversationMaterialization,
             pageUrl: window.location.href,
         });
         const snapshot = await buildReaderSessionSnapshot({
@@ -366,7 +433,7 @@ if (adapter) {
         )) {
             return;
         }
-        const response = await sendExtRequest({
+        const response = await requestRuntimeClient({
             v: PROTOCOL_VERSION,
             id: createRequestId(),
             type: 'readerSession:create',
@@ -374,7 +441,10 @@ if (adapter) {
         }, { timeoutMs: 12000 });
         if (!response.ok) {
             // Keep this non-blocking; the detached page is an auxiliary speed surface.
-            logger.warn('Detached reader open failed', { error: response.error.message });
+            logger.warn('Detached reader open failed', {
+                errorCode: response.errorCode,
+                error: response.message,
+            });
             return;
         }
         await markDetachedReaderNoticeConfirmed();
@@ -393,7 +463,6 @@ if (adapter) {
     const initChatGptIfNeeded = () => {
         if (adapter.getPlatformId() !== 'chatgpt') return;
         if (conversationContentSource) {
-            bindChatGptConversationIndex();
             chatGptConversationReaderBinding?.init();
             viewportResizeSuspend?.init();
             chatGptSendPositionRestore?.init();
@@ -487,6 +556,8 @@ if (adapter) {
         runtimeEnabled = false;
         writeDebugState({ RuntimeEnabled: runtimeEnabled });
         messageToolbars.dispose();
+        conversationNavigation?.cancelActive();
+        pendingNavigationRestorer?.dispose();
         chatGptConversationReaderBinding?.dispose();
         chatGptDirectory?.dispose();
         chatGptOfficialNavigationVisibility?.dispose();
@@ -499,7 +570,6 @@ if (adapter) {
         chatGptPageWidth?.dispose();
         setAtomicSelectionEnabled(false);
         contentAdapter.dispose?.();
-        chatGptConversationIndexBound = false;
     };
 
     // Apply initial UI locale immediately (otherwise switching to a non-auto locale won't take effect until a change event).
@@ -509,10 +579,40 @@ if (adapter) {
     if (cachedSettings?.reader) {
         readerPanel.setReaderSettings(cachedSettings.reader);
     }
+    const initialReaderSettings = cachedSettings?.reader ?? DEFAULT_SETTINGS.reader;
+    let confirmedReaderSettings = cachedSettings?.reader ?? null;
+    let readerSettingsWriteQueue: Promise<void> = Promise.resolve();
     readerPanel.setReaderSettingsController({
-        onChange: async (patch) => {
-            const current = settingsClient.getCached()?.reader ?? DEFAULT_SETTINGS.reader;
-            await settingsClient.setCategory('reader', { ...current, ...patch });
+        onChange: (patch) => {
+            const write = readerSettingsWriteQueue.then(async () => {
+                if (!confirmedReaderSettings) {
+                    const canonical = await settingsClient.getCategoryResult('reader');
+                    if (!canonical.ok) {
+                        readerPanel.setReaderSettings(initialReaderSettings);
+                        throw new RuntimeClientRequestError(canonical.failure);
+                    }
+                    if (typeof canonical.data !== 'object' || canonical.data === null || Array.isArray(canonical.data)) {
+                        readerPanel.setReaderSettings(initialReaderSettings);
+                        throw new RuntimeClientRequestError({
+                            kind: 'transport',
+                            code: 'INVALID_RESPONSE',
+                            message: 'Invalid Reader settings response',
+                            delivery: 'unknown',
+                        });
+                    }
+                    confirmedReaderSettings = loadAndNormalize({ version: 4, reader: canonical.data }).reader;
+                }
+                const next = { ...confirmedReaderSettings, ...patch };
+                const result = await settingsClient.setCategoryResult('reader', next);
+                if (!result.ok) {
+                    readerPanel.setReaderSettings(confirmedReaderSettings);
+                    throw new RuntimeClientRequestError(result.failure);
+                }
+                confirmedReaderSettings = next;
+                readerPanel.setReaderSettings(confirmedReaderSettings);
+            });
+            readerSettingsWriteQueue = write.catch(() => undefined);
+            return write;
         },
     });
     readerPanel.setPromptManagerController({
@@ -541,6 +641,7 @@ if (adapter) {
         syncChatGptBehaviorSettings(snap.settings.chatgptBehavior);
         if (!nextRuntimeEnabled) disableRuntime();
         syncFormulaSettings(snap.settings.formula);
+        confirmedReaderSettings = snap.settings.reader;
         readerPanel.setReaderSettings(snap.settings.reader);
         saveMessagesDialog.setExportSettings(snap.settings.export ?? DEFAULT_SETTINGS.export);
         messageToolbars.setExportSettings(snap.settings.export ?? DEFAULT_SETTINGS.export);
@@ -561,7 +662,7 @@ if (adapter) {
             if (request.type === 'readerSession:refresh') {
                 const result = await collectFreshReaderContent(adapter, null, {
                     conversationContentSource,
-                    conversationMaterialization: chatGptConversationContentRuntime?.materialization ?? null,
+                    conversationMaterialization,
                     pageUrl: window.location.href,
                 });
                 const snapshot = await buildReaderSessionSnapshot({
@@ -642,10 +743,14 @@ if (adapter) {
             if (request.type === 'readerSession:locate') {
                 const position = Math.max(1, Math.round(Number(request.payload.position ?? 0)));
                 const result = adapter.getPlatformId() === 'chatgpt'
-                    ? await navigateChatGPTDirectoryTarget(adapter, {
-                        position,
-                        messageId: request.payload.messageId ?? null,
-                    }, { timeoutMs: 2500, intervalMs: 200 })
+                    ? conversationNavigation
+                        ? await conversationNavigation.navigate({
+                            position,
+                            messageId: request.payload.messageId ?? null,
+                            assistantMessageId: request.payload.messageId ?? null,
+                            source: 'reader',
+                        }, { timeoutMs: 15000, align: 'start' })
+                        : { ok: false as const, reason: 'source-unavailable' as const }
                     : await scrollToBookmarkTargetWithRetry(adapter, {
                         position,
                         messageId: request.payload.messageId ?? null,
@@ -697,7 +802,7 @@ if (adapter) {
                 }
                 const result = await collectFreshReaderContent(adapter, null, {
                     conversationContentSource,
-                    conversationMaterialization: chatGptConversationContentRuntime?.materialization ?? null,
+                    conversationMaterialization,
                     pageUrl: window.location.href,
                 });
                 if (!result.annotationDocument || result.annotationDocument.conversationId !== msg.payload.document.conversationId) {
@@ -744,20 +849,20 @@ if (adapter) {
         initChatGptIfNeeded();
     }
 
-    if (adapter.getPlatformId() === 'chatgpt') {
-        const url = window.location.href.split('#')[0] || window.location.href;
-        void bookmarksController.refreshPageBookmarkStatus(url).then((saved) => {
-            chatGptMessageStepper?.setPageBookmarked(saved);
-        });
-    }
-
-    // Best-effort navigation: handle "Go To" from bookmarks panel across SPA transitions.
-    const pending = consumePendingNavigation();
-    if (pending) {
-        const pendingNavigation = adapter.getPlatformId() === 'chatgpt'
-            ? navigateChatGPTDirectoryTarget(adapter, pending, { timeoutMs: 8000, intervalMs: 200 })
-            : scrollToBookmarkTargetWithRetry(adapter, pending, { timeoutMs: 8000, intervalMs: 200 });
-        void pendingNavigation;
+    // ChatGPT may keep this runtime alive across a SPA route transition. Keep
+    // the target until the shared canonical navigation attempt completes.
+    if (pendingNavigationRestorer) {
+        pendingNavigationRestorer.start();
+    } else {
+        // Best-effort navigation for non-ChatGPT platforms keeps the legacy
+        // one-shot behavior and storage contract.
+        const pending = consumePendingNavigation();
+        if (pending) {
+            const pendingNavigation = adapter.getPlatformId() === 'chatgpt'
+                ? Promise.resolve({ ok: false as const, reason: 'source-unavailable' as const })
+                : scrollToBookmarkTargetWithRetry(adapter, pending, { timeoutMs: 8000, intervalMs: 200 });
+            void pendingNavigation;
+        }
     }
 
     if (adapter.getPlatformId() === 'chatgpt') {

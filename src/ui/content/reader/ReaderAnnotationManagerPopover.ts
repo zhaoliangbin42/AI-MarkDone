@@ -95,6 +95,7 @@ function getCss(): string {
 .reader-annotation-manager__persistence input:checked + .reader-settings-toggle__track { background: var(--aimd-interactive-primary); }
 .reader-annotation-manager__persistence input:checked + .reader-settings-toggle__track::after { transform: translateX(calc(var(--_toggle-width) - var(--_toggle-knob) - (var(--_toggle-inset) * 2))); }
 .reader-annotation-manager__persistence input:focus-visible + .reader-settings-toggle__track { box-shadow: var(--aimd-shadow-focus); }
+.reader-annotation-manager__persistence-error { flex: 1 0 100%; color: var(--aimd-color-danger); font-size: var(--aimd-text-sm); line-height: var(--aimd-leading-normal); text-align: right; }
 .reader-annotation-manager__tabs, .reader-annotation-manager__modes { max-width: 100%; box-sizing: border-box; display: inline-flex; gap: var(--aimd-space-1); padding: var(--aimd-space-1); border: 1px solid var(--aimd-border-subtle); border-radius: var(--aimd-radius-xl); background: var(--aimd-bg-secondary); width: max-content; }
 .reader-annotation-manager__tab, .reader-annotation-manager__mode { all: unset; box-sizing: border-box; cursor: pointer; min-height: var(--aimd-size-control-compact); padding: 0 var(--aimd-space-3); border-radius: var(--aimd-radius-lg); color: var(--aimd-text-secondary); font-size: var(--aimd-text-sm); white-space: nowrap; transition: background var(--aimd-duration-fast) var(--aimd-ease-in-out), color var(--aimd-duration-fast) var(--aimd-ease-in-out); }
 .reader-annotation-manager__tab:hover, .reader-annotation-manager__mode:hover { background: var(--aimd-interactive-hover); color: var(--aimd-text-primary); }
@@ -212,16 +213,28 @@ export class ReaderAnnotationManagerPopover {
         persistenceInput.dataset.role = 'persistence-toggle';
         persistenceInput.checked = this.persistenceEnabled;
         persistenceInput.setAttribute('aria-label', params.labels.persistence);
+        const persistenceError = document.createElement('div');
+        persistenceError.className = 'reader-annotation-manager__persistence-error';
+        persistenceError.dataset.role = 'persistence-error';
+        persistenceError.setAttribute('role', 'alert');
+        persistenceError.setAttribute('aria-live', 'polite');
+        persistenceError.hidden = true;
         persistenceInput.addEventListener('change', async () => {
             const checked = persistenceInput.checked;
             persistenceInput.disabled = true;
+            persistenceError.textContent = '';
+            persistenceError.hidden = true;
             try {
                 await params.onPersistenceChange(checked);
                 this.persistenceEnabled = checked;
                 this.params = this.params ? { ...this.params, persistenceEnabled: checked } : this.params;
                 this.render();
-            } catch {
+            } catch (error) {
                 persistenceInput.checked = this.persistenceEnabled;
+                persistenceError.textContent = error instanceof Error && error.message
+                    ? error.message
+                    : params.labels.error;
+                persistenceError.hidden = false;
             } finally {
                 persistenceInput.disabled = false;
             }
@@ -230,7 +243,7 @@ export class ReaderAnnotationManagerPopover {
         persistenceTrack.className = 'reader-settings-toggle__track';
         persistenceControl.append(persistenceInput, persistenceTrack);
         persistenceLabel.append(persistenceCopy, persistenceHelp, persistenceControl);
-        primaryRow.append(persistenceLabel);
+        primaryRow.append(persistenceLabel, persistenceError);
         toolbar.append(primaryRow, search, actionsRow);
         body.appendChild(toolbar);
         const items = document.createElement('div');

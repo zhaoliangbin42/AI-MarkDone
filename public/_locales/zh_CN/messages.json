@@ -1425,6 +1425,38 @@
         "message": "暂无文件夹",
         "description": "Message for noFoldersYet"
     },
+    "runtimeConnectionUnavailableTitle": {
+        "message": "AI-MarkDone 已断开连接",
+        "description": "Title shown when a content surface cannot reach the extension runtime"
+    },
+    "runtimeConnectionUnavailableMessage": {
+        "message": "AI-MarkDone 暂时无法连接扩展运行时。请重试；若问题持续，请刷新当前页面。",
+        "description": "Recovery guidance for a temporary extension runtime connection failure"
+    },
+    "runtimeContextInvalidatedMessage": {
+        "message": "AI-MarkDone 已更新或重新加载。请刷新当前页面以重新连接。",
+        "description": "Recovery guidance when the page content script belongs to an old extension context"
+    },
+    "runtimeRequestFailedTitle": {
+        "message": "AI-MarkDone 无法加载这部分数据",
+        "description": "Title shown when a valid runtime request returns an application error"
+    },
+    "refreshPageAction": {
+        "message": "刷新页面",
+        "description": "Action that refreshes the current page to reconnect the content script"
+    },
+    "retryAction": {
+        "message": "重试",
+        "description": "Action that retries a failed read operation"
+    },
+    "settingsLoadingTitle": {
+        "message": "正在加载设置…",
+        "description": "Title shown while canonical settings are loading"
+    },
+    "settingsLoadingMessage": {
+        "message": "正在等待扩展运行时响应。",
+        "description": "Message shown while canonical settings are loading"
+    },
     "createFirstFolder": {
         "message": "创建第一个文件夹来整理书签",
         "description": "Message for createFirstFolder"

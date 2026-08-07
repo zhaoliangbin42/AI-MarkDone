@@ -102,11 +102,25 @@ The fixture must mount the production annotation manager and token injection. It
 The discovery refactor has a dedicated contract and lifecycle layer in addition to the existing driver and consumer suites:
 
 - `tests/unit/contracts/conversationContent.test.ts` locks document identity, deep immutability, contiguous typed turns, coverage, and content-token semantics.
-- Repository scenario tests cover one reconcile path, epoch cancellation, single-flight acquisition, coalescing, last-good stale recovery, strict-prefix partial growth, virtualized-window regression, branch replacement, and explicit unavailable states.
+- Repository scenario tests cover one reconcile path, epoch cancellation, single-flight acquisition, coalescing, proof-driven partial convergence, sealed-turn direct reads, virtualized-window regression, branch replacement, epoch fencing, and explicit unavailable states. Ledger property scenarios also cover arbitrary event order, duplicate idempotency, first-write sealing, conflict visibility, and gap closure.
 - Adapter/bridge tests cover passive cache, partial-to-complete active promotion, bounded same-origin GET policy, malformed/partial payloads, ambiguous identity fail-closed behavior, and Chrome object versus Firefox JSON transport parity.
-- The first-turn lifecycle fixture follows `/` → temporary `/c/WEB:*` → canonical `/c/:id`, proves resource completion is bound to the generation request's start identity even while a stop control lags, and confirms PageIndex ignores unrelated host churn without observing localized `aria-label` or `characterData` changes.
+- The first-turn lifecycle fixture follows `/` → temporary `/c/WEB:*` → canonical `/c/:id`, proves resource completion is bound to the generation request's start identity even while a stop control lags, and confirms PageIndex ignores unrelated host churn/localized `aria-label` changes while forwarding only assistant-scoped `characterData`/child-list body updates.
+- Coordinator coverage proves a retryable unavailable first reconcile can recover a passive graph whose one-time capture event was missed, using only the finite `150ms`/`500ms`/`1.5s` bootstrap window. A partial `ready` snapshot does not close proof recovery; the window stops only on a real document/branch/lifecycle outcome or exhausted attempts.
+- Bridge coverage includes a partial graph whose first unfinished round is omitted, and asserts the surviving provider positions are renumbered before Content Port validation.
 - Materialization and consumer-boundary tests prove DOM remounts do not change semantic tokens and ChatGPT consumers do not add DOM fallback discovery.
 - Installed Chrome MV3 and Firefox MV2 tests remain separate acceptance evidence; unit/integration green is not a substitute for real host verification.
+
+### 3.0.1 Semantic content and rendered-surface contract
+
+Content fidelity and page interaction are tested as separate layers:
+
+- Source/Host Adapter tests lock provider-dialect normalization, typed per-turn evidence, observe-then-snapshot behavior, stable compiler capture, source/host independence, and the rule that a later observation cannot overwrite a sealed digest. The generic compiler corpus perturbs wrappers and covers paragraph, list, table, code, quote, link, image, and formula semantics with fail-closed unsupported input.
+- Semantic Module tests lock immutable AI-MarkDone-owned nodes, parser isolation, UTF-16 half-open spans, complete cache identity, Reader structure projection, duplicate-quote disambiguation, and rejection of unproven offsets instead of estimated mapping.
+- Content Surface Adapter tests use wrapper/remount variants to prove native `Range` and host selectors remain driver-local while typed identity, three revision tokens, and TextQuote evidence remain stable and platform-neutral.
+- Surface Projection tests are the only source/surface join tests. They cover current content/materialization validation, unique target resolution, source-quality rejection, and canonical fragment recovery. Real trigger tests separately prove a re-captured Range and surface token invalidate remounted interaction state.
+- Consumer tests prove Reader structure, ordinary/structured page selection, formula click/assets, toolbar copy, bookmark, PNG, and Save Messages either consume the shared result or reject degraded source; navigation remains on Content + Materialization and does not depend on body parsing.
+- Static governance tests reject DOM/browser/platform dependencies in the Semantic Module, parser AST types in public contracts, DOM handles in surface evidence, and duplicate source/surface joins.
+- Installed Chrome MV3 and Firefox MV2 acceptance remains a separate host-level gate for clipboard permissions, event ordering, virtualization, and real ChatGPT markup.
 
 测试按目的和 runtime boundary 组织：
 

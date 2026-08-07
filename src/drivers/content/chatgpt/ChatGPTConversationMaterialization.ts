@@ -7,6 +7,7 @@ import type {
     ConversationTargetV1,
     MaterializationSnapshotV1,
 } from '../../../contracts/conversationMaterialization';
+import type { ConversationNavigationPortV1 } from '../../../contracts/conversationNavigation';
 import type { SiteAdapter } from '../adapters/base';
 import {
     materializeChatGPTConversationTarget,
@@ -26,6 +27,7 @@ export class ChatGPTConversationMaterialization implements ConversationMateriali
     private readonly listeners = new Set<(snapshot: MaterializationSnapshotV1) => void>();
     private readonly unsubscribeContent: () => void;
     private readonly unsubscribeIndex: () => void;
+    private navigation: ConversationNavigationPortV1 | null = null;
     private snapshot: MaterializationSnapshotV1 = {
         materializationToken: 'chatgpt-materialization:empty',
         contentToken: null,
@@ -41,6 +43,10 @@ export class ChatGPTConversationMaterialization implements ConversationMateriali
 
     read(): MaterializationSnapshotV1 {
         return this.snapshot;
+    }
+
+    setNavigationPort(navigation: ConversationNavigationPortV1 | null): void {
+        this.navigation = navigation;
     }
 
     subscribe(listener: (snapshot: MaterializationSnapshotV1) => void): () => void {
@@ -75,6 +81,21 @@ export class ChatGPTConversationMaterialization implements ConversationMateriali
             && (target.userMessageId === undefined || turn.identity.userMessageId === target.userMessageId)
         ));
         if (!semantic) return 'unavailable';
+        if (this.navigation) {
+            const result = await this.navigation.navigate({
+                documentKey: target.documentKey,
+                position: semantic.ordinal,
+                roundId: semantic.identity.turnId,
+                userMessageId: semantic.identity.userMessageId,
+                assistantMessageId: semantic.identity.assistantMessageId,
+                source: 'reader',
+            }, { signal, timeoutMs: 15_000, align: 'start' });
+            if (result.ok) {
+                this.rebuild();
+                return 'located';
+            }
+            return result.reason === 'cancelled' ? 'cancelled' : 'unavailable';
+        }
         const mounted = this.snapshot.entries.find((entry) => (
             entry.target.turnId === target.turnId
             && entry.target.assistantMessageId === target.assistantMessageId

@@ -1,11 +1,30 @@
 import { createKatexMarkdownParserAdapter } from './katex';
 import type { MarkdownParserAdapter } from './MarkdownParserAdapter';
+import {
+    extractAuthoritativeLatexSource,
+    normalizeExtractedLatexSource,
+} from '../../../../core/latex/extractLatexSource';
 
 type ChatGPTMarkdownParserAdapter = MarkdownParserAdapter & {
     extractCodeBlockText?: (blockElem: HTMLElement) => string | null;
 };
 
 const baseAdapter = createKatexMarkdownParserAdapter('ChatGPT', 'ChatGPTParserAdapter');
+
+function extractChatGPTFormulaSource(mathNode: HTMLElement): { latex: string; isBlock: boolean } | null {
+    const sourceCarrier = mathNode.closest<HTMLElement>('[data-math-source]');
+    const raw = sourceCarrier?.getAttribute('data-math-source')?.trim()
+        || extractAuthoritativeLatexSource(mathNode)?.trim()
+        || '';
+    if (!raw) return null;
+    const latex = normalizeExtractedLatexSource(raw);
+    if (!latex || latex.length > 10_000 || latex.includes('<script>')) return null;
+    return {
+        latex,
+        isBlock: baseAdapter.isBlockMath(mathNode)
+            || sourceCarrier?.classList.contains('katex-display') === true,
+    };
+}
 
 function serializeCodeViewerNode(node: Node): string {
     if (node.nodeType === Node.TEXT_NODE) {
@@ -62,6 +81,12 @@ function extractHeaderLanguage(blockElem: HTMLElement): string {
 
 export const chatgptMarkdownParserAdapter: ChatGPTMarkdownParserAdapter = {
     ...baseAdapter,
+    extractLatex(mathNode: HTMLElement) {
+        // Current ChatGPT exposes authoritative TeX on a stable semantic
+        // wrapper rather than on KaTeX's generated descendants. This is a
+        // host adaptation detail and must not leak into the shared extractor.
+        return extractChatGPTFormulaSource(mathNode);
+    },
     isCodeBlockNode(node: Element): boolean {
         const element = node as HTMLElement;
         if (baseAdapter.isCodeBlockNode(node)) return true;

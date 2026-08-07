@@ -133,9 +133,15 @@ export class SaveMessagesDialog {
         if (
             adapter.getPlatformId() === 'chatgpt'
             && options?.conversationContentSource
-            && (content.status !== 'ready' || content.coverage !== 'complete')
+            && (
+                content.status !== 'ready'
+                || content.coverage !== 'complete'
+                || content.sourceQuality === 'mixed'
+                || content.sourceQuality === 'reconstructed'
+            )
         ) {
-            // Full export must never present a partial semantic snapshot as complete.
+            // Full export must never present a partial or reconstructed
+            // semantic snapshot as canonical Markdown.
             this.adapter = null;
             this.focusLifecycle.restore(document);
             return false;

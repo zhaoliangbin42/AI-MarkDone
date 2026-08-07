@@ -58,8 +58,10 @@ import {
 import type { ReaderAnnotationDocument, ReaderAnnotationListEntry, ReaderAnnotationTarget } from '../../../contracts/readerAnnotations';
 import { readerAnnotationDocumentKey } from '../../../contracts/readerAnnotations';
 import { readerAnnotationsClient, subscribeReaderAnnotationChanges } from '../../../drivers/shared/clients/readerAnnotationsClient';
+import { RuntimeClientRequestError } from '../../../drivers/shared/clients/clientResult';
 import { copyTextToClipboard } from '../../../drivers/content/clipboard/clipboard';
 import { createIcon } from '../components/Icon';
+import { getRuntimeFailurePresentation } from '../components/runtimeFailurePresentation';
 import { subscribeLocaleChange, t } from '../components/i18n';
 import { ensureBackdropElement, ensureStableElementFromHtml } from '../components/stableSurface';
 import { SurfaceFocusLifecycle } from '../components/surfaceFocusLifecycle';
@@ -751,7 +753,8 @@ export class ReaderPanel {
         const startY = event.clientY;
         const startWidth = rect.width;
         const startHeight = rect.height;
-        let nextRatio = normalizeReaderPanelSizeRatio(this.state.panelSizeRatio);
+        const previousRatio = normalizeReaderPanelSizeRatio(this.state.panelSizeRatio);
+        let nextRatio = previousRatio;
 
         const onMove = (moveEvent: PointerEvent) => {
             moveEvent.preventDefault();
@@ -770,9 +773,18 @@ export class ReaderPanel {
             this.host.document.removeEventListener('pointerup', onUp);
             this.panelResizeCleanup = null;
             this.state.panelSizeRatio = nextRatio;
-            void this.settingsController?.onChange({ panelSizeRatio: nextRatio });
             this.settingsPopover.updateSettings(this.getReaderSettingsSnapshot());
             this.render();
+            void (async () => {
+                try {
+                    await this.settingsController?.onChange({ panelSizeRatio: nextRatio });
+                } catch (error) {
+                    this.state.panelSizeRatio = previousRatio;
+                    this.settingsPopover.updateSettings(this.getReaderSettingsSnapshot());
+                    this.render();
+                    this.reportReaderSettingsWriteError(error);
+                }
+            })();
         };
 
         this.panelResizeCleanup?.();
@@ -1024,10 +1036,25 @@ export class ReaderPanel {
             onChange: async (patch) => {
                 await this.settingsController?.onChange(patch);
             },
+            onError: (error) => this.reportReaderSettingsWriteError(error),
             onOpenPromptManager: this.promptManagerController
                 ? (anchor) => this.promptManagerController?.onOpenManager(anchor)
                 : undefined,
         });
+    }
+
+    private reportReaderSettingsWriteError(error: unknown): void {
+        if (error instanceof RuntimeClientRequestError) {
+            const presentation = getRuntimeFailurePresentation(
+                error.failure,
+                (key, fallback) => this.getLabel(key, fallback),
+            );
+            this.notify(presentation.message, 4000);
+            return;
+        }
+        this.notify(error instanceof Error
+            ? error.message
+            : this.getLabel('runtimeRequestFailedTitle', 'AI-MarkDone could not save this setting'));
     }
 
     private applyReaderSettingsPatch(patch: Partial<AppSettings['reader']>): void {
@@ -2140,8 +2167,14 @@ export class ReaderPanel {
             onDeleteMany: (entries) => this.removeAnnotationEntries(entries),
             persistenceEnabled: this.persistAnnotations,
             onPersistenceChange: async (enabled) => {
+                const previous = this.persistAnnotations;
                 this.applyReaderSettingsPatch({ persistAnnotations: enabled });
-                await this.settingsController?.onChange({ persistAnnotations: enabled });
+                try {
+                    await this.settingsController?.onChange({ persistAnnotations: enabled });
+                } catch (error) {
+                    this.setPersistAnnotations(previous);
+                    throw error;
+                }
             },
             onSelect: async (entry) => {
                 if (readerAnnotationDocumentKey(entry.document) !== readerAnnotationDocumentKey(document)) {
@@ -2186,6 +2219,7 @@ export class ReaderPanel {
                 title: this.getLabel('readerCommentListTitle', 'Annotations'),
                 close: this.getLabel('btnClose', 'Close'),
                 empty: this.getLabel('readerCommentListEmpty', 'No annotations yet.'),
+                error: this.getLabel('runtimeRequestFailedTitle', 'AI-MarkDone could not save this setting'),
                 sortByCreated: this.getLabel('readerCommentSortCreated', 'Sort by creation time'),
                 sortByPosition: this.getLabel('readerCommentSortPosition', 'Sort by text position'),
                 selectedSource: this.getLabel('readerCommentSelectedSource', 'Selected content'),
@@ -2227,6 +2261,7 @@ export class ReaderPanel {
     }
 
     private async updateCommentSortMode(sortMode: ReaderCommentSortMode): Promise<void> {
+        const previous = this.commentExportSettings;
         const next = normalizeReaderCommentExportSettings({
             ...this.commentExportSettings,
             sortMode,
@@ -2237,7 +2272,17 @@ export class ReaderPanel {
             comments: this.getCurrentComments(),
             sortMode: next.sortMode,
         });
-        await this.settingsController?.onChange({ commentExport: next });
+        try {
+            await this.settingsController?.onChange({ commentExport: next });
+        } catch (error) {
+            this.commentExportSettings = previous;
+            this.settingsPopover.updateSettings(this.getReaderSettingsSnapshot());
+            this.commentListPopover.update({
+                comments: this.getCurrentComments(),
+                sortMode: previous.sortMode,
+            });
+            throw error;
+        }
     }
 
     private async openCommentExportPopover(): Promise<void> {

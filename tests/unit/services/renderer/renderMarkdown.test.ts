@@ -227,4 +227,5 @@ describe('renderMarkdownToSanitizedHtml', () => {
         expect(new Set(rendered.outlineItems.map((item) => item.id)).size).toBe(rendered.outlineItems.length);
         expect(headingUnits).toHaveLength(5);
     });
+
 });

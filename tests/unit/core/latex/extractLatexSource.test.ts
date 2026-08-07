@@ -24,7 +24,7 @@ describe('extractLatexSource', () => {
 
     it('extracts from closest ancestor attributes', () => {
         const parent = document.createElement('div');
-        parent.setAttribute('data-math', '\\frac{1}{2}');
+        parent.setAttribute('data-math-source', '\\frac{1}{2}');
         const child = document.createElement('span');
         parent.appendChild(child);
         expect(extractLatexSource(child)).toBe('\\frac{1}{2}');

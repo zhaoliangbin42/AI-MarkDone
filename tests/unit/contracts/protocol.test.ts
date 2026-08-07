@@ -1,5 +1,10 @@
 import { describe, expect, it } from 'vitest';
-import { PROTOCOL_VERSION, createRequestId, isExtRequest } from '@/contracts/protocol';
+import {
+    PROTOCOL_VERSION,
+    createRequestId,
+    isExtRequest,
+    isExtResponseForRequest,
+} from '@/contracts/protocol';
 
 describe('protocol', () => {
     it('createRequestId returns stable prefix', () => {
@@ -17,6 +22,57 @@ describe('protocol', () => {
 
         const badType = { v: PROTOCOL_VERSION, id: createRequestId(), type: 'nope' };
         expect(isExtRequest(badType)).toBe(false);
+    });
+
+    it('accepts only a response correlated to the originating request', () => {
+        const request = {
+            v: PROTOCOL_VERSION,
+            id: 'request-123456',
+            type: 'bookmarks:folders:list',
+        } as const;
+        expect(isExtResponseForRequest({
+            v: PROTOCOL_VERSION,
+            id: request.id,
+            type: request.type,
+            ok: true,
+            data: { folders: [] },
+        }, request)).toBe(true);
+        expect(isExtResponseForRequest({
+            v: PROTOCOL_VERSION,
+            id: 'different-request',
+            type: request.type,
+            ok: true,
+            data: { folders: [] },
+        }, request)).toBe(false);
+        expect(isExtResponseForRequest({
+            v: PROTOCOL_VERSION,
+            id: request.id,
+            type: 'settings:getAll',
+            ok: true,
+            data: { folders: [] },
+        }, request)).toBe(false);
+    });
+
+    it('rejects malformed protocol error envelopes', () => {
+        const request = {
+            v: PROTOCOL_VERSION,
+            id: 'request-123456',
+            type: 'bookmarks:folders:list',
+        } as const;
+        expect(isExtResponseForRequest({
+            v: PROTOCOL_VERSION,
+            id: request.id,
+            type: request.type,
+            ok: false,
+            error: { code: 'NOT_A_PROTOCOL_CODE', message: 'Nope' },
+        }, request)).toBe(false);
+        expect(isExtResponseForRequest({
+            v: PROTOCOL_VERSION,
+            id: request.id,
+            type: request.type,
+            ok: false,
+            error: { code: 'INTERNAL_ERROR' },
+        }, request)).toBe(false);
     });
 
     it('accepts the Google Drive backup diagnostics request', () => {

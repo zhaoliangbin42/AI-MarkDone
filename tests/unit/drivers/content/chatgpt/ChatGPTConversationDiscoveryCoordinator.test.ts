@@ -60,4 +60,55 @@ describe('ChatGPTConversationDiscoveryCoordinator', () => {
         coordinator.dispose();
         expect(pageIndex.dispose).toHaveBeenCalledTimes(1);
     });
+
+    it('waits for a real lifecycle signal before another source acquisition', async () => {
+        const documentRef = {
+            key: 'chatgpt:conversation:bootstrap-race',
+            platformId: 'chatgpt',
+            conversationId: 'bootstrap-race',
+        };
+        const unavailable = {
+            kind: 'unavailable',
+            document: documentRef,
+            snapshot: null,
+            reason: 'source-unavailable',
+            retryable: true,
+        } as const;
+        let state = unavailable;
+        const repository = {
+            reconcile: vi.fn(async () => {
+                return state;
+            }),
+            refresh: vi.fn(async () => state),
+            scheduleReconcile: vi.fn(),
+            read: vi.fn(() => state),
+            subscribe: vi.fn(() => () => undefined),
+            isCurrent: vi.fn(() => false),
+        };
+        const coordinator = new ChatGPTConversationDiscoveryCoordinator({
+            adapter,
+            discoveryAdapter: { subscribeSignals: () => () => undefined } as any,
+            repository: repository as any,
+            pageIndex: {
+                subscribeMutations: () => () => undefined,
+                dispose: vi.fn(),
+            } as any,
+        });
+
+        coordinator.init();
+        await vi.advanceTimersByTimeAsync(2_000);
+        expect(repository.reconcile).toHaveBeenCalledTimes(1);
+
+        state = { ...unavailable, kind: 'ready', snapshot: {
+            schemaVersion: 1,
+            document: documentRef,
+            contentToken: 'token-1',
+            coverage: 'complete',
+            turns: [],
+        } } as any;
+        window.dispatchEvent(new PageTransitionEvent('pageshow'));
+        await Promise.resolve();
+        expect(repository.reconcile).toHaveBeenCalledTimes(2);
+        coordinator.dispose();
+    });
 });

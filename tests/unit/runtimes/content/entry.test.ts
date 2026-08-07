@@ -63,7 +63,9 @@ const sendControllerCtor = vi.fn(function () {
 const settingsInit = vi.fn();
 const settingsSubscribe = vi.fn();
 const settingsGetCached = vi.fn(() => null);
+const settingsGetCategoryResult = vi.fn(async () => ({ ok: true, data: null } as const));
 const settingsSetCategory = vi.fn(async () => true);
+const settingsSetCategoryResult = vi.fn(async () => ({ ok: true, data: null } as const));
 let settingsSubscriber: ((snap: any) => void) | null = null;
 const settingsClientCtor = vi.fn(function () {
     return {
@@ -73,13 +75,16 @@ const settingsClientCtor = vi.fn(function () {
             return settingsSubscribe(fn);
         },
         getCached: settingsGetCached,
+        getCategoryResult: settingsGetCategoryResult,
         setCategory: settingsSetCategory,
+        setCategoryResult: settingsSetCategoryResult,
     };
 });
 const bookmarksControllerRefreshAll = vi.fn(async () => {});
 const bookmarksControllerRefreshPositions = vi.fn(async () => {});
 const bookmarksControllerRefreshPageBookmarkStatus = vi.fn(async () => false);
-const bookmarksControllerTogglePageBookmarkForCurrentPage = vi.fn(async () => ({ ok: true, data: { saved: true } }));
+const bookmarksControllerSetPageBookmarkSaved = vi.fn(async (_params: unknown, saved: boolean) => ({ ok: true, data: { saved } }));
+const bookmarksControllerReadPageBookmarkStatus = vi.fn(async () => ({ ok: true, data: { saved: false } }));
 const bookmarksControllerIsCurrentPageBookmarked = vi.fn(() => false);
 const bookmarksControllerGetDefaultFolderPath = vi.fn(() => 'Import');
 const bookmarksControllerSetPanelStatus = vi.fn();
@@ -89,7 +94,8 @@ const bookmarksControllerCtor = vi.fn(function () {
         refreshAll: bookmarksControllerRefreshAll,
         refreshPositionsForUrl: bookmarksControllerRefreshPositions,
         refreshPageBookmarkStatus: bookmarksControllerRefreshPageBookmarkStatus,
-        togglePageBookmarkForCurrentPage: bookmarksControllerTogglePageBookmarkForCurrentPage,
+        readPageBookmarkStatus: bookmarksControllerReadPageBookmarkStatus,
+        setPageBookmarkSaved: bookmarksControllerSetPageBookmarkSaved,
         isCurrentPageBookmarked: bookmarksControllerIsCurrentPageBookmarked,
         getDefaultFolderPath: bookmarksControllerGetDefaultFolderPath,
         setPanelStatus: bookmarksControllerSetPanelStatus,
@@ -272,12 +278,6 @@ const contentRuntimeCtor = vi.fn(function () {
         materialization: contentRuntimeMaterialization,
     };
 });
-const domTurnFactSource = {
-    read: vi.fn(() => ({ observedAt: 1, rounds: [] })),
-};
-const domTurnFactSourceCtor = vi.fn(function () {
-    return domTurnFactSource;
-});
 const conversationIndexBindConversationSource = vi.fn();
 const getChatGPTConversationIndex = vi.fn(() => ({
     bindConversationSource: conversationIndexBindConversationSource,
@@ -290,7 +290,18 @@ const setLazyContentFeatureLocale = vi.fn();
 const t = vi.fn((key: string) => key);
 const scrollToBookmarkTargetWithRetry = vi.fn(async () => ({ ok: true }));
 const consumePendingNavigation = vi.fn(() => null);
+const peekPendingNavigation = vi.fn(() => null);
+const clearPendingNavigation = vi.fn();
+const PENDING_NAVIGATION_EVENT = 'aimd:pending-navigation';
+const isSamePageUrl = vi.fn((a: string, b: string) => a.replace(/[#?].*$/, '') === b.replace(/[#?].*$/, ''));
 const navigateChatGPTDirectoryTarget = vi.fn(async () => ({ ok: true }));
+const conversationNavigationNavigate = vi.fn(async () => ({ ok: true as const }));
+const conversationNavigationCtor = vi.fn(function () {
+    return {
+        navigate: conversationNavigationNavigate,
+        cancelActive: vi.fn(),
+    };
+});
 const readComposer = vi.fn(() => ({ ok: true as const, kind: 'contenteditable' as const, text: 'source draft' }));
 const writeComposer = vi.fn(async () => ({ ok: true as const, kind: 'contenteditable' as const }));
 const sendText = vi.fn(async () => ({ ok: true as const }));
@@ -318,10 +329,17 @@ const overlaySessionCtor = vi.fn(function () {
     };
 });
 const addListener = vi.fn();
-const runtimeSendMessage = vi.fn(async () => ({ ok: true }));
+const runtimeSendMessage = vi.fn(async (message: any) => ({
+    v: 1,
+    id: message.id,
+    type: message.type,
+    ok: true,
+    data: {},
+}));
 let runtimeMessageListener: ((msg: unknown) => void) | null = null;
 const startFormulaOnlyRuntime = vi.fn();
 let formulaOnlyProfile: any = null;
+const markdownParserAdapter = { extractLatex: vi.fn() };
 
 let adapterPlatformId = 'chatgpt';
 
@@ -332,6 +350,7 @@ vi.mock('@/drivers/content/adapters/registry', () => ({
             getPlatformId: () => adapterPlatformId,
             getMessageSelector: () => '[data-testid="message"]',
             getObserverContainer: () => document.body,
+            getMarkdownParserAdapter: () => markdownParserAdapter,
         }),
 }));
 
@@ -350,11 +369,19 @@ vi.mock('@/ui/content/controllers/FormulaAssetHoverController', () => ({
 
 vi.mock('@/drivers/content/bookmarks/navigation', () => ({
     consumePendingNavigation,
+    peekPendingNavigation,
+    clearPendingNavigation,
+    PENDING_NAVIGATION_EVENT,
+    isSamePageUrl,
     scrollToBookmarkTargetWithRetry,
 }));
 
 vi.mock('@/ui/content/chatgptDirectory/navigation', () => ({
     navigateChatGPTDirectoryTarget,
+}));
+
+vi.mock('@/services/content/ConversationNavigationCoordinator', () => ({
+    ConversationNavigationCoordinator: conversationNavigationCtor,
 }));
 
 vi.mock('@/drivers/shared/browser', () => ({
@@ -483,9 +510,6 @@ vi.mock('@/runtimes/content/ChatGPTConversationContentRuntime', () => ({
     ChatGPTConversationContentRuntime: contentRuntimeCtor,
 }));
 
-vi.mock('@/services/content/ChatGPTDomTurnFactSource', () => ({
-    ChatGPTDomTurnFactSource: domTurnFactSourceCtor,
-}));
 
 vi.mock('@/drivers/content/chatgpt/ChatGPTConversationIndex', () => ({
     getChatGPTConversationIndex,
@@ -535,10 +559,21 @@ function appearanceConsumers() {
 
 afterEach(() => {
     vi.clearAllMocks();
-    runtimeSendMessage.mockImplementation(async () => ({ ok: true }));
+    peekPendingNavigation.mockReset().mockReturnValue(null);
+    consumePendingNavigation.mockReset().mockReturnValue(null);
+    clearPendingNavigation.mockReset();
+    isSamePageUrl.mockClear().mockImplementation((a: string, b: string) => a.replace(/[#?].*$/, '') === b.replace(/[#?].*$/, ''));
+    runtimeSendMessage.mockImplementation(async (message: any) => ({
+        v: 1,
+        id: message.id,
+        type: message.type,
+        ok: true,
+        data: {},
+    }));
     promptLibraryClient.listPrompts.mockImplementation(async () => []);
     bookmarksControllerRefreshPageBookmarkStatus.mockImplementation(async () => false);
-    bookmarksControllerTogglePageBookmarkForCurrentPage.mockImplementation(async () => ({ ok: true, data: { saved: true } }));
+    bookmarksControllerSetPageBookmarkSaved.mockImplementation(async (_params, saved) => ({ ok: true, data: { saved } }));
+    bookmarksControllerReadPageBookmarkStatus.mockImplementation(async () => ({ ok: true, data: { saved: false } }));
     bookmarksControllerIsCurrentPageBookmarked.mockReturnValue(false);
     bookmarksControllerGetDefaultFolderPath.mockReturnValue('Import');
     bookmarkSaveDialogOpen.mockImplementation(async () => ({ ok: true, title: 'Saved page title', folderPath: 'Saved/Pages' }));
@@ -557,6 +592,8 @@ afterEach(() => {
     }));
     readComposer.mockReturnValue({ ok: true, kind: 'contenteditable', text: 'source draft' });
     settingsGetCached.mockReturnValue(null);
+    settingsGetCategoryResult.mockResolvedValue({ ok: true, data: null });
+    settingsSetCategoryResult.mockResolvedValue({ ok: true, data: null });
     themeAtInit = 'light';
     themeListener = null;
     adapterPlatformId = 'chatgpt';
@@ -570,6 +607,95 @@ afterEach(() => {
 });
 
 describe('content runtime entry', () => {
+    it('loads canonical Reader settings before the first write when startup has no cache', async () => {
+        const { DEFAULT_SETTINGS } = await import('@/core/settings/types');
+        const canonicalReader = {
+            ...structuredClone(DEFAULT_SETTINGS.reader),
+            bodyFontSizePx: 20,
+            showOutlineInReader: true,
+        };
+        settingsGetCached.mockReturnValue(null);
+        settingsGetCategoryResult.mockResolvedValueOnce({ ok: true, data: canonicalReader });
+
+        vi.resetModules();
+        await import('@/runtimes/content/entry');
+
+        const reader = readerPanelCtor.mock.results.at(-1)?.value;
+        const controller = reader?.setReaderSettingsController.mock.calls.at(-1)?.[0];
+        await controller.onChange({ showOutlineInReader: false });
+
+        expect(settingsGetCategoryResult).toHaveBeenCalledWith('reader');
+        expect(settingsSetCategoryResult).toHaveBeenCalledWith('reader', {
+            ...canonicalReader,
+            showOutlineInReader: false,
+        });
+    });
+
+    it('rolls Reader preview back when the canonical settings write is not confirmed', async () => {
+        const { DEFAULT_SETTINGS } = await import('@/core/settings/types');
+        const settings = structuredClone(DEFAULT_SETTINGS);
+        settings.reader.showOutlineInReader = true;
+        settingsGetCached.mockReturnValue(settings);
+        settingsSetCategoryResult.mockResolvedValueOnce({
+            ok: false,
+            errorCode: 'CONTEXT_INVALIDATED',
+            message: 'Extension context invalidated.',
+            failure: {
+                kind: 'transport',
+                code: 'CONTEXT_INVALIDATED',
+                message: 'Extension context invalidated.',
+                delivery: 'not-sent',
+            },
+        } as any);
+
+        vi.resetModules();
+        await import('@/runtimes/content/entry');
+
+        const reader = readerPanelCtor.mock.results.at(-1)?.value;
+        const controller = reader?.setReaderSettingsController.mock.calls.at(-1)?.[0];
+        reader?.setReaderSettings.mockClear();
+
+        await expect(controller.onChange({ showOutlineInReader: false }))
+            .rejects.toMatchObject({
+                name: 'RuntimeClientRequestError',
+                failure: expect.objectContaining({ code: 'CONTEXT_INVALIDATED' }),
+            });
+
+        expect(reader?.setReaderSettings).toHaveBeenCalledWith(settings.reader);
+    });
+
+    it('serializes Reader settings writes and composes each patch from the latest confirmed settings', async () => {
+        const { DEFAULT_SETTINGS } = await import('@/core/settings/types');
+        const settings = structuredClone(DEFAULT_SETTINGS);
+        settingsGetCached.mockReturnValue(settings);
+        let resolveFirstWrite: ((result: { ok: true; data: { category: 'reader' } }) => void) | null = null;
+        settingsSetCategoryResult
+            .mockImplementationOnce(() => new Promise((resolve) => {
+                resolveFirstWrite = resolve;
+            }))
+            .mockResolvedValueOnce({ ok: true, data: { category: 'reader' } });
+
+        vi.resetModules();
+        await import('@/runtimes/content/entry');
+
+        const reader = readerPanelCtor.mock.results.at(-1)?.value;
+        const controller = reader?.setReaderSettingsController.mock.calls.at(-1)?.[0];
+        const firstWrite = controller.onChange({ bodyFontSizePx: 22 });
+        const secondWrite = controller.onChange({ showOutlineInReader: false });
+
+        await Promise.resolve();
+        expect(settingsSetCategoryResult).toHaveBeenCalledTimes(1);
+
+        resolveFirstWrite?.({ ok: true, data: { category: 'reader' } });
+        await Promise.all([firstWrite, secondWrite]);
+
+        expect(settingsSetCategoryResult).toHaveBeenNthCalledWith(2, 'reader', {
+            ...settings.reader,
+            bodyFontSizePx: 22,
+            showOutlineInReader: false,
+        });
+    });
+
     it('keeps atomic selection active while switching the Markdown copy shortcut live', async () => {
         const { DEFAULT_SETTINGS } = await import('@/core/settings/types');
         const settings = structuredClone(DEFAULT_SETTINGS) as any;
@@ -579,6 +705,9 @@ describe('content runtime entry', () => {
         vi.resetModules();
         await import('@/runtimes/content/entry');
 
+        expect(mathClickCtor).toHaveBeenCalledWith(expect.objectContaining({
+            parserAdapter: markdownParserAdapter,
+        }));
         expect(atomicSelectionInit).toHaveBeenCalledTimes(1);
         expect(atomicSelectionSetMarkdownCopyShortcut).toHaveBeenLastCalledWith('none');
 
@@ -691,21 +820,15 @@ describe('content runtime entry', () => {
         }));
     });
 
-    it('binds the canonical conversation index before initializing navigation surfaces', async () => {
+    it('starts ChatGPT navigation without binding the retired DOM conversation index', async () => {
         adapterPlatformId = 'chatgpt';
         vi.resetModules();
         await import('@/runtimes/content/entry');
 
-        const contentRuntime = contentRuntimeCtor.mock.results[0]?.value;
-        expect(getChatGPTConversationIndex).toHaveBeenCalledTimes(1);
-        expect(conversationIndexBindConversationSource).toHaveBeenCalledWith(contentRuntime.source);
-        expect(conversationIndexBindConversationSource.mock.invocationCallOrder[0]).toBeLessThan(
-            messageStepperInit.mock.invocationCallOrder[0]!,
-        );
-        expect(conversationIndexBindConversationSource.mock.invocationCallOrder[0]).toBeLessThan(
-            directoryInit.mock.invocationCallOrder[0]!,
-        );
-        expect(domTurnFactSourceCtor).toHaveBeenCalledTimes(1);
+        expect(getChatGPTConversationIndex).not.toHaveBeenCalled();
+        expect(conversationIndexBindConversationSource).not.toHaveBeenCalled();
+        expect(messageStepperInit).toHaveBeenCalled();
+        expect(directoryInit).toHaveBeenCalled();
     });
 
     it('does not bind the canonical conversation index while ChatGPT runtime starts disabled', async () => {
@@ -945,10 +1068,7 @@ describe('content runtime entry', () => {
         await import('@/runtimes/content/entry');
 
         expect(contentRuntimeCtor).toHaveBeenCalledTimes(1);
-        expect(contentRuntimeCtor).toHaveBeenCalledWith(
-            expect.anything(),
-            expect.objectContaining({ allowActiveAcquisition: true }),
-        );
+        expect(contentRuntimeCtor).toHaveBeenCalledWith(expect.anything());
         expect(directoryCtor).toHaveBeenCalledTimes(1);
         expect(contentRuntimeInit).toHaveBeenCalledTimes(1);
         expect(directoryInit).toHaveBeenCalledTimes(1);
@@ -1114,20 +1234,26 @@ describe('content runtime entry', () => {
         expect(reader?.setCommentExportSettings).not.toHaveBeenCalled();
     });
 
-    it('routes ChatGPT pending bookmark navigation through the directory helper', async () => {
+    it('routes ChatGPT pending bookmark navigation through the shared navigation port', async () => {
         adapterPlatformId = 'chatgpt';
-        consumePendingNavigation.mockReturnValueOnce({
-            url: 'https://chatgpt.com/c/abc',
+        window.history.replaceState({}, '', '/c/abc');
+        isSamePageUrl.mockReturnValue(true);
+        peekPendingNavigation.mockReturnValue({
+            url: `${window.location.origin}/c/abc`,
             position: 50,
             messageId: 'payload-a50',
         });
         vi.resetModules();
         await import('@/runtimes/content/entry');
 
-        expect(navigateChatGPTDirectoryTarget).toHaveBeenCalledWith(
-            expect.objectContaining({ getPlatformId: expect.any(Function) }),
-            { url: 'https://chatgpt.com/c/abc', position: 50, messageId: 'payload-a50' },
-            { timeoutMs: 8000, intervalMs: 200 },
+        expect(conversationNavigationNavigate).toHaveBeenCalledWith(
+            {
+                position: 50,
+                messageId: 'payload-a50',
+                assistantMessageId: 'payload-a50',
+                source: 'pending-restore',
+            },
+            { timeoutMs: 15000, align: 'start' },
         );
         expect(scrollToBookmarkTargetWithRetry).not.toHaveBeenCalled();
     });
@@ -1232,8 +1358,8 @@ describe('content runtime entry', () => {
         });
 
         expect(messageToolbarsInit).toHaveBeenCalledTimes(2);
-        expect(getChatGPTConversationIndex).toHaveBeenCalledTimes(2);
-        expect(conversationIndexBindConversationSource).toHaveBeenCalledTimes(2);
+        expect(getChatGPTConversationIndex).not.toHaveBeenCalled();
+        expect(conversationIndexBindConversationSource).not.toHaveBeenCalled();
         expect(viewportResizeSuspendInit).toHaveBeenCalledTimes(2);
         expect(sendPositionRestoreInit).toHaveBeenCalledTimes(2);
         expect(sendPositionRestoreSetEnabled).toHaveBeenLastCalledWith(false);
@@ -1512,7 +1638,9 @@ describe('content runtime entry', () => {
         await import('@/runtimes/content/entry');
 
         const onTogglePageBookmark = messageStepperCtor.mock.calls[0]?.[1]?.onTogglePageBookmark;
-        const result = await onTogglePageBookmark?.();
+        const result = await onTogglePageBookmark?.(
+            'https://chatgpt.com/c/12345678-1234-1234-1234-123456789abc',
+        );
 
         expect(bookmarkSaveDialogSetAppearance).toHaveBeenCalledWith(expect.objectContaining({ theme: 'light' }));
         expect(bookmarkSaveDialogOpen).toHaveBeenCalledWith(expect.objectContaining({
@@ -1522,13 +1650,13 @@ describe('content runtime entry', () => {
             currentFolderPath: 'Import',
             mode: 'create',
         }));
-        expect(bookmarksControllerTogglePageBookmarkForCurrentPage).toHaveBeenCalledWith({
+        expect(bookmarksControllerSetPageBookmarkSaved).toHaveBeenCalledWith({
             url: 'https://chatgpt.com/c/12345678-1234-1234-1234-123456789abc',
             title: 'Saved page title',
             platform: 'ChatGPT',
             folderPath: 'Saved/Pages',
-        });
-        expect(result).toEqual({ saved: true });
+        }, true);
+        expect(result).toEqual({ ok: true, saved: true });
     });
 
     it('does not reopen the save dialog when removing an existing current-page bookmark', async () => {
@@ -1539,21 +1667,115 @@ describe('content runtime entry', () => {
         });
         document.title = 'Research Notes - ChatGPT';
         bookmarksControllerIsCurrentPageBookmarked.mockReturnValue(true);
-        bookmarksControllerTogglePageBookmarkForCurrentPage.mockResolvedValueOnce({ ok: true, data: { saved: false } });
+        bookmarksControllerReadPageBookmarkStatus.mockResolvedValueOnce({ ok: true, data: { saved: true } });
+        bookmarksControllerSetPageBookmarkSaved.mockResolvedValueOnce({ ok: true, data: { saved: false } });
 
         vi.resetModules();
         await import('@/runtimes/content/entry');
 
         const onTogglePageBookmark = messageStepperCtor.mock.calls[0]?.[1]?.onTogglePageBookmark;
-        const result = await onTogglePageBookmark?.();
+        const result = await onTogglePageBookmark?.(
+            'https://chatgpt.com/c/12345678-1234-1234-1234-123456789abc',
+        );
 
         expect(bookmarkSaveDialogOpen).not.toHaveBeenCalled();
-        expect(bookmarksControllerTogglePageBookmarkForCurrentPage).toHaveBeenCalledWith(expect.objectContaining({
+        expect(bookmarksControllerSetPageBookmarkSaved).toHaveBeenCalledWith(expect.objectContaining({
             url: 'https://chatgpt.com/c/12345678-1234-1234-1234-123456789abc',
             title: 'Research Notes',
             platform: 'ChatGPT',
-        }));
-        expect(result).toEqual({ saved: false });
+        }), false);
+        expect(result).toEqual({ ok: true, saved: false });
+    });
+
+    it('does not open the save dialog or mutate when current-page bookmark status is unavailable', async () => {
+        adapterPlatformId = 'chatgpt';
+        Object.defineProperty(window, 'location', {
+            value: new URL('https://chatgpt.com/c/12345678-1234-1234-1234-123456789abc'),
+            configurable: true,
+        });
+        bookmarksControllerReadPageBookmarkStatus.mockResolvedValueOnce({
+            ok: false,
+            errorCode: 'CONTEXT_INVALIDATED',
+            message: 'Extension context invalidated.',
+            failure: {
+                kind: 'transport',
+                code: 'CONTEXT_INVALIDATED',
+                message: 'Extension context invalidated.',
+                delivery: 'not-sent',
+            },
+        } as any);
+
+        vi.resetModules();
+        await import('@/runtimes/content/entry');
+
+        const onTogglePageBookmark = messageStepperCtor.mock.calls[0]?.[1]?.onTogglePageBookmark;
+        const result = await onTogglePageBookmark?.(
+            'https://chatgpt.com/c/12345678-1234-1234-1234-123456789abc',
+        );
+
+        expect(bookmarkSaveDialogOpen).not.toHaveBeenCalled();
+        expect(bookmarksControllerSetPageBookmarkSaved).not.toHaveBeenCalled();
+        expect(bookmarksControllerSetPanelStatus).toHaveBeenCalledWith('Extension context invalidated.');
+        expect(result).toEqual({ ok: false, message: 'Extension context invalidated.' });
+    });
+
+    it('passes structured page bookmark refresh failures to the stepper', async () => {
+        adapterPlatformId = 'chatgpt';
+        const url = 'https://chatgpt.com/c/12345678-1234-1234-1234-123456789abc';
+        Object.defineProperty(window, 'location', {
+            value: new URL(url),
+            configurable: true,
+        });
+        bookmarksControllerReadPageBookmarkStatus.mockResolvedValueOnce({
+            ok: false,
+            errorCode: 'CONTEXT_INVALIDATED',
+            message: 'Extension context invalidated.',
+            failure: {
+                kind: 'transport',
+                code: 'CONTEXT_INVALIDATED',
+                message: 'Extension context invalidated.',
+                delivery: 'not-sent',
+            },
+        } as any);
+
+        vi.resetModules();
+        await import('@/runtimes/content/entry');
+
+        const onRefreshPageBookmarkState = messageStepperCtor.mock.calls[0]?.[1]?.onRefreshPageBookmarkState;
+        const result = await onRefreshPageBookmarkState?.(url);
+
+        expect(bookmarksControllerReadPageBookmarkStatus).toHaveBeenCalledWith(url);
+        expect(bookmarksControllerRefreshPageBookmarkStatus).not.toHaveBeenCalled();
+        expect(result).toEqual({ ok: false, message: 'Extension context invalidated.' });
+    });
+
+    it('passes current-page bookmark mutation failures to the stepper', async () => {
+        adapterPlatformId = 'chatgpt';
+        const url = 'https://chatgpt.com/c/12345678-1234-1234-1234-123456789abc';
+        Object.defineProperty(window, 'location', {
+            value: new URL(url),
+            configurable: true,
+        });
+        bookmarksControllerReadPageBookmarkStatus.mockResolvedValueOnce({ ok: true, data: { saved: true } });
+        bookmarksControllerSetPageBookmarkSaved.mockResolvedValueOnce({
+            ok: false,
+            errorCode: 'INTERNAL_ERROR',
+            message: 'Could not remove bookmark.',
+            failure: {
+                kind: 'protocol',
+                code: 'INTERNAL_ERROR',
+                message: 'Could not remove bookmark.',
+            },
+        } as any);
+
+        vi.resetModules();
+        await import('@/runtimes/content/entry');
+
+        const onTogglePageBookmark = messageStepperCtor.mock.calls[0]?.[1]?.onTogglePageBookmark;
+        const result = await onTogglePageBookmark?.(url);
+
+        expect(bookmarksControllerSetPanelStatus).toHaveBeenCalledWith('Could not remove bookmark.');
+        expect(result).toEqual({ ok: false, message: 'Could not remove bookmark.' });
     });
 
     it('does not persist the detached reader notice when session creation fails', async () => {
@@ -1567,9 +1789,15 @@ describe('content runtime entry', () => {
         });
         runtimeSendMessage.mockImplementation(async (message: any) => {
             if (message?.type === 'readerSession:create') {
-                return { ok: false, error: { code: 'SOURCE_UNAVAILABLE', message: 'source unavailable' } };
+                return {
+                    v: 1,
+                    id: message.id,
+                    type: message.type,
+                    ok: false,
+                    error: { code: 'SOURCE_UNAVAILABLE', message: 'source unavailable' },
+                };
             }
-            return { ok: true };
+            return { v: 1, id: message.id, type: message.type, ok: true, data: {} };
         });
         vi.resetModules();
         await import('@/runtimes/content/entry');
@@ -1596,9 +1824,9 @@ describe('content runtime entry', () => {
         });
         runtimeSendMessage.mockImplementation(async (message: any) => {
             if (message?.type === 'readerSession:create') {
-                return { ok: true, data: { sessionId: 'session-1' } };
+                return { v: 1, id: message.id, type: message.type, ok: true, data: { sessionId: 'session-1' } };
             }
-            return { ok: true };
+            return { v: 1, id: message.id, type: message.type, ok: true, data: {} };
         });
         vi.resetModules();
         await import('@/runtimes/content/entry');

@@ -1,9 +1,7 @@
-import type {
-    ConversationContentCoordinatorV1,
-} from '../../../contracts/conversationContent';
+import type { ConversationContentCoordinatorV1 } from '../../../contracts/conversationContent';
 import { RouteWatcher } from '../injection/routeWatcher';
 import { getChatGPTPageIndex } from './domConversationDiscovery';
-import type { ChatGPTPageIndex } from './ChatGPTPageIndex';
+import type { ChatGPTHostObservationBatch, ChatGPTPageIndex } from './ChatGPTPageIndex';
 import type { ChatGPTConversationDiscoveryAdapter } from './ChatGPTConversationDiscoveryAdapter';
 import type { SiteAdapter } from '../adapters/base';
 
@@ -24,7 +22,14 @@ export class ChatGPTConversationDiscoveryCoordinator {
     private unsubscribePageIndex: (() => void) | null = null;
     private unsubscribeAdapter: (() => void) | null = null;
     private readonly handlePageShow = () => {
+        this.options.discoveryAdapter.notifyLifecycleSignal?.();
         this.requestImmediateReconcile();
+    };
+    private readonly handleHostObservation = (_batch: ChatGPTHostObservationBatch) => {
+        // Host observations are lifecycle/materialization signals only. They
+        // never become canonical ChatGPT content or position evidence.
+        this.options.discoveryAdapter.notifyLifecycleSignal?.();
+        this.options.repository.scheduleReconcile();
     };
     private initialized = false;
 
@@ -32,6 +37,7 @@ export class ChatGPTConversationDiscoveryCoordinator {
         this.pageIndex = options.pageIndex ?? getChatGPTPageIndex(options.adapter);
         this.routeWatcher = new RouteWatcher(
             () => {
+                this.options.discoveryAdapter.notifyLifecycleSignal?.();
                 this.requestImmediateReconcile();
             },
             { intervalMs: 500 },
@@ -41,9 +47,14 @@ export class ChatGPTConversationDiscoveryCoordinator {
     init(): void {
         if (this.initialized || this.options.adapter.getPlatformId() !== 'chatgpt') return;
         this.initialized = true;
-        this.unsubscribePageIndex = this.pageIndex.subscribeMutations(() => {
-            this.options.repository.scheduleReconcile();
-        });
+        const pageIndexWithObservations = this.pageIndex as ChatGPTPageIndex & {
+            subscribeObservations?: (listener: (batch: ChatGPTHostObservationBatch) => void) => () => void;
+        };
+        this.unsubscribePageIndex = pageIndexWithObservations.subscribeObservations
+            ? pageIndexWithObservations.subscribeObservations(this.handleHostObservation)
+            : this.pageIndex.subscribeMutations(() => {
+                this.options.repository.scheduleReconcile();
+            });
         this.unsubscribeAdapter = this.options.discoveryAdapter.subscribeSignals(() => {
             this.options.repository.scheduleReconcile();
         });
@@ -74,4 +85,5 @@ export class ChatGPTConversationDiscoveryCoordinator {
         }
         void this.options.repository.reconcile();
     }
+
 }

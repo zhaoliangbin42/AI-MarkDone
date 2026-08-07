@@ -332,6 +332,39 @@ export type ExtResponse =
     | { v: ProtocolVersion; id: RequestId; ok: true; type: ExtRequest['type']; data?: unknown }
     | { v: ProtocolVersion; id: RequestId; ok: false; type: ExtRequest['type']; error: { code: ProtocolErrorCode; message: string } };
 
+const PROTOCOL_ERROR_CODES = new Set<ProtocolErrorCode>([
+    'UNKNOWN_TYPE',
+    'UNTRUSTED_SENDER',
+    'INVALID_REQUEST',
+    'INTERNAL_ERROR',
+    'QUOTA_EXCEEDED',
+    'INVALID_IMPORT',
+    'MIGRATION_IN_PROGRESS',
+    'NOT_FOUND',
+    'INVALID_PATH',
+    'CONFLICT',
+    'AUTH_REQUIRED',
+    'PERMISSION_DENIED',
+    'RATE_LIMITED',
+    'PROVIDER_UNAVAILABLE',
+    'INTEGRITY_MISMATCH',
+    'SNAPSHOT_CORRUPTED',
+    'SCHEMA_UNSUPPORTED',
+    'SOURCE_UNAVAILABLE',
+]);
+
+export function isExtResponseForRequest(value: unknown, request: ExtRequest): value is ExtResponse {
+    if (typeof value !== 'object' || value === null) return false;
+    const response = value as Record<string, unknown>;
+    if (response.v !== PROTOCOL_VERSION || response.id !== request.id || response.type !== request.type) return false;
+    if (response.ok === true) return true;
+    if (response.ok !== false || typeof response.error !== 'object' || response.error === null) return false;
+    const error = response.error as Record<string, unknown>;
+    return typeof error.code === 'string'
+        && PROTOCOL_ERROR_CODES.has(error.code as ProtocolErrorCode)
+        && typeof error.message === 'string';
+}
+
 export function createRequestId(): RequestId {
     const rand = Math.random().toString(16).slice(2);
     return `req_${Date.now().toString(16)}_${rand}`;

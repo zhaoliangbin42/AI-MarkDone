@@ -5,9 +5,10 @@ export function buildAtomicSelectionExport(params: {
     root: HTMLElement;
     selectedUnits: SelectedAtomicUnit[];
     shouldSkipElement?: (element: HTMLElement) => boolean;
+    allowTextFallback?: boolean;
 }): string {
-    const { range, root, selectedUnits, shouldSkipElement } = params;
-    if (selectedUnits.length < 1) return range.toString().trim();
+    const { range, root, selectedUnits, shouldSkipElement, allowTextFallback = true } = params;
+    if (selectedUnits.length < 1) return allowTextFallback ? range.toString().trim() : '';
 
     const selectedUnitMap = new Map(selectedUnits.map((unit) => [unit.element, unit]));
     const blockNames = new Set(['P', 'DIV', 'LI', 'BLOCKQUOTE', 'PRE', 'TABLE', 'H1', 'H2', 'H3', 'H4', 'H5', 'H6']);

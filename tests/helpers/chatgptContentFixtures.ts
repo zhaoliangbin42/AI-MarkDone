@@ -88,6 +88,25 @@ export function createConversationContentSource(
         },
         refresh: async () => state,
         isCurrent: (contentToken) => state.snapshot?.contentToken === contentToken,
+        readTurn: (target) => {
+            const turn = state.snapshot?.turns.find((candidate) => (
+                candidate.identity.turnId === target.turnId
+                && candidate.identity.assistantMessageId === target.assistantMessageId
+                && (target.userMessageId === undefined || candidate.identity.userMessageId === target.userMessageId)
+            ));
+            return turn
+                ? {
+                    kind: 'ready' as const,
+                    target,
+                    turn,
+                    contentToken: state.snapshot!.contentToken,
+                }
+                : {
+                    kind: 'unavailable' as const,
+                    target,
+                    reason: 'not-recognized' as const,
+                };
+        },
         publish: (next) => {
             state = 'kind' in next ? next : readyConversationState(next);
             for (const listener of Array.from(listeners)) listener(state);

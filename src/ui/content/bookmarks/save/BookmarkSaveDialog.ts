@@ -2,6 +2,7 @@ import type { Theme } from '../../../../core/types/theme';
 import { PathUtils } from '../../../../core/bookmarks/path';
 import type { ProtocolErrorCode } from '../../../../contracts/protocol';
 import { bookmarksClient } from '../../../../drivers/shared/clients/bookmarksClient';
+import type { RuntimeClientFailure } from '../../../../drivers/shared/clients/clientResult';
 import {
     checkIcon,
     chevronDownIcon,
@@ -22,6 +23,7 @@ import { buildFolderPickerVm } from '../../../../services/bookmarks/saveDialog/f
 import type { BookmarkSaveDraftState, SaveDialogMode } from '../../../../services/bookmarks/saveDialog/types';
 import { subscribeLocaleChange, t } from '../../components/i18n';
 import { createIcon } from '../../components/Icon';
+import { getRuntimeFailurePresentation } from '../../components/runtimeFailurePresentation';
 import { ensureBackdropElement, ensureStableElementFromHtml } from '../../components/stableSurface';
 import { SurfaceFocusLifecycle } from '../../components/surfaceFocusLifecycle';
 import { OverlaySession } from '../../overlay/OverlaySession';
@@ -54,6 +56,9 @@ type RetainedInputFocus =
     | { role: 'bookmark-save-title'; selectionStart: number | null; selectionEnd: number | null }
     | { role: 'bookmark-save-inline-draft'; parentPath: string; selectionStart: number | null; selectionEnd: number | null };
 type ComposingInputRole = 'bookmark-save-title' | 'bookmark-save-inline-draft';
+type FolderLoadState =
+    | { kind: 'idle' | 'loading' | 'ready' }
+    | { kind: 'error'; failure: RuntimeClientFailure };
 
 export class BookmarkSaveDialog {
     private overlaySession: OverlaySession | null = null;
@@ -63,8 +68,9 @@ export class BookmarkSaveDialog {
     private resolve: ((res: BookmarkSaveDialogResult) => void) | null = null;
 
     private folders: FolderLite[] = [];
+    private folderLoadState: FolderLoadState = { kind: 'idle' };
+    private folderRefreshParams: { mode: SaveDialogMode; currentFolderPath: string | null } | null = null;
     private state: BookmarkSaveDraftState | null = null;
-    private status = '';
     private pending = false;
     private rootFolderModal: RootFolderModalState | null = null;
     private subfolderInline: InlineSubfolderState | null = null;
@@ -85,7 +91,7 @@ export class BookmarkSaveDialog {
         this.resolve?.({ ok: false, reason: 'cancel' });
         this.resolve = null;
         this.setAppearance(createAppearanceSnapshot(params.theme, this.appearance.overrides));
-        this.status = '';
+        this.folderLoadState = { kind: 'loading' };
         this.pending = false;
         this.rootFolderModal = null;
         this.subfolderInline = null;
@@ -113,10 +119,11 @@ export class BookmarkSaveDialog {
             this.render();
         }
 
-        void this.refreshFoldersAndUiState({
+        this.folderRefreshParams = {
             mode,
             currentFolderPath: params.currentFolderPath ?? null,
-        });
+        };
+        void this.refreshFoldersAndUiState(this.folderRefreshParams);
 
         return await new Promise<BookmarkSaveDialogResult>((resolve) => {
             this.resolve = resolve;
@@ -156,8 +163,8 @@ export class BookmarkSaveDialog {
         this.overlaySession?.unmount();
         this.overlaySession = null;
         this.state = null;
-        this.status = '';
         this.pending = false;
+        this.folderRefreshParams = null;
         this.rootFolderModal = null;
         this.subfolderInline = null;
         this.retainedInputFocus = null;
@@ -169,6 +176,8 @@ export class BookmarkSaveDialog {
     }
 
     private async refreshFoldersAndUiState(params: { mode: SaveDialogMode; currentFolderPath: string | null }): Promise<void> {
+        this.folderLoadState = { kind: 'loading' };
+        this.render();
         const [foldersRes, uiStateRes] = await Promise.all([
             bookmarksClient.foldersList(),
             bookmarksClient.uiStateGetLastSelectedFolderPath(),
@@ -178,6 +187,9 @@ export class BookmarkSaveDialog {
 
         if (foldersRes.ok) {
             this.folders = foldersRes.data.folders.map((f) => ({ path: f.path, name: f.name, depth: f.depth }));
+            this.folderLoadState = { kind: 'ready' };
+        } else {
+            this.folderLoadState = { kind: 'error', failure: foldersRes.failure };
         }
 
         if (uiStateRes.ok) this.lastSelectedFolderPathCache = uiStateRes.data.value;
@@ -195,7 +207,6 @@ export class BookmarkSaveDialog {
             this.state = reduceDraft(this.state, { type: 'setSelectedFolderPath', path: nextSelected });
         }
 
-        this.status = '';
         this.render();
     }
 
@@ -331,6 +342,12 @@ export class BookmarkSaveDialog {
                 this.subfolderInline = null;
                 this.render();
                 return;
+            case 'bookmark-save-retry-folders':
+                if (this.folderRefreshParams) await this.refreshFoldersAndUiState(this.folderRefreshParams);
+                return;
+            case 'bookmark-save-reload-page':
+                window.location.reload();
+                return;
             default:
                 return;
         }
@@ -431,14 +448,12 @@ export class BookmarkSaveDialog {
         const path = params.parentPath ? `${params.parentPath}${PathUtils.SEPARATOR}${nameNormalized}` : nameNormalized;
 
         this.pending = true;
-        this.status = this.getLabel('saving', 'Saving');
         this.render();
 
         const res = await bookmarksClient.foldersCreate({ path });
         this.pending = false;
 
         if (!res.ok) {
-            this.status = '';
             this.render();
             return {
                 ok: false,
@@ -455,7 +470,6 @@ export class BookmarkSaveDialog {
             this.folders = foldersRes.data.folders.map((f) => ({ path: f.path, name: f.name, depth: f.depth }));
         }
 
-        this.status = '';
         this.render();
         return { ok: true, path, note };
     }
@@ -624,6 +638,18 @@ export class BookmarkSaveDialog {
                   selectedPath: this.state.selectedFolderPath,
               })
             : { nodes: [] };
+        const folderLoadMessage = this.getFolderLoadMessage();
+        const folderLoadError = this.folderLoadState.kind === 'error'
+            ? this.renderFolderLoadError(folderLoadMessage)
+            : '';
+        const emptyFolderMessage = this.folderLoadState.kind === 'loading'
+            ? this.getLabel('loading', 'Loading…')
+            : this.getLabel('noFoldersYet', 'No folders yet');
+        const folderTreeContent = vm.nodes.length > 0
+            ? vm.nodes.map((node: any) => this.renderNode(node)).join('')
+            : this.folderLoadState.kind === 'error'
+                ? ''
+                : `<div class="help-text">${escapeHtml(emptyFolderMessage)}</div>`;
 
         return `
 <div class="panel-window panel-window--dialog panel-window--bookmark-save workflow-dialog" role="dialog" aria-modal="true" aria-label="${escapeHtml(title)}" aria-busy="${this.pending ? 'true' : 'false'}">
@@ -647,7 +673,8 @@ export class BookmarkSaveDialog {
         <button class="icon-btn" data-action="bookmark-save-new-root-folder" aria-label="${escapeHtml(createFolderLabel)}">${iconMarkup(folderPlusIcon)}</button>
       </div>
       <div class="picker-tree">
-        ${vm.nodes.length === 0 ? `<div class="help-text">${escapeHtml(this.status || this.getLabel('noFoldersYet', 'No folders yet'))}</div>` : vm.nodes.map((node: any) => this.renderNode(node)).join('')}
+        ${folderLoadError}
+        ${folderTreeContent}
       </div>
     </div>
   </div>
@@ -753,6 +780,29 @@ export class BookmarkSaveDialog {
         const translated = t(key);
         if (!translated || translated === key) return fallback;
         return translated;
+    }
+
+    private getFolderLoadMessage(): string {
+        if (this.folderLoadState.kind !== 'error') return '';
+        return getRuntimeFailurePresentation(
+            this.folderLoadState.failure,
+            (key, fallback) => this.getLabel(key, fallback),
+        ).message;
+    }
+
+    private renderFolderLoadError(message: string): string {
+        if (this.folderLoadState.kind !== 'error') return '';
+        const presentation = getRuntimeFailurePresentation(
+            this.folderLoadState.failure,
+            (key, fallback) => this.getLabel(key, fallback),
+        );
+        const action = presentation.action === 'reload' ? 'bookmark-save-reload-page' : 'bookmark-save-retry-folders';
+        return `
+          <div class="error-text workflow-dialog__status" data-tone="error" role="alert" data-role="bookmark-folders-error">
+            <span>${escapeHtml(message)}</span>
+            <button class="secondary-btn" type="button" data-action="${action}">${escapeHtml(presentation.actionLabel)}</button>
+          </div>
+        `;
     }
 }
 

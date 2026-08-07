@@ -422,6 +422,7 @@ export class ChatGPTPromptAutocompleteController {
             managerQuery: state.managerQuery,
             editPrompt: state.editPrompt,
             statusMessage: state.statusMessage,
+            dataState: state.dataState,
         };
     }
 
@@ -512,6 +513,8 @@ export class ChatGPTPromptAutocompleteController {
         } else if (action.type === 'add') {
             this.workflow.beginCreate(t('promptUntitled'));
             this.render();
+        } else if (action.type === 'retry-load') {
+            void this.workflow.retryManagerLoad().then(() => this.render());
         } else if (action.type === 'edit') {
             if (this.workflow.beginEdit(action.promptId)) this.render();
         } else if (action.type === 'toggle') {

@@ -259,6 +259,19 @@ describe('ChatGPTPageIndex', () => {
         unsubscribe();
     });
 
+    it('notifies content-discovery subscribers when an existing assistant body is filled later', async () => {
+        const listener = vi.fn();
+        const unsubscribe = getChatGPTPageIndex(adapter).subscribeMutations(listener);
+        const content = document.querySelector('.markdown');
+        if (!(content instanceof HTMLElement)) throw new Error('fixture content is missing');
+
+        content.textContent = 'Answer 1 loaded after refresh';
+        await deliverMutations();
+
+        expect(listener).toHaveBeenCalledTimes(1);
+        unsubscribe();
+    });
+
     it('notifies content-discovery subscribers when the official completion action row mounts', async () => {
         document.querySelector('.z-0.flex')?.remove();
         const listener = vi.fn();
@@ -290,6 +303,27 @@ describe('ChatGPTPageIndex', () => {
         await deliverMutations();
 
         expect(listener).toHaveBeenCalledTimes(1);
+        unsubscribe();
+    });
+
+    it('publishes typed host observation batches with an independent revision', async () => {
+        const batches: Array<{ revision: number; kinds: readonly string[]; ids: readonly string[] }> = [];
+        const unsubscribe = getChatGPTPageIndex(adapter).subscribeObservations((batch) => {
+            batches.push({
+                revision: batch.revision,
+                kinds: batch.kinds,
+                ids: batch.assistantMessageIds,
+            });
+        });
+
+        appendRound(2);
+        await deliverMutations();
+
+        expect(batches).toHaveLength(1);
+        expect(batches[0]?.revision).toBe(1);
+        expect(batches[0]?.kinds).toContain('structure');
+        expect(batches[0]?.ids).toContain('assistant-2');
+        expect(getChatGPTPageIndex(adapter).getObservationRevision()).toBe(1);
         unsubscribe();
     });
 

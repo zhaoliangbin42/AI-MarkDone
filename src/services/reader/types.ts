@@ -19,6 +19,11 @@ export type ReaderItemMeta = {
     url?: string;
     bookmarkable?: boolean;
     bookmarked?: boolean;
+    /**
+     * Whether Markdown came from a canonical provider source or a lossy
+     * rendered-surface reconstruction. Missing means a legacy/non-V1 source.
+     */
+    sourceQuality?: 'source-backed' | 'reconstructed';
 };
 
 export type ReaderItem = {

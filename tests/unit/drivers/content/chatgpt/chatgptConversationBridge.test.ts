@@ -17,7 +17,7 @@ function decodeDetail(detail: unknown): any {
 
 function requestSnapshot(
     conversationId: string,
-    options?: { stringDetail?: boolean; onRawResponse?: (detail: unknown) => void; type?: 'snapshot' | 'peek' | 'acquire' },
+    options?: { stringDetail?: boolean; onRawResponse?: (detail: unknown) => void; type?: 'snapshot' | 'peek' },
 ): Promise<any> {
     const requestId = `test-${Math.random().toString(36).slice(2)}`;
     return new Promise((resolve) => {
@@ -229,7 +229,8 @@ describe('ChatGPT conversation bridge', () => {
         expect(contentDiscovery).not.toContain('setInterval(');
         expect(contentDiscovery).not.toContain('visibilitychange');
         expect(pageIndex).toContain('attributeFilter: Array.from(HOST_LIFECYCLE_ATTRIBUTES)');
-        expect(pageIndex).not.toContain('characterData: true');
+        expect(pageIndex).toContain('characterData: true');
+        expect(pageIndex).toContain('isAssistantContentNode');
         expect(facts).not.toContain('new MutationObserver');
     });
 
@@ -582,6 +583,131 @@ describe('ChatGPT conversation bridge', () => {
         expect(response.snapshot.rounds.map((round: any) => round.assistantContent)).toEqual(['Answer 1', 'Answer 2']);
         expect(response.snapshot.rounds.map((round: any) => round.messageId)).toEqual(['a1', 'a2']);
         expect(fetchMock).toHaveBeenCalledTimes(1);
+    });
+
+    it('does not publish an empty assistant turn as a complete snapshot while generation is pending', async () => {
+        const conversationId = '69e8d157-5fec-839c-9124-2179ba8b7d7c';
+        const fetchMock = vi.fn(async () => new Response(JSON.stringify({
+            conversation_id: conversationId,
+            current_node: 'assistant-node',
+            mapping: {
+                root: { id: 'root', parent: null, message: null },
+                'user-node': {
+                    id: 'user-node',
+                    parent: 'root',
+                    message: message('user-message', 'user', 'Long research request'),
+                },
+                'assistant-node': {
+                    id: 'assistant-node',
+                    parent: 'user-node',
+                    message: message('assistant-message', 'assistant', ''),
+                },
+            },
+        }), {
+            status: 200,
+            headers: { 'Content-Type': 'application/json' },
+        }));
+        Object.defineProperty(window, 'fetch', { configurable: true, value: fetchMock });
+        vi.stubGlobal('fetch', fetchMock);
+
+        installBridge();
+        await observeConversationFetch(conversationId);
+        const response = await requestSnapshot(conversationId);
+
+        expect(response.ok).toBe(false);
+        expect(response.snapshot).toBeUndefined();
+        expect(response.error).toMatchObject({ code: 'BRIDGE_UNAVAILABLE' });
+    });
+
+    it('marks a graph partial when a completed history is followed by an empty current turn', async () => {
+        const conversationId = '69e8d157-5fec-839c-9124-2179ba8b7d7c';
+        const fetchMock = vi.fn(async () => new Response(JSON.stringify({
+            conversation_id: conversationId,
+            current_node: 'assistant-node-2',
+            mapping: {
+                root: { id: 'root', parent: null, message: null },
+                'user-node-1': {
+                    id: 'user-node-1',
+                    parent: 'root',
+                    message: message('user-message-1', 'user', 'Previous question'),
+                },
+                'assistant-node-1': {
+                    id: 'assistant-node-1',
+                    parent: 'user-node-1',
+                    message: message('assistant-message-1', 'assistant', 'Previous answer'),
+                },
+                'user-node-2': {
+                    id: 'user-node-2',
+                    parent: 'assistant-node-1',
+                    message: message('user-message-2', 'user', 'Long research request'),
+                },
+                'assistant-node-2': {
+                    id: 'assistant-node-2',
+                    parent: 'user-node-2',
+                    message: message('assistant-message-2', 'assistant', ''),
+                },
+            },
+        }), {
+            status: 200,
+            headers: { 'Content-Type': 'application/json' },
+        }));
+        Object.defineProperty(window, 'fetch', { configurable: true, value: fetchMock });
+        vi.stubGlobal('fetch', fetchMock);
+
+        installBridge();
+        await observeConversationFetch(conversationId);
+        const response = await requestSnapshot(conversationId);
+
+        expect(response.ok).toBe(true);
+        expect(response.snapshot.coverage).toBe('partial');
+        expect(response.snapshot.rounds.map((round: any) => round.assistantContent)).toEqual([
+            'Previous answer',
+        ]);
+    });
+
+    it('ignores a non-tail empty assistant shell and renumbers completed rounds', async () => {
+        const conversationId = '69e8d157-5fec-839c-9124-2179ba8b7d7c';
+        const fetchMock = vi.fn(async () => new Response(JSON.stringify({
+            conversation_id: conversationId,
+            current_node: 'assistant-node-2',
+            mapping: {
+                root: { id: 'root', parent: null, message: null },
+                'user-node-1': {
+                    id: 'user-node-1',
+                    parent: 'root',
+                    message: message('user-message-1', 'user', 'Pending research request'),
+                },
+                'assistant-node-1': {
+                    id: 'assistant-node-1',
+                    parent: 'user-node-1',
+                    message: message('assistant-message-1', 'assistant', ''),
+                },
+                'user-node-2': {
+                    id: 'user-node-2',
+                    parent: 'assistant-node-1',
+                    message: message('user-message-2', 'user', 'Completed follow-up'),
+                },
+                'assistant-node-2': {
+                    id: 'assistant-node-2',
+                    parent: 'user-node-2',
+                    message: message('assistant-message-2', 'assistant', 'Completed answer'),
+                },
+            },
+        }), {
+            status: 200,
+            headers: { 'Content-Type': 'application/json' },
+        }));
+        Object.defineProperty(window, 'fetch', { configurable: true, value: fetchMock });
+        vi.stubGlobal('fetch', fetchMock);
+
+        installBridge();
+        await observeConversationFetch(conversationId);
+        const response = await requestSnapshot(conversationId);
+
+        expect(response.ok).toBe(true);
+        expect(response.snapshot.coverage).toBe('complete');
+        expect(response.snapshot.rounds.map((round: any) => round.position)).toEqual([1]);
+        expect(response.snapshot.rounds[0].userPrompt).toBe('Completed follow-up');
     });
 
     it('rejects a conversation graph whose payload identity does not match the requested conversation', async () => {
@@ -1024,78 +1150,6 @@ describe('ChatGPT conversation bridge', () => {
         expect(first.ok).toBe(false);
         expect(second.ok).toBe(false);
         expect(fetchMock).not.toHaveBeenCalled();
-    });
-
-    it('allows one bounded same-origin GET only for an explicit acquire request', async () => {
-        const conversationId = '69e8d157-5fec-839c-9124-2179ba8b7d7c';
-        history.replaceState({}, '', `/c/${conversationId}`);
-        const payload = {
-            conversation_id: conversationId,
-            current_node: 'assistant-node',
-            mapping: {
-                root: { id: 'root', parent: null, message: null },
-                'user-node': {
-                    id: 'user-node',
-                    parent: 'root',
-                    message: message('user-message', 'user', 'Question'),
-                },
-                'assistant-node': {
-                    id: 'assistant-node',
-                    parent: 'user-node',
-                    message: message('assistant-message', 'assistant', 'Answer'),
-                },
-            },
-        };
-        const fetchMock = vi.fn(async () => new Response(JSON.stringify(payload), {
-            status: 200,
-            headers: { 'Content-Type': 'application/json' },
-        }));
-        Object.defineProperty(window, 'fetch', { configurable: true, value: fetchMock });
-        vi.stubGlobal('fetch', fetchMock);
-
-        installBridge();
-        const response = await requestSnapshot(conversationId, { type: 'acquire' });
-
-        expect(fetchMock).toHaveBeenCalledTimes(1);
-        expect(fetchMock.mock.calls[0]?.[0]).toBe(`/backend-api/conversation/${conversationId}`);
-        expect(fetchMock.mock.calls[0]?.[1]).toMatchObject({ method: 'GET' });
-        expect(response.ok).toBe(true);
-        expect(response.snapshot.rounds).toHaveLength(1);
-    });
-
-    it('rejects an active acquire request that does not match the current route identity', async () => {
-        const currentConversationId = '69e8d157-5fec-839c-9124-2179ba8b7d7c';
-        const requestedConversationId = '79e8d157-5fec-839c-9124-2179ba8b7d7d';
-        history.replaceState({}, '', `/c/${currentConversationId}`);
-        const fetchMock = vi.fn(async () => new Response('', { status: 404 }));
-        Object.defineProperty(window, 'fetch', { configurable: true, value: fetchMock });
-        vi.stubGlobal('fetch', fetchMock);
-
-        installBridge();
-        const response = await requestSnapshot(requestedConversationId, { type: 'acquire' });
-
-        expect(fetchMock).not.toHaveBeenCalled();
-        expect(response).toMatchObject({
-            ok: false,
-            error: { code: 'IDENTITY_CONFLICT', retryable: false },
-        });
-    });
-
-    it('uses the canonical conversation identity on a nested project route', async () => {
-        const conversationId = '69e8d157-5fec-839c-9124-2179ba8b7d7c';
-        history.replaceState({}, '', `/g/project-id/c/${conversationId}`);
-        const fetchMock = vi.fn(async () => new Response(JSON.stringify(graphPayload(conversationId)), {
-            status: 200,
-            headers: { 'Content-Type': 'application/json' },
-        }));
-        Object.defineProperty(window, 'fetch', { configurable: true, value: fetchMock });
-        vi.stubGlobal('fetch', fetchMock);
-
-        installBridge();
-        const response = await requestSnapshot(conversationId, { type: 'acquire' });
-
-        expect(response.ok).toBe(true);
-        expect(fetchMock).toHaveBeenCalledTimes(1);
     });
 
     it('does not inspect responses outside the conversation graph transport', async () => {

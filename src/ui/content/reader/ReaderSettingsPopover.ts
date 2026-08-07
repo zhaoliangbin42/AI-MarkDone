@@ -34,6 +34,7 @@ type OpenParams = {
     settings: AppSettings['reader'];
     onChange: (patch: ReaderSettingsPatch) => Promise<void> | void;
     onPreview: (patch: ReaderSettingsPatch) => void;
+    onError?: (error: unknown) => void;
     onOpenPromptManager?: (anchor: HTMLElement) => Promise<void> | void;
     onClose?: () => void;
 };
@@ -330,6 +331,7 @@ export class ReaderSettingsPopover {
 
     private async applyPatch(patch: ReaderSettingsPatch): Promise<void> {
         if (!this.params || !this.settings) return;
+        const previous = this.cloneSettings(this.settings);
         const next = this.cloneSettings({ ...this.settings, ...patch });
         if (patch.commentExport) next.commentExport = normalizeReaderCommentExportSettings(patch.commentExport);
         if (patch.defaultOpenMode) next.defaultOpenMode = patch.defaultOpenMode === 'panel' ? 'panel' : DEFAULT_READER_OPEN_MODE;
@@ -337,8 +339,14 @@ export class ReaderSettingsPopover {
         if (typeof patch.contentMaxWidthPx !== 'undefined') next.contentMaxWidthPx = normalizeReaderContentMaxWidthPx(patch.contentMaxWidthPx);
         this.settings = next;
         this.params.onPreview(patch);
-        await this.params.onChange(patch);
-        this.updateSettings(next);
+        try {
+            await this.params.onChange(patch);
+            this.updateSettings(next);
+        } catch (error) {
+            this.params.onPreview(previous);
+            this.updateSettings(previous);
+            this.params.onError?.(error);
+        }
     }
 
     private openPromptSettings(anchor?: HTMLElement): void {

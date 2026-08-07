@@ -6,6 +6,14 @@ type ChatGPTPageIndexOptions = {
     discover: () => ChatGPTDomRoundRef[];
 };
 
+export type ChatGPTHostObservationKind = 'structure' | 'identity' | 'content' | 'lifecycle';
+
+export type ChatGPTHostObservationBatch = Readonly<{
+    revision: number;
+    kinds: readonly ChatGPTHostObservationKind[];
+    assistantMessageIds: readonly string[];
+}>;
+
 const ROUND_STRUCTURE_SELECTOR = [
     '[data-turn-id-container]',
     '[data-turn="user"]',
@@ -43,7 +51,19 @@ function isExtensionOwnedNode(node: Node): boolean {
     return Boolean(getElementForOwnershipCheck(node)?.closest('[data-aimd-role]'));
 }
 
+function isAssistantContentNode(node: Node): boolean {
+    if (isExtensionOwnedNode(node)) return false;
+    const element = getElementForOwnershipCheck(node);
+    return Boolean(element?.closest('[data-message-author-role="assistant"]'));
+}
+
 function mutationAffectsHostPage(mutation: MutationRecord): boolean {
+    if (mutation.type === 'characterData') {
+        // React frequently updates an existing text node in place while a
+        // long answer is streaming. Keep the single PageIndex observer, but
+        // only accept text changes inside typed assistant content.
+        return isAssistantContentNode(mutation.target);
+    }
     if (mutation.type === 'attributes') {
         if (mutation.attributeName?.startsWith('data-aimd-')) return false;
         if (isExtensionOwnedNode(mutation.target)) return false;
@@ -65,6 +85,7 @@ function mutationAffectsHostPage(mutation: MutationRecord): boolean {
     }
 
     const changedNodes = [...mutation.addedNodes, ...mutation.removedNodes];
+    if (isAssistantContentNode(mutation.target)) return true;
     return changedNodes.some((node) => (
         !isExtensionOwnedNode(node) && nodeMayContainContentLifecycle(node)
     ));
@@ -105,6 +126,8 @@ export class ChatGPTPageIndex {
     private snapshot: ChatGPTDomRoundRef[] | null = null;
     private roundSubscribers = new Set<() => void>();
     private mutationSubscribers = new Set<() => void>();
+    private observationSubscribers = new Set<(batch: ChatGPTHostObservationBatch) => void>();
+    private observationRevision = 0;
 
     constructor(options: ChatGPTPageIndexOptions) {
         this.options = options;
@@ -132,12 +155,25 @@ export class ChatGPTPageIndex {
         return () => this.mutationSubscribers.delete(listener);
     }
 
+    subscribeObservations(listener: (batch: ChatGPTHostObservationBatch) => void): () => void {
+        this.observationSubscribers.add(listener);
+        this.ensureObservedRoot();
+        return () => this.observationSubscribers.delete(listener);
+    }
+
+    getObservationRevision(): number {
+        this.ensureObservedRoot();
+        return this.observationRevision;
+    }
+
     dispose(): void {
         this.observer?.disconnect();
         this.observer = null;
         this.observedRoot = null;
         this.roundSubscribers.clear();
         this.mutationSubscribers.clear();
+        this.observationSubscribers.clear();
+        this.observationRevision = 0;
         this.invalidate();
     }
 
@@ -163,6 +199,18 @@ export class ChatGPTPageIndex {
             const hostMutations = mutations.filter(mutationAffectsHostPage);
             if (hostMutations.length === 0) return;
             this.invalidate();
+            const kinds = new Set<ChatGPTHostObservationKind>();
+            const assistantMessageIds = new Set<string>();
+            for (const mutation of hostMutations) {
+                mutationKinds(mutation).forEach((kind) => kinds.add(kind));
+                collectAssistantMessageIds(mutation).forEach((id) => assistantMessageIds.add(id));
+            }
+            this.observationRevision += 1;
+            this.notifyObservations({
+                revision: this.observationRevision,
+                kinds: Object.freeze(Array.from(kinds)),
+                assistantMessageIds: Object.freeze(Array.from(assistantMessageIds)),
+            });
             this.notify(this.mutationSubscribers, 'Content-change');
             if (!hostMutations.some(mutationAffectsRoundStructure)) return;
             this.notify(this.roundSubscribers, 'Round-change');
@@ -172,6 +220,7 @@ export class ChatGPTPageIndex {
             attributeOldValue: true,
             attributeFilter: Array.from(HOST_LIFECYCLE_ATTRIBUTES),
             childList: true,
+            characterData: true,
             subtree: true,
         });
     }
@@ -185,4 +234,64 @@ export class ChatGPTPageIndex {
             }
         }
     }
+
+    private notifyObservations(batch: ChatGPTHostObservationBatch): void {
+        for (const listener of Array.from(this.observationSubscribers)) {
+            try {
+                listener(batch);
+            } catch (error) {
+                logger.warn('[AI-MarkDone][ChatGPTPageIndex] Host observation subscriber failed', error);
+            }
+        }
+    }
+}
+
+function mutationKinds(mutation: MutationRecord): ChatGPTHostObservationKind[] {
+    if (mutation.type === 'characterData') return ['content'];
+    if (mutation.type === 'attributes') {
+        if (mutation.attributeName === 'data-testid') {
+            const current = getElementForOwnershipCheck(mutation.target)?.getAttribute('data-testid') ?? '';
+            const previous = mutation.oldValue ?? '';
+            if (
+                current === 'stop-button'
+                || current === 'copy-turn-action-button'
+                || previous === 'stop-button'
+                || previous === 'copy-turn-action-button'
+            ) return ['lifecycle'];
+        }
+        return ['identity'];
+    }
+    if (mutationAffectsRoundStructure(mutation)) return ['structure'];
+    if (nodeMayContainContentLifecycleFromMutation(mutation)) return ['lifecycle'];
+    return ['content'];
+}
+
+function nodeMayContainContentLifecycleFromMutation(mutation: MutationRecord): boolean {
+    const changedNodes = [...mutation.addedNodes, ...mutation.removedNodes];
+    return changedNodes.some((node) => {
+        if (node.nodeType !== 1 && node.nodeType !== 11) return false;
+        const queryable = node as Element | DocumentFragment;
+        if (node.nodeType === 1 && (queryable as Element).matches(GENERATION_LIFECYCLE_SELECTOR)) return true;
+        return queryable.querySelector(GENERATION_LIFECYCLE_SELECTOR) !== null;
+    });
+}
+
+function collectAssistantMessageIds(mutation: MutationRecord): string[] {
+    const ids = new Set<string>();
+    const collect = (node: Node): void => {
+        const element = getElementForOwnershipCheck(node);
+        const message = element?.closest('[data-message-author-role="assistant"]');
+        const directId = message?.getAttribute('data-message-id')?.trim();
+        if (directId) ids.add(directId);
+        if (node.nodeType !== 1 && node.nodeType !== 11) return;
+        const queryable = node as Element | DocumentFragment;
+        queryable.querySelectorAll?.('[data-message-author-role="assistant"][data-message-id]').forEach((candidate) => {
+            const id = candidate.getAttribute('data-message-id')?.trim();
+            if (id) ids.add(id);
+        });
+    };
+    collect(mutation.target);
+    mutation.addedNodes.forEach(collect);
+    mutation.removedNodes.forEach(collect);
+    return Array.from(ids);
 }

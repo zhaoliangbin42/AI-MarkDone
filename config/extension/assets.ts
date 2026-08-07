@@ -6,10 +6,10 @@ const sharedNonIconWebAccessibleResources = [
     'vendor/katex/*.css',
     'vendor/katex/fonts/*',
     'vendor/latex-workshop/formula-snippets.json',
-    'page-bridges/*.js',
     'export-renderer.html',
     'content-features.js',
     'content-feature-chunks/*.js',
+    'page-bridges/chatgpt-conversation-bridge.js',
 ] as const;
 
 const defaultWebAccessibleResources = [
@@ -23,9 +23,8 @@ const safariWebAccessibleResources = [
 ] as const;
 
 export const extensionAssets = {
+    chatgptConversationBootstrap: 'page-bridges/chatgpt-conversation-bootstrap.js',
     contentEntry: 'content.js',
-    chatGptConversationBridge: 'page-bridges/chatgpt-conversation-bridge.js',
-    chatGptConversationBootstrap: 'page-bridges/chatgpt-conversation-bootstrap.js',
     contentFeaturesEntry: 'content-features.js',
     exportRendererPath: 'export-renderer.html',
     formulaSnippetCatalog: 'vendor/latex-workshop/formula-snippets.json',

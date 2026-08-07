@@ -29,6 +29,19 @@ function client(prompts: PromptRecord[]) {
 }
 
 describe('PromptWorkflow', () => {
+    it('keeps a manager load failure distinct from an empty prompt library', async () => {
+        const api = client([]);
+        api.listPrompts.mockRejectedValueOnce(new Error('Extension context invalidated.'));
+        const workflow = new PromptWorkflow(api);
+
+        await workflow.openManager();
+
+        expect(workflow.state.mode).toBe('manager');
+        expect(workflow.state.dataState).toBe('error');
+        expect(workflow.state.statusMessage).toBe('Extension context invalidated.');
+        expect(workflow.managerPrompts).toEqual([]);
+    });
+
     it('owns trigger filtering, cache reuse, selection, and same-token dismissal', async () => {
         const records = [
             prompt({ id: 'title-only', title: 'Rewrite', triggerText: 'polish' }),

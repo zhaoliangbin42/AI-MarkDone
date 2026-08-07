@@ -2,6 +2,7 @@ import type { Bookmark, BookmarksKindFilter } from '../../../../../core/bookmark
 import type { BookmarksPanelController, BookmarksPanelSnapshot } from '../../BookmarksPanelController';
 import { createIcon } from '../../../components/Icon';
 import { t } from '../../../components/i18n';
+import { getRuntimeFailurePresentation } from '../../../components/runtimeFailurePresentation';
 import { BookmarksTreeViewport } from '../BookmarksTreeViewport';
 import { buildImportMergeReviewModalBody } from '../importMergeReview';
 import { createNoopBookmarksTabActions, type BookmarksTabActions, getMoveTargetParent } from './bookmarksTabActions';
@@ -26,7 +27,13 @@ type Refs = {
     sortAlphaBtn: HTMLButtonElement;
     importFile: HTMLInputElement;
     batch: HTMLElement;
+    runtimeNotice: HTMLElement;
 };
+
+function tr(key: string, fallback: string): string {
+    const translated = t(key);
+    return !translated || translated === key ? fallback : translated;
+}
 
 function downloadJson(filename: string, data: unknown): void {
     try {
@@ -79,6 +86,8 @@ export class BookmarksTabView {
                 renameFolder: async (path) => await this.renameFolder(path),
                 moveFolder: async (path) => await this.moveFolder(path),
                 deleteFolder: async (path) => await this.deleteFolder(path),
+                retryLoad: async () => await this.controller.refreshAll(),
+                reloadPage: () => window.location.reload(),
             },
         });
 
@@ -184,7 +193,12 @@ export class BookmarksTabView {
         const batch = document.createElement('div');
         batch.className = 'batch-bar';
 
-        this.root.append(toolbar, batch, this.treeViewport.getElement());
+        const runtimeNotice = document.createElement('div');
+        runtimeNotice.className = 'bookmarks-runtime-notice';
+        runtimeNotice.setAttribute('role', 'alert');
+        runtimeNotice.hidden = true;
+
+        this.root.append(toolbar, runtimeNotice, batch, this.treeViewport.getElement());
 
         this.refs = {
             query,
@@ -193,6 +207,7 @@ export class BookmarksTabView {
             sortAlphaBtn,
             importFile,
             batch,
+            runtimeNotice,
         };
     }
 
@@ -237,8 +252,36 @@ export class BookmarksTabView {
 
         const selectedBookmarkCount = this.countSelectedBookmarks(snap.selectedKeys);
         this.renderBatchBar(this.refs.batch, selectedBookmarkCount);
+        this.renderRuntimeNotice(snap);
         this.treeViewport.update(snap);
         this.updateSortButtons(snap.vm.sortMode);
+    }
+
+    private renderRuntimeNotice(snapshot: BookmarksPanelSnapshot): void {
+        const notice = this.refs.runtimeNotice;
+        notice.replaceChildren();
+        delete notice.dataset.role;
+        notice.hidden = true;
+        if (snapshot.dataState?.kind !== 'error' || snapshot.vm.folderTree.length === 0) return;
+
+        const presentation = getRuntimeFailurePresentation(snapshot.dataState.failure, tr);
+        const text = document.createElement('span');
+        text.textContent = presentation.message;
+        const action = document.createElement('button');
+        action.type = 'button';
+        action.className = 'secondary-btn';
+        action.dataset.action = presentation.action === 'reload' ? 'reload-bookmarks-page' : 'retry-bookmarks-load';
+        action.textContent = presentation.actionLabel;
+        action.addEventListener('click', () => {
+            if (presentation.action === 'reload') {
+                window.location.reload();
+                return;
+            }
+            void this.controller.refreshAll();
+        });
+        notice.append(text, action);
+        notice.dataset.role = 'bookmarks-runtime-error';
+        notice.hidden = false;
     }
 
     private renderBatchBar(container: HTMLElement, selectedBookmarkCount: number): void {

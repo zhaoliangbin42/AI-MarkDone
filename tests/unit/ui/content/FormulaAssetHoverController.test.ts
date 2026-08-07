@@ -9,6 +9,7 @@ vi.mock('@/services/math/formulaAssetActions', () => ({
 
 import { FormulaAssetHoverController } from '@/ui/content/controllers/FormulaAssetHoverController';
 import { runFormulaAssetAction } from '@/services/math/formulaAssetActions';
+import { chatgptMarkdownParserAdapter } from '@/drivers/content/adapters/parser/chatgpt';
 
 const createController = () => new FormulaAssetHoverController({ runFormulaAssetAction });
 
@@ -121,6 +122,57 @@ describe('FormulaAssetHoverController', () => {
 
         controller.disable();
         container.remove();
+    });
+
+    it('reads current ChatGPT formula source from the semantic wrapper adapter', async () => {
+        vi.useFakeTimers();
+        const container = document.createElement('div');
+        container.innerHTML = `
+          <span role="math" data-math-source="x^2 + y^2">
+            <span class="katex"><span class="katex-html">visual glyphs</span></span>
+          </span>
+        `;
+        document.body.appendChild(container);
+
+        const controller = new FormulaAssetHoverController({
+            parserAdapter: chatgptMarkdownParserAdapter,
+            runFormulaAssetAction,
+        });
+        controller.setFormulaSettings({
+            clickCopyMarkdown: true,
+            clickCopyFormulaFormat: 'markdown-dollar',
+            markdownCopyFormulaFormat: 'markdown-dollar',
+            assetFontSizePx: 36,
+            assetActions: {
+                copyPng: false,
+                copySvg: true,
+                copyMathml: false,
+                savePng: false,
+                saveSvg: false,
+            },
+        });
+        controller.enable(container);
+
+        const target = container.querySelector('.katex') as HTMLElement;
+        target.dispatchEvent(new MouseEvent('mouseenter', { bubbles: true }));
+        await vi.advanceTimersByTimeAsync(100);
+        document.querySelector<HTMLElement>('.aimd-toolbar-hover-action-host')
+            ?.shadowRoot
+            ?.querySelector<HTMLButtonElement>('[data-action="copy_formula_svg"]')
+            ?.click();
+        await Promise.resolve();
+
+        expect(runFormulaAssetAction).toHaveBeenCalledWith(expect.objectContaining({
+            action: 'copy_svg',
+            source: {
+                kind: 'tex',
+                value: 'x^2 + y^2',
+                confidence: 'authoritative',
+            },
+        }));
+        actionResolver?.({ ok: true, status: 'copied' });
+        await Promise.resolve();
+        controller.disable();
     });
 
     it('guards formula asset actions while a render request is already pending', async () => {

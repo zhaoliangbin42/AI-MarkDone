@@ -2,6 +2,30 @@
 
 本文件定义当前仓库应遵守的依赖方向与边界，用于把“分层”变成可执行约束，并为后续 lint/CI 门禁提供依据。
 
+## 0. Active ChatGPT content boundary
+
+ChatGPT production content has one composition root and one consumer seam:
+
+```text
+Website-owned conversation GET
+        -> document_start passive bridge
+        -> ChatGPT Source Adapter
+        -> ConversationContentRepository
+        -> ConversationContentSourceV1
+                         ↓
+       Reader / Bookmark / Copy / Formula / Directory / Export
+                         ↑
+              ConversationMaterializationPortV1
+              (current DOM anchor only)
+```
+
+- `ConversationContentRepository` is the only active ChatGPT semantic content owner. It validates the passive graph evidence and publishes immutable V1 snapshots; consumers must not import provider payloads, ChatGPT selectors, or DOM text to recover a second content path.
+- `ConversationMaterializationPortV1` may return only the current typed target and anchor. It cannot produce prompts, Markdown, ordinal positions, or a fallback snapshot.
+- `readerContentSource` is the sole ReaderItem projection. Reader, word count, whole-message copy, Bookmark Preparation, formula, local selection, and Save Messages export must receive the same V1 source instance from the composition root.
+- `ChatGPTConversationIndex` is the navigation projection over that same V1 source plus optional mounted anchors. It is not a second content repository.
+- `ConversationDiscoveryModuleV2`, `ChatGPTVirtualConversationHostAdapter`, and `RenderedContentCompilerV2` are isolated experimental/test modules in the current tree; production consumers must not be wired to them until a new ADR explicitly changes the seam.
+- ChatGPT discovery must not read Cookie/Storage/Token/Authorization data, construct POST/SSE or conversation GET requests, use React internals, synthesize scroll, or poll content. Only the user-facing bounded `locate()` operation may call the host adapter's one coarse and one precise scroll operation.
+
 ---
 
 ## 1. Runtime Boundary Rules
@@ -68,6 +92,7 @@
   - `src/services/settings/*`
   - `src/services/bookmarks/*`
   - `src/services/cloudBackup/*`
+  - `src/services/semantic-content/SemanticContent.ts`
 - `content-facing feature service`
   - `src/services/copy/*`
   - `src/services/reader/*`
@@ -96,8 +121,28 @@ Semantic ChatGPT content contracts are separate from runtime protocol contracts:
 
 - `src/contracts/conversationContent.ts` owns the provider-neutral `ConversationContentSourceV1`, document/turn identity, immutable snapshot, and state union.
 - `src/contracts/conversationMaterialization.ts` owns the content-runtime-only DOM target and materialization port.
+- `src/contracts/semanticContent.ts` owns the provider-neutral Semantic Content Module interface, project-owned immutable node model, source spans, selectors, provenance, diagnostics, and projection outcomes.
+- `src/contracts/contentSurface.ts` owns platform-neutral rendered-surface evidence. It must not expose DOM nodes, Range coordinates, selectors, or parser-library types.
 
 ChatGPT routes, selectors, bridge transport, provider payloads, graph decoding, and active-read policy remain inside `src/drivers/content/chatgpt/*` and `public/page-bridges/*`. Reader/Directory/Copy/Export/Bookmark/Annotation consumers may import the semantic contract or a downstream projection, but may not import those driver internals. Materialization may expose `HTMLElement` only inside content runtime; it must never cross background or extension-page boundaries.
+
+Conversation content-discovery rules:
+
+- `src/services/content/ConversationEvidenceLedger.ts` is the provider-neutral deep Module. It owns document-epoch fencing, typed identity joins, branch projection, sealed records, idempotency, conflict reporting, gap proof, and the `ConversationTurnReadPortV1`; it must not import DOM, browser globals, provider selectors, or UI.
+- `src/services/content/StableTurnCapture.ts` and `src/services/content/RenderedContentCompiler.ts` accept semantic facts and injected parser capabilities. Host lifecycle and node lookup stay in the ChatGPT Host Adapter; the compiler never contains ChatGPT selectors.
+- Source acquisition and host observation are independent evidence producers. A DOM window cannot create complete history, overwrite a sealed source turn, or participate in consumer-level recovery. Virtualized unmounts only affect materialization anchors.
+- `ConversationSnapshotV1.proof` is the completeness authority. `ready` means a sealed turn exists; full export requires complete order, bodies, and stable tail. Consumers needing one mounted message use `readTurn()` instead of rebuilding Markdown from DOM.
+- Source, host, materialization, and surface revisions must remain separate. No consumer may reuse a revision as another layer's cache key or add a second content observer/fallback.
+- ChatGPT message-bookmark highlighting and toolbar state must use the read-only `conversationBookmarkResolver` over the canonical turn identities. Persisted assistant `messageId` is authoritative; stored `position` is validated and is only a compatibility fallback when the identity is absent from the canonical source. Identity/position conflicts fail closed. This resolver must not write bookmarks, migrate old records, alter storage keys, or change import/export payloads.
+- The same resolver owns ChatGPT bookmark state in the Directory, message toolbar and Reader footer. When a ChatGPT `ConversationContentSourceV1` is injected, a missing source snapshot or an unloaded message-bookmark projection must return no active position; `isPositionBookmarked()` is not a fallback for that production path. Position-only compatibility is permitted only when the canonical ChatGPT source seam is absent (legacy/non-ChatGPT composition), never alongside an injected source.
+
+Semantic-content dependency rules:
+
+- `SemanticContent.ts` may depend on `src/contracts/*` and pure parser libraries only. It must not depend on `src/drivers/*`, `src/ui/*`, `src/runtimes/*`, DOM/browser globals, platform IDs, host selectors, clipboard, storage, or renderer implementation types.
+- Parser-library AST types are private implementation details. The public Interface must expose only AI-MarkDone-owned immutable types.
+- `ContentSurfaceAdapter` lives in `src/drivers/content/*`; it may consume Site Adapter and Materialization contracts, but must not import services or return DOM handles inside `ContentSurfaceSelectionEvidenceV1`.
+- `src/services/semantic-content/SurfaceProjection.ts` is the sole service seam that may join `contentSurface` evidence with `conversationContent` source. Other consumers receive its result or a downstream projection; they must not repeat source/surface matching.
+- Rendering remains a separate Module. Semantic Content may describe structure and source spans, but it does not own HTML, KaTeX, syntax highlighting, sanitization, export layout, clipboard, or download.
 
 该协议必须版本化，只传语义 job、进度、稳定错误码、artifact metadata 与 transferable `ArrayBuffer` chunk；禁止 base64、大型 JSON 二进制、DOM、HTML/CSS 或 renderer function。
 
@@ -115,6 +160,8 @@ ChatGPT routes, selectors, bridge transport, provider payloads, graph decoding, 
 - 站点选择器、主题探测、message root 识别只能位于 `src/drivers/content` 下的平台 adapter/driver
 - conversation group discovery、turn root、conversation root、streaming 判定同样只能位于 adapter/driver；UI controller 不得新增宿主专有 selector
 - KaTeX / code-heavy subtree 的宿主结构识别与 selector 也只能位于 adapter/driver；UI/controller 只能消费 adapter 暴露的结构化 hints
+- 页面 selection 的 message/content-root 识别只能位于 `ContentSurfaceAdapter`；Service 只能消费 typed target、revision tokens 与 TextQuote evidence
+- 公式源码识别属于 parser Adapter capability。共享 core 可识别语义化 TeX source attributes/annotations，但 UI/controller 不得自行遍历 KaTeX 视觉子树或把 visual text 提升为 authoritative TeX
 - UI 层不得持有平台专有选择器
 - Service 层不得按 platform id 分支选择 DOM 行为
 - `content-facing feature service` 可消费 adapter 暴露的抽象结果，但不得自行持有平台 selector 或注册 adapter

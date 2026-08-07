@@ -10,6 +10,13 @@ import {
     type ConversationSnapshotV1,
     type ConversationUnavailableReasonV1,
 } from '../../contracts/conversationContent';
+import type {
+    ConversationEvidenceEventV1,
+    ConversationTurnReadPortV1,
+    ConversationTurnReadResultV1,
+} from '../../contracts/conversationDiscovery';
+import type { ConversationTargetV1 } from '../../contracts/conversationMaterialization';
+import { ConversationEvidenceLedger } from './ConversationEvidenceLedger';
 
 export type { ConversationContentCandidateV1 } from '../../contracts/conversationContent';
 export { ConversationContentAcquisitionError } from '../../contracts/conversationContent';
@@ -19,7 +26,7 @@ export type ConversationContentRepositoryOptionsV1 = Readonly<{
     acquire: (
         document: ConversationDocumentRefV1,
         signal: AbortSignal,
-    ) => Promise<ConversationContentCandidateV1 | null>;
+    ) => Promise<ConversationContentCandidateV1 | readonly ConversationContentCandidateV1[] | null>;
     reconcileDelayMs?: number;
 }>;
 
@@ -34,7 +41,7 @@ type Flight = {
  * The single coordinator/SSOT for semantic conversation content.  Signals
  * only schedule this class; consumers never perform their own discovery.
  */
-export class ConversationContentRepository implements ConversationContentSourceV1 {
+export class ConversationContentRepository implements ConversationContentSourceV1, ConversationTurnReadPortV1 {
     private state: ConversationContentStateV1 = Object.freeze({
         kind: 'idle',
         document: null,
@@ -45,6 +52,8 @@ export class ConversationContentRepository implements ConversationContentSourceV
     private lastGood: ConversationSnapshotV1 | null = null;
     private epoch = 0;
     private flight: Flight | null = null;
+    private readonly ledger = new ConversationEvidenceLedger();
+    private sourceEvidenceRevision = 0;
     private scheduledTimer: ReturnType<typeof setTimeout> | null = null;
     private disposed = false;
 
@@ -112,18 +121,31 @@ export class ConversationContentRepository implements ConversationContentSourceV
 
         const promise = Promise.resolve()
             .then(() => this.options.acquire(this.currentDocument!, controller.signal))
-            .then((candidate) => {
+            .then((acquisition) => {
                 if (this.isObsolete(epoch, controller)) return this.state;
-                const discoveredSnapshot = candidate
-                    ? this.createSnapshot(candidate, this.currentDocument!)
-                    : null;
-                if (!discoveredSnapshot) {
+                if (!acquisition) {
                     throw new ConversationContentAcquisitionError(
                         'source-unavailable',
                         { retryable: true },
                     );
                 }
-                const snapshot = this.selectMonotonicSnapshot(discoveredSnapshot);
+                const candidates = Array.isArray(acquisition) ? acquisition : [acquisition];
+                if (candidates.length === 0) {
+                    throw new ConversationContentAcquisitionError(
+                        'source-unavailable',
+                        { retryable: true },
+                    );
+                }
+                let snapshot: ConversationSnapshotV1 | null = null;
+                for (const candidate of candidates) {
+                    snapshot = this.ingestCandidate(candidate, this.currentDocument!);
+                }
+                if (!snapshot) {
+                    throw new ConversationContentAcquisitionError(
+                        'source-unavailable',
+                        { retryable: true },
+                    );
+                }
                 this.lastGood = snapshot;
                 this.publish({
                     kind: 'ready',
@@ -182,6 +204,31 @@ export class ConversationContentRepository implements ConversationContentSourceV
             && this.state.snapshot?.contentToken === contentToken;
     }
 
+    /** Read one turn that belongs to the last published source snapshot. */
+    readTurn(target: ConversationTargetV1): ConversationTurnReadResultV1 {
+        const snapshot = this.state.snapshot;
+        if (!snapshot || snapshot.document.key !== target.documentKey) {
+            return {
+                kind: 'unavailable',
+                target: Object.freeze({ ...target }),
+                reason: snapshot ? 'document-mismatch' : 'source-unavailable',
+            };
+        }
+        const turn = snapshot.turns.find((candidate) => (
+            candidate.identity.turnId === target.turnId
+            && candidate.identity.assistantMessageId === target.assistantMessageId
+            && (target.userMessageId === undefined || candidate.identity.userMessageId === target.userMessageId)
+        ));
+        if (!turn) {
+            return {
+                kind: 'unavailable',
+                target: Object.freeze({ ...target }),
+                reason: 'not-recognized',
+            };
+        }
+        return this.ledger.readTurn(target);
+    }
+
     /** Dispose cancels pending work; it never changes the public document data. */
     dispose(): void {
         this.disposed = true;
@@ -199,6 +246,7 @@ export class ConversationContentRepository implements ConversationContentSourceV
         if (nextKey === previousKey) {
             if (document && this.currentDocument && !sameDisplayDocument(this.currentDocument, document)) {
                 this.currentDocument = freezeDocument(document);
+                this.ledger.updateDocument(this.currentDocument);
                 if (this.lastGood) this.lastGood = freezeSnapshotDocument(this.lastGood, this.currentDocument);
             }
             return;
@@ -208,6 +256,8 @@ export class ConversationContentRepository implements ConversationContentSourceV
         this.flight = null;
         this.currentDocument = document ? freezeDocument(document) : null;
         this.lastGood = null;
+        this.sourceEvidenceRevision = 0;
+        this.ledger.reset(this.currentDocument, this.currentDocument ? `document-epoch:${this.epoch}` : null);
         if (this.currentDocument) {
             this.publish({
                 kind: 'syncing',
@@ -224,6 +274,20 @@ export class ConversationContentRepository implements ConversationContentSourceV
         if (candidate.document.key !== expectedDocument.key) {
             throw new ConversationContentAcquisitionError('identity-conflict', { retryable: false });
         }
+        if (candidate.turns.length === 0) {
+            throw new ConversationContentAcquisitionError('invalid-payload', { retryable: false });
+        }
+        candidate.turns.forEach((turn, index) => {
+            if (
+                !turn.userText.trim()
+                || !turn.assistantMarkdown.trim()
+                || turn.ordinal !== index + 1
+                || !turn.identity.turnId.trim()
+                || !turn.identity.assistantMessageId.trim()
+            ) {
+                throw new ConversationContentAcquisitionError('invalid-payload', { retryable: false });
+            }
+        });
         const turns = candidate.turns.map((turn) => ({
             ...turn,
             identity: { ...turn.identity },
@@ -245,25 +309,40 @@ export class ConversationContentRepository implements ConversationContentSourceV
         return snapshot;
     }
 
-    private selectMonotonicSnapshot(
-        candidate: ConversationSnapshotV1,
+    private ingestCandidate(
+        candidate: ConversationContentCandidateV1,
+        expectedDocument: ConversationDocumentRefV1,
     ): ConversationSnapshotV1 {
-        const previous = this.lastGood;
-        if (
-            !previous
-            || previous.document.key !== candidate.document.key
-            || candidate.coverage === 'complete'
-        ) {
-            return candidate;
+        if (candidate.origin === 'host') {
+            throw new ConversationContentAcquisitionError('invalid-payload', { retryable: false });
         }
-
-        if (previous.coverage === 'complete') {
-            if (sameTurnSequence(previous.turns, candidate.turns)) return previous;
+        if (candidate.coverage !== 'complete' || candidate.tail === 'streaming') {
+            throw new ConversationContentAcquisitionError('source-unavailable', { retryable: true });
+        }
+        const validated = this.createSnapshot(candidate, expectedDocument);
+        const event: ConversationEvidenceEventV1 = {
+            kind: 'source-batch',
+            document: validated.document,
+            epoch: `document-epoch:${this.epoch}`,
+            revision: candidate.sourceRevision ?? ++this.sourceEvidenceRevision,
+            captureId: candidate.captureId
+                ?? `candidate:${candidate.coverage}:${validated.contentToken}`,
+            branchKey: candidate.branchKey ?? expectedDocument.key,
+            order: candidate.coverage === 'complete' ? 'complete' : 'partial',
+            turns: validated.turns,
+            gaps: candidate.coverage === 'complete'
+                ? []
+                : [{ kind: 'order', reason: 'source candidate covers a materialized or captured window' }],
+        };
+        const result = this.ledger.ingest(event);
+        if (result.status === 'conflict') {
             throw new ConversationContentAcquisitionError('identity-conflict', { retryable: false });
         }
-
-        if (isTurnSequencePrefix(previous.turns, candidate.turns)) return candidate;
-        throw new ConversationContentAcquisitionError('identity-conflict', { retryable: false });
+        const snapshot = result.view.snapshot;
+        if (!snapshot || !hasCompleteDiscoveryProof(snapshot)) {
+            throw new ConversationContentAcquisitionError('source-unavailable', { retryable: true });
+        }
+        return snapshot;
     }
 
     private isObsolete(epoch: number, controller: AbortController): boolean {
@@ -335,32 +414,6 @@ function freezeSnapshotDocument(
     return freezeConversationSnapshotV1({ ...snapshot, document });
 }
 
-function sameTurnSequence(
-    left: ConversationSnapshotV1['turns'],
-    right: ConversationSnapshotV1['turns'],
-): boolean {
-    return left.length === right.length && isTurnSequencePrefix(left, right);
-}
-
-function isTurnSequencePrefix(
-    prefix: ConversationSnapshotV1['turns'],
-    sequence: ConversationSnapshotV1['turns'],
-): boolean {
-    return prefix.length <= sequence.length && prefix.every((turn, index) => {
-        const other = sequence[index];
-        return Boolean(
-            other
-            && turn.key === other.key
-            && turn.ordinal === other.ordinal
-            && turn.identity.turnId === other.identity.turnId
-            && turn.identity.userMessageId === other.identity.userMessageId
-            && turn.identity.assistantMessageId === other.identity.assistantMessageId
-            && turn.userText === other.userText
-            && turn.assistantMarkdown === other.assistantMarkdown,
-        );
-    });
-}
-
 function createContentToken(
     snapshot: Omit<ConversationSnapshotV1, 'contentToken'>,
 ): string {
@@ -372,6 +425,7 @@ function createContentToken(
             identity: turn.identity,
             userText: turn.userText,
             assistantMarkdown: turn.assistantMarkdown,
+            assistantProvenance: turn.assistantProvenance,
         })),
     });
     let hash = 2166136261;
@@ -412,9 +466,19 @@ function sameState(
     if (left.document?.key !== right.document?.key) return false;
     if (left.snapshot?.contentToken !== right.snapshot?.contentToken) return false;
     if (left.snapshot?.coverage !== right.snapshot?.coverage) return false;
+    if (JSON.stringify(left.snapshot?.proof) !== JSON.stringify(right.snapshot?.proof)) return false;
     if (left.kind === 'stale' && right.kind === 'stale') return left.reason === right.reason;
     if (left.kind === 'unavailable' && right.kind === 'unavailable') {
         return left.reason === right.reason && left.retryable === right.retryable;
     }
     return true;
+}
+
+function hasCompleteDiscoveryProof(snapshot: ConversationSnapshotV1): boolean {
+    const proof = snapshot.proof;
+    if (!proof) return snapshot.coverage === 'complete';
+    return proof.order === 'complete'
+        && proof.bodies === 'complete'
+        && proof.tail === 'stable'
+        && proof.gaps.length === 0;
 }

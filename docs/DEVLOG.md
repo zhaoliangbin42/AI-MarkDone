@@ -4,6 +4,135 @@ Purpose: evidence log for major changes (commands run + observed results). Keep 
 
 ---
 
+## 2026-08-07 — ChatGPT consumer wiring audit and bookmark projection closure
+
+- Audited the production path from passive Graph Adapter → `ConversationContentRepository` → `ConversationContentSourceV1` → `ChatGPTConversationIndex`/materialization/navigation and its Directory, Reader, word-count, copy, bookmark, formula, selection and export consumers.
+- Closed the remaining ChatGPT bookmark-state bypass: Reader footer actions, message toolbars and Directory highlights now use the same read-only canonical bookmark resolver. If the source snapshot or persisted message-record projection is unavailable, ChatGPT fails closed instead of trusting a position-only cache.
+- Kept bookmark persistence unchanged: no `Bookmark` field, storage key, old record, import/export shape, or save/remove protocol was modified.
+
+Focused verification:
+- `tests/unit/ui/bookmarks/bookmarksPanelController.test.ts` and `tests/unit/ui/content/messageToolbarOrchestrator.fold-action.test.ts`: passed (48 tests).
+- `npm run test:chatgpt-discovery`: passed (28 files / 330 tests).
+- `npm run test:core -- --pool=forks --maxWorkers=1`: passed (282 files / 1,956 tests); the default parallel run had one navigation timeout, and the same navigation file passed independently (16/16).
+- `npm run test:smoke`: passed (7 files / 54 tests).
+- `npm run test:acceptance`: passed (31 files / 315 tests).
+- `npm run type-check`, `npm run build`, and `git diff --check`: passed. Chrome MV3 and Firefox MV2 build/boundary/bundle checks passed.
+- `npm run perf:chatgpt`: remains blocked by the existing Atomic Selection benchmark assertion (`selected=1`, `cleared=0`, empty copy, two state writes, zero long tasks); this is recorded as a red performance gate, not a functional consumer pass.
+- Installed Chrome MV3 and Firefox MV2 acceptance remains a distinct manual gate and is not claimed by these automated results.
+
+---
+
+## 2026-08-07 — ChatGPT directory restored to passive Graph main path
+
+- Bound the ChatGPT directory to the existing passive graph adapter → `ConversationContentRepository` → `ChatGPTConversationIndex` path. Off-screen labels now come from graph user prompts; DOM supplies only current anchors/materialization.
+- Restored the document-start page bridge as a transparent observer of website-owned conversation `GET` responses. Removed active conversation acquisition and made missed capture require a page refresh.
+- Removed the remaining ChatGPT directory ratio/pixel seeker. User-initiated navigation now resolves a persistent host slot and waits for exact typed identity; it fails closed when that proof is unavailable.
+- Added ADR-0015 and updated current architecture/test-gate notes. The V2 Slot Topology path remains compatibility/materialization code, not the directory content SSOT.
+
+Verification:
+- `npm run test:chatgpt-discovery`: passed (28 files / 331 tests).
+- Focused directory/navigation tests: passed (14 tests); the obsolete pixel-probing tests were removed.
+- `npm run type-check`: passed.
+- `npm run build`: passed for Chrome MV3 and Firefox MV2, including entry-format, passive ChatGPT boundary, and bundle-size checks.
+- Installed-browser acceptance is pending until the local extension is reloaded in Chrome; current live inspection still showed the previous extension instance, with no bridge or directory rail.
+
+## 2026-08-07 — ChatGPT Source-Graph-only discovery and consumer convergence
+
+- Removed ChatGPT DOM body/position candidates from the production acquisition path. Host observation remains an identity/lifecycle/materialization signal only; Reader target resolution no longer duplicates ChatGPT selectors.
+- Changed bridge completeness so a continued branch with an internal empty assistant shell can publish later complete turns, while an incomplete final tail remains unavailable. Replaced timer-based bootstrap recovery with real route, pageshow, generation, host, and explicit-refresh signals.
+- Added one-source bookmark preparation and canonical formula resolution. ChatGPT bookmark fields now come from one sealed turn read; formula click-copy fails closed unless the rendered formula matches LaTeX in that sealed Markdown.
+- Removed the Reader selection `Range.toString()` Markdown fallback; unresolved semantic selection no longer produces misleading Markdown or formula text.
+
+Verification so far:
+- `npm run test:chatgpt-discovery`: 23 files / 318 tests passed.
+- `npm run type-check`: passed.
+- Focused bridge/coordinator/Reader/formula tests: passed (46 + 57 tests across the focused runs).
+- `git diff --check`: passed before the final documentation edits.
+- Full repository gates and installed Chrome MV3 / Firefox MV2 acceptance remain to be recorded after the final build.
+
+## 2026-08-07 — Final source-boundary verification
+
+- Removed the remaining DOM body read from `ChatGPTDomTurnFactSource`; its fallback now emits only typed IDs, anchors, and streaming/mounted lifecycle facts, and the ChatGPT content runtime no longer exposes that seam.
+- `npm run test:chatgpt-discovery`: 23 files / 317 tests passed.
+- `npm run test:core`: 274 files / 1,926 tests passed.
+- `npm run test:smoke`: 7 files / 53 tests passed.
+- `npm run test:acceptance`: 31 files / 321 tests passed.
+- `npm run type-check`, `npm run build`, and `git diff --check` passed. Chrome MV3 and Firefox MV2 entry-format, ChatGPT-boundary, and bundle-size checks passed.
+- `npm run perf:chatgpt` remains blocked by the pre-existing Atomic Selection fixture assertion (`selected=1`, `cleared=0`, empty copy, two state writes, zero long tasks); the fixture sends a bare copy event while the default production shortcut is `mod-shift-c`, and was not changed to touch the user's real clipboard.
+- Installed Chrome MV3 / Firefox MV2 browser acceptance remains pending; no cookies, storage, tokens, authorization headers, POST/SSE generation payloads, or synthetic scrolling were used.
+
+---
+
+## 2026-08-06 — Evidence Ledger and Stable Turn Capture (branch)
+
+- Replaced DOM-window candidate merging with a provider-neutral `ConversationEvidenceLedger` keyed by document epoch, branch, and typed turn identity. Source order/history and stable host observations are independent evidence; first validated content is sealed, duplicates are idempotent, and divergent evidence is an explicit conflict.
+- Added `ConversationTurnReadPortV1`, proof-driven `{ order, bodies, tail, gaps }`, stable capture, and a generic rendered-content compiler with injected formula/code parser capabilities. A sealed message is readable while global discovery is still gapped; full export remains proof-gated.
+- Kept page bodies in memory only, separated source/host/materialization/surface revisions, and removed strict-prefix merge assumptions from the active architecture. Virtualized unmounts now affect anchors only.
+
+Verification:
+- `npm run test:chatgpt-discovery`: 23 files / 315 tests passed.
+- `npm run test:core`: 274 files / 1,923 tests passed.
+- `npm run test:smoke`: 7 files / 53 tests passed.
+- `npm run test:acceptance`: 31 files / 319 tests passed.
+- `npm run type-check` passed.
+- `npm run build` passed for Chrome MV3 and Firefox MV2, including entry-format, ChatGPT boundary, and bundle-size gates; the sandboxed run hit the known `tsx` local-IPC `EPERM`, and the approved rerun passed.
+- `git diff --check` passed.
+- `npm run perf:chatgpt` remains blocked at the pre-existing Atomic Selection assertion (`selected=1`, `cleared=0`, `copied=`) with zero long tasks. This is not reported as a green performance gate.
+- Live Chrome inspection of the supplied conversations confirmed semantic `math` accessibility nodes and the currently installed legacy bundle's toolbar, but that installed bundle still gave no clipboard/result feedback for Markdown or formula clicks. The new branch build was not loaded into the installed browser; Firefox MV2 installed acceptance remains pending.
+
+---
+
+## 2026-08-06 — Semantic content and surface projection convergence (branch)
+
+- Confirmed three independent failures behind the current ChatGPT regressions: non-empty typed-DOM Markdown could overwrite cleaner graph Markdown; current formulas carry TeX on an ancestor `data-math-source` wrapper while the main content composition root did not inject the ChatGPT parser Adapter into the formula controller; and direct page selection reconstructed Markdown from rendered DOM instead of joining the selection to canonical source. The supplied live conversation exposed 687 semantic formula wrappers; clicking a visible formula in the currently installed old bundle produced the extension warning `No LaTeX source found for clicked element`, directly reproducing the formula failure.
+- Added provider-neutral `SemanticContentModuleV1` with an AI-MarkDone-owned immutable document, UTF-16 half-open source spans, explicit diagnostics, bounded complete-contract caching, and canonical Markdown/plain-text/Reader-structure projections. Parser ASTs, DOM, browser globals, platform IDs, clipboard, and renderer details stay behind the Interface.
+- Added a driver-owned `ContentSurfaceAdapter` and one service-owned `SurfaceProjection` seam. Production selection copy now joins typed target, content/materialization revisions, re-captured surface evidence, and TextQuote to one source-backed Markdown span; stale, ambiguous, reconstructed, and unproven mappings fail open without reviving DOM reconstruction.
+- Added per-turn provenance and snapshot source quality. Source-backed graph Markdown is normalized at the Source Adapter edge and cannot be overwritten by reconstructed DOM; Reader may display degraded content, while copy, bookmark, Copy PNG, and Save Messages reject reconstructed canonical exits.
+- Routed Reader structure through the Semantic Content Module, restored current ChatGPT formula click/asset extraction through the injected parser Adapter, and kept HTML/KaTeX/highlight/sanitize rendering separate.
+
+Verification:
+- `npm run test:chatgpt-discovery`: 23 files / 304 tests passed.
+- `npm run test:core`: 264 files / 1,836 tests passed.
+- `npm run test:smoke`: 7 files / 51 tests passed.
+- `npm run test:acceptance`: 31 files / 309 tests passed.
+- `npm run type-check` passed.
+- `npm run build` passed for Chrome and Firefox, including entry-format, ChatGPT boundary, and bundle-size gates; the first sandboxed run hit the known `tsx` local-IPC `EPERM` and the approved unsandboxed rerun passed.
+- Installed Chrome MV3 and Firefox MV2 acceptance of the new bundle remains pending. Browser policy prevented opening `chrome://extensions` to reload the local build, so the live session is root-cause evidence for the installed old bundle, not a success claim for this branch.
+
+## 2026-08-06 — ChatGPT missed-capture bootstrap recovery (branch)
+
+- Reproduced the supplied ChatGPT conversation in Chrome: the page bridge already held five verified partial graph rounds with provider positions `2…6`, while the live content source remained `unavailable`; Directory therefore showed its placeholder and Reader opened as `0/0`. The decisive failure was that the bridge filtered an unfinished head but passed the remaining non-contiguous positions into a V1 contract that requires ordinals to start at one, so the repository rejected the candidate as invalid. A missed initial capture race could then leave the invalid state with no later signal.
+- Added a coordinator-owned finite recovery window of `150ms`, `500ms`, and `1.5s` for retryable same-document `unavailable` state. It reuses the existing reconcile path, stops on ready/stale/document change or after three attempts, and does not add a permanent poller or a second observer.
+- Normalized surviving bridge rounds to contiguous local ordinals before publication; typed node/message IDs remain the only identity. Added a regression fixture matching the real omitted-head graph shape.
+- Added a regression test for the missed-capture lifecycle and documented the bounded window in ADR-0010, the architecture blueprint/current state, and the testing gates.
+
+Verification:
+- `npm run test:chatgpt-discovery`: 234 tests passed.
+- `npm run test:core`: 1,806 tests passed.
+- `npm run test:smoke`: 47 tests passed.
+- `npm run test:acceptance`: 239 tests passed.
+- `npm run type-check` (pass)
+- `npm run build` (Chrome/Firefox build, boundary verification, and bundle-size gates passed; sandbox-only tsx IPC failure required the approved escalated rerun).
+- `git diff --check` (pass)
+
+---
+
+## 2026-08-05 — ChatGPT delayed-content convergence (branch)
+
+- Kept the single `ChatGPTPageIndex` observer and added assistant-scoped text/child-list mutation signals so delayed hydration and long streamed answers re-enter the existing coalesced reconcile path without locale-specific stop labels or a second observer.
+- Made bridge graph coverage explicit: empty assistant tails are omitted and marked `partial`; an all-pending graph remains unavailable instead of publishing an empty complete snapshot.
+- Made active acquisition event-driven: new document, typed assistant identity, and generation-complete may acquire; stable text updates merge passive/DOM evidence without a GET per mutation, while retryable failures use bounded signal-driven backoff.
+- Added regression coverage for delayed refresh hydration, partial graph tails, generation-complete reacquisition, and assistant-scoped PageIndex text signals.
+
+Verification:
+- `npm run test:chatgpt-discovery`: 231 tests passed.
+- `npm run test:core`: 1,803 tests passed.
+- `npm run test:smoke`: 47 tests passed.
+- `npm run test:acceptance`: 238 tests passed.
+- `npm run type-check` (pass)
+- `npm run build` (Chrome/Firefox build, boundary verification, and bundle-size gates passed).
+- `git diff --check` (pass)
+
 ## 2026-08-05 — ChatGPT discovery convergence and cleanup
 
 - Made partial snapshots monotonic in `ConversationContentRepository`: only prefix-preserving growth is accepted; virtualization shrink or divergent identity retains last-good as stale, while a complete graph replaces atomically.
@@ -265,3 +394,22 @@ Verification:
 - `npm test -- tests/unit/ui/bookmarks/bookmarksPanelController.test.ts tests/unit/runtimes/background/bookmarks-handler.test.ts tests/unit/ui/bookmarks/bookmarksPanel.test.ts` (pass)
 - `npm test -- tests/unit/ui/bookmarks/bookmarksPanel.test.ts -t "activates the real settings and sponsor panels"` (pass)
 - `npm run build` (pass; Chrome MV3 + Firefox MV2)
+
+## 2026-08-07 — ChatGPT consumer convergence on passive Graph source
+
+- Re-established the production ChatGPT composition root as the passive Graph-backed V1 seam: the document-start bridge observes the website's own conversation GET, the source adapter validates the mapping/current-node graph, and `ConversationContentRepository` publishes one canonical source.
+- Routed Directory, Reader, word count, whole-message copy, Bookmark Preparation, local selection, formula click and export through that same source instance. The materialization adapter remains anchor-only, so virtualized DOM changes cannot replace prompt, Markdown, identity or canonical position.
+- Kept `ConversationDiscoveryModuleV2`, `ChatGPTVirtualConversationHostAdapter` and the V2 compiler isolated for focused tests/experiments; they are not injected into the production runtime. Updated ADR-0014 as superseded for production and recorded the active boundary in ADR-0015.
+- Added a read-only canonical bookmark resolver for ChatGPT consumers: persisted assistant `messageId` is matched before position, legacy URL variants are compared without rewriting the stored URL, and identity/position conflicts fail closed instead of highlighting another turn. Bookmark types, storage keys, save/remove payloads, old records, and import/export remain unchanged.
+
+Verification in this implementation pass:
+
+- `npm run test:chatgpt-discovery`: 28 files / 337 tests passed.
+- `npm run test:core`: 279 files / 1,947 tests passed.
+- `npm run test:smoke`: 7 files / 53 tests passed.
+- `npm run test:acceptance`: 31 files / 321 tests passed.
+- `npm run type-check`: passed.
+- `npm run build`: passed for Chrome MV3 and Firefox MV2, including entry-format, discovery-boundary, and bundle-size checks.
+- `git diff --check`: passed.
+- `npm run perf:chatgpt` was not claimed: the sandbox hit the `tsx` IPC boundary, and the escalation was correctly rejected because the benchmark performs clipboard permission/write/read side effects. No unsafe workaround was used.
+- Installed Chrome MV3 / Firefox MV2 real-browser acceptance remains a separate manual gate and was not claimed from automation.

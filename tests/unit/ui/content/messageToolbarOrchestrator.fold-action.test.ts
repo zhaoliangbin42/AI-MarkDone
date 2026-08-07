@@ -1002,8 +1002,9 @@ describe('MessageToolbarOrchestrator ChatGPT reader path', () => {
         const readerPanel = { show: vi.fn(async () => undefined) } as any;
         const bookmarksController = {
             isPositionBookmarked: vi.fn(() => false),
+            readPositionBookmarkStatus: vi.fn(async () => ({ ok: true, data: { saved: false } })),
             getDefaultFolderPath: vi.fn(() => '/Inbox'),
-            toggleBookmarkFromToolbar: vi.fn(async () => ({ ok: true, data: { saved: true } })),
+            setPositionBookmarkSaved: vi.fn(async () => ({ ok: true, data: { saved: true } })),
             selectFolder: vi.fn(),
         } as any;
         const conversationContentSource = createConversationSource(buildVirtualizedChatGptSnapshot());
@@ -1021,12 +1022,12 @@ describe('MessageToolbarOrchestrator ChatGPT reader path', () => {
 
         await bookmarkAction.onClick();
 
-        expect(bookmarksController.toggleBookmarkFromToolbar).toHaveBeenCalledWith(expect.objectContaining({
+        expect(bookmarksController.setPositionBookmarkSaved).toHaveBeenCalledWith(expect.objectContaining({
             position: 50,
             messageId: 'payload-a50',
             userMessage: 'Question 50',
             aiResponse: 'Answer 50',
-        }));
+        }), true);
         expect(conversationContentSource.refresh).toHaveBeenCalledTimes(1);
         expect(toolbar.setActionActive).toHaveBeenCalledWith('bookmark_toggle', true);
     });
@@ -1041,8 +1042,9 @@ describe('MessageToolbarOrchestrator ChatGPT reader path', () => {
         const conversationContentSource = createConversationSource(snapshot);
         const bookmarksController = {
             isPositionBookmarked: vi.fn(() => false),
+            readPositionBookmarkStatus: vi.fn(async () => ({ ok: true, data: { saved: false } })),
             getDefaultFolderPath: vi.fn(() => '/Inbox'),
-            toggleBookmarkFromToolbar: vi.fn(),
+            setPositionBookmarkSaved: vi.fn(),
         } as any;
         const orchestrator = createOrchestrator(adapter, {
             readerPanel: { show: vi.fn() } as any,
@@ -1057,7 +1059,38 @@ describe('MessageToolbarOrchestrator ChatGPT reader path', () => {
         const result = await action.onClick();
 
         expect(result).toEqual(expect.objectContaining({ ok: false }));
-        expect(bookmarksController.toggleBookmarkFromToolbar).not.toHaveBeenCalled();
+        expect(bookmarksController.setPositionBookmarkSaved).not.toHaveBeenCalled();
+    });
+
+    it('does not save a ChatGPT bookmark when the canonical assistant body is empty', async () => {
+        renderVirtualizedChatGptBookmarkDom();
+        const snapshot = buildVirtualizedChatGptSnapshot();
+        snapshot.rounds = snapshot.rounds.map((round: any) => (
+            round.position === 50 ? { ...round, assistantContent: '' } : round
+        ));
+        const adapter = new ChatGPTAdapter();
+        const conversationContentSource = createConversationSource(snapshot);
+        const bookmarksController = {
+            isPositionBookmarked: vi.fn(() => false),
+            readPositionBookmarkStatus: vi.fn(async () => ({ ok: true, data: { saved: false } })),
+            getDefaultFolderPath: vi.fn(() => '/Inbox'),
+            setPositionBookmarkSaved: vi.fn(),
+        } as any;
+        const orchestrator = createOrchestrator(adapter, {
+            readerPanel: { show: vi.fn() } as any,
+            bookmarksController,
+            conversationContentSource,
+            bookmarkSaveDialog,
+        }) as any;
+        const assistant = document.querySelector('[data-message-author-role="assistant"]') as HTMLElement;
+        const action = orchestrator.getActionsForMessage(assistant, () => ({ setActionActive: vi.fn() }))
+            .find((candidate: any) => candidate.id === 'bookmark_toggle');
+
+        const result = await action.onClick();
+
+        expect(result).toEqual(expect.objectContaining({ ok: false }));
+        expect(bookmarkSaveDialog.open).not.toHaveBeenCalled();
+        expect(bookmarksController.setPositionBookmarkSaved).not.toHaveBeenCalled();
     });
 
     it('fails closed when a ChatGPT toolbar element cannot map to one canonical round', async () => {
@@ -1068,8 +1101,9 @@ describe('MessageToolbarOrchestrator ChatGPT reader path', () => {
         vi.spyOn(adapter, 'getMessageId').mockReturnValue('payload-a50');
         const bookmarksController = {
             isPositionBookmarked: vi.fn(() => false),
+            readPositionBookmarkStatus: vi.fn(async () => ({ ok: true, data: { saved: false } })),
             getDefaultFolderPath: vi.fn(() => '/Inbox'),
-            toggleBookmarkFromToolbar: vi.fn(),
+            setPositionBookmarkSaved: vi.fn(),
             selectFolder: vi.fn(),
         } as any;
         const conversationContentSource = createConversationSource(buildVirtualizedChatGptSnapshot());
@@ -1085,7 +1119,7 @@ describe('MessageToolbarOrchestrator ChatGPT reader path', () => {
         const result = await actions.find((action: any) => action.id === 'bookmark_toggle').onClick();
 
         expect(result).toEqual(expect.objectContaining({ ok: false }));
-        expect(bookmarksController.toggleBookmarkFromToolbar).not.toHaveBeenCalled();
+        expect(bookmarksController.setPositionBookmarkSaved).not.toHaveBeenCalled();
         expect(conversationContentSource.refresh).toHaveBeenCalledOnce();
     });
 
@@ -1096,6 +1130,7 @@ describe('MessageToolbarOrchestrator ChatGPT reader path', () => {
         const readerPanel = { show: vi.fn(async () => undefined) } as any;
         const bookmarksController = {
             isPositionBookmarked: vi.fn((_url: string, position: number) => position === 50),
+            resolveConversationBookmarkPositions: vi.fn(() => new Set([50])),
         } as any;
         const conversationContentSource = createConversationSource(buildVirtualizedChatGptSnapshot());
         const orchestrator = createOrchestrator(adapter, { readerPanel, bookmarksController, conversationContentSource }) as any;
@@ -1105,9 +1140,53 @@ describe('MessageToolbarOrchestrator ChatGPT reader path', () => {
         (orchestrator as any).refreshBookmarkStateForToolbar(toolbar, assistant, 2);
         await new Promise<void>((resolve) => setTimeout(resolve, 0));
 
-        expect(bookmarksController.isPositionBookmarked).toHaveBeenCalledWith(expect.any(String), 50);
+        expect(bookmarksController.resolveConversationBookmarkPositions).toHaveBeenCalledWith(
+            expect.any(String),
+            expect.arrayContaining([
+                expect.objectContaining({ position: 50, assistantMessageId: 'payload-a50' }),
+            ]),
+        );
+        expect(bookmarksController.isPositionBookmarked).not.toHaveBeenCalled();
         expect(toolbar.setActionActive).toHaveBeenCalledWith('bookmark_toggle', true);
         expect(conversationContentSource.refresh).not.toHaveBeenCalled();
+    });
+
+    it('uses the canonical bookmark projection for the Reader footer toggle', async () => {
+        const adapter = new ChatGPTAdapter();
+        const conversationContentSource = createConversationSource(buildVirtualizedChatGptSnapshot());
+        const bookmarksController = {
+            isPositionBookmarked: vi.fn(() => false),
+            resolveConversationBookmarkPositions: vi.fn(() => new Set([50])),
+        } as any;
+        const orchestrator = createOrchestrator(adapter, {
+            readerPanel: { show: vi.fn() } as any,
+            bookmarksController,
+            conversationContentSource,
+        }) as any;
+        const toggle = vi.spyOn(orchestrator, 'runBookmarkToggle').mockResolvedValue({
+            ok: true,
+            bookmarked: true,
+            message: 'saved',
+        });
+        const bookmarkAction = orchestrator.getReaderActions(document.body)
+            .find((action: any) => action.id === 'bookmark_toggle');
+
+        await bookmarkAction.onClick({
+            item: {
+                id: 'chatgpt-payload-a50',
+                userPrompt: 'Question 50',
+                content: 'Answer 50',
+                meta: { url: 'https://chatgpt.com/c/123', position: 50, messageId: 'payload-a50' },
+            },
+            notify: vi.fn(),
+            rerender: vi.fn(),
+        });
+
+        expect(toggle).toHaveBeenCalledWith(expect.objectContaining({
+            position: 50,
+            alreadyBookmarked: true,
+        }));
+        expect(bookmarksController.isPositionBookmarked).not.toHaveBeenCalled();
     });
 
     it('invalidates passive toolbar state and closes Save Messages when the source withdraws its snapshot', () => {
@@ -1232,8 +1311,9 @@ describe('MessageToolbarOrchestrator ChatGPT reader path', () => {
         } as any;
         const bookmarksController = {
             isPositionBookmarked: vi.fn(() => false),
+            readPositionBookmarkStatus: vi.fn(async () => ({ ok: true, data: { saved: false } })),
             getDefaultFolderPath: vi.fn(() => '/Inbox'),
-            toggleBookmarkFromToolbar: vi.fn(),
+            setPositionBookmarkSaved: vi.fn(),
         } as any;
         const orchestrator = createOrchestrator(adapter, {
             readerPanel: { show: vi.fn() } as any,
@@ -1256,7 +1336,7 @@ describe('MessageToolbarOrchestrator ChatGPT reader path', () => {
         const result = await resultPromise;
 
         expect(result).toEqual(expect.objectContaining({ ok: false }));
-        expect(bookmarksController.toggleBookmarkFromToolbar).not.toHaveBeenCalled();
+        expect(bookmarksController.setPositionBookmarkSaved).not.toHaveBeenCalled();
     });
 
     it('does not add a retired ChatGPT fold action', () => {
@@ -1434,8 +1514,9 @@ describe('MessageToolbarOrchestrator ChatGPT reader path', () => {
         const readerPanel = { show: vi.fn(async () => undefined) } as any;
         const bookmarksController = {
             isPositionBookmarked: vi.fn(() => false),
+            readPositionBookmarkStatus: vi.fn(async () => ({ ok: true, data: { saved: false } })),
             getDefaultFolderPath: vi.fn(() => '/Inbox'),
-            toggleBookmarkFromToolbar: vi.fn(async () => ({ ok: true, data: { saved: true } })),
+            setPositionBookmarkSaved: vi.fn(async () => ({ ok: true, data: { saved: true } })),
             selectFolder: vi.fn(),
         } as any;
         const orchestrator = createOrchestrator(adapter, {
@@ -1455,12 +1536,54 @@ describe('MessageToolbarOrchestrator ChatGPT reader path', () => {
         await Promise.resolve();
 
         expect(bookmarkSaveDialog.open).toHaveBeenCalledTimes(1);
-        expect(bookmarksController.toggleBookmarkFromToolbar).toHaveBeenCalledWith(expect.objectContaining({
+        expect(bookmarksController.setPositionBookmarkSaved).toHaveBeenCalledWith(expect.objectContaining({
             platform: 'unknown',
             position: 7,
             messageId: 'm1',
             folderPath: '/Research',
             title: 'Prompt',
-        }));
+        }), true);
+    });
+
+    it('does not open the save dialog or mutate when canonical message bookmark status is unavailable', async () => {
+        document.body.innerHTML = `
+          <div class="assistant-message" data-message-id="m1" data-aimd-msg-position="7">
+            <div class="content">First</div>
+            <div class="official-toolbar"><button>copy</button></div>
+          </div>
+        `;
+
+        const adapter = new UnknownAdapter();
+        const bookmarksController = {
+            isPositionBookmarked: vi.fn(() => false),
+            readPositionBookmarkStatus: vi.fn(async () => ({
+                ok: false,
+                errorCode: 'RECEIVER_UNAVAILABLE',
+                message: 'Extension background is unavailable.',
+                failure: {
+                    kind: 'transport',
+                    code: 'RECEIVER_UNAVAILABLE',
+                    message: 'Extension background is unavailable.',
+                    delivery: 'not-sent',
+                },
+            })),
+            getDefaultFolderPath: vi.fn(() => '/Inbox'),
+            setPositionBookmarkSaved: vi.fn(),
+        } as any;
+        const orchestrator = createOrchestrator(adapter, {
+            readerPanel: { show: vi.fn(async () => undefined) } as any,
+            bookmarksController,
+            bookmarkSaveDialog,
+        }) as any;
+        orchestrator.getUserPromptForElement = vi.fn(() => 'Prompt');
+        const assistant = document.querySelector('.assistant-message') as HTMLElement;
+        const action = orchestrator.getActionsForMessage(assistant, () => ({ setActionActive: vi.fn() }))
+            .find((candidate: any) => candidate.id === 'bookmark_toggle');
+
+        const result = await action.onClick();
+
+        expect(result).toEqual({ ok: false, message: 'Extension background is unavailable.' });
+        expect(bookmarkSaveDialog.open).not.toHaveBeenCalled();
+        expect(bookmarksController.setPositionBookmarkSaved).not.toHaveBeenCalled();
     });
 });

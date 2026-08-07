@@ -476,6 +476,40 @@ describe('ReaderPanel presentation', () => {
         }
     });
 
+    it('rolls a Reader settings preview back and reports a rejected canonical write', async () => {
+        const panel = new ReaderPanel();
+        panel.setReaderSettings({
+            ...DEFAULT_SETTINGS.reader,
+            detachedNoticeConfirmed: true,
+        });
+        panel.setReaderSettingsController({
+            onChange: vi.fn(async () => {
+                throw new Error('Settings write was not confirmed');
+            }),
+        });
+
+        try {
+            await panel.show([{ id: 'a', userPrompt: 'Prompt', content: 'md1' }], 0, 'light');
+            const host = document.querySelector('#aimd-reader-panel-host') as HTMLElement;
+            const shadow = host.shadowRoot as ShadowRoot;
+            const shell = shadow.querySelector<HTMLElement>('.panel-window--reader')!;
+
+            shadow.querySelector<HTMLButtonElement>('[data-action="reader-settings"]')!.click();
+            const settingsPanel = shadow.querySelector<HTMLElement>('.panel-window--reader-settings')!;
+            settingsPanel.querySelector<HTMLButtonElement>('[data-action="reader-settings-font-increase"]')!.click();
+            await Promise.resolve();
+            await Promise.resolve();
+
+            expect(shell.getAttribute('style')).toContain('--aimd-reader-markdown-body-size: 16px');
+            expect(settingsPanel.querySelector<HTMLElement>('[data-role="reader-settings-body-font-size-value"]')?.textContent)
+                .toBe('16px');
+            expect(shadow.querySelector<HTMLElement>('[data-field="status"]')?.textContent)
+                .toBe('Settings write was not confirmed');
+        } finally {
+            panel.hide();
+        }
+    });
+
     it('keeps Reader settings rows content-sized when opened from the header', async () => {
         const panel = new ReaderPanel();
         panel.setReaderSettings({
@@ -704,6 +738,53 @@ describe('ReaderPanel presentation', () => {
                     widthRatio: expect.any(Number),
                     heightRatio: expect.any(Number),
                 }),
+            });
+        } finally {
+            panel.hide();
+        }
+    });
+
+    it('rolls a rejected panel resize back and reports the write failure without leaking a rejection', async () => {
+        const panel = new ReaderPanel();
+        panel.setReaderSettings({
+            ...DEFAULT_SETTINGS.reader,
+            defaultOpenMode: 'panel',
+            panelSizeRatio: { widthRatio: 0.6, heightRatio: 0.7 },
+        });
+        panel.setReaderSettingsController({
+            onChange: vi.fn(async () => {
+                throw new Error('Panel size was not saved');
+            }),
+        });
+
+        try {
+            await panel.show([{ id: 'a', userPrompt: 'Prompt', content: 'md1' }], 0, 'light');
+            const host = document.querySelector('#aimd-reader-panel-host') as HTMLElement;
+            const shadow = host.shadowRoot as ShadowRoot;
+            const shell = shadow.querySelector<HTMLElement>('.panel-window--reader')!;
+            shell.getBoundingClientRect = () => ({
+                x: 0,
+                y: 0,
+                left: 0,
+                top: 0,
+                right: 600,
+                bottom: 500,
+                width: 600,
+                height: 500,
+                toJSON: () => ({}),
+            } as DOMRect);
+
+            shadow.querySelector<HTMLElement>('[data-action="reader-panel-resize"]')!
+                .dispatchEvent(new MouseEvent('pointerdown', { bubbles: true, clientX: 600, clientY: 500 }));
+            document.dispatchEvent(new MouseEvent('pointermove', { bubbles: true, clientX: 650, clientY: 540 }));
+            document.dispatchEvent(new MouseEvent('pointerup', { bubbles: true, clientX: 650, clientY: 540 }));
+
+            await vi.waitFor(() => {
+                const currentShell = shadow.querySelector<HTMLElement>('.panel-window--reader')!;
+                expect(currentShell.style.getPropertyValue('--_reader-panel-width-ratio')).toBe('0.6');
+                expect(currentShell.style.getPropertyValue('--_reader-panel-height-ratio')).toBe('0.7');
+                expect(shadow.querySelector<HTMLElement>('[data-field="status"]')?.textContent)
+                    .toBe('Panel size was not saved');
             });
         } finally {
             panel.hide();

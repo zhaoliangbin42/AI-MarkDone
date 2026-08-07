@@ -59,6 +59,13 @@
 - `NOT_FOUND`
 - `INVALID_PATH`
 - `CONFLICT`
+- `AUTH_REQUIRED`
+- `PERMISSION_DENIED`
+- `RATE_LIMITED`
+- `PROVIDER_UNAVAILABLE`
+- `INTEGRITY_MISMATCH`
+- `SNAPSHOT_CORRUPTED`
+- `SCHEMA_UNSUPPORTED`
 - `SOURCE_UNAVAILABLE`
 
 规则：
@@ -66,25 +73,59 @@
 - 对于已通过协议校验并进入 handler 的请求，background 必须返回稳定错误码
 - 对于非法或非扩展消息，当前 background entry 采用静默忽略，而不是回发结构化 `INVALID_REQUEST` / `UNTRUSTED_SENDER`
 - 对于面向 tab 的 Chrome 生命周期竞态（例如 `No tab with id`、`Receiving end does not exist`、`Could not establish connection`），background entry 采用 best-effort 静默降级，不把它们作为协议错误返回
-- 调用方应基于错误码决定降级、提示或重试
+- 调用方应基于错误码决定降级或提示；是否重试必须同时考虑请求是否为只读、是否幂等，以及消息是否可能已经送达
 - 新增错误码时，必须同步更新本文档与代码契约
+
+### 4.1 Transport failures are not protocol errors
+
+content/Reader 发起的 feature RPC 固定经过两层结果：
+
+1. `src/drivers/shared/rpc.ts` 返回 `RpcCallResult`
+   - `kind: "response"` 表示收到了与原请求 `v + id + type` 完全匹配、且 success/error envelope 合法的协议响应
+   - `kind: "transport-failure"` 表示请求没有形成可信协议响应，错误码只属于 transport：`RUNTIME_UNAVAILABLE`、`CONTEXT_INVALIDATED`、`RECEIVER_UNAVAILABLE`、`REQUEST_TIMEOUT`、`INVALID_RESPONSE`、`TRANSPORT_FAILED`
+2. `src/drivers/shared/clients/clientResult.ts` 把它投影为 `RuntimeClientResult<T>`
+   - `ok: true` 才允许读取业务数据
+   - `ok: false` 必须保留 `failure.kind: "protocol" | "transport"`；业务 client 和 UI 不得再从异常字符串或缺失的 `data` 反推“空数据”
+
+合法 success envelope 仍必须经过对应 feature client 的 payload decoder。读取响应缺少必需字段、集合内记录结构错误，或 mutation 未返回约定 acknowledgement，都归为 `INVALID_RESPONSE`；presentation/cache 不得先行提交。toggle 交互必须先读取一次 canonical 状态，再执行显式 desired-state mutation，异步边界后复核当前 URL/source revision，禁止二次 toggle。
+
+传输失败的 `delivery` 语义固定为：
+
+- `not-sent`：当前调用方已知请求没有进入可信接收方，例如 content script 的扩展上下文已失效，或没有 receiving end
+- `unknown`：请求可能已经送达并执行，但调用方没有拿到可信响应，例如 timeout 或通用 transport failure
+
+重试规则：
+
+- shared RPC driver 不做默认自动重试
+- mutation（书签保存/删除/移动、设置写入、Prompt 写入、发送、备份/恢复等）在 `delivery: "unknown"` 时禁止自动重放；除非未来为该 family 增加 background 端 operation id 与幂等去重契约
+- 只读请求如需重试，必须由明确的用户动作或该 feature 的有界恢复策略触发；UI 不得递归重试或形成隐藏轮询
+- `CONTEXT_INVALIDATED` 不能通过同一旧 content context 内重试修复，presentation 必须要求用户刷新当前页面
+
+UI 状态规则：
+
+- `loading`、真实业务 `empty`、`error` 必须是互斥且可观察的状态；只有成功响应里的空集合可以渲染“没有文件夹/没有记录”
+- 读取失败时允许保留 last-good cache，但必须同时显示断连状态与恢复动作，不能用空数组覆盖 cache
+- 设置读取失败时不得把 `DEFAULT_SETTINGS` 当成已加载的 canonical state，且设置管理面板必须锁定编辑；设置写入只有在 background 成功确认后才能提交，失败时回滚界面
+- Reader 的全量 category 写入必须串行，并在队列中基于最新 confirmed state 合并 patch；任何持久化入口都必须消费 rejection、回滚对应 preview 并展示错误
+- detached Reader 只有在 `readerSession:get` 成功且返回 `session: null` 时显示 session expired；transport failure 必须显示连接错误
+
+完整决策见 `docs/adr/ADR-0012-runtime-rpc-failure-semantics.md`。
 
 ---
 
 ## 5. ChatGPT page bridge (MAIN world ↔ content runtime)
 
-该桥接不是 content ↔ background 的扩展 runtime message，不新增扩展权限或 background handler。它只在当前 ChatGPT 页面内传递已规范化的语义候选：
+该桥接不是 content ↔ background 的扩展 runtime message，不新增扩展权限或 background handler。它只在当前 ChatGPT 页面内传递被动观察到的 Graph evidence：
 
 - request event: `aimd:chatgpt-conversation-bridge:request`
   - `type: "peek"` 只读取 MAIN world 的最近内存 graph
-  - `type: "acquire"` 在被动 graph 缺失或与 typed DOM 冲突时，对当前 conversation endpoint 发起一次三秒上限的同源 `GET`
 - response event: `aimd:chatgpt-conversation-bridge:response`
 - capture event: `aimd:chatgpt-conversation-bridge:capture` 只作失效/重调度信号
   - `kind: "graph"` 表示当前 conversation graph 已更新
   - `kind: "generation-start"` 清除当前 assistant 的旧完成证明
   - `kind: "generation-complete"` 表示浏览器已观察到与已登记 generation request 匹配的资源完成，只携带 `conversationId` 与 `assistantMessageId`
 
-桥边界固定为：不读取或传播 cookie、token、Authorization/session header，不解析 POST/SSE/generation payload，不 clone 生成响应，不持久化正文。Active read 只使用 bridge 安装前保存的原生 `fetch`、`method: GET` 与 abort signal，不自定义 header，也不进入被动 observer 二次捕获。生成完成信号只来自同源 URL/method 与浏览器 resource timing；有 conversation ID 的请求必须在完成时仍处于同一 route，从空白 `/` 发起的首轮请求才允许采用随后生成的 canonical route ID，未匹配或跨 route 的 timing 直接丢弃。request/response 在 Chrome 使用 object detail、Firefox 使用 JSON-string detail；capture event 在两者都使用 JSON string。两种 transport 必须产生相同的 `ConversationContentSourceV1` 状态序列。
+桥边界固定为：不读取或传播 cookie、token、Authorization/session header，不解析 POST/SSE/generation payload，不 clone 生成响应，不持久化正文。Graph evidence 只来自官网自己发出的精确 same-origin conversation `GET`；bridge 用透明 `window.fetch` 包装观察并对已返回 response 做 `clone().json()`，原请求和原响应保持不变。content runtime 的所有 `peek()` 都是内存读取，不发起网络请求；如果 document-start bridge 错过首次官网响应，用户必须刷新页面重新捕获。生成完成信号只来自同源 URL/method 与浏览器 resource timing；request/response 在 Chrome 使用 object detail、Firefox 使用 JSON-string detail；capture event 在两者都使用 JSON string。两种 transport 必须产生相同的 `ConversationContentSourceV1` 状态序列。
 
 ## 6. Current Request Families
 
@@ -140,7 +181,7 @@
 - v1 不做实时 tail sync、不强制保活、不设置 tab `autoDiscardable=false`；detached Reader 启动时拿一次 fresh snapshot，用户可手动 refresh
 - source tab 关闭时，background 监听 `tabs.onRemoved(sourceTabId)`，删除 session 并 best-effort 关闭对应 `readerTabId`
 - reader tab 关闭时，只删除 session，不关闭官方 ChatGPT 页；detached Reader 页内的 Reader close action 会发送 `readerSession:close` 并关闭当前扩展页
-- source tab frozen/discarded、content script 不可达或扩展重载导致 session 丢失时，调用方应展示只读快照、source unavailable 或 session expired 状态，不抛 unchecked runtime error
+- source tab frozen/discarded、content script 不可达或扩展重载时，transport failure 必须展示 disconnected/reload 状态；只有可信协议响应确认 session 不存在时才展示 session expired，不抛 unchecked runtime error
 - 当前合规边界接受 `src/contracts/protocol.ts` 对 `ReaderSessionSnapshot` 的外层结构校验配合 background sender-tab binding、Reader Markdown sanitize、extension session storage 共同作为 v1 防线；更细的 item-level schema/size validation 或 source URL 复核可以作为后续防御深度增强，但不是当前协议可用性的前置条件
 
 ### Reader annotations
@@ -203,6 +244,7 @@
 用途：
 
 - settings 读取、分类更新、重置
+- settings UI 只把成功读取的规范化结果视为 canonical state；断连时保留 last-good、锁定编辑并显示恢复动作，不能用默认值伪装成功，也不能在写入失败时保留 optimistic state
 - `chatgptBehavior` 是 ChatGPT page-behavior / input-behavior 类开关的 settings SSOT；background 只通过 `settings:setCategory` 持久化该 category，content runtime 与 Reader runtime 读取规范化后的 settings 并把 `chatgptBehavior.promptAutocomplete` 同步给 `ChatGPTPromptAutocompleteController`
 - `chatgptBehavior.promptAutocomplete` 默认开启，只控制 ChatGPT composer 与 Reader SendPopover 输入 `\` 时是否自动显示候选；关闭后不读取或写入 Prompt Library，不改变 Prompt 启用状态、triggerText、排序或手动 Prompt manager 入口
 
@@ -241,6 +283,8 @@
 用途：
 
 - 书签数据读写、批量操作、folder 操作、storage usage 读取、UI state 持久化
+- folder/list 请求只有在成功返回空集合时才能进入真实 empty state；transport/protocol failure 必须进入 error state，保留 last-good tree，并根据 failure 提供 Retry 或 Refresh page
+- page/message 保存与删除只有在 payload decoder 验证 `warnings` / `removed` acknowledgement 后才能更新本地 bookmark state；用户意图通过显式 save/remove 表达，不允许在确认弹窗后再次读取并 toggle
 - changelog install/update notice 的本地读取与确认
 - Google Drive 书签备份/恢复；Settings/UI 只能发送协议请求，不能直接调用 Google Drive provider、Chrome identity 或 WebExtension identity
 - Google Drive Backup UI 使用 operation-specific RPC timeout：`status`/`diagnostics` 8s，`connect` 300s，`disconnect` 60s，`backupNow` 180s，`listSnapshots`/`deleteSnapshot` 60s，`previewRestore` 120s，`applyRestore` 180s。`connect` 必须覆盖用户完成 Google OAuth 测试/授权页的交互时间，不能复用通用 8s timeout。

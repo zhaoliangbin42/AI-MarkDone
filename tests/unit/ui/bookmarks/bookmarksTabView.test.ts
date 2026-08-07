@@ -3,6 +3,102 @@ import { describe, expect, it, vi } from 'vitest';
 import { BookmarksTabView } from '@/ui/content/bookmarks/ui/tabs/BookmarksTabView';
 
 describe('BookmarksTabView', () => {
+    it('renders a retryable runtime failure instead of the real empty-library state', () => {
+        const controller = {
+            setQuery: vi.fn(),
+            getFolderCheckboxState: vi.fn(() => ({ checked: false, indeterminate: false })),
+            toggleFolderExpanded: vi.fn(),
+            toggleFolderSelection: vi.fn(),
+            selectFolder: vi.fn(),
+            refreshAll: vi.fn(async () => undefined),
+        } as any;
+        const view = new BookmarksTabView({ controller });
+
+        view.update({
+            vm: {
+                query: '',
+                kind: 'all',
+                bookmarks: [],
+                folderTree: [],
+                selectedFolderPath: null,
+                sortMode: 'time-desc',
+            },
+            folders: [],
+            folderPaths: [],
+            selectedKeys: new Set(),
+            previewId: null,
+            status: 'Receiving end does not exist',
+            dataState: {
+                kind: 'error',
+                failure: {
+                    kind: 'transport',
+                    code: 'RECEIVER_UNAVAILABLE',
+                    message: 'Receiving end does not exist',
+                    delivery: 'not-sent',
+                },
+            },
+            storageUsage: null,
+        } as any);
+
+        const root = view.getElement();
+        const notice = root.querySelector<HTMLElement>('[data-role="bookmarks-runtime-error"]');
+        expect(notice).toBeTruthy();
+        expect(root.textContent).not.toContain('noFoldersYet');
+
+        notice!.querySelector<HTMLButtonElement>('[data-action="retry-bookmarks-load"]')!.click();
+        expect(controller.refreshAll).toHaveBeenCalledTimes(1);
+    });
+
+    it('keeps cached folder rows visible while showing the runtime failure notice', () => {
+        const controller = {
+            setQuery: vi.fn(),
+            getFolderCheckboxState: vi.fn(() => ({ checked: false, indeterminate: false })),
+            getBookmarkRowSubtitle: vi.fn(() => 'ChatGPT - today'),
+            toggleFolderExpanded: vi.fn(),
+            toggleFolderSelection: vi.fn(),
+            selectFolder: vi.fn(),
+            refreshAll: vi.fn(async () => undefined),
+        } as any;
+        const view = new BookmarksTabView({ controller });
+
+        view.update({
+            vm: {
+                query: '',
+                kind: 'all',
+                bookmarks: [],
+                folderTree: [{
+                    folder: { path: 'Work', name: 'Work', depth: 1, createdAt: 0, updatedAt: 0 },
+                    children: [],
+                    bookmarks: [],
+                    isExpanded: true,
+                    isSelected: true,
+                }],
+                selectedFolderPath: 'Work',
+                sortMode: 'time-desc',
+            },
+            folders: [{ path: 'Work', name: 'Work', depth: 1, createdAt: 0, updatedAt: 0 }],
+            folderPaths: ['Work'],
+            selectedKeys: new Set(),
+            previewId: null,
+            status: 'Extension context invalidated.',
+            dataState: {
+                kind: 'error',
+                failure: {
+                    kind: 'transport',
+                    code: 'CONTEXT_INVALIDATED',
+                    message: 'Extension context invalidated.',
+                    delivery: 'not-sent',
+                },
+            },
+            storageUsage: null,
+        } as any);
+
+        const root = view.getElement();
+        expect(root.querySelector('.tree-item--folder[data-path="Work"]')).toBeTruthy();
+        expect(root.querySelector('[data-role="bookmarks-runtime-error"]')).toBeTruthy();
+        expect(root.textContent).not.toContain('noFoldersYet');
+    });
+
     it('removes the platform filter and keeps search with bookmark actions in one toolbar row', () => {
         const controller = {
             setQuery: vi.fn(),

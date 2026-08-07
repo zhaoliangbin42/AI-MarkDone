@@ -33,143 +33,103 @@ describe('ChatGPTDomTurnFactSource', () => {
         adapter.dispose();
     });
 
-    it('reports typed completed turns without mutating a conversation snapshot', () => {
+    it('reports only typed identity and materialization lifecycle facts', () => {
         appendRound(1);
 
         expect(source.read().rounds).toEqual([{
-            position: 1,
             roundId: 'user-turn-1',
             userMessageId: 'user-1',
             assistantMessageId: 'assistant-1',
             assistantTurnId: 'assistant-turn-1',
-            userPrompt: 'Question 1',
-            assistantContent: '**Answer 1**',
-            status: 'complete',
+            status: 'mounted',
         }]);
     });
 
-    it('keeps a turn incomplete while ChatGPT still exposes its stop control', () => {
+    it('reports streaming lifecycle without reading visible body content', () => {
         appendRound(1, false);
         document.body.insertAdjacentHTML('beforeend', '<button data-testid="stop-button">Stop</button>');
 
-        const message = document.querySelector('[data-message-author-role="assistant"]');
-        expect(message instanceof HTMLElement && adapter.isStreamingMessage(message)).toBe(true);
-
         expect(source.read().rounds[0]).toMatchObject({
             assistantMessageId: 'assistant-1',
-            assistantContent: '',
             status: 'streaming',
         });
+        expect(source.read().rounds[0]).not.toHaveProperty('assistantContent');
     });
 
-    it('accepts a typed completed turn before the official action row mounts', () => {
-        document.querySelector('main')?.insertAdjacentHTML('beforeend', `
-            <article data-turn="user" data-turn-id="user-turn-1">
-                <div data-message-author-role="user" data-message-id="user-1">
-                    <div class="whitespace-pre-wrap">Question 1</div>
-                </div>
-            </article>
-            <article data-turn="assistant" data-turn-id="assistant-turn-1">
-                <div data-message-author-role="assistant" data-message-id="assistant-1">
-                    <div class="markdown prose">Answer 1</div>
-                </div>
-            </article>
-        `);
-
-        expect(source.read().rounds[0]).toMatchObject({
-            assistantMessageId: 'assistant-1',
-            assistantContent: 'Answer 1',
-            status: 'complete',
-        });
-    });
-
-    it('keeps a completed-looking turn incomplete until the assistant identity is complete', () => {
-        document.querySelector('main')?.insertAdjacentHTML('beforeend', `
-            <article data-turn="user" data-turn-id="user-turn-1">
-                <div data-message-author-role="user">Question 1</div>
-            </article>
-            <article data-turn="assistant" data-turn-id="assistant-turn-1">
-                <div data-message-author-role="assistant" data-message-id="assistant-1">
-                    <div class="markdown prose">Answer 1</div>
-                </div>
-                <div class="z-0 flex"><button data-testid="copy-turn-action-button">Copy</button></div>
-            </article>
-        `);
-
-        expect(source.read().rounds[0]).toMatchObject({
-            userMessageId: null,
-            assistantMessageId: 'assistant-1',
-            status: 'complete',
-        });
-    });
-
-    it('does not require a user message id when the turn and assistant ids are verified', () => {
-        document.querySelector('main')?.insertAdjacentHTML('beforeend', `
-            <article data-turn="user" data-turn-id="user-turn-1">
-                <div data-message-author-role="user">Question 1</div>
-            </article>
-            <article data-turn="assistant" data-turn-id="assistant-turn-1">
-                <div data-message-author-role="assistant" data-message-id="assistant-1">
-                    <div class="markdown prose">Answer 1</div>
-                </div>
-                <div class="z-0 flex"><button data-testid="copy-turn-action-button">Copy</button></div>
-            </article>
-        `);
-
-        expect(source.read().rounds[0]).toMatchObject({
-            userMessageId: null,
-            assistantMessageId: 'assistant-1',
-            status: 'complete',
-            assistantContent: 'Answer 1',
-        });
-    });
-
-    it('merges every assistant segment owned by one logical turn', () => {
+    it('keeps identity facts available before the official action row mounts', () => {
         document.querySelector('main')?.insertAdjacentHTML('beforeend', `
             <article data-turn="user" data-turn-id="user-turn-1">
                 <div data-message-author-role="user" data-message-id="user-1">Question 1</div>
             </article>
             <article data-turn="assistant" data-turn-id="assistant-turn-1">
                 <div data-message-author-role="assistant" data-message-id="assistant-1">
-                    <div class="markdown prose">First segment</div>
+                    <div class="markdown prose">Answer 1</div>
                 </div>
-                <div data-message-author-role="assistant" data-message-id="assistant-1-segment-2">
-                    <div class="markdown prose">Second segment</div>
+            </article>
+        `);
+
+        expect(source.read().rounds[0]).toMatchObject({
+            assistantMessageId: 'assistant-1',
+            status: 'mounted',
+        });
+    });
+
+    it('does not claim a canonical completion when typed identity is incomplete', () => {
+        document.querySelector('main')?.insertAdjacentHTML('beforeend', `
+            <article data-turn="assistant" data-turn-id="assistant-turn-1">
+                <div data-message-author-role="assistant" data-message-id="assistant-1">
+                    <div class="markdown prose">Answer 1</div>
                 </div>
                 <div class="z-0 flex"><button data-testid="copy-turn-action-button">Copy</button></div>
             </article>
         `);
 
         expect(source.read().rounds[0]).toMatchObject({
-            status: 'complete',
-            assistantContent: 'First segment\n\nSecond segment',
+            userMessageId: null,
+            assistantMessageId: 'assistant-1',
+            status: 'mounted',
         });
     });
 
-    it('matches content refs by typed DOM identity rather than array position', () => {
+    it('does not merge assistant segments into a DOM-generated body', () => {
+        document.querySelector('main')?.insertAdjacentHTML('beforeend', `
+            <article data-turn="user" data-turn-id="user-turn-1">
+                <div data-message-author-role="user" data-message-id="user-1">Question 1</div>
+            </article>
+            <article data-turn="assistant" data-turn-id="assistant-turn-1">
+                <div data-message-author-role="assistant" data-message-id="assistant-1"><div class="markdown prose">First segment</div></div>
+                <div data-message-author-role="assistant" data-message-id="assistant-1-segment-2"><div class="markdown prose">Second segment</div></div>
+            </article>
+        `);
+
+        expect(source.read().rounds[0]).toMatchObject({
+            assistantMessageId: 'assistant-1',
+            status: 'mounted',
+        });
+        expect(source.read().rounds[0]).not.toHaveProperty('assistantContent');
+    });
+
+    it('matches host facts by typed identity rather than array position', () => {
         appendRound(1);
         appendRound(2);
         const original = adapter.getConversationGroupRefs?.bind(adapter);
         if (!original) throw new Error('ChatGPT grouping hook is missing');
         vi.spyOn(adapter, 'getConversationGroupRefs').mockImplementation(() => original().reverse());
 
-        const rounds = source.read().rounds;
-        expect(rounds.map((round) => round.assistantMessageId)).toEqual(['assistant-1', 'assistant-2']);
-        expect(rounds.map((round) => round.assistantContent)).toEqual(['**Answer 1**', '**Answer 2**']);
+        expect(source.read().rounds.map((round) => round.assistantMessageId)).toEqual(['assistant-1', 'assistant-2']);
     });
 
-    it('reads the assistant node directly when the legacy turn index is temporarily unavailable', () => {
+    it('reads typed assistant identity when the legacy turn index is unavailable', () => {
         appendRound(1);
         vi.spyOn(adapter, 'getConversationGroupRefs').mockReturnValue([]);
 
         expect(source.read().rounds[0]).toMatchObject({
             assistantMessageId: 'assistant-1',
-            assistantContent: '**Answer 1**',
-            status: 'complete',
+            status: 'mounted',
         });
     });
 
-    it('publishes a typed assistant fallback when the turn wrapper is temporarily absent', () => {
+    it('publishes a typed assistant anchor when the turn wrapper is temporarily absent', () => {
         document.querySelector('main')?.insertAdjacentHTML('beforeend', `
             <div class="message-shell">
                 <div data-message-author-role="assistant" data-message-id="assistant-fallback">
@@ -180,13 +140,11 @@ describe('ChatGPTDomTurnFactSource', () => {
 
         expect(source.read().rounds[0]).toMatchObject({
             assistantMessageId: 'assistant-fallback',
-            userPrompt: 'Message 1',
-            assistantContent: 'Answer without a turn wrapper',
-            status: 'complete',
+            status: 'mounted',
         });
     });
 
-    it('keeps the preceding typed user message when only host turn wrappers are late', () => {
+    it('retains typed user and assistant anchors when host wrappers are late', () => {
         document.querySelector('main')?.insertAdjacentHTML('beforeend', `
             <div data-message-author-role="user" data-message-id="user-fallback">Question from the late wrapper</div>
             <div class="message-shell">
@@ -199,9 +157,7 @@ describe('ChatGPTDomTurnFactSource', () => {
         expect(source.read().rounds[0]).toMatchObject({
             assistantMessageId: 'assistant-fallback-2',
             userMessageId: 'user-fallback',
-            userPrompt: 'Question from the late wrapper',
-            assistantContent: 'Answer from the late wrapper',
-            status: 'complete',
+            status: 'mounted',
         });
     });
 });

@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { extensionIconFiles, safariExcludedIconFiles, safariExcludedLocaleMessageKeys } from '../../../config/extension/surface';
-import { CHATGPT_HOST_PATTERNS, SUPPORTED_HOST_PATTERNS } from '../../../config/extension/hosts';
+import { SUPPORTED_HOST_PATTERNS } from '../../../config/extension/hosts';
 
 type ChromeManifest = {
     host_permissions?: string[];
@@ -131,27 +131,32 @@ describe('manifest resource consistency', () => {
         expect(safariResources).not.toContain('content-early-main.js');
     });
 
-    it('installs the passive ChatGPT graph bridge before host hydration', () => {
+    it('installs only the passive ChatGPT page bridge before the content runtime', () => {
         const chrome = readJson<ChromeManifest>('manifest.chrome.json');
         const firefox = readJson<Mv2Manifest>('manifest.firefox.json');
         const safari = readJson<Mv2Manifest>('manifest.safari.json');
 
-        const chromeCapture = chrome.content_scripts?.find((item) => item.js?.includes('page-bridges/chatgpt-conversation-bridge.js'));
-        const firefoxCapture = firefox.content_scripts?.find((item) => item.js?.includes('page-bridges/chatgpt-conversation-bridge.js'));
-        const safariCapture = safari.content_scripts?.find((item) => item.js?.includes('page-bridges/chatgpt-conversation-bootstrap.js'));
-
-        expect(chromeCapture).toEqual({
-            matches: [...CHATGPT_HOST_PATTERNS],
-            js: ['page-bridges/chatgpt-conversation-bridge.js'],
-            run_at: 'document_start',
-            world: 'MAIN',
-        });
-        expect(firefoxCapture).toEqual(chromeCapture);
-        expect(safariCapture).toEqual({
-            matches: [...CHATGPT_HOST_PATTERNS],
-            js: ['page-bridges/chatgpt-conversation-bootstrap.js'],
-            run_at: 'document_start',
-        });
+        for (const manifest of [chrome, firefox, safari]) {
+            const entries = manifest.content_scripts || [];
+            const scripts = entries.flatMap((item) => item.js || []);
+            const bootstrapEntry = entries.find((item) => item.js?.includes('page-bridges/chatgpt-conversation-bootstrap.js'));
+            expect(bootstrapEntry).toMatchObject({
+                matches: [...SUPPORTED_HOST_PATTERNS],
+                run_at: 'document_start',
+            });
+            expect(scripts).not.toContain('page-bridges/chatgpt-conversation-bridge.js');
+            expect(scripts).toContain('page-bridges/chatgpt-conversation-bootstrap.js');
+            const resources = normalized(
+                'web_accessible_resources' in manifest
+                    ? Array.isArray(manifest.web_accessible_resources)
+                        ? (manifest.web_accessible_resources[0] as { resources?: string[] } | undefined)?.resources
+                            ?? (manifest.web_accessible_resources as unknown as string[])
+                        : []
+                    : [],
+            );
+            expect(resources).toContain('page-bridges/chatgpt-conversation-bridge.js');
+            expect(resources).not.toContain('page-bridges/*.js');
+        }
 
         for (const manifest of [chrome, firefox, safari]) {
             const idleEntry = manifest.content_scripts?.find((item) => item.js?.includes('content.js'));

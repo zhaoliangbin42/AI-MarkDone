@@ -4,6 +4,7 @@ import { findMarkdownMathAt } from '../../../core/sending/markdownMath';
 import type { PromptLibraryClient } from '../../../drivers/content/prompts/promptLibraryClient';
 
 export type PromptWorkflowMode = 'autocomplete' | 'manager' | 'edit' | null;
+export type PromptDataState = 'idle' | 'ready' | 'error';
 
 export type PromptWorkflowState = Readonly<{
     mode: PromptWorkflowMode;
@@ -14,6 +15,7 @@ export type PromptWorkflowState = Readonly<{
     managerQuery: string;
     editPrompt: PromptRecord | null;
     statusMessage: string;
+    dataState: PromptDataState;
 }>;
 
 export type PromptAutocompleteRefreshResult = 'open' | 'close' | 'idle';
@@ -54,6 +56,7 @@ export class PromptWorkflow {
     private managerQuery = '';
     private editPrompt: PromptRecord | null = null;
     private statusMessage = '';
+    private dataState: PromptDataState = 'idle';
     private requestId = 0;
 
     constructor(private readonly client: PromptLibraryClient) {}
@@ -68,6 +71,7 @@ export class PromptWorkflow {
             managerQuery: this.managerQuery,
             editPrompt: this.editPrompt,
             statusMessage: this.statusMessage,
+            dataState: this.dataState,
         };
     }
 
@@ -101,7 +105,13 @@ export class PromptWorkflow {
         }
 
         const currentRequest = ++this.requestId;
-        const prompts = await this.loadPrompts().catch(() => []);
+        let prompts: PromptRecord[];
+        try {
+            prompts = await this.loadPrompts();
+        } catch {
+            this.dataState = 'error';
+            return this.closeAutocompleteIfOpen();
+        }
         if (currentRequest !== this.requestId) return 'idle';
         const nextSuggestions = filterPromptRecords(
             prompts.filter((prompt) => prompt.triggerText.trim()),
@@ -124,7 +134,12 @@ export class PromptWorkflow {
         this.managerQuery = '';
         this.statusMessage = '';
         this.editPrompt = null;
-        await this.loadPrompts({ force: true, includeDisabled: true });
+        await this.loadManagerPromptsSafely();
+    }
+
+    async retryManagerLoad(): Promise<void> {
+        if (this.mode !== 'manager') return;
+        await this.loadManagerPromptsSafely();
     }
 
     closeSurface(): void {
@@ -288,6 +303,16 @@ export class PromptWorkflow {
         await this.loadPrompts({ force: true, includeDisabled: true });
     }
 
+    private async loadManagerPromptsSafely(): Promise<void> {
+        try {
+            await this.loadPrompts({ force: true, includeDisabled: true });
+            this.statusMessage = '';
+        } catch (error) {
+            this.dataState = 'error';
+            this.statusMessage = error instanceof Error ? error.message : 'Prompt Library could not be loaded.';
+        }
+    }
+
     private async loadPrompts(options: { force?: boolean; includeDisabled?: boolean } = {}): Promise<PromptRecord[]> {
         if (!options.force && this.promptsCache) return this.promptsCache;
         const prompts = await this.client.listPrompts({
@@ -295,6 +320,7 @@ export class PromptWorkflow {
             includeDisabled: options.includeDisabled,
         });
         this.promptsCache = prompts;
+        this.dataState = 'ready';
         return prompts;
     }
 }

@@ -344,10 +344,14 @@ describe('ChatGPTMessageStepperController', () => {
     });
 
     it('toggles page bookmark state through the lower-right button', async () => {
-        const onTogglePageBookmark = vi.fn(async () => ({ saved: true }));
-        const controller = new ChatGPTMessageStepperController(adapter, { onTogglePageBookmark });
+        const onTogglePageBookmark = vi.fn(async () => ({ ok: true as const, saved: true }));
+        const controller = new ChatGPTMessageStepperController(adapter, {
+            onRefreshPageBookmarkState: async () => ({ ok: true, saved: false }),
+            onTogglePageBookmark,
+        });
         controllers.push(controller);
         controller.init();
+        await Promise.resolve();
 
         const button = document.querySelector<HTMLButtonElement>('[data-action="toggle-page-bookmark"]')!;
         expect(button.dataset.active).toBe('0');
@@ -356,8 +360,104 @@ describe('ChatGPTMessageStepperController', () => {
         await Promise.resolve();
 
         expect(onTogglePageBookmark).toHaveBeenCalledTimes(1);
+        expect(onTogglePageBookmark).toHaveBeenCalledWith(
+            'https://chatgpt.com/c/12345678-1234-1234-1234-123456789abc',
+        );
         expect(button.dataset.active).toBe('1');
         expect(button.getAttribute('aria-label')).toBe('Remove page bookmark');
+    });
+
+    it('keeps page bookmark state unknown and exposes the error when status refresh fails', async () => {
+        const onRefreshPageBookmarkState = vi.fn(async () => ({
+            ok: false as const,
+            message: 'Extension context invalidated.',
+        }));
+        const controller = new ChatGPTMessageStepperController(adapter, { onRefreshPageBookmarkState });
+        controllers.push(controller);
+        controller.init();
+
+        await Promise.resolve();
+
+        const button = document.querySelector<HTMLButtonElement>('[data-action="toggle-page-bookmark"]')!;
+        expect(onRefreshPageBookmarkState).toHaveBeenCalledWith(
+            'https://chatgpt.com/c/12345678-1234-1234-1234-123456789abc',
+        );
+        expect(button.dataset.active).toBe('unknown');
+        expect(button.dataset.bookmarkState).toBe('error');
+        expect(button.getAttribute('aria-pressed')).toBeNull();
+        expect(button.getAttribute('title')).toBe('Extension context invalidated.');
+    });
+
+    it('prevents duplicate page bookmark clicks and exposes mutation failures without changing last-known state', async () => {
+        let resolveToggle!: (result: { ok: false; message: string }) => void;
+        const onTogglePageBookmark = vi.fn(() => new Promise<{ ok: false; message: string }>((resolve) => {
+            resolveToggle = resolve;
+        }));
+        const controller = new ChatGPTMessageStepperController(adapter, {
+            onRefreshPageBookmarkState: async () => ({ ok: true, saved: false }),
+            onTogglePageBookmark,
+        });
+        controllers.push(controller);
+        controller.init();
+        await Promise.resolve();
+
+        const button = document.querySelector<HTMLButtonElement>('[data-action="toggle-page-bookmark"]')!;
+        expect(button.dataset.active).toBe('0');
+
+        button.click();
+        button.click();
+
+        expect(onTogglePageBookmark).toHaveBeenCalledTimes(1);
+        expect(onTogglePageBookmark).toHaveBeenCalledWith(
+            'https://chatgpt.com/c/12345678-1234-1234-1234-123456789abc',
+        );
+        expect(button.disabled).toBe(true);
+
+        resolveToggle({ ok: false, message: 'Could not save bookmark.' });
+        await Promise.resolve();
+        await Promise.resolve();
+
+        expect(button.disabled).toBe(false);
+        expect(button.dataset.active).toBe('0');
+        expect(button.dataset.bookmarkState).toBe('error');
+        expect(button.getAttribute('title')).toBe('Could not save bookmark.');
+        expect(document.body.querySelector<HTMLElement>('.aimd-toast')?.textContent).toContain('Could not save bookmark.');
+    });
+
+    it('ignores a page bookmark mutation result after navigating to another conversation', async () => {
+        let resolveToggle!: (result: { ok: true; saved: boolean }) => void;
+        const onTogglePageBookmark = vi.fn(() => new Promise<{ ok: true; saved: boolean }>((resolve) => {
+            resolveToggle = resolve;
+        }));
+        const controller = new ChatGPTMessageStepperController(adapter, {
+            onRefreshPageBookmarkState: async () => ({ ok: true, saved: false }),
+            onTogglePageBookmark,
+        });
+        controllers.push(controller);
+        controller.init();
+        await Promise.resolve();
+
+        const button = document.querySelector<HTMLButtonElement>('[data-action="toggle-page-bookmark"]')!;
+        button.click();
+
+        Object.defineProperty(window, 'location', {
+            value: new URL('https://chatgpt.com/c/87654321-4321-4321-4321-cba987654321'),
+            configurable: true,
+        });
+        window.dispatchEvent(new Event('scroll'));
+        await waitForAnimationFrame();
+        await Promise.resolve();
+
+        resolveToggle({ ok: true, saved: true });
+        await Promise.resolve();
+        await Promise.resolve();
+
+        expect(onTogglePageBookmark).toHaveBeenCalledWith(
+            'https://chatgpt.com/c/12345678-1234-1234-1234-123456789abc',
+        );
+        expect(button.disabled).toBe(false);
+        expect(button.dataset.active).toBe('0');
+        expect(button.dataset.bookmarkState).toBe('unsaved');
     });
 
     it('uses left and right arrow keys for message navigation outside editable targets', async () => {

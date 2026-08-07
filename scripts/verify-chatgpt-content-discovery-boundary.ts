@@ -1,92 +1,62 @@
 import { existsSync, readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
-import { type ExtensionTarget, extensionTargets } from '../config/extension/targets';
-
-function isTarget(value: string): value is ExtensionTarget {
-    return value === 'chrome' || value === 'firefox' || value === 'safari';
-}
 
 const target = process.argv[2] ?? '';
-if (!isTarget(target)) {
-    throw new Error('Expected target: chrome, firefox, or safari.');
+if (!['chrome', 'firefox'].includes(target)) {
+    throw new Error('Expected target: chrome or firefox.');
 }
 
-const relativePaths = [
-    'public/page-bridges/chatgpt-conversation-bridge.js',
-    'public/page-bridges/chatgpt-conversation-bootstrap.js',
+const activeSources = [
+    'src/runtimes/content/ChatGPTConversationContentRuntime.ts',
+    'src/runtimes/content/entry.ts',
     'src/drivers/content/chatgpt/ChatGPTConversationDiscoveryAdapter.ts',
     'src/drivers/content/chatgpt/ChatGPTConversationDiscoveryCoordinator.ts',
-    'src/drivers/content/chatgpt/ChatGPTConversationMaterialization.ts',
+    'src/drivers/content/chatgpt/ChatGPTConversationNavigation.ts',
     'src/services/content/ConversationContentRepository.ts',
-    `${extensionTargets[target].distDir}/page-bridges/chatgpt-conversation-bridge.js`,
+    'public/page-bridges/chatgpt-conversation-bridge.js',
 ];
 const forbidden = [
-    ['', 'api', 'auth', 'session'].join('/'),
-    ['access', 'Token'].join(''),
-    ['Author', 'ization'].join(''),
-    ['document', 'cookie'].join('.'),
+    'document.cookie',
+    'Authorization',
     'credentials',
-];
-
-for (const relativePath of relativePaths) {
-    const path = resolve(relativePath);
-    if (!existsSync(path)) throw new Error(`Missing ChatGPT discovery artifact: ${relativePath}`);
-    const source = readFileSync(path, 'utf8');
-    for (const marker of forbidden) {
-        if (source.includes(marker)) {
-            throw new Error(`Forbidden authentication marker in ChatGPT discovery artifact ${relativePath}: ${marker}`);
-        }
-    }
-}
-
-const activeReadSource = readFileSync(
-    resolve('public/page-bridges/chatgpt-conversation-bridge.js'),
-    'utf8',
-);
-for (const marker of [
     'XMLHttpRequest',
     'EventSource',
     'WebSocket',
-    'Authorization',
-    'credentials',
-    'document.cookie',
-]) {
-    if (activeReadSource.includes(marker)) {
-        throw new Error(`ChatGPT bridge crosses the active-read safety boundary: ${marker}`);
+    'acquireSnapshot',
+    'type: \'acquire\'',
+    'type: "acquire"',
+    'scrollRoot.scrollTo',
+    'probeStepPx',
+    'const ratio =',
+];
+
+for (const relativePath of activeSources) {
+    const path = resolve(relativePath);
+    if (!existsSync(path)) throw new Error(`Missing V2 discovery source: ${relativePath}`);
+    const source = readFileSync(path, 'utf8');
+    for (const marker of forbidden) {
+        if (source.includes(marker)) {
+        throw new Error(`Forbidden active transport marker in ChatGPT discovery source ${relativePath}: ${marker}`);
+        }
     }
 }
-if (!activeReadSource.includes("method: 'GET'")) {
-    throw new Error('ChatGPT bridge must keep the bounded active acquisition as an explicit GET.');
-}
 
-const consumerPaths = [
-    'src/drivers/content/chatgpt/ChatGPTConversationIndex.ts',
-    'src/ui/content/controllers/ChatGPTConversationReaderBinding.ts',
-    'src/ui/content/controllers/MessageToolbarOrchestrator.ts',
-    'src/ui/content/export/SaveMessagesDialog.ts',
-];
-const consumerForbidden = [
-    '.ensureReady(',
-    '.setSnapshot(',
-    'buildChatGPTReaderItems(',
-];
-for (const relativePath of consumerPaths) {
-    const source = readFileSync(resolve(relativePath), 'utf8');
-    for (const marker of consumerForbidden) {
-        if (source.includes(marker)) {
-            throw new Error(`ChatGPT consumer bypasses the canonical content source in ${relativePath}: ${marker}`);
-        }
+for (const relativePath of [
+    `dist/${target}/manifest.json`,
+    `manifest.${target}.json`,
+]) {
+    const path = resolve(relativePath);
+    if (!existsSync(path)) continue;
+    const source = readFileSync(path, 'utf8');
+    if (!source.includes('page-bridges/chatgpt-conversation-bootstrap.js')) {
+        throw new Error(`Shipped manifest is missing the document_start ChatGPT bootstrap: ${relativePath}`);
+    }
+    if (!source.includes('page-bridges/chatgpt-conversation-bridge.js')) {
+        throw new Error(`Shipped manifest is missing the passive ChatGPT bridge resource: ${relativePath}`);
     }
 }
 
 const readerSource = readFileSync(resolve('src/services/reader/readerContentSource.ts'), 'utf8');
-const refreshCount = readerSource.split('await source.refresh(').length - 1;
-const readerContentBuildCount = readerSource.split('const content = buildConversationReaderContent(').length - 1;
-if (refreshCount !== 1 || readerContentBuildCount !== 1) {
-    throw new Error(
-        `Expected one fresh V1 confirmation and one Reader projection boundary; found refresh=${refreshCount}, contentBuild=${readerContentBuildCount}.`,
-    );
-}
 if (readerSource.includes('collectReaderContent(')) {
     throw new Error('Retired duplicate Reader content entrypoint is still present.');
 }
@@ -101,4 +71,4 @@ for (const marker of ['collectConversationTurnRefs', 'new MutationObserver', 'fe
     }
 }
 
-console.log(`Verified ChatGPT content-discovery boundary for ${target} (passive graph + metadata-only generation lifecycle + bounded GET acquire).`);
+console.log(`Verified passive ChatGPT graph discovery boundary for ${target}.`);

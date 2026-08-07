@@ -4,12 +4,28 @@
  * must not cross this boundary.
  */
 
+import type { SemanticContentProvenanceV1 } from './semanticContent';
+
 export type ConversationContentTokenV1 = string;
+
+export type ConversationTurnSourceQualityV1 = 'source-backed' | 'reconstructed';
+
+export type ConversationSnapshotSourceQualityV1 =
+    | 'source-backed'
+    | 'mixed'
+    | 'reconstructed';
 
 export type ConversationContentCandidateV1 = Readonly<{
     document: ConversationDocumentRefV1;
     coverage: 'complete' | 'partial';
     turns: readonly ConversationTurnV1[];
+    /** Additive evidence metadata; legacy producers may omit it. */
+    branchKey?: string;
+    captureId?: string;
+    sourceRevision?: number;
+    origin?: 'source' | 'host';
+    /** Additive lifecycle fact used to derive snapshot proof.tail. */
+    tail?: 'stable' | 'streaming';
 }>;
 
 export type ConversationContentAcquisitionReasonV1 =
@@ -55,6 +71,11 @@ export type ConversationTurnV1 = Readonly<{
     identity: ConversationTurnIdentityV1;
     userText: string;
     assistantMarkdown: string;
+    /**
+     * Additive source-quality evidence. Older V1 snapshots may omit it; all
+     * current discovery implementations must publish it.
+     */
+    assistantProvenance?: SemanticContentProvenanceV1;
 }>;
 
 export type ConversationSnapshotV1 = Readonly<{
@@ -63,6 +84,21 @@ export type ConversationSnapshotV1 = Readonly<{
     contentToken: ConversationContentTokenV1;
     coverage: 'complete' | 'partial';
     turns: readonly ConversationTurnV1[];
+    /** Additive proof metadata. Older V1 snapshots may omit this field. */
+    proof?: ConversationSnapshotProofV1;
+}>;
+
+export type ConversationSnapshotProofV1 = Readonly<{
+    order: 'complete' | 'gapped';
+    bodies: 'complete' | 'gapped';
+    tail: 'stable' | 'streaming';
+    gaps: readonly Readonly<{
+        kind: 'order' | 'body' | 'identity' | 'tail';
+        beforeTurnId?: string;
+        afterTurnId?: string;
+        turnId?: string;
+        reason: string;
+    }>[];
 }>;
 
 export type ConversationStaleReasonV1 =
@@ -147,27 +183,38 @@ export function isConversationSnapshotV1(value: unknown): value is ConversationS
     if (!isNonEmptyString(value.contentToken)) return false;
     if (value.coverage !== 'complete' && value.coverage !== 'partial') return false;
     if (!Array.isArray(value.turns)) return false;
+    if (value.proof !== undefined && !isConversationSnapshotProofV1(value.proof)) return false;
 
     const keys = new Set<string>();
     const turnIds = new Set<string>();
     const assistantIds = new Set<string>();
     const userIds = new Set<string>();
+    let previousOrdinal = 0;
     return value.turns.every((turn, index) => {
         if (!isRecord(turn)) return false;
         const identity = turn.identity;
         if (!isRecord(identity)) return false;
         if (!isNonEmptyString(turn.key) || keys.has(turn.key)) return false;
-        if (!Number.isInteger(turn.ordinal) || turn.ordinal !== index + 1) return false;
+        if (typeof turn.ordinal !== 'number' || !Number.isInteger(turn.ordinal) || turn.ordinal <= 0) return false;
+        // A complete V1 snapshot is a dense sequence.  A partial snapshot
+        // may be a sparse projection over a known topology, so its ordinal
+        // remains the canonical position and only needs to be strictly
+        // increasing.  This is the compatibility representation of V2 shell
+        // topology + sealed bodies.
+        if (value.coverage === 'complete' && turn.ordinal !== index + 1) return false;
+        if (value.coverage === 'partial' && turn.ordinal <= previousOrdinal) return false;
         if (!isNonEmptyString(identity.turnId) || turnIds.has(identity.turnId)) return false;
         if (!isNonEmptyString(identity.assistantMessageId) || assistantIds.has(identity.assistantMessageId)) return false;
         if (!isNullableString(identity.userMessageId)) return false;
         if (identity.userMessageId && userIds.has(identity.userMessageId)) return false;
         if (typeof turn.userText !== 'string' || typeof turn.assistantMarkdown !== 'string') return false;
+        if (!isOptionalSemanticContentProvenanceV1(turn.assistantProvenance)) return false;
 
         keys.add(turn.key);
         turnIds.add(identity.turnId);
         assistantIds.add(identity.assistantMessageId);
         if (identity.userMessageId) userIds.add(identity.userMessageId);
+        previousOrdinal = turn.ordinal;
         return true;
     });
 }
@@ -178,11 +225,22 @@ export function freezeConversationSnapshotV1(
     const turns = snapshot.turns.map((turn) => Object.freeze({
         ...turn,
         identity: Object.freeze({ ...turn.identity }),
+        ...(turn.assistantProvenance
+            ? { assistantProvenance: Object.freeze({ ...turn.assistantProvenance }) }
+            : {}),
     }));
     return Object.freeze({
         ...snapshot,
         document: Object.freeze({ ...snapshot.document }),
         turns: Object.freeze(turns),
+        ...(snapshot.proof
+            ? Object.freeze({
+                proof: Object.freeze({
+                    ...snapshot.proof,
+                    gaps: Object.freeze(snapshot.proof.gaps.map((gap) => Object.freeze({ ...gap }))),
+                }),
+            })
+            : {}),
     });
 }
 
@@ -200,4 +258,75 @@ function isOptionalString(value: unknown): value is string | undefined {
 
 function isNullableString(value: unknown): value is string | null {
     return value === null || isNonEmptyString(value);
+}
+
+function isConversationSnapshotProofV1(value: unknown): value is ConversationSnapshotProofV1 {
+    if (!isRecord(value)) return false;
+    if (value.order !== 'complete' && value.order !== 'gapped') return false;
+    if (value.bodies !== 'complete' && value.bodies !== 'gapped') return false;
+    if (value.tail !== 'stable' && value.tail !== 'streaming') return false;
+    if (!Array.isArray(value.gaps)) return false;
+    return value.gaps.every((gap) => {
+        if (!isRecord(gap)) return false;
+        if (
+            gap.kind !== 'order'
+            && gap.kind !== 'body'
+            && gap.kind !== 'identity'
+            && gap.kind !== 'tail'
+        ) return false;
+        return isNonEmptyString(gap.reason)
+            && isOptionalString(gap.beforeTurnId)
+            && isOptionalString(gap.afterTurnId)
+            && isOptionalString(gap.turnId);
+    });
+}
+
+function isOptionalSemanticContentProvenanceV1(value: unknown): boolean {
+    if (value === undefined) return true;
+    if (!isRecord(value)) return false;
+    return (
+        value.authority === 'primary'
+        || value.authority === 'verified-derived'
+        || value.authority === 'reconstructed'
+        || value.authority === 'rendered-only'
+    ) && (
+        value.fidelity === 'exact'
+        || value.fidelity === 'normalized'
+        || value.fidelity === 'lossy'
+        || value.fidelity === 'unknown'
+    ) && isNonEmptyString(value.producer);
+}
+
+export function isConversationTurnSourceBackedV1(turn: ConversationTurnV1): boolean {
+    const provenance = turn.assistantProvenance;
+    // Compatibility: snapshots produced before this additive V1 field were
+    // source-backed by contract and remain valid.
+    if (!provenance) return true;
+    return (
+        provenance.authority === 'primary'
+        || provenance.authority === 'verified-derived'
+    ) && (
+        provenance.fidelity === 'exact'
+        || provenance.fidelity === 'normalized'
+    );
+}
+
+export function getConversationTurnSourceQualityV1(
+    turn: ConversationTurnV1,
+): ConversationTurnSourceQualityV1 {
+    return isConversationTurnSourceBackedV1(turn) ? 'source-backed' : 'reconstructed';
+}
+
+export function getConversationSnapshotSourceQualityV1(
+    snapshot: ConversationSnapshotV1,
+): ConversationSnapshotSourceQualityV1 {
+    let sourceBacked = 0;
+    let reconstructed = 0;
+    for (const turn of snapshot.turns) {
+        if (isConversationTurnSourceBackedV1(turn)) sourceBacked += 1;
+        else reconstructed += 1;
+    }
+    if (reconstructed === 0) return 'source-backed';
+    if (sourceBacked === 0) return 'reconstructed';
+    return 'mixed';
 }

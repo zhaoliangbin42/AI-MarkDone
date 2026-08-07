@@ -1,6 +1,6 @@
 (() => {
   const BRIDGE_KEY = '__AIMD_CHATGPT_CONVERSATION_BRIDGE__';
-  const BRIDGE_VERSION = 3;
+  const BRIDGE_VERSION = 4;
   const existingBridge = window[BRIDGE_KEY];
   if (existingBridge?.version === BRIDGE_VERSION) return;
   existingBridge?.dispose?.();
@@ -14,7 +14,6 @@
     graphsByConversation: new Map(),
     pendingGenerations: [],
     completedGeneration: null,
-    hostFetch: null,
     requestSequence: 0,
     captureSequence: 0,
   };
@@ -282,7 +281,33 @@
       );
     }
 
-    return rounds.filter((round) => round.userPrompt || round.assistantContent);
+    const visibleRounds = rounds.filter((round) => (
+      typeof round.userPrompt === 'string'
+      && round.userPrompt.trim()
+      && typeof round.assistantContent === 'string'
+      && round.assistantContent.trim()
+    ));
+    // An empty assistant shell in the middle of an otherwise continued
+    // source branch is not the active streaming tail. ChatGPT can retain
+    // these internal shells in the graph (for example around tool work),
+    // while the later user/assistant pairs are already complete. Only an
+    // incomplete final round makes the graph unavailable to consumers.
+    const lastRound = rounds[rounds.length - 1];
+    const hasStreamingTail = Boolean(
+      lastRound
+      && (!lastRound.assistantContent || !lastRound.assistantContent.trim())
+    );
+    // Filtering an unfinished head can leave the provider's display
+    // positions starting at 2 (or later). The semantic port requires a
+    // contiguous local ordinal; message/node IDs remain the real identity.
+    const normalizedRounds = visibleRounds.map((round, index) => ({
+      ...round,
+      position: index + 1,
+    }));
+    return {
+      rounds: normalizedRounds,
+      coverage: hasStreamingTail ? 'partial' : 'complete',
+    };
   }
 
   function buildRoundsFromPayload(payload) {
@@ -292,8 +317,8 @@
     const currentNodeId = getPayloadCurrentNodeId(payload);
     const branchNodes = buildBranchNodesFromMapping(mapping, currentNodeId);
     if (!branchNodes) return null;
-    const rounds = buildRoundsFromMessages(branchNodes);
-    return rounds.length > 0 ? rounds : null;
+    const result = buildRoundsFromMessages(branchNodes);
+    return result.rounds.length > 0 ? result : null;
   }
 
   function getObservedConversationId(value) {
@@ -389,11 +414,13 @@
         : !isCompletePayload && isNodeAncestor(mergedMapping, currentNodeId, previous.currentNodeId)
           ? previous.currentNodeId
           : currentNodeId;
+    const captureSequence = ++bridgeState.captureSequence;
     bridgeState.graphsByConversation.delete(conversationId);
     bridgeState.graphsByConversation.set(conversationId, {
       mapping: mergedMapping,
       currentNodeId: nextCurrentNodeId,
       capturedAt: nowTs(),
+      captureSequence,
       requestSequence: Math.max(requestSequence, previous?.requestSequence || 0),
     });
     while (bridgeState.graphsByConversation.size > MAX_CAPTURED_CONVERSATIONS) {
@@ -402,7 +429,6 @@
       bridgeState.graphsByConversation.delete(oldestConversationId);
     }
 
-    const captureSequence = ++bridgeState.captureSequence;
     window.dispatchEvent(new CustomEvent(CAPTURE_EVENT, {
       detail: JSON.stringify({
         kind: 'graph',
@@ -430,8 +456,6 @@
   function installFetchObserver() {
     const nativeFetch = window.fetch;
     if (typeof nativeFetch !== 'function') return () => {};
-    bridgeState.hostFetch = nativeFetch.bind(window);
-
     const observedFetch = function observedFetch(input, ...init) {
       const requestUrl = getObservedRequestUrl(input);
       const requestMethod = getObservedRequestMethod(input, init[0]);
@@ -450,7 +474,6 @@
     window.fetch = observedFetch;
     return () => {
       if (window.fetch === observedFetch) window.fetch = nativeFetch;
-      bridgeState.hostFetch = null;
     };
   }
 
@@ -569,78 +592,23 @@
       current_node: observed.currentNodeId,
       mapping: observed.mapping,
     };
-    const rounds = buildRoundsFromPayload(payload);
-    if (!rounds) return null;
+    const built = buildRoundsFromPayload(payload);
+    if (!built) return null;
 
     return {
       conversationId,
-      rounds,
+      rounds: built.rounds,
+      coverage: built.coverage,
       branchKey: observed.currentNodeId,
       capturedAt: observed.capturedAt,
+      captureSequence: observed.captureSequence,
     };
-  }
-
-  async function acquireSnapshot(conversationId) {
-    const currentConversationId = getCurrentConversationId();
-    if (
-      !currentConversationId
-      || currentConversationId.toLowerCase() !== String(conversationId || '').trim().toLowerCase()
-    ) {
-      return {
-        snapshot: null,
-        error: { code: 'IDENTITY_CONFLICT', retryable: false },
-      };
-    }
-    const controller = new AbortController();
-    const timeoutId = window.setTimeout(() => controller.abort(), 3000);
-    try {
-      const response = await (bridgeState.hostFetch || window.fetch.bind(window))(
-        `/backend-api/conversation/${encodeURIComponent(conversationId)}`,
-        { method: 'GET', signal: controller.signal },
-      );
-      if (!response?.ok) {
-        return {
-          snapshot: null,
-          error: {
-            code: `HTTP_${response?.status || 0}`,
-            retryable: response?.status === 408
-              || response?.status === 425
-              || response?.status === 500
-              || response?.status === 502
-              || response?.status === 503
-              || response?.status === 504,
-          },
-        };
-      }
-      const contentType = response.headers?.get?.('content-type') || '';
-      if (contentType && !contentType.toLowerCase().includes('json')) {
-        return { snapshot: null, error: { code: 'INVALID_CONTENT_TYPE', retryable: false } };
-      }
-      const payload = await response.json();
-      if (!rememberObservedPayload(conversationId, payload, ++bridgeState.requestSequence)) {
-        return { snapshot: null, error: { code: 'INVALID_PAYLOAD', retryable: false } };
-      }
-      const snapshot = getSnapshot(conversationId);
-      return snapshot
-        ? { snapshot, error: undefined }
-        : { snapshot: null, error: { code: 'INVALID_PAYLOAD', retryable: false } };
-    } catch (error) {
-      return {
-        snapshot: null,
-        error: {
-          code: controller.signal.aborted ? 'SOURCE_TIMEOUT' : 'SOURCE_UNAVAILABLE',
-          retryable: true,
-        },
-      };
-    } finally {
-      window.clearTimeout(timeoutId);
-    }
   }
 
   const handleSnapshotRequest = (event) => {
     const rawDetail = event instanceof CustomEvent ? event.detail : null;
     const detail = decodeBridgeDetail(rawDetail);
-    if (!detail || !['snapshot', 'peek', 'acquire'].includes(detail.type)) return;
+    if (!detail || !['snapshot', 'peek'].includes(detail.type)) return;
     flushCompletedGeneration();
     const requestWasString = typeof rawDetail === 'string';
     const respond = (payload) => {
@@ -649,9 +617,7 @@
       }));
     };
 
-    const result = detail.type === 'acquire'
-      ? acquireSnapshot(detail.conversationId)
-      : Promise.resolve({ snapshot: getSnapshot(detail.conversationId), error: undefined });
+    const result = Promise.resolve({ snapshot: getSnapshot(detail.conversationId), error: undefined });
 
     Promise.resolve(result)
       .then(({ snapshot, error }) => {

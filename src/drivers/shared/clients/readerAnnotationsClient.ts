@@ -1,26 +1,15 @@
-import { createRequestId, PROTOCOL_VERSION, type ProtocolErrorCode } from '../../../contracts/protocol';
+import { createRequestId, PROTOCOL_VERSION } from '../../../contracts/protocol';
 import type {
     ReaderAnnotationDocument,
     ReaderAnnotationListEntry,
     ReaderAnnotationRecord,
 } from '../../../contracts/readerAnnotations';
 import type { ExtRequest } from '../../../contracts/protocol';
-import { sendExtRequest } from '../rpc';
+import { requestRuntimeClient, type RuntimeClientResult } from './clientResult';
 import { browser } from '../browser';
 import { readerAnnotationStorageKey } from '../../../contracts/readerAnnotations';
 
-export type ReaderAnnotationResult<T> =
-    | { ok: true; data: T }
-    | { ok: false; errorCode: ProtocolErrorCode; message: string };
-
-function responseToResult<T>(response: any): ReaderAnnotationResult<T> {
-    if (response?.ok) return { ok: true, data: response.data as T };
-    return {
-        ok: false,
-        errorCode: (response?.error?.code as ProtocolErrorCode | undefined) ?? 'INTERNAL_ERROR',
-        message: response?.error?.message || 'Annotation request failed',
-    };
-}
+export type ReaderAnnotationResult<T> = RuntimeClientResult<T>;
 
 async function call<T extends ExtRequest['type']>(type: T, payload?: unknown): Promise<ReaderAnnotationResult<any>> {
     const request = {
@@ -29,7 +18,7 @@ async function call<T extends ExtRequest['type']>(type: T, payload?: unknown): P
         type,
         ...(payload === undefined ? {} : { payload }),
     } as ExtRequest;
-    return responseToResult(await sendExtRequest(request));
+    return requestRuntimeClient(request);
 }
 
 export type ReaderAnnotationListResponse = { entries: ReaderAnnotationListEntry[] };

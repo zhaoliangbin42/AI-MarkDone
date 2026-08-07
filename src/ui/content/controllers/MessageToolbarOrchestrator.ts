@@ -35,6 +35,8 @@ import {
 import type { ReaderItem } from '../../../services/reader/types';
 import { resolveReaderReplacementIndex } from '../../../services/reader/readerItemIdentity';
 import { copyReaderItemMarkdownToClipboard, resolveReaderItemMarkdown } from '../../../services/reader/readerMarkdownCopy';
+import { prepareChatGPTBookmark } from '../../../services/bookmarks/conversationBookmarkPreparation';
+import type { CanonicalBookmarkTurnRef } from '../../../services/bookmarks/conversationBookmarkResolver';
 import { MessageToolbar, type MessageToolbarAction, type ToolbarActionContext } from '../MessageToolbar';
 import type { BookmarksPanelController } from '../bookmarks/BookmarksPanelController';
 import type { ReaderPanelAction, ReaderPanelActionContext } from '../reader/ReaderPanel';
@@ -52,7 +54,7 @@ import type {
     ConversationContentStateV1,
 } from '../../../contracts/conversationContent';
 import type { ConversationMaterializationPortV1 } from '../../../contracts/conversationMaterialization';
-import { navigateChatGPTDirectoryTarget } from '../chatgptDirectory/navigation';
+import type { ConversationNavigationPortV1 } from '../../../contracts/conversationNavigation';
 import {
     presentImageExportProgress,
     retainMonotonicImageExportProgress,
@@ -90,7 +92,6 @@ type BookmarkToggleParams = {
     messageId?: string | null;
     userPrompt: string;
     markdown: string;
-    alreadyBookmarked: boolean;
     sourceRevision?: ReaderContentSourceRevision;
 };
 
@@ -135,6 +136,7 @@ export class MessageToolbarOrchestrator {
     private bookmarksController: BookmarksPanelController | null = null;
     private conversationContentSource: ConversationContentSourceV1 | null = null;
     private conversationMaterialization: ConversationMaterializationPortV1 | null = null;
+    private conversationNavigation: ConversationNavigationPortV1 | null = null;
     private behavior: MessageToolbarBehaviorFlags = {
         showMessageToolbar: true,
         showSaveMessages: true,
@@ -250,38 +252,37 @@ export class MessageToolbarOrchestrator {
             return;
         }
 
-        const result = readCurrentReaderContent(this.adapter, null, {
+        const readerResult = readCurrentReaderContent(this.adapter, null, {
             conversationContentSource: this.conversationContentSource,
             conversationMaterialization: this.conversationMaterialization,
             pageUrl: this.getBookmarkPageUrl(),
         });
-        const index = getChatGPTConversationIndex(this.adapter);
+        const resolvedBookmarkPositions = this.resolveCanonicalBookmarkPositions(this.getBookmarkPageUrl());
         for (const record of this.recordsByMessageKey.values()) {
-            const position = index.resolveRoundForElement(record.message)?.position ?? null;
-            const item = position
-                ? result.items.find((candidate) => Number(candidate.meta?.position ?? 0) === position) ?? null
-                : null;
+            const position = this.resolveCanonicalPosition(record.message);
             const bookmarked = position
-                ? this.bookmarksController?.isPositionBookmarked(this.getBookmarkPageUrl(), position) ?? false
+                ? this.isBookmarkActive(this.getBookmarkPageUrl(), position, resolvedBookmarkPositions)
                 : false;
             record.toolbar.setActionActive('bookmark_toggle', bookmarked);
             if (!this.behavior.showWordCount) continue;
             if (record.pending) {
                 record.toolbar.setStats([]);
-            } else if (item) {
+            } else {
+                const position = this.resolveCanonicalPosition(record.message);
+                const item = position
+                    ? readerResult.items.find((candidate) => Number(candidate.meta?.position ?? 0) === position) ?? null
+                    : null;
+                if (!item) {
+                    record.toolbar.setStats(['—']);
+                    continue;
+                }
                 void resolveReaderItemMarkdown(item)
                     .then((text) => {
-                        if (revision === this.conversationSnapshotRevision) {
-                            this.applyWordCount(record.toolbar, text);
-                        }
+                        if (revision === this.conversationSnapshotRevision) this.applyWordCount(record.toolbar, text);
                     })
                     .catch(() => {
-                        if (revision === this.conversationSnapshotRevision) {
-                            record.toolbar.setStats(['—']);
-                        }
+                        if (revision === this.conversationSnapshotRevision) record.toolbar.setStats(['—']);
                     });
-            } else {
-                record.toolbar.setStats(['—']);
             }
         }
     }
@@ -323,7 +324,7 @@ export class MessageToolbarOrchestrator {
 
     private async getReaderTurnForElement(messageElement: HTMLElement): Promise<{ user: string; assistant: string; index: number } | null> {
         const item = await this.prepareCurrentReaderItemForElement(messageElement);
-        if (!item) return null;
+        if (!item || item.meta?.sourceQuality === 'reconstructed') return null;
         return {
             user: item.userPrompt,
             assistant: await resolveReaderItemMarkdown(item),
@@ -359,11 +360,36 @@ export class MessageToolbarOrchestrator {
         if (!this.isSourceRevisionCurrent(sourceRevision)) {
             return { ok: false, message: t('contentNotFound') };
         }
+        if (
+            this.adapter.getPlatformId() === 'chatgpt'
+            && this.conversationContentSource
+            && !this.conversationContentSource.read().snapshot
+        ) {
+            return { ok: false, message: t('contentNotFound') };
+        }
 
         const userPrompt = params.userPrompt.trim();
         if (!userPrompt) return { ok: false, message: t('failedToExtractUserMessage') };
 
-        if (!params.alreadyBookmarked) {
+        const status = await this.bookmarksController.readPositionBookmarkStatus(params.url, params.position);
+        if (!status.ok) return { ok: false, message: status.message };
+        const resolvedBookmarkPositions = this.resolveCanonicalBookmarkPositions(params.url);
+        const alreadySaved = this.isBookmarkActive(params.url, params.position, resolvedBookmarkPositions)
+            || (
+                this.adapter.getPlatformId() !== 'chatgpt'
+                && status.data.saved
+            );
+
+        if (!alreadySaved) {
+            if (
+                this.adapter.getPlatformId() === 'chatgpt'
+                && (!params.userPrompt.trim() || !params.markdown.trim())
+            ) {
+                return { ok: false, message: t('contentNotFound') };
+            }
+            if (this.adapter.getPlatformId() === 'chatgpt' && !params.messageId?.trim()) {
+                return { ok: false, message: t('contentNotFound') };
+            }
             const currentFolderPath = this.bookmarksController.getDefaultFolderPath();
             const dialogRes = await this.bookmarkSaveDialog!.open({
                 theme: this.appearance.theme,
@@ -376,8 +402,11 @@ export class MessageToolbarOrchestrator {
             if (!this.isSourceRevisionCurrent(sourceRevision)) {
                 return { ok: false, message: t('contentNotFound') };
             }
+            if (this.getBookmarkPageUrl() !== params.url) {
+                return { ok: false, message: t('contentNotFound') };
+            }
 
-            const saveRes = await this.bookmarksController.toggleBookmarkFromToolbar({
+            const saveRes = await this.bookmarksController.setPositionBookmarkSaved({
                 url: params.url,
                 position: params.position,
                 messageId: params.messageId ?? null,
@@ -386,7 +415,7 @@ export class MessageToolbarOrchestrator {
                 aiResponse: params.markdown,
                 platform: this.getBookmarkPlatformLabel(),
                 title: dialogRes.title,
-            });
+            }, true);
             if (!saveRes.ok) return { ok: false, message: saveRes.message };
 
             return {
@@ -401,8 +430,11 @@ export class MessageToolbarOrchestrator {
         if (!this.isSourceRevisionCurrent(sourceRevision)) {
             return { ok: false, message: t('contentNotFound') };
         }
+        if (this.getBookmarkPageUrl() !== params.url) {
+            return { ok: false, message: t('contentNotFound') };
+        }
         const title = userPrompt.length > 50 ? `${userPrompt.slice(0, 50)}...` : userPrompt;
-        const removeRes = await this.bookmarksController.toggleBookmarkFromToolbar({
+        const removeRes = await this.bookmarksController.setPositionBookmarkSaved({
             url: params.url,
             position: params.position,
             messageId: params.messageId ?? null,
@@ -411,7 +443,7 @@ export class MessageToolbarOrchestrator {
             aiResponse: params.markdown,
             platform: this.getBookmarkPlatformLabel(),
             title,
-        });
+        }, false);
         if (!removeRes.ok) return { ok: false, message: removeRes.message };
 
         return {
@@ -425,15 +457,47 @@ export class MessageToolbarOrchestrator {
     private decorateReaderItems(items: Array<{ meta?: Record<string, unknown> }>): void {
         if (!this.bookmarksController) return;
         const url = this.getBookmarkPageUrl();
+        const resolvedBookmarkPositions = this.resolveCanonicalBookmarkPositions(url);
         for (const item of items) {
             const position = Number(item.meta?.position ?? 0);
             item.meta = {
                 ...(item.meta || {}),
                 url,
                 bookmarkable: position > 0,
-                bookmarked: position > 0 ? this.bookmarksController.isPositionBookmarked(url, position) : false,
+                bookmarked: position > 0
+                    ? this.isBookmarkActive(url, position, resolvedBookmarkPositions)
+                    : false,
             };
         }
+    }
+
+    private isBookmarkActive(
+        url: string,
+        position: number,
+        resolvedPositions: ReadonlySet<number> | null = this.resolveCanonicalBookmarkPositions(url),
+    ): boolean {
+        if (!this.bookmarksController || position <= 0) return false;
+        if (this.adapter.getPlatformId() === 'chatgpt' && this.conversationContentSource) {
+            // Canonical ChatGPT state is authoritative. A missing projection
+            // means the source or persisted records are not ready, not that a
+            // position-only bookmark is safe to use.
+            return resolvedPositions?.has(position) ?? false;
+        }
+        return resolvedPositions?.has(position)
+            ?? this.bookmarksController.isPositionBookmarked(url, position);
+    }
+
+    private resolveCanonicalBookmarkPositions(url: string): ReadonlySet<number> | null {
+        if (this.adapter.getPlatformId() !== 'chatgpt') return null;
+        const source = this.conversationContentSource;
+        const controller = this.bookmarksController;
+        const snapshot = source?.read().snapshot;
+        if (!snapshot || !controller?.resolveConversationBookmarkPositions) return null;
+        const turns: CanonicalBookmarkTurnRef[] = snapshot.turns.map((turn) => ({
+            position: turn.ordinal,
+            assistantMessageId: turn.identity.assistantMessageId,
+        }));
+        return controller.resolveConversationBookmarkPositions(url, turns);
     }
 
     private resolveRefreshedReaderIndex(items: ReaderItem[], currentItem: ReaderItem, fallbackIndex: number): number {
@@ -473,7 +537,7 @@ export class MessageToolbarOrchestrator {
             bookmark: this.bookmarksController
                 ? {
                     resolveUrl: () => this.getBookmarkPageUrl(),
-                    isBookmarked: (url, position) => this.bookmarksController!.isPositionBookmarked(url, position),
+                    isBookmarked: (url, position) => this.isBookmarkActive(url, position),
                     toggle: (input) => this.runBookmarkToggle(input),
                 }
                 : null,
@@ -497,13 +561,16 @@ export class MessageToolbarOrchestrator {
                 beforeLocate: () => {
                     this.readerPanel.hide();
                 },
-                locate: async ({ position, messageId }) => {
-                    const result = this.adapter.getPlatformId() === 'chatgpt'
-                        ? await navigateChatGPTDirectoryTarget(
-                            this.adapter,
-                            { position, messageId },
-                            { timeoutMs: 2500, intervalMs: 200 },
-                        )
+                    locate: async ({ position, messageId }) => {
+                        const result = this.adapter.getPlatformId() === 'chatgpt'
+                        ? this.conversationNavigation
+                            ? await this.conversationNavigation.navigate({
+                                position,
+                                messageId,
+                                assistantMessageId: messageId,
+                                source: 'reader',
+                            }, { timeoutMs: 15_000, align: 'start' })
+                            : { ok: false as const, reason: 'source-unavailable' as const }
                         : await scrollToBookmarkTargetWithRetry(
                             this.adapter,
                             { position, messageId },
@@ -523,6 +590,7 @@ export class MessageToolbarOrchestrator {
             bookmarksController?: BookmarksPanelController;
             conversationContentSource?: ConversationContentSourceV1 | null;
             conversationMaterialization?: ConversationMaterializationPortV1 | null;
+            conversationNavigation?: ConversationNavigationPortV1 | null;
             saveMessagesDialog?: SaveMessagesDialogPort;
             bookmarkSaveDialog?: BookmarkSaveDialogPort;
             copyMessagePng?: typeof copyMessagePng;
@@ -534,6 +602,7 @@ export class MessageToolbarOrchestrator {
         this.bookmarksController = opts.bookmarksController || null;
         this.conversationContentSource = opts.conversationContentSource ?? null;
         this.conversationMaterialization = opts.conversationMaterialization ?? null;
+        this.conversationNavigation = opts.conversationNavigation ?? null;
         this.saveMessagesDialog = opts.saveMessagesDialog ?? null;
         this.bookmarkSaveDialog = opts.bookmarkSaveDialog ?? null;
         this.copyMessagePng = opts.copyMessagePng ?? null;
@@ -735,11 +804,23 @@ export class MessageToolbarOrchestrator {
     }
 
     private getPositionForMessage(messageElement: HTMLElement): number {
+        const canonical = this.resolveCanonicalPosition(messageElement);
+        if (canonical !== null) return canonical;
+        if (this.adapter.getPlatformId() === 'chatgpt') return 0;
         const fallback = Number(messageElement.dataset.aimdMsgPosition || 0);
         return Number.isFinite(fallback) ? fallback : 0;
     }
 
+    private resolveCanonicalPosition(messageElement: HTMLElement): number | null {
+        if (this.adapter.getPlatformId() !== 'chatgpt') return null;
+        return getChatGPTConversationIndex(this.adapter).resolveRoundForElement(messageElement)?.position ?? null;
+    }
+
     private writeMessagePosition(messageElement: HTMLElement, position: number): void {
+        // ChatGPT V2 owns position in Slot Topology.  Never stamp a
+        // consumer-local DOM ordinal that can be mistaken for canonical
+        // history when virtualization changes the mounted window.
+        if (this.adapter.getPlatformId() === 'chatgpt') return;
         const next = `${position}`;
         if (messageElement.dataset.aimdMsgPosition !== next) {
             messageElement.dataset.aimdMsgPosition = next;
@@ -770,9 +851,42 @@ export class MessageToolbarOrchestrator {
                     if (guard) return guard;
                     const toolbar = getToolbar();
                     const url = this.getBookmarkPageUrl();
+                    if (this.adapter.getPlatformId() === 'chatgpt') {
+                        const source = this.conversationContentSource;
+                        const materialization = this.conversationMaterialization;
+                        if (!source || !materialization) return { ok: false, message: t('contentNotFound') };
+                        const prepared = await prepareChatGPTBookmark(source, materialization, messageElement);
+                        if (!prepared) return { ok: false, message: t('contentNotFound') };
+                        const result = await this.runBookmarkToggle({
+                            url,
+                            position: prepared.position,
+                            messageId: prepared.messageId,
+                            userPrompt: prepared.userMessage,
+                            markdown: prepared.assistantMarkdown,
+                            sourceRevision: {
+                                routeEpoch: 0,
+                                revision: 0,
+                                conversationId: source.read().document?.conversationId ?? '',
+                                contentToken: prepared.contentRevision,
+                            },
+                        });
+                        if (!result.ok) {
+                            if (result.cancelled) return;
+                            return { ok: false, message: result.message ?? t('contentNotFound') };
+                        }
+                        toolbar?.setActionActive('bookmark_toggle', result.bookmarked);
+                        if (result.saved && result.folderPath) {
+                            this.bookmarksController!.selectFolder(result.folderPath);
+                            return;
+                        }
+                        return { ok: true, message: result.message };
+                    }
                     const selection = await this.prepareCurrentReaderSelectionForElement(messageElement);
                     if (!selection) return { ok: false, message: t('contentNotFound') };
                     const { item, sourceRevision } = selection;
+                    if (item.meta?.sourceQuality === 'reconstructed') {
+                        return { ok: false, message: t('contentNotFound') };
+                    }
                     const position = this.adapter.getPlatformId() === 'chatgpt'
                         ? Number(item.meta?.position ?? 0)
                         : this.getPositionForMessage(messageElement);
@@ -791,7 +905,6 @@ export class MessageToolbarOrchestrator {
                         messageId,
                         userPrompt: item.userPrompt,
                         markdown,
-                        alreadyBookmarked: this.bookmarksController!.isPositionBookmarked(url, position),
                         sourceRevision,
                     });
                     if (!result.ok) {
@@ -1287,15 +1400,16 @@ export class MessageToolbarOrchestrator {
     private refreshBookmarkStateForToolbar(toolbar: MessageToolbar, messageElement: HTMLElement, fallbackPosition: number): void {
         if (!this.bookmarksController) return;
         const url = this.getBookmarkPageUrl();
-                if (this.adapter.getPlatformId() !== 'chatgpt' || !this.conversationContentSource) {
+        if (this.adapter.getPlatformId() !== 'chatgpt' || !this.conversationContentSource) {
             const active = this.bookmarksController.isPositionBookmarked(url, fallbackPosition);
             toolbar.setActionActive('bookmark_toggle', active);
             return;
         }
 
-        const indexedRound = getChatGPTConversationIndex(this.adapter).resolveRoundForElement(messageElement);
-        const active = indexedRound
-            ? this.bookmarksController.isPositionBookmarked(url, indexedRound.position)
+        const indexedPosition = this.resolveCanonicalPosition(messageElement);
+        const resolvedBookmarkPositions = this.resolveCanonicalBookmarkPositions(url);
+        const active = indexedPosition
+            ? this.isBookmarkActive(url, indexedPosition, resolvedBookmarkPositions)
             : false;
         toolbar.setActionActive('bookmark_toggle', active);
     }
@@ -1317,17 +1431,14 @@ export class MessageToolbarOrchestrator {
         }
 
         if (this.adapter.getPlatformId() === 'chatgpt') {
-            const index = getChatGPTConversationIndex(this.adapter);
-            const indexedRound = index.resolveRoundForElement(messageElement);
-            const result = readCurrentReaderContent(this.adapter, null, {
+            const legacyResult = readCurrentReaderContent(this.adapter, null, {
                 conversationContentSource: this.conversationContentSource,
                 conversationMaterialization: this.conversationMaterialization,
                 pageUrl: this.getBookmarkPageUrl(),
             });
-            const item = indexedRound
-                ? result.items
-                    .find((candidate) => Number(candidate.meta?.position ?? 0) === indexedRound.position)
-                    ?? null
+            const position = this.resolveCanonicalPosition(messageElement);
+            const item = position
+                ? legacyResult.items.find((candidate) => Number(candidate.meta?.position ?? 0) === position) ?? null
                 : null;
             if (!item) {
                 toolbar.setStats(['—']);

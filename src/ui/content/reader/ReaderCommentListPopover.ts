@@ -14,6 +14,7 @@ type OpenParams = {
         title: string;
         close: string;
         empty: string;
+        error: string;
         sortByCreated: string;
         sortByPosition: string;
         selectedSource: string;
@@ -97,6 +98,12 @@ function getCommentListCss(): string {
   color: var(--aimd-interactive-primary);
   background: var(--aimd-interactive-selected);
   font-weight: var(--aimd-font-semibold);
+}
+
+.reader-comment-list__sort-error {
+  color: var(--aimd-color-danger);
+  font-size: var(--aimd-text-sm);
+  line-height: var(--aimd-leading-normal);
 }
 
 .reader-comment-list__items {
@@ -219,6 +226,7 @@ export class ReaderCommentListPopover {
     private params: OpenParams | null = null;
     private closeModal: (() => void) | null = null;
     private pendingSelection: ReaderCommentRecord | null = null;
+    private sortChangePending = false;
 
     isOpen(): boolean {
         return Boolean(this.rootEl?.isConnected);
@@ -243,6 +251,7 @@ export class ReaderCommentListPopover {
               <button class="reader-comment-list__sort-button" type="button" data-sort-mode="position"></button>
             </div>
           </div>
+          <div class="reader-comment-list__sort-error" data-role="sort-error" role="alert" aria-live="polite" hidden></div>
           <div class="reader-comment-list__items" data-role="items"></div>
         `;
         body.querySelector<HTMLButtonElement>('[data-sort-mode="created"]')!.textContent = params.labels.sortByCreated;
@@ -252,10 +261,7 @@ export class ReaderCommentListPopover {
         body.querySelectorAll<HTMLButtonElement>('[data-sort-mode]').forEach((button) => {
             button.addEventListener('click', () => {
                 const next = button.dataset.sortMode === 'position' ? 'position' : 'created';
-                if (!this.params || this.params.sortMode === next) return;
-                this.params = { ...this.params, sortMode: next };
-                void Promise.resolve(params.onSortChange(next));
-                this.renderList();
+                void this.applySortMode(next);
             });
         });
         this.renderList();
@@ -300,6 +306,35 @@ export class ReaderCommentListPopover {
         this.renderList();
     }
 
+    private async applySortMode(next: ReaderCommentSortMode): Promise<void> {
+        const params = this.params;
+        if (!params || this.sortChangePending || params.sortMode === next) return;
+        const previous = params.sortMode;
+        this.sortChangePending = true;
+        this.setSortError(null);
+        this.params = { ...params, sortMode: next };
+        this.renderList();
+        try {
+            await params.onSortChange(next);
+        } catch (error) {
+            if (this.params) this.params = { ...this.params, sortMode: previous };
+            this.renderList();
+            this.setSortError(error instanceof Error && error.message
+                ? error.message
+                : params.labels.error);
+        } finally {
+            this.sortChangePending = false;
+            this.renderList();
+        }
+    }
+
+    private setSortError(message: string | null): void {
+        const error = this.rootEl?.querySelector<HTMLElement>('[data-role="sort-error"]');
+        if (!error) return;
+        error.textContent = message ?? '';
+        error.hidden = !message;
+    }
+
     private renderList(): void {
         if (!this.rootEl || !this.params) return;
         const list = this.rootEl.querySelector<HTMLElement>('[data-role="items"]');
@@ -307,6 +342,7 @@ export class ReaderCommentListPopover {
 
         this.rootEl.querySelectorAll<HTMLButtonElement>('[data-sort-mode]').forEach((button) => {
             button.dataset.active = button.dataset.sortMode === this.params?.sortMode ? '1' : '0';
+            button.disabled = this.sortChangePending;
         });
 
         const comments = sortReaderComments(this.params.comments, this.params.sortMode);

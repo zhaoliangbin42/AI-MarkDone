@@ -82,6 +82,7 @@ describe('Reader Content Port V1 projection', () => {
 
         expect(result.metadataSource).toBe('chatgpt-content-v1');
         expect(result.coverage).toBe('complete');
+        expect(result.sourceQuality).toBe('source-backed');
         expect(result.startIndex).toBe(0);
         expect(result.items[0]).toMatchObject({
             id: 'chatgpt-assistant-1',
@@ -90,6 +91,7 @@ describe('Reader Content Port V1 projection', () => {
             meta: {
                 assistantMessageId: 'assistant-1',
                 roundId: 'turn-1',
+                sourceQuality: 'source-backed',
             },
         });
         expect(result.annotationDocument).toMatchObject({
@@ -97,6 +99,32 @@ describe('Reader Content Port V1 projection', () => {
             title: 'V1 conversation',
         });
         expect(result.sourceRevision?.contentToken).toBe('conversation-content-v1:abc12345');
+    });
+
+    it('keeps reconstructed content visible but labels it as degraded for mutating consumers', () => {
+        const state = createState();
+        if (!state.snapshot) throw new Error('Expected snapshot');
+        const reconstructedSnapshot = {
+            ...state.snapshot,
+            turns: state.snapshot.turns.map((turn) => ({
+                ...turn,
+                assistantProvenance: {
+                    authority: 'reconstructed' as const,
+                    fidelity: 'lossy' as const,
+                    producer: 'typed-dom',
+                },
+            })),
+        };
+        const source = createSource({ ...state, snapshot: reconstructedSnapshot });
+        const result = readCurrentReaderContent(
+            { getPlatformId: () => 'chatgpt' } as any,
+            null,
+            { conversationContentSource: source, pageUrl: 'https://chatgpt.com/c/conversation-v1' },
+        );
+
+        expect(result.items).toHaveLength(1);
+        expect(result.sourceQuality).toBe('reconstructed');
+        expect(result.items[0]?.meta?.sourceQuality).toBe('reconstructed');
     });
 
     it('keeps a same-document last-good snapshot available and labels it stale', async () => {
@@ -112,7 +140,7 @@ describe('Reader Content Port V1 projection', () => {
         expect(isReaderContentSourceRevisionCurrent(source, result.sourceRevision)).toBe(true);
     });
 
-    it('resolves the clicked assistant message from its typed message id when the materialization index is late', () => {
+    it('fails closed when the materialization adapter has not resolved the clicked message', () => {
         const source = createSource(createState());
         const assistant = document.createElement('article');
         assistant.setAttribute('data-message-id', 'assistant-1');
@@ -128,8 +156,7 @@ describe('Reader Content Port V1 projection', () => {
             },
         );
 
-        expect(result.status).toBe('ready');
-        expect(result.startIndex).toBe(0);
-        expect(result.items).toHaveLength(1);
+        expect(result.status).toBe('target-unresolved');
+        expect(result.items).toHaveLength(0);
     });
 });

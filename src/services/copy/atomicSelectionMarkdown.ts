@@ -39,7 +39,7 @@ export function buildPageAtomicSelectionSnapshot(
     const startedAt = performance.now();
     const selection = resolveStrictRenderedAtomicSelection(range, root);
     if (!selection.isValid) return null;
-    const fragmentRoot = cloneClosedSelectionFragment(range, root);
+    const fragmentRoot = cloneClosedSelectionFragment(adapter, range, root);
     if (!fragmentRoot) return null;
     const remainingTime = maxProcessingTimeMs - (performance.now() - startedAt);
     if (remainingTime <= 0) return null;
@@ -63,11 +63,15 @@ export function buildPageAtomicSelectionMarkdown(params: PageAtomicSelectionSnap
     return snapshot ? formatCanonicalMarkdownForCopy(snapshot.canonicalMarkdown) || null : null;
 }
 
-function cloneClosedSelectionFragment(range: Range, root: HTMLElement): HTMLElement | null {
+function cloneClosedSelectionFragment(
+    adapter: SiteAdapter,
+    range: Range,
+    root: HTMLElement,
+): HTMLElement | null {
     if (!root.contains(range.startContainer) || !root.contains(range.endContainer)) return null;
     const cloneRoot = resolveSelectionCloneRoot(range, root);
     if (!cloneRoot) return null;
-    const context = { range, formulaSourceValid: true };
+    const context = { range, formulaSourceValid: true, adapter };
     const content = cloneSelectedNode(cloneRoot, context);
     if (!(content instanceof HTMLElement) || !context.formulaSourceValid) return null;
     const fragmentRoot = root.ownerDocument.createElement('div');
@@ -97,7 +101,7 @@ function resolveSelectionCloneRoot(range: Range, root: HTMLElement): HTMLElement
 
 function cloneSelectedNode(
     node: Node,
-    context: { range: Range; formulaSourceValid: boolean },
+    context: { range: Range; formulaSourceValid: boolean; adapter: SiteAdapter },
 ): Node | null {
     if (node instanceof Text) {
         if (!rangeIntersectsNode(context.range, node)) return null;
@@ -110,7 +114,7 @@ function cloneSelectedNode(
     if (!rangeIntersectsNode(context.range, node)) return null;
 
     if (isFormulaContainer(node)) {
-        const source = extractLatexSource(node);
+        const source = extractFormulaSource(context.adapter, node);
         if (!source) {
             context.formulaSourceValid = false;
             return null;
@@ -131,6 +135,18 @@ function cloneSelectedNode(
     });
     if (clone.childNodes.length > 0 || clone.matches('img, hr, br')) return clone;
     return null;
+}
+
+function extractFormulaSource(adapter: SiteAdapter, element: HTMLElement): string | null {
+    const parserAdapter = adapter.getMarkdownParserAdapter();
+    if (parserAdapter) {
+        try {
+            return parserAdapter.extractLatex(element)?.latex?.trim() || null;
+        } catch {
+            return null;
+        }
+    }
+    return extractLatexSource(element);
 }
 
 function isFormulaContainer(element: HTMLElement): boolean {

@@ -1,115 +1,77 @@
-import type { ConversationContentSourceV1 } from '../../contracts/conversationContent';
-import type { ConversationMaterializationPortV1 } from '../../contracts/conversationMaterialization';
 import type { SiteAdapter } from '../../drivers/content/adapters/base';
-import { ChatGPTDomTurnFactSource } from '../../services/content/ChatGPTDomTurnFactSource';
+import type { ConversationMaterializationPortV1 } from '../../contracts/conversationMaterialization';
+import type { ConversationDiscoveryContentPortV1 } from '../../contracts/conversationDiscovery';
+import type { ConversationNavigationPortV1 } from '../../contracts/conversationNavigation';
 import { ConversationContentRepository } from '../../services/content/ConversationContentRepository';
-import {
-    ChatGPTConversationDiscoveryAdapter,
-    createChatGPTPartialCandidateFromDomObservation,
-} from '../../drivers/content/chatgpt/ChatGPTConversationDiscoveryAdapter';
+import { ChatGPTConversationDiscoveryAdapter } from '../../drivers/content/chatgpt/ChatGPTConversationDiscoveryAdapter';
 import { ChatGPTConversationDiscoveryCoordinator } from '../../drivers/content/chatgpt/ChatGPTConversationDiscoveryCoordinator';
 import { ChatGPTConversationMaterialization } from '../../drivers/content/chatgpt/ChatGPTConversationMaterialization';
+import { getChatGPTConversationIndex } from '../../drivers/content/chatgpt/ChatGPTConversationIndex';
 
 export type ChatGPTConversationContentRuntimeOptions = Readonly<{
-    /** Allows the bounded same-origin graph read used to converge partial evidence. */
+    /** Kept for constructor compatibility; V2 never performs network acquisition. */
     allowActiveAcquisition?: boolean;
-    domFacts?: ChatGPTDomTurnFactSource;
 }>;
 
 /**
- * Wires the V1 semantic source for one content-runtime page. The returned
- * source is the only discovery input that downstream consumers should use;
- * DOM facts are supplied to the adapter as typed evidence only.
+ * ChatGPT composition root. The published content/materialization ports are
+ * backed by one passive graph Repository and one DOM materialization adapter.
+ * No consumer is allowed to introduce a second DOM-derived content source.
+ *
+ * The `source` and `materialization` fields are read-only projections.
+ * The graph adapter only peeks at evidence captured from the website's own
+ * conversation response. It never issues a conversation request.
  */
 export class ChatGPTConversationContentRuntime {
-    readonly domFacts: ChatGPTDomTurnFactSource;
-    readonly discoveryAdapter: ChatGPTConversationDiscoveryAdapter;
-    readonly repository: ConversationContentRepository;
-    readonly coordinator: ChatGPTConversationDiscoveryCoordinator;
-    readonly source: ConversationContentSourceV1;
+    readonly source: ConversationDiscoveryContentPortV1;
     readonly materialization: ConversationMaterializationPortV1 & { dispose(): void };
-    private readonly materializationFactory: () => ChatGPTConversationMaterialization;
+    private readonly graphAdapter: ChatGPTConversationDiscoveryAdapter;
+    private readonly repository: ConversationContentRepository;
+    private readonly coordinator: ChatGPTConversationDiscoveryCoordinator;
+    private readonly graphMaterialization: ChatGPTConversationMaterialization;
 
     constructor(
         adapter: SiteAdapter,
-        options: ChatGPTConversationContentRuntimeOptions = {},
+        _options: ChatGPTConversationContentRuntimeOptions = {},
     ) {
-        this.domFacts = options.domFacts ?? new ChatGPTDomTurnFactSource(adapter);
-        this.discoveryAdapter = new ChatGPTConversationDiscoveryAdapter({
-            allowActiveAcquisition: options.allowActiveAcquisition === true,
-            readTypedDomCandidate: () => {
-                const document = this.discoveryAdapter.resolveDocument();
-                if (!document) return null;
-                return createChatGPTPartialCandidateFromDomObservation(
-                    document,
-                    this.domFacts.read({
-                        completedAssistantMessageId: this.discoveryAdapter
-                            .getCompletedAssistantMessageId(document.conversationId),
-                    }),
-                );
-            },
-        });
+        this.graphAdapter = new ChatGPTConversationDiscoveryAdapter(_options);
         this.repository = new ConversationContentRepository({
-            resolveDocument: () => this.discoveryAdapter.resolveDocument(),
-            acquire: (_document, signal) => this.discoveryAdapter.acquire(signal),
+            resolveDocument: () => this.graphAdapter.resolveDocument(),
+            acquire: (_document, signal) => this.graphAdapter.acquire(signal),
         });
-        this.source = this.repository;
-        this.materializationFactory = () => new ChatGPTConversationMaterialization({
-            adapter,
-            content: this.repository,
-        });
-        this.materialization = new LazyConversationMaterialization(this.materializationFactory);
+        const index = getChatGPTConversationIndex(adapter);
+        index.bindConversationSource(this.repository);
         this.coordinator = new ChatGPTConversationDiscoveryCoordinator({
             adapter,
-            discoveryAdapter: this.discoveryAdapter,
+            discoveryAdapter: this.graphAdapter,
             repository: this.repository,
+            pageIndex: undefined,
         });
+        this.graphMaterialization = new ChatGPTConversationMaterialization({
+            adapter,
+            content: this.repository,
+            index,
+        });
+        this.source = this.repository;
+        this.materialization = this.graphMaterialization;
+    }
+
+    get content(): ConversationDiscoveryContentPortV1 {
+        return this.source;
+    }
+
+    setNavigationPort(navigation: ConversationNavigationPortV1 | null): void {
+        this.graphMaterialization.setNavigationPort(navigation);
     }
 
     init(): void {
-        this.repository.resume();
         this.coordinator.init();
     }
 
     dispose(): void {
-        this.materialization.dispose();
+        this.graphMaterialization.dispose();
         this.coordinator.dispose();
-        this.discoveryAdapter.dispose();
         this.repository.dispose();
-    }
-}
-
-/** Avoids touching the shared DOM index while a platform runtime is disabled. */
-class LazyConversationMaterialization implements ConversationMaterializationPortV1 {
-    private inner: ChatGPTConversationMaterialization | null = null;
-
-    constructor(private readonly factory: () => ChatGPTConversationMaterialization) {}
-
-    read(): ReturnType<ConversationMaterializationPortV1['read']> {
-        return this.get().read();
-    }
-
-    subscribe(listener: Parameters<ConversationMaterializationPortV1['subscribe']>[0]): () => void {
-        return this.get().subscribe(listener);
-    }
-
-    resolveElement(element: HTMLElement): ReturnType<ConversationMaterializationPortV1['resolveElement']> {
-        return this.get().resolveElement(element);
-    }
-
-    locate(
-        target: Parameters<ConversationMaterializationPortV1['locate']>[0],
-        signal?: AbortSignal,
-    ): ReturnType<ConversationMaterializationPortV1['locate']> {
-        return this.get().locate(target, signal);
-    }
-
-    dispose(): void {
-        this.inner?.dispose();
-        this.inner = null;
-    }
-
-    private get(): ChatGPTConversationMaterialization {
-        return this.inner ??= this.factory();
+        this.graphAdapter.dispose();
     }
 }

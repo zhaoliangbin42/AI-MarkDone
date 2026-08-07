@@ -12,6 +12,15 @@ import type {
     ConversationContentStateV1,
     ConversationSnapshotV1,
 } from '../../contracts/conversationContent';
+import type {
+    ConversationTurnReadPortV1,
+    ConversationTurnReadResultV1,
+} from '../../contracts/conversationDiscovery';
+import {
+    getConversationSnapshotSourceQualityV1,
+    getConversationTurnSourceQualityV1,
+    type ConversationSnapshotSourceQualityV1,
+} from '../../contracts/conversationContent';
 import type { ConversationMaterializationPortV1, ConversationTargetV1 } from '../../contracts/conversationMaterialization';
 
 export type ReaderContentMetadataSource = 'chatgpt-snapshot' | 'chatgpt-content-v1' | 'dom';
@@ -39,6 +48,11 @@ export type ReaderContentSourceResult = CollectReaderItemsResult & {
     status?: ReaderContentSourceStatus;
     /** Canonical ChatGPT coverage; exports must only use complete snapshots. */
     coverage?: ConversationSnapshotV1['coverage'];
+    /** Independent of coverage: whether every projected body is source-backed. */
+    sourceQuality?: ConversationSnapshotSourceQualityV1;
+    /** Sparse ChatGPT V2 topology count and currently sealed body count. */
+    totalCount?: number;
+    availableCount?: number;
 };
 
 export type FreshReaderItemResult = {
@@ -56,41 +70,27 @@ function getConversationContentSource(
     return options.conversationContentSource ?? null;
 }
 
+function getConversationTurnReadPort(
+    source: ConversationContentSourceV1 | null,
+): ConversationTurnReadPortV1 | null {
+    if (!source || typeof (source as Partial<ConversationTurnReadPortV1>).readTurn !== 'function') {
+        return null;
+    }
+    return source as unknown as ConversationTurnReadPortV1;
+}
+
 function resolveConversationStartTarget(
     materialization: ConversationMaterializationPortV1 | null | undefined,
     messageElement: HTMLElement | null,
-    snapshot?: ConversationSnapshotV1,
+    _snapshot?: ConversationSnapshotV1,
 ): { ok: true; target: ConversationTargetV1 | null } | { ok: false } {
     if (!messageElement) return { ok: true, target: null };
     const target = materialization?.resolveElement(messageElement) ?? null;
     if (target) return { ok: true, target };
-    if (!snapshot) return { ok: false };
-
-    // The semantic source may become ready a few milliseconds before the DOM
-    // materialization index observes the same remount. The assistant message
-    // id is already a typed host identity, so it is safe to resolve the
-    // Reader start directly from the canonical snapshot instead of reporting
-    // a false "content not found" result.
-    const identityElement = messageElement.matches('[data-message-id]')
-        ? messageElement
-        : messageElement.closest<HTMLElement>('[data-message-id]');
-    const assistantMessageId = identityElement?.getAttribute('data-message-id')?.trim() || null;
-    const turnRoot = messageElement.closest<HTMLElement>('[data-turn-id]');
-    const turnId = turnRoot?.getAttribute('data-turn-id')?.trim() || null;
-    const matches = snapshot.turns.filter((turn) => assistantMessageId
-        ? turn.identity.assistantMessageId === assistantMessageId
-        : !turnId || turn.identity.turnId === turnId);
-    if (matches.length !== 1) return { ok: false };
-    const turn = matches[0]!;
-    return {
-        ok: true,
-        target: {
-            documentKey: snapshot.document.key,
-            turnId: turn.identity.turnId,
-            assistantMessageId: turn.identity.assistantMessageId,
-            userMessageId: turn.identity.userMessageId,
-        },
-    };
+    // DOM identity resolution belongs to the Host/Materialization Adapter.
+    // Reader must not duplicate platform selectors or synthesize a target
+    // from whichever attributes happen to be present on a remounted node.
+    return { ok: false };
 }
 
 function resolveConversationStartIndex(
@@ -114,27 +114,63 @@ function buildConversationReaderContent(
 ): { items: ReaderItem[]; annotationDocument: ReaderAnnotationDocument } {
     const normalizedUrl = normalizeChatGPTReaderPageUrl(pageUrl);
     return {
-        items: snapshot.turns.map((turn) => ({
-            id: `chatgpt-${turn.identity.assistantMessageId}`,
-            userPrompt: turn.userText,
-            content: normalizeChatGPTReaderMarkdown(turn.assistantMarkdown),
-            meta: {
-                platformId: snapshot.document.platformId,
-                messageId: turn.identity.assistantMessageId,
-                roundId: turn.identity.turnId,
-                userMessageId: turn.identity.userMessageId,
-                assistantMessageId: turn.identity.assistantMessageId,
-                position: turn.ordinal,
-                url: normalizedUrl,
-                bookmarkable: true,
-                bookmarked: false,
-            },
-        })),
+        items: snapshot.turns.map((turn) => buildConversationReaderItem(
+            turn,
+            snapshot.document,
+            normalizedUrl,
+        )),
         annotationDocument: {
             platform: 'chatgpt',
             conversationId: snapshot.document.conversationId,
             title: snapshot.document.title,
             lastKnownUrl: normalizedUrl,
+        },
+    };
+}
+
+function buildConversationReaderItem(
+    turn: ConversationSnapshotV1['turns'][number],
+    document: ConversationSnapshotV1['document'],
+    pageUrl: string,
+): ReaderItem {
+    return {
+        id: `chatgpt-${turn.identity.assistantMessageId}`,
+        userPrompt: turn.userText,
+        content: normalizeChatGPTReaderMarkdown(turn.assistantMarkdown),
+        meta: {
+            platformId: document.platformId,
+            messageId: turn.identity.assistantMessageId,
+            roundId: turn.identity.turnId,
+            userMessageId: turn.identity.userMessageId,
+            assistantMessageId: turn.identity.assistantMessageId,
+            position: turn.ordinal,
+            url: pageUrl,
+            bookmarkable: true,
+            bookmarked: false,
+            sourceQuality: getConversationTurnSourceQualityV1(turn),
+        },
+    };
+}
+
+function directReaderItemForTarget(
+    source: ConversationContentSourceV1,
+    target: ConversationTargetV1,
+    pageUrl: string,
+): FreshReaderItemResult | null {
+    const port = getConversationTurnReadPort(source);
+    if (!port) return null;
+    const result: ConversationTurnReadResultV1 = port.readTurn(target);
+    if (result.kind !== 'ready') return null;
+    const state = source.read();
+    const document = state.document;
+    if (!document || document.key !== target.documentKey) return null;
+    return {
+        item: buildConversationReaderItem(result.turn, document, pageUrl),
+        sourceRevision: {
+            routeEpoch: 0,
+            revision: 0,
+            conversationId: document.conversationId,
+            contentToken: result.contentToken,
         },
     };
 }
@@ -168,11 +204,12 @@ function cloneReaderItem(item: ReaderItem, pageUrl: string): ReaderItem {
 function createChatGPTEmptyResult(
     status: ReaderContentSourceStatus,
     sourceRevision?: ReaderContentSourceRevision,
+    metadataSource: ReaderContentMetadataSource = 'chatgpt-content-v1',
 ): ReaderContentSourceResult {
     const result: ReaderContentSourceResult = {
         items: [],
         startIndex: 0,
-        metadataSource: 'chatgpt-content-v1',
+        metadataSource,
         status,
     };
     const clonedRevision = cloneSourceRevision(sourceRevision);
@@ -221,6 +258,7 @@ function projectConversationContent(
         startIndex,
         metadataSource: 'chatgpt-content-v1',
         coverage: snapshot.coverage,
+        sourceQuality: getConversationSnapshotSourceQualityV1(snapshot),
         annotationDocument: {
             ...content.annotationDocument,
             lastKnownUrl: normalizeChatGPTReaderPageUrl(pageUrl),
@@ -319,6 +357,16 @@ export async function collectFreshCurrentReaderItem(
     messageElement: HTMLElement,
     options: ReaderContentSourceOptions,
 ): Promise<FreshReaderItemResult | null> {
+    const source = getConversationContentSource(options);
+    const target = options.conversationMaterialization?.resolveElement(messageElement) ?? null;
+    if (source && target) {
+        const direct = directReaderItemForTarget(
+            source,
+            target,
+            normalizeChatGPTReaderPageUrl(options.pageUrl ?? window.location.href),
+        );
+        if (direct) return direct;
+    }
     const result = await collectFreshReaderContent(adapter, messageElement, options);
     const item = result.items[result.startIndex];
     return item

@@ -11,7 +11,7 @@ import {
     isValidGoogleOAuthClientId,
 } from '../config/extension/cloudBackup';
 import { CHROME_WEB_STORE_EXTENSION_ID, CHROME_WEB_STORE_PUBLIC_KEY } from '../config/extension/chromeWebStore';
-import { CHATGPT_HOST_PATTERNS, SUPPORTED_HOST_PATTERNS } from '../config/extension/hosts';
+import { SUPPORTED_HOST_PATTERNS } from '../config/extension/hosts';
 import { extensionMeta } from '../config/extension/meta';
 import { type ExtensionTarget, extensionTargets } from '../config/extension/targets';
 
@@ -103,21 +103,12 @@ export function buildManifest(target: ExtensionTarget, options: BuildManifestOpt
         ];
     }
 
-    const chatGptCaptureScript = target !== 'safari'
-        ? {
-            matches: [...CHATGPT_HOST_PATTERNS],
-            js: [extensionAssets.chatGptConversationBridge],
-            run_at: 'document_start',
-            world: 'MAIN',
-        }
-        : {
-            matches: [...CHATGPT_HOST_PATTERNS],
-            js: [extensionAssets.chatGptConversationBootstrap],
-            run_at: 'document_start',
-        };
-
     manifest.content_scripts = [
-        chatGptCaptureScript,
+        {
+            matches: [...SUPPORTED_HOST_PATTERNS],
+            js: [extensionAssets.chatgptConversationBootstrap],
+            run_at: 'document_start',
+        },
         {
             matches: [...SUPPORTED_HOST_PATTERNS],
             js: [extensionAssets.contentEntry],

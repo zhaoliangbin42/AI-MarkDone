@@ -1,7 +1,14 @@
 import type { Theme } from '../../../core/types/theme';
 import type { Bookmark, BookmarksKindFilter, Folder, BookmarksSortMode } from '../../../core/bookmarks/types';
 import type { StorageUsageResponse } from '../../../drivers/shared/clients/bookmarksClient';
+import {
+    createProtocolClientFailure,
+    type RuntimeClientFailure,
+    type RuntimeClientResult,
+} from '../../../drivers/shared/clients/clientResult';
 import type { SiteAdapter } from '../../../drivers/content/adapters/base';
+import type { ConversationNavigationPortV1 } from '../../../contracts/conversationNavigation';
+import type { ConversationContentSourceV1 } from '../../../contracts/conversationContent';
 import { PathUtils } from '../../../core/bookmarks/path';
 import { bookmarksClient } from '../../../drivers/shared/clients/bookmarksClient';
 import type { BookmarksBulkItem } from '../../../contracts/protocol';
@@ -9,10 +16,18 @@ import type { Result } from '../../../drivers/shared/clients/bookmarksClient';
 import { computeBookmarksPanelViewModel, type BookmarksPanelState, type BookmarksPanelViewModel } from '../../../services/bookmarks/panelModel';
 import { formatCanonicalMarkdownForCopy } from '../../../services/copy/canonicalMarkdownCopy';
 import { copyTextToClipboard } from '../../../drivers/content/clipboard/clipboard';
-import { isSamePageUrl, scrollToBookmarkTargetWithRetry, setPendingNavigation } from '../../../drivers/content/bookmarks/navigation';
+import {
+    getBookmarkUrlCandidates,
+    isSamePageUrl,
+    scrollToBookmarkTargetWithRetry,
+    setPendingNavigation,
+} from '../../../drivers/content/bookmarks/navigation';
+import {
+    resolveConversationBookmarkPositions,
+    type CanonicalBookmarkTurnRef,
+} from '../../../services/bookmarks/conversationBookmarkResolver';
 import { t } from '../components/i18n';
 import { logger } from '../../../core/logger';
-import { navigateChatGPTDirectoryTarget } from '../chatgptDirectory/navigation';
 import {
     bookmarkKey,
     expandPathChain,
@@ -65,8 +80,27 @@ export type BookmarksPanelSnapshot = {
     selectedKeys: Set<string>;
     previewId: BookmarkIdentityKey | null;
     status: string;
+    dataState: BookmarksDataState;
     storageUsage: StorageUsageResponse | null;
 };
+
+export type BookmarksDataState =
+    | { kind: 'idle' }
+    | { kind: 'loading' }
+    | { kind: 'ready' }
+    | { kind: 'error'; failure: RuntimeClientFailure };
+
+function getFailure(result: RuntimeClientResult<unknown>): RuntimeClientFailure | null {
+    if (result.ok) return null;
+    return result.failure;
+}
+
+function selectRefreshFailure(
+    results: Array<RuntimeClientResult<unknown>>,
+): RuntimeClientFailure | null {
+    const failures = results.map(getFailure).filter((failure): failure is RuntimeClientFailure => Boolean(failure));
+    return failures.find((failure) => failure.kind === 'transport') ?? failures[0] ?? null;
+}
 
 export class BookmarksPanelController {
     private adapter: SiteAdapter;
@@ -78,8 +112,12 @@ export class BookmarksPanelController {
 
     private positionsForCurrentUrl = new Set<number>();
     private positionsUrl: string | null = null;
+    private positionsLookupSeq = 0;
+    private conversationBookmarksForResolution: Bookmark[] | null = null;
+    private conversationBookmarksLoadPromise: Promise<void> | null = null;
     private pageBookmarkUrl: string | null = null;
     private pageBookmarkSaved = false;
+    private pageBookmarkLookupSeq = 0;
 
     private state: BookmarksPanelState = {
         query: '',
@@ -93,14 +131,55 @@ export class BookmarksPanelController {
 
     private previewId: BookmarkIdentityKey | null = null;
     private status: string = '';
+    private dataState: BookmarksDataState = { kind: 'idle' };
     private storageUsage: StorageUsageResponse | null = null;
     private refreshSeq: number = 0;
     private folderCheckboxStateByPath: Map<string, FolderCheckboxState> | null = null;
 
     private listeners = new Set<(snapshot: BookmarksPanelSnapshot) => void>();
 
-    constructor(adapter: SiteAdapter) {
+    constructor(adapter: SiteAdapter, options: Readonly<{
+        navigation?: ConversationNavigationPortV1 | null;
+        conversationContentSource?: ConversationContentSourceV1 | null;
+    }> = {}) {
         this.adapter = adapter;
+        this.navigation = options.navigation ?? null;
+        this.conversationContentSource = options.conversationContentSource ?? null;
+    }
+
+    private readonly navigation: ConversationNavigationPortV1 | null;
+    private readonly conversationContentSource: ConversationContentSourceV1 | null;
+
+    private async ensureConversationBookmarksForResolution(): Promise<void> {
+        if (this.adapter.getPlatformId?.() !== 'chatgpt' || !this.conversationContentSource) return;
+        if (this.conversationBookmarksForResolution !== null) return;
+        if (this.conversationBookmarksLoadPromise) {
+            await this.conversationBookmarksLoadPromise;
+            return;
+        }
+
+        const load = bookmarksClient.list({ kind: 'message', platform: 'ChatGPT' })
+            .then((result) => {
+                if (result.ok) this.conversationBookmarksForResolution = result.data.bookmarks;
+            })
+            .finally(() => {
+                this.conversationBookmarksLoadPromise = null;
+            });
+        this.conversationBookmarksLoadPromise = load;
+        await load;
+    }
+
+    /** ChatGPT query flags (for example mweb_fallback) are transport hints, not bookmark identity. */
+    private normalizeBookmarkUrl(url: string): string {
+        return this.adapter.getPlatformId?.() === 'chatgpt'
+            ? getBookmarkUrlCandidates(url)[0] ?? url
+            : url;
+    }
+
+    private bookmarkUrlCandidates(url: string): string[] {
+        return this.adapter.getPlatformId?.() === 'chatgpt'
+            ? getBookmarkUrlCandidates(url)
+            : [url];
     }
 
     getAdapter(): SiteAdapter {
@@ -151,6 +230,7 @@ export class BookmarksPanelController {
             selectedKeys: this.state.selectedKeys,
             previewId: this.previewId,
             status: this.status,
+            dataState: this.dataState,
             storageUsage: this.storageUsage,
         };
     }
@@ -175,6 +255,7 @@ export class BookmarksPanelController {
 
     async refreshAll(): Promise<void> {
         const seq = ++this.refreshSeq;
+        this.dataState = { kind: 'loading' };
         this.setStatus(t('loading'));
         const [listRes, foldersRes, storageUsageRes] = await Promise.all([
             bookmarksClient.list({ sortMode: this.state.sortMode }),
@@ -183,13 +264,22 @@ export class BookmarksPanelController {
         ]);
         if (seq !== this.refreshSeq) return;
 
-        if (listRes.ok) this.bookmarks = listRes.data.bookmarks;
+        if (listRes.ok) {
+            this.bookmarks = listRes.data.bookmarks;
+            if (this.conversationContentSource) {
+                this.conversationBookmarksForResolution = listRes.data.bookmarks;
+            }
+        }
         if (foldersRes.ok) {
             this.folders = foldersRes.data.folders;
             this.folderPaths = foldersRes.data.folderPaths;
         }
         this.invalidateFolderCheckboxStateIndex();
-        this.storageUsage = storageUsageRes.ok ? storageUsageRes.data : null;
+        if (storageUsageRes.ok) this.storageUsage = storageUsageRes.data;
+        const refreshFailure = selectRefreshFailure([listRes, foldersRes]);
+        this.dataState = refreshFailure
+            ? { kind: 'error', failure: refreshFailure }
+            : { kind: 'ready' };
 
         if (!listRes.ok && !foldersRes.ok) {
             this.setStatus(`${listRes.message}; ${foldersRes.message}`);
@@ -213,22 +303,55 @@ export class BookmarksPanelController {
     }
 
     async refreshPositionsForUrl(url: string): Promise<void> {
-        this.positionsUrl = url;
-        const res = await bookmarksClient.positions({ url });
-        if (res.ok) {
-            this.positionsForCurrentUrl = new Set(res.data.positions);
-        } else {
-            this.positionsForCurrentUrl = new Set();
+        await Promise.all([
+            this.readPositionBookmarkStatus(url, 0),
+            this.ensureConversationBookmarksForResolution(),
+        ]);
+    }
+
+    async readPositionBookmarkStatus(url: string, position: number): Promise<Result<{ saved: boolean }>> {
+        // ChatGPT bookmark state is resolved against the canonical message
+        // index. Ensure that the persisted message records are available
+        // before a toolbar decides whether a toggle means save or remove.
+        await this.ensureConversationBookmarksForResolution();
+        const seq = ++this.positionsLookupSeq;
+        const canonicalUrl = this.normalizeBookmarkUrl(url);
+        const results = await Promise.all(
+            this.bookmarkUrlCandidates(url).map((candidate) => bookmarksClient.positions({ url: candidate })),
+        );
+        const failure = results.find((result) => !result.ok);
+        if (failure && !failure.ok) return failure;
+        const positions = new Set(
+            results.flatMap((result) => result.ok ? result.data.positions : []),
+        );
+        if (seq === this.positionsLookupSeq) {
+            this.positionsUrl = canonicalUrl;
+            this.positionsForCurrentUrl = positions;
+            this.emit();
         }
-        this.emit();
+        return { ok: true, data: { saved: position > 0 && positions.has(position) } };
     }
 
     async refreshPageBookmarkStatus(url: string): Promise<boolean> {
-        this.pageBookmarkUrl = url;
-        const res = await bookmarksClient.pageStatus({ url });
-        this.pageBookmarkSaved = res.ok ? Boolean(res.data.saved) : false;
-        this.emit();
-        return this.pageBookmarkSaved;
+        const res = await this.readPageBookmarkStatus(url);
+        return res.ok ? res.data.saved : this.isCurrentPageBookmarked(url);
+    }
+
+    async readPageBookmarkStatus(url: string): Promise<Result<{ saved: boolean }>> {
+        const seq = ++this.pageBookmarkLookupSeq;
+        const canonicalUrl = this.normalizeBookmarkUrl(url);
+        const results = await Promise.all(
+            this.bookmarkUrlCandidates(url).map((candidate) => bookmarksClient.pageStatus({ url: candidate })),
+        );
+        const failure = results.find((result) => !result.ok);
+        if (failure && !failure.ok) return failure;
+        const saved = results.some((result) => result.ok && result.data.saved);
+        if (seq === this.pageBookmarkLookupSeq) {
+            this.pageBookmarkUrl = canonicalUrl;
+            this.pageBookmarkSaved = saved;
+            this.emit();
+        }
+        return { ok: true, data: { saved } };
     }
 
     isCurrentPageBookmarked(url: string): boolean {
@@ -239,6 +362,39 @@ export class BookmarksPanelController {
     isPositionBookmarked(url: string, position: number): boolean {
         if (!this.positionsUrl || !isSamePageUrl(this.positionsUrl, url)) return false;
         return this.positionsForCurrentUrl.has(position);
+    }
+
+    /**
+     * Resolve persisted message bookmarks against canonical conversation
+     * turns. This is a read-only projection; it never rewrites old records,
+     * storage keys, or the import/export format.
+     */
+    resolveConversationBookmarkPositions(
+        url: string,
+        turns: readonly CanonicalBookmarkTurnRef[],
+    ): ReadonlySet<number> {
+        if (this.conversationContentSource) {
+            // Once the canonical source is injected, position-only state is
+            // not a safe projection for ChatGPT. During source or bookmark
+            // loading, fail closed until both facts are available.
+            if (!this.conversationContentSource.read().snapshot) return new Set();
+            if (this.conversationBookmarksForResolution === null) return new Set();
+            return resolveConversationBookmarkPositions(
+                this.conversationBookmarksForResolution,
+                url,
+                turns,
+                isSamePageUrl,
+            );
+        }
+
+        const records = this.conversationBookmarksForResolution ?? this.bookmarks;
+        const hasLoadedRecords = this.conversationBookmarksForResolution !== null
+            || this.dataState.kind === 'ready';
+        if (hasLoadedRecords) {
+            return resolveConversationBookmarkPositions(records, url, turns, isSamePageUrl);
+        }
+        if (!this.positionsUrl || !isSamePageUrl(this.positionsUrl, url)) return new Set();
+        return new Set(this.positionsForCurrentUrl);
     }
 
     getDefaultFolderPath(): string {
@@ -425,7 +581,7 @@ export class BookmarksPanelController {
             return res;
         }
         if (typeof bookmark.position !== 'number' || typeof bookmark.userMessage !== 'string') {
-            return { ok: false, errorCode: 'INVALID_REQUEST', message: 'Invalid message bookmark' };
+            return createProtocolClientFailure('INVALID_REQUEST', 'Invalid message bookmark');
         }
         const res = await bookmarksClient.save({
             url: bookmark.url,
@@ -486,7 +642,7 @@ export class BookmarksPanelController {
         const item: BookmarksBulkItem | null = bookmark.kind === 'page'
             ? { kind: 'page', url: bookmark.url }
             : (typeof bookmark.position === 'number' ? { kind: 'message', url: bookmark.url, position: bookmark.position } : null);
-        if (!item) return { ok: false, errorCode: 'INVALID_REQUEST', message: 'Invalid bookmark' };
+        if (!item) return createProtocolClientFailure('INVALID_REQUEST', 'Invalid bookmark');
         const res = await bookmarksClient.bulkMove({
             items: [item],
             targetFolderPath,
@@ -510,7 +666,15 @@ export class BookmarksPanelController {
             this.setStatus('Navigating…');
             const targetRef = { position: bookmark.position, messageId: bookmark.messageId ?? null };
             if (this.adapter.getPlatformId() === 'chatgpt') {
-                await navigateChatGPTDirectoryTarget(this.adapter, targetRef, { timeoutMs: 2000, intervalMs: 200 });
+                const result = this.navigation
+                    ? await this.navigation.navigate({
+                        position: targetRef.position,
+                        messageId: targetRef.messageId,
+                        assistantMessageId: targetRef.messageId,
+                        source: 'bookmark',
+                    }, { timeoutMs: 15_000, align: 'start' })
+                    : { ok: false as const, reason: 'source-unavailable' as const };
+                if (!result.ok) this.setStatus('Bookmark target unavailable');
             } else {
                 await scrollToBookmarkTargetWithRetry(this.adapter, targetRef, { timeoutMs: 2000, intervalMs: 200 });
             }
@@ -551,26 +715,44 @@ export class BookmarksPanelController {
         platform: string;
         folderPath?: string;
     }): Promise<Result<{ saved: boolean }>> {
-        const isBookmarked = this.isCurrentPageBookmarked(params.url);
-        if (isBookmarked) {
-            const res = await bookmarksClient.pageRemove({ url: params.url });
-            if (!res.ok) return res;
-            this.pageBookmarkSaved = false;
+        const statusRes = await this.readPageBookmarkStatus(params.url);
+        if (!statusRes.ok) return statusRes;
+        return this.setPageBookmarkSaved(params, !statusRes.data.saved);
+    }
+
+    async setPageBookmarkSaved(params: {
+        url: string;
+        title: string;
+        platform: string;
+        folderPath?: string;
+    }, saved: boolean): Promise<Result<{ saved: boolean }>> {
+        const canonicalUrl = this.normalizeBookmarkUrl(params.url);
+        if (!saved) {
+            const results = await Promise.all(
+                this.bookmarkUrlCandidates(params.url).map((candidate) => bookmarksClient.pageRemove({ url: candidate })),
+            );
+            const failure = results.find((result) => !result.ok);
+            if (failure && !failure.ok) return failure;
+            if (this.pageBookmarkUrl && isSamePageUrl(this.pageBookmarkUrl, params.url)) {
+                this.pageBookmarkSaved = false;
+            }
             await this.refreshAll();
             this.emit();
             return { ok: true, data: { saved: false } };
         }
 
         const res = await bookmarksClient.pageSave({
-            url: params.url,
+            url: canonicalUrl,
             title: params.title,
             platform: params.platform,
             folderPath: params.folderPath ?? this.getDefaultFolderPath(),
             timestamp: Date.now(),
         });
         if (!res.ok) return res;
-        this.pageBookmarkUrl = params.url;
-        this.pageBookmarkSaved = true;
+        if (!this.pageBookmarkUrl || isSamePageUrl(this.pageBookmarkUrl, params.url)) {
+            this.pageBookmarkUrl = canonicalUrl;
+            this.pageBookmarkSaved = true;
+        }
         await this.refreshAll();
         this.emit();
         return { ok: true, data: { saved: true } };
@@ -586,17 +768,39 @@ export class BookmarksPanelController {
         platform: string;
         title: string;
     }): Promise<Result<{ saved: boolean }>> {
-        const isBookmarked = this.isPositionBookmarked(params.url, params.position);
-        if (isBookmarked) {
-            const res = await bookmarksClient.remove({ url: params.url, position: params.position });
-            if (!res.ok) return res;
-            this.positionsForCurrentUrl.delete(params.position);
+        const positionsRes = await this.readPositionBookmarkStatus(params.url, params.position);
+        if (!positionsRes.ok) return positionsRes;
+        return this.setPositionBookmarkSaved(params, !positionsRes.data.saved);
+    }
+
+    async setPositionBookmarkSaved(params: {
+        url: string;
+        position: number;
+        messageId?: string | null;
+        folderPath: string;
+        userMessage: string;
+        aiResponse: string;
+        platform: string;
+        title: string;
+    }, saved: boolean): Promise<Result<{ saved: boolean }>> {
+        const canonicalUrl = this.normalizeBookmarkUrl(params.url);
+        if (!saved) {
+            const results = await Promise.all(
+                this.bookmarkUrlCandidates(params.url).map((candidate) => bookmarksClient.remove({ url: candidate, position: params.position })),
+            );
+            const failure = results.find((result) => !result.ok);
+            if (failure && !failure.ok) return failure;
+            if (this.positionsUrl && isSamePageUrl(this.positionsUrl, params.url)) {
+                this.positionsForCurrentUrl.delete(params.position);
+            }
+            this.conversationBookmarksForResolution = null;
+            void this.ensureConversationBookmarksForResolution().then(() => this.emit());
             this.emit();
             return { ok: true, data: { saved: false } };
         }
 
         const res = await bookmarksClient.save({
-            url: params.url,
+            url: canonicalUrl,
             position: params.position,
             messageId: params.messageId ?? null,
             userMessage: params.userMessage,
@@ -608,7 +812,11 @@ export class BookmarksPanelController {
             options: { saveContextOnly: false },
         });
         if (!res.ok) return res;
-        this.positionsForCurrentUrl.add(params.position);
+        if (this.positionsUrl && isSamePageUrl(this.positionsUrl, params.url)) {
+            this.positionsForCurrentUrl.add(params.position);
+        }
+        this.conversationBookmarksForResolution = null;
+        void this.ensureConversationBookmarksForResolution().then(() => this.emit());
         this.emit();
         return { ok: true, data: { saved: true } };
     }

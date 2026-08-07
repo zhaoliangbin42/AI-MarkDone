@@ -1,49 +1,78 @@
-import type { ExtRequest, ExtResponse } from '../../contracts/protocol';
-import { PROTOCOL_VERSION } from '../../contracts/protocol';
+import { isExtResponseForRequest, type ExtRequest, type ExtResponse } from '../../contracts/protocol';
 import { browser } from './browser';
 
 export type RpcOptions = {
     timeoutMs?: number;
 };
 
-function err(id: string, type: ExtRequest['type'], message: string): ExtResponse {
+export type RpcTransportFailureCode =
+    | 'RUNTIME_UNAVAILABLE'
+    | 'CONTEXT_INVALIDATED'
+    | 'RECEIVER_UNAVAILABLE'
+    | 'REQUEST_TIMEOUT'
+    | 'INVALID_RESPONSE'
+    | 'TRANSPORT_FAILED';
+
+export type RpcTransportFailure = {
+    code: RpcTransportFailureCode;
+    message: string;
+    delivery: 'not-sent' | 'unknown';
+};
+
+export type RpcCallResult =
+    | { kind: 'response'; response: ExtResponse }
+    | { kind: 'transport-failure'; failure: RpcTransportFailure };
+
+function transportFailure(
+    code: RpcTransportFailureCode,
+    message: string,
+    delivery: RpcTransportFailure['delivery'],
+): RpcCallResult {
     return {
-        v: PROTOCOL_VERSION,
-        id,
-        ok: false,
-        type,
-        error: { code: 'INTERNAL_ERROR', message },
+        kind: 'transport-failure',
+        failure: { code, message, delivery },
     };
 }
 
-export async function sendExtRequest<T extends ExtRequest>(request: T, options?: RpcOptions): Promise<ExtResponse> {
+function classifyTransportError(error: unknown): RpcTransportFailure {
+    const message = error instanceof Error ? error.message : String(error ?? '');
+    if (/extension context invalidated/i.test(message)) {
+        return { code: 'CONTEXT_INVALIDATED', message: message || 'Extension context invalidated', delivery: 'not-sent' };
+    }
+    if (/receiving end does not exist|could not establish connection/i.test(message)) {
+        return { code: 'RECEIVER_UNAVAILABLE', message: message || 'Extension receiver is unavailable', delivery: 'not-sent' };
+    }
+    return { code: 'TRANSPORT_FAILED', message: message || 'sendMessage failed', delivery: 'unknown' };
+}
+
+export async function sendExtRequest<T extends ExtRequest>(request: T, options?: RpcOptions): Promise<RpcCallResult> {
     const timeoutMs = options?.timeoutMs ?? 8000;
 
-    const send = async (): Promise<ExtResponse> => {
+    const send = async (): Promise<RpcCallResult> => {
         try {
             const runtime: any = (browser as any)?.runtime;
             if (!runtime?.sendMessage) {
-                return err(request.id, request.type, 'runtime.sendMessage is unavailable');
+                return transportFailure('RUNTIME_UNAVAILABLE', 'runtime.sendMessage is unavailable', 'not-sent');
             }
             const res = await runtime.sendMessage(request);
-            if (!res || typeof res !== 'object') {
-                return err(request.id, request.type, 'Invalid response');
+            if (!isExtResponseForRequest(res, request)) {
+                return transportFailure('INVALID_RESPONSE', 'Invalid response', 'unknown');
             }
-            return res as ExtResponse;
+            return { kind: 'response', response: res };
         } catch (e) {
-            const msg = e instanceof Error ? e.message : String(e);
-            return err(request.id, request.type, msg || 'sendMessage failed');
+            return { kind: 'transport-failure', failure: classifyTransportError(e) };
         }
     };
 
-    let timer: number | null = null;
+    let timer: ReturnType<typeof globalThis.setTimeout> | null = null;
     try {
-        const timeout = new Promise<ExtResponse>((resolve) => {
-            timer = window.setTimeout(() => resolve(err(request.id, request.type, 'Request timed out')), timeoutMs);
+        const timeout = new Promise<RpcCallResult>((resolve) => {
+            timer = globalThis.setTimeout(() => resolve(
+                transportFailure('REQUEST_TIMEOUT', 'Request timed out', 'unknown'),
+            ), timeoutMs);
         });
         return await Promise.race([send(), timeout]);
     } finally {
-        if (timer !== null) window.clearTimeout(timer);
+        if (timer !== null) globalThis.clearTimeout(timer);
     }
 }
-

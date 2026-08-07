@@ -1,12 +1,14 @@
 import { defineConfig } from 'vite';
 import { resolve } from 'path';
 import { extensionSurfacePolicies } from './config/extension/surface';
+import { escapeUtf8JavaScriptNoncharacters } from './config/extension/utf8JavaScript';
 
 export default defineConfig({
     base: './',
     esbuild: {
-        charset: 'ascii',
+        charset: 'utf8',
     },
+    plugins: [escapeUtf8JavaScriptNoncharacters()],
     define: {
         __AIMD_ENABLE_SPONSOR_TAB__: JSON.stringify(extensionSurfacePolicies.firefox.sponsorTab),
         __AIMD_ENABLE_SOCIAL_FOLLOW_CARD__: JSON.stringify(extensionSurfacePolicies.firefox.socialFollowCard),
