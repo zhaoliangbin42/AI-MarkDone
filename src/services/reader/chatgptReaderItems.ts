@@ -2,7 +2,6 @@ import {
     getConversationTurnSourceQualityV1,
     type ConversationSnapshotV1,
 } from '../../contracts/conversationContent';
-import { normalizeChatGPTReaderMarkdown } from '../../drivers/content/chatgpt/normalizeReaderMarkdown';
 import type { ReaderItem } from './types';
 import type { ReaderAnnotationDocument } from '../../contracts/readerAnnotations';
 
@@ -87,7 +86,10 @@ export function buildChatGPTReaderContent(
     const items: ReaderItem[] = snapshot.turns.map((turn) => ({
         id: `chatgpt-${turn.identity.assistantMessageId}`,
         userPrompt: turn.userText,
-        content: normalizeChatGPTReaderMarkdown(turn.assistantMarkdown),
+        // Snapshot content is already canonical at the discovery adapter
+        // boundary; this compatibility helper must not create a second
+        // normalization path.
+        content: turn.assistantMarkdown,
         meta: {
             platformId: snapshot.document.platformId,
             messageId: turn.identity.assistantMessageId,

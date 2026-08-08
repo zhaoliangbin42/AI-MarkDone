@@ -23,7 +23,6 @@ import {
 } from '../../../services/export/saveMessagesFacade';
 import {
     collectFreshReaderContent,
-    isReaderContentSourceRevisionCurrent,
     readerItemsToChatTurns,
 } from '../../../services/reader/readerContentSource';
 import { getSaveMessagesDialogCss } from './saveMessagesDialogCss';
@@ -130,37 +129,15 @@ export class SaveMessagesDialog {
             options?.startMessageElement ?? null,
             readerOptions,
         );
-        if (
-            adapter.getPlatformId() === 'chatgpt'
-            && options?.conversationContentSource
-            && (
-                content.status !== 'ready'
-                || content.coverage !== 'complete'
-                || content.sourceQuality === 'mixed'
-                || content.sourceQuality === 'reconstructed'
-            )
-        ) {
-            // Full export must never present a partial or reconstructed
-            // semantic snapshot as canonical Markdown.
-            this.adapter = null;
-            this.focusLifecycle.restore(document);
-            return false;
-        }
         const { items, startIndex } = content;
-        const turns = await readerItemsToChatTurns(items);
-        const shouldValidateSourceRevision = adapter.getPlatformId() === 'chatgpt'
-            && (content.status === undefined || content.status === 'ready');
-        if (
-            shouldValidateSourceRevision
-            && !isReaderContentSourceRevisionCurrent(
-                options?.conversationContentSource,
-                content.sourceRevision,
-            )
-        ) {
+        if (adapter.getPlatformId() === 'chatgpt' && options?.conversationContentSource && items.length === 0) {
+            // The consumer can only export what discovery has already
+            // published.  It must not wait for or manufacture missing turns.
             this.adapter = null;
             this.focusLifecycle.restore(document);
             return false;
         }
+        const turns = await readerItemsToChatTurns(items);
         const metadata = buildConversationMetadata(adapter, turns.length);
         this.turns = turns;
         this.metadata = metadata;

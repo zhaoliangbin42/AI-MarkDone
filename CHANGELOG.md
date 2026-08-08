@@ -7,18 +7,27 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
-### Fixed
+## [5.2.0] - 2026-08-07
 
-- ChatGPT: Restored legacy bookmark highlighting across host changes and virtualized conversations by resolving persisted `messageId` first and using position only as a read-only compatibility fallback; existing bookmark records and storage format are unchanged.
-- ChatGPT: Aligned Directory, message-toolbar and Reader bookmark state on the same canonical resolver, failing closed while source or bookmark records are unavailable instead of using a stale position-only highlight.
-- Runtime: Distinguished extension disconnects from real empty data, preserved last-known bookmarks, made settings fail closed, and added explicit retry or page-refresh recovery without replaying uncertain mutations.
-- ChatGPT: Restored clean Markdown output by keeping provider-backed content authoritative and routing Reader structure, ordinary page selections, and structured selections through one semantic content model.
-- ChatGPT: Kept atomic selection highlighting available while canonical Markdown is still resolving, while continuing to fail open instead of copying unproven DOM content.
-- ChatGPT: Restored formula click-copy and formula asset actions for the current semantic formula wrapper, including authoritative `data-math-source` carried by an ancestor of the rendered KaTeX node.
-- ChatGPT: Prevented reconstructed DOM content from being silently copied, bookmarked, or exported as canonical Markdown when source fidelity cannot be proven.
-- ChatGPT: Added a page-scoped Evidence Ledger and Stable Turn Capture so virtualized/remounted message windows no longer erase sealed content, and a single stable message can be read while the full conversation is still converging.
-- ChatGPT: Added proof-driven completeness and a provider-neutral rendered-content compiler; source, host observation, materialization, formula, and local selection paths now share typed contracts without consumer-side DOM Markdown reconstruction.
-- ChatGPT: Made Source Graph the only canonical body/position authority, removed timer-based discovery recovery and DOM Markdown fallback, and aligned bookmarks, Reader selection, and formula copy with sealed turn reads.
+千呼万唤始出来，AI-MarkDone 5.2.0 终于来了。
+
+前几天 ChatGPT 网站进行了一次页面更新，表面上看起来变化不大，但实际上页面内部的组织方式发生了较大调整，导致 AI-MarkDone 的内容识别出现问题。
+
+目录条、阅读器、导出、字数统计、公式识别、书签等功能，本质上都依赖同一套内容识别能力。因此识别链路出现问题后，这些功能也出现了不同程度的异常。
+
+感谢这段时间大家的反馈、测试和催更。这次我不仅修复了表面问题，也重新整理了内容发现、页面适配和功能消费链路，让这套能力更加可靠、稳定，也更有体系。
+
+1. 公式显示方式发生变化
+
+   ChatGPT 调整了公式在页面中的显示方式，导致之前的识别方式无法正确找到公式内容，复制时可能变成普通文字。这次重新适配了公式识别和复制逻辑。
+
+2. 消息加载方式发生变化
+
+   ChatGPT 不会一直把所有消息同时显示在页面上，而是根据需要加载和显示部分内容。旧版本容易把当前看到的内容误认为全部内容，因此目录、阅读器、导出和字数统计可能出现内容不完整的问题。
+
+   这次重新整理了内容发现链路：页面中的消息会先被统一识别，再由适配层整理成稳定的内容，目录、阅读器、导出、复制、书签和字数统计都从同一套内容中读取。这样既减少了各个功能之间的不一致，也能更好地应对以后的网站更新。
+
+![5.2.0 内容识别架构](docs/assets/changelog/5.2.0-content-architecture.svg)
 
 ## [5.1.1] - 2026-08-05
 
@@ -197,7 +206,6 @@ AI-MarkDone 当前没有任何联网功能，代码也全部公开在 GitHub 上
 
 以后再次见面时，你不会因为忘记 TA 的家乡、学校或工作地点而尴尬；到了某座城市，打开地图，也许就会想起某个朋友正在这里落脚，不如约着见一面。软件整体非常容易上手，也尽量做得简洁好看。
 
-![好友迹 - 好友地图通讯录](./public/icons/mappamory-changelog-4.6.0.png)
 
 这个 App 刚刚上架。**在 2026 年 6 月 30 日之前下载的朋友，可以联系我的小红书，我会为每人赠送一个一年的兑换码。** 也希望大家多提意见、多多支持、多多宣传。我真的很喜欢大家一起群策群力，把一件事情越做越好的感觉。
 

@@ -1,7 +1,7 @@
 {
     "manifest_version": 2,
     "name": "__MSG_extName__",
-    "version": "5.1.1",
+    "version": "5.2.0",
     "description": "__MSG_extDescription__",
     "default_locale": "en",
     "homepage_url": "https://zhaoliangbin42.github.io/ai-markdone/en/",
@@ -64,6 +64,7 @@
     },
     "web_accessible_resources": [
         "icons/*.png",
+        "icons/*.svg",
         "_locales/*/messages.json",
         "vendor/katex/*.css",
         "vendor/katex/fonts/*",

@@ -13,6 +13,28 @@ import {
 import { createAppearanceSnapshot } from '@/style/appearance';
 
 describe('lazy content features', () => {
+    it('prewarms Reader and export chunks once without instantiating either surface', async () => {
+        const preloadReaderPanel = vi.fn(async () => undefined);
+        const preloadSaveMessagesDialog = vi.fn(async () => undefined);
+        const importer = vi.fn(async () => ({
+            setContentFeatureLocale: vi.fn(async () => undefined),
+            preloadReaderPanel,
+            preloadSaveMessagesDialog,
+            createReaderPanel: vi.fn(),
+            createBookmarksPanel: vi.fn(),
+        }));
+        const loader = new ContentFeatureModuleLoader(importer as any);
+
+        await Promise.all([
+            loader.prewarmReaderAndExport(),
+            loader.prewarmReaderAndExport(),
+        ]);
+
+        expect(importer).toHaveBeenCalledOnce();
+        expect(preloadReaderPanel).toHaveBeenCalledOnce();
+        expect(preloadSaveMessagesDialog).toHaveBeenCalledOnce();
+    });
+
     it('keeps Reader code unloaded until show and replays current configuration before rendering', async () => {
         const actualReader = {
             setAppearance: vi.fn(),

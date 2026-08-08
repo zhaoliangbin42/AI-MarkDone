@@ -64,6 +64,7 @@ import {
     createLazyReaderPanel,
     createLazyRunFormulaAssetAction,
     createLazySaveMessagesDialog,
+    scheduleLazyContentFeaturePrewarm,
     setLazyContentFeatureLocale,
 } from './lazyContentFeatures';
 
@@ -123,6 +124,21 @@ if (adapter) {
     const conversationContentSource = adapter.getPlatformId() === 'chatgpt'
         ? chatGptConversationContentRuntime?.source ?? null
         : null;
+    let cancelContentFeaturePrewarm: (() => void) | null = null;
+    let unsubscribeContentFeaturePrewarm: (() => void) | null = null;
+    const startContentFeaturePrewarm = () => {
+        if (!conversationContentSource || unsubscribeContentFeaturePrewarm) return;
+        unsubscribeContentFeaturePrewarm = conversationContentSource.subscribe((state) => {
+            if (!state.snapshot || cancelContentFeaturePrewarm) return;
+            cancelContentFeaturePrewarm = scheduleLazyContentFeaturePrewarm();
+        });
+    };
+    const stopContentFeaturePrewarm = () => {
+        unsubscribeContentFeaturePrewarm?.();
+        unsubscribeContentFeaturePrewarm = null;
+        cancelContentFeaturePrewarm?.();
+        cancelContentFeaturePrewarm = null;
+    };
     // ChatGPT has one production content seam.  The passive graph-backed
     // source owns identity, prompt, Markdown and canonical position; the
     // materialization port owns only the current DOM anchor.  The V2 host
@@ -472,6 +488,7 @@ if (adapter) {
             chatGptPageWidth?.init();
             syncChatGptBehaviorSettings(settingsClient.getCached()?.chatgptBehavior);
             chatGptConversationContentRuntime?.init();
+            startContentFeaturePrewarm();
         }
         if (!chatGptDirectory) return;
         writeDebugState({ ChatGptInit: 'start' });
@@ -558,6 +575,7 @@ if (adapter) {
         messageToolbars.dispose();
         conversationNavigation?.cancelActive();
         pendingNavigationRestorer?.dispose();
+        stopContentFeaturePrewarm();
         chatGptConversationReaderBinding?.dispose();
         chatGptDirectory?.dispose();
         chatGptOfficialNavigationVisibility?.dispose();

@@ -20,7 +20,7 @@ The benchmark must always satisfy all of these invariants:
 - 200 of 200 message toolbars appear.
 - every official action row contains exactly one AI-MarkDone toolbar.
 - all replaced official action rows recover within 500 ms.
-- no content feature module is requested before the explicit Bookmarks trigger; after the trigger the panel mounts within 500 ms and every feature URL remains on the extension origin rather than the host page origin.
+- no content feature module is requested before the explicit Bookmarks trigger in the synthetic benchmark, which has no verified ChatGPT snapshot; in a live ChatGPT page, Reader/export chunks may be prewarmed once during an eligible idle window after a snapshot exists. After any trigger, every feature URL remains on the extension origin rather than the host page origin.
 - no phase may increase an already accepted bundle or runtime median captured under the same measurement protocol by more than 10% without an explicit documented reason.
 - the direct-selection phase must produce no long task and no more than one `data-aimd-page-atomic-state` set plus one clear, regardless of repeated unchanged `selectionchange` events.
 - `npm run test:core` and `npm run build` remain green at every phase boundary.
@@ -211,6 +211,13 @@ The automated counts, bundle sizes, and performance medians above were produced 
 
 - Functional closeout passed the 16-file / 226-test discovery gate, 1,798 core tests, 47 smoke tests, 237 acceptance tests, TypeScript checking, Chrome MV3 and Firefox MV2 builds, entry/boundary checks, and bundle budgets. Both `content.js` bundles are 759.94 kB raw / 199.81 kB gzip; both content-feature graphs are 1,695.71 kB raw / 451.12 kB gzip.
 - `npm run perf:chatgpt` still stops at the pre-existing Atomic Selection assertion (`selected=1`, `cleared=0`, empty copied payload, two writes, zero long tasks). This run does not establish a new content-discovery performance regression, but the performance gate remains open until that assertion and the installed-browser matrix pass.
+
+### Snapshot-first consumer path — 2026-08-07
+
+- Ordinary ChatGPT Reader, Save Messages, Bookmark Preparation, word count and copy paths now read the last published V1 snapshot. They no longer wait for a bridge peek or call `ConversationContentSourceV1.refresh()` on every click.
+- `readerContentSource` caches immutable base `ReaderItem[]` projections by snapshot identity and normalized page URL. Consumer calls receive shallow mutable views; the cache never stores DOM or detached nodes. ChatGPT Markdown is normalized at the discovery adapter boundary only.
+- Partial and stale last-good snapshots remain immediately consumable. Save Messages exports the recognized items only; an empty ChatGPT snapshot remains unavailable. Explicit Reader Refresh retains the real refresh and then reads the new snapshot.
+- Reader/export chunks have a bounded, single-flight idle prewarm after a verified ChatGPT snapshot exists and the page is visible. `saveData` skips prewarm, teardown cancels it, and all module URLs remain extension-origin. The synthetic benchmark has no snapshot, so its no-feature-before-trigger invariant remains meaningful.
 
 ## Scope protections
 

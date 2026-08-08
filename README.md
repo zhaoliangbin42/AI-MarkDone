@@ -8,7 +8,7 @@
     <a href="./LICENSE">
       <img src="https://img.shields.io/github/license/zhaoliangbin42/AI-MarkDone?label=License" alt="License">
     </a>
-    <img src="https://img.shields.io/badge/Version-5.1.1-10A37F" alt="Version 5.1.1">
+    <img src="https://img.shields.io/badge/Version-5.2.0-10A37F" alt="Version 5.2.0">
     </br>
     <img src="https://img.shields.io/badge/Browsers-Chrome%20%7C%20Firefox-10A37F" alt="Browsers">
     <img src="https://img.shields.io/badge/Primary%20Platform-ChatGPT-10A37F" alt="Primary Platform">
@@ -200,11 +200,10 @@ npm run build
 
 ## 📅 Changelog (Latest)
 
-### 5.1.1
-- Earned the Chrome Web Store's Featured badge.
-- Added local persistence and centralized management for Reader annotations.
-- Stabilized ChatGPT content discovery for the Reader directory and message statistics.
-- Added configurable `Ctrl/Cmd+C` and `Ctrl/Cmd+Shift+C` shortcuts for canonical Markdown selection copy.
+### 5.2.0
+- Rebuilt ChatGPT content discovery and the shared adapter path for more reliable directory, Reader, export, word count, bookmark, copy, and formula features.
+- Improved formula recognition and copying after ChatGPT changed its formula presentation.
+- Improved handling of ChatGPT's on-demand message loading so recognized content stays consistent across features.
 
 [Full Changelog](./CHANGELOG.md)
 [Release Notes](./RELEASE_NOTES.md)

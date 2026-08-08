@@ -90,7 +90,7 @@ describe('readerContentSource', () => {
         expect(materialization.resolveElement).toHaveBeenCalledWith(messageElement);
     });
 
-    it('refreshes exactly through the shared V1 source for Reader actions', async () => {
+    it('reads the published snapshot directly for ordinary Reader actions', async () => {
         const base = buildSource(2);
         const refresh = vi.fn(async () => base.read());
         const source = { ...base, refresh };
@@ -99,9 +99,26 @@ describe('readerContentSource', () => {
             pageUrl: 'https://chatgpt.com/c/conv-1',
         });
 
-        expect(refresh).toHaveBeenCalledOnce();
+        expect(refresh).not.toHaveBeenCalled();
         expect(result.status).toBe('ready');
         expect(result.items).toHaveLength(2);
+    });
+
+    it('reuses the same snapshot projection without re-normalizing or rebuilding it', async () => {
+        const source = buildSource(2);
+        const first = await collectFreshReaderContent(chatgptAdapter(), null, {
+            conversationContentSource: source,
+            pageUrl: 'https://chatgpt.com/c/conv-1#reader',
+        });
+        const second = await collectFreshReaderContent(chatgptAdapter(), null, {
+            conversationContentSource: source,
+            pageUrl: 'https://chatgpt.com/c/conv-1#reader',
+        });
+
+        expect(second.items).toEqual(first.items);
+        expect(second.items).not.toBe(first.items);
+        expect(second.items[0]).not.toBe(first.items[0]);
+        expect(second.items[0]?.content).toBe('Answer 1');
     });
 
     it('returns an explicit unavailable result instead of falling back to DOM content', async () => {

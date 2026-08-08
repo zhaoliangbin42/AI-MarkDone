@@ -34,7 +34,6 @@ export async function prepareChatGPTBookmarkV2(
     discovery: ConversationDiscoveryPortV2,
     messageElement: HTMLElement,
 ): Promise<PreparedConversationBookmarkV2 | null> {
-    await discovery.refresh();
     const ref = discovery.resolveElement(messageElement);
     const snapshot = discovery.read();
     if (!ref || snapshot.kind !== 'ready') return null;
@@ -64,7 +63,10 @@ export async function prepareChatGPTBookmark(
     materialization: ConversationMaterializationPortV1,
     messageElement: HTMLElement,
 ): Promise<PreparedConversationBookmarkV1 | null> {
-    const state = await source.refresh();
+    // Bookmark preparation is a consumer read.  Discovery owns refreshes on
+    // lifecycle/source events; a click must use the last published snapshot
+    // so it cannot block behind a passive-graph reconcile.
+    const state = source.read();
     const snapshot = state.snapshot;
     const target = materialization.resolveElement(messageElement);
     if (!snapshot || !state.document || !target) return null;

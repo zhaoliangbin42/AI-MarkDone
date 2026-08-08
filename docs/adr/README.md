@@ -25,7 +25,7 @@
 
 编号递增，标题保持简短。
 
-当前 ChatGPT 内容消费来源见 [ADR-0015-chatgpt-passive-graph-directory.md](ADR-0015-chatgpt-passive-graph-directory.md)：官网自有 conversation GET 只被动进入 Graph 主链，随后由同一个 V1 content/materialization seam 服务目录、Reader、书签、复制、公式、字数与导出。V2 Slot Topology/Compiler 仅保留为隔离实验和测试，不能成为生产消费者的旁路。ADR-0014 的 V2 production-root 决策已被本次收敛明确 supersede。
+当前 ChatGPT 内容消费来源见 [ADR-0015-chatgpt-passive-graph-directory.md](ADR-0015-chatgpt-passive-graph-directory.md)：官网自有 conversation GET 只被动进入 Graph 主链，随后由同一个 V1 content/materialization seam 服务目录、Reader、书签、复制、公式、字数与导出。消费性能收敛见 [ADR-0016-chatgpt-snapshot-first-consumption.md](ADR-0016-chatgpt-snapshot-first-consumption.md)。V2 Slot Topology/Compiler 仅保留为隔离实验和测试，不能成为生产消费者的旁路。ADR-0014 的 V2 production-root 决策已被本次收敛明确 supersede。
 
 ## Required Sections
 

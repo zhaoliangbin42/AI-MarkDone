@@ -505,6 +505,17 @@ export class MessageToolbarOrchestrator {
     }
 
     private async refreshConversationReader(messageElement: HTMLElement, ctx: ReaderPanelActionContext): Promise<void> {
+        // This is the explicit Reader Refresh action.  Ordinary Reader and
+        // export clicks use the published snapshot through the compatibility
+        // collector without entering this path.
+        if (this.conversationContentSource) {
+            try {
+                await this.conversationContentSource.refresh();
+            } catch {
+                // Keep the last-good snapshot consumable if an explicit
+                // refresh fails; the projection below will read it directly.
+            }
+        }
         const result = await collectFreshReaderContent(this.adapter, null, {
             conversationContentSource: this.conversationContentSource,
             conversationMaterialization: this.conversationMaterialization,

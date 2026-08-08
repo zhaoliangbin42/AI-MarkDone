@@ -147,14 +147,14 @@ The active content coordinator is signal-driven: the document-start bridge repla
 
 ### 2.3.2 Reader 闭环（预览/复制/发送）
 
-1. Driver（Source/Host Adapter）把 provider graph 或稳定渲染事实适配成 typed evidence；`ConversationEvidenceLedger` 按 `documentEpoch → branch → typed identity` 归并并发布 V1 snapshot；`readerContentSource` 是唯一 `ReaderItem[]` 投影。Source graph 决定完整分支与绝对顺序，host 只提供独立 sealed turn，不能覆盖已 sealed 内容或补齐未知历史；`readTurn()` 支持局部消息先读，完整导出必须等待 proof 闭合，消费者不能拥有第二套恢复链路
+1. Driver（Source/Host Adapter）把 provider graph 或稳定渲染事实适配成 typed evidence；`ConversationEvidenceLedger` 按 `documentEpoch → branch → typed identity` 归并并发布 V1 snapshot；`readerContentSource` 是唯一 `ReaderItem[]` 投影。Source graph 决定完整分支与绝对顺序，host 只提供独立 sealed turn，不能覆盖已 sealed 内容或补齐未知历史；`readTurn()` 支持局部消息先读，普通导出只输出当前已识别条目，消费者不能拥有第二套恢复链路
 2. Service 通过 Semantic Content Module 编译稳定语义、source spans 与 Reader structure；HTML/KaTeX/highlight/sanitize 属于独立 Render Module。预览、复制、书签、导出只能选择 projection/policy，不能各自重新解释宿主 DOM
 3. UI 只负责呈现与交互（分页/复制/打开浮层/触发发送）
 4. 副作用（写书签、写设置、网络等）通过 Background 执行并返回结果
 
 Detached Reader 是 Reader 闭环的跨 runtime 形态，而不是第三套 Reader：
 
-1. ChatGPT content runtime 仍通过既有 `readerContentSource` 生成 fresh `ReaderItem[]`
+1. ChatGPT content runtime 仍通过既有 `readerContentSource` 投影当前已发布 snapshot 的 `ReaderItem[]`；普通打开命中 snapshot cache，只有显式 Reader Refresh 才重新发现
 2. Background 只持有 `sessionId + sourceTabId + readerTabId` 路由与可恢复快照，不理解 ChatGPT 正文结构
 3. Extension page 复用 ReaderPanel、Reader settings surface、Markdown rendering、bookmark、copy/comment/Sticky/prompt 与 conversation Reader action service；发送弹框必须复用同一个 tokenized SendPopover，通过完整 SendPort contract 在 content adapter 与 detached reader-session bridge 之间切换：draft 读写走 `readerSession:draft`，发送前准备走 `readerSession:beforeSend`，真实提交走 `readerSession:send`，不得退回 `window.prompt` 或一次性原生弹框
 4. Reader header refresh 必须复用同一条 fresh Reader source：官网内 Reader 直接刷新，detached Reader 通过 `readerSession:refresh` 回源 content runtime 刷新；draft/beforeSend/send/locate 同样继续回源执行，不能在 extension page 直接操作 ChatGPT DOM；detached send 会在转发前 best-effort 激活源 ChatGPT tab 后调用官方 composer 发送链路，detached locate 必须激活源 ChatGPT tab 并定位目标消息，但不得关闭 detached Reader tab
@@ -197,7 +197,7 @@ v1 的正式领域契约、排除项和失败语义见 `docs/adr/ADR-0006-reader
 ### 2.3.5 Image Export 闭环（消息长图 + 公式资产）
 
 1. UI 只保留当前消息 Copy PNG、Save Messages PNG、公式资产三个入口；入口不持有 HTML/CSS/renderer function，也不自行决定 Markdown、KaTeX、highlight 或分片算法。
-2. 消息路径从 fresh `ReaderItem[]` 转换为 `ChatTurn[]`，再构建版本化 `ExportDocumentV1`；authoritative TeX 提交结构化 spec。`dom-only` source 不能跨 iframe 传递，因此只允许由 `renderFormulaAsset()` 背后的唯一 content-side compatibility adapter 消费。Markdown 文件导出保持现有 formatter，不因图片重构改变 canonical 内容语义。
+2. 消息路径从当前 snapshot 的 `ReaderItem[]` 转换为 `ChatTurn[]`，再构建版本化 `ExportDocumentV1`；authoritative TeX 提交结构化 spec。`dom-only` source 不能跨 iframe 传递，因此只允许由 `renderFormulaAsset()` 背后的唯一 content-side compatibility adapter 消费。Markdown 文件导出保持现有 formatter，不因图片重构改变 canonical 内容语义；partial snapshot 只输出已识别条目。
 3. 消息路径在 content runtime 内由 `message-card-v1` 编译闭合静态 DOM，并进入同一个 `renderPngBlob()`；它不依赖 iframe handshake。authoritative 公式资产才通过 lazy `export-renderer.html` iframe、私有 `MessageChannel` 与 scheduler 执行；启动期不得加载两条路径的重模块。
 4. 消息 profile 自持 Markdown、highlight、KaTeX 与静态图片规则，不复制宿主计算样式；content driver 按消息 section 和 Markdown 顶层 block 分段栅格化，公式 renderer 只处理结构化公式 spec。两条路径都不读 storage、不联网。
 5. 消息 PNG 优先生成一张长图；最终 Canvas 超过 16,384px 单边或 24,000,000 pixels 的保守预算时自动降低 effective ratio，以稳定产出为先。代码、表格和 display formula 必须在导出宽度内换行或等比收敛，不得以横向滚动区域进入图片。
@@ -240,7 +240,7 @@ v1 的正式领域契约、排除项和失败语义见 `docs/adr/ADR-0006-reader
 
 - 页面级入口必须由 AI-MarkDone 自有 surface 承载，不得为入口修改宿主页面 header 的内部 DOM；若未来新增宿主锚点，相关 DOM 差异仍必须收敛在 adapter 契约内
 - ChatGPT conversation group discovery、turn root、conversation root、streaming 判定同样属于 adapter/driver 契约的一部分；UI/controller 只能消费已经抽象好的 structural refs，不得在 UI 层按 ChatGPT selector 重新推导轮次、正文或 identity
-- `ConversationContentRepository` / `ConversationContentSourceV1` 是 ChatGPT semantic SSOT；`readerContentSource` 是唯一 `ReaderItem[]` 正文投影，分别提供无副作用的当前读取和一次 `refresh()` 的用户动作读取。适配层在 fresh 确认前固化 typed start identity，并只按 immutable snapshot identity 复用规范化正文；`contentToken` 只作为异步失效 token。`resolveChatGPTReaderStartIndex()` 是唯一语义起始位置规则，消费者始终拿到独立的可变兼容视图。工具栏词数/书签状态与 Reader binding 只被动读取，Copy/PNG/Reader open/Save Messages/书签命令只通过 fresh 入口确认一次；任何 UI/controller 都不得直接调用 repository acquisition 或构造 ChatGPT Reader items
+- `ConversationContentRepository` / `ConversationContentSourceV1` 是 ChatGPT semantic SSOT；`readerContentSource` 是唯一 `ReaderItem[]` 正文投影，分别提供无副作用的当前读取和显式 `refresh()`。适配层在 discovery 时固化 typed identity，并按 immutable snapshot identity 与规范化 URL 缓存投影；`contentToken` 只作为异步失效 token。`resolveChatGPTReaderStartIndex()` 是唯一语义起始位置规则，消费者始终拿到独立的可变兼容视图。工具栏词数/书签状态与 Reader binding 只被动读取，Copy/PNG/Reader open/Save Messages/书签命令只读取当前 snapshot；任何 UI/controller 都不得直接调用 repository acquisition 或构造 ChatGPT Reader items
 - 官网 conversation Reader 只由 `ChatGPTConversationReaderBinding` 订阅 source state；same-document stale 保留 last-good，snapshot withdrawal 关闭 Reader，精确前缀只追加，既有 identity/prompt/正文变化原子替换。Save Messages 与延迟书签事务必须以 `conversationId + contentToken` 失效，且该 token 不进入持久 schema
 - `ChatGPTPageIndex` 只按宿主 DOM revision 缓存当前 connected materialization anchors；`ChatGPTConversationIndex` 以 V1 snapshot 的完整顺序为事实，并以 typed identity 连接这些可选 anchors，作为 Directory、Stepper、Reader locate、Bookmark Go 与 pending navigation 的唯一 navigation projection。已挂载 assistant message element 的唯一 `data-message-id` 直接对应 canonical `assistantMessageId`，不得因 wrapper/turn ID 漂移而失配；无直接消息身份时才使用 materialized containment，歧义必须 fail closed。DOM window replacement 不得改变 canonical count；索引必须忽略 AI-MarkDone 自有节点和 `data-aimd-*` bookkeeping，conversation root 更换或 runtime disable→enable 时必须正确重建、重绑与释放
 - Off-screen navigation 应以经过 typed-anchor 校准的宿主持久 turn slot 为主路径，不得把 canonical position 直接换算为全局 scroll ratio，也不得依赖 React/Fiber、私有 virtualizer 或宿主数字 test id。校准成功后必须在 bounded budget 内复用同一 target slot，直到 exact identity anchor materialize；不得中途退回像素探测。只有没有可信 slot topology 时才可运行 compatibility seeker，且 exact connected identity 与稳定 alignment 仍是唯一成功条件。正常点击不得因此新增全页 observer、常驻 timer 或重复 slot scan

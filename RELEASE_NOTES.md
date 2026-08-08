@@ -1,5 +1,18 @@
 # Release Notes
 
+## v5.2.0 (2026-08-07)
+
+This release restores ChatGPT content discovery after a website update changed formula presentation and on-demand message loading. The directory, Reader, word count, export, copy, bookmarks, and formula actions now consume the same stable content path.
+
+### Changed
+- Re-adapted formula recognition and copying so formulas no longer degrade into plain text.
+- Reorganized ChatGPT content discovery and adaptation so messages can be recognized incrementally while existing content remains available across the directory, Reader, export, copy, bookmarks, and word count.
+- Added an in-panel architecture diagram and local image enlargement for release-facing content.
+
+### Fixed
+- Restored the in-panel 5.2.0 changelog notice and synchronized English and Chinese release content.
+- Removed an obsolete Mappamory changelog image that was no longer referenced by release content.
+
 ## v5.1.1 (2026-08-05)
 
 Thank you for all your support—AI-MarkDone has earned the Chrome Web Store's Featured badge! I’ll continue holding every release to a high standard, with the goal of giving everyone who uses ChatGPT a better experience on the web.

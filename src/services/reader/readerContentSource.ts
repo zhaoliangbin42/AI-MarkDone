@@ -3,7 +3,6 @@ import type { ChatTurn } from '../export/saveMessagesTypes';
 import {
     normalizeChatGPTReaderPageUrl,
 } from './chatgptReaderItems';
-import { normalizeChatGPTReaderMarkdown } from '../../drivers/content/chatgpt/normalizeReaderMarkdown';
 import { collectReaderItems, type CollectReaderItemsResult } from './collectReaderItems';
 import { resolveContent, type ReaderItem } from './types';
 import type { ReaderAnnotationDocument } from '../../contracts/readerAnnotations';
@@ -46,7 +45,7 @@ export type ReaderContentSourceResult = CollectReaderItemsResult & {
     annotationDocument?: ReaderAnnotationDocument;
     sourceRevision?: ReaderContentSourceRevision;
     status?: ReaderContentSourceStatus;
-    /** Canonical ChatGPT coverage; exports must only use complete snapshots. */
+    /** Canonical ChatGPT coverage; consumers may project recognized partial snapshots. */
     coverage?: ConversationSnapshotV1['coverage'];
     /** Independent of coverage: whether every projected body is source-backed. */
     sourceQuality?: ConversationSnapshotSourceQualityV1;
@@ -59,6 +58,18 @@ export type FreshReaderItemResult = {
     item: ReaderItem;
     sourceRevision?: ReaderContentSourceRevision;
 };
+
+type CachedConversationReaderProjection = Readonly<{
+    items: readonly ReaderItem[];
+    annotationDocument: ReaderAnnotationDocument;
+    coverage: ConversationSnapshotV1['coverage'];
+    sourceQuality: ConversationSnapshotSourceQualityV1;
+}>;
+
+const conversationProjectionCache = new WeakMap<
+    ConversationSnapshotV1,
+    Map<string, CachedConversationReaderProjection>
+>();
 
 function getFallbackStartElement(adapter: SiteAdapter, messageElement: HTMLElement | null): HTMLElement | null {
     return messageElement ?? adapter.getLastMessageElement();
@@ -136,7 +147,11 @@ function buildConversationReaderItem(
     return {
         id: `chatgpt-${turn.identity.assistantMessageId}`,
         userPrompt: turn.userText,
-        content: normalizeChatGPTReaderMarkdown(turn.assistantMarkdown),
+        // The ChatGPT discovery adapter has already normalized provider
+        // Markdown before publishing the immutable snapshot.  Consumer
+        // projection must not reinterpret it or create a second canonical
+        // content path.
+        content: turn.assistantMarkdown,
         meta: {
             platformId: document.platformId,
             messageId: turn.identity.assistantMessageId,
@@ -201,6 +216,33 @@ function cloneReaderItem(item: ReaderItem, pageUrl: string): ReaderItem {
     };
 }
 
+function getConversationReaderProjection(
+    snapshot: ConversationSnapshotV1,
+    pageUrl: string,
+): CachedConversationReaderProjection {
+    const normalizedUrl = normalizeChatGPTReaderPageUrl(pageUrl);
+    let byUrl = conversationProjectionCache.get(snapshot);
+    if (!byUrl) {
+        byUrl = new Map();
+        conversationProjectionCache.set(snapshot, byUrl);
+    }
+    const cached = byUrl.get(normalizedUrl);
+    if (cached) return cached;
+
+    const content = buildConversationReaderContent(snapshot, normalizedUrl);
+    const projection: CachedConversationReaderProjection = Object.freeze({
+        items: Object.freeze(content.items.map((item) => Object.freeze({
+            ...item,
+            meta: item.meta ? Object.freeze({ ...item.meta }) : undefined,
+        }))),
+        annotationDocument: Object.freeze({ ...content.annotationDocument }),
+        coverage: snapshot.coverage,
+        sourceQuality: getConversationSnapshotSourceQualityV1(snapshot),
+    });
+    byUrl.set(normalizedUrl, projection);
+    return projection;
+}
+
 function createChatGPTEmptyResult(
     status: ReaderContentSourceStatus,
     sourceRevision?: ReaderContentSourceRevision,
@@ -250,15 +292,15 @@ function projectConversationContent(
         return createChatGPTEmptyResult('target-unresolved', sourceRevision);
     }
     const pageUrl = options.pageUrl ?? window.location.href;
-    const content = buildConversationReaderContent(snapshot, pageUrl);
+    const content = getConversationReaderProjection(snapshot, pageUrl);
     const startIndex = resolveConversationStartIndex(snapshot, startTargetResolution.target);
     if (startIndex < 0) return createChatGPTEmptyResult('target-unresolved', sourceRevision);
     return {
         items: content.items.map((item) => cloneReaderItem(item, normalizeChatGPTReaderPageUrl(pageUrl))),
         startIndex,
         metadataSource: 'chatgpt-content-v1',
-        coverage: snapshot.coverage,
-        sourceQuality: getConversationSnapshotSourceQualityV1(snapshot),
+        coverage: content.coverage,
+        sourceQuality: content.sourceQuality,
         annotationDocument: {
             ...content.annotationDocument,
             lastKnownUrl: normalizeChatGPTReaderPageUrl(pageUrl),
@@ -300,32 +342,11 @@ async function collectChatGPTSnapshotReaderContent(
     startMessageElement: HTMLElement | null,
     options: ReaderContentSourceOptions,
 ): Promise<ReaderContentSourceResult> {
-    const source = getConversationContentSource(options);
-    if (!source) return createChatGPTEmptyResult('unavailable');
-
-    const initialStartTarget = resolveConversationStartTarget(
-        options.conversationMaterialization,
-        startMessageElement,
-    );
-
-    try {
-        const state = await source.refresh();
-        const snapshot = state.snapshot;
-        if (!snapshot) return createChatGPTEmptyResult('unavailable');
-
-        let startTargetResolution = initialStartTarget;
-        if (!startTargetResolution.ok && startMessageElement) {
-            startTargetResolution = resolveConversationStartTarget(
-                options.conversationMaterialization,
-                startMessageElement,
-                snapshot,
-            );
-        }
-
-        return projectConversationContent(state, snapshot, startTargetResolution, options);
-    } catch {
-        return createChatGPTEmptyResult('unavailable');
-    }
+    // Compatibility name retained for non-ChatGPT callers and existing
+    // consumer imports.  Ordinary ChatGPT consumption is a read of the last
+    // published snapshot; discovery refresh belongs to lifecycle signals or
+    // an explicit Reader Refresh action.
+    return readCurrentConversationContent(startMessageElement, options);
 }
 
 function collectDomFallbackReaderContent(

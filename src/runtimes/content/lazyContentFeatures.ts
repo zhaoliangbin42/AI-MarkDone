@@ -42,6 +42,7 @@ export class ContentFeatureModuleLoader {
     private localeRevision = 0;
     private synchronizedLocaleRevision = -1;
     private localeSyncPromise: Promise<void> = Promise.resolve();
+    private prewarmPromise: Promise<void> | null = null;
 
     constructor(private readonly importer: ContentFeatureImporter = importContentFeatureModule) {}
 
@@ -73,6 +74,23 @@ export class ContentFeatureModuleLoader {
         }
     }
 
+    prewarmReaderAndExport(): Promise<void> {
+        if (!this.prewarmPromise) {
+            this.prewarmPromise = this.load()
+                .then(async (module) => {
+                    await Promise.all([
+                        module.preloadReaderPanel(),
+                        module.preloadSaveMessagesDialog(),
+                    ]);
+                })
+                .catch((error) => {
+                    this.prewarmPromise = null;
+                    throw error;
+                });
+        }
+        return this.prewarmPromise;
+    }
+
     private queueLocaleSynchronization(module: ContentFeatureModule): Promise<void> {
         const synchronize = () => this.synchronizeLocale(module);
         this.localeSyncPromise = this.localeSyncPromise.then(synchronize, synchronize);
@@ -95,6 +113,58 @@ const defaultLoader = new ContentFeatureModuleLoader();
 
 export function setLazyContentFeatureLocale(locale: UiLocale): void {
     defaultLoader.setLocale(locale);
+}
+
+type IdleCallbackHandle = number;
+
+/**
+ * Preload only the feature chunks after a verified ChatGPT snapshot exists.
+ * The returned cancellation function is used on route/runtime teardown.
+ */
+export function scheduleLazyContentFeaturePrewarm(): () => void {
+    if (typeof document === 'undefined' || document.visibilityState !== 'visible') {
+        return () => undefined;
+    }
+    const connection = (navigator as Navigator & {
+        connection?: { saveData?: boolean };
+    }).connection;
+    if (connection?.saveData) return () => undefined;
+
+    let cancelled = false;
+    let idleHandle: IdleCallbackHandle | null = null;
+    let timeoutHandle: ReturnType<typeof window.setTimeout> | null = null;
+    const idleWindow = window as typeof window & {
+        requestIdleCallback?: (callback: () => void, options?: { timeout: number }) => IdleCallbackHandle;
+        cancelIdleCallback?: (handle: IdleCallbackHandle) => void;
+    };
+    const cleanup = () => {
+        if (idleHandle !== null) idleWindow.cancelIdleCallback?.(idleHandle);
+        if (timeoutHandle !== null) window.clearTimeout(timeoutHandle);
+        idleHandle = null;
+        timeoutHandle = null;
+        document.removeEventListener('visibilitychange', onVisibilityChange);
+    };
+    const run = () => {
+        if (cancelled || document.visibilityState !== 'visible') return;
+        cleanup();
+        void defaultLoader.prewarmReaderAndExport().catch(() => undefined);
+    };
+    const onVisibilityChange = () => {
+        if (document.visibilityState !== 'visible') {
+            cancelled = true;
+            cleanup();
+        }
+    };
+    document.addEventListener('visibilitychange', onVisibilityChange, { once: true });
+    if (idleWindow.requestIdleCallback) {
+        idleHandle = idleWindow.requestIdleCallback(run, { timeout: 2000 });
+    } else {
+        timeoutHandle = window.setTimeout(run, 1000);
+    }
+    return () => {
+        cancelled = true;
+        cleanup();
+    };
 }
 
 class LazyInstance<T> {

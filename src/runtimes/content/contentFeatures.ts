@@ -16,6 +16,11 @@ export async function createReaderPanel(): Promise<ReaderPanelPort> {
     return new ReaderPanel();
 }
 
+/** Load the Reader feature module without creating or mounting its surface. */
+export async function preloadReaderPanel(): Promise<void> {
+    await import('../../ui/content/reader/ReaderPanel');
+}
+
 export async function createBookmarksPanel(
     controller: BookmarksPanelController,
     readerPanel: ReaderPanelPort,
@@ -28,6 +33,11 @@ export async function createBookmarksPanel(
 export async function getSaveMessagesDialog() {
     const { saveMessagesDialog } = await import('../../ui/content/export/SaveMessagesDialog');
     return saveMessagesDialog;
+}
+
+/** Load the export feature module without creating or mounting its dialog. */
+export async function preloadSaveMessagesDialog(): Promise<void> {
+    await import('../../ui/content/export/SaveMessagesDialog');
 }
 
 export async function getBookmarkSaveDialog() {

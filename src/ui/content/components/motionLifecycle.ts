@@ -122,7 +122,7 @@ function clearOpeningMotion(element: HTMLElement): void {
             cancelFrame(frameId);
         }
         if (typeof job.timer === 'number') {
-            window.clearTimeout(job.timer);
+            clearTimeout(job.timer);
         }
         activeOpeningJobs.delete(element);
     }
@@ -222,7 +222,7 @@ export function beginSurfaceMotionClose(params: {
     if (activeJob) {
         shell.removeEventListener('animationend', activeJob.onAnimationEnd);
         shell.removeEventListener('animationcancel', activeJob.onAnimationEnd);
-        window.clearTimeout(activeJob.timer);
+        clearTimeout(activeJob.timer);
         activeClosingJobs.delete(shell);
     }
 
@@ -232,7 +232,7 @@ export function beginSurfaceMotionClose(params: {
         finished = true;
         shell.removeEventListener('animationend', onAnimationEnd);
         shell.removeEventListener('animationcancel', onAnimationEnd);
-        window.clearTimeout(timer);
+        clearTimeout(timer);
         activeClosingJobs.delete(shell);
         params.onClosed();
     };
@@ -261,7 +261,7 @@ export function cancelSurfaceMotionClose(params: {
 
     shell.removeEventListener('animationend', job.onAnimationEnd);
     shell.removeEventListener('animationcancel', job.onAnimationEnd);
-    window.clearTimeout(job.timer);
+    clearTimeout(job.timer);
     activeClosingJobs.delete(shell);
 
     setMotionState(shell, 'open');

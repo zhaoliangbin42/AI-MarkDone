@@ -14,11 +14,13 @@ const sharedNonIconWebAccessibleResources = [
 
 const defaultWebAccessibleResources = [
     'icons/*.png',
+    'icons/*.svg',
     ...sharedNonIconWebAccessibleResources,
 ] as const;
 
 const safariWebAccessibleResources = [
     ...extensionIconFiles.map((file) => `icons/${file}`),
+    'icons/aimd-content-architecture-5.2.0.svg',
     ...sharedNonIconWebAccessibleResources,
 ] as const;
 

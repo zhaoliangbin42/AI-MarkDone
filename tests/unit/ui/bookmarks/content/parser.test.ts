@@ -10,19 +10,19 @@ describe('bookmarks content parser', () => {
 
         expect(zh.title).toBe('更新日志');
         expect(en.title).toBe('Changelog');
-        expect(zh.entries.map((entry) => entry.version)).toEqual(['5.1.1', '5.1.0', '5.0.2', '5.0.1', '5.0.0', '4.8.0', '4.7.0', '4.6.0', '4.5.1', '4.5.0', '4.4.6', '4.4.5', '4.4.1', '4.4.0', '4.3.1', '4.3.0', '4.2.3', '4.2.2', '4.2.1', '4.2.0', '4.1.2', '4.1.1', '4.1.0', '4.0.0', '3.0.0']);
-        expect(en.entries.map((entry) => entry.version)).toEqual(['5.1.1', '5.1.0', '5.0.2', '5.0.1', '5.0.0', '4.8.0', '4.7.0', '4.6.0', '4.5.1', '4.5.0', '4.4.6', '4.4.5', '4.4.1', '4.4.0', '4.3.1', '4.3.0', '4.2.3', '4.2.2', '4.2.1', '4.2.0', '4.1.2', '4.1.1', '4.1.0', '4.0.0', '3.0.0']);
-        expect(zh.entries[0]?.date).toBe('2026-08-05');
+        expect(zh.entries.map((entry) => entry.version)).toEqual(['5.2.0', '5.1.1', '5.1.0', '5.0.2', '5.0.1', '5.0.0', '4.8.0', '4.7.0', '4.6.0', '4.5.1', '4.5.0', '4.4.6', '4.4.5', '4.4.1', '4.4.0', '4.3.1', '4.3.0', '4.2.3', '4.2.2', '4.2.1', '4.2.0', '4.1.2', '4.1.1', '4.1.0', '4.0.0', '3.0.0']);
+        expect(en.entries.map((entry) => entry.version)).toEqual(['5.2.0', '5.1.1', '5.1.0', '5.0.2', '5.0.1', '5.0.0', '4.8.0', '4.7.0', '4.6.0', '4.5.1', '4.5.0', '4.4.6', '4.4.5', '4.4.1', '4.4.0', '4.3.1', '4.3.0', '4.2.3', '4.2.2', '4.2.1', '4.2.0', '4.1.2', '4.1.1', '4.1.0', '4.0.0', '3.0.0']);
+        expect(zh.entries[0]?.date).toBe('2026-08-07');
         expect(zh.entries[0]?.leadBlocks[0]).toEqual(expect.objectContaining({
             type: 'paragraph',
-            text: expect.stringContaining('“精选”徽章'),
+            text: expect.stringContaining('千呼万唤始出来'),
         }));
         expect(en.entries[0]?.leadBlocks[0]).toEqual(expect.objectContaining({
             type: 'paragraph',
-            text: expect.stringContaining('Featured badge'),
+            text: expect.stringContaining('After a lot of waiting'),
         }));
-        expect(zh.entries[5]?.date).toBe('2026-07-11');
-        expect(en.entries[12]?.leadBlocks[0]).toEqual(
+        expect(zh.entries[5]?.date).toBe('2026-07-19');
+        expect(en.entries[13]?.leadBlocks[0]).toEqual(
             expect.objectContaining({
                 type: 'paragraph',
                 text: expect.stringContaining('personalization'),
@@ -42,19 +42,14 @@ describe('bookmarks content parser', () => {
             'Improved',
             'Fixed',
         ];
-        expect(zh.entries[3]?.sections.map((section) => section.heading)).toEqual(zhFiveZeroSections);
         expect(zh.entries[4]?.sections.map((section) => section.heading)).toEqual(zhFiveZeroSections);
-        expect(en.entries[3]?.sections.map((section) => section.heading)).toEqual(enFiveZeroSections);
+        expect(zh.entries[5]?.sections.map((section) => section.heading)).toEqual(zhFiveZeroSections);
         expect(en.entries[4]?.sections.map((section) => section.heading)).toEqual(enFiveZeroSections);
-        expect(zh.entries[3]?.sections[1]?.blocks).toContainEqual({
+        expect(en.entries[5]?.sections.map((section) => section.heading)).toEqual(enFiveZeroSections);
+        expect(zh.entries[4]?.sections[1]?.blocks).toContainEqual({
             type: 'image',
             alt: '好友迹——好友地图通讯录',
             src: 'icons/mappamory-promo-poster.png',
-        });
-        expect(zh.entries[6]?.sections[0]?.blocks).toContainEqual({
-            type: 'image',
-            alt: '好友迹 - 好友地图通讯录',
-            src: 'icons/mappamory-changelog-4.6.0.png',
         });
     });
 

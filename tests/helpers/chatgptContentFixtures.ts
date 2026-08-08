@@ -4,6 +4,7 @@ import {
     type ConversationContentStateV1,
     type ConversationSnapshotV1,
 } from '@/contracts/conversationContent';
+import { normalizeChatGPTReaderMarkdown } from '@/drivers/content/chatgpt/normalizeReaderMarkdown';
 
 type LegacyRoundFixture = {
     id?: string;
@@ -45,7 +46,9 @@ export function toConversationSnapshotV1(
                 assistantMessageId,
             },
             userText: round.userPrompt ?? '',
-            assistantMarkdown: round.assistantContent ?? '',
+            // Legacy fixture rounds represent the adapter boundary: they
+            // are normalized before becoming a published V1 snapshot.
+            assistantMarkdown: normalizeChatGPTReaderMarkdown(round.assistantContent ?? ''),
         };
     });
     return {

@@ -154,7 +154,7 @@ describe('SaveMessagesDialog', () => {
         expect(exportTurnsMarkdown).not.toHaveBeenCalled();
     });
 
-    it('refuses to open a full export from a partial V1 content snapshot', async () => {
+    it('opens an export from the currently recognized partial content snapshot', async () => {
         await setLocale('en');
         const adapter = { getPlatformId: () => 'chatgpt' } as any;
         const conversationContentSource = { read: vi.fn() } as any;
@@ -167,11 +167,11 @@ describe('SaveMessagesDialog', () => {
         });
 
         const dlg = new SaveMessagesDialog();
-        await expect(dlg.open(adapter, 'light', { conversationContentSource })).resolves.toBe(false);
-        expect(document.getElementById('aimd-save-messages-dialog-host')).toBeNull();
+        await expect(dlg.open(adapter, 'light', { conversationContentSource })).resolves.toBe(true);
+        expect(document.getElementById('aimd-save-messages-dialog-host')).toBeTruthy();
     });
 
-    it('refuses to open a full export from a stale last-good snapshot', async () => {
+    it('opens an export from a stale last-good snapshot without revalidating it', async () => {
         await setLocale('en');
         const adapter = { getPlatformId: () => 'chatgpt' } as any;
         const conversationContentSource = { read: vi.fn() } as any;
@@ -184,11 +184,11 @@ describe('SaveMessagesDialog', () => {
         });
 
         const dlg = new SaveMessagesDialog();
-        await expect(dlg.open(adapter, 'light', { conversationContentSource })).resolves.toBe(false);
-        expect(document.getElementById('aimd-save-messages-dialog-host')).toBeNull();
+        await expect(dlg.open(adapter, 'light', { conversationContentSource })).resolves.toBe(true);
+        expect(document.getElementById('aimd-save-messages-dialog-host')).toBeTruthy();
     });
 
-    it('refuses to export a complete snapshot containing reconstructed DOM bodies', async () => {
+    it('uses the published snapshot without rechecking its source quality at click time', async () => {
         await setLocale('en');
         const adapter = { getPlatformId: () => 'chatgpt' } as any;
         const conversationContentSource = { read: vi.fn() } as any;
@@ -202,8 +202,8 @@ describe('SaveMessagesDialog', () => {
         });
 
         const dlg = new SaveMessagesDialog();
-        await expect(dlg.open(adapter, 'light', { conversationContentSource })).resolves.toBe(false);
-        expect(document.getElementById('aimd-save-messages-dialog-host')).toBeNull();
+        await expect(dlg.open(adapter, 'light', { conversationContentSource })).resolves.toBe(true);
+        expect(document.getElementById('aimd-save-messages-dialog-host')).toBeTruthy();
     });
 
     it('uses the Reader source startIndex as the default selected export item', async () => {
@@ -260,7 +260,7 @@ describe('SaveMessagesDialog', () => {
         });
     });
 
-    it('does not mount a stale ChatGPT export after the source revision changes during collection', async () => {
+    it('does not require a second source revision read after the snapshot is projected', async () => {
         await setLocale('en');
         const adapter = { getPlatformId: () => 'chatgpt' } as any;
         const conversationContentSource = {
@@ -272,9 +272,9 @@ describe('SaveMessagesDialog', () => {
         vi.mocked(isReaderContentSourceRevisionCurrent).mockReturnValueOnce(false);
 
         const dlg = new SaveMessagesDialog();
-        await dlg.open(adapter, 'light', { conversationContentSource });
+        await expect(dlg.open(adapter, 'light', { conversationContentSource })).resolves.toBe(true);
 
-        expect(document.getElementById('aimd-save-messages-dialog-host')).toBeNull();
+        expect(document.getElementById('aimd-save-messages-dialog-host')).toBeTruthy();
     });
 
     it('uses an image icon for PNG and shows progress while PNG export is running', async () => {

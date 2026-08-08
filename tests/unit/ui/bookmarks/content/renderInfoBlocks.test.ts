@@ -74,6 +74,18 @@ describe('renderInfoBlocks', () => {
         expect(frame).toBeTruthy();
         expect(image?.alt).toBe('Project mark');
         expect(image?.src).toBe('chrome-extension://test/icons/icon128.png');
+        expect(frame?.querySelector<HTMLButtonElement>('.info-media__fullscreen')?.getAttribute('aria-label')).toBe('Enlarge image');
+    });
+
+    it('opens a local enlarged view without entering browser fullscreen', () => {
+        const fragment = renderInfoBlocks([{ type: 'image', alt: 'Project mark', src: 'icons/icon128.png' }]);
+        const host = document.createElement('div');
+        host.appendChild(fragment);
+
+        const frame = host.querySelector<HTMLElement>('.info-media')!;
+        frame.querySelector<HTMLButtonElement>('.info-media__fullscreen')?.click();
+
+        expect(frame.classList.contains('info-media--expanded')).toBe(true);
     });
 
     it('renders preserved line breaks inside paragraphs and list items', () => {

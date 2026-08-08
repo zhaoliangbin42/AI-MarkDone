@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 
 import {
     createConversationDocumentKeyV1,
@@ -127,7 +127,7 @@ describe('Reader Content Port V1 projection', () => {
         expect(result.items[0]?.meta?.sourceQuality).toBe('reconstructed');
     });
 
-    it('keeps a same-document last-good snapshot available and labels it stale', async () => {
+    it('keeps a same-document last-good snapshot available for immediate consumption', async () => {
         const source = createSource(createState('stale'));
         const result = await collectFreshReaderContent(
             { getPlatformId: () => 'chatgpt' } as any,
@@ -138,6 +138,19 @@ describe('Reader Content Port V1 projection', () => {
         expect(result.status).toBe('stale');
         expect(result.items).toHaveLength(1);
         expect(isReaderContentSourceRevisionCurrent(source, result.sourceRevision)).toBe(true);
+    });
+
+    it('does not wait for refresh when a stale last-good snapshot exists', async () => {
+        const source = createSource(createState('stale'));
+        const refresh = vi.fn(async () => new Promise<ConversationContentStateV1>(() => undefined));
+        const result = await readCurrentReaderContent(
+            { getPlatformId: () => 'chatgpt' } as any,
+            null,
+            { conversationContentSource: { ...source, refresh } as any },
+        );
+
+        expect(result.items).toHaveLength(1);
+        expect(refresh).not.toHaveBeenCalled();
     });
 
     it('fails closed when the materialization adapter has not resolved the clicked message', () => {

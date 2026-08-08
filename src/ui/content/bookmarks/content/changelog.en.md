@@ -1,5 +1,32 @@
 # Changelog
 
+# 5.2.0
+2026-08-07
+
+After a lot of waiting, AI-MarkDone 5.2.0 is here.
+
+ChatGPT recently updated its website. The visible experience changed only slightly, but the way the page organizes and loads content changed substantially, which disrupted AI-MarkDone's content discovery.
+
+The directory rail, Reader, export, word count, formula recognition, and bookmarks all depend on that same discovery path. Once the path became unreliable, each of these features was affected in different ways.
+
+Thank you for all the feedback, testing, and persistent requests for an update. This release fixes the visible problems and reorganizes content discovery, page adaptation, and feature consumption into a more reliable, stable, and coherent flow.
+
+1. Formula display changed
+
+   ChatGPT changed how formulas are displayed on the page. The previous recognition path could no longer reliably find the formula source, so copied formulas could become ordinary text. Formula recognition and copying have been adapted to the new presentation.
+
+2. Message loading changed
+
+   ChatGPT does not keep every message visibly mounted at the same time. It loads and displays parts of a conversation as needed. The old approach could mistake the messages currently visible on the page for the entire conversation, leaving the directory, Reader, export, and word count incomplete.
+
+   The discovery path is now organized around one shared source: messages are recognized first, then the adapter turns them into stable content for the directory, Reader, export, copy, bookmarks, and word count. This reduces inconsistencies between features and makes the extension better prepared for future website updates.
+
+![5.2.0 content architecture](icons/aimd-content-architecture-5.2.0.svg)
+
+Finally, I also hope you will take a look at my iOS app, Mappamory—a private map contact book for remembering friends and the places connected to your stories.
+
+![Mappamory — map-based contacts](icons/mappamory-promo-poster.png)
+
 # 5.1.1
 2026-08-05
 
@@ -209,8 +236,6 @@ Hi everyone. This update took a while too. It fixes a few known issues and adds 
 
 ==Like AI-MarkDone, I want Mappamory to feel clean, quiet, and respectful. It is not a social network and it is not for tracking anyone's live location. It does not share addresses with other people, and it does not need network access. Everything comes from what you choose to record, and it stays on your phone like a private contact book with a map attached.==
 
-![Mappamory - friends map contacts](icons/mappamory-changelog-4.6.0.png)
-
 ==Mappamory has just launched and is still moving quickly. If you download it before July 31, please contact me on X and I will give you a one-year redemption code. Feedback, support, and sharing are all very welcome. This app is not a random side idea for me; it comes from something I actually need, and I plan to keep maintaining it and adding more useful features.==
 
 ==Download: [https://apps.apple.com/cn/app/mappamory/id6769453796](https://apps.apple.com/cn/app/mappamory/id6769453796?l=en-GB)==
@@ -296,8 +321,6 @@ The content discovery path exists to support Copy Markdown, navigation, Reader, 
 ==It is a friends map contact book. You can create people, add multiple places for each person, and tag those places. The people and places then appear on a map. Every time a friend mentions a place, you can quickly record it. Over time, the map slowly fills up, and you may realize how many people around you have scattered across different cities.==
 
 ==When you meet again, you will not have to feel awkward because you forgot someone's hometown, school, or workplace. When you arrive in a city, you can open the map and remember that a friend is living there, and maybe decide to meet. The app is designed to be easy to use, simple, and pleasant.==
-
-![Mappamory - friends map contacts](icons/mappamory-changelog-4.6.0.png)
 
 ==The app has just launched. If you download it before June 30, 2026, please contact me on Xiaohongshu or X, and I will give each person a one-year redemption code. I would also love your feedback, support, and help sharing it. I really enjoy the feeling of people working together to make something better.==
 

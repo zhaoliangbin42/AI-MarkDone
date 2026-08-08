@@ -92,7 +92,9 @@ describe('MessageToolbarOrchestrator ChatGPT reader path', () => {
     function createConversationSource(snapshotOrSnapshots: any | any[]) {
         const snapshots = Array.isArray(snapshotOrSnapshots) ? snapshotOrSnapshots : [snapshotOrSnapshots];
         let current = snapshots[0] ?? null;
-        let nextIndex = 0;
+        // The runtime now reads the initial published snapshot directly.  An
+        // explicit refresh should advance to the next fixture snapshot.
+        let nextIndex = snapshots.length > 1 ? 1 : 0;
         const unavailable = {
             kind: 'unavailable' as const,
             document: null,
@@ -228,7 +230,7 @@ describe('MessageToolbarOrchestrator ChatGPT reader path', () => {
 
         await readerAction.onClick();
 
-        expect(conversationContentSource.refresh).toHaveBeenCalledTimes(1);
+        expect(conversationContentSource.refresh).not.toHaveBeenCalled();
         expect(readerPanel.show).toHaveBeenCalledWith(
             [
                 expect.objectContaining({
@@ -416,7 +418,7 @@ describe('MessageToolbarOrchestrator ChatGPT reader path', () => {
 
         await readerAction.onClick();
 
-        expect(conversationContentSource.refresh).toHaveBeenCalledTimes(1);
+        expect(conversationContentSource.refresh).not.toHaveBeenCalled();
         expect(readerPanel.show).toHaveBeenCalledWith(
             [expect.objectContaining({
                 userPrompt: 'Research this topic',
@@ -717,7 +719,7 @@ describe('MessageToolbarOrchestrator ChatGPT reader path', () => {
             rerender: vi.fn(),
         });
 
-        expect(conversationContentSource.refresh).toHaveBeenCalledTimes(2);
+        expect(conversationContentSource.refresh).toHaveBeenCalledOnce();
         expect(readerPanel.show).toHaveBeenCalledTimes(2);
         expect(readerPanel.show.mock.calls[1][1]).toBe(0);
         expect(shownItems[0].content).toBe('Refreshed answer with $x+y$');
@@ -850,7 +852,7 @@ describe('MessageToolbarOrchestrator ChatGPT reader path', () => {
 
         expect(typeof shownItems[0]?.content).toBe('string');
         expect(shownItems[1]?.content).toBe('Tail before');
-        expect(conversationContentSource.refresh).toHaveBeenCalledTimes(1);
+        expect(conversationContentSource.refresh).not.toHaveBeenCalled();
     });
 
     it('keeps the original Reader content when no later snapshot is published', async () => {
@@ -946,7 +948,7 @@ describe('MessageToolbarOrchestrator ChatGPT reader path', () => {
             expect.any(String),
             expect.objectContaining({ profile: 'conversation-reader' }),
         );
-        expect(conversationContentSource.refresh).toHaveBeenCalledTimes(1);
+        expect(conversationContentSource.refresh).not.toHaveBeenCalled();
     });
 
     it('does not append DOM-derived tail pages into a ChatGPT snapshot-backed Reader', async () => {
@@ -1028,7 +1030,7 @@ describe('MessageToolbarOrchestrator ChatGPT reader path', () => {
             userMessage: 'Question 50',
             aiResponse: 'Answer 50',
         }), true);
-        expect(conversationContentSource.refresh).toHaveBeenCalledTimes(1);
+        expect(conversationContentSource.refresh).not.toHaveBeenCalled();
         expect(toolbar.setActionActive).toHaveBeenCalledWith('bookmark_toggle', true);
     });
 
@@ -1120,7 +1122,7 @@ describe('MessageToolbarOrchestrator ChatGPT reader path', () => {
 
         expect(result).toEqual(expect.objectContaining({ ok: false }));
         expect(bookmarksController.setPositionBookmarkSaved).not.toHaveBeenCalled();
-        expect(conversationContentSource.refresh).toHaveBeenCalledOnce();
+        expect(conversationContentSource.refresh).not.toHaveBeenCalled();
     });
 
     it('highlights ChatGPT bookmark buttons by payload position instead of DOM-local position', async () => {

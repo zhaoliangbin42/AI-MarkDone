@@ -1,0 +1,62 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1400" height="1040" viewBox="0 0 1400 1040" role="img" aria-labelledby="title desc">
+  <title id="title">AI-MarkDone 5.2.0 内容架构</title>
+  <desc id="desc">上层功能、统一适配层、内容发现层和 ChatGPT 页面内容自上而下连接。</desc>
+  <defs>
+    <linearGradient id="header" x1="0" x2="1" y1="0" y2="1"><stop offset="0" stop-color="#10a37f"/><stop offset="1" stop-color="#087f66"/></linearGradient>
+    <filter id="shadow" x="-10%" y="-10%" width="120%" height="130%"><feDropShadow dx="0" dy="8" stdDeviation="10" flood-color="#173b34" flood-opacity=".12"/></filter>
+    <marker id="arrow" markerWidth="12" markerHeight="12" refX="10" refY="6" orient="auto"><path d="M0 0L12 6L0 12Z" fill="#10a37f"/></marker>
+    <style>
+      .title{font:700 31px -apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;fill:#fff}.subtitle{font:400 17px -apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;fill:#d8fff3}.layer{font:700 23px -apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;fill:#143a32}.card{font:600 17px -apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;fill:#087f66}.body{font:400 16px -apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;fill:#35534d}.note{font:400 15px -apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;fill:#527069}.arrow{fill:none;stroke:#10a37f;stroke-width:4;stroke-linecap:round;marker-end:url(#arrow)}
+    </style>
+  </defs>
+
+  <rect width="1400" height="1040" rx="30" fill="#f5faf8"/>
+  <rect x="40" y="34" width="1320" height="106" rx="24" fill="url(#header)"/>
+  <text x="78" y="82" class="title">ChatGPT 内容架构</text>
+  <text x="78" y="113" class="subtitle">统一发现、统一适配、统一服务上层功能</text>
+
+  <!-- Layer 1: consumers -->
+  <rect x="80" y="170" width="1240" height="220" rx="22" fill="#fff" stroke="#9edbcb" stroke-width="2" filter="url(#shadow)"/>
+  <text x="120" y="212" class="layer">上层功能消费层</text>
+  <text x="120" y="240" class="note">所有功能从统一适配层读取稳定内容</text>
+  <g>
+    <rect x="120" y="270" width="205" height="78" rx="14" fill="#eaf8f3"/><text x="222" y="301" text-anchor="middle" class="card">目录条</text><text x="222" y="328" text-anchor="middle" class="body">消息列表与跳转</text>
+    <rect x="345" y="270" width="205" height="78" rx="14" fill="#eaf8f3"/><text x="447" y="301" text-anchor="middle" class="card">阅读器</text><text x="447" y="328" text-anchor="middle" class="body">完整内容阅读</text>
+    <rect x="570" y="270" width="205" height="78" rx="14" fill="#eaf8f3"/><text x="672" y="301" text-anchor="middle" class="card">字数统计</text><text x="672" y="328" text-anchor="middle" class="body">消息与回答统计</text>
+    <rect x="795" y="270" width="205" height="78" rx="14" fill="#eaf8f3"/><text x="897" y="301" text-anchor="middle" class="card">导出与复制</text><text x="897" y="328" text-anchor="middle" class="body">Markdown 与文件</text>
+    <rect x="1020" y="270" width="205" height="78" rx="14" fill="#eaf8f3"/><text x="1122" y="301" text-anchor="middle" class="card">书签与公式</text><text x="1122" y="328" text-anchor="middle" class="body">保存、定位与公式</text>
+  </g>
+
+  <line x1="700" y1="390" x2="700" y2="430" class="arrow"/>
+
+  <!-- Layer 2: adapter -->
+  <rect x="80" y="440" width="1240" height="190" rx="22" fill="#fff" stroke="#9edbcb" stroke-width="2" filter="url(#shadow)"/>
+  <text x="120" y="482" class="layer">统一适配层</text>
+  <text x="120" y="510" class="note">将页面差异整理成稳定、统一、可复用的内容</text>
+  <g>
+    <rect x="120" y="540" width="260" height="58" rx="14" fill="#eaf8f3"/><text x="250" y="576" text-anchor="middle" class="card">统一消息身份</text>
+    <rect x="400" y="540" width="260" height="58" rx="14" fill="#eaf8f3"/><text x="530" y="576" text-anchor="middle" class="card">标准 Markdown</text>
+    <rect x="680" y="540" width="260" height="58" rx="14" fill="#eaf8f3"/><text x="810" y="576" text-anchor="middle" class="card">公式与代码</text>
+    <rect x="960" y="540" width="265" height="58" rx="14" fill="#eaf8f3"/><text x="1092" y="576" text-anchor="middle" class="card">内容快照与定位</text>
+  </g>
+
+  <line x1="700" y1="630" x2="700" y2="670" class="arrow"/>
+
+  <!-- Layer 3: discovery -->
+  <rect x="80" y="680" width="1240" height="190" rx="22" fill="#fff" stroke="#9edbcb" stroke-width="2" filter="url(#shadow)"/>
+  <text x="120" y="722" class="layer">内容发现层</text>
+  <text x="120" y="750" class="note">稳定发现内容，不决定上层如何展示</text>
+  <g>
+    <rect x="120" y="780" width="260" height="58" rx="14" fill="#eaf8f3"/><text x="250" y="816" text-anchor="middle" class="card">对话与 Prompt</text>
+    <rect x="400" y="780" width="260" height="58" rx="14" fill="#eaf8f3"/><text x="530" y="816" text-anchor="middle" class="card">身份与顺序</text>
+    <rect x="680" y="780" width="260" height="58" rx="14" fill="#eaf8f3"/><text x="810" y="816" text-anchor="middle" class="card">增量与缓存</text>
+    <rect x="960" y="780" width="265" height="58" rx="14" fill="#eaf8f3"/><text x="1092" y="816" text-anchor="middle" class="card">水合与页面定位</text>
+  </g>
+
+  <line x1="700" y1="870" x2="700" y2="910" class="arrow"/>
+
+  <!-- Layer 4: page content -->
+  <rect x="80" y="920" width="1240" height="76" rx="22" fill="#eaf8f3" stroke="#9edbcb" stroke-width="2" filter="url(#shadow)"/>
+  <text x="700" y="952" text-anchor="middle" class="layer">ChatGPT 页面内容</text>
+  <text x="700" y="978" text-anchor="middle" class="body">对话消息 · 用户 Prompt · 助手回答 · 公式与代码</text>
+</svg>
