@@ -14,6 +14,10 @@ import {
     type ChatGPTMaterializationResult,
 } from './ChatGPTConversationNavigation';
 import { getChatGPTConversationIndex, type ChatGPTConversationIndex } from './ChatGPTConversationIndex';
+import {
+    resolveChatGPTDomRoundIdentity,
+    type ChatGPTDomRoundRef,
+} from './domConversationDiscovery';
 
 export type ChatGPTConversationMaterializationOptions = Readonly<{
     adapter: SiteAdapter;
@@ -28,6 +32,8 @@ export class ChatGPTConversationMaterialization implements ConversationMateriali
     private readonly unsubscribeContent: () => void;
     private readonly unsubscribeIndex: () => void;
     private navigation: ConversationNavigationPortV1 | null = null;
+    private readonly anchorTokens = new WeakMap<HTMLElement, string>();
+    private anchorSequence = 0;
     private snapshot: MaterializationSnapshotV1 = {
         materializationToken: 'chatgpt-materialization:empty',
         contentToken: null,
@@ -57,12 +63,34 @@ export class ChatGPTConversationMaterialization implements ConversationMateriali
 
     resolveElement(element: HTMLElement): ConversationTargetV1 | null {
         const state = this.options.content.read();
-        if (!state.document || !state.snapshot) return null;
+        if (!state.document) return null;
+        const hostResolver = this.index as Partial<Pick<ChatGPTConversationIndex, 'resolveHostRoundForElement'>>;
+        if (typeof hostResolver.resolveHostRoundForElement === 'function') {
+            const hostRound = hostResolver.resolveHostRoundForElement(element);
+            const identity = hostRound ? resolveChatGPTDomRoundIdentity(hostRound) : null;
+            if (!identity) return null;
+            const semantic = state.snapshot?.turns.find((turn) => (
+                turn.identity.assistantMessageId === identity.assistantMessageId
+            ));
+            return semantic
+                ? toTarget(
+                    state.document.key,
+                    semantic.identity.turnId,
+                    semantic.identity.assistantMessageId,
+                    semantic.identity.userMessageId,
+                )
+                : toTarget(
+                    state.document.key,
+                    identity.turnId,
+                    identity.assistantMessageId,
+                    identity.userMessageId,
+                );
+        }
+        if (!state.snapshot) return null;
         const indexed = this.index.resolveRoundForElement(element);
         if (!indexed || indexed.identity.assistantMessageId === null) return null;
         const semantic = state.snapshot.turns.find((turn) => (
             turn.identity.assistantMessageId === indexed.identity.assistantMessageId
-            && (!indexed.identity.roundId || turn.identity.turnId === indexed.identity.roundId)
         ));
         if (!semantic) return null;
         return toTarget(state.document.key, semantic.identity.turnId, semantic.identity.assistantMessageId, semantic.identity.userMessageId);
@@ -129,36 +157,70 @@ export class ChatGPTConversationMaterialization implements ConversationMateriali
         const state = this.options.content.read();
         const documentKey = state.document?.key ?? null;
         const contentToken = state.snapshot?.contentToken ?? null;
-        const entries = documentKey && state.snapshot
-            ? this.index.getRounds()
-                .map((indexed) => {
-                    const assistantMessageId = indexed.identity.assistantMessageId;
-                    const anchorElement = indexed.materialized?.jumpAnchorEl ?? null;
-                    if (!assistantMessageId || !anchorElement?.isConnected) return null;
-                    const semantic = state.snapshot!.turns.find((turn) => (
-                        turn.identity.assistantMessageId === assistantMessageId
-                        && (!indexed.identity.roundId || turn.identity.turnId === indexed.identity.roundId)
-                    ));
-                    if (!semantic) return null;
+        const semanticByAssistantId = new Map(
+            state.snapshot?.turns.map((turn) => [turn.identity.assistantMessageId, turn] as const) ?? [],
+        );
+        const entries = documentKey
+            ? this.readHostRounds()
+                .map((round) => {
+                    const identity = resolveChatGPTDomRoundIdentity(round);
+                    const messageElement = round.assistantMessageEl;
+                    if (!identity || !messageElement.isConnected) return null;
+                    const anchorElement = this.options.adapter.getToolbarAnchorElement(messageElement)
+                        ?? messageElement;
+                    if (!anchorElement.isConnected) return null;
+                    const semantic = semanticByAssistantId.get(identity.assistantMessageId);
                     return {
-                        target: toTarget(documentKey, semantic.identity.turnId, assistantMessageId, semantic.identity.userMessageId),
+                        target: semantic
+                            ? toTarget(
+                                documentKey,
+                                semantic.identity.turnId,
+                                semantic.identity.assistantMessageId,
+                                semantic.identity.userMessageId,
+                            )
+                            : toTarget(
+                                documentKey,
+                                identity.turnId,
+                                identity.assistantMessageId,
+                                identity.userMessageId,
+                            ),
                         anchorElement,
+                        messageElement,
                     };
                 })
                 .filter((entry): entry is NonNullable<typeof entry> => entry !== null)
             : [];
-        const semanticKeys = entries.map((entry) => `${entry.target.turnId}:${entry.target.assistantMessageId}`);
+        const semanticKeys = entries.map((entry) => (
+            `${entry.target.turnId}:${entry.target.assistantMessageId}:${this.getAnchorToken(entry.anchorElement)}`
+        ));
         const next: MaterializationSnapshotV1 = Object.freeze({
             materializationToken: `chatgpt-materialization:${contentToken ?? 'none'}:${semanticKeys.join('|')}`,
             contentToken,
             entries: Object.freeze(entries.map((entry) => Object.freeze({
                 target: Object.freeze({ ...entry.target }),
                 anchorElement: entry.anchorElement,
+                messageElement: entry.messageElement,
             }))),
         });
         if (next.materializationToken === this.snapshot.materializationToken) return;
         this.snapshot = next;
         for (const listener of Array.from(this.listeners)) listener(this.snapshot);
+    }
+
+    private getAnchorToken(element: HTMLElement): string {
+        const existing = this.anchorTokens.get(element);
+        if (existing) return existing;
+        const token = `anchor-${++this.anchorSequence}`;
+        this.anchorTokens.set(element, token);
+        return token;
+    }
+
+    private readHostRounds(): ChatGPTDomRoundRef[] {
+        const hostIndex = this.index as Partial<Pick<ChatGPTConversationIndex, 'getHostRounds'>>;
+        if (typeof hostIndex.getHostRounds === 'function') return hostIndex.getHostRounds();
+        return this.index.getRounds()
+            .map((round) => round.materialized)
+            .filter((round): round is ChatGPTDomRoundRef => round !== null);
     }
 }
 

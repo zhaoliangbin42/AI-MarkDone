@@ -1,4 +1,9 @@
-# ADR-0015: ChatGPT directory uses the passive graph source
+# ADR-0015: ChatGPT directory uses the unified content source
+
+> Supersession note: ADR-0017 keeps the passive Graph as the once-only complete
+> history baseline, but permits compiler-verified stable DOM successors after
+> that baseline. DOM still cannot reconstruct missing history or trigger
+> extension network acquisition.
 
 ## Context
 
@@ -16,13 +21,15 @@ off-screen entries.
 
 ## Decision
 
-For ChatGPT, the directory's canonical source is the passive graph path:
+For ChatGPT, the directory's canonical source is the same baseline-and-tail
+Content Port used by every whole-turn consumer:
 
 ```text
 website-owned conversation GET
   -> document_start MAIN-world bridge
-  -> validated mapping/current_node parser
-  -> ConversationContentRepository
+  -> once-only validated history baseline --------+
+stable typed DOM successor -> rendered compiler --+
+                                                   -> ConversationContentRepository
   -> ChatGPTConversationIndex
   -> ChatGPTDirectoryController
 ```
@@ -33,11 +40,12 @@ already-returned response for an in-memory evidence snapshot, but it must not
 issue a conversation request, read cookies/storage/tokens/authorization
 headers, inspect generation payloads, or create POST/SSE/WebSocket traffic.
 
-The adapter validates conversation identity, parent-chain termination, node
-identity, current branch, displayable user/assistant messages, and complete
-assistant content before publishing a graph candidate. It re-numbers only the
-validated graph projection for the existing V1 display position. DOM facts are
-limited to materialization and anchor lookup.
+The Source Adapter validates conversation identity, parent-chain termination,
+node identity, current branch and complete assistant content before admitting
+the one Graph baseline. The Host Monitor may subsequently append only a typed,
+stable, compiler-verified successor to the sealed tail. DOM-local ordinals
+never become directory order; new host turns receive their Repository ordinal
+only after predecessor validation.
 
 Directory navigation uses a two-stage, user-initiated operation: resolve the
 canonical typed target to the persistent host slot, then wait for the exact
@@ -45,11 +53,11 @@ message identity to hydrate. If the slot topology cannot be proven, navigation
 fails closed. Ratio, pixel probing, binary search, synthetic scrolling, and
 DOM text/ordinal fallbacks are not allowed.
 
-The existing V1 content/materialization seams remain public and are now the
-single ChatGPT consumer seam. The V2 slot/compiler module is not injected into
-the production runtime; it remains isolated for focused topology/compiler
-tests only. It is not a second source of content, identity, order, or
-materialization.
+The existing V1 content/materialization seams remain the single ChatGPT
+consumer seam. `RenderedContentCompilerV2` is used only behind the shared Host
+Monitor; the standalone V2 discovery module remains outside the production
+composition. Neither topology nor Materialization is a second source of
+complete history.
 
 ## Consequences
 
@@ -60,12 +68,14 @@ materialization.
 - A partial, invalid, branch-conflicted, or unavailable graph cannot produce
   guessed directory labels.
 - Refresh, scrolling, and directory clicks do not add conversation requests.
-- Reader, word count, whole-message copy, Bookmark Preparation, local
-  selection, formula copy, and Save Messages export all read the same V1
-  graph-backed snapshot. The materialization adapter is used only to map a
-  currently mounted element to that snapshot's typed identity.
+- Reader, word count, whole-message copy, Bookmark Preparation and Save
+  Messages export all read the same V1 source/hybrid/host-born snapshot. Exact
+  local selection and annotation still require source-span proof. The
+  materialization adapter maps currently mounted typed surfaces and may expose
+  a pending toolbar anchor before content sealing.
 
 ## Status
 
-Accepted — ChatGPT directory implementation active; installed-browser
-acceptance remains a required release check.
+Amended by ADR-0017 — the passive history baseline and directory source rules
+remain active, while the stable DOM tail now shares that same content seam.
+Installed-browser acceptance remains required.

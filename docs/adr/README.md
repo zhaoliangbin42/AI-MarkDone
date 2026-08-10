@@ -25,7 +25,7 @@
 
 编号递增，标题保持简短。
 
-当前 ChatGPT 内容消费来源见 [ADR-0015-chatgpt-passive-graph-directory.md](ADR-0015-chatgpt-passive-graph-directory.md)：官网自有 conversation GET 只被动进入 Graph 主链，随后由同一个 V1 content/materialization seam 服务目录、Reader、书签、复制、公式、字数与导出。消费性能收敛见 [ADR-0016-chatgpt-snapshot-first-consumption.md](ADR-0016-chatgpt-snapshot-first-consumption.md)。V2 Slot Topology/Compiler 仅保留为隔离实验和测试，不能成为生产消费者的旁路。ADR-0014 的 V2 production-root 决策已被本次收敛明确 supersede。
+当前 ChatGPT 内容生命周期见 [ADR-0017-chatgpt-baseline-and-host-tail-lifecycle.md](ADR-0017-chatgpt-baseline-and-host-tail-lifecycle.md)：官网自有 conversation GET 只被动建立一次完整历史基线，随后由共享 Page Monitor 验证并追加稳定 DOM 尾部；同一个 V1 content/materialization seam 服务目录、Reader、书签、复制、公式、字数与导出。ADR-0015 的被动网络边界继续有效，ADR-0016 的 snapshot-first 消费继续有效，但其重复 refresh/stale export 语义由 ADR-0017 取代。ADR-0014 的稳定 compiler 能力已被吸收，第二 observer/第二生产仓库仍被 supersede。
 
 ## Required Sections
 

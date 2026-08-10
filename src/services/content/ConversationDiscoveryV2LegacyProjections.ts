@@ -215,6 +215,7 @@ function projectState(discovery: ConversationDiscoveryPortV2): ConversationConte
         .filter((result): result is Extract<ReturnType<ConversationDiscoveryPortV2['readTurn']>, { kind: 'ready' }> => result.kind === 'ready')
         .map((result) => toV1Turn(result));
     const proof: ConversationSnapshotProofV1 = {
+        basis: 'host-born',
         order: 'complete',
         bodies: snapshot.readyCount === snapshot.totalCount ? 'complete' : 'gapped',
         tail: snapshot.entries[snapshot.entries.length - 1]?.content.kind === 'ready' ? 'stable' : 'streaming',
@@ -272,9 +273,9 @@ function toV1Turn(result: Extract<ReturnType<ConversationDiscoveryPortV2['readTu
         userText: result.turn.user.text,
         assistantMarkdown: result.turn.assistant.markdown,
         assistantProvenance: {
-            authority: 'primary',
-            fidelity: 'exact',
-            producer: 'conversation-discovery-v2',
+            authority: 'host-rendered',
+            fidelity: 'normalized',
+            producer: 'rendered-content-v2',
         },
     };
 }

@@ -8,10 +8,11 @@ import type { SemanticContentProvenanceV1 } from './semanticContent';
 
 export type ConversationContentTokenV1 = string;
 
-export type ConversationTurnSourceQualityV1 = 'source-backed' | 'reconstructed';
+export type ConversationTurnSourceQualityV1 = 'source-backed' | 'host-rendered' | 'reconstructed';
 
 export type ConversationSnapshotSourceQualityV1 =
     | 'source-backed'
+    | 'host-rendered'
     | 'mixed'
     | 'reconstructed';
 
@@ -42,7 +43,7 @@ export class ConversationContentAcquisitionError extends Error {
         reason: ConversationContentAcquisitionReasonV1,
         options?: { retryable?: boolean },
     ) {
-        super(`Conversation content acquisition failed: ${reason}`);
+        super(`Conversation baseline admission failed: ${reason}`);
         this.name = 'ConversationContentAcquisitionError';
         this.reason = reason;
         this.retryable = options?.retryable ?? (
@@ -81,6 +82,8 @@ export type ConversationTurnV1 = Readonly<{
 export type ConversationSnapshotV1 = Readonly<{
     schemaVersion: 1;
     document: ConversationDocumentRefV1;
+    /** Changes when regeneration creates a new immutable active suffix. */
+    projectionId?: string;
     contentToken: ConversationContentTokenV1;
     coverage: 'complete' | 'partial';
     turns: readonly ConversationTurnV1[];
@@ -89,6 +92,8 @@ export type ConversationSnapshotV1 = Readonly<{
 }>;
 
 export type ConversationSnapshotProofV1 = Readonly<{
+    /** How the active projection was established. */
+    basis?: 'source' | 'hybrid' | 'host-born';
     order: 'complete' | 'gapped';
     bodies: 'complete' | 'gapped';
     tail: 'stable' | 'streaming';
@@ -149,11 +154,6 @@ export interface ConversationContentSourceV1 {
     isCurrent(contentToken: ConversationContentTokenV1): boolean;
 }
 
-export interface ConversationContentCoordinatorV1 extends ConversationContentSourceV1 {
-    scheduleReconcile(): void;
-    reconcile(): Promise<ConversationContentStateV1>;
-}
-
 export type ConversationContentStateListenerV1 = (
     state: ConversationContentStateV1,
 ) => void;
@@ -180,6 +180,7 @@ export function isConversationDocumentRefV1(value: unknown): value is Conversati
 export function isConversationSnapshotV1(value: unknown): value is ConversationSnapshotV1 {
     if (!isRecord(value)) return false;
     if (value.schemaVersion !== 1 || !isConversationDocumentRefV1(value.document)) return false;
+    if (value.projectionId !== undefined && !isNonEmptyString(value.projectionId)) return false;
     if (!isNonEmptyString(value.contentToken)) return false;
     if (value.coverage !== 'complete' && value.coverage !== 'partial') return false;
     if (!Array.isArray(value.turns)) return false;
@@ -263,6 +264,12 @@ function isNullableString(value: unknown): value is string | null {
 function isConversationSnapshotProofV1(value: unknown): value is ConversationSnapshotProofV1 {
     if (!isRecord(value)) return false;
     if (value.order !== 'complete' && value.order !== 'gapped') return false;
+    if (
+        value.basis !== undefined
+        && value.basis !== 'source'
+        && value.basis !== 'hybrid'
+        && value.basis !== 'host-born'
+    ) return false;
     if (value.bodies !== 'complete' && value.bodies !== 'gapped') return false;
     if (value.tail !== 'stable' && value.tail !== 'streaming') return false;
     if (!Array.isArray(value.gaps)) return false;
@@ -287,6 +294,7 @@ function isOptionalSemanticContentProvenanceV1(value: unknown): boolean {
     return (
         value.authority === 'primary'
         || value.authority === 'verified-derived'
+        || value.authority === 'host-rendered'
         || value.authority === 'reconstructed'
         || value.authority === 'rendered-only'
     ) && (
@@ -314,19 +322,25 @@ export function isConversationTurnSourceBackedV1(turn: ConversationTurnV1): bool
 export function getConversationTurnSourceQualityV1(
     turn: ConversationTurnV1,
 ): ConversationTurnSourceQualityV1 {
-    return isConversationTurnSourceBackedV1(turn) ? 'source-backed' : 'reconstructed';
+    if (isConversationTurnSourceBackedV1(turn)) return 'source-backed';
+    return turn.assistantProvenance?.authority === 'host-rendered'
+        ? 'host-rendered'
+        : 'reconstructed';
 }
 
 export function getConversationSnapshotSourceQualityV1(
     snapshot: ConversationSnapshotV1,
 ): ConversationSnapshotSourceQualityV1 {
     let sourceBacked = 0;
+    let hostRendered = 0;
     let reconstructed = 0;
     for (const turn of snapshot.turns) {
         if (isConversationTurnSourceBackedV1(turn)) sourceBacked += 1;
+        else if (turn.assistantProvenance?.authority === 'host-rendered') hostRendered += 1;
         else reconstructed += 1;
     }
-    if (reconstructed === 0) return 'source-backed';
-    if (sourceBacked === 0) return 'reconstructed';
+    if (sourceBacked === snapshot.turns.length) return 'source-backed';
+    if (hostRendered === snapshot.turns.length) return 'host-rendered';
+    if (reconstructed === snapshot.turns.length) return 'reconstructed';
     return 'mixed';
 }

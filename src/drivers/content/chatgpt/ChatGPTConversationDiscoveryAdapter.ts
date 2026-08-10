@@ -34,11 +34,6 @@ type BridgeResponse = {
     };
 };
 
-export type ChatGPTConversationDiscoveryAdapterOptions = Readonly<{
-    /** Kept as a source-compatible no-op; ChatGPT never actively acquires graph data. */
-    allowActiveAcquisition?: boolean;
-}>;
-
 export class ChatGPTConversationDiscoveryAdapter {
     private readonly signalListeners = new Set<() => void>();
     private completedGeneration: { conversationId: string; assistantMessageId: string } | null = null;
@@ -68,8 +63,6 @@ export class ChatGPTConversationDiscoveryAdapter {
         }
         for (const listener of Array.from(this.signalListeners)) listener();
     };
-
-    constructor(_options: ChatGPTConversationDiscoveryAdapterOptions = {}) {}
 
     resolveDocument(): ConversationDocumentRefV1 | null {
         const conversationId = getChatGPTConversationId(window.location.href)?.trim().toLowerCase() ?? null;
@@ -113,17 +106,7 @@ export class ChatGPTConversationDiscoveryAdapter {
         return this.request('peek', document, PEEK_TIMEOUT_MS, signal);
     }
 
-    async acquire(signal: AbortSignal): Promise<ConversationContentCandidateV1 | null> {
-        return this.peek(signal);
-    }
-
-    async acquireEvidence(
-        signal: AbortSignal,
-    ): Promise<ConversationContentCandidateV1 | null> {
-        const document = this.resolveDocument();
-        if (!document) {
-            throw new ConversationContentAcquisitionError('source-unavailable', { retryable: true });
-        }
+    async readBaseline(signal: AbortSignal): Promise<ConversationContentCandidateV1 | null> {
         return this.peek(signal);
     }
 

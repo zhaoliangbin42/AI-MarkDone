@@ -289,6 +289,26 @@ describe('ChatGPTPageIndex', () => {
         unsubscribe();
     });
 
+    it('publishes verified Deep Research iframe hydration as a lifecycle signal', async () => {
+        const batches: Array<{ kinds: readonly string[]; ids: readonly string[] }> = [];
+        const unsubscribe = getChatGPTPageIndex(adapter).subscribeObservations((batch) => {
+            batches.push({ kinds: batch.kinds, ids: batch.assistantMessageIds });
+        });
+        const assistant = document.querySelector('[data-message-id="assistant-1"]');
+        if (!(assistant instanceof HTMLElement)) throw new Error('fixture assistant is missing');
+
+        assistant.insertAdjacentHTML(
+            'beforeend',
+            '<div data-conversation-screenshot-content><iframe title="internal://deep-research"></iframe></div>',
+        );
+        await deliverMutations();
+
+        expect(batches).toHaveLength(1);
+        expect(batches[0]?.kinds).toContain('lifecycle');
+        expect(batches[0]?.ids).toContain('assistant-1');
+        unsubscribe();
+    });
+
     it('notifies content-discovery subscribers when streaming controls change in place', async () => {
         const assistantTurn = document.querySelector('[data-turn="assistant"]');
         if (!(assistantTurn instanceof HTMLElement)) throw new Error('fixture assistant turn is missing');

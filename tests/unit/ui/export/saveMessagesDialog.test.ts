@@ -171,7 +171,7 @@ describe('SaveMessagesDialog', () => {
         expect(document.getElementById('aimd-save-messages-dialog-host')).toBeTruthy();
     });
 
-    it('opens an export from a stale last-good snapshot without revalidating it', async () => {
+    it('pauses full-conversation export while the active projection is stale', async () => {
         await setLocale('en');
         const adapter = { getPlatformId: () => 'chatgpt' } as any;
         const conversationContentSource = { read: vi.fn() } as any;
@@ -184,8 +184,8 @@ describe('SaveMessagesDialog', () => {
         });
 
         const dlg = new SaveMessagesDialog();
-        await expect(dlg.open(adapter, 'light', { conversationContentSource })).resolves.toBe(true);
-        expect(document.getElementById('aimd-save-messages-dialog-host')).toBeTruthy();
+        await expect(dlg.open(adapter, 'light', { conversationContentSource })).resolves.toBe(false);
+        expect(document.getElementById('aimd-save-messages-dialog-host')).toBeNull();
     });
 
     it('uses the published snapshot without rechecking its source quality at click time', async () => {

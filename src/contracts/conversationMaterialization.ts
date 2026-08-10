@@ -15,6 +15,8 @@ export type ConversationTargetV1 = Readonly<{
 export type MaterializedConversationTurnV1 = Readonly<{
     target: ConversationTargetV1;
     anchorElement: HTMLElement;
+    /** Typed assistant surface used by local UI; never persisted or transported. */
+    messageElement?: HTMLElement;
 }>;
 
 export type MaterializationSnapshotV1 = Readonly<{

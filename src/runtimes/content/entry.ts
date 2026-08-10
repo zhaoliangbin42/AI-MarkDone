@@ -180,8 +180,8 @@ if (adapter) {
             ));
         }
     }
-    // The directory is a host surface, not a consequence of content
-    // acquisition. Create and mount it even while the semantic source is
+    // The directory is a host surface, not a consequence of baseline
+    // admission. Create and mount it even while the semantic source is
     // still unavailable so a transient discovery failure cannot remove the
     // visible navigation affordance.
     const chatGptDirectory = adapter.getPlatformId() === 'chatgpt'

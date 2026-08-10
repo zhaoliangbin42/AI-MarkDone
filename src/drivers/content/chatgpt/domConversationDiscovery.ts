@@ -24,6 +24,26 @@ export type ChatGPTDomRoundIdentity = {
     assistantTurnId: string | null;
 };
 
+export type ChatGPTResolvedDomTurnIdentity = Readonly<{
+    turnId: string;
+    userMessageId: string;
+    assistantMessageId: string;
+}>;
+
+/** Resolve the one typed identity shared by host capture and materialization. */
+export function resolveChatGPTDomRoundIdentity(
+    round: ChatGPTDomRoundRef,
+): ChatGPTResolvedDomTurnIdentity | null {
+    const userTurnId = round.identity.roundId?.trim() ?? '';
+    const assistantTurnId = round.identity.assistantTurnId?.trim() ?? '';
+    const userMessageId = round.identity.userMessageId?.trim() ?? '';
+    const assistantMessageId = round.identity.assistantMessageId?.trim() ?? '';
+    if (!userMessageId || !assistantMessageId) return null;
+    const turnId = userTurnId || assistantTurnId
+        || `chatgpt-turn:${userMessageId}:${assistantMessageId}`;
+    return turnId ? Object.freeze({ turnId, userMessageId, assistantMessageId }) : null;
+}
+
 const ROLE_SELECTOR = '[data-message-author-role]';
 const USER_ROLE_SELECTOR = '[data-message-author-role="user"]';
 const TURN_ROOT_SELECTOR = '[data-turn-id-container], [data-testid^="conversation-turn-"], section[data-turn], article[data-turn], [data-turn]';

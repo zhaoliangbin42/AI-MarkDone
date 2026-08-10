@@ -2,14 +2,28 @@
 
 This document is the execution contract for the 2026 ChatGPT content-runtime performance program. It turns performance work into staged, reproducible gates while preserving toolbar reliability and user-facing behavior.
 
+## Active architecture override — 2026-08-10
+
+Current ChatGPT ownership follows ADR-0017. Historical phase records below are
+evidence for their dated builds; their references to an independent toolbar
+reconciler, source-only content, repeated refresh, or consumer-owned discovery
+are not current architecture. The benchmark now uses a canonical conversation
+route, complete typed user/assistant identities and one synthetic website-owned
+conversation GET. The production Page Bridge observes that response passively;
+the extension never initiates it. Toolbars mount only after the resulting
+authoritative baseline joins the shared PageIndex → Materialization lifecycle.
+The fixture must never weaken production content, route or identity validation
+to preserve an old benchmark.
+
 ## Measurement protocol
 
 - Build first with `npm run build`.
 - Run `npm run perf:chatgpt` three times on the same machine without interacting with the benchmark browser window.
 - Use the median of the three runs for timing, long-task, and heap comparisons.
 - The fixture contains 200 user/assistant rounds, 200 frame-paced streaming text mutations, and replacement of every tenth official action row.
-- The first assistant round also contains one direct-selection inline-code atom. The benchmark dispatches the configured selection-event count against the same Range, verifies one selected block and a clean collapse, and records a dedicated selection phase.
-- The benchmark uses the built Chrome extension in real Chromium. It does not access a live ChatGPT account or network content.
+- The first assistant round also contains one direct-selection inline-formula atom. The benchmark dispatches the configured selection-event count against the same Range, verifies one selected block, a clean collapse and the configured canonical-copy contract, and records a dedicated selection phase.
+- The benchmark uses the built Chrome extension in real Chromium. It does not access a live ChatGPT account or external network content; Playwright intercepts the fixture page's one website-owned conversation GET and returns the synthetic Graph locally.
+- Because a verified snapshot normally permits idle Reader/export prewarm, the fixture enables the supported `saveData` policy. This keeps the explicit feature-trigger measurement meaningful without changing production lazy-loading behavior.
 - Each phase reports a mutation breakdown by DOM mutation type and attribute name so self-authored extension writes can be distinguished from host streaming changes.
 - Before reading `usedJsHeapBytes`, the benchmark explicitly requests a renderer garbage collection through the Chromium DevTools Protocol. This makes heap medians comparable instead of depending on incidental browser GC timing.
 - Startup/steady-state metrics and heap are captured before any heavy feature is triggered. The benchmark records all `content-features.js` / `content-feature-chunks/*` network requests through CDP, then clicks the real lower-right Bookmarks button and measures until `#aimd-bookmarks-panel-host` mounts.
@@ -216,8 +230,26 @@ The automated counts, bundle sizes, and performance medians above were produced 
 
 - Ordinary ChatGPT Reader, Save Messages, Bookmark Preparation, word count and copy paths now read the last published V1 snapshot. They no longer wait for a bridge peek or call `ConversationContentSourceV1.refresh()` on every click.
 - `readerContentSource` caches immutable base `ReaderItem[]` projections by snapshot identity and normalized page URL. Consumer calls receive shallow mutable views; the cache never stores DOM or detached nodes. ChatGPT Markdown is normalized at the discovery adapter boundary only.
-- Partial and stale last-good snapshots remain immediately consumable. Save Messages exports the recognized items only; an empty ChatGPT snapshot remains unavailable. Explicit Reader Refresh retains the real refresh and then reads the new snapshot.
-- Reader/export chunks have a bounded, single-flight idle prewarm after a verified ChatGPT snapshot exists and the page is visible. `saveData` skips prewarm, teardown cancels it, and all module URLs remain extension-origin. The synthetic benchmark has no snapshot, so its no-feature-before-trigger invariant remains meaningful.
+- Complete source, hybrid and host-born snapshots remain consumable. A historical-prefix conflict preserves last-good diagnostics as `stale`, but full Reader and full Save Messages export pause until page reload. An empty snapshot remains unavailable. Explicit Reader Refresh only awaits or returns Session work already observed and cannot start baseline admission.
+- Reader/export chunks have a bounded, single-flight idle prewarm after a verified ChatGPT snapshot exists and the page is visible. `saveData` skips prewarm, teardown cancels it, and all module URLs remain extension-origin. The synthetic benchmark now has a passive Graph snapshot and explicitly sets `saveData`, so its no-feature-before-trigger invariant remains meaningful.
+
+### Baseline-and-host-tail lifecycle — 2026-08-10
+
+- The 200-round fixture now uses a valid canonical conversation ID, typed user,
+  assistant and turn identities, and one page-owned conversation GET whose
+  synthetic Graph is passively captured by the production bridge. This is
+  required by the same Content + PageIndex + Materialization contract as
+  production; pending toolbar injection and the retired independent observer
+  are not benchmark fallbacks.
+- The corrected fixture reached `toolbars ready`, proving the sealed-content
+  toolbar gate did not regress 200-toolbar startup. The sole conversation
+  request is initiated by the synthetic website page and fulfilled locally;
+  extension-initiated conversation requests remain zero.
+- The run then stopped at the existing Atomic Selection assertion with
+  `selected=1`, `cleared=0`, empty copied payload, two state writes and zero
+  long tasks. Therefore no timing/heap/recovery median is accepted for this
+  worktree and `npm run perf:chatgpt` remains red; this result must not be
+  reported as a passed content-discovery performance gate.
 
 ## Scope protections
 

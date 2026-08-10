@@ -119,7 +119,8 @@ function findPreviousUserMessage(message: HTMLElement): HTMLElement | null {
  * The ChatGPT DOM has shipped transient layouts where the typed turn wrapper
  * is absent even though an assistant message node is already mounted.
  * The direct assistant anchor still gives us a typed identity in that window;
- * expose only that lifecycle fact and leave body discovery to the Source Graph.
+ * this compatibility source exposes only lifecycle facts. Stable body capture
+ * belongs to the shared Host Monitor and rendered compiler.
  */
 function buildFallbackFacts(
     adapter: SiteAdapter,

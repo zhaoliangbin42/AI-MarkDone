@@ -2,12 +2,13 @@
 
 ## Status
 
-Superseded by `ADR-0009-conversation-content-port-v1.md`.
+Superseded by `ADR-0009-conversation-content-port-v1.md`, then by ADR-0017.
 
 This ADR records the reducer-era design for historical context. The reducer and
-engine implementation have been removed; `ConversationContentRepository` and
-the V1 content port are the only production semantic path. Keep this document
-as an historical decision record, not an implementation contract.
+engine implementation have been removed; ADR-0017's baseline-and-host-tail
+`ConversationContentRepository` and the V1 ports are the only production
+semantic path. Keep this document as a historical record, not an implementation
+contract.
 
 Supersedes `ADR-0005-chatgpt-canonical-conversation-index.md`.
 

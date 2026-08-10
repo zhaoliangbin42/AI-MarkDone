@@ -4,6 +4,38 @@ Purpose: evidence log for major changes (commands run + observed results). Keep 
 
 ---
 
+## 2026-08-10 — ChatGPT first-turn host action-row rollback
+
+- Reproduced the installed-Chrome failure from a blank ChatGPT page with a bounded local DOM sampler: the completed assistant action row and AI-MarkDone toolbar appeared together, then 118 ms later both disappeared; the host stop control returned and remained active for the 45-second observation window. The assistant node stayed mounted while only the user-turn copy action remained.
+- Confirmed the consumer was mutating ChatGPT's React-owned action row from pending Materialization before the matching assistant existed in the authoritative Content snapshot. The first-turn real trigger test was changed first and failed on that premature toolbar host.
+- Kept pending typed anchors available to Materialization/navigation, but gated toolbar DOM ownership on exact `readTurn()` availability plus a non-streaming assistant. The toolbar now mounts once after stable host content commit with numeric statistics; no observer, polling, Bridge replay or network request was added.
+
+Verification:
+- Focused lifecycle, official-anchor and Materialization tests passed (3 files / 26 tests); `npm run test:chatgpt-discovery` passed (29 / 341), `npm run test:core` passed (284 / 1,973), smoke passed (7 / 54), acceptance passed (31 / 322), and type-check passed.
+- Chrome MV3 and Firefox MV2 builds, entry format, passive-discovery boundary, bundle budgets and `git diff --check` passed. The performance fixture now supplies one locally fulfilled website-owned Graph GET and reached 200/200 sealed-content toolbars before stopping at the pre-existing Atomic Selection assertion (`selected=1`, `cleared=0`, empty copy, two writes, zero long tasks); the performance gate remains red.
+- Fixed-build installed-Chrome acceptance requires reloading the unpacked extension; browser automation policy does not allow controlling `chrome://extensions`.
+
+---
+
+## 2026-08-10 — ChatGPT baseline-and-host-tail lifecycle
+
+- Reproduced both reported toolbar failures and replaced the split Graph-only / toolbar-observer lifecycle with one page-scoped Content Session: one passively observed Graph baseline per conversation epoch, followed only by stable typed DOM-tail commits through the shared PageIndex observer.
+- Added DOM-proven `host-born` first-turn binding across `/` → `/c/WEB:*` → canonical identity; sealed host turns carry `host-rendered/normalized/rendered-content-v2` provenance. Baseline and host records are immutable per projection; host suffix regeneration creates a new projection and a baseline-prefix conflict becomes `stale`.
+- Routed ChatGPT toolbar mounting through shared Materialization and exact `readTurn()` identity. The ChatGPT production toolbar no longer owns a MutationObserver, route watcher, scan scheduler or recovery timer; pending anchors mount immediately and content commit updates numeric statistics by assistant ID.
+- Removed consumer-visible coordinator semantics from `ConversationContentSourceV1`. Consumer `refresh()` only awaits or returns already observed Session work; driver-local epoch entry and real Bridge-capture notification are the only baseline lifecycle inputs.
+- Replaced the active SSOT with ADR-0017 semantics across architecture, runtime protocol, dependency rules, feature registry and test gates. ADR-0005/0007/0009–0016 are explicitly historical/superseded where their lifecycle semantics differ.
+
+Verification:
+- `npm run test:chatgpt-discovery`: passed (29 files / 341 tests).
+- `npm run test:core`: passed (284 files / 1,973 tests).
+- `npm run test:smoke`: passed (7 files / 54 tests).
+- `npm run test:acceptance`: passed (31 files / 322 tests).
+- `npm run type-check` and `npm run build`: passed. Chrome MV3 and Firefox MV2 entry-format, passive ChatGPT boundary and bundle-size checks passed.
+- `npm run perf:chatgpt`: the corrected canonical typed fixture reached 200/200 toolbars, then stopped at the existing Atomic Selection assertion (`selected=1`, `cleared=0`, empty copied payload, two writes, zero long tasks). The performance gate remains red.
+- Installed Chrome still ran the previous unpacked instance and reproduced one first-reply toolbar with `—` statistics. Automatic extension reload was blocked by Chrome internal-page policy, so current-build Chrome acceptance and installed Firefox MV2 acceptance remain pending and are not inferred from automated evidence.
+
+---
+
 ## 2026-08-07 — ChatGPT consumer wiring audit and bookmark projection closure
 
 - Audited the production path from passive Graph Adapter → `ConversationContentRepository` → `ConversationContentSourceV1` → `ChatGPTConversationIndex`/materialization/navigation and its Directory, Reader, word-count, copy, bookmark, formula, selection and export consumers.

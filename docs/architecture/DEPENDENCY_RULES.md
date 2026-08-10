@@ -9,8 +9,12 @@ ChatGPT production content has one composition root and one consumer seam:
 ```text
 Website-owned conversation GET
         -> document_start passive bridge
-        -> ChatGPT Source Adapter
-        -> ConversationContentRepository
+        -> once-only Baseline Adapter -----------+
+                                                  |
+ChatGPT DOM -> one PageIndex -> Host Monitor -----+
+                         |                        |
+                         +-> Materialization      v
+                                  ConversationContentRepository
         -> ConversationContentSourceV1
                          ↓
        Reader / Bookmark / Copy / Formula / Directory / Export
@@ -19,12 +23,12 @@ Website-owned conversation GET
               (current DOM anchor only)
 ```
 
-- `ConversationContentRepository` is the only active ChatGPT semantic content owner. It validates the passive graph evidence and publishes immutable V1 snapshots; consumers must not import provider payloads, ChatGPT selectors, or DOM text to recover a second content path.
-- `ConversationMaterializationPortV1` may return only the current typed target and anchor. It cannot produce prompts, Markdown, ordinal positions, or a fallback snapshot.
+- `ConversationContentRepository` is the only active ChatGPT semantic content owner. It admits one passive Graph history baseline per conversation epoch, then validates only compiler-verified contiguous host tail turns and publishes immutable V1 snapshots; consumers must not import provider payloads, ChatGPT selectors, or DOM text to recover a second content path.
+- `ConversationMaterializationPortV1` may return only the current typed target, assistant surface and anchor. It may publish a typed pending host target before body sealing, but cannot produce prompts, Markdown, global ordinal positions, or a fallback snapshot.
 - `readerContentSource` is the sole ReaderItem projection. Reader, word count, whole-message copy, Bookmark Preparation, formula, local selection, and Save Messages export must receive the same V1 source instance from the composition root.
-- Ordinary consumer actions read the current published snapshot through that projection and must not call `refresh()`; only explicit Reader Refresh and lifecycle/discovery signals may request a new reconcile. A last-good snapshot remains consumable while discovery is syncing or stale.
+- Ordinary consumer actions read the current published snapshot through that projection. `refresh()` is a local flush compatibility seam: it may await work already in flight, but it cannot start baseline admission, issue a request, replay Bridge memory, or reopen a closed baseline gate. `ConversationContentSourceV1` exports no coordinator/acquisition methods; `enterCurrentEpoch()` and `notifyBaselineCaptured()` belong only to the Session's driver-side lifecycle port. A historical-prefix conflict preserves last-good evidence as `stale`, but full Reader and full export pause until reload.
 - `ChatGPTConversationIndex` is the navigation projection over that same V1 source plus optional mounted anchors. It is not a second content repository.
-- `ConversationDiscoveryModuleV2`, `ChatGPTVirtualConversationHostAdapter`, and `RenderedContentCompilerV2` are isolated experimental/test modules in the current tree; production consumers must not be wired to them until a new ADR explicitly changes the seam.
+- `RenderedContentCompilerV2` is the production provider-neutral compiler used only behind `ChatGPTConversationHostMonitor`. `ConversationDiscoveryModuleV2` and `ChatGPTVirtualConversationHostAdapter` remain compatibility/experimental topology modules and are not a second production repository or observer.
 - ChatGPT discovery must not read Cookie/Storage/Token/Authorization data, construct POST/SSE or conversation GET requests, use React internals, synthesize scroll, or poll content. Only the user-facing bounded `locate()` operation may call the host adapter's one coarse and one precise scroll operation.
 
 ---
@@ -125,14 +129,16 @@ Semantic ChatGPT content contracts are separate from runtime protocol contracts:
 - `src/contracts/semanticContent.ts` owns the provider-neutral Semantic Content Module interface, project-owned immutable node model, source spans, selectors, provenance, diagnostics, and projection outcomes.
 - `src/contracts/contentSurface.ts` owns platform-neutral rendered-surface evidence. It must not expose DOM nodes, Range coordinates, selectors, or parser-library types.
 
-ChatGPT routes, selectors, bridge transport, provider payloads, graph decoding, and active-read policy remain inside `src/drivers/content/chatgpt/*` and `public/page-bridges/*`. Reader/Directory/Copy/Export/Bookmark/Annotation consumers may import the semantic contract or a downstream projection, but may not import those driver internals. Materialization may expose `HTMLElement` only inside content runtime; it must never cross background or extension-page boundaries.
+ChatGPT routes, selectors, bridge transport, provider payloads, graph decoding, once-only baseline policy, typed identity, completion facts and rendered semantic carriers remain inside `src/drivers/content/chatgpt/*` and `public/page-bridges/*`. Reader/Directory/Copy/Export/Bookmark/Annotation consumers may import the semantic contract or a downstream projection, but may not import those driver internals. Materialization may expose `HTMLElement` only inside content runtime; it must never cross background or extension-page boundaries.
 
 Conversation content-discovery rules:
 
-- `src/services/content/ConversationEvidenceLedger.ts` is the provider-neutral deep Module. It owns document-epoch fencing, typed identity joins, branch projection, sealed records, idempotency, conflict reporting, gap proof, and the `ConversationTurnReadPortV1`; it must not import DOM, browser globals, provider selectors, or UI.
-- `src/services/content/StableTurnCapture.ts` and `src/services/content/RenderedContentCompiler.ts` accept semantic facts and injected parser capabilities. Host lifecycle and node lookup stay in the ChatGPT Host Adapter; the compiler never contains ChatGPT selectors.
-- Source acquisition and host observation are independent evidence producers. A DOM window cannot create complete history, overwrite a sealed source turn, or participate in consumer-level recovery. Virtualized unmounts only affect materialization anchors.
-- `ConversationSnapshotV1.proof` is the discovery completeness authority, not a click-time gate. `ready` means a sealed turn exists; ordinary export presents the currently recognized snapshot items and does not wait for complete history. Consumers needing one mounted message use `readTurn()` instead of rebuilding Markdown from DOM.
+- `src/services/content/ConversationContentRepository.ts` is the page-scoped deep Session. It owns conversation-epoch fencing, the once-only baseline gate, baseline-prefix/host-tail joins, immutable sealing, `projectionId`, suffix replacement, stale boundaries, proof and `ConversationTurnReadPortV1`; it must not import DOM, browser globals, provider selectors, or UI.
+- `src/contracts/conversationContent.ts` exposes only read/subscribe/local-refresh/current-token consumer semantics. Baseline lifecycle methods must remain on the concrete Session and a driver-local coordinator type; public contracts and UI consumers must not expose or call generic acquire/reconcile APIs.
+- `src/services/content/ConversationEvidenceLedger.ts` remains a provider-neutral reducer/compatibility test seam only. It is not constructed as a second production content repository and does not own production lifecycle policy.
+- `ChatGPTConversationHostMonitor` owns host stability and predecessor checks while `RenderedContentCompilerV2` accepts cloned semantic surfaces and injected parser capabilities. Selectors, streaming and node lookup stay in the ChatGPT driver; the compiler contains no ChatGPT selectors.
+- Baseline and host observation are independent typed inputs to the same Session. A DOM window can create a first `host-born` projection only after typed `empty-proven`, or append a stable contiguous tail after the baseline; it cannot create complete existing history, fill a historical gap, or overwrite a sealed source turn. Virtualized unmounts only affect materialization anchors.
+- `ConversationSnapshotV1.proof` with `basis: source | hybrid | host-born` is the discovery completeness authority. `host-rendered/normalized` whole turns are valid for Reader, word count, whole-message copy, bookmark and export; exact selection/annotation still requires source-span proof. Consumers needing one mounted message use `readTurn()` instead of rebuilding Markdown from DOM.
 - Source, host, materialization, and surface revisions must remain separate. No consumer may reuse a revision as another layer's cache key or add a second content observer/fallback.
 - ChatGPT message-bookmark highlighting and toolbar state must use the read-only `conversationBookmarkResolver` over the canonical turn identities. Persisted assistant `messageId` is authoritative; stored `position` is validated and is only a compatibility fallback when the identity is absent from the canonical source. Identity/position conflicts fail closed. This resolver must not write bookmarks, migrate old records, alter storage keys, or change import/export payloads.
 - The same resolver owns ChatGPT bookmark state in the Directory, message toolbar and Reader footer. When a ChatGPT `ConversationContentSourceV1` is injected, a missing source snapshot or an unloaded message-bookmark projection must return no active position; `isPositionBookmarked()` is not a fallback for that production path. Position-only compatibility is permitted only when the canonical ChatGPT source seam is absent (legacy/non-ChatGPT composition), never alongside an injected source.

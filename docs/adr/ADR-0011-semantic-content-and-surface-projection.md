@@ -4,6 +4,11 @@
 
 Accepted — implemented on the branch; installed Chrome/Firefox host acceptance remains required before release.
 
+ADR-0017 supersedes this ADR's absolute prohibition on host-rendered whole-turn
+bodies. Compiler-verified stable tail turns may now carry `host-rendered /
+normalized` provenance. The exact source-span and `SurfaceProjection` rules in
+this ADR remain unchanged.
+
 ## Context
 
 ChatGPT content discovery already publishes one immutable conversation snapshot, but several downstream capabilities still solved a different problem independently:
@@ -21,8 +26,10 @@ Adopt one provider-neutral Semantic Content Module, two thin content Adapters (S
 
 ```mermaid
 flowchart LR
-    Provider["Provider graph or durable source"]
-    SourceAdapter["Content Source Adapter"]
+    Provider["Passive provider Graph baseline"]
+    SourceAdapter["Baseline Source Adapter"]
+    StableDOM["Stable typed rendered tail"]
+    HostAdapter["Host Adapter + rendered compiler"]
     ContentPort["Conversation Content Port V1\nidentity + Markdown + provenance"]
     ReaderSource["readerContentSource\nsole ReaderItem projection"]
     ReaderItems["ReaderItem[]"]
@@ -44,6 +51,7 @@ flowchart LR
     NavigationConsumers["Directory / Stepper / Locate"]
 
     Provider --> SourceAdapter --> ContentPort
+    StableDOM --> HostAdapter --> ContentPort
     ContentPort --> ReaderSource --> ReaderItems
     ReaderItems --> BodyConsumers
     ReaderItems --> Semantic --> StructureConsumers
@@ -72,7 +80,20 @@ The Module contains no DOM, browser global, platform ID, selector, clipboard, UI
 
 ### Source Adapter
 
-The platform source Adapter owns provider routes, payload decoding, and provider Markdown dialect adaptation. ChatGPT graph Markdown is normalized at this edge before publication and carries `{ authority, fidelity, producer }` provenance. The Host Adapter never supplies body, Markdown, or position evidence; it only supplies typed identity, lifecycle, and current materialization facts. The Evidence Ledger seals only source-backed turns: the first validated semantic digest for a typed identity is sealed, an identical later digest is idempotent, and a different digest is an explicit conflict. `ConversationSnapshotV1.proof` remains orthogonal to per-turn readability: a source graph may still have global gaps while an already sealed turn is directly readable, but no DOM-derived or reconstructed body is publishable.
+The platform Source Adapter owns provider routes, passive Graph decoding and
+provider Markdown dialect adaptation. ChatGPT Graph Markdown is normalized at
+this edge before publication. The Host Adapter owns selectors, typed identity,
+streaming/completion facts and semantic source carriers; after a 400 ms stable
+window, the provider-neutral rendered compiler may publish a contiguous tail
+turn with `{ authority: "host-rendered", fidelity: "normalized", producer:
+"rendered-content-v2" }`.
+
+`ConversationContentRepository` seals the baseline prefix and host tail in one
+projection. Identical evidence is idempotent, regeneration creates a new
+projection suffix, and any change reaching into the baseline prefix becomes
+`stale`. `ConversationSnapshotV1.proof` remains orthogonal to per-turn
+readability and now reports `basis: source | hybrid | host-born` in addition to
+order/body/tail/gap completeness. Reconstructed bodies remain non-canonical.
 
 ### Surface Adapter and projection
 
@@ -89,7 +110,7 @@ The platform source Adapter owns provider routes, payload decoding, and provider
 - `SurfaceProjection` validates the content token (semantic source revision) and materialization token (typed target-to-DOM projection);
 - the interaction controller re-captures the native selection and compares the surface token (concrete rendered root instance), Range endpoints, target, and TextQuote before reusing a snapshot.
 
-The semantic resolver succeeds only for one proven source span. Repeated text without unique context, stale tokens, reconstructed source, unsupported decoded-character offsets, cross-message selection, and streaming content fail closed for a configured canonical Markdown shortcut: no visual text is promoted to Markdown and the host copy event is not allowed to publish a misleading result. The host's native copy path remains available when the shortcut is disabled or no canonical content/materialization port exists. The implementation must never estimate a source span merely because an offset looks plausible.
+The semantic resolver succeeds only for one proven source span. Repeated text without unique context, stale tokens, `host-rendered` or reconstructed source, unsupported decoded-character offsets, cross-message selection, and streaming content fail closed for a configured canonical Markdown shortcut: no visual text is promoted to Markdown and the host copy event is not allowed to publish a misleading result. The host's native copy path remains available when the shortcut is disabled or no canonical content/materialization port exists. The implementation must never estimate a source span merely because an offset looks plausible.
 
 ### Formula capability
 

@@ -10,6 +10,7 @@
 export type SemanticContentAuthorityV1 =
     | 'primary'
     | 'verified-derived'
+    | 'host-rendered'
     | 'reconstructed'
     | 'rendered-only';
 

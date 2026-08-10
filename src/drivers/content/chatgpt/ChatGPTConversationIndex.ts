@@ -2,7 +2,7 @@ import type { SiteAdapter } from '../adapters/base';
 import type { ConversationContentSourceV1, ConversationSnapshotV1 } from '../../../contracts/conversationContent';
 import {
     collectChatGPTDomRoundRefs,
-    subscribeChatGPTDomRoundChanges,
+    getChatGPTPageIndex,
     type ChatGPTDomRoundRef,
 } from './domConversationDiscovery';
 import type {
@@ -136,6 +136,22 @@ export class ChatGPTConversationIndex {
         return snapshot;
     }
 
+    /** Current host rounds from the shared PageIndex, independent of content sealing. */
+    getHostRounds(): ChatGPTDomRoundRef[] {
+        return collectChatGPTDomRoundRefs(this.adapter);
+    }
+
+    resolveHostRoundForElement(element: HTMLElement): ChatGPTDomRoundRef | null {
+        const rounds = this.getHostRounds();
+        const messageId = normalizeId(element.getAttribute('data-message-id'));
+        if (messageId) {
+            const direct = rounds.filter((round) => round.identity.assistantMessageId === messageId);
+            if (direct.length > 0) return direct.length === 1 ? direct[0]! : null;
+        }
+        const matches = rounds.filter((round) => hostRoundContainsElement(round, element));
+        return matches.length === 1 ? matches[0]! : null;
+    }
+
     getRounds(): ChatGPTIndexedRound[] {
         const snapshot = this.readCurrentSnapshot();
         if (!snapshot) return [];
@@ -215,7 +231,10 @@ export class ChatGPTConversationIndex {
 
     private ensureDomSubscription(): void {
         if (this.unsubscribeDomRoundChanges) return;
-        this.unsubscribeDomRoundChanges = subscribeChatGPTDomRoundChanges(this.adapter, () => {
+        this.unsubscribeDomRoundChanges = getChatGPTPageIndex(this.adapter).subscribeObservations((batch) => {
+            // Streaming text does not change identity or materialization. It
+            // is consumed by the stable Host Monitor after the quiet window.
+            if (batch.kinds.every((kind) => kind === 'content')) return;
             this.notify();
         });
     }
@@ -229,6 +248,23 @@ export class ChatGPTConversationIndex {
             }
         }
     }
+}
+
+function hostRoundContainsElement(round: ChatGPTDomRoundRef, element: HTMLElement): boolean {
+    const candidates = [
+        round.anchorEl,
+        round.jumpAnchorEl,
+        round.userRootEl,
+        round.userMessageEl,
+        round.assistantRootEl,
+        round.assistantMessageEl,
+        ...round.groupEls,
+    ];
+    return candidates.some((candidate) => (
+        candidate === element
+        || candidate.contains(element)
+        || element.contains(candidate)
+    ));
 }
 
 function toPresentationRound(turn: ConversationSnapshotV1['turns'][number]): ChatGPTConversationRound {

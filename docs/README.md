@@ -60,10 +60,15 @@ These documents record bounded refactor execution and closeout evidence. They do
 ### Decisions
 
 - `docs/adr/README.md`
+- `docs/adr/ADR-0017-chatgpt-baseline-and-host-tail-lifecycle.md`
+  - active ChatGPT lifecycle: one passive baseline, one shared Page Monitor,
+    stable DOM tail capture, immutable projections, and consumer convergence
 - `docs/adr/ADR-0011-semantic-content-and-surface-projection.md`
-  - canonical content, thin source/surface adapters, provenance, and the sole surface-to-source projection seam
-- `docs/adr/ADR-0013-evidence-ledger-stable-turn-capture.md`
-  - page-scoped evidence ledger, stable turn capture, proof-driven completeness, and the narrow direct-read port
+  - retained semantic/source-span and sole surface-to-source projection rules;
+    its source-only body rule is superseded by ADR-0017
+
+ADR-0009 through ADR-0016 are historical inputs where ADR-0017 says they are
+superseded. They are not alternate current ChatGPT architectures.
 
 ### Style
 

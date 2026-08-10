@@ -63,9 +63,9 @@ export async function prepareChatGPTBookmark(
     materialization: ConversationMaterializationPortV1,
     messageElement: HTMLElement,
 ): Promise<PreparedConversationBookmarkV1 | null> {
-    // Bookmark preparation is a consumer read.  Discovery owns refreshes on
-    // lifecycle/source events; a click must use the last published snapshot
-    // so it cannot block behind a passive-graph reconcile.
+    // Bookmark preparation is a consumer read. The content session owns
+    // baseline/host lifecycle events; a click uses the last published snapshot
+    // and never waits for passive baseline admission.
     const state = source.read();
     const snapshot = state.snapshot;
     const target = materialization.resolveElement(messageElement);

@@ -118,6 +118,35 @@ describe('ConversationEvidenceLedger', () => {
         expect(ledger.read().snapshot?.turns.map((item) => item.ordinal)).toEqual([1, 2, 3]);
     });
 
+    it('projects a stable host tail after the complete baseline prefix', () => {
+        const ref = document('hybrid-tail');
+        const ledger = new ConversationEvidenceLedger();
+        ledger.ingest(source(ref, 'epoch-a', 1, [turn(1)], 'complete'));
+
+        const appended = ledger.ingest({
+            kind: 'turn',
+            document: ref,
+            epoch: 'epoch-a',
+            revision: 2,
+            captureId: 'host-tail-2',
+            origin: 'host',
+            turn: turn(2),
+        });
+
+        expect(appended.status).toBe('accepted');
+        expect(appended.view.snapshot?.turns.map((item) => item.identity.assistantMessageId)).toEqual([
+            'assistant-1',
+            'assistant-2',
+        ]);
+        expect(appended.view.snapshot?.proof).toMatchObject({
+            basis: 'hybrid',
+            order: 'complete',
+            bodies: 'complete',
+            tail: 'stable',
+            gaps: [],
+        });
+    });
+
     it('rejects an old document epoch without erasing the current page ledger', () => {
         const oldRef = document('old');
         const currentRef = document('current');

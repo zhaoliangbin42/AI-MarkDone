@@ -41,6 +41,8 @@ export class ConversationEvidenceLedger implements ConversationTurnReadPortV1 {
     private branchKey: string | null = null;
     private sourceCompleteOrder: TurnKey[] | null = null;
     private readonly expectedSourceKeys = new Set<TurnKey>();
+    private readonly hostTailOrder: TurnKey[] = [];
+    private readonly hostKeys = new Set<TurnKey>();
     private readonly records = new Map<TurnKey, SealedTurn>();
     private readonly aliases = new Map<string, TurnKey | null>();
     private readonly firstSeen = new Map<TurnKey, number>();
@@ -57,6 +59,8 @@ export class ConversationEvidenceLedger implements ConversationTurnReadPortV1 {
         this.branchKey = null;
         this.sourceCompleteOrder = null;
         this.expectedSourceKeys.clear();
+        this.hostTailOrder.splice(0);
+        this.hostKeys.clear();
         this.records.clear();
         this.aliases.clear();
         this.firstSeen.clear();
@@ -206,7 +210,19 @@ export class ConversationEvidenceLedger implements ConversationTurnReadPortV1 {
 
     private ingestTurn(event: ConversationTurnEvidenceV1): ConversationEvidenceIngestResultV1['status'] {
         const result = this.sealTurn(event.turn);
-        if (result === 'accepted') this.addOrderEdges([turnKey(event.turn)]);
+        if (result === 'accepted') {
+            const key = turnKey(event.turn);
+            if (event.origin === 'host') {
+                const predecessor = this.hostTailOrder[this.hostTailOrder.length - 1]
+                    ?? this.sourceCompleteOrder?.[this.sourceCompleteOrder.length - 1]
+                    ?? null;
+                this.hostKeys.add(key);
+                this.hostTailOrder.push(key);
+                this.addOrderEdges(predecessor ? [predecessor, key] : [key]);
+            } else {
+                this.addOrderEdges([key]);
+            }
+        }
         return result;
     }
 
@@ -296,7 +312,8 @@ export class ConversationEvidenceLedger implements ConversationTurnReadPortV1 {
 
     private projectTurns(): ConversationTurnV1[] {
         const keys = this.sourceCompleteOrder
-            ? this.sourceCompleteOrder.filter((key) => this.records.has(key))
+            ? unique([...this.sourceCompleteOrder, ...this.hostTailOrder])
+                .filter((key) => this.records.has(key))
             : topologicalOrder(this.records, this.edges, this.firstSeen);
         return keys
             .map((key) => this.records.get(key)?.turn ?? null)
@@ -308,14 +325,19 @@ export class ConversationEvidenceLedger implements ConversationTurnReadPortV1 {
             this.sourceCompleteOrder
             && this.sourceCompleteOrder.length === this.expectedSourceKeys.size
             && this.sourceCompleteOrder.every((key) => this.records.has(key))
-            && !Array.from(this.records.keys()).some((key) => !this.expectedSourceKeys.has(key))
+            && !Array.from(this.records.keys()).some((key) => (
+                !this.expectedSourceKeys.has(key) && !this.hostKeys.has(key)
+            ))
             && !this.hasGapKind('order')
             && !this.hasGapKind('identity'),
         );
         const bodiesComplete = orderComplete
-            && this.expectedSourceKeys.size === turns.length
+            && this.expectedSourceKeys.size + this.hostKeys.size === turns.length
             && !this.hasGapKind('body');
         const proof: ConversationSnapshotProofV1 = Object.freeze({
+            basis: this.sourceCompleteOrder
+                ? this.hostTailOrder.length > 0 ? 'hybrid' : 'source'
+                : this.hostTailOrder.length > 0 ? 'host-born' : undefined,
             order: orderComplete ? 'complete' : 'gapped',
             bodies: bodiesComplete ? 'complete' : 'gapped',
             tail: this.hasGapKind('tail') ? 'streaming' : 'stable',
@@ -352,6 +374,8 @@ export class ConversationEvidenceLedger implements ConversationTurnReadPortV1 {
     private clearBranchEvidence(): void {
         this.sourceCompleteOrder = null;
         this.expectedSourceKeys.clear();
+        this.hostTailOrder.splice(0);
+        this.hostKeys.clear();
         this.records.clear();
         this.aliases.clear();
         this.firstSeen.clear();

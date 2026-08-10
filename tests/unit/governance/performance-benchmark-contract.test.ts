@@ -21,6 +21,26 @@ describe('ChatGPT performance benchmark contract', () => {
         expect(source).toContain('featureLoadMs');
     });
 
+    it('uses canonical route and typed host identities required by shared materialization', () => {
+        const source = readFileSync(resolve('scripts/benchmark-chatgpt-runtime.ts'), 'utf8');
+
+        expect(source).toContain('PERF_CONVERSATION_ID');
+        expect(source).toContain('createFixtureGraph(rounds)');
+        expect(source).toContain('window.fetch(`/backend-api/conversation/${conversationId}`)');
+        expect(source).toContain('The extension never initiates it.');
+        expect(source).toContain('data-message-id="user-${index + 1}"');
+        expect(source).toContain('data-message-id="assistant-${index + 1}"');
+        expect(source).toContain('data-turn-id="turn-${index + 1}"');
+        expect(source).not.toContain('/c/aimd-performance-fixture');
+    });
+
+    it('keeps verified-snapshot prewarm out of the explicit feature-trigger measurement', () => {
+        const source = readFileSync(resolve('scripts/benchmark-chatgpt-runtime.ts'), 'utf8');
+
+        expect(source).toContain("Object.defineProperty(navigator, 'connection'");
+        expect(source).toContain('value: { saveData: true }');
+    });
+
     it('measures direct atomic selection without allowing repeated DOM writes or long tasks', () => {
         const source = readFileSync(resolve('scripts/benchmark-chatgpt-runtime.ts'), 'utf8');
 

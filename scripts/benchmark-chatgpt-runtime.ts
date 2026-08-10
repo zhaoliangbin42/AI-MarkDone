@@ -43,6 +43,7 @@ const DEFAULT_MUTATIONS = 200;
 const TOOLBAR_TIMEOUT_MS = 15_000;
 const RECOVERY_TIMEOUT_MS = 8_000;
 const FEATURE_LOAD_TIMEOUT_MS = 8_000;
+const PERF_CONVERSATION_ID = '6a733f28-5954-83ec-980e-2b824a431951';
 
 function isContentFeatureModuleUrl(url: string): boolean {
     return url.includes('/content-features.js') || url.includes('/content-feature-chunks/');
@@ -66,6 +67,42 @@ function readPositiveIntegerArg(name: string, fallback: number): number {
     return value;
 }
 
+function createFixtureGraph(rounds: number): Record<string, unknown> {
+    const mapping: Record<string, unknown> = {
+        root: { id: 'root', parent: null, message: null },
+    };
+    let parent = 'root';
+    for (let index = 0; index < rounds; index += 1) {
+        const ordinal = index + 1;
+        const userNode = `user-node-${ordinal}`;
+        const assistantNode = `assistant-node-${ordinal}`;
+        mapping[userNode] = {
+            id: `turn-${ordinal}`,
+            parent,
+            message: {
+                id: `user-${ordinal}`,
+                author: { role: 'user' },
+                content: { content_type: 'text', parts: [`Prompt ${ordinal}`] },
+            },
+        };
+        mapping[assistantNode] = {
+            id: assistantNode,
+            parent: userNode,
+            message: {
+                id: `assistant-${ordinal}`,
+                author: { role: 'assistant' },
+                content: { content_type: 'text', parts: [`Answer ${ordinal}`] },
+            },
+        };
+        parent = assistantNode;
+    }
+    return {
+        conversation_id: PERF_CONVERSATION_ID,
+        current_node: parent,
+        mapping,
+    };
+}
+
 function createFixtureHtml(rounds: number): string {
     const turns = Array.from({ length: rounds }, (_, index) => {
         const atomicSelectionFixture = index === 0
@@ -81,10 +118,10 @@ function createFixtureHtml(rounds: number): string {
         </div>`
             : '';
         return `
-      <div data-testid="conversation-turn-${index * 2 + 1}" data-turn="user">
-        <div data-message-author-role="user"><div class="whitespace-pre-wrap">Prompt ${index + 1}</div></div>
+      <div data-testid="conversation-turn-${index * 2 + 1}" data-turn="user" data-turn-id="turn-${index + 1}">
+        <div data-message-author-role="user" data-message-id="user-${index + 1}"><div class="whitespace-pre-wrap">Prompt ${index + 1}</div></div>
       </div>
-      <div data-testid="conversation-turn-${index * 2 + 2}" data-turn="assistant">
+      <div data-testid="conversation-turn-${index * 2 + 2}" data-turn="assistant" data-turn-id="turn-${index + 1}">
         <div data-message-author-role="assistant" data-message-id="assistant-${index + 1}">
           <div class="markdown prose"><p>Answer ${index + 1}</p>${atomicSelectionFixture}</div>
         </div>
@@ -114,6 +151,13 @@ function createFixtureHtml(rounds: number): string {
 
 async function installHarness(page: Page): Promise<void> {
     await page.addInitScript(() => {
+        // A verified baseline normally permits idle Reader/export prewarm. This
+        // benchmark measures the explicit lazy-trigger boundary separately, so
+        // emulate the supported save-data policy to keep prewarm disabled.
+        Object.defineProperty(navigator, 'connection', {
+            configurable: true,
+            value: { saveData: true },
+        });
         const state: HarnessState = {
             phaseStartedAt: performance.now(),
             longTasks: [],
@@ -171,6 +215,15 @@ async function preparePage(context: BrowserContext, rounds: number): Promise<Pag
     const page = context.pages()[0] ?? await context.newPage();
     await installHarness(page);
     await page.route('https://chatgpt.com/**', async (route) => {
+        const url = new URL(route.request().url());
+        if (url.pathname === `/backend-api/conversation/${PERF_CONVERSATION_ID}`) {
+            await route.fulfill({
+                status: 200,
+                contentType: 'application/json',
+                body: JSON.stringify(createFixtureGraph(rounds)),
+            });
+            return;
+        }
         await route.fulfill({
             status: 200,
             contentType: 'text/html',
@@ -222,7 +275,14 @@ async function runRuntimeBenchmark(extensionPath: string, rounds: number, mutati
         await featureNetworkSession.send('Network.enable');
         page.on('pageerror', (error) => console.error(`[perf:pageerror] ${error.stack ?? error.message}`));
         console.error('[perf] loading fixture');
-        await page.goto('https://chatgpt.com/c/aimd-performance-fixture', { waitUntil: 'domcontentloaded' });
+        await page.goto(`https://chatgpt.com/c/${PERF_CONVERSATION_ID}`, { waitUntil: 'domcontentloaded' });
+        // Exercise the production contract: this is a website-owned GET that
+        // the page bridge observes passively. The extension never initiates it.
+        await page.evaluate(async (conversationId) => {
+            const response = await window.fetch(`/backend-api/conversation/${conversationId}`);
+            if (!response.ok) throw new Error(`Fixture graph failed with ${response.status}`);
+            await response.json();
+        }, PERF_CONVERSATION_ID);
         console.error('[perf] waiting for toolbars');
         await page.waitForFunction(
             (expected) => document.querySelectorAll('[data-aimd-role="message-toolbar"]').length === expected,

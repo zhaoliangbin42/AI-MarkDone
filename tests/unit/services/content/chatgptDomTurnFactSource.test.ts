@@ -91,7 +91,7 @@ describe('ChatGPTDomTurnFactSource', () => {
         });
     });
 
-    it('does not merge assistant segments into a DOM-generated body', () => {
+    it('keeps assistant-segment bodies out of the identity-only fact source', () => {
         document.querySelector('main')?.insertAdjacentHTML('beforeend', `
             <article data-turn="user" data-turn-id="user-turn-1">
                 <div data-message-author-role="user" data-message-id="user-1">Question 1</div>

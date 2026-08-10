@@ -1,35 +1,37 @@
-import type { ConversationContentCoordinatorV1 } from '../../../contracts/conversationContent';
+import type { ConversationContentStateV1 } from '../../../contracts/conversationContent';
 import { RouteWatcher } from '../injection/routeWatcher';
 import { getChatGPTPageIndex } from './domConversationDiscovery';
-import type { ChatGPTHostObservationBatch, ChatGPTPageIndex } from './ChatGPTPageIndex';
+import type { ChatGPTPageIndex } from './ChatGPTPageIndex';
 import type { ChatGPTConversationDiscoveryAdapter } from './ChatGPTConversationDiscoveryAdapter';
+import type { ChatGPTConversationHostMonitor } from './ChatGPTConversationHostMonitor';
 import type { SiteAdapter } from '../adapters/base';
 
 export type ChatGPTConversationDiscoveryCoordinatorOptions = Readonly<{
     adapter: SiteAdapter;
     discoveryAdapter: ChatGPTConversationDiscoveryAdapter;
-    repository: ConversationContentCoordinatorV1;
+    repository: ConversationContentSessionLifecycle;
+    hostMonitor?: ChatGPTConversationHostMonitor;
     pageIndex?: ChatGPTPageIndex;
 }>;
 
+type ConversationContentSessionLifecycle = Readonly<{
+    enterCurrentEpoch(): Promise<ConversationContentStateV1>;
+    notifyBaselineCaptured(): void;
+}>;
+
 /**
- * Owns discovery signals. None of the signal handlers collect content; they
- * only enter the repository's one reconcile path.
+ * Owns route/page/bridge lifecycle signals. Host DOM observations go directly
+ * through the shared PageIndex-backed Host Monitor and never replay baseline
+ * admission.
  */
 export class ChatGPTConversationDiscoveryCoordinator {
     private readonly pageIndex: ChatGPTPageIndex;
     private readonly routeWatcher: RouteWatcher;
-    private unsubscribePageIndex: (() => void) | null = null;
     private unsubscribeAdapter: (() => void) | null = null;
     private readonly handlePageShow = () => {
         this.options.discoveryAdapter.notifyLifecycleSignal?.();
-        this.requestImmediateReconcile();
-    };
-    private readonly handleHostObservation = (_batch: ChatGPTHostObservationBatch) => {
-        // Host observations are lifecycle/materialization signals only. They
-        // never become canonical ChatGPT content or position evidence.
-        this.options.discoveryAdapter.notifyLifecycleSignal?.();
-        this.options.repository.scheduleReconcile();
+        this.options.hostMonitor?.notifyPageShow();
+        this.enterCurrentEpoch();
     };
     private initialized = false;
 
@@ -38,7 +40,8 @@ export class ChatGPTConversationDiscoveryCoordinator {
         this.routeWatcher = new RouteWatcher(
             () => {
                 this.options.discoveryAdapter.notifyLifecycleSignal?.();
-                this.requestImmediateReconcile();
+                this.options.hostMonitor?.notifyRouteChanged();
+                this.enterCurrentEpoch();
             },
             { intervalMs: 500 },
         );
@@ -47,43 +50,28 @@ export class ChatGPTConversationDiscoveryCoordinator {
     init(): void {
         if (this.initialized || this.options.adapter.getPlatformId() !== 'chatgpt') return;
         this.initialized = true;
-        const pageIndexWithObservations = this.pageIndex as ChatGPTPageIndex & {
-            subscribeObservations?: (listener: (batch: ChatGPTHostObservationBatch) => void) => () => void;
-        };
-        this.unsubscribePageIndex = pageIndexWithObservations.subscribeObservations
-            ? pageIndexWithObservations.subscribeObservations(this.handleHostObservation)
-            : this.pageIndex.subscribeMutations(() => {
-                this.options.repository.scheduleReconcile();
-            });
+        this.options.hostMonitor?.init();
         this.unsubscribeAdapter = this.options.discoveryAdapter.subscribeSignals(() => {
-            this.options.repository.scheduleReconcile();
+            this.options.repository.notifyBaselineCaptured();
         });
         window.addEventListener('pageshow', this.handlePageShow);
         this.routeWatcher.start();
-        void this.options.repository.reconcile();
+        void this.options.repository.enterCurrentEpoch();
     }
 
     dispose(): void {
         if (!this.initialized) return;
         this.initialized = false;
         this.routeWatcher.stop();
-        this.unsubscribePageIndex?.();
-        this.unsubscribePageIndex = null;
+        this.options.hostMonitor?.dispose();
         this.unsubscribeAdapter?.();
         this.unsubscribeAdapter = null;
         window.removeEventListener('pageshow', this.handlePageShow);
         this.pageIndex.dispose();
     }
 
-    private requestImmediateReconcile(): void {
-        // Route/pageshow are immediate when idle, but a page lifecycle signal
-        // during an active acquisition must become the repository's one
-        // pending reconcile rather than being dropped by single-flight.
-        if (this.options.repository.read().kind === 'syncing') {
-            this.options.repository.scheduleReconcile();
-            return;
-        }
-        void this.options.repository.reconcile();
+    private enterCurrentEpoch(): void {
+        void this.options.repository.enterCurrentEpoch();
     }
 
 }

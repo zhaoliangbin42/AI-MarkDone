@@ -8,7 +8,9 @@ import {
 import { createConversationDocumentKeyV1, type ConversationDocumentRefV1 } from '@/contracts/conversationContent';
 import { ChatGPTAdapter } from '@/drivers/content/adapters/sites/chatgpt';
 import { ChatGPTConversationContentRuntime } from '@/runtimes/content/ChatGPTConversationContentRuntime';
+import { buildChatGPTReaderContent } from '@/services/reader/chatgptReaderItems';
 import { ChatGPTDirectoryController } from '@/ui/content/controllers/ChatGPTDirectoryController';
+import { MessageToolbarOrchestrator } from '@/ui/content/controllers/MessageToolbarOrchestrator';
 
 function ref(id: string): ConversationDocumentRefV1 {
     return {
@@ -108,32 +110,226 @@ describe('ChatGPT content discovery lifecycle', () => {
         }
     });
 
-    it('keeps one semantic sequence for late attach, append, and hard refresh', async () => {
+    it('consumes one passive baseline and appends later stable DOM turns without replaying the bridge', async () => {
+        const conversationId = '6a733f28-5954-83ec-980e-2b824a431952';
+        history.replaceState({}, '', `/c/${conversationId}`);
+        document.documentElement.innerHTML = '<head></head><body><main></main></body>';
+        const graphSnapshot = {
+            conversationId,
+            capturedAt: 10,
+            branchKey: 'assistant-1',
+            coverage: 'complete' as const,
+            rounds: [{
+                id: 'turn-1',
+                position: 1,
+                userPrompt: 'Question 1',
+                assistantContent: 'Answer 1',
+                preview: 'Question 1',
+                messageId: 'assistant-1',
+                userMessageId: 'user-1',
+                assistantMessageId: 'assistant-1',
+            }],
+        };
+        let bridgeRequests = 0;
+        const responder = ((event: Event) => {
+            const request = (event as CustomEvent<any>).detail;
+            if (request?.type !== 'peek') return;
+            bridgeRequests += 1;
+            window.dispatchEvent(new CustomEvent('aimd:chatgpt-conversation-bridge:response', {
+                detail: { requestId: request.requestId, ok: true, snapshot: graphSnapshot },
+            }));
+        }) as EventListener;
+        window.addEventListener('aimd:chatgpt-conversation-bridge:request', responder);
+
+        const adapter = new ChatGPTAdapter();
+        const runtime = new ChatGPTConversationContentRuntime(adapter, { hostSettleDelayMs: 20 });
+        const toolbarOrchestrator = new MessageToolbarOrchestrator(adapter, {
+            readerPanel: { setTheme() {}, show: async () => undefined } as any,
+            conversationContentSource: runtime.source,
+            conversationMaterialization: runtime.materialization,
+        });
+        try {
+            runtime.init();
+            toolbarOrchestrator.init();
+            const baseline = await runtime.source.refresh();
+            expect(baseline.kind).toBe('ready');
+            expect(bridgeRequests).toBe(1);
+
+            document.querySelector('main')!.innerHTML = `
+                <div data-turn-id-container="client-created-root"></div>
+                <div data-turn-id-container="user-slot-1">
+                    <section data-turn="user" data-turn-id="turn-1">
+                        <div data-message-author-role="user" data-message-id="user-1">Question 1</div>
+                    </section>
+                </div>
+                <div data-turn-id-container="assistant-slot-1">
+                    <section data-turn="assistant" data-turn-id="turn-1">
+                        <div data-message-author-role="assistant" data-message-id="assistant-1">
+                            <div class="markdown prose"><p>Answer 1</p></div>
+                        </div>
+                        <div class="z-0 flex"><button data-testid="copy-turn-action-button">Copy</button></div>
+                    </section>
+                </div>
+                <div data-turn-id-container="user-slot-2">
+                    <section data-turn="user" data-turn-id="turn-2">
+                        <div data-message-author-role="user" data-message-id="user-2">Question 2</div>
+                    </section>
+                </div>
+                <div data-turn-id-container="assistant-slot-2">
+                    <section data-turn="assistant" data-turn-id="turn-2">
+                        <div data-message-author-role="assistant" data-message-id="assistant-2">
+                            <div class="markdown prose"><p>Answer 2 from DOM</p></div>
+                        </div>
+                        <div class="z-0 flex"><button data-testid="copy-turn-action-button">Copy</button></div>
+                    </section>
+                </div>
+            `;
+
+            await new Promise((resolve) => window.setTimeout(resolve, 80));
+            const hybrid = runtime.source.read();
+            expect(hybrid.kind).toBe('ready');
+            if (hybrid.kind !== 'ready') throw new Error('expected a hybrid ready state');
+            expect(hybrid.snapshot.proof?.basis).toBe('hybrid');
+            expect(hybrid.snapshot.turns.map((turn) => turn.assistantMarkdown)).toEqual([
+                'Answer 1',
+                'Answer 2 from DOM',
+            ]);
+            expect(hybrid.snapshot.turns[1]?.assistantProvenance?.authority).toBe('host-rendered');
+            const secondToolbar = document.querySelector('[data-message-id="assistant-2"]')
+                ?.closest('section')
+                ?.querySelector<HTMLElement>('[data-aimd-role="message-toolbar"]');
+            const secondStats = secondToolbar?.shadowRoot
+                ?.querySelector<HTMLElement>('[data-role="stats"]')
+                ?.textContent?.trim();
+            expect(secondToolbar).toBeTruthy();
+            expect(secondStats).toBeTruthy();
+            expect(secondStats).not.toContain('—');
+
+            window.dispatchEvent(new CustomEvent('aimd:chatgpt-conversation-bridge:capture', {
+                detail: { kind: 'generation-complete', conversationId, assistantMessageId: 'assistant-2' },
+            }));
+            await new Promise((resolve) => window.setTimeout(resolve, 220));
+            expect(bridgeRequests).toBe(1);
+            expect(runtime.source.read().snapshot?.contentToken).toBe(hybrid.snapshot.contentToken);
+
+            document.querySelector('main')?.insertAdjacentHTML('beforeend', `
+                <div data-turn-id-container="user-slot-3">
+                    <section data-turn="user" data-turn-id="turn-3">
+                        <div data-message-author-role="user" data-message-id="user-3">Question 3</div>
+                    </section>
+                </div>
+                <div data-turn-id-container="assistant-slot-3">
+                    <section data-turn="assistant" data-turn-id="turn-3">
+                        <div data-message-author-role="assistant" data-message-id="assistant-3">
+                            <div class="markdown prose"><p>Answer 3 from DOM</p></div>
+                        </div>
+                        <div class="z-0 flex"><button data-testid="copy-turn-action-button">Copy</button></div>
+                    </section>
+                </div>
+            `);
+            await new Promise((resolve) => window.setTimeout(resolve, 80));
+            expect(runtime.source.read().snapshot?.turns).toHaveLength(3);
+
+            document.querySelector('main')?.insertAdjacentHTML('beforeend', `
+                <div data-turn-id-container="user-slot-4">
+                    <section data-turn="user" data-turn-id="turn-4">
+                        <div data-message-author-role="user" data-message-id="user-4">Question 4</div>
+                    </section>
+                </div>
+                <div data-turn-id-container="assistant-slot-4">
+                    <section data-turn="assistant" data-turn-id="turn-4">
+                        <div data-message-author-role="assistant" data-message-id="assistant-4">
+                            <div class="markdown prose"><p>Answer 4 from DOM</p></div>
+                        </div>
+                        <div class="z-0 flex"><button data-testid="copy-turn-action-button">Copy</button></div>
+                    </section>
+                </div>
+            `);
+            await new Promise((resolve) => window.setTimeout(resolve, 80));
+            const finalHybrid = runtime.source.read();
+            expect(finalHybrid.kind).toBe('ready');
+            if (finalHybrid.kind !== 'ready') throw new Error('expected the complete DOM tail');
+            expect(finalHybrid.snapshot.turns.map((turn) => turn.assistantMarkdown)).toEqual([
+                'Answer 1',
+                'Answer 2 from DOM',
+                'Answer 3 from DOM',
+                'Answer 4 from DOM',
+            ]);
+            expect(buildChatGPTReaderContent(finalHybrid.snapshot).items).toHaveLength(4);
+            expect(runtime.materialization.read().entries).toHaveLength(4);
+            const toolbarHosts = Array.from(document.querySelectorAll<HTMLElement>(
+                '[data-aimd-role="message-toolbar"]',
+            ));
+            expect(toolbarHosts).toHaveLength(4);
+            expect(toolbarHosts.every((host) => {
+                const stats = host.shadowRoot?.querySelector<HTMLElement>('[data-role="stats"]')?.textContent ?? '';
+                return /\d/.test(stats) && !stats.includes('—');
+            })).toBe(true);
+            const finalToken = finalHybrid.snapshot.contentToken;
+
+            document.querySelector('[data-turn-id-container="user-slot-2"]')?.remove();
+            document.querySelector('[data-turn-id-container="assistant-slot-2"]')?.remove();
+            await new Promise((resolve) => window.setTimeout(resolve, 30));
+            expect(runtime.source.read().snapshot?.contentToken).toBe(finalToken);
+            expect(document.querySelector('[data-message-id="assistant-2"]')).toBeNull();
+
+            document.querySelector('main')?.insertAdjacentHTML('beforeend', `
+                <div data-turn-id-container="user-slot-2">
+                    <section data-turn="user" data-turn-id="turn-2">
+                        <div data-message-author-role="user" data-message-id="user-2">Question 2</div>
+                    </section>
+                </div>
+                <div data-turn-id-container="assistant-slot-2">
+                    <section data-turn="assistant" data-turn-id="turn-2">
+                        <div data-message-author-role="assistant" data-message-id="assistant-2">
+                            <div class="markdown prose"><p>Answer 2 from DOM</p></div>
+                        </div>
+                        <div class="z-0 flex"><button data-testid="copy-turn-action-button">Copy</button></div>
+                    </section>
+                </div>
+            `);
+            await new Promise((resolve) => window.setTimeout(resolve, 50));
+            expect(runtime.source.read().snapshot?.contentToken).toBe(finalToken);
+            expect(document.querySelectorAll(
+                '[data-message-id="assistant-2"] ~ .z-0.flex [data-aimd-role="message-toolbar"]',
+            )).toHaveLength(1);
+        } finally {
+            window.removeEventListener('aimd:chatgpt-conversation-bridge:request', responder);
+            toolbarOrchestrator.dispose();
+            runtime.dispose();
+            adapter.dispose();
+        }
+    });
+
+    it('keeps a closed baseline immutable and opens a fresh gate only for a new page runtime', async () => {
         let current = ref('conversation-1');
-        let available: ConversationContentCandidateV1 | null = null;
+        let available: ConversationContentCandidateV1 | null = candidate(current, 1);
         const repository = new ConversationContentRepository({
             resolveDocument: () => current,
-            acquire: async () => available,
+            readBaseline: async () => available,
         });
 
-        expect((await repository.refresh()).kind).toBe('unavailable');
-        available = candidate(current, 1);
-        const first = await repository.refresh();
+        const first = await repository.enterCurrentEpoch();
         expect(first.kind).toBe('ready');
         if (first.kind !== 'ready') throw new Error('expected ready state');
         const firstToken = first.snapshot.contentToken;
 
         available = candidate(current, 2);
-        const appended = await repository.refresh();
-        expect(appended.kind).toBe('ready');
-        if (appended.kind !== 'ready') throw new Error('expected ready state');
-        expect(appended.snapshot.turns).toHaveLength(2);
-        expect(appended.snapshot.contentToken).not.toBe(firstToken);
+        const unchanged = await repository.refresh();
+        expect(unchanged.kind).toBe('ready');
+        if (unchanged.kind !== 'ready') throw new Error('expected ready state');
+        expect(unchanged.snapshot.turns).toHaveLength(1);
+        expect(unchanged.snapshot.contentToken).toBe(firstToken);
 
-        const refreshed = await repository.refresh();
+        const hardRefreshedRepository = new ConversationContentRepository({
+            resolveDocument: () => current,
+            readBaseline: async () => available,
+        });
+        const refreshed = await hardRefreshedRepository.enterCurrentEpoch();
         expect(refreshed.kind).toBe('ready');
         if (refreshed.kind !== 'ready') throw new Error('expected ready state');
-        expect(refreshed.snapshot.contentToken).toBe(appended.snapshot.contentToken);
+        expect(refreshed.snapshot.turns).toHaveLength(2);
+        expect(refreshed.snapshot.contentToken).not.toBe(firstToken);
     });
 
     it('fails closed when no passive graph has been captured', async () => {
@@ -170,23 +366,23 @@ describe('ChatGPT content discovery lifecycle', () => {
         }
     });
 
-    it('retains same-document last-good content during timeout recovery', async () => {
+    it('does not turn last-good content stale by replaying a closed gate on refresh', async () => {
         const document = ref('conversation-1');
         let fail = false;
         const repository = new ConversationContentRepository({
             resolveDocument: () => document,
-            acquire: async () => {
+            readBaseline: async () => {
                 if (fail) throw new ConversationContentAcquisitionError('source-timeout');
                 return candidate(document, 1);
             },
         });
 
-        await repository.refresh();
+        await repository.enterCurrentEpoch();
         fail = true;
-        const stale = await repository.refresh();
-        expect(stale.kind).toBe('stale');
-        if (stale.kind !== 'stale') throw new Error('expected stale state');
-        expect(stale.snapshot.turns).toHaveLength(1);
+        const unchanged = await repository.refresh();
+        expect(unchanged.kind).toBe('ready');
+        if (unchanged.kind !== 'ready') throw new Error('expected ready state');
+        expect(unchanged.snapshot.turns).toHaveLength(1);
         fail = false;
         const recovered = await repository.refresh();
         expect(recovered.kind).toBe('ready');
@@ -200,12 +396,12 @@ describe('ChatGPT content discovery lifecycle', () => {
         const pendingB = new Promise<ConversationContentCandidateV1>((resolve) => { resolveB = resolve; });
         const repository = new ConversationContentRepository({
             resolveDocument: () => current,
-            acquire: async (document) => document.conversationId === 'conversation-a' ? pendingA : pendingB,
+            readBaseline: async (document) => document.conversationId === 'conversation-a' ? pendingA : pendingB,
         });
 
-        const a = repository.refresh();
+        const a = repository.enterCurrentEpoch();
         current = ref('conversation-b');
-        const b = repository.refresh();
+        const b = repository.enterCurrentEpoch();
         resolveA(candidate(ref('conversation-a'), 1));
         resolveB(candidate(ref('conversation-b'), 2));
         await a;
@@ -304,6 +500,7 @@ describe('ChatGPT content discovery lifecycle', () => {
         }) as EventListener;
         window.addEventListener('aimd:chatgpt-conversation-bridge:request', responder);
         try {
+            runtime.init();
             const state = await runtime.source.refresh();
             expect(state.kind).toBe('unavailable');
             expect(state.snapshot).toBeNull();
@@ -425,13 +622,20 @@ describe('ChatGPT content discovery lifecycle', () => {
         }
     });
 
-    it('does not recover a first turn from home-page DOM mutations without a source graph', async () => {
+    it('publishes a host-born first turn after home-page DOM completion without replaying the source graph', async () => {
         document.documentElement.innerHTML = '<head></head><body><main></main></body>';
         history.replaceState({}, '', '/');
         const adapter = new ChatGPTAdapter();
         const runtime = new ChatGPTConversationContentRuntime(adapter);
+        const toolbarOrchestrator = new MessageToolbarOrchestrator(adapter, {
+            readerPanel: { setTheme() {}, show: async () => undefined } as any,
+            conversationContentSource: runtime.source,
+            conversationMaterialization: runtime.materialization,
+        });
+        let bridgeRequests = 0;
         const responder = ((event: Event) => {
             const request = (event as CustomEvent<any>).detail;
+            bridgeRequests += 1;
             window.dispatchEvent(new CustomEvent('aimd:chatgpt-conversation-bridge:response', {
                 detail: {
                     requestId: request.requestId,
@@ -443,6 +647,10 @@ describe('ChatGPT content discovery lifecycle', () => {
         window.addEventListener('aimd:chatgpt-conversation-bridge:request', responder);
         try {
             runtime.init();
+            toolbarOrchestrator.init();
+            expect((toolbarOrchestrator as any).observer).toBeNull();
+            expect((toolbarOrchestrator as any).routeWatcher).toBeNull();
+            expect((toolbarOrchestrator as any).scanScheduler).toBeNull();
             history.pushState({}, '', '/c/WEB:68fd340e-b1b6-4435-8dc7-a9d9152e87f4');
             document.querySelector('main')?.insertAdjacentHTML('beforeend', `
                 <div class="conversation-root">
@@ -476,12 +684,49 @@ describe('ChatGPT content discovery lifecycle', () => {
             markdown.textContent = '首轮回答';
             document.querySelector('button[data-testid="stop-button"]')?.remove();
 
-            await new Promise((resolve) => window.setTimeout(resolve, 250));
+            await new Promise((resolve) => window.setTimeout(resolve, 80));
+            const pendingToolbar = document.querySelector('[data-message-id="df373b17-35a9-4e33-8b86-30bebeaab455"]')
+                ?.closest('section')
+                ?.querySelector<HTMLElement>('[data-aimd-role="message-toolbar"]');
+            const officialAction = document.querySelector('[data-message-id="df373b17-35a9-4e33-8b86-30bebeaab455"]')
+                ?.closest('section')
+                ?.querySelector<HTMLElement>('button[data-testid="copy-turn-action-button"]');
+            // The first canonical-route commit is still host-owned here. Mutating
+            // its React action row before the content turn is sealed can roll the
+            // host back into the streaming state and remove both toolbars.
+            expect(pendingToolbar).toBeNull();
+            expect(officialAction).toBeTruthy();
+
+            await new Promise((resolve) => window.setTimeout(resolve, 520));
             const state = runtime.source.read();
-            expect(state.kind).toBe('unavailable');
-            expect(state.snapshot).toBeNull();
+            expect(state.kind).toBe('ready');
+            if (state.kind !== 'ready') throw new Error('expected a host-born ready state');
+            expect(state.snapshot.proof?.basis).toBe('host-born');
+            expect(state.snapshot.turns).toHaveLength(1);
+            expect(state.snapshot.turns[0]).toMatchObject({
+                userText: '首轮问题',
+                assistantMarkdown: '首轮回答',
+                assistantProvenance: {
+                    authority: 'host-rendered',
+                    fidelity: 'normalized',
+                    producer: 'rendered-content-v2',
+                },
+            });
+            const toolbar = document.querySelector('[data-message-id="df373b17-35a9-4e33-8b86-30bebeaab455"]')
+                ?.closest('section')
+                ?.querySelector<HTMLElement>('[data-aimd-role="message-toolbar"]');
+            const stats = toolbar?.shadowRoot
+                ?.querySelector<HTMLElement>('[data-role="stats"]')
+                ?.textContent?.trim();
+            expect(toolbar).toBeTruthy();
+            expect(stats).toBeTruthy();
+            expect(stats).not.toContain('—');
+            expect(document.querySelector('button[data-testid="stop-button"]')).toBeNull();
+            expect(document.querySelectorAll('button[data-testid="copy-turn-action-button"]')).toHaveLength(1);
+            expect(bridgeRequests).toBe(0);
         } finally {
             window.removeEventListener('aimd:chatgpt-conversation-bridge:request', responder);
+            toolbarOrchestrator.dispose();
             runtime.dispose();
             adapter.dispose();
         }

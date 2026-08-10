@@ -2,15 +2,19 @@
 
 ## Status
 
-Superseded for the production ChatGPT runtime. The V2 slot/compiler module and
-its focused tests remain isolated historical/experimental code; the active
-composition root is the passive Graph-backed V1 content/materialization pair
-recorded in ADR-0015. Installed Chrome MV3 and Firefox MV2 acceptance remains a
-separate gate.
+Superseded as a standalone production module by ADR-0017. Its
+`RenderedContentCompilerV2`, stable-capture and surface-fencing ideas are now
+used behind the shared Host Monitor; `ConversationDiscoveryModuleV2` and
+`ChatGPTVirtualConversationHostAdapter` are not a second production repository
+or observer. Installed Chrome MV3 and Firefox MV2 acceptance remains separate.
 
 ## Context
 
-ChatGPT keeps a complete conversation-shaped virtualized slot topology in the public page while only a subset of turns is currently hydrated as message content. Treating the mounted DOM window as the conversation caused old turns to disappear, made directory positions drift, and allowed Reader, Bookmark, local selection, and formula copy to use different body sources. The earlier Source Graph, bridge, backend conversation GET, and DOM-candidate chain are not the implementation basis for this V2.
+ChatGPT keeps persistent conversation-shaped slots while only a subset of turns
+is hydrated as message content. Treating that mounted window as complete
+history caused old turns to disappear, positions to drift and consumers to use
+different body sources. This ADR explored a DOM-first module; ADR-0017 later
+combined its validated compiler with the passive Graph baseline.
 
 ## Decision
 
@@ -21,28 +25,30 @@ For ChatGPT, use one page-scoped `ConversationDiscoveryModuleV2` with two eviden
 - `RenderedContentCompilerV2` clones a stable user/assistant surface, removes UI chrome, reads formula/code source through injected parser capabilities, compiles semantic HTML, and rejects empty, unsupported, over-budget, or semantically mismatched output. It publishes no partial Markdown.
 - The Discovery Module normalizes `order + byId` state, fences document epoch/host revision/batch identity, seals the first verified turn digest, preserves it across unmount/remount, and exposes only `ready` or `unavailable` for a single turn. Identity conflicts and branch suffix replacement fail closed.
 - Topology, content, and materialization revisions/tokens are independent. Topology changes update position; content sealing updates turn availability; remounts update anchors only. A local `refresh()` flushes already observed compile work but never acquires, scrolls, polls, or waits for future content.
-- This decision was not promoted to the production consumer seam. The active
-  runtime uses the passive Graph-backed `ConversationContentSourceV1` for
-  identity, prompt, Markdown, order, Reader, word count, copy, Bookmark
-  Preparation, formula, selection, and export; `ConversationMaterializationPortV1`
-  supplies only current DOM anchors. The V2 module is retained only for
-  isolated topology/compiler experiments until it is either removed or
-  explicitly re-adopted by a later ADR.
+- The standalone Discovery Module was not promoted. ADR-0017 reuses
+  `RenderedContentCompilerV2` inside `ChatGPTConversationHostMonitor`, which
+  consumes the existing PageIndex observer and submits only stable contiguous
+  host tails to `ConversationContentRepository`. Slot/topology code remains
+  navigation/materialization or experimental evidence, not another content
+  source.
 - Local selection evidence is a typed V2 ref + turn token + surface token + TextQuote/atom evidence. The V2 `SurfaceProjection` resolves it against the sealed Markdown; it never treats `Range.toString()` or formula glyph text as Markdown/TeX. Formula clicks use the same V2 turn read.
 - Bookmark save requires user body, assistant canonical Markdown, assistant message ID, topology position, and the current turn revision from one read. Existing bookmark storage/data shapes are unchanged.
 - Locate is bounded and event-driven: one coarse slot `scrollIntoView`, then an Observer-driven precise anchor alignment. User input, route changes, AbortSignal, or timeout cancel it. No ratio search, pixel probing, hidden scroll, synthetic scroll loop, network request, cookie/storage/token/auth-header access, POST/SSE construction, or React internals are permitted.
 
 ## Consequences
 
-- The production directory and content consumers follow one graph snapshot;
-  a refresh cannot replace verified graph content with a partial DOM window.
+- The production directory and content consumers follow one immutable
+  baseline-prefix/host-tail snapshot; a refresh cannot replace it or reopen the
+  baseline gate.
 - Virtualization can remove and recreate DOM surfaces without deleting sealed content or recompiling identical content.
 - Page wrapper/class changes are isolated to the ChatGPT Host Adapter and fixtures; semantic compiler, consumers, bookmark model, and navigation contracts remain unchanged.
-- Sparse content is explicit. Full export requires every topology entry to be ready and conflict-free; selected export can operate on ready entries only.
+- Sparse materialization is explicit and does not reduce content. Full Reader
+  and full export accept complete source, hybrid or host-born projections and
+  pause when the projection is stale.
 - The V2 slot-only path is not an active consumer source. The passive bridge
-  observes only the website-owned conversation GET, and the graph-backed
-  repository is the active ChatGPT content seam; no extension-issued
-  `/backend-api/conversation/*` request is allowed.
+  provides one baseline and the shared Host Monitor provides subsequent stable
+  turns to the same Repository; no extension-issued conversation request is
+  allowed.
 
 ## Verification
 

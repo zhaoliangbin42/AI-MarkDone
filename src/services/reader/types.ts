@@ -23,7 +23,7 @@ export type ReaderItemMeta = {
      * Whether Markdown came from a canonical provider source or a lossy
      * rendered-surface reconstruction. Missing means a legacy/non-V1 source.
      */
-    sourceQuality?: 'source-backed' | 'reconstructed';
+    sourceQuality?: 'source-backed' | 'host-rendered' | 'reconstructed';
 };
 
 export type ReaderItem = {

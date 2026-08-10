@@ -2,7 +2,9 @@
 
 ## Status
 
-Accepted — branch implementation; not included in a release until installed-browser acceptance is rerun. The candidate merge and ready-close-recovery portions are superseded by ADR-0013.
+Superseded by ADR-0017. The single PageIndex and signal-driven/no-polling
+principles remain; active acquisition, repeated source reconciliation and the
+prohibition on stable host bodies do not.
 
 ## Context
 
@@ -10,20 +12,19 @@ The V1 content port already has one repository and one reconcile path, but two l
 
 ## Decision
 
-- Keep one `ChatGPTPageIndex` observer. It observes structure, typed identity, lifecycle attributes, and narrowly scoped host changes that can signal remount/generation; it never turns character data or rendered descendants into canonical content. Navigation and materialization subscribers receive host facts, while source content is revalidated through the Source Adapter.
+- Keep one `ChatGPTPageIndex` observer. It observes structure, typed identity, lifecycle attributes and assistant-scoped content changes. Per-character mutations only dirty an assistant identity; `ChatGPTConversationHostMonitor` waits for a 400 ms quiet/completion boundary before one rendered compile.
 - The bridge marks a graph `complete` when every published user/assistant turn is complete and an empty assistant shell is not the active tail of the continued branch. Only an incomplete final turn marks the source `partial`; if no completed turn remains, the bridge returns unavailable rather than an empty ready snapshot.
 - Provider positions are not semantic identity. After omitting unfinished rounds, the bridge renumbers the surviving rounds from one before crossing the Content Port, while `turnId`/message IDs remain unchanged. This keeps partial snapshots valid even when the first visible completed round originally had provider position 2 or later.
-- Active same-origin acquisition is a convergence hint, not a generation timer. The adapter performs it on a new document, a route/pageshow signal, a newly observed typed lifecycle identity, an explicit `generation-complete` signal, or explicit refresh. Host observations never become body evidence. Retryable acquisition failures retain already sealed source evidence and retry only when a later real signal arrives; no permanent polling or generation-body/SSE parsing is introduced.
-- The source graph remains authoritative for branch, history, global order, identity, and Markdown. A source-backed sealed turn can be read immediately through `ConversationTurnReadPortV1` even when the global proof is gapped. `ConversationSnapshotV1.proof` is the only completeness input: `ready` does not close recovery and does not imply complete order or bodies.
-- There is no timer-based bootstrap recovery. The document-start bridge keeps the latest passive graph replayable; if it is unavailable, the next real lifecycle signal re-enters the same reconcile path. A long generation leaves its newest turn unavailable without erasing the last verified snapshot. Once the source graph becomes verifiably complete, the same repository publishes the new immutable snapshot and all consumers observe it.
+- The extension never performs same-origin conversation acquisition. A canonical conversation epoch consumes at most one matching Graph already captured by the document-start bridge. A real future bridge capture may satisfy an open gate; no route, host, generation or refresh signal can issue a request or reopen a closed gate.
+- The source Graph remains authoritative for the complete existing-history baseline prefix. A compiler-verified stable host turn may close the unique streaming tail or append a contiguous successor, carrying `host-rendered/normalized` provenance. It cannot fill unknown history or modify the baseline prefix.
+- A blank page is proven only by a full typed-DOM scan with zero messages. Facts born under `/c/WEB:*` survive canonical identity binding and may establish a `host-born` first projection. There is no domain/path empty inference or timer-based source replay.
 
 ## Consequences
 
-- Hard refreshes that race DOM hydration converge from passive Source Graph replay or a later real lifecycle signal; no locale-specific stop label is required.
-- Hard refreshes that finish their first graph fetch before the content runtime attaches still recover through the document-start bridge's latest replay or the next real lifecycle signal; there is no timer-based content recovery.
-- Deep Research and other long-running answers no longer need to finish inside the initial acquisition timeout. Incomplete graph tails cannot become a false `ready + complete` snapshot.
-- The content discovery owner remains singular. Host observation is an extension of PageIndex, not a second consumer-side observer or body parser, and the public Content Port V1 is unchanged.
-- The new behavior must be verified with delayed-body, partial-graph, generation-complete re-acquisition, Chrome/Firefox transport, and long-answer mutation-burst tests before release acceptance.
+- Hard refreshes recover full history only from the passive Graph baseline; if document-start capture was missed, reload is the explicit recovery.
+- Long-running answers do not cause repeated Graph reads. Their stable completed DOM tail commits once after semantic validation.
+- The content owner remains singular. Host observation extends PageIndex through one Host Monitor, not a consumer-side observer or second repository; the public Content Port V1 is unchanged.
+- Verification covers first-turn identity binding, partial-baseline closure, closed-gate no-op, Chrome/Firefox transport parity and 1,000-mutation compile bounds.
 
 ## Verification
 

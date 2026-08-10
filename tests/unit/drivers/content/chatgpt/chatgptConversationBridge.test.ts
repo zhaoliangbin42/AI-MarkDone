@@ -216,7 +216,7 @@ describe('ChatGPT conversation bridge', () => {
         forbidden.forEach((value) => expect(source).not.toContain(value));
     });
 
-    it('keeps content-world discovery event-driven and free of active host transport', () => {
+    it('keeps content-world discovery event-driven and free of extension host transport', () => {
         const adapter = readFileSync('src/drivers/content/chatgpt/ChatGPTConversationDiscoveryAdapter.ts', 'utf-8');
         const facts = readFileSync('src/services/content/ChatGPTDomTurnFactSource.ts', 'utf-8');
         const pageIndex = readFileSync('src/drivers/content/chatgpt/ChatGPTPageIndex.ts', 'utf-8');

@@ -106,8 +106,8 @@ describe('ChatGPTConversationDiscoveryAdapter', () => {
         }
     });
 
-    it('never performs active acquisition even when the legacy option is enabled', async () => {
-        const adapter = new ChatGPTConversationDiscoveryAdapter({ allowActiveAcquisition: true });
+    it('reads a baseline only through passive Bridge memory', async () => {
+        const adapter = new ChatGPTConversationDiscoveryAdapter();
         const requests: string[] = [];
         const responder = ((event: Event) => {
             const request = (event as CustomEvent<any>).detail;
@@ -116,7 +116,7 @@ describe('ChatGPTConversationDiscoveryAdapter', () => {
         }) as EventListener;
         window.addEventListener(REQUEST_EVENT, responder);
 
-        await expect(adapter.acquire(new AbortController().signal)).rejects.toMatchObject({
+        await expect(adapter.readBaseline(new AbortController().signal)).rejects.toMatchObject({
             reason: 'source-unavailable',
         });
         expect(requests).toEqual(['peek']);

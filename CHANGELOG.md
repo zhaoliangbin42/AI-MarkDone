@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+- ChatGPT: The first completed reply now waits for ChatGPT's stable completion commit before mounting its message toolbar and word count, preventing the official actions from disappearing or the send control from returning to a stuck Stop state.
+- ChatGPT: New replies in an existing conversation now update Reader, copy, bookmarks, export, and message word counts from the same stable content snapshot, without additional conversation requests.
+
 ## [5.2.0] - 2026-08-07
 
 千呼万唤始出来，AI-MarkDone 5.2.0 终于来了。

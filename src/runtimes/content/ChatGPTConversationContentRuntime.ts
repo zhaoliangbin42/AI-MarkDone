@@ -6,17 +6,20 @@ import { ConversationContentRepository } from '../../services/content/Conversati
 import { ChatGPTConversationDiscoveryAdapter } from '../../drivers/content/chatgpt/ChatGPTConversationDiscoveryAdapter';
 import { ChatGPTConversationDiscoveryCoordinator } from '../../drivers/content/chatgpt/ChatGPTConversationDiscoveryCoordinator';
 import { ChatGPTConversationMaterialization } from '../../drivers/content/chatgpt/ChatGPTConversationMaterialization';
+import { ChatGPTConversationHostMonitor } from '../../drivers/content/chatgpt/ChatGPTConversationHostMonitor';
 import { getChatGPTConversationIndex } from '../../drivers/content/chatgpt/ChatGPTConversationIndex';
+import { getChatGPTPageIndex } from '../../drivers/content/chatgpt/domConversationDiscovery';
 
 export type ChatGPTConversationContentRuntimeOptions = Readonly<{
-    /** Kept for constructor compatibility; V2 never performs network acquisition. */
-    allowActiveAcquisition?: boolean;
+    /** Test seam; production uses the 400ms stable-host quiet window. */
+    hostSettleDelayMs?: number;
 }>;
 
 /**
  * ChatGPT composition root. The published content/materialization ports are
- * backed by one passive graph Repository and one DOM materialization adapter.
- * No consumer is allowed to introduce a second DOM-derived content source.
+ * backed by one passive-baseline/stable-host-tail Repository and one shared
+ * DOM materialization adapter. No consumer may introduce another content
+ * observer, repository, or extraction path.
  *
  * The `source` and `materialization` fields are read-only projections.
  * The graph adapter only peeks at evidence captured from the website's own
@@ -29,23 +32,33 @@ export class ChatGPTConversationContentRuntime {
     private readonly repository: ConversationContentRepository;
     private readonly coordinator: ChatGPTConversationDiscoveryCoordinator;
     private readonly graphMaterialization: ChatGPTConversationMaterialization;
+    private readonly hostMonitor: ChatGPTConversationHostMonitor;
 
     constructor(
         adapter: SiteAdapter,
         _options: ChatGPTConversationContentRuntimeOptions = {},
     ) {
-        this.graphAdapter = new ChatGPTConversationDiscoveryAdapter(_options);
+        this.graphAdapter = new ChatGPTConversationDiscoveryAdapter();
         this.repository = new ConversationContentRepository({
             resolveDocument: () => this.graphAdapter.resolveDocument(),
-            acquire: (_document, signal) => this.graphAdapter.acquire(signal),
+            readBaseline: (_document, signal) => this.graphAdapter.readBaseline(signal),
         });
         const index = getChatGPTConversationIndex(adapter);
+        const pageIndex = getChatGPTPageIndex(adapter);
         index.bindConversationSource(this.repository);
+        this.hostMonitor = new ChatGPTConversationHostMonitor({
+            adapter,
+            index: pageIndex,
+            repository: this.repository,
+            resolveDocument: () => this.graphAdapter.resolveDocument(),
+            settleDelayMs: _options.hostSettleDelayMs,
+        });
         this.coordinator = new ChatGPTConversationDiscoveryCoordinator({
             adapter,
             discoveryAdapter: this.graphAdapter,
             repository: this.repository,
-            pageIndex: undefined,
+            hostMonitor: this.hostMonitor,
+            pageIndex,
         });
         this.graphMaterialization = new ChatGPTConversationMaterialization({
             adapter,

@@ -87,7 +87,7 @@ export class ChatGPTConversationReaderBinding {
     private handleState(state: ConversationContentStateV1): void {
         const version = ++this.applyVersion;
         if (!this.options.readerPanel.isShowingConversationReader()) return;
-        if (!state.snapshot) {
+        if (!state.snapshot || state.kind === 'stale') {
             this.options.readerPanel.hide();
             return;
         }

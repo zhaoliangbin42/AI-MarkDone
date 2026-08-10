@@ -18,22 +18,20 @@ describe('ChatGPTConversationDiscoveryCoordinator', () => {
         vi.useRealTimers();
     });
 
-    it('routes bootstrap, PageIndex, bridge, pageshow, and route signals through reconcile', async () => {
-        let pageIndexListener: (() => void) | null = null;
+    it('keeps host observations off the baseline path and routes only bridge lifecycle signals to the gate', async () => {
         let bridgeListener: (() => void) | null = null;
         const repository = {
-            reconcile: vi.fn(async () => ({ kind: 'idle', document: null, snapshot: null })),
-            refresh: vi.fn(async () => ({ kind: 'idle', document: null, snapshot: null })),
-            scheduleReconcile: vi.fn(),
+            enterCurrentEpoch: vi.fn(async () => ({ kind: 'idle', document: null, snapshot: null })),
+            notifyBaselineCaptured: vi.fn(),
             read: vi.fn(() => ({ kind: 'idle', document: null, snapshot: null })),
-            subscribe: vi.fn(() => () => undefined),
-            isCurrent: vi.fn(() => false),
         };
         const pageIndex = {
-            subscribeMutations: (listener: () => void) => {
-                pageIndexListener = listener;
-                return () => { pageIndexListener = null; };
-            },
+            dispose: vi.fn(),
+        };
+        const hostMonitor = {
+            init: vi.fn(),
+            notifyPageShow: vi.fn(),
+            notifyRouteChanged: vi.fn(),
             dispose: vi.fn(),
         };
         const discoveryAdapter = {
@@ -46,18 +44,21 @@ describe('ChatGPTConversationDiscoveryCoordinator', () => {
             adapter,
             discoveryAdapter: discoveryAdapter as any,
             repository: repository as any,
+            hostMonitor: hostMonitor as any,
             pageIndex: pageIndex as any,
         });
 
         coordinator.init();
         await Promise.resolve();
-        expect(repository.reconcile).toHaveBeenCalledTimes(1);
-        pageIndexListener?.();
+        expect(repository.enterCurrentEpoch).toHaveBeenCalledTimes(1);
+        expect(hostMonitor.init).toHaveBeenCalledTimes(1);
         bridgeListener?.();
-        expect(repository.scheduleReconcile).toHaveBeenCalledTimes(2);
+        expect(repository.notifyBaselineCaptured).toHaveBeenCalledTimes(1);
         window.dispatchEvent(new PageTransitionEvent('pageshow'));
-        expect(repository.reconcile).toHaveBeenCalledTimes(2);
+        expect(repository.enterCurrentEpoch).toHaveBeenCalledTimes(2);
+        expect(hostMonitor.notifyPageShow).toHaveBeenCalledTimes(1);
         coordinator.dispose();
+        expect(hostMonitor.dispose).toHaveBeenCalledTimes(1);
         expect(pageIndex.dispose).toHaveBeenCalledTimes(1);
     });
 
@@ -76,14 +77,11 @@ describe('ChatGPTConversationDiscoveryCoordinator', () => {
         } as const;
         let state = unavailable;
         const repository = {
-            reconcile: vi.fn(async () => {
+            enterCurrentEpoch: vi.fn(async () => {
                 return state;
             }),
-            refresh: vi.fn(async () => state),
-            scheduleReconcile: vi.fn(),
+            notifyBaselineCaptured: vi.fn(),
             read: vi.fn(() => state),
-            subscribe: vi.fn(() => () => undefined),
-            isCurrent: vi.fn(() => false),
         };
         const coordinator = new ChatGPTConversationDiscoveryCoordinator({
             adapter,
@@ -97,7 +95,7 @@ describe('ChatGPTConversationDiscoveryCoordinator', () => {
 
         coordinator.init();
         await vi.advanceTimersByTimeAsync(2_000);
-        expect(repository.reconcile).toHaveBeenCalledTimes(1);
+        expect(repository.enterCurrentEpoch).toHaveBeenCalledTimes(1);
 
         state = { ...unavailable, kind: 'ready', snapshot: {
             schemaVersion: 1,
@@ -108,7 +106,7 @@ describe('ChatGPTConversationDiscoveryCoordinator', () => {
         } } as any;
         window.dispatchEvent(new PageTransitionEvent('pageshow'));
         await Promise.resolve();
-        expect(repository.reconcile).toHaveBeenCalledTimes(2);
+        expect(repository.enterCurrentEpoch).toHaveBeenCalledTimes(2);
         coordinator.dispose();
     });
 });

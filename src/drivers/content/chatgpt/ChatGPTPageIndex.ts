@@ -40,6 +40,7 @@ const HOST_LIFECYCLE_ATTRIBUTES = new Set([
 const GENERATION_LIFECYCLE_SELECTOR = [
     'button[data-testid="stop-button"]',
     'button[data-testid="copy-turn-action-button"]',
+    '[data-conversation-screenshot-content] iframe[title="internal://deep-research"]',
 ].join(',');
 
 function getElementForOwnershipCheck(node: Node): Element | null {

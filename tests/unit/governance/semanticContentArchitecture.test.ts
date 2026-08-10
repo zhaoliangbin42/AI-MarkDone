@@ -52,9 +52,11 @@ describe('Semantic Content architecture', () => {
         expect(contract).not.toMatch(/\b(?:mdast|hast|unist|Root|RootContent)\b/i);
     });
 
-    it('keeps all ChatGPT content consumers on the passive Graph V1 seam', () => {
+    it('keeps all ChatGPT consumers on the baseline-and-host-tail V1 seam', () => {
         const entry = read('src/runtimes/content/entry.ts');
         const runtime = read('src/runtimes/content/ChatGPTConversationContentRuntime.ts');
+        const contentContract = read('src/contracts/conversationContent.ts');
+        const coordinator = read('src/drivers/content/chatgpt/ChatGPTConversationDiscoveryCoordinator.ts');
         const consumerFiles = [
             'src/services/reader/readerContentSource.ts',
             'src/ui/content/controllers/MessageToolbarOrchestrator.ts',
@@ -68,8 +70,14 @@ describe('Semantic Content architecture', () => {
         expect(entry).toContain('conversationContentSource');
         expect(entry).toContain('conversationMaterialization');
         expect(runtime).toContain('ConversationContentRepository');
+        expect(runtime).toContain('ChatGPTConversationHostMonitor');
         expect(runtime).not.toContain('ConversationDiscoveryModuleV2');
         expect(runtime).not.toContain('ChatGPTVirtualConversationHostAdapter');
+        expect(contentContract).not.toContain('ConversationContentCoordinatorV1');
+        expect(contentContract).not.toContain('scheduleReconcile');
+        expect(contentContract).not.toMatch(/\breconcile\s*\(/);
+        expect(coordinator).toContain('enterCurrentEpoch');
+        expect(coordinator).toContain('notifyBaselineCaptured');
         for (const source of consumerFiles) {
             expect(source).not.toContain('ConversationDiscoveryPortV2');
             expect(source).not.toContain('conversationDiscoveryV2');
