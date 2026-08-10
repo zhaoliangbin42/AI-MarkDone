@@ -4,6 +4,39 @@ Purpose: evidence log for major changes (commands run + observed results). Keep 
 
 ---
 
+## 2026-08-10 — ChatGPT sealed host-rendered local Markdown selection
+
+- Reproduced the real shortcut failure with a sealed `host-rendered` assistant
+  turn: the selection controller resolved the typed target, but
+  `SurfaceProjection` rejected every non-source-backed body before semantic
+  projection, so ordinary text and formulas both reported that selected Markdown
+  could not be copied.
+- Kept DOM ownership narrow: Range, typed target, revision tokens, TextQuote and
+  formula atoms remain surface evidence. The copied payload now comes only from
+  the matching sealed Repository Markdown. Source-backed and compiler-verified
+  `host-rendered` turns are eligible; reconstructed, stale, ambiguous,
+  cross-message, streaming and unproven selections still fail open.
+- Updated the performance fixture to exercise the actual configured shortcut and
+  browser clipboard against matching rendered/Graph content. Verified-snapshot
+  idle prewarm remains permitted only for extension-origin feature modules, and
+  export-renderer loading still requires an image action.
+
+Verification:
+- The regression was observed failing before the production gate changed.
+  Focused Surface Projection/controller/adapter coverage passed after the fix.
+- Discovery passed 29 files / 344 tests; core passed 284 / 1,977; smoke passed
+  7 / 54; acceptance passed 31 / 325; type-check, dual-browser build, passive
+  boundary, bundle budgets and `git diff --check` passed.
+- `npm run perf:chatgpt` passed with 200/200 toolbars, zero duplicates, zero idle
+  mutations, 200 streaming mutations, two selection-state writes, zero selection
+  long tasks and canonical formula Markdown on the clipboard.
+- Installed Chrome current-build acceptance passed for ordinary text and a
+  complete inline formula on an existing conversation. The original shortcut
+  setting was restored after verification; no new conversation request was
+  introduced. Installed Firefox MV2 remains pending.
+
+---
+
 ## 2026-08-10 — ChatGPT first-turn host action-row rollback
 
 - Reproduced the installed-Chrome failure from a blank ChatGPT page with a bounded local DOM sampler: the completed assistant action row and AI-MarkDone toolbar appeared together, then 118 ms later both disappeared; the host stop control returned and remained active for the 45-second observation window. The assistant node stayed mounted while only the user-turn copy action remained.

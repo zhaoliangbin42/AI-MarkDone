@@ -139,9 +139,12 @@ DOM-local toolbar lifecycle.
 driver-local lifecycle alone may enter a new conversation epoch or notify the
 Session that a passive Bridge capture arrived.
 
-Precise native selection/annotation still requires `SurfaceProjection` proof.
-Host-rendered whole-turn content may feed Reader, whole-message copy, bookmark,
-word count and export, but it is not treated as exact provider source spans.
+Precise native selection still requires `SurfaceProjection` proof; any future
+provider-exact persistent annotation claim requires stricter provenance.
+Sealed host-rendered content may feed Reader, whole-message copy, bookmark,
+word count, export and uniquely proven local Markdown copy. Its projected span
+is canonical within AI-MarkDone's sealed body, but is not treated as exact
+provider-original provenance for persistent annotations.
 
 ## Consequences
 
@@ -160,7 +163,7 @@ word count and export, but it is not treated as exact provider source spans.
   supported as complete discovery. Reloading the page is the required recovery.
 
 This ADR supersedes the absolute “host DOM can never supply a body” statements
-in ADR-0011, ADR-0013 and ADR-0015, while retaining their source-span,
+in ADR-0011, ADR-0013 and ADR-0015, while retaining their projection-proof,
 virtualization and passive-network safety boundaries. It supersedes ADR-0016's
 explicit-refresh acquisition wording and stale-export behavior. It absorbs the
 validated rendered compiler and surface-fencing ideas from ADR-0014 without
@@ -178,7 +181,7 @@ adopting its second observer or second production repository.
 - closed-gate Graph captures as no-ops;
 - route/epoch fencing, virtualization unmount/remount, suffix regeneration and
   historical-prefix stale behavior;
-- host-rendered provenance and source-span rejection;
+- host-rendered provenance, local-selection acceptance and reconstructed rejection;
 - toolbar mounting and numeric word count through the real materialization
   trigger, including proof that a pending first-turn anchor does not mutate the
   official action row;
@@ -188,7 +191,8 @@ Installed Chrome and Firefox acceptance remains a separate release gate.
 
 ## Status
 
-Accepted and implemented. Functional, type, Chrome/Firefox build and bundle
-gates passed on 2026-08-10. The pre-existing Atomic Selection performance
-assertion remains red, and installed-current-build Chrome/Firefox acceptance is
-still pending for release sign-off.
+Accepted and implemented. Functional, type, performance, Chrome/Firefox build
+and bundle gates passed on 2026-08-10. Installed Chrome current-build acceptance
+passed for ordinary and formula local Markdown selection. A fresh blank-page
+first-turn matrix and installed Firefox MV2 acceptance remain separate release
+sign-off gates.

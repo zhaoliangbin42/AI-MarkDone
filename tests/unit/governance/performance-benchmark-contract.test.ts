@@ -10,13 +10,15 @@ describe('ChatGPT performance benchmark contract', () => {
         expect(source).toContain('collectUsedJsHeapAfterGc(context, page)');
     });
 
-    it('proves heavy content features stay unloaded until a real panel trigger', () => {
+    it('keeps verified-snapshot prewarm extension-origin and the explicit panel trigger measurable', () => {
         const source = readFileSync(resolve('scripts/benchmark-chatgpt-runtime.ts'), 'utf8');
 
         expect(source).toContain('featureModuleRequests');
+        expect(source).toContain('pretriggerHostOriginRequests');
+        expect(source).toContain('Idle feature prewarm resolved against the host page origin');
+        expect(source).toContain('Export renderer loaded without an image action');
         expect(source).toContain('[data-action="open-bookmarks-panel"]');
         expect(source).toContain('#aimd-bookmarks-panel-host');
-        expect(source).toContain('Feature module loaded before an explicit user trigger');
         expect(source).toContain('Feature chunk resolved against the host page origin');
         expect(source).toContain('featureLoadMs');
     });
@@ -34,11 +36,11 @@ describe('ChatGPT performance benchmark contract', () => {
         expect(source).not.toContain('/c/aimd-performance-fixture');
     });
 
-    it('keeps verified-snapshot prewarm out of the explicit feature-trigger measurement', () => {
+    it('does not suppress verified-snapshot prewarm with a synthetic save-data policy', () => {
         const source = readFileSync(resolve('scripts/benchmark-chatgpt-runtime.ts'), 'utf8');
 
-        expect(source).toContain("Object.defineProperty(navigator, 'connection'");
-        expect(source).toContain('value: { saveData: true }');
+        expect(source).not.toContain("Object.defineProperty(navigator, 'connection'");
+        expect(source).not.toContain('value: { saveData: true }');
     });
 
     it('measures direct atomic selection without allowing repeated DOM writes or long tasks', () => {
@@ -46,6 +48,10 @@ describe('ChatGPT performance benchmark contract', () => {
 
         expect(source).toContain('data-aimd-perf-atomic-selection');
         expect(source).toContain('data-latex-source="\\\\frac{x}{y}"');
+        expect(source).toContain("context.grantPermissions(");
+        expect(source).toContain("page.keyboard.press('Control+Shift+C')");
+        expect(source).toContain('navigator.clipboard.readText()');
+        expect(source).not.toContain("new ClipboardEvent('copy'");
         expect(source).toContain("selectionContract.copiedMarkdown !== '$\\\\frac{x}{y}$'");
         expect(source).toContain("selectionContract.copiedTypes.join(',') !== 'text/plain'");
         expect(source).toContain('data-aimd-page-atomic-state');

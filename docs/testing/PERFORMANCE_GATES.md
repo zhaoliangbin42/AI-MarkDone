@@ -231,7 +231,7 @@ The automated counts, bundle sizes, and performance medians above were produced 
 - Ordinary ChatGPT Reader, Save Messages, Bookmark Preparation, word count and copy paths now read the last published V1 snapshot. They no longer wait for a bridge peek or call `ConversationContentSourceV1.refresh()` on every click.
 - `readerContentSource` caches immutable base `ReaderItem[]` projections by snapshot identity and normalized page URL. Consumer calls receive shallow mutable views; the cache never stores DOM or detached nodes. ChatGPT Markdown is normalized at the discovery adapter boundary only.
 - Complete source, hybrid and host-born snapshots remain consumable. A historical-prefix conflict preserves last-good diagnostics as `stale`, but full Reader and full Save Messages export pause until page reload. An empty snapshot remains unavailable. Explicit Reader Refresh only awaits or returns Session work already observed and cannot start baseline admission.
-- Reader/export chunks have a bounded, single-flight idle prewarm after a verified ChatGPT snapshot exists and the page is visible. `saveData` skips prewarm, teardown cancels it, and all module URLs remain extension-origin. The synthetic benchmark now has a passive Graph snapshot and explicitly sets `saveData`, so its no-feature-before-trigger invariant remains meaningful.
+- Reader/export chunks have a bounded, single-flight idle prewarm after a verified ChatGPT snapshot exists and the page is visible. `saveData` skips prewarm, teardown cancels it, and all module URLs remain extension-origin. The synthetic benchmark has a passive Graph snapshot; its current prewarm and explicit-trigger assertions are recorded in the latest section below.
 
 ### Baseline-and-host-tail lifecycle — 2026-08-10
 
@@ -241,15 +241,20 @@ The automated counts, bundle sizes, and performance medians above were produced 
   required by the same Content + PageIndex + Materialization contract as
   production; pending toolbar injection and the retired independent observer
   are not benchmark fallbacks.
-- The corrected fixture reached `toolbars ready`, proving the sealed-content
-  toolbar gate did not regress 200-toolbar startup. The sole conversation
-  request is initiated by the synthetic website page and fulfilled locally;
-  extension-initiated conversation requests remain zero.
-- The run then stopped at the existing Atomic Selection assertion with
-  `selected=1`, `cleared=0`, empty copied payload, two state writes and zero
-  long tasks. Therefore no timing/heap/recovery median is accepted for this
-  worktree and `npm run perf:chatgpt` remains red; this result must not be
-  reported as a passed content-discovery performance gate.
+- The fixture now keeps its rendered formula and passive Graph Markdown
+  semantically consistent, grants the test origin clipboard permission, and
+  enters Atomic Selection through the configured trusted keyboard shortcut plus
+  the browser clipboard instead of dispatching a bare `copy` event.
+- The current run passed with 200/200 sealed-content toolbars, zero duplicate
+  action rows, zero idle mutations, 200 streaming mutations, exactly two
+  `data-aimd-page-atomic-state` writes, zero selection long tasks and canonical
+  `$\\frac{x}{y}$` clipboard output. The sole conversation request was initiated
+  by the synthetic website page and fulfilled locally; extension-initiated
+  conversation requests remained zero.
+- Verified-snapshot idle prewarm is allowed, but every feature URL must remain
+  extension-origin and no export renderer may load before an image action. Both
+  assertions passed. The built content bundle measured 825,215 raw bytes and
+  217,119 gzip bytes, and `npm run perf:chatgpt` is green for this worktree.
 
 ## Scope protections
 
@@ -257,5 +262,9 @@ The automated counts, bundle sizes, and performance medians above were produced 
 - Do not reintroduce conversation DOM virtualization as part of this program.
 - Toolbar placement remains anchored to ChatGPT's official `copy-turn-action-button` row. There is no content-body fallback.
 - Official navigation hiding must fail open when the exact official selector no longer matches.
-- Direct atomic selection must remain one document selection listener plus one final window copy listener, with no MutationObserver, per-message listener, selection rewrite, or idle DOM writes. A valid snapshot may mount one short-lived shared selection-action portal; it must close with the selection and must not create a second observer/controller or load the content-feature renderer graph. Unsupported and over-budget selections must fail open to native copy.
+- Direct atomic selection must remain one document selection listener plus one
+  window keyboard/copy owner, with no MutationObserver, per-message listener,
+  selection rewrite, selection-action portal or idle DOM writes. It must not
+  create a second observer/controller or load the content-feature renderer graph.
+  Unsupported and over-budget selections must fail open to native copy.
 - Bundle splitting may use only the documented `browser.runtime.getURL()` feature facade exception in classic `content.js`; all emitted ES modules must pass module parsing, callable-export, manifest-resource, extension-origin, and bundle-budget gates.

@@ -20,7 +20,7 @@ const target = {
 function createSnapshot(options: Readonly<{
     markdown?: string;
     contentToken?: string;
-    authority?: 'primary' | 'reconstructed';
+    authority?: 'primary' | 'host-rendered' | 'reconstructed';
 }> = {}): ConversationSnapshotV1 {
     const authority = options.authority ?? 'primary';
     return {
@@ -44,8 +44,16 @@ function createSnapshot(options: Readonly<{
             assistantMarkdown: options.markdown ?? 'Before **clean Markdown** after.',
             assistantProvenance: {
                 authority,
-                fidelity: authority === 'primary' ? 'exact' : 'lossy',
-                producer: authority === 'primary' ? 'provider-graph' : 'rendered-dom',
+                fidelity: authority === 'primary'
+                    ? 'exact'
+                    : authority === 'host-rendered'
+                        ? 'normalized'
+                        : 'lossy',
+                producer: authority === 'primary'
+                    ? 'provider-graph'
+                    : authority === 'host-rendered'
+                        ? 'rendered-content-v2'
+                        : 'rendered-dom',
             },
         }],
     };
@@ -104,6 +112,20 @@ function createEvidence(overrides: Partial<ContentSurfaceSelectionEvidenceV1> = 
 describe('projectSurfaceSelectionToMarkdown', () => {
     it('joins surface evidence to the canonical source and preserves Markdown wrappers', () => {
         const snapshot = createSnapshot();
+
+        expect(projectSurfaceSelectionToMarkdown({
+            source: createSource(snapshot),
+            materialization: createMaterialization(snapshot),
+            evidence: createEvidence(),
+        })).toMatchObject({
+            status: 'ready',
+            markdown: '**clean Markdown**',
+            contentToken: snapshot.contentToken,
+        });
+    });
+
+    it('projects from sealed host-rendered canonical Markdown', () => {
+        const snapshot = createSnapshot({ authority: 'host-rendered' });
 
         expect(projectSurfaceSelectionToMarkdown({
             source: createSource(snapshot),

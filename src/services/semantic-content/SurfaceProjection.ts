@@ -4,7 +4,7 @@ import type {
     ContentSurfaceSelectionEvidenceV2,
 } from '../../contracts/contentSurface';
 import {
-    isConversationTurnSourceBackedV1,
+    getConversationTurnSourceQualityV1,
     type ConversationContentSourceV1,
 } from '../../contracts/conversationContent';
 import type {
@@ -89,7 +89,10 @@ export function projectSurfaceSelectionToMarkdown(options: Readonly<{
         }
     }
     if (!turn) return unavailable('target-unresolved');
-    if (!isConversationTurnSourceBackedV1(turn) || !turn.assistantMarkdown.trim()) {
+    if (
+        getConversationTurnSourceQualityV1(turn) === 'reconstructed'
+        || !turn.assistantMarkdown.trim()
+    ) {
         return unavailable('source-insufficient');
     }
 

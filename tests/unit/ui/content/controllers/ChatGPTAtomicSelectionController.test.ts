@@ -16,7 +16,7 @@ function createCanonicalSelectionController(
     message: HTMLElement,
     options: Readonly<{
         markdown?: string;
-        authority?: 'primary' | 'reconstructed';
+        authority?: 'primary' | 'host-rendered' | 'reconstructed';
     }> = {},
 ): ChatGPTAtomicSelectionController {
     const documentKey = 'chatgpt:conversation:conversation-1';
@@ -55,8 +55,16 @@ function createCanonicalSelectionController(
                 assistantMarkdown: options.markdown ?? 'Before **clean Markdown** after.',
                 assistantProvenance: {
                     authority: options.authority ?? 'primary',
-                    fidelity: options.authority === 'reconstructed' ? 'lossy' : 'exact',
-                    producer: options.authority === 'reconstructed' ? 'test-dom' : 'test-provider',
+                    fidelity: options.authority === 'reconstructed'
+                        ? 'lossy'
+                        : options.authority === 'host-rendered'
+                            ? 'normalized'
+                            : 'exact',
+                    producer: options.authority === 'reconstructed'
+                        ? 'test-dom'
+                        : options.authority === 'host-rendered'
+                            ? 'rendered-content-v2'
+                            : 'test-provider',
                 },
             }],
         },
@@ -214,6 +222,69 @@ describe('ChatGPTAtomicSelectionController', () => {
         controller.dispose();
     });
 
+    it('copies an ordinary selection from sealed host-rendered canonical Markdown', async () => {
+        const message = mountMessage('<p>Before <strong><span>new canonical content</span></strong> after.</p>');
+        const selectedText = message.querySelector('strong span')!.firstChild as Text;
+        const range = document.createRange();
+        range.selectNodeContents(selectedText);
+        selectRange(range);
+
+        const controller = createCanonicalSelectionController(message, {
+            markdown: 'Before **new canonical content** after.',
+            authority: 'host-rendered',
+        });
+        try {
+            controller.setMarkdownCopyShortcut('mod-c');
+            controller.init();
+            document.dispatchEvent(new Event('selectionchange'));
+            await flushSelectionFrame();
+
+            dispatchKeyboardCopy();
+            const copy = dispatchCopy();
+
+            expect(copy.event.defaultPrevented).toBe(true);
+            expect(copy.readText()).toBe('**new canonical content**');
+        } finally {
+            controller.dispose();
+        }
+    });
+
+    it('copies sealed host-rendered canonical Markdown with the shifted shortcut', async () => {
+        const message = mountMessage('<p>Before <em>shifted canonical content</em> after.</p>');
+        const selectedText = message.querySelector('em')!.firstChild as Text;
+        const range = document.createRange();
+        range.selectNodeContents(selectedText);
+        selectRange(range);
+        const originalClipboard = navigator.clipboard;
+        const writeText = vi.fn(async (_text: string) => undefined);
+        Object.defineProperty(navigator, 'clipboard', { configurable: true, value: { writeText } });
+
+        const controller = createCanonicalSelectionController(message, {
+            markdown: 'Before *shifted canonical content* after.',
+            authority: 'host-rendered',
+        });
+        try {
+            controller.setMarkdownCopyShortcut('mod-shift-c');
+            controller.init();
+            document.dispatchEvent(new Event('selectionchange'));
+            await flushSelectionFrame();
+
+            window.dispatchEvent(new KeyboardEvent('keydown', {
+                key: 'c',
+                ctrlKey: true,
+                shiftKey: true,
+                bubbles: true,
+                cancelable: true,
+            }));
+            await Promise.resolve();
+
+            expect(writeText).toHaveBeenCalledWith('*shifted canonical content*');
+        } finally {
+            controller.dispose();
+            Object.defineProperty(navigator, 'clipboard', { configurable: true, value: originalClipboard });
+        }
+    });
+
     it('copies the complete canonical Markdown for a local multi-wrapper selection', async () => {
         const canonicalMarkdown = 'Before **clean Markdown** after with [a link](https://example.com) and `code`.';
         const message = mountMessage(
@@ -249,6 +320,7 @@ describe('ChatGPTAtomicSelectionController', () => {
 
         const controller = createCanonicalSelectionController(message, {
             markdown: 'Result $\\frac{x}{y}$.',
+            authority: 'host-rendered',
         });
         controller.setMarkdownCopyShortcut('mod-c');
         controller.init();

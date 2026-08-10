@@ -217,9 +217,9 @@ export class ChatGPTAtomicSelectionController {
                 materialization: this.materialization,
                 evidence: context.evidence,
             });
-            // Once canonical source ports are present, an unresolved or
-            // degraded projection must fail open. Reviving DOM reconstruction
-            // here would turn ambiguity into apparently canonical output.
+            // Once canonical source ports are present, an unresolved projection
+            // must fail open. Reviving DOM reconstruction here would turn
+            // ambiguity into apparently canonical output.
             if (semantic.status !== 'ready') return null;
             return {
                 range: context.range.cloneRange(),

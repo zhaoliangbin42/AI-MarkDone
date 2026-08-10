@@ -47,8 +47,10 @@ The production lifecycle is defined by
 - only a contiguous host successor may extend the tail; historical gaps are
   never inferred from a virtualized DOM window;
 - one legal append publishes one atomic snapshot and one new `contentToken`;
-- `host-rendered/normalized` whole turns may feed Reader, whole-message copy,
-  bookmark, word count and export, but cannot claim exact provider source spans;
+- sealed `host-rendered/normalized` whole turns may feed Reader, whole-message
+  copy, bookmark, word count, export and uniquely proven local Markdown
+  selection; the projected local span is canonical within AI-MarkDone's sealed
+  body but cannot claim exact provider provenance for persistent annotations;
 - pending Materialization is read-only for toolbar injection: the official
   action row may be mutated only after the assistant turn is authoritative,
   non-streaming and still connected;
@@ -80,25 +82,25 @@ or zero long tasks alone is not a green gate.
 ## Current implementation evidence — 2026-08-10
 
 - Focused first-turn regression was observed failing before production edits.
-- `npm run test:chatgpt-discovery`: passed, 29 files / 341 tests.
-- `npm run test:core`: passed, 284 files / 1,973 tests.
+- `npm run test:chatgpt-discovery`: passed, 29 files / 344 tests.
+- `npm run test:core`: passed, 284 files / 1,977 tests.
 - `npm run test:smoke`: passed, 7 files / 54 tests.
-- `npm run test:acceptance`: passed, 31 files / 322 tests.
+- `npm run test:acceptance`: passed, 31 files / 325 tests.
 - `npm run type-check`: passed.
 - `npm run build`: passed for Chrome MV3 and Firefox MV2, including entry
   format, passive ChatGPT boundary and bundle-size checks.
-- `npm run perf:chatgpt`: the corrected canonical typed fixture reached all
-  200 sealed-content toolbars from one locally fulfilled website-owned Graph
-  GET, then remained red at the pre-existing Atomic Selection
-  assertion (`selected=1`, `cleared=0`, empty copied payload, two writes, zero
-  long tasks). No performance median is accepted.
-- Installed Chrome MV3 pre-fix reproduction: from a blank page, the completed
-  assistant action row and AI-MarkDone toolbar appeared together; 118 ms later
-  both disappeared, the assistant turn remained, and the host stop control
-  returned for the rest of a 45-second observation. The fixed build now waits
-  for sealed content, but installed acceptance is pending a manual unpacked
-  extension reload because browser policy prevents automatic interaction with
-  `chrome://extensions`.
+- `npm run perf:chatgpt`: passed with 200/200 sealed-content toolbars, zero
+  duplicates, zero idle mutations, 200 streaming mutations, exactly two atomic
+  selection-state writes, zero selection long tasks and canonical formula
+  Markdown copied through the configured shortcut. The benchmark initiated no
+  extension conversation request and loaded no export renderer before an image
+  action.
+- Installed Chrome MV3 current-build acceptance passed on an existing
+  conversation for an ordinary paragraph fragment and a complete inline formula;
+  both clipboard writes came from the sealed Repository Markdown, and numeric
+  toolbar statistics remained present. No new message was sent because the host
+  displayed its own conversation-history rate-limit notice. A fresh blank-page
+  first-turn matrix remains a separate release sign-off gate.
 - Installed Firefox MV2 acceptance: pending.
 
 ## Historical acceptance note — 2026-08-05

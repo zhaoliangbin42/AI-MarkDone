@@ -91,7 +91,12 @@ function createFixtureGraph(rounds: number): Record<string, unknown> {
             message: {
                 id: `assistant-${ordinal}`,
                 author: { role: 'assistant' },
-                content: { content_type: 'text', parts: [`Answer ${ordinal}`] },
+                content: {
+                    content_type: 'text',
+                    parts: [ordinal === 1
+                        ? 'Answer 1\n\n**Before $\\frac{x}{y}$ after**'
+                        : `Answer ${ordinal}`],
+                },
             },
         };
         parent = assistantNode;
@@ -151,13 +156,6 @@ function createFixtureHtml(rounds: number): string {
 
 async function installHarness(page: Page): Promise<void> {
     await page.addInitScript(() => {
-        // A verified baseline normally permits idle Reader/export prewarm. This
-        // benchmark measures the explicit lazy-trigger boundary separately, so
-        // emulate the supported save-data policy to keep prewarm disabled.
-        Object.defineProperty(navigator, 'connection', {
-            configurable: true,
-            value: { saveData: true },
-        });
         const state: HarnessState = {
             phaseStartedAt: performance.now(),
             longTasks: [],
@@ -260,6 +258,10 @@ async function runRuntimeBenchmark(extensionPath: string, rounds: number, mutati
             '--no-first-run',
         ],
     });
+    await context.grantPermissions(
+        ['clipboard-read', 'clipboard-write'],
+        { origin: 'https://chatgpt.com' },
+    );
 
     let featureNetworkSession: CDPSession | null = null;
     try {
@@ -318,7 +320,7 @@ async function runRuntimeBenchmark(extensionPath: string, rounds: number, mutati
         console.error('[perf] idle phase complete');
 
         await resetPhase(page);
-        const selectionContract = await page.evaluate(async (eventCount) => {
+        const selectedCount = await page.evaluate(async (eventCount) => {
             const formula = document.querySelector<HTMLElement>('[data-aimd-perf-atomic-selection] .katex');
             const selection = window.getSelection();
             if (!formula || !selection) {
@@ -333,26 +335,32 @@ async function runRuntimeBenchmark(extensionPath: string, rounds: number, mutati
             }
             await new Promise<void>((resolveFrame) => requestAnimationFrame(() => resolveFrame()));
             await new Promise<void>((resolveFrame) => requestAnimationFrame(() => resolveFrame()));
-            const selectedCount = document.querySelectorAll('[data-aimd-page-atomic-state="selected"]').length;
-            const clipboardData = new DataTransfer();
-            const copyEvent = new ClipboardEvent('copy', {
-                bubbles: true,
-                cancelable: true,
-                clipboardData,
-            });
-            formula.dispatchEvent(copyEvent);
-
+            return document.querySelectorAll('[data-aimd-page-atomic-state="selected"]').length;
+        }, mutations);
+        await page.keyboard.press('Control+Shift+C');
+        await page.waitForFunction(
+            async (expected) => await navigator.clipboard.readText() === expected,
+            '$\\frac{x}{y}$',
+            { timeout: 2_000 },
+        );
+        const clipboardContract = await page.evaluate(async () => {
+            const copiedMarkdown = await navigator.clipboard.readText();
+            const clipboardItems = await navigator.clipboard.read();
+            return {
+                copiedMarkdown,
+                copiedTypes: Array.from(new Set(clipboardItems.flatMap((item) => item.types))),
+            };
+        });
+        const clearedCount = await page.evaluate(async () => {
+            const selection = window.getSelection();
+            if (!selection) throw new Error('Atomic selection fixture lost Selection');
             selection.removeAllRanges();
             document.dispatchEvent(new Event('selectionchange'));
             await new Promise<void>((resolveFrame) => requestAnimationFrame(() => resolveFrame()));
             await new Promise<void>((resolveFrame) => requestAnimationFrame(() => resolveFrame()));
-            return {
-                selectedCount,
-                clearedCount: document.querySelectorAll('[data-aimd-page-atomic-state="selected"]').length,
-                copiedMarkdown: clipboardData.getData('text/plain'),
-                copiedTypes: Array.from(clipboardData.types),
-            };
-        }, mutations);
+            return document.querySelectorAll('[data-aimd-page-atomic-state="selected"]').length;
+        });
+        const selectionContract = { selectedCount, clearedCount, ...clipboardContract };
         await page.waitForTimeout(50);
         const selection = await collectPhase(page);
         const selectionAttributeWrites = selection.mutationBreakdown['attributes:data-aimd-page-atomic-state'] ?? 0;
@@ -445,8 +453,10 @@ async function runRuntimeBenchmark(extensionPath: string, rounds: number, mutati
             );
         }
 
-        if (featureModuleRequests.size > 0) {
-            throw new Error(`Feature module loaded before an explicit user trigger: ${Array.from(featureModuleRequests).join(', ')}`);
+        const pretriggerFeatureUrls = Array.from(featureModuleRequests);
+        const pretriggerHostOriginRequests = pretriggerFeatureUrls.filter((url) => /^https?:\/\//.test(url));
+        if (pretriggerHostOriginRequests.length > 0) {
+            throw new Error(`Idle feature prewarm resolved against the host page origin: ${pretriggerHostOriginRequests.join(', ')}`);
         }
         if (exportRendererRequests.size > 0) {
             throw new Error(`Export renderer loaded without an image action: ${Array.from(exportRendererRequests).join(', ')}`);

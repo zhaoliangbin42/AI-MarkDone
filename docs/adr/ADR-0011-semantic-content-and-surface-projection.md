@@ -2,12 +2,15 @@
 
 ## Status
 
-Accepted — implemented on the branch; installed Chrome/Firefox host acceptance remains required before release.
+Accepted and implemented. Installed Chrome current-build acceptance passed for
+ordinary and formula local Markdown selection on 2026-08-10; Firefox MV2 remains
+a separate release gate.
 
 ADR-0017 supersedes this ADR's absolute prohibition on host-rendered whole-turn
 bodies. Compiler-verified stable tail turns may now carry `host-rendered /
-normalized` provenance. The exact source-span and `SurfaceProjection` rules in
-this ADR remain unchanged.
+normalized` provenance. A sealed host-rendered turn may also supply canonical
+Markdown spans for local copy through `SurfaceProjection`; it still does not
+claim provider-original source provenance.
 
 ## Context
 
@@ -110,7 +113,7 @@ order/body/tail/gap completeness. Reconstructed bodies remain non-canonical.
 - `SurfaceProjection` validates the content token (semantic source revision) and materialization token (typed target-to-DOM projection);
 - the interaction controller re-captures the native selection and compares the surface token (concrete rendered root instance), Range endpoints, target, and TextQuote before reusing a snapshot.
 
-The semantic resolver succeeds only for one proven source span. Repeated text without unique context, stale tokens, `host-rendered` or reconstructed source, unsupported decoded-character offsets, cross-message selection, and streaming content fail closed for a configured canonical Markdown shortcut: no visual text is promoted to Markdown and the host copy event is not allowed to publish a misleading result. The host's native copy path remains available when the shortcut is disabled or no canonical content/materialization port exists. The implementation must never estimate a source span merely because an offset looks plausible.
+The semantic resolver succeeds only for one proven canonical Markdown span. Source-backed and compiler-verified sealed `host-rendered` turns are both eligible because the output is projected from the Repository body, never serialized from the selected DOM. Repeated text without unique context, stale tokens, reconstructed source, unsupported decoded-character offsets, cross-message selection, and streaming content fail closed for a configured canonical Markdown shortcut: no visual text is promoted to Markdown and the host copy event is not allowed to publish a misleading result. The host's native copy path remains available when the shortcut is disabled or no canonical content/materialization port exists. The implementation must never estimate a span merely because an offset looks plausible. A host-rendered span proves a location inside AI-MarkDone's sealed canonical Markdown; it does not become provider-original provenance for a persistent annotation claim.
 
 ### Formula capability
 
@@ -162,7 +165,7 @@ The focused gate is `npm run test:chatgpt-discovery`. Required direct coverage i
 - provenance and source quality remain separate from coverage;
 - Semantic Document immutability, parser isolation, source spans, ambiguity, cache isolation, and unproven-offset rejection;
 - wrapper-insensitive surface evidence, service-level content/materialization invalidation, and trigger-level surface-token invalidation;
-- ordinary paragraph selection and Markdown wrapper recovery;
+- ordinary paragraph selection and Markdown wrapper recovery from both source-backed and sealed host-rendered turns;
 - current ChatGPT `data-math-source` formula extraction through the real runtime injection path;
 - reconstructed content cannot enter Reader copy, bookmark, PNG, or Save Messages export success paths;
 - dependency tests keep the Semantic Module browser- and provider-independent and keep Surface Projection as the single join seam.
