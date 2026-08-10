@@ -1322,6 +1322,55 @@ describe('ChatGPTDirectoryController', () => {
         expect(active?.dataset.position).toBe('2');
     });
 
+    it('keeps active geometry on the full DOM group when materialization exposes a toolbar anchor', () => {
+        Object.defineProperty(window, 'innerHeight', { configurable: true, value: 1000 });
+        setRoundRects({
+            'user-1': [-500, -460],
+            'assistant-1': [-450, 240],
+            'user-2': [260, 300],
+            'assistant-2': [300, 900],
+        });
+
+        const toolbarAnchor1 = document.createElement('div');
+        const toolbarAnchor2 = document.createElement('div');
+        document.body.append(toolbarAnchor1, toolbarAnchor2);
+        setRect(toolbarAnchor1, 260, 300);
+        setRect(toolbarAnchor2, 900, 940);
+
+        const adapter = new ChatGPTTestAdapter();
+        const materialization = {
+            read: vi.fn(() => ({
+                materializationToken: 'materialization:1',
+                contentToken: '1',
+                entries: [
+                    {
+                        target: { turnId: 'round-1', assistantMessageId: 'a1' },
+                        anchorElement: toolbarAnchor1,
+                        messageElement: document.getElementById('assistant-1'),
+                    },
+                    {
+                        target: { turnId: 'round-2', assistantMessageId: 'a2' },
+                        anchorElement: toolbarAnchor2,
+                        messageElement: document.getElementById('assistant-2'),
+                    },
+                ],
+            })),
+            subscribe: vi.fn(() => () => undefined),
+            resolveElement: vi.fn(() => null),
+            locate: vi.fn(async () => 'unavailable'),
+        } as any;
+        const engine = { subscribe: vi.fn(() => () => undefined) } as any;
+        const controller = createDirectoryController(adapter, engine, null, { materialization });
+
+        (controller as any).ensureRail();
+        setCanonicalSnapshot(adapter, buildSnapshot());
+        (controller as any).render();
+
+        const railRoot = document.getElementById('aimd-chatgpt-directory-rail')?.shadowRoot;
+        const active = railRoot?.querySelector<HTMLElement>('.rail__item[data-active="1"]');
+        expect(active?.dataset.position).toBe('2');
+    });
+
     it('marks the visible round active when ChatGPT repeats slot markers on nested turn wrappers', () => {
         document.body.innerHTML = `
           <main>

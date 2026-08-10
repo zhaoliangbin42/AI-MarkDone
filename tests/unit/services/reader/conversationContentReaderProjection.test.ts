@@ -13,7 +13,7 @@ import {
 const conversationId = 'conversation-v1';
 const documentKey = createConversationDocumentKeyV1('chatgpt', conversationId);
 
-function createState(kind: 'ready' | 'stale' = 'ready'): ConversationContentStateV1 {
+function createState(): ConversationContentStateV1 {
     const document = {
         key: documentKey,
         platformId: 'chatgpt',
@@ -37,9 +37,7 @@ function createState(kind: 'ready' | 'stale' = 'ready'): ConversationContentStat
             assistantMarkdown: '**Answer**',
         }],
     };
-    return kind === 'ready'
-        ? { kind, document, snapshot }
-        : { kind, document, snapshot, reason: 'source-timeout' };
+    return { kind: 'ready', document, snapshot };
 }
 
 function createSource(initialState: ConversationContentStateV1) {
@@ -127,21 +125,21 @@ describe('Reader Content Port V1 projection', () => {
         expect(result.items[0]?.meta?.sourceQuality).toBe('reconstructed');
     });
 
-    it('keeps a same-document last-good snapshot available for immediate consumption', async () => {
-        const source = createSource(createState('stale'));
+    it('keeps the maintained snapshot available for immediate consumption', async () => {
+        const source = createSource(createState());
         const result = await collectFreshReaderContent(
             { getPlatformId: () => 'chatgpt' } as any,
             null,
             { conversationContentSource: source, pageUrl: 'https://chatgpt.com/c/conversation-v1' },
         );
 
-        expect(result.status).toBe('stale');
+        expect(result.status).toBe('ready');
         expect(result.items).toHaveLength(1);
         expect(isReaderContentSourceRevisionCurrent(source, result.sourceRevision)).toBe(true);
     });
 
-    it('does not wait for refresh when a stale last-good snapshot exists', async () => {
-        const source = createSource(createState('stale'));
+    it('does not wait for refresh when a maintained snapshot exists', async () => {
+        const source = createSource(createState());
         const refresh = vi.fn(async () => new Promise<ConversationContentStateV1>(() => undefined));
         const result = await readCurrentReaderContent(
             { getPlatformId: () => 'chatgpt' } as any,

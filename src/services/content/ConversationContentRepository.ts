@@ -70,16 +70,13 @@ export class ConversationContentRepository implements ConversationContentSourceV
     });
     private readonly listeners = new Set<(state: ConversationContentStateV1) => void>();
     private currentDocument: ConversationDocumentRefV1 | null = null;
-    private lastGood: ConversationSnapshotV1 | null = null;
     private epoch = 0;
     private projectionSequence = 0;
     private projectionId = 'conversation-projection:none';
     private flight: Flight | null = null;
     private baselineGate: BaselineGate = 'open';
     private baselineAttempted = false;
-    private baselinePrefixLength = 0;
     private basis: ConversationSnapshotProofV1['basis'] | null = null;
-    private tail: 'stable' | 'streaming' = 'stable';
     private turns: readonly ConversationTurnV1[] = Object.freeze([]);
     private readonly turnDigests = new Map<string, string>();
     private readonly pendingHost = new Map<string, StoredHostObservation>();
@@ -151,7 +148,7 @@ export class ConversationContentRepository implements ConversationContentSourceV
         this.publish({
             kind: 'syncing',
             document: this.currentDocument!,
-            snapshot: this.lastGood,
+            snapshot: null,
         });
 
         const promise = Promise.resolve()
@@ -168,36 +165,19 @@ export class ConversationContentRepository implements ConversationContentSourceV
                 }
                 this.acceptBaseline(candidate, this.currentDocument!);
                 this.baselineGate = 'closed';
-                // Keep the accepted baseline prefix as last-good before merging
-                // facts that may have been born before canonical route binding.
-                // A historical conflict must retain this exact baseline.
-                this.lastGood = this.buildProjectionSnapshot();
                 this.flushPendingHost();
-                if (this.state.kind !== 'stale') this.publishProjection();
+                this.publishProjection();
                 return this.state;
             })
             .catch((error: unknown) => {
                 if (this.isObsolete(epoch, controller)) return this.state;
                 this.baselineGate = 'open';
                 const normalized = normalizeAcquisitionError(error);
-                if (this.lastGood && this.lastGood.document.key === this.currentDocument?.key) {
-                    this.publish({
-                        kind: 'stale',
-                        document: this.currentDocument!,
-                        snapshot: this.lastGood,
-                        reason: normalized.reason === 'identity-conflict'
-                            ? 'identity-conflict'
-                            : normalized.reason === 'source-timeout'
-                                ? 'source-timeout'
-                                : 'source-unavailable',
-                    });
-                } else {
-                    this.publishUnavailable(
-                        this.currentDocument,
-                        toUnavailableReason(normalized.reason),
-                        normalized.retryable,
-                    );
-                }
+                this.publishUnavailable(
+                    this.currentDocument,
+                    toUnavailableReason(normalized.reason),
+                    normalized.retryable,
+                );
                 return this.state;
             })
             .finally(() => {
@@ -240,7 +220,6 @@ export class ConversationContentRepository implements ConversationContentSourceV
             return this.state;
         }
         this.switchDocument(document);
-        if (this.state.kind === 'stale') return this.state;
         this.queueHost(observation);
 
         if (!this.basis) {
@@ -249,12 +228,11 @@ export class ConversationContentRepository implements ConversationContentSourceV
             this.flight?.controller.abort();
             this.flight = null;
             this.basis = 'host-born';
-            this.tail = 'stable';
             this.startProjection();
         }
 
         this.flushPendingHost();
-        if (this.turns.length > 0 && this.read().kind !== 'stale') this.publishProjection();
+        if (this.turns.length > 0) this.publishProjection();
         return this.state;
     }
 
@@ -318,9 +296,6 @@ export class ConversationContentRepository implements ConversationContentSourceV
         if (candidate.origin === 'host' || candidate.turns.length === 0) {
             throw new ConversationContentAcquisitionError('invalid-payload', { retryable: false });
         }
-        if (candidate.coverage === 'partial' && candidate.tail !== 'streaming') {
-            throw new ConversationContentAcquisitionError('source-unavailable', { retryable: true });
-        }
         const turns = candidate.turns.map((turn, index) => validateAndFreezeTurn(turn, index + 1));
         if (new Set(turns.map((turn) => turn.identity.assistantMessageId)).size !== turns.length) {
             throw new ConversationContentAcquisitionError('identity-conflict', { retryable: false });
@@ -328,9 +303,7 @@ export class ConversationContentRepository implements ConversationContentSourceV
         this.turns = Object.freeze(turns);
         this.turnDigests.clear();
         for (const turn of turns) this.turnDigests.set(turn.identity.assistantMessageId, digestTurnContent(turn));
-        this.baselinePrefixLength = turns.length;
         this.basis = 'source';
-        this.tail = candidate.tail === 'streaming' ? 'streaming' : 'stable';
         this.startProjection();
     }
 
@@ -362,12 +335,11 @@ export class ConversationContentRepository implements ConversationContentSourceV
         const existingIndex = this.turns.findIndex((turn) => turn.identity.assistantMessageId === incomingId);
         if (existingIndex >= 0) {
             if (this.turnDigests.get(incomingId) === digest) return 'duplicate';
-            if (existingIndex < this.baselinePrefixLength) {
-                this.publishHistoricalConflict();
-                return 'rejected';
-            }
-            this.replaceHostSuffix(existingIndex, incoming, digest);
-            return 'changed';
+            // Once a message has entered the maintained cache, it is the
+            // current authority. A later DOM copy with the same typed identity
+            // is a remount or a host rewrite, not a reason to invalidate the
+            // whole conversation.
+            return 'duplicate';
         }
 
         if (this.turns.length === 0) {
@@ -386,13 +358,10 @@ export class ConversationContentRepository implements ConversationContentSourceV
             return 'changed';
         }
 
-        const replacementIndex = predecessorIndex + 1;
-        if (replacementIndex < this.baselinePrefixLength) {
-            this.publishHistoricalConflict();
-            return 'rejected';
-        }
-        this.replaceHostSuffix(replacementIndex, incoming, digest);
-        return 'changed';
+        // Only the current tail is appendable. A DOM candidate that points
+        // into an older window is held for a later observation instead of
+        // replacing or invalidating maintained content.
+        return 'deferred';
     }
 
     private appendHostTurn(turn: ConversationTurnV1, digest: string): void {
@@ -400,37 +369,11 @@ export class ConversationContentRepository implements ConversationContentSourceV
         this.turns = freezeTurns(next);
         this.turnDigests.set(turn.identity.assistantMessageId, digest);
         if (this.basis === 'source') this.basis = 'hybrid';
-        this.tail = 'stable';
-    }
-
-    private replaceHostSuffix(index: number, turn: ConversationTurnV1, digest: string): void {
-        const removed = this.turns.slice(index);
-        for (const old of removed) this.turnDigests.delete(old.identity.assistantMessageId);
-        const next = [
-            ...this.turns.slice(0, index),
-            { ...turn, ordinal: index + 1 },
-        ];
-        this.turns = freezeTurns(next);
-        this.turnDigests.set(turn.identity.assistantMessageId, digest);
-        if (this.basis === 'source') this.basis = 'hybrid';
-        this.tail = 'stable';
-        this.startProjection();
-    }
-
-    private publishHistoricalConflict(): void {
-        if (!this.lastGood || !this.currentDocument) return;
-        this.publish({
-            kind: 'stale',
-            document: this.currentDocument,
-            snapshot: this.lastGood,
-            reason: 'identity-conflict',
-        });
     }
 
     private publishProjection(): void {
         const snapshot = this.buildProjectionSnapshot();
         if (!snapshot || !this.currentDocument) return;
-        this.lastGood = snapshot;
         this.publish({
             kind: 'ready',
             document: this.currentDocument,
@@ -440,21 +383,12 @@ export class ConversationContentRepository implements ConversationContentSourceV
 
     private buildProjectionSnapshot(): ConversationSnapshotV1 | null {
         if (!this.currentDocument || !this.basis || this.turns.length === 0) return null;
-        const proof: ConversationSnapshotProofV1 = Object.freeze({
-            basis: this.basis,
-            order: 'complete',
-            bodies: 'complete',
-            tail: this.tail,
-            gaps: this.tail === 'streaming'
-                ? Object.freeze([{ kind: 'tail' as const, reason: 'the website baseline has one streaming tail' }])
-                : Object.freeze([]),
-        });
-        const coverage = this.tail === 'stable' ? 'complete' as const : 'partial' as const;
+        const proof: ConversationSnapshotProofV1 = Object.freeze({ basis: this.basis });
         const snapshotWithoutToken = {
             schemaVersion: 1 as const,
             document: this.currentDocument,
             projectionId: this.projectionId,
-            coverage,
+            coverage: 'complete' as const,
             turns: this.turns,
             proof,
         };
@@ -479,11 +413,6 @@ export class ConversationContentRepository implements ConversationContentSourceV
         const existing = this.pendingHost.get(assistantMessageId);
         if (existing && existing.observation.revision > observation.revision) return;
         this.pendingHost.set(assistantMessageId, Object.freeze({ observation, digest }));
-        while (this.pendingHost.size > 8) {
-            const oldest = this.pendingHost.keys().next().value as string | undefined;
-            if (!oldest) break;
-            this.pendingHost.delete(oldest);
-        }
     }
 
     private switchDocument(document: ConversationDocumentRefV1): void {
@@ -492,7 +421,6 @@ export class ConversationContentRepository implements ConversationContentSourceV
         if (nextKey === previousKey) {
             if (this.currentDocument && !sameDisplayDocument(this.currentDocument, document)) {
                 this.currentDocument = freezeDocument(document);
-                if (this.lastGood) this.lastGood = freezeSnapshotDocument(this.lastGood, this.currentDocument);
             }
             return;
         }
@@ -504,12 +432,9 @@ export class ConversationContentRepository implements ConversationContentSourceV
         this.flight?.controller.abort();
         this.flight = null;
         this.currentDocument = freezeDocument(document);
-        this.lastGood = null;
         this.baselineGate = 'open';
         this.baselineAttempted = false;
-        this.baselinePrefixLength = 0;
         this.basis = null;
-        this.tail = 'stable';
         this.turns = Object.freeze([]);
         this.turnDigests.clear();
         if (!preserveBirthBuffer) this.pendingHost.clear();
@@ -529,12 +454,9 @@ export class ConversationContentRepository implements ConversationContentSourceV
         this.flight?.controller.abort();
         this.flight = null;
         this.currentDocument = null;
-        this.lastGood = null;
         this.baselineGate = 'open';
         this.baselineAttempted = false;
-        this.baselinePrefixLength = 0;
         this.basis = null;
-        this.tail = 'stable';
         this.turns = Object.freeze([]);
         this.turnDigests.clear();
         this.pendingHost.clear();
@@ -627,13 +549,6 @@ function freezeDocument(document: ConversationDocumentRefV1): ConversationDocume
     return Object.freeze({ ...document });
 }
 
-function freezeSnapshotDocument(
-    snapshot: ConversationSnapshotV1,
-    document: ConversationDocumentRefV1,
-): ConversationSnapshotV1 {
-    return freezeConversationSnapshotV1({ ...snapshot, document });
-}
-
 function createContentToken(snapshot: Omit<ConversationSnapshotV1, 'contentToken'>): string {
     const semantic = JSON.stringify({
         documentKey: snapshot.document.key,
@@ -681,9 +596,7 @@ function sameState(left: ConversationContentStateV1, right: ConversationContentS
     if (left.kind !== right.kind) return false;
     if (left.document?.key !== right.document?.key) return false;
     if (left.snapshot?.contentToken !== right.snapshot?.contentToken) return false;
-    if (left.snapshot?.coverage !== right.snapshot?.coverage) return false;
     if (JSON.stringify(left.snapshot?.proof) !== JSON.stringify(right.snapshot?.proof)) return false;
-    if (left.kind === 'stale' && right.kind === 'stale') return left.reason === right.reason;
     if (left.kind === 'unavailable' && right.kind === 'unavailable') {
         return left.reason === right.reason && left.retryable === right.retryable;
     }

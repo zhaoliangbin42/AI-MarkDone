@@ -127,9 +127,9 @@ UI 状态规则：
 
 桥边界固定为：不读取或传播 cookie、token、Authorization/session header，不解析 POST/SSE/generation payload，不 clone 生成响应，不持久化正文。Graph evidence 只来自官网自己发出的精确 same-origin conversation `GET`；bridge 用透明 `window.fetch` 包装观察并对已返回 response 做 `clone().json()`，原请求和原响应保持不变。content runtime 的所有 `peek()` 都是内存读取，不发起网络请求。
 
-正式 conversation identity 为当前页面纪元打开一次性 baseline gate。第一个身份匹配且可验证的完整 Graph，或“完整历史前缀 + 唯一流式尾部”Graph，会永久关闭该 gate；同一纪元后续 capture、消费者 `refresh()`、route hash 与普通 DOM mutation 都不能重开。若 document-start bridge 错过首次官网响应，已有长对话必须刷新页面重新捕获。空白页首轮例外由 typed DOM `empty-proven` + 稳定 host-born turn 建立，不依赖域名或 `/` 路径。
+正式 conversation identity 为当前页面纪元打开一次性 baseline gate。第一个身份匹配且可验证的 Graph 会建立初始 cache；正在生成的末尾 assistant 不进入 cache，等 DOM 完成后由 Host Monitor 追加。同一纪元后续 capture、消费者 `refresh()`、route hash 与普通 DOM mutation 都不能重开或重读 baseline。若 document-start bridge 错过首次官网响应，已有长对话必须刷新页面重新捕获。空白页首轮例外由 typed DOM `empty-proven`、临时 `WEB` 路由/birth 事实与稳定 host-born turn 建立，不依赖域名或 `/` 路径。
 
-基线后的正文增量不经过该 bridge：唯一 `ChatGPTPageIndex` observer 在 content runtime 内输出 typed host facts，`ChatGPTConversationHostMonitor` 安静 400 ms 后仅编译连续的新尾部并提交同一 Content Session。该 DOM seam 不跨 content/background runtime，不新增协议消息，也不产生网络请求。生成完成信号仍只来自同源 URL/method 与浏览器 resource timing；request/response 在 Chrome 使用 object detail、Firefox 使用 JSON-string detail；capture event 在两者都使用 JSON string。两种 transport 必须产生相同的 baseline admission 与 `ConversationContentSourceV1` 状态序列。
+基线后的正文增量不经过该 bridge：唯一 `ChatGPTPageIndex` observer 在 content runtime 内输出 typed host facts，`ChatGPTConversationHostMonitor` 安静 400 ms 后仅编译新的稳定消息并追加到同一 Content Session。该 DOM seam 不跨 content/background runtime，不新增协议消息，也不产生网络请求。生成完成信号仍只来自同源 URL/method 与浏览器 resource timing；request/response 在 Chrome 使用 object detail、Firefox 使用 JSON-string detail；capture event 在两者都使用 JSON string。两种 transport 必须产生相同的 baseline admission 与 `ConversationContentSourceV1` 状态序列。
 
 ## 6. Current Request Families
 

@@ -21,15 +21,17 @@
 
 当问题只发生在 ChatGPT，不要只盯 DOM selector。先区分 canonical semantic snapshot 与当前 materialized anchors：
 
-1. `ConversationContentRepository` 是否发布了当前 conversation ID 的完整 verified graph snapshot
+1. `ConversationContentRepository` 是否建立了当前 conversation ID 的一次性基线或正在等待首轮 DOM 绑定
    - bridge 必须在 `document_start` 被动观察 ChatGPT 页面自身的 same-origin conversation `GET` 响应；不得读取认证信息或主动重放 session/conversation 请求
    - 检查 page bridge graph parser 与 content-world DTO validator；缺节点、环、route/ID/branch/identity 不一致必须 fail closed
-   - 不要用 React props、内部 store 或消费者侧 DOM fallback 补齐正文；如果 ChatGPT 的 turn wrapper 短暂缺失，只有 adapter 内带唯一 assistant message identity、非流式且正文/用户文本非空的 DOM facts 才能作为 `partial` evidence 发布，不能伪装成完整历史
+   - 不要用 React props、内部 store 或消费者侧 DOM fallback 补齐正文；生成中的 assistant 不进入基线，稳定、可编译的新 DOM 消息才追加到唯一缓存
+   - 缓存中的消息默认可消费；不再把消息标记为 `partial` 或把整条会话置为 `stale`。单条 DOM 编译失败只保留该 assistant identity 的 dirty 状态，等待下一次真实 host signal 重试
+   - 直接进入已有 canonical conversation 时，即使局部 DOM 已经挂载，也必须等待该会话纪元的一次被动基线；只有空白页已通过 typed-DOM empty fact 并在临时 `WEB` 路由下产生首轮事实时，才允许 host-born 绑定
 2. 比较 `ChatGPTConversationIndex` 的完整 canonical rounds 与 `ChatGPTPageIndex` 的当前 connected anchors
-   - DOM hydration window 变小只应减少 anchors，不能减少目录/stepper count
+   - DOM hydration window 变小只应减少 anchors，不能减少目录/stepper count 或已缓存消息
    - typed `roundId` / `userMessageId` / `assistantMessageId` 无法唯一连接时，应修复 adapter/driver identity，不得使用 prompt 或 DOM-local position 猜测
 3. 如果正文完整但 Reader/Copy/Save Messages 不完整
-   - 检查入口是否仍统一经过 `readerContentSource -> ConversationContentSourceV1 -> ReaderItem[]`
+   - 检查入口是否仍统一经过 `readerContentSource -> ConversationContentSourceV1 -> ReaderItem[]`；已进入缓存的 host-rendered 消息也必须进入该链路
 4. 如果目录能显示但同页跳转失败
    - 检查 `ChatGPTConversationNavigation` 是否对未挂载目标执行有界、可取消、route-safe 的 materialization seek，并只在 exact identity 命中后成功
    - UI `chatgptDirectory/navigation.ts` 只负责命中后的视觉对齐，不得恢复第二套 selector 或 bookmark fallback

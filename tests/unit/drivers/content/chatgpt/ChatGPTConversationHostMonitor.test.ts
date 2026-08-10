@@ -5,7 +5,24 @@ import type { RenderedContentCompilerV2 } from '@/contracts/conversationDiscover
 import { ChatGPTAdapter } from '@/drivers/content/adapters/sites/chatgpt';
 import { ChatGPTConversationHostMonitor } from '@/drivers/content/chatgpt/ChatGPTConversationHostMonitor';
 import { getChatGPTPageIndex } from '@/drivers/content/chatgpt/domConversationDiscovery';
-import { ConversationContentRepository } from '@/services/content/ConversationContentRepository';
+import {
+    ConversationContentRepository,
+    type ConversationContentCandidateV1,
+} from '@/services/content/ConversationContentRepository';
+
+function deferred<T>(): {
+    promise: Promise<T>;
+    resolve(value: T): void;
+    reject(error: unknown): void;
+} {
+    let resolve!: (value: T) => void;
+    let reject!: (error: unknown) => void;
+    const promise = new Promise<T>((res, rej) => {
+        resolve = res;
+        reject = rej;
+    });
+    return { promise, resolve, reject };
+}
 
 describe('ChatGPTConversationHostMonitor', () => {
     beforeEach(() => {
@@ -80,12 +97,16 @@ describe('ChatGPTConversationHostMonitor', () => {
             expect(compiler.compile).not.toHaveBeenCalled();
             expect(readBaseline).not.toHaveBeenCalled();
 
-            currentDocument = {
+            const canonicalDocument = {
                 key: createConversationDocumentKeyV1('chatgpt', 'conversation-1'),
                 platformId: 'chatgpt',
                 conversationId: 'conversation-1',
                 canonicalUrl: 'https://chatgpt.com/c/conversation-1',
             };
+            currentDocument = null;
+            history.replaceState({}, '', '/c/WEB:birth-1');
+            monitor.notifyRouteChanged();
+            currentDocument = canonicalDocument;
             history.replaceState({}, '', '/c/conversation-1');
             monitor.notifyRouteChanged();
             content.textContent = 'Final answer';
@@ -99,7 +120,7 @@ describe('ChatGPTConversationHostMonitor', () => {
             expect(repository.read()).toMatchObject({
                 kind: 'ready',
                 snapshot: {
-                    proof: { basis: 'host-born', tail: 'stable' },
+                    proof: { basis: 'host-born' },
                     turns: [{ identity: { assistantMessageId: 'assistant-1' } }],
                 },
             });
@@ -163,6 +184,8 @@ describe('ChatGPTConversationHostMonitor', () => {
                     <div class="z-0 flex"><button data-testid="copy-turn-action-button">Copy</button></div>
                 </section>
             `;
+            history.replaceState({}, '', '/c/WEB:birth-b');
+            monitor.notifyRouteChanged();
             currentDocument = {
                 key: createConversationDocumentKeyV1('chatgpt', 'conversation-b'),
                 platformId: 'chatgpt',
@@ -179,6 +202,271 @@ describe('ChatGPTConversationHostMonitor', () => {
                 document: { conversationId: 'conversation-b' },
                 snapshot: { proof: { basis: 'host-born' } },
             });
+        } finally {
+            monitor.dispose();
+            repository.dispose();
+            adapter.dispose();
+        }
+    });
+
+    it('does not let an empty home proof turn a direct existing conversation into host-born content', async () => {
+        let currentDocument: ConversationDocumentRefV1 | null = null;
+        const baseline = deferred<ConversationContentCandidateV1>();
+        const repository = new ConversationContentRepository({
+            resolveDocument: () => currentDocument,
+            readBaseline: async () => baseline.promise,
+        });
+        const compiler: RenderedContentCompilerV2 = {
+            compile: vi.fn(async () => ({
+                kind: 'ready' as const,
+                user: { markdown: 'Visible prompt', text: 'Visible prompt' },
+                assistant: { markdown: 'Visible answer', text: 'Visible answer' },
+                semanticDigest: 'direct-existing-home',
+                surfaceDigest: 'direct-existing-home-surface',
+                manifest: {
+                    nodeCount: 2,
+                    formulaCount: 0,
+                    codeBlockCount: 0,
+                    tableCount: 0,
+                    imageCount: 0,
+                },
+            })),
+        };
+        const adapter = new ChatGPTAdapter();
+        const monitor = new ChatGPTConversationHostMonitor({
+            adapter,
+            index: getChatGPTPageIndex(adapter),
+            repository,
+            resolveDocument: () => currentDocument,
+            compiler,
+        });
+
+        try {
+            monitor.init();
+            currentDocument = {
+                key: createConversationDocumentKeyV1('chatgpt', 'existing-from-home'),
+                platformId: 'chatgpt',
+                conversationId: 'existing-from-home',
+            };
+            history.replaceState({}, '', '/c/existing-from-home');
+            document.querySelector('main')!.innerHTML = `
+                <section data-testid="conversation-turn-1" data-turn="user" data-turn-id="turn-1">
+                    <div data-message-author-role="user" data-message-id="user-1">Visible prompt</div>
+                </section>
+                <section data-testid="conversation-turn-2" data-turn="assistant" data-turn-id="turn-1">
+                    <div data-message-author-role="assistant" data-message-id="assistant-1">
+                        <div class="markdown prose">Visible answer</div>
+                    </div>
+                    <div><button data-testid="copy-turn-action-button">Copy</button></div>
+                </section>
+            `;
+            monitor.notifyRouteChanged();
+            const baselineFlight = repository.enterCurrentEpoch();
+            await vi.advanceTimersByTimeAsync(400);
+            await Promise.resolve();
+
+            expect(repository.read().kind).toBe('syncing');
+            expect(repository.read().snapshot).toBeNull();
+
+            baseline.resolve({
+                document: currentDocument,
+                coverage: 'complete',
+                turns: [{
+                    key: 'turn-1:assistant-1',
+                    ordinal: 1,
+                    identity: {
+                        turnId: 'turn-1',
+                        userMessageId: 'user-1',
+                        assistantMessageId: 'assistant-1',
+                    },
+                    userText: 'Baseline prompt',
+                    assistantMarkdown: 'Baseline answer',
+                }],
+            });
+            const ready = await baselineFlight;
+            expect(ready.kind).toBe('ready');
+            if (ready.kind !== 'ready') throw new Error('expected baseline ready state');
+            expect(ready.snapshot.turns[0]?.assistantMarkdown).toBe('Baseline answer');
+        } finally {
+            monitor.dispose();
+            repository.dispose();
+            adapter.dispose();
+        }
+    });
+
+    it('does not lose a new tail turn when its predecessor is temporarily virtualized out', async () => {
+        let currentDocument: ConversationDocumentRefV1 | null = {
+            key: createConversationDocumentKeyV1('chatgpt', 'virtualized-tail'),
+            platformId: 'chatgpt',
+            conversationId: 'virtualized-tail',
+        };
+        const repository = new ConversationContentRepository({
+            resolveDocument: () => currentDocument,
+            readBaseline: async () => ({
+                document: currentDocument!,
+                coverage: 'complete' as const,
+                turns: [{
+                    key: 'turn-1:assistant-1',
+                    ordinal: 1,
+                    identity: {
+                        turnId: 'turn-1',
+                        userMessageId: 'user-1',
+                        assistantMessageId: 'assistant-1',
+                    },
+                    userText: 'Question 1',
+                    assistantMarkdown: 'Answer 1',
+                }],
+            }),
+        });
+        const compiler: RenderedContentCompilerV2 = {
+            compile: vi.fn(async () => ({
+                kind: 'ready' as const,
+                user: { markdown: 'Question 2', text: 'Question 2' },
+                assistant: { markdown: 'Answer 2', text: 'Answer 2' },
+                semanticDigest: 'virtualized-tail-2',
+                surfaceDigest: 'virtualized-tail-2-surface',
+                manifest: {
+                    nodeCount: 2,
+                    formulaCount: 0,
+                    codeBlockCount: 0,
+                    tableCount: 0,
+                    imageCount: 0,
+                },
+            })),
+        };
+        const adapter = new ChatGPTAdapter();
+        const monitor = new ChatGPTConversationHostMonitor({
+            adapter,
+            index: getChatGPTPageIndex(adapter),
+            repository,
+            resolveDocument: () => currentDocument,
+            compiler,
+        });
+
+        const appendRound = (index: number): void => {
+            document.querySelector('main')!.insertAdjacentHTML('beforeend', `
+                <section data-testid="conversation-turn-${index * 2 - 1}" data-turn="user" data-turn-id="turn-${index}">
+                    <div data-message-author-role="user" data-message-id="user-${index}">Question ${index}</div>
+                </section>
+                <section data-testid="conversation-turn-${index * 2}" data-turn="assistant" data-turn-id="turn-${index}">
+                    <div data-message-author-role="assistant" data-message-id="assistant-${index}">
+                        <div class="markdown prose">Answer ${index}</div>
+                    </div>
+                    <div><button data-testid="copy-turn-action-button">Copy</button></div>
+                </section>
+            `);
+        };
+
+        try {
+            monitor.init();
+            await repository.enterCurrentEpoch();
+            document.querySelector('main')!.innerHTML = '';
+            appendRound(2);
+            await vi.advanceTimersByTimeAsync(400);
+            await Promise.resolve();
+            expect(repository.read().snapshot?.turns).toHaveLength(2);
+
+            document.querySelector('main')!.innerHTML = '';
+            appendRound(1);
+            appendRound(2);
+            await vi.advanceTimersByTimeAsync(400);
+            await Promise.resolve();
+
+            const ready = repository.read();
+            expect(ready.kind).toBe('ready');
+            if (ready.kind !== 'ready') throw new Error('expected ready state');
+            expect(ready.snapshot.turns.map((turn) => turn.identity.assistantMessageId)).toEqual([
+                'assistant-1',
+                'assistant-2',
+            ]);
+        } finally {
+            monitor.dispose();
+            repository.dispose();
+            adapter.dispose();
+        }
+    });
+
+    it('keeps a compiler-rejected turn dirty for the next host signal', async () => {
+        const currentDocument: ConversationDocumentRefV1 = {
+            key: createConversationDocumentKeyV1('chatgpt', 'compiler-retry'),
+            platformId: 'chatgpt',
+            conversationId: 'compiler-retry',
+            canonicalUrl: 'https://chatgpt.com/c/compiler-retry',
+        };
+        const repository = new ConversationContentRepository({
+            resolveDocument: () => currentDocument,
+            readBaseline: async () => ({
+                document: currentDocument,
+                coverage: 'complete' as const,
+                turns: [{
+                    key: 'turn-1:assistant-1',
+                    ordinal: 1,
+                    identity: {
+                        turnId: 'turn-1',
+                        userMessageId: 'user-1',
+                        assistantMessageId: 'assistant-1',
+                    },
+                    userText: 'Question 1',
+                    assistantMarkdown: 'Answer 1',
+                }],
+            }),
+        });
+        const readyResult = {
+            kind: 'ready' as const,
+            user: { markdown: 'Question 2', text: 'Question 2' },
+            assistant: { markdown: 'Answer 2', text: 'Answer 2' },
+            semanticDigest: 'compiler-retry-turn',
+            surfaceDigest: 'compiler-retry-surface',
+            manifest: {
+                nodeCount: 2,
+                formulaCount: 0,
+                codeBlockCount: 0,
+                tableCount: 0,
+                imageCount: 0,
+            },
+        };
+        const compiler: RenderedContentCompilerV2 = {
+            compile: vi.fn()
+                .mockResolvedValueOnce({ kind: 'rejected', reason: 'compiler-error' })
+                .mockResolvedValue(readyResult),
+        };
+        const adapter = new ChatGPTAdapter();
+        const monitor = new ChatGPTConversationHostMonitor({
+            adapter,
+            index: getChatGPTPageIndex(adapter),
+            repository,
+            resolveDocument: () => currentDocument,
+            compiler,
+        });
+
+        try {
+            history.replaceState({}, '', '/c/compiler-retry');
+            monitor.init();
+            await repository.enterCurrentEpoch();
+            document.querySelector('main')!.innerHTML = `
+                <section data-testid="conversation-turn-3" data-turn="user" data-turn-id="turn-2">
+                    <div data-message-author-role="user" data-message-id="user-2">Question 2</div>
+                </section>
+                <section data-testid="conversation-turn-4" data-turn="assistant" data-turn-id="turn-2">
+                    <div data-message-author-role="assistant" data-message-id="assistant-2">
+                        <div class="markdown prose">Answer 2</div>
+                    </div>
+                    <div><button data-testid="copy-turn-action-button">Copy</button></div>
+                </section>
+            `;
+            await Promise.resolve();
+            await vi.advanceTimersByTimeAsync(400);
+            await Promise.resolve();
+            expect(compiler.compile).toHaveBeenCalledTimes(1);
+            expect(repository.read().snapshot?.turns).toHaveLength(1);
+
+            document.querySelector('.markdown.prose')!.textContent = 'Answer 2 revised';
+            await Promise.resolve();
+            await vi.advanceTimersByTimeAsync(400);
+            await Promise.resolve();
+
+            expect(compiler.compile).toHaveBeenCalledTimes(2);
+            expect(repository.read().snapshot?.turns).toHaveLength(2);
         } finally {
             monitor.dispose();
             repository.dispose();

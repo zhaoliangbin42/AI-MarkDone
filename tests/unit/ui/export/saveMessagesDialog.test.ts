@@ -154,7 +154,7 @@ describe('SaveMessagesDialog', () => {
         expect(exportTurnsMarkdown).not.toHaveBeenCalled();
     });
 
-    it('opens an export from the currently recognized partial content snapshot', async () => {
+    it('opens an export from the currently recognized content snapshot', async () => {
         await setLocale('en');
         const adapter = { getPlatformId: () => 'chatgpt' } as any;
         const conversationContentSource = { read: vi.fn() } as any;
@@ -163,7 +163,7 @@ describe('SaveMessagesDialog', () => {
             startIndex: 0,
             metadataSource: 'chatgpt-content-v1',
             status: 'ready',
-            coverage: 'partial',
+            coverage: 'complete',
         });
 
         const dlg = new SaveMessagesDialog();
@@ -171,7 +171,7 @@ describe('SaveMessagesDialog', () => {
         expect(document.getElementById('aimd-save-messages-dialog-host')).toBeTruthy();
     });
 
-    it('pauses full-conversation export while the active projection is stale', async () => {
+    it('keeps full-conversation export available from the maintained cache', async () => {
         await setLocale('en');
         const adapter = { getPlatformId: () => 'chatgpt' } as any;
         const conversationContentSource = { read: vi.fn() } as any;
@@ -179,13 +179,13 @@ describe('SaveMessagesDialog', () => {
             items: [{ id: 'r1', userPrompt: 'u1', content: 'a1', meta: { position: 1 } }],
             startIndex: 0,
             metadataSource: 'chatgpt-content-v1',
-            status: 'stale',
+            status: 'ready',
             coverage: 'complete',
         });
 
         const dlg = new SaveMessagesDialog();
-        await expect(dlg.open(adapter, 'light', { conversationContentSource })).resolves.toBe(false);
-        expect(document.getElementById('aimd-save-messages-dialog-host')).toBeNull();
+        await expect(dlg.open(adapter, 'light', { conversationContentSource })).resolves.toBe(true);
+        expect(document.getElementById('aimd-save-messages-dialog-host')).toBeTruthy();
     });
 
     it('uses the published snapshot without rechecking its source quality at click time', async () => {

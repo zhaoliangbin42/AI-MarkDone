@@ -8,6 +8,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Fixed
+- ChatGPT: The directory rail now derives the active highlight from the complete canonical user/assistant DOM group, so long replies no longer leave the highlight on the previous message because a toolbar anchor sits below the reading line.
 - ChatGPT: Copy selected Markdown on the official page now works for newly generated replies by projecting the selection onto the same sealed content used by Reader and word counts.
 - ChatGPT: The first completed reply now waits for ChatGPT's stable completion commit before mounting its message toolbar and word count, preventing the official actions from disappearing or the send control from returning to a stuck Stop state.
 - ChatGPT: New replies in an existing conversation now update Reader, copy, bookmarks, export, and message word counts from the same stable content snapshot, without additional conversation requests.

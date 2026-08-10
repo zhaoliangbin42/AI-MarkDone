@@ -18,15 +18,14 @@ export type ConversationSnapshotSourceQualityV1 =
 
 export type ConversationContentCandidateV1 = Readonly<{
     document: ConversationDocumentRefV1;
-    coverage: 'complete' | 'partial';
+    /** Every candidate admitted to the maintained message cache is complete. */
+    coverage: 'complete';
     turns: readonly ConversationTurnV1[];
     /** Additive evidence metadata; legacy producers may omit it. */
     branchKey?: string;
     captureId?: string;
     sourceRevision?: number;
     origin?: 'source' | 'host';
-    /** Additive lifecycle fact used to derive snapshot proof.tail. */
-    tail?: 'stable' | 'streaming';
 }>;
 
 export type ConversationContentAcquisitionReasonV1 =
@@ -82,10 +81,11 @@ export type ConversationTurnV1 = Readonly<{
 export type ConversationSnapshotV1 = Readonly<{
     schemaVersion: 1;
     document: ConversationDocumentRefV1;
-    /** Changes when regeneration creates a new immutable active suffix. */
+    /** Stable page/document projection identity used by async consumers. */
     projectionId?: string;
     contentToken: ConversationContentTokenV1;
-    coverage: 'complete' | 'partial';
+    /** Compatibility field; the maintained message cache is always complete. */
+    coverage: 'complete';
     turns: readonly ConversationTurnV1[];
     /** Additive proof metadata. Older V1 snapshots may omit this field. */
     proof?: ConversationSnapshotProofV1;
@@ -94,22 +94,7 @@ export type ConversationSnapshotV1 = Readonly<{
 export type ConversationSnapshotProofV1 = Readonly<{
     /** How the active projection was established. */
     basis?: 'source' | 'hybrid' | 'host-born';
-    order: 'complete' | 'gapped';
-    bodies: 'complete' | 'gapped';
-    tail: 'stable' | 'streaming';
-    gaps: readonly Readonly<{
-        kind: 'order' | 'body' | 'identity' | 'tail';
-        beforeTurnId?: string;
-        afterTurnId?: string;
-        turnId?: string;
-        reason: string;
-    }>[];
 }>;
-
-export type ConversationStaleReasonV1 =
-    | 'source-timeout'
-    | 'source-unavailable'
-    | 'identity-conflict';
 
 export type ConversationUnavailableReasonV1 =
     | 'unsupported-route'
@@ -132,12 +117,6 @@ export type ConversationContentStateV1 =
         kind: 'ready';
         document: ConversationDocumentRefV1;
         snapshot: ConversationSnapshotV1;
-    }>
-    | Readonly<{
-        kind: 'stale';
-        document: ConversationDocumentRefV1;
-        snapshot: ConversationSnapshotV1;
-        reason: ConversationStaleReasonV1;
     }>
     | Readonly<{
         kind: 'unavailable';
@@ -182,7 +161,7 @@ export function isConversationSnapshotV1(value: unknown): value is ConversationS
     if (value.schemaVersion !== 1 || !isConversationDocumentRefV1(value.document)) return false;
     if (value.projectionId !== undefined && !isNonEmptyString(value.projectionId)) return false;
     if (!isNonEmptyString(value.contentToken)) return false;
-    if (value.coverage !== 'complete' && value.coverage !== 'partial') return false;
+    if (value.coverage !== 'complete') return false;
     if (!Array.isArray(value.turns)) return false;
     if (value.proof !== undefined && !isConversationSnapshotProofV1(value.proof)) return false;
 
@@ -190,20 +169,13 @@ export function isConversationSnapshotV1(value: unknown): value is ConversationS
     const turnIds = new Set<string>();
     const assistantIds = new Set<string>();
     const userIds = new Set<string>();
-    let previousOrdinal = 0;
     return value.turns.every((turn, index) => {
         if (!isRecord(turn)) return false;
         const identity = turn.identity;
         if (!isRecord(identity)) return false;
         if (!isNonEmptyString(turn.key) || keys.has(turn.key)) return false;
         if (typeof turn.ordinal !== 'number' || !Number.isInteger(turn.ordinal) || turn.ordinal <= 0) return false;
-        // A complete V1 snapshot is a dense sequence.  A partial snapshot
-        // may be a sparse projection over a known topology, so its ordinal
-        // remains the canonical position and only needs to be strictly
-        // increasing.  This is the compatibility representation of V2 shell
-        // topology + sealed bodies.
-        if (value.coverage === 'complete' && turn.ordinal !== index + 1) return false;
-        if (value.coverage === 'partial' && turn.ordinal <= previousOrdinal) return false;
+        if (turn.ordinal !== index + 1) return false;
         if (!isNonEmptyString(identity.turnId) || turnIds.has(identity.turnId)) return false;
         if (!isNonEmptyString(identity.assistantMessageId) || assistantIds.has(identity.assistantMessageId)) return false;
         if (!isNullableString(identity.userMessageId)) return false;
@@ -215,7 +187,6 @@ export function isConversationSnapshotV1(value: unknown): value is ConversationS
         turnIds.add(identity.turnId);
         assistantIds.add(identity.assistantMessageId);
         if (identity.userMessageId) userIds.add(identity.userMessageId);
-        previousOrdinal = turn.ordinal;
         return true;
     });
 }
@@ -238,7 +209,6 @@ export function freezeConversationSnapshotV1(
             ? Object.freeze({
                 proof: Object.freeze({
                     ...snapshot.proof,
-                    gaps: Object.freeze(snapshot.proof.gaps.map((gap) => Object.freeze({ ...gap }))),
                 }),
             })
             : {}),
@@ -263,29 +233,13 @@ function isNullableString(value: unknown): value is string | null {
 
 function isConversationSnapshotProofV1(value: unknown): value is ConversationSnapshotProofV1 {
     if (!isRecord(value)) return false;
-    if (value.order !== 'complete' && value.order !== 'gapped') return false;
     if (
         value.basis !== undefined
         && value.basis !== 'source'
         && value.basis !== 'hybrid'
         && value.basis !== 'host-born'
     ) return false;
-    if (value.bodies !== 'complete' && value.bodies !== 'gapped') return false;
-    if (value.tail !== 'stable' && value.tail !== 'streaming') return false;
-    if (!Array.isArray(value.gaps)) return false;
-    return value.gaps.every((gap) => {
-        if (!isRecord(gap)) return false;
-        if (
-            gap.kind !== 'order'
-            && gap.kind !== 'body'
-            && gap.kind !== 'identity'
-            && gap.kind !== 'tail'
-        ) return false;
-        return isNonEmptyString(gap.reason)
-            && isOptionalString(gap.beforeTurnId)
-            && isOptionalString(gap.afterTurnId)
-            && isOptionalString(gap.turnId);
-    });
+    return Object.keys(value).every((key) => key === 'basis');
 }
 
 function isOptionalSemanticContentProvenanceV1(value: unknown): boolean {

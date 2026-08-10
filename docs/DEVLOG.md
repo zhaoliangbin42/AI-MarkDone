@@ -4,6 +4,54 @@ Purpose: evidence log for major changes (commands run + observed results). Keep 
 
 ---
 
+## 2026-08-10 — ChatGPT route identity and anonymous-page boundary audit
+
+- Audited the executable route rule in `src/drivers/content/chatgpt/chatgptRoute.ts`.
+  The current Conversation Document parser accepts `/c/<id>`,
+  `/conversation/<id>`, and nested paths such as `/g/<scope>/c/<id>` on the
+  exact ChatGPT page hosts when the captured ID is at least eight hexadecimal or
+  hyphen characters. It does not accept `/g/<id>`, `/share/<id>`, query-only
+  conversation IDs, `chat.com`, or a URL-stable anonymous page. `/c/WEB:*` is
+  temporary birth evidence rather than a canonical document identity.
+- Confirmed that current anonymous stable-URL discovery is not implemented:
+  without a canonical route identity, the Content Repository remains
+  unavailable. The SSOT now records page-session identity, same-URL reset,
+  virtualized-window limits and persistent-navigation isolation as the required
+  future design seams rather than silently claiming support.
+
+Verification:
+- `npm run test:chatgpt-discovery`: passed (27 files / 333 tests).
+- The route matrix and anonymous stable-URL cases remain documentation/test
+  scope for the next implementation; no runtime code was changed in this
+  audit.
+
+---
+
+## 2026-08-10 — ChatGPT directory active geometry uses the full turn group
+
+- Reproduced the installed-Chrome mismatch on `RIS尺寸扩展规律分析`: the
+  viewport reference line was inside assistant message 23, while the right
+  directory rail marked position 22. The materialized toolbar/action-row
+  anchor for message 23 was thousands of pixels below the reading line; the
+  complete user+assistant group still contained it.
+- Added a regression through the production `ConversationMaterializationPortV1`
+  composition. `ChatGPTDirectoryController` now uses `ChatGPTConversationIndex`
+  full `groupEls` for active-position geometry and keeps the materialization
+  `anchorElement` only as a fallback for missing full groups. Navigation and
+  toolbar mounting continue to use the materialization anchor as before.
+- Reloaded the current Chrome page with the built extension: the same viewport
+  now reports active position 23 of 23, matching the visible assistant message
+  identity. No conversation request was introduced.
+
+Verification:
+- Focused directory controller tests passed (50/50), including the new
+  toolbar-anchor regression; `npm run test:chatgpt-discovery` passed (29 files /
+  345 tests); `npm run test:core` passed (284 files / 1,978 tests).
+- `npm run type-check`, dual-browser `npm run build`, passive ChatGPT boundary,
+  entry-format checks, bundle budgets and `git diff --check` passed.
+
+---
+
 ## 2026-08-10 — ChatGPT sealed host-rendered local Markdown selection
 
 - Reproduced the real shortcut failure with a sealed `host-rendered` assistant
@@ -478,3 +526,35 @@ Verification in this implementation pass:
 - `git diff --check`: passed.
 - `npm run perf:chatgpt` was not claimed: the sandbox hit the `tsx` IPC boundary, and the escalation was correctly rejected because the benchmark performs clipboard permission/write/read side effects. No unsafe workaround was used.
 - Installed Chrome MV3 / Firefox MV2 real-browser acceptance remains a separate manual gate and was not claimed from automation.
+
+## 2026-08-10 — ChatGPT content discovery simplified to one append-only cache
+
+- Replaced the remaining source/host lifecycle split with one
+  `ConversationContentRepository` cache: a conversation epoch consumes one
+  passive website-owned Graph baseline, then stable new DOM turns append to
+  that cache through the single `ChatGPTPageIndex` / Host Monitor path.
+- Removed consumer-visible `partial` and content-level `stale` semantics.
+  Cached messages are available to Reader, Directory, toolbar word counts,
+  copy, bookmarks and export; `source/hybrid/host-born` remains diagnostic
+  provenance only. Duplicate assistant identities are idempotent, and a
+  compiler rejection retains only that message's dirty work for retry.
+- Corrected first-turn binding so a canonical existing conversation cannot be
+  inferred from a pre-route DOM window, while `/` → temporary `WEB` → canonical
+  birth facts remain supported. Removed the unused Ledger, V2 discovery,
+  virtual-host, DOM-fact-source and stable-capture production modules and
+  their dedicated tests.
+- Rewrote the active architecture, runtime, dependency, feature and testing
+  SSOT documents to describe the maintained cache rather than suffix
+  replacement or consumer recovery states.
+
+Verification:
+
+- `npm run test:chatgpt-discovery`: 27 files / 333 tests passed.
+- `npm run test:core`: 280 files / 1,957 tests passed.
+- `npm run test:smoke`: 7 files / 54 tests passed.
+- `npm run test:acceptance`: 30 files / 317 tests passed.
+- `npm run type-check`, `npm run perf:chatgpt`, `npm run build` and
+  `git diff --check` passed. Chrome MV3 and Firefox MV2 entry-format,
+  passive-boundary and bundle-size checks passed.
+- Installed-browser acceptance remains a separate manual gate; it was not
+  inferred from these automated results.

@@ -292,11 +292,6 @@
     // these internal shells in the graph (for example around tool work),
     // while the later user/assistant pairs are already complete. Only an
     // incomplete final round makes the graph unavailable to consumers.
-    const lastRound = rounds[rounds.length - 1];
-    const hasStreamingTail = Boolean(
-      lastRound
-      && (!lastRound.assistantContent || !lastRound.assistantContent.trim())
-    );
     // Filtering an unfinished head can leave the provider's display
     // positions starting at 2 (or later). The semantic port requires a
     // contiguous local ordinal; message/node IDs remain the real identity.
@@ -306,7 +301,10 @@
     }));
     return {
       rounds: normalizedRounds,
-      coverage: hasStreamingTail ? 'partial' : 'complete',
+      // The content port only publishes messages that have been obtained by
+      // the maintained cache. A streaming shell is an internal bridge fact;
+      // it is not admitted as a cache entry until the host commits it.
+      coverage: 'complete',
     };
   }
 
@@ -318,7 +316,15 @@
     const branchNodes = buildBranchNodesFromMapping(mapping, currentNodeId);
     if (!branchNodes) return null;
     const result = buildRoundsFromMessages(branchNodes);
-    return result.rounds.length > 0 ? result : null;
+    const activeMessage = getNodeMessage(branchNodes[branchNodes.length - 1]);
+    return result.rounds.length > 0
+      ? {
+          ...result,
+          activeAssistantMessageId: readAuthorRole(activeMessage) === 'assistant'
+            ? getMessageId(activeMessage)
+            : null,
+        }
+      : null;
   }
 
   function getObservedConversationId(value) {
@@ -595,9 +601,17 @@
     const built = buildRoundsFromPayload(payload);
     if (!built) return null;
 
+    const generationPending = bridgeState.pendingGenerations.some((pending) => (
+      pending.conversationId === conversationId
+    ));
+    const rounds = generationPending && built.activeAssistantMessageId
+      ? built.rounds.filter((round) => round.assistantMessageId !== built.activeAssistantMessageId)
+      : built.rounds;
+    if (rounds.length === 0) return null;
+
     return {
       conversationId,
-      rounds: built.rounds,
+      rounds,
       coverage: built.coverage,
       branchKey: observed.currentNodeId,
       capturedAt: observed.capturedAt,

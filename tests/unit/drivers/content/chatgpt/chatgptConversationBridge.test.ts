@@ -218,9 +218,8 @@ describe('ChatGPT conversation bridge', () => {
 
     it('keeps content-world discovery event-driven and free of extension host transport', () => {
         const adapter = readFileSync('src/drivers/content/chatgpt/ChatGPTConversationDiscoveryAdapter.ts', 'utf-8');
-        const facts = readFileSync('src/services/content/ChatGPTDomTurnFactSource.ts', 'utf-8');
         const pageIndex = readFileSync('src/drivers/content/chatgpt/ChatGPTPageIndex.ts', 'utf-8');
-        const contentDiscovery = [adapter, facts].join('\n');
+        const contentDiscovery = adapter;
 
         expect(contentDiscovery).not.toMatch(/\bfetch\s*\(/);
         expect(contentDiscovery).not.toContain('XMLHttpRequest');
@@ -231,7 +230,6 @@ describe('ChatGPT conversation bridge', () => {
         expect(pageIndex).toContain('attributeFilter: Array.from(HOST_LIFECYCLE_ATTRIBUTES)');
         expect(pageIndex).toContain('characterData: true');
         expect(pageIndex).toContain('isAssistantContentNode');
-        expect(facts).not.toContain('new MutationObserver');
     });
 
     it('signals generation completion from resource timing without reading the response', async () => {
@@ -619,8 +617,9 @@ describe('ChatGPT conversation bridge', () => {
         expect(response.error).toMatchObject({ code: 'BRIDGE_UNAVAILABLE' });
     });
 
-    it('marks a graph partial when a completed history is followed by an empty current turn', async () => {
+    it('keeps the completed graph prefix consumable while the current turn is still streaming', async () => {
         const conversationId = '69e8d157-5fec-839c-9124-2179ba8b7d7c';
+        history.replaceState({}, '', `/c/${conversationId}`);
         const fetchMock = vi.fn(async () => new Response(JSON.stringify({
             conversation_id: conversationId,
             current_node: 'assistant-node-2',
@@ -655,11 +654,12 @@ describe('ChatGPT conversation bridge', () => {
         vi.stubGlobal('fetch', fetchMock);
 
         installBridge();
+        await window.fetch('/backend-api/conversation', { method: 'POST' });
         await observeConversationFetch(conversationId);
         const response = await requestSnapshot(conversationId);
 
         expect(response.ok).toBe(true);
-        expect(response.snapshot.coverage).toBe('partial');
+        expect(response.snapshot.coverage).toBe('complete');
         expect(response.snapshot.rounds.map((round: any) => round.assistantContent)).toEqual([
             'Previous answer',
         ]);

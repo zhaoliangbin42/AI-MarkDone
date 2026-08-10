@@ -23,7 +23,7 @@ type BridgeResponse = {
     snapshot?: {
         conversationId: string;
         rounds: ChatGPTConversationRound[];
-        coverage?: 'complete' | 'partial';
+        coverage?: 'complete';
         capturedAt: number;
         captureSequence?: number;
         branchKey: string;
@@ -197,8 +197,8 @@ function toCandidate(
         }
         return {
             key: `${round.id}:${assistantMessageId}`,
-            // Provider positions can have gaps after the bridge omits an
-            // unfinished head; ordinals are local V1 display order only.
+            // Provider positions are not semantic identity; the cache uses a
+            // dense local ordinal for the messages admitted by this baseline.
             ordinal: index + 1,
             identity: {
                 turnId: round.id,
@@ -214,7 +214,7 @@ function toCandidate(
     });
     return {
         document,
-        coverage: snapshot.coverage === 'partial' ? 'partial' : 'complete',
+        coverage: 'complete',
         turns,
         branchKey: snapshot.branchKey,
         captureId: `chatgpt-bridge:${snapshot.branchKey}:${
@@ -226,7 +226,6 @@ function toCandidate(
             ? snapshot.captureSequence
             : snapshot.capturedAt,
         origin: 'source',
-        tail: snapshot.coverage === 'partial' ? 'streaming' : 'stable',
     };
 }
 

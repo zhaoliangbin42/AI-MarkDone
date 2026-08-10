@@ -40,12 +40,7 @@ function normalize(value: string | null | undefined): string | null {
 }
 
 function isCompleteSnapshot(snapshot: ConversationSnapshotV1): boolean {
-    if (snapshot.coverage !== 'complete') return false;
-    if (!snapshot.proof) return true;
-    return snapshot.proof.order === 'complete'
-        && snapshot.proof.bodies === 'complete'
-        && snapshot.proof.tail === 'stable'
-        && snapshot.proof.gaps.length === 0;
+    return snapshot.coverage === 'complete' && snapshot.turns.length > 0;
 }
 
 function targetKey(input: ConversationNavigationInputV1): string {

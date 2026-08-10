@@ -82,28 +82,6 @@ function completeCandidate(
     };
 }
 
-function partialCandidate(
-    ref: ConversationDocumentRefV1,
-    answers: readonly string[],
-): ConversationContentCandidateV1 {
-    return {
-        document: ref,
-        coverage: 'partial',
-        tail: 'streaming',
-        turns: answers.map((answer, index) => ({
-            key: `turn-${index + 1}`,
-            ordinal: index + 1,
-            identity: {
-                turnId: `turn-${index + 1}`,
-                userMessageId: `user-${index + 1}`,
-                assistantMessageId: `assistant-${index + 1}`,
-            },
-            userText: `Question ${index + 1}`,
-            assistantMarkdown: answer,
-        })),
-    };
-}
-
 function hostTurn(index: number, answer: string): ConversationTurnV1 {
     return {
         key: `turn-${index}:assistant-${index}`,
@@ -307,18 +285,17 @@ describe('ConversationContentRepository', () => {
         expect(repository.isCurrent('')).toBe(false);
     });
 
-    it('accepts a complete baseline prefix with one streaming tail and closes it from a stable host turn', async () => {
+    it('publishes a complete baseline and appends a stable host turn to the same cache', async () => {
         const ref = document('conversation-coverage');
-        let next: ConversationContentCandidateV1 = partialCandidate(ref, ['Answer']);
         const repository = new ConversationContentRepository({
             resolveDocument: () => ref,
-            readBaseline: async () => next,
+            readBaseline: async () => completeCandidate(ref, ['Answer']),
         });
-        const partial = await repository.enterCurrentEpoch();
-        expect(partial.kind).toBe('ready');
-        if (partial.kind !== 'ready') throw new Error('expected partial ready state');
-        expect(partial.snapshot.coverage).toBe('partial');
-        expect(partial.snapshot.proof).toMatchObject({ basis: 'source', tail: 'streaming' });
+        const baseline = await repository.enterCurrentEpoch();
+        expect(baseline.kind).toBe('ready');
+        if (baseline.kind !== 'ready') throw new Error('expected ready baseline state');
+        expect(baseline.snapshot.coverage).toBe('complete');
+        expect(baseline.snapshot.proof).toEqual({ basis: 'source' });
 
         const complete = repository.ingestHostTurn({
             turn: hostTurn(2, 'Answer 2'),
@@ -331,54 +308,50 @@ describe('ConversationContentRepository', () => {
         expect(complete.kind).toBe('ready');
         if (complete.kind !== 'ready') throw new Error('expected complete ready state');
         expect(complete.snapshot.coverage).toBe('complete');
-        expect(complete.snapshot.proof).toMatchObject({ basis: 'hybrid', tail: 'stable' });
+        expect(complete.snapshot.proof).toEqual({ basis: 'hybrid' });
         expect(complete.snapshot.turns).toHaveLength(2);
     });
 
-    it('ignores a later partial source capture after the baseline gate closes', async () => {
-        const ref = document('conversation-partial-window');
-        let next: ConversationContentCandidateV1 = completeCandidate(ref, ['Answer 1', 'Answer 2']);
+    it('does not reread the source after the baseline gate closes', async () => {
+        const ref = document('conversation-baseline-window');
+        const readBaseline = vi.fn(async () => completeCandidate(ref, ['Answer 1', 'Answer 2']));
         const repository = new ConversationContentRepository({
             resolveDocument: () => ref,
-            readBaseline: async () => next,
+            readBaseline,
         });
 
         const first = await repository.enterCurrentEpoch();
-        next = partialCandidate(ref, ['Answer 1']);
-        const regressed = await repository.refresh();
+        repository.notifyBaselineCaptured();
+        await vi.advanceTimersByTimeAsync(150);
+        const refreshed = await repository.refresh();
 
         expect(first.kind).toBe('ready');
-        expect(regressed.kind).toBe('ready');
-        if (regressed.kind !== 'ready') throw new Error('expected ready state');
-        expect(regressed.snapshot.turns.map((turn) => turn.assistantMarkdown)).toEqual([
+        expect(refreshed.kind).toBe('ready');
+        if (refreshed.kind !== 'ready') throw new Error('expected ready state');
+        expect(refreshed.snapshot.turns.map((turn) => turn.assistantMarkdown)).toEqual([
             'Answer 1',
             'Answer 2',
         ]);
-        expect(regressed.snapshot.proof).toMatchObject({
-            order: 'complete',
-            bodies: 'complete',
-            tail: 'stable',
-            gaps: [],
-        });
+        expect(readBaseline).toHaveBeenCalledTimes(1);
     });
 
-    it('retries an open gate only after a real lifecycle signal', async () => {
-        const ref = document('conversation-partial-growth');
-        let next = { ...partialCandidate(ref, ['Answer 1']), tail: 'stable' as const };
+    it('retries an unavailable baseline only after a real lifecycle signal', async () => {
+        const ref = document('conversation-baseline-retry');
+        let next: ConversationContentCandidateV1 | null = null;
         const readBaseline = vi.fn(async () => next);
         const repository = new ConversationContentRepository({
             resolveDocument: () => ref,
             readBaseline,
         });
 
-        const partial = await repository.enterCurrentEpoch();
+        const unavailable = await repository.enterCurrentEpoch();
         next = completeCandidate(ref, ['Answer 1', 'Answer 2']);
-        expect(await repository.refresh()).toBe(partial);
+        expect(await repository.refresh()).toBe(unavailable);
         repository.notifyBaselineCaptured();
         await vi.advanceTimersByTimeAsync(150);
         const grown = repository.read();
 
-        expect(partial.kind).toBe('unavailable');
+        expect(unavailable.kind).toBe('unavailable');
         expect(grown.kind).toBe('ready');
         if (grown.kind !== 'ready') throw new Error('expected ready state');
         expect(grown.snapshot.turns).toHaveLength(2);
@@ -394,7 +367,6 @@ describe('ConversationContentRepository', () => {
             sourceRevision: 2,
             origin: 'host' as const,
             coverage: 'complete' as const,
-            tail: 'stable' as const,
         };
         const repository = new ConversationContentRepository({
             resolveDocument: () => ref,
@@ -407,22 +379,24 @@ describe('ConversationContentRepository', () => {
         expect(repository.read().snapshot).toBeNull();
     });
 
-    it('does not downgrade complete coverage when a later graph contains a partial window', async () => {
+    it('keeps the published baseline complete after later capture signals', async () => {
         const ref = document('conversation-complete-coverage');
-        let next: ConversationContentCandidateV1 = candidate(ref);
+        const readBaseline = vi.fn(async () => candidate(ref));
         const repository = new ConversationContentRepository({
             resolveDocument: () => ref,
-            readBaseline: async () => next,
+            readBaseline,
         });
 
         const complete = await repository.enterCurrentEpoch();
-        next = { ...candidate(ref), coverage: 'partial' };
+        repository.notifyBaselineCaptured();
+        await vi.advanceTimersByTimeAsync(150);
         const unchanged = await repository.refresh();
 
         expect(complete.kind).toBe('ready');
         expect(unchanged.kind).toBe('ready');
         if (unchanged.kind !== 'ready') throw new Error('expected ready state');
         expect(unchanged.snapshot.coverage).toBe('complete');
+        expect(readBaseline).toHaveBeenCalledTimes(1);
     });
 
     it('keeps the first sealed body when a later host observation conflicts', async () => {
@@ -450,7 +424,9 @@ describe('ConversationContentRepository', () => {
             emptyProven: false,
         });
 
-        expect(conflicted.kind).toBe('stale');
+        expect(conflicted.kind).toBe('ready');
+        if (conflicted.kind !== 'ready') throw new Error('expected ready state');
+        expect(conflicted.snapshot.contentToken).toBe(repository.read().snapshot?.contentToken);
         expect(repository.readTurn({
             documentKey: ref.key,
             turnId: 'turn-1',
@@ -462,7 +438,7 @@ describe('ConversationContentRepository', () => {
         });
     });
 
-    it('keeps an accepted baseline stale when a pre-route host fact conflicts with its baseline prefix', async () => {
+    it('keeps the baseline authoritative when a pre-route host fact conflicts with it', async () => {
         const ref = document('conversation-pending-prefix-conflict');
         let current: ConversationDocumentRefV1 | null = null;
         const repository = new ConversationContentRepository({
@@ -481,10 +457,9 @@ describe('ConversationContentRepository', () => {
         current = ref;
         const state = await repository.enterCurrentEpoch();
 
-        expect(state.kind).toBe('stale');
-        if (state.kind !== 'stale') throw new Error('expected stale state');
+        expect(state.kind).toBe('ready');
+        if (state.kind !== 'ready') throw new Error('expected ready state');
         expect(state.snapshot.turns[0]?.assistantMarkdown).toBe('Canonical baseline answer');
-        expect(state.reason).toBe('identity-conflict');
     });
 
     it('treats identical pre-route host and baseline bodies as idempotent across provenance', async () => {
@@ -513,7 +488,7 @@ describe('ConversationContentRepository', () => {
         expect(state.snapshot.turns[0]?.assistantMarkdown).toBe('Answer 1');
     });
 
-    it('creates a new projection and atomically replaces only a regenerated host suffix', async () => {
+    it('does not replace an existing cache suffix when a later DOM branch reuses an older predecessor', async () => {
         const ref = document('conversation-regeneration');
         const repository = new ConversationContentRepository({
             resolveDocument: () => ref,
@@ -558,15 +533,15 @@ describe('ConversationContentRepository', () => {
 
         expect(regenerated.kind).toBe('ready');
         if (regenerated.kind !== 'ready') throw new Error('expected regenerated projection');
-        expect(regenerated.snapshot.projectionId).not.toBe(before.snapshot.projectionId);
+        expect(regenerated.snapshot.projectionId).toBe(before.snapshot.projectionId);
         expect(regenerated.snapshot.turns.map((turn) => turn.identity.assistantMessageId)).toEqual([
             'assistant-1',
             'assistant-2',
-            'assistant-3b',
+            'assistant-3',
         ]);
     });
 
-    it('enters stale when a host replacement reaches into the baseline prefix', async () => {
+    it('keeps the cache consumable when a host observation reaches into the baseline prefix', async () => {
         const ref = document('conversation-historical-conflict');
         const repository = new ConversationContentRepository({
             resolveDocument: () => ref,
@@ -592,8 +567,8 @@ describe('ConversationContentRepository', () => {
             emptyProven: false,
         });
 
-        expect(conflicted.kind).toBe('stale');
-        if (conflicted.kind !== 'stale') throw new Error('expected stale projection');
+        expect(conflicted.kind).toBe('ready');
+        if (conflicted.kind !== 'ready') throw new Error('expected ready projection');
         expect(conflicted.snapshot.contentToken).toBe(baseline.snapshot.contentToken);
         expect(conflicted.snapshot.turns.map((turn) => turn.identity.assistantMessageId)).toEqual([
             'assistant-1',

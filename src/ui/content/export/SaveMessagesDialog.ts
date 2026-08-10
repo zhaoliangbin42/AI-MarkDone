@@ -130,11 +130,6 @@ export class SaveMessagesDialog {
             readerOptions,
         );
         const { items, startIndex } = content;
-        if (adapter.getPlatformId() === 'chatgpt' && content.status === 'stale') {
-            this.adapter = null;
-            this.focusLifecycle.restore(document);
-            return false;
-        }
         if (adapter.getPlatformId() === 'chatgpt' && options?.conversationContentSource && items.length === 0) {
             // The consumer can only export what discovery has already
             // published.  It must not wait for or manufacture missing turns.

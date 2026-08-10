@@ -3,7 +3,7 @@ import type { ConversationContentStateV1 } from '@/contracts/conversationContent
 import { ConversationNavigationCoordinator } from '@/services/content/ConversationNavigationCoordinator';
 import { createConversationContentSource, toConversationSnapshotV1 } from '../../../helpers/chatgptContentFixtures';
 
-function incompleteState(): ConversationContentStateV1 {
+function acquiredWhileSyncingState(): ConversationContentStateV1 {
     const snapshot = toConversationSnapshotV1({
         conversationId: '12345678-1234-1234-1234-123456789abc',
         rounds: [{
@@ -19,13 +19,8 @@ function incompleteState(): ConversationContentStateV1 {
         document: snapshot.document,
         snapshot: {
             ...snapshot,
-            coverage: 'partial',
-            proof: {
-                order: 'gapped',
-                bodies: 'gapped',
-                tail: 'streaming',
-                gaps: [{ kind: 'tail', turnId: 'round-1', reason: 'streaming' }],
-            },
+            coverage: 'complete',
+            proof: { basis: 'source' },
         },
     };
 }
@@ -101,10 +96,10 @@ describe('ConversationNavigationCoordinator', () => {
         }
     });
 
-    it('waits for the source event instead of exposing an incomplete target', async () => {
+    it('uses an acquired message immediately even while the route state is syncing', async () => {
         vi.useFakeTimers();
         try {
-            const source = createConversationContentSource(incompleteState());
+            const source = createConversationContentSource(acquiredWhileSyncingState());
             const execute = vi.fn(async () => ({ ok: true as const }));
             const coordinator = new ConversationNavigationCoordinator({ source, execute });
             const resultPromise = coordinator.navigate({
@@ -112,12 +107,6 @@ describe('ConversationNavigationCoordinator', () => {
                 messageId: 'assistant-1',
                 source: 'directory',
             }, { timeoutMs: 1_000 });
-
-            const complete = {
-                conversationId: '12345678-1234-1234-1234-123456789abc',
-                rounds: [{ id: 'round-1', userPrompt: 'Prompt 1', assistantContent: 'Answer 1', userMessageId: 'user-1', assistantMessageId: 'assistant-1' }],
-            };
-            source.publish(complete);
             await vi.advanceTimersByTimeAsync(0);
 
             const result = await resultPromise;

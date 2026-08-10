@@ -102,7 +102,7 @@ type BookmarkToggleResult =
     | { ok: true; saved: boolean; bookmarked: boolean; message: string; folderPath?: string }
     | { ok: false; message?: string; cancelled?: boolean };
 
-type ChatGptToolbarPhase = 'anchor_pending' | 'injected' | 'stale';
+type ChatGptToolbarPhase = 'anchor_pending' | 'injected' | 'recovery_pending';
 
 type ChatGptToolbarState = {
     messageKey: string;
@@ -211,7 +211,8 @@ export class MessageToolbarOrchestrator {
         try {
             this.currentReaderItemByMessageKey.delete(this.getReaderItemCacheKey(messageElement));
         } catch {
-            // A transient host DOM can make message identity unavailable; stale content is worse than a cache miss.
+            // A transient host DOM can make message identity unavailable; a
+            // cache miss is safer than inventing a different content source.
             this.clearReaderItemCache();
         }
     }
@@ -227,9 +228,9 @@ export class MessageToolbarOrchestrator {
     }
 
     private handleChatGptConversationState(state: ConversationContentStateV1): void {
-        // A content refresh reports a transient collecting state while keeping
-        // the same last-good snapshot. That state must not tear down an export
-        // dialog which is already presenting that snapshot.
+        // The Session exposes only whether the maintained cache is available.
+        // A route transition can briefly have no snapshot; an already-open
+        // export is closed only when its document/content identity changes.
         const semanticKey = state.snapshot
             ? `${state.document?.key ?? ''}:${state.snapshot.contentToken}`
             : `missing:${state.document?.key ?? ''}:${state.kind}`;
@@ -328,7 +329,7 @@ export class MessageToolbarOrchestrator {
                 messageKey,
                 message,
                 // ChatGPT's first canonical-route commit can expose the official
-                // action row briefly before React has sealed the completed turn.
+                // action row briefly before React has committed the completed turn.
                 // Inserting into that host-owned row during the transition can
                 // roll the page back to streaming and remove both action rows.
                 // Materialization may remain pending for navigation, but toolbar
@@ -574,8 +575,8 @@ export class MessageToolbarOrchestrator {
             try {
                 await this.conversationContentSource.refresh();
             } catch {
-                // Keep the last-good snapshot consumable if an explicit
-                // refresh fails; the projection below will read it directly.
+                // Keep the maintained snapshot consumable if a local flush
+                // fails; the projection below reads it directly.
             }
         }
         const result = await collectFreshReaderContent(this.adapter, null, {
@@ -1141,8 +1142,7 @@ export class MessageToolbarOrchestrator {
                 });
                 const { items, startIndex } = itemsResult;
                 const shouldValidateSourceRevision = itemsResult.status === undefined
-                    || itemsResult.status === 'ready'
-                    || itemsResult.status === 'stale';
+                    || itemsResult.status === 'ready';
                 if (shouldValidateSourceRevision && !this.isSourceRevisionCurrent(itemsResult.sourceRevision)) {
                     return { ok: false, message: t('contentNotFound') };
                 }
@@ -1222,7 +1222,7 @@ export class MessageToolbarOrchestrator {
         const injected = this.adapter.injectToolbar(params.message, host);
         if (!injected) {
             logger.debug('[AI-MarkDone][MessageToolbarOrchestrator] injectToolbar failed');
-            this.rememberChatGptToolbarState(params, 'stale', params.anchor);
+            this.rememberChatGptToolbarState(params, 'recovery_pending', params.anchor);
             toolbar.dispose();
             host.remove();
             return null;
@@ -1419,7 +1419,7 @@ export class MessageToolbarOrchestrator {
                     anchor,
                 });
                 if (created) this.recordsByMessageKey.set(messageKey, created);
-                else this.rememberChatGptToolbarState(item, 'stale', anchor);
+                else this.rememberChatGptToolbarState(item, 'recovery_pending', anchor);
                 continue;
             }
 
@@ -1428,7 +1428,7 @@ export class MessageToolbarOrchestrator {
             existing.boundAtUrl = this.getBookmarkPageUrl();
 
             if (existing.anchor !== anchor || !existing.toolbar.getElement().isConnected) {
-                this.rememberChatGptToolbarState(item, 'stale', anchor);
+                this.rememberChatGptToolbarState(item, 'recovery_pending', anchor);
                 existing.anchor = anchor;
                 const refreshed = this.rebuildToolbarRecord({
                     ...existing,

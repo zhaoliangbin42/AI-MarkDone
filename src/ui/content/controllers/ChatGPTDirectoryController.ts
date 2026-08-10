@@ -38,6 +38,11 @@ type ChatGPTDirectoryContentOptions = {
     navigation?: ConversationNavigationPortV1 | null;
 };
 
+type ChatGPTMountedRoundGeometry = Pick<
+    ChatGPTRoundPosition,
+    'jumpAnchor' | 'userAnchor' | 'assistantRoot' | 'groupEls'
+>;
+
 function writeDebugState(patch: Record<string, string | boolean | number | null | undefined>): void {
     try {
         if (window.localStorage.getItem('aimd:debug') !== '1') return;
@@ -409,31 +414,36 @@ export class ChatGPTDirectoryController {
     private refreshRoundPositions(): void {
         const contentState = this.getCanonicalContentSource()?.read();
         if (contentState?.document && contentState.snapshot) {
-            const mountedByTarget = this.materialization
-                ? new Map(
-                    this.materialization.read().entries.map((entry) => [
-                        `${entry.target.turnId}:${entry.target.assistantMessageId}`,
-                        {
-                            jumpAnchor: entry.anchorElement,
-                            userAnchor: entry.anchorElement,
-                            assistantRoot: entry.anchorElement,
-                            groupEls: [entry.anchorElement],
-                        },
-                    ]),
-                )
-                : new Map(
-                    (this.conversationIndex ?? getChatGPTConversationIndex(this.adapter)).getRounds()
-                        .filter((entry) => entry.materialized !== null)
-                        .map((entry) => [
-                            `${entry.identity.roundId}:${entry.identity.assistantMessageId}`,
-                            {
-                                jumpAnchor: entry.materialized!.jumpAnchorEl,
-                                userAnchor: entry.materialized!.userRootEl,
-                                assistantRoot: entry.materialized!.assistantRootEl,
-                                groupEls: entry.materialized!.groupEls,
-                            },
-                        ]),
+            const index = this.conversationIndex ?? getChatGPTConversationIndex(this.adapter);
+            // Materialization anchors are intentionally toolbar-facing. They
+            // can sit after a very long assistant response, so they are not
+            // valid input for reading-position geometry. Keep them only as a
+            // fallback; the shared index owns the complete user+assistant DOM
+            // group used by active-position resolution.
+            const materializedByTarget = new Map<string, ChatGPTMountedRoundGeometry>(
+                this.materialization?.read().entries.map((entry) => [
+                    `${entry.target.turnId}:${entry.target.assistantMessageId}`,
+                    {
+                        jumpAnchor: entry.anchorElement,
+                        userAnchor: entry.messageElement ?? entry.anchorElement,
+                        assistantRoot: entry.messageElement ?? entry.anchorElement,
+                        groupEls: [entry.messageElement ?? entry.anchorElement],
+                    },
+                ]) ?? [],
+            );
+            const mountedByTarget = new Map<string, ChatGPTMountedRoundGeometry>(materializedByTarget);
+            for (const entry of index.getRounds()) {
+                if (!entry.materialized) continue;
+                mountedByTarget.set(
+                    `${entry.identity.roundId}:${entry.identity.assistantMessageId}`,
+                    {
+                        jumpAnchor: entry.materialized.jumpAnchorEl,
+                        userAnchor: entry.materialized.userRootEl,
+                        assistantRoot: entry.materialized.assistantRootEl,
+                        groupEls: entry.materialized.groupEls,
+                    },
                 );
+            }
             this.roundPositions = contentState.snapshot.turns.map((turn) => {
                 const mounted = mountedByTarget.get(
                     `${turn.identity.turnId}:${turn.identity.assistantMessageId}`,

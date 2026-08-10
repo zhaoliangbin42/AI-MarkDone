@@ -62,7 +62,7 @@ These documents record bounded refactor execution and closeout evidence. They do
 - `docs/adr/README.md`
 - `docs/adr/ADR-0017-chatgpt-baseline-and-host-tail-lifecycle.md`
   - active ChatGPT lifecycle: one passive baseline, one shared Page Monitor,
-    stable DOM tail capture, immutable projections, and consumer convergence
+    stable DOM append into one consumable cache, and consumer convergence
 - `docs/adr/ADR-0011-semantic-content-and-surface-projection.md`
   - retained semantic/source-span and sole surface-to-source projection rules;
     its source-only body rule is superseded by ADR-0017

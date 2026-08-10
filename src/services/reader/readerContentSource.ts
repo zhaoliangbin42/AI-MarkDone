@@ -38,18 +38,18 @@ export type ReaderContentSourceRevision = {
     contentToken?: string;
 };
 
-export type ReaderContentSourceStatus = 'ready' | 'stale' | 'unavailable' | 'target-unresolved';
+export type ReaderContentSourceStatus = 'ready' | 'unavailable' | 'target-unresolved';
 
 export type ReaderContentSourceResult = CollectReaderItemsResult & {
     metadataSource: ReaderContentMetadataSource;
     annotationDocument?: ReaderAnnotationDocument;
     sourceRevision?: ReaderContentSourceRevision;
     status?: ReaderContentSourceStatus;
-    /** Canonical ChatGPT coverage; consumers may project recognized partial snapshots. */
+    /** Canonical ChatGPT coverage; maintained conversation snapshots are complete. */
     coverage?: ConversationSnapshotV1['coverage'];
     /** Independent of coverage: whether every projected body is source-backed. */
     sourceQuality?: ConversationSnapshotSourceQualityV1;
-    /** Sparse ChatGPT V2 topology count and currently sealed body count. */
+    /** Optional diagnostic counts from a platform topology projection. */
     totalCount?: number;
     availableCount?: number;
 };
@@ -306,7 +306,7 @@ function projectConversationContent(
             lastKnownUrl: normalizeChatGPTReaderPageUrl(pageUrl),
         },
         sourceRevision: cloneSourceRevision(sourceRevision),
-        status: state.kind === 'stale' ? 'stale' : 'ready',
+        status: 'ready',
     };
 }
 

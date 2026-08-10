@@ -83,15 +83,14 @@ describe('Conversation Content Port V1 contract', () => {
         }).toThrow();
     });
 
-    it('allows partial coverage without weakening identity rules', () => {
-        expect(isConversationSnapshotV1(createSnapshot({ coverage: 'partial' }))).toBe(true);
+    it('requires every published snapshot to be complete and dense', () => {
+        expect(isConversationSnapshotV1(createSnapshot({ coverage: 'partial' } as never))).toBe(false);
         expect(isConversationSnapshotV1(createSnapshot({
-            coverage: 'partial',
             turns: [{
                 ...createSnapshot().turns[0],
                 ordinal: 7,
             }],
-        }))).toBe(true);
+        }))).toBe(false);
         expect(isConversationSnapshotV1(createSnapshot({
             turns: [{
                 ...createSnapshot().turns[0],

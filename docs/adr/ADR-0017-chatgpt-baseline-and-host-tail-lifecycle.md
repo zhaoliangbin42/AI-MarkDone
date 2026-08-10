@@ -1,198 +1,169 @@
-# ADR-0017: ChatGPT baseline and host-tail content lifecycle
+# ADR-0017: ChatGPT baseline and append-only content cache
 
 ## Context
 
-The passive ChatGPT Graph path is the only reliable way to recover a complete
-virtualized history, but it is not a live tail. After the first website-owned
-conversation GET, ChatGPT can add a completed assistant turn to the DOM without
-performing another conversation GET. The previous production runtime reacted
-to that DOM mutation by peeking at bridge memory again; it never compiled or
-committed the new DOM body.
+ChatGPT's own conversation GET is the only practical way to recover a long,
+virtualized conversation when the extension enters at `document_start`. The
+DOM is the reliable source for a newly rendered turn after that GET, but it
+usually contains only a window of the conversation. Re-reading bridge memory
+for every DOM mutation was wasteful and left consumers with two competing
+answers: the toolbar could see a new assistant node while Reader and word
+count still saw the old snapshot.
 
-This created two user-visible races:
-
-- a first turn born on the blank page could finish before a canonical
-  conversation route existed, so the message toolbar was not mounted;
-- a later assistant message could receive a toolbar anchor while the content
-  snapshot still ended at the previous Graph turn, so word count displayed
-  `—`.
-
-Long conversations also prove that DOM cannot replace the baseline: ChatGPT may
-retain many persistent turn slots while hydrating only a small viewport window.
-The lifecycle therefore needs one complete baseline and a constrained live DOM
-tail, not repeated Graph reads and not a DOM-only history reconstruction.
+The user-facing rule is simpler than the old evidence model: a message is
+either not obtained yet or obtained and available. Streaming, debounce and
+Markdown compilation are implementation details. Once a message enters the
+maintained cache, later copies of the same message must not invalidate it.
 
 ## Decision
 
-Adopt one page-scoped `ConversationContentRepository` session with two typed
-input ports:
+Use one page-scoped `ConversationContentRepository` as the ChatGPT content
+Session and one public content path:
 
 ```mermaid
 flowchart LR
-    GET["Website-owned conversation GET"] --> Bridge["Passive Graph bridge memory"]
-    Bridge --> Gate["Once-only baseline gate"]
-    DOM["ChatGPT DOM"] --> Index["One ChatGPTPageIndex observer"]
-    Index --> Host["Stable Host Monitor + rendered-content-v2 compiler"]
-    Gate --> Session["ConversationContentRepository session"]
-    Host --> Session
-    Session --> Content["ConversationDiscoveryContentPortV1"]
+    GET["Website-owned conversation GET"] --> Bridge["Passive MAIN-world bridge"]
+    Bridge --> Baseline["One baseline per conversation epoch"]
+    DOM["PageIndex typed DOM facts"] --> Monitor["Host Monitor + rendered compiler"]
+    Baseline --> Session["ConversationContentRepository cache"]
+    Monitor --> Session
+    Session --> Content["ConversationContentSourceV1"]
     Session --> Materialization["ConversationMaterializationPortV1"]
-    Content --> Consumers["Directory / Reader / copy / bookmark / export"]
-    Materialization --> Toolbar["Message toolbar"]
-    Content --> Toolbar
+    Content --> Consumers["Reader / toolbar / copy / bookmark / export / word count"]
+    Materialization --> Consumers
 ```
 
-### Baseline gate
+### Baseline
 
-- `document_start` installs the MAIN-world bridge and the shared PageIndex.
-- A canonical conversation identity creates a new page epoch and opens one
-  baseline gate.
-- The first matching valid bridge snapshot is admitted. A complete Graph closes
-  the gate as a stable source projection. A complete historical prefix with one
-  streaming tail closes the gate as a partial source projection; the stable DOM
-  tail may subsequently close it.
-- A missing/invalid bridge snapshot leaves the gate open for a real bridge
-  capture signal. There is no polling or timer replay.
-- Once admitted, later same-conversation Graph captures and consumer
-  `refresh()` calls cannot alter the projection or reopen the gate.
-- A canonical conversation switch or a new document runtime creates a new gate.
-  Hash changes and BFCache restoration do not.
+- The document-start bridge only observes and stores the website's own
+  same-origin conversation GET. The extension performs zero conversation
+  GET/POST requests and reads no cookie, token or authorization data.
+- A canonical conversation identity opens one baseline gate for its epoch.
+  The first matching graph in bridge memory seeds the cache. Later graph
+  captures and consumer `refresh()` calls do not reopen or reread that gate.
+- A graph whose active assistant is still being generated omits that assistant
+  from the cache. The stable DOM turn later appends it. An all-generating graph
+  produces no cache and remains unavailable until a real bridge capture or
+  stable host fact arrives.
+- A missed baseline is recovered only by the bridge's latest in-memory graph or
+  one real future capture signal. There is no polling, retry timer or active
+  network recovery.
 
-The bridge remains passive. The extension issues zero conversation GET/POST
-requests, reads no Cookie/token/Authorization data, and does not parse generation
-responses.
+### DOM increment
 
-### Stable host tail
+- `ChatGPTPageIndex` is the only ChatGPT `MutationObserver`. Character changes
+  mark a dirty assistant identity; they do not read bridge memory or compile
+  Markdown.
+- `ChatGPTConversationHostMonitor` waits 400 ms after the last relevant host
+  signal, then clones and compiles only dirty, typed, completed turns. A
+  compiler failure, transient shell or missing anchor keeps that one identity
+  dirty for a later lifecycle signal; it does not affect other messages.
+- A new valid turn is appended to the cache. If the DOM predecessor is
+  temporarily virtualized away, the current cache tail is the append anchor.
+  If the order cannot be established, only that message is deferred.
+- An `assistantMessageId` already in the cache is authoritative. A repeated
+  DOM copy is an idempotent remount, even if its rendered text differs; it
+  never replaces the cache body.
+- Virtualization only changes materialization anchors. It cannot remove a
+  cached message, change its ordinal or create a second toolbar.
 
-`ChatGPTConversationHostMonitor` subscribes to the existing
-`ChatGPTPageIndex`; it does not create a second `MutationObserver`.
+### Blank-page first turn
 
-- Character-data mutations only dirty typed assistant identities and reset a
-  400 ms quiet window. They do not read bridge memory, compile Markdown, or scan
-  the full history.
-- A turn may compile only when user/assistant typed identities are complete,
-  the assistant is no longer streaming, an adapter-verified official action
-  anchor exists, both bodies are non-empty, and the rendered compiler validates
-  the semantic result within its budget.
-- Formula, code and table semantics use adapter-owned authoritative carriers.
-  Unsupported formulas, code, artifacts, Deep Research bodies, semantic
-  mismatches and budget overflow fail closed for that turn.
-- A compiled turn carries
-  `{ authority: "host-rendered", fidelity: "normalized", producer:
-  "rendered-content-v2" }`.
-- A new turn is accepted only when its typed predecessor is the current source
-  or host tail. It cannot fill a historical gap or use a DOM-local ordinal as
-  global history.
-- Virtualization unmount/remount changes only materialization. Already sealed
-  content and `contentToken` remain unchanged.
+- The monitor establishes `empty-proven` only from a complete typed-DOM scan
+  with no user or assistant messages. It never infers emptiness from a domain
+  or URL path.
+- A host-born first turn is allowed only after real typed birth facts have
+  crossed the temporary `/c/WEB:*` route (or an equivalent birth lifecycle
+  fact) and then bind to the canonical conversation identity. A direct home →
+  existing conversation transition must wait for its baseline, even if a
+  local DOM window appears before the route callback.
+- After the first stable host turn is compiled, it is an ordinary complete
+  cache entry with `basis: host-born`; the toolbar and word count consume it
+  through the same `readTurn()` path as a Graph-backed turn.
 
-### Blank-page birth and identity binding
+### Anonymous stable-URL boundary
 
-The monitor begins before a canonical conversation URL exists. `empty-proven`
-is established only by a full typed-DOM scan with zero user/assistant messages
-while no canonical conversation identity is bound. It is never inferred from a
-domain or `/` path.
+The current decision covers canonical conversation epochs and the validated
+blank-page birth path that crosses a temporary `WEB` route. It does not yet
+enable a DOM-only cache for a logged-out page whose URL remains `/` or another
+non-canonical route. Without a document identity, the current Repository
+correctly remains unavailable rather than assigning a durable conversation ID
+from a DOM ordinal, prompt text, or URL shape.
 
-Temporary `/c/WEB:*` routing does not discard page-born facts. When the
-canonical identity appears, the bounded birth buffer binds to that epoch. A
-validated first turn can therefore publish a complete `host-born` projection
-without a Graph baseline. A canonical conversation that already exists at
-startup cannot use this exception; if its baseline was missed, the user must
-reload the page.
+A future page-session extension must be designed as a separate, in-memory
+scope. It may seed messages that are actually observed and stable in the DOM
+when the Graph baseline is absent, then append later typed DOM messages. It must
+also define a same-URL “New Chat” reset signal, keep virtualized unmounts from
+clearing the cache, and prevent the synthetic scope from entering persistent
+bookmark or cross-page navigation contracts. Until those seams and real-host
+tests exist, anonymous stable-URL discovery is a known unsupported boundary,
+not an implicit fallback of this ADR.
 
-### Immutable cache and projections
+### Contract and consumers
 
-The active snapshot proof adds `basis: "source" | "hybrid" | "host-born"`.
-Baseline prefix records and sealed host records are immutable within one
-projection.
+- `ConversationContentStateV1` has only `idle`, `syncing`, `ready` and
+  `unavailable`. A snapshot always has dense `coverage: "complete"` turns.
+- `proof.basis` (`source`, `hybrid` or `host-born`) is diagnostic metadata. It
+  does not decide whether a cached message is consumable.
+- `authority: "host-rendered"`, `fidelity: "normalized"` and
+  `producer: "rendered-content-v2"` identify compiler-verified DOM content.
+- Reader, word count, whole-message copy, bookmark, Save Messages, export and
+  toolbar actions all read the same Content Port. They may not read DOM text,
+  bridge Graphs or infer order themselves.
+- `SurfaceProjection` remains the separate selection/source join. Its
+  `stale-content` and `stale-surface` results describe one selection or async
+  operation, not the message cache.
 
-- Duplicate typed identity/content is idempotent.
-- Cross-source idempotency compares typed identity and semantic bodies;
-  provenance metadata alone cannot turn matching Graph/host content into a
-  conflict.
-- A regenerated latest host suffix creates a new `projectionId`, preserves the
-  unchanged prefix and atomically replaces the active suffix.
-- A replacement that reaches into the baseline prefix makes the active
-  state `stale`; the old snapshot remains readable for diagnostics, while the
-  full Reader and Save Messages export pause until a page reload establishes a
-  new baseline.
+### Scope and safety
 
-`ConversationContentRepository` owns these production lifecycle decisions.
-`ConversationEvidenceLedger` remains a provider-neutral reducer/compatibility
-test seam, but it is no longer a second production content repository.
-
-### Consumer lifecycle
-
-The public content and materialization ports remain unchanged. For ChatGPT,
-`MessageToolbarOrchestrator` subscribes to shared materialization instead of
-owning a mutation observer or route watcher. Materialization may expose a
-pending typed anchor for navigation, but the toolbar must not mutate the
-React-owned official action row until the matching assistant is readable from
-the authoritative Content snapshot, the host has exited streaming, and the
-anchor remains connected. It then mounts once from the exact assistant anchor
-and calls `readTurn()` using the materialized typed target, so the first render
-already has a numeric word count. Non-ChatGPT adapters retain their existing
-DOM-local toolbar lifecycle.
-
-`ConversationContentSourceV1` exposes no baseline coordinator API. Consumer
-`refresh()` only awaits/returns work already observed by the Session; the
-driver-local lifecycle alone may enter a new conversation epoch or notify the
-Session that a passive Bridge capture arrived.
-
-Precise native selection still requires `SurfaceProjection` proof; any future
-provider-exact persistent annotation claim requires stricter provenance.
-Sealed host-rendered content may feed Reader, whole-message copy, bookmark,
-word count, export and uniquely proven local Markdown copy. Its projected span
-is canonical within AI-MarkDone's sealed body, but is not treated as exact
-provider-original provenance for persistent annotations.
+- `projectionId` identifies the current page/document projection. Normal DOM
+  appends do not create branch replacement projections; `contentToken` changes
+  only when the maintained cache grows or the document epoch changes.
+- Complex regeneration and full branch recovery are outside the core path.
+  An observation that would rewrite an existing prefix is deferred while the
+  already obtained cache remains usable.
+- Formula, code, table and Deep Research handling stays in the existing
+  adapter/compiler capabilities. A single unsupported turn may fail closed;
+  it cannot poison the cache or trigger a second discovery path.
+- Non-ChatGPT platforms retain their existing discovery lifecycle.
 
 ## Consequences
 
-- Existing conversations recover complete history with one passive baseline;
-  later turns do not cause bridge replay or extension network traffic.
-- First-turn and later-turn toolbars use the same content/materialization
-  lifecycle, never mount during a pending host commit, and receive numeric word
-  counts after stable commit.
-- One observer and one immutable cache replace the previous Repository/toolbar
-  lifecycle duplication.
-- The design is generic above the host port: baseline gating, immutable merge,
-  projection replacement and consumer ports are provider-neutral; ChatGPT
-  endpoint, selectors, typed identity and completion facts remain in the
-  adapter/driver layer.
-- Late extension enablement in an already loaded long conversation is not
-  supported as complete discovery. Reloading the page is the required recovery.
-
-This ADR supersedes the absolute “host DOM can never supply a body” statements
-in ADR-0011, ADR-0013 and ADR-0015, while retaining their projection-proof,
-virtualization and passive-network safety boundaries. It supersedes ADR-0016's
-explicit-refresh acquisition wording and stale-export behavior. It absorbs the
-validated rendered compiler and surface-fencing ideas from ADR-0014 without
-adopting its second observer or second production repository.
+- One baseline read recovers long existing conversations without repeated
+  bridge replay or extension requests.
+- New messages become available through one controlled DOM append path, so the
+  first-turn toolbar, later-turn word count, Reader, copy, bookmark and export
+  converge on the same cache.
+- Consumers no longer need `partial`, `stale`, gap, suffix replacement or
+  branch-conflict semantics to decide whether an obtained message is usable.
+- The only duplicated work left is intentional: Materialization tracks where a
+  cached message is mounted, while Content tracks what that message contains.
 
 ## Verification
 
-`npm run test:chatgpt-discovery` must cover:
+The focused gate must cover:
 
-- blank page → temporary route → canonical route → host-born first turn;
-- source baseline → multiple stable DOM successors with one bridge read;
-- 1,000 streaming mutations producing zero pre-stable and at most one stable
+- one baseline read per epoch and no later Graph replay;
+- generating-tail omission and stable DOM append;
+- blank page → temporary `WEB` route → canonical route → host-born first turn;
+- direct home → existing conversation waiting for baseline;
+- duplicate assistant identity idempotency;
+- compiler failure retry and virtualized predecessor absence;
+- 1,000 mutations producing no pre-stable compile and at most one stable
   compile;
-- partial streaming baseline closed by a stable host tail;
-- closed-gate Graph captures as no-ops;
-- route/epoch fencing, virtualization unmount/remount, suffix regeneration and
-  historical-prefix stale behavior;
-- host-rendered provenance, local-selection acceptance and reconstructed rejection;
-- toolbar mounting and numeric word count through the real materialization
-  trigger, including proof that a pending first-turn anchor does not mutate the
-  official action row;
-- Chrome object and Firefox JSON bridge transport parity.
+- official toolbar preservation and numeric word count through the real entry;
+- shared Reader/copy/bookmark/export counts;
+- Chrome object and Firefox JSON transport parity;
+- zero extension conversation requests and no credential access.
 
-Installed Chrome and Firefox acceptance remains a separate release gate.
+`npm run test:chatgpt-discovery`, the repository test ladder, `npm run
+type-check`, `npm run perf:chatgpt`, `npm run build` and `git diff --check` are
+required. Installed Chrome and Firefox acceptance remain separate host-level
+evidence.
 
 ## Status
 
-Accepted and implemented. Functional, type, performance, Chrome/Firefox build
-and bundle gates passed on 2026-08-10. Installed Chrome current-build acceptance
-passed for ordinary and formula local Markdown selection. A fresh blank-page
-first-turn matrix and installed Firefox MV2 acceptance remain separate release
-sign-off gates.
+Accepted and implemented on 2026-08-10. This ADR is the current ChatGPT
+content-discovery decision. Earlier discovery ADRs remain historical records;
+where they describe a second repository, DOM-as-never-content, or consumer
+blocking state, this ADR supersedes them.
