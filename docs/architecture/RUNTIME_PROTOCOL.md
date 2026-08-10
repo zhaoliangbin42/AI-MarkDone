@@ -131,6 +131,8 @@ UI 状态规则：
 
 基线后的正文增量不经过该 bridge：唯一 `ChatGPTPageIndex` observer 在 content runtime 内输出 typed host facts，`ChatGPTConversationHostMonitor` 安静 400 ms 后仅编译新的稳定消息并追加到同一 Content Session。该 DOM seam 不跨 content/background runtime，不新增协议消息，也不产生网络请求。生成完成信号仍只来自同源 URL/method 与浏览器 resource timing；request/response 在 Chrome 使用 object detail、Firefox 使用 JSON-string detail；capture event 在两者都使用 JSON string。两种 transport 必须产生相同的 baseline admission 与 `ConversationContentSourceV1` 状态序列。
 
+虚拟化窗口只剩 assistant root 时，`ChatGPTPageIndex` 输出的是既有缓存消息的 assistant-only materialization fact；它只唤醒 Materialization、工具栏和当前视口几何，不进入 Host Monitor 的新消息 admission，不触发 bridge replay、baseline 重开或内容 token 变化。user root 重新挂载后，PageIndex 以同一 typed assistant identity 幂等替换当前表面投影。
+
 ## 6. Current Request Families
 
 ### Connectivity

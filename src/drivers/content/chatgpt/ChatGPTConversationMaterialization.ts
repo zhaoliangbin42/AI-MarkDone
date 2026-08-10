@@ -16,6 +16,7 @@ import {
 import { getChatGPTConversationIndex, type ChatGPTConversationIndex } from './ChatGPTConversationIndex';
 import {
     resolveChatGPTDomRoundIdentity,
+    resolveChatGPTDomRoundProjectionIdentity,
     type ChatGPTDomRoundRef,
 } from './domConversationDiscovery';
 
@@ -67,7 +68,10 @@ export class ChatGPTConversationMaterialization implements ConversationMateriali
         const hostResolver = this.index as Partial<Pick<ChatGPTConversationIndex, 'resolveHostRoundForElement'>>;
         if (typeof hostResolver.resolveHostRoundForElement === 'function') {
             const hostRound = hostResolver.resolveHostRoundForElement(element);
-            const identity = hostRound ? resolveChatGPTDomRoundIdentity(hostRound) : null;
+            const identity = hostRound
+                ? resolveChatGPTDomRoundIdentity(hostRound)
+                    ?? resolveChatGPTDomRoundProjectionIdentity(hostRound)
+                : null;
             if (!identity) return null;
             const semantic = state.snapshot?.turns.find((turn) => (
                 turn.identity.assistantMessageId === identity.assistantMessageId
@@ -163,7 +167,8 @@ export class ChatGPTConversationMaterialization implements ConversationMateriali
         const entries = documentKey
             ? this.readHostRounds()
                 .map((round) => {
-                    const identity = resolveChatGPTDomRoundIdentity(round);
+                    const identity = resolveChatGPTDomRoundIdentity(round)
+                        ?? resolveChatGPTDomRoundProjectionIdentity(round);
                     const messageElement = round.assistantMessageEl;
                     if (!identity || !messageElement.isConnected) return null;
                     const anchorElement = this.options.adapter.getToolbarAnchorElement(messageElement)

@@ -295,17 +295,22 @@ export class ChatGPTAdapter extends SiteAdapter {
             return this.conversationGroupCache.groups;
         }
 
-        const groups = rounds.map((roundRef, assistantIndex) => ({
-            id: roundRef.id,
-            assistantRootEl: roundRef.assistantRootEl,
-            assistantMessageEl: roundRef.assistantMessageEl,
-            assistantContentRootEl: roundRef.assistantContentRootEl,
-            userRootEl: roundRef.userRootEl,
-            barAnchorEl: roundRef.jumpAnchorEl,
-            groupEls: roundRef.groupEls,
-            assistantIndex,
-            isStreaming: roundRef.isStreaming,
-        }));
+        // Assistant-only projections are materialization/navigation facts. Do
+        // not expose them to the legacy generic turn mapper, which could try
+        // to infer a detached user prompt from an older DOM sibling.
+        const groups = rounds
+            .filter((roundRef) => roundRef.source !== 'assistant-only')
+            .map((roundRef, assistantIndex) => ({
+                id: roundRef.id,
+                assistantRootEl: roundRef.assistantRootEl,
+                assistantMessageEl: roundRef.assistantMessageEl,
+                assistantContentRootEl: roundRef.assistantContentRootEl,
+                userRootEl: roundRef.userRootEl,
+                barAnchorEl: roundRef.jumpAnchorEl,
+                groupEls: roundRef.groupEls,
+                assistantIndex,
+                isStreaming: roundRef.isStreaming,
+            }));
         this.conversationGroupCache = { rounds, groups };
         return groups;
     }

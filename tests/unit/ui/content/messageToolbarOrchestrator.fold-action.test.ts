@@ -15,6 +15,7 @@ vi.mock('@/drivers/content/chatgpt/chatgptRoute', () => ({
 }));
 import { ChatGPTAdapter } from '@/drivers/content/adapters/sites/chatgpt';
 import { getChatGPTConversationIndex } from '@/drivers/content/chatgpt/ChatGPTConversationIndex';
+import { ChatGPTConversationMaterialization } from '@/drivers/content/chatgpt/ChatGPTConversationMaterialization';
 import { MessageToolbarOrchestrator } from '@/ui/content/controllers/MessageToolbarOrchestrator';
 import { SiteAdapter, type ThemeDetector } from '@/drivers/content/adapters/base';
 import { saveMessagesDialog } from '@/ui/content/export/SaveMessagesDialog';
@@ -638,6 +639,76 @@ describe('MessageToolbarOrchestrator ChatGPT reader path', () => {
             expect(shownItems[0].content).toBe('Canonical complete answer seven');
         } finally {
             orchestrator.dispose();
+            adapter.dispose();
+        }
+    });
+
+    it('injects through shared materialization when only the cached assistant surface is mounted', async () => {
+        window.history.replaceState({}, '', '/c/conv-1');
+        document.body.innerHTML = `
+          <main>
+            <section
+              data-testid="conversation-turn-14"
+              data-turn="assistant"
+              data-turn-id="assistant-turn-14"
+              data-turn-id-container="assistant-turn-14"
+            >
+              <div data-message-author-role="assistant" data-message-id="assistant-14">
+                <div class="markdown prose">Visible DOM answer</div>
+              </div>
+              <div class="z-0 flex">
+                <div><button data-testid="copy-turn-action-button">copy</button></div>
+              </div>
+            </section>
+          </main>
+        `;
+        const snapshot = {
+            conversationId: 'conv-1',
+            revision: 1,
+            proof: 'observed-graph' as const,
+            branchKey: 'assistant-14',
+            capturedAt: Date.now(),
+            rounds: [{
+                id: 'user-turn-14',
+                position: 14,
+                userPrompt: 'Canonical question 14',
+                assistantContent: 'Canonical complete answer fourteen',
+                preview: 'Canonical question 14',
+                messageId: 'assistant-14',
+                userMessageId: 'user-14',
+                assistantMessageId: 'assistant-14',
+            }],
+        };
+        const conversationContentSource = createConversationSource(snapshot);
+        const adapter = new ChatGPTAdapter();
+        const index = getChatGPTConversationIndex(adapter);
+        index.bindConversationSource(conversationContentSource);
+        const materialization = new ChatGPTConversationMaterialization({
+            adapter,
+            content: conversationContentSource,
+            index,
+        });
+        const orchestrator = new MessageToolbarOrchestrator(adapter, {
+            readerPanel: { show: vi.fn() } as any,
+            conversationContentSource,
+            conversationMaterialization: materialization,
+        });
+
+        try {
+            orchestrator.init();
+            await vi.waitFor(() => {
+                const toolbar = document.querySelector<HTMLElement>('[data-aimd-role="message-toolbar"]');
+                expect(toolbar).toBeInstanceOf(HTMLElement);
+                const statsText = toolbar?.shadowRoot
+                    ?.querySelector<HTMLElement>('[data-role="stats"]')
+                    ?.textContent
+                    ?.trim();
+                expect(statsText).toBeTruthy();
+                expect(statsText).not.toBe('—');
+            });
+        } finally {
+            orchestrator.dispose();
+            materialization.dispose();
             adapter.dispose();
         }
     });

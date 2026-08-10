@@ -112,6 +112,85 @@ describe('ChatGPTPageIndex', () => {
         });
     });
 
+    it('keeps an assistant-only projection when virtualization has unloaded its user node', () => {
+        const main = document.querySelector('main');
+        if (!(main instanceof HTMLElement)) throw new Error('fixture main is missing');
+        main.innerHTML = `
+            <section
+                data-testid="conversation-turn-14"
+                data-turn="assistant"
+                data-turn-id="assistant-turn-14"
+                data-turn-id-container="assistant-turn-14"
+            >
+                <div data-message-author-role="assistant" data-message-id="assistant-14">
+                    <div class="markdown prose">Answer 14</div>
+                </div>
+                <div class="z-0 flex"><button data-testid="copy-turn-action-button">Copy</button></div>
+            </section>
+        `;
+
+        const [round] = collectChatGPTDomRoundRefs(adapter);
+
+        expect(round?.source).toBe('assistant-only');
+        expect(round?.identity).toEqual({
+            roundId: null,
+            userMessageId: null,
+            assistantMessageId: 'assistant-14',
+            assistantTurnId: 'assistant-turn-14',
+        });
+        expect(round?.assistantRootEl).toBe(main.firstElementChild);
+        expect(round?.groupEls).toEqual([main.firstElementChild]);
+        expect(adapter.getConversationGroupRefs()).toHaveLength(0);
+    });
+
+    it('keeps the assistant-only surface in the canonical Directory range', async () => {
+        const main = document.querySelector('main');
+        if (!(main instanceof HTMLElement)) throw new Error('fixture main is missing');
+        main.innerHTML = `
+            <section
+                data-testid="conversation-turn-14"
+                data-turn="assistant"
+                data-turn-id="assistant-turn-14"
+                data-turn-id-container="assistant-turn-14"
+            >
+                <div data-message-author-role="assistant" data-message-id="assistant-14">
+                    <div class="markdown prose">Answer 14</div>
+                </div>
+                <div class="z-0 flex"><button data-testid="copy-turn-action-button">Copy</button></div>
+            </section>
+        `;
+        getChatGPTConversationIndex(adapter).bindConversationSource(createConversationContentSource({
+            conversationId: '12345678-1234-1234-1234-123456789abc',
+            revision: 1,
+            proof: 'observed-graph' as const,
+            branchKey: 'assistant-14',
+            capturedAt: Date.now(),
+            rounds: [{
+                id: 'round-14',
+                position: 1,
+                userPrompt: 'Prompt 14',
+                assistantContent: 'Answer 14',
+                preview: 'Prompt 14',
+                messageId: 'assistant-14',
+                userMessageId: 'user-14',
+                assistantMessageId: 'assistant-14',
+            }],
+        }));
+
+        const positions = collectChatGPTRoundPositions(adapter);
+        const range = positions[0];
+        if (!range?.groupEls[0]) throw new Error('assistant-only Directory range is missing');
+        range.groupEls[0].getBoundingClientRect = vi.fn(
+            () => ({ top: 100, bottom: 500 } as DOMRect),
+        );
+        const { resolveChatGPTActivePosition } = await import('@/ui/content/chatgptDirectory/navigation');
+
+        expect(range.position).toBe(1);
+        expect(range.userAnchor).toBe(range.assistantRoot);
+        expect(range.groupEls).toHaveLength(1);
+        expect(resolveChatGPTActivePosition(positions, 240)).toBe(1);
+    });
+
     it('pairs turns through persistent host slots when inner wrappers repeat the slot marker', () => {
         const main = document.querySelector('main');
         if (!(main instanceof HTMLElement)) throw new Error('fixture main is missing');
@@ -172,7 +251,7 @@ describe('ChatGPTPageIndex', () => {
         expect(rounds.map((round) => round.identity.userMessageId)).toEqual(['user-1', 'user-2']);
     });
 
-    it('does not attach an orphan assistant turn across a virtualized gap to the previous round', () => {
+    it('keeps an orphan assistant turn across a virtualized gap as an assistant-only projection', () => {
         const main = document.querySelector('main');
         if (!(main instanceof HTMLElement)) throw new Error('fixture main is missing');
         main.innerHTML = `
@@ -196,11 +275,13 @@ describe('ChatGPTPageIndex', () => {
 
         const rounds = collectChatGPTDomRoundRefs(adapter);
 
-        expect(rounds.map((round) => round.id)).toEqual(['assistant-1', 'assistant-3']);
+        expect(rounds.map((round) => round.id)).toEqual(['assistant-1', 'assistant-2', 'assistant-3']);
         expect(rounds[0]?.groupEls).toHaveLength(2);
+        expect(rounds[1]?.source).toBe('assistant-only');
+        expect(rounds[1]?.groupEls).toHaveLength(1);
     });
 
-    it('does not pair a pending user turn with an assistant across a virtualized gap', () => {
+    it('does not pair a pending user turn across a virtualized gap, but keeps the assistant projection', () => {
         const main = document.querySelector('main');
         if (!(main instanceof HTMLElement)) throw new Error('fixture main is missing');
         main.innerHTML = `
@@ -227,7 +308,8 @@ describe('ChatGPTPageIndex', () => {
 
         const rounds = collectChatGPTDomRoundRefs(adapter);
 
-        expect(rounds.map((round) => round.id)).toEqual(['assistant-1', 'assistant-3']);
+        expect(rounds.map((round) => round.id)).toEqual(['assistant-1', 'assistant-2', 'assistant-3']);
+        expect(rounds[1]?.source).toBe('assistant-only');
     });
 
     it('notifies every navigation subscriber from one shared round-change source', async () => {

@@ -30,7 +30,10 @@ After that, stable typed DOM messages enter the same Repository through the
 shared Host Monitor and append to the maintained cache. Directory reads
 prompts/order from
 `ConversationContentRepository`/`ChatGPTConversationIndex`; it never derives
-history from DOM labels or local ordinals. Tests reject extension conversation
+history from DOM labels or local ordinals. A virtualized assistant-only DOM
+surface may restore the materialization/toolbar/active-range projection for an
+assistant already in the cache, but it cannot append a new semantic turn.
+Tests reject extension conversation
 requests, `Message N` fallback, ratio/pixel probing, synthetic discovery
 scrolling, second observers and second repositories. A missed baseline for an
 already loaded conversation is resolved only by refreshing the page.
@@ -326,9 +329,10 @@ lifecycle in ADR-0017:
   and URL-stable anonymous pages are outside the current Conversation Document
   contract; `/c/WEB:*` is temporary birth evidence only.
 - `ChatGPTPageIndex` is the only Page Monitor; `ChatGPTConversationHostMonitor` applies quiet-window, typed-identity, completion-anchor, compiler-budget and surface-revision fences before appending a new turn.
+- Virtualized windows may expose an assistant root without its user root. PageIndex/Materialization must retain that assistant-only surface by `assistantMessageId` for an already-cached turn; toolbar mounting and active-range geometry must recover without a Bridge replay, content append, content-token change, duplicate toolbar, or DOM-local history inference. When the user root remounts, the same semantic turn must rebind idempotently.
 - `ConversationContentRepository` is the only production content session. It owns the once-only baseline gate, one immutable message cache, append-only host admission and `source/hybrid/host-born` diagnostic basis.
 - `RenderedContentCompilerV2` is the production normalized host-body compiler, not a second repository. Slot/topology modules remain navigation/materialization evidence only.
-- Reader, word count, whole copy, Bookmark Preparation, export, Directory and Stepper consume the existing V1 content/materialization ports. Precise local selection and annotation require independent source-span proof.
+- Reader, word count, whole copy, Bookmark Preparation, export, Directory and Stepper consume the existing V1 content/materialization ports. Directory geometry prefers the complete user/assistant group and accepts an assistant-only current range only when it joins an already-cached assistant. Precise local selection and annotation require independent source-span proof.
 - The real toolbar trigger must prove first-message mounting and numeric word count, later-message identity updates, no duplicate toolbar after remount, and no ChatGPT-local observer/route lifecycle.
 - A future anonymous DOM-only gate must prove a document-scoped page-session
   identity, same-URL new-chat reset, observed-window behavior under

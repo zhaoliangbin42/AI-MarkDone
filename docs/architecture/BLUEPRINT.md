@@ -11,6 +11,13 @@
 > `ConversationMaterializationPortV1` owns current DOM anchors. See
 > [ADR-0017](../adr/ADR-0017-chatgpt-baseline-and-host-tail-lifecycle.md).
 
+> **Virtualized surface projection:** a mounted assistant response may outlive
+> its user prompt in the DOM window. The shared Page Monitor keeps that fact as
+> an assistant-only materialization projection keyed by `assistantMessageId`.
+> It can restore toolbar and viewport geometry for a message already present in
+> the canonical cache, but it never admits content, changes order, or creates a
+> second discovery/cache path.
+
 > **Anonymous stable-URL direction (planned, not current production)**
 >
 > A future ChatGPT page-session mode must cover pages that have no canonical
@@ -282,11 +289,11 @@ v1 的正式领域契约、排除项和失败语义见 `docs/adr/ADR-0006-reader
 - ChatGPT conversation group discovery、turn root、conversation root、streaming 判定同样属于 adapter/driver 契约的一部分；UI/controller 只能消费已经抽象好的 structural refs，不得在 UI 层按 ChatGPT selector 重新推导轮次、正文或 identity
 - `ConversationContentRepository` / `ConversationContentSourceV1` 是 ChatGPT semantic SSOT；`readerContentSource` 是唯一 `ReaderItem[]` 正文投影，分别提供无副作用的当前读取和只等待/返回已观察工作、不能启动 baseline 的显式 `refresh()`。每个 conversation epoch 只允许一次被动 baseline admission；适配层固化 typed identity，Repository 维护一个 immutable cache，并把稳定 DOM 新消息追加到末尾；`contentToken` 只作为异步失效 token。`resolveChatGPTReaderStartIndex()` 是唯一语义起始位置规则，消费者始终拿到独立的可变兼容视图。工具栏词数/书签状态与 Reader binding 只被动读取，Copy/PNG/Reader open/Save Messages/书签命令只读取当前 snapshot；任何 UI/controller 都不得调用 baseline lifecycle、重开 gate 或构造 ChatGPT Reader items
 - 官网 conversation Reader 只由 `ChatGPTConversationReaderBinding` 订阅 source state；cache 新增消息时追加，已有 typed identity 保持权威，没有 snapshot 时关闭 Reader。Save Messages 与延迟书签事务必须以 `conversationId + contentToken` 失效，且该 token 不进入持久 schema
-- `ChatGPTPageIndex` 只按宿主 DOM revision 缓存当前 connected materialization anchors；`ChatGPTConversationIndex` 以 V1 snapshot 的完整顺序为事实，并以 typed identity 连接这些可选 anchors，作为 Directory、Stepper、Reader locate、Bookmark Go 与 pending navigation 的唯一 navigation projection。已挂载 assistant message element 的唯一 `data-message-id` 直接对应 canonical `assistantMessageId`，不得因 wrapper/turn ID 漂移而失配；无直接消息身份时才使用 materialized containment，歧义必须 fail closed。DOM window replacement 不得改变 canonical count；索引必须忽略 AI-MarkDone 自有节点和 `data-aimd-*` bookkeeping，conversation root 更换或 runtime disable→enable 时必须正确重建、重绑与释放。Directory 的 active-position geometry 只能使用 Index 的完整 user/assistant group；Materialization 的 toolbar anchor 只服务定位与挂载，不得被当作整轮消息范围
+- `ChatGPTPageIndex` 只按宿主 DOM revision 缓存当前 connected materialization anchors；虚拟化只挂载 assistant response 时保留 assistant-only surface projection，并以 `assistantMessageId` 回接既有 canonical turn，不把它当成新的正文或轮次。`ChatGPTConversationIndex` 以 V1 snapshot 的完整顺序为事实，并以 typed identity 连接这些可选 anchors，作为 Directory、Stepper、Reader locate、Bookmark Go 与 pending navigation 的唯一 navigation projection。已挂载 assistant message element 的唯一 `data-message-id` 直接对应 canonical `assistantMessageId`，不得因 wrapper/turn ID 漂移而失配；无直接消息身份时才使用 materialized containment，歧义必须 fail closed。DOM window replacement 不得改变 canonical count；索引必须忽略 AI-MarkDone 自有节点和 `data-aimd-*` bookkeeping，conversation root 更换或 runtime disable→enable 时必须正确重建、重绑与释放。Directory 的 active-position geometry 优先使用完整 user/assistant group；如果只有已缓存 assistant 的 assistant-only projection，则使用该 assistant root 的真实范围。Materialization 的 toolbar anchor 只服务定位与挂载，不能单独伪造整轮消息范围
 - Off-screen navigation 应以经过 typed-anchor 校准的宿主持久 turn slot 为主路径，不得把 canonical position 直接换算为全局 scroll ratio，也不得依赖 React/Fiber、私有 virtualizer 或宿主数字 test id。校准成功后必须在 bounded budget 内复用同一 target slot，直到 exact identity anchor materialize；不得中途退回像素探测。只有没有可信 slot topology 时才可运行 compatibility seeker，且 exact connected identity 与稳定 alignment 仍是唯一成功条件。正常点击不得因此新增全页 observer、常驻 timer 或重复 slot scan
 - ChatGPT 稳定态性能优化所需的重子树结构提示（如 KaTeX / code-heavy subtree refs）同样属于 adapter/driver 契约；UI/controller 只能消费 adapter 返回的结构化 hints，不得自行扩张宿主 selector 集合
 - runtime 只允许持有平台无关的生命周期编排器（如 toolbar orchestrator），不得在入口层写平台选择器
-- ChatGPT 工具栏不得持有自己的 `MutationObserver` 或独立 route reset；它订阅共享 Materialization，以精确 assistant identity 挂载，并通过 `readTurn()` 取得词数。Materialization 可发布未封存的 pending typed anchor，但消费者不得在对应 turn 进入权威 Content snapshot、退出 streaming 且官方 anchor 保持 connected 之前改写宿主 action row；稳定 commit 后一次挂载并直接显示数值词数。非 ChatGPT 平台暂时保留原 DOM-local toolbar lifecycle
+- ChatGPT 工具栏不得持有自己的 `MutationObserver` 或独立 route reset；它订阅共享 Materialization，以精确 assistant identity 挂载，并通过 `readTurn()` 取得词数。Materialization 可发布完整 group 或 assistant-only surface；两者都必须回接已经进入权威 Content snapshot 的 turn，消费者不得把 assistant-only surface 当作新的内容来源。对应 turn 退出 streaming 且官方 anchor 保持 connected 后才改写宿主 action row；稳定 commit 后一次挂载并直接显示数值词数。非 ChatGPT 平台暂时保留原 DOM-local toolbar lifecycle
 - `ChatGPTPageIndex` 是 ChatGPT 唯一 Page Monitor。逐字符 mutation 只标记 dirty assistant identity；只有结构、身份、完成锚点、conversation root replacement 或 BFCache 信号触发必要的 snapshot/materialization 工作。扩展自有节点与无关 churn 必须过滤，稳定编译前不得全量重扫或读取 Bridge
 - 同一 content runtime 内的 route-aware controllers 必须共享底层 URL poll/event hub，不得各自创建长期 timer；formula interaction 必须共享 document observer、按 enabled container 过滤 mutation，并让相同 gate 的 settings update 保持幂等
 - 当前消息 Reader item cache 只允许在同一消息 revision 内服务多个用户动作；可归属 mutation 精确失效该消息，消息集合/顺序、route 或 dispose 失效整个 cache

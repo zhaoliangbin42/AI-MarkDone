@@ -119,6 +119,36 @@ describe('ChatGPTConversationIndex', () => {
         expect(index.getRounds()[0]?.materialized).toBeNull();
     });
 
+    it('materializes a cached assistant when its virtualized user node is not mounted', () => {
+        const index = getChatGPTConversationIndex(adapter);
+        bindSnapshot(index, buildSnapshot(1));
+        document.querySelector('main')!.innerHTML = `
+            <section
+                data-testid="conversation-turn-2"
+                data-turn="assistant"
+                data-turn-id="assistant-turn-1"
+                data-turn-id-container="assistant-turn-1"
+            >
+                <div data-message-author-role="assistant" data-message-id="assistant-1">
+                    <div class="markdown prose">Answer 1</div>
+                </div>
+                <div class="z-0 flex"><button data-testid="copy-turn-action-button">Copy</button></div>
+            </section>
+        `;
+
+        const [round] = index.getRounds();
+
+        expect(round?.materialized?.identity).toEqual({
+            roundId: null,
+            userMessageId: null,
+            assistantMessageId: 'assistant-1',
+            assistantTurnId: 'assistant-turn-1',
+        });
+        expect(round?.materialized?.groupEls).toHaveLength(1);
+        expect(round?.materialized?.assistantRootEl.getAttribute('data-testid'))
+            .toBe('conversation-turn-2');
+    });
+
     it('joins a Deep Research iframe through its observable assistant turn identity', () => {
         const index = getChatGPTConversationIndex(adapter);
         const snapshot = buildSnapshot(1);

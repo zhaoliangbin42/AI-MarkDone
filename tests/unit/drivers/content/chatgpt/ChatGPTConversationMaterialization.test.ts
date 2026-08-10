@@ -193,4 +193,58 @@ describe('ChatGPTConversationMaterialization', () => {
         materialization.dispose();
         adapter.dispose();
     });
+
+    it('maps an assistant-only DOM projection to the cached semantic turn', () => {
+        document.body.innerHTML = `
+            <main>
+                <section
+                    data-testid="conversation-turn-2"
+                    data-turn="assistant"
+                    data-turn-id="assistant-turn-1"
+                    data-turn-id-container="assistant-turn-1"
+                >
+                    <div data-message-author-role="assistant" data-message-id="assistant-1">
+                        <div class="markdown prose">Answer</div>
+                    </div>
+                    <div class="z-0 flex"><button data-testid="copy-turn-action-button">Copy</button></div>
+                </section>
+            </main>
+        `;
+        const adapter = new ChatGPTAdapter();
+        let state = readyState(document.querySelector('[data-message-id="assistant-1"]') as HTMLElement);
+        const content = {
+            read: () => state,
+            subscribe: (listener: (next: ConversationContentStateV1) => void) => {
+                listener(state);
+                return () => undefined;
+            },
+            refresh: async () => state,
+            isCurrent: (token: string) => token === state.snapshot?.contentToken,
+        };
+        const materialization = new ChatGPTConversationMaterialization({ adapter, content });
+        const assistant = document.querySelector('[data-message-id="assistant-1"]');
+        if (!(assistant instanceof HTMLElement)) throw new Error('fixture assistant is missing');
+
+        expect(materialization.read()).toMatchObject({
+            contentToken: 'content-token-1',
+            entries: [{
+                target: {
+                    documentKey,
+                    turnId: 'turn-1',
+                    userMessageId: 'user-1',
+                    assistantMessageId: 'assistant-1',
+                },
+                messageElement: assistant,
+            }],
+        });
+        expect(materialization.resolveElement(assistant)).toMatchObject({
+            documentKey,
+            turnId: 'turn-1',
+            userMessageId: 'user-1',
+            assistantMessageId: 'assistant-1',
+        });
+
+        materialization.dispose();
+        adapter.dispose();
+    });
 });

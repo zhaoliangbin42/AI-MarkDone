@@ -14,7 +14,7 @@ export type ChatGPTDomRoundRef = {
     groupEls: HTMLElement[];
     assistantIndex: number;
     isStreaming: boolean;
-    source: 'turn-wrapper' | 'legacy-container' | 'role-scan';
+    source: 'turn-wrapper' | 'legacy-container' | 'role-scan' | 'assistant-only';
 };
 
 export type ChatGPTDomRoundIdentity = {
@@ -42,6 +42,34 @@ export function resolveChatGPTDomRoundIdentity(
     const turnId = userTurnId || assistantTurnId
         || `chatgpt-turn:${userMessageId}:${assistantMessageId}`;
     return turnId ? Object.freeze({ turnId, userMessageId, assistantMessageId }) : null;
+}
+
+/**
+ * Resolve the identity available for a mounted assistant surface.
+ *
+ * Virtualized ChatGPT windows can keep the assistant turn mounted while its
+ * preceding user turn is temporarily detached. That surface is sufficient
+ * for an already-cached message's toolbar, geometry, and materialization, but
+ * it is intentionally not sufficient to create a new semantic content turn.
+ */
+export type ChatGPTDomRoundProjectionIdentity = Readonly<{
+    turnId: string;
+    userMessageId: string | null;
+    assistantMessageId: string;
+}>;
+
+export function resolveChatGPTDomRoundProjectionIdentity(
+    round: ChatGPTDomRoundRef,
+): ChatGPTDomRoundProjectionIdentity | null {
+    const assistantMessageId = round.identity.assistantMessageId?.trim()
+        || round.identity.assistantTurnId?.trim()
+        || '';
+    if (!assistantMessageId) return null;
+    const userMessageId = round.identity.userMessageId?.trim() || null;
+    const turnId = round.identity.roundId?.trim()
+        || round.identity.assistantTurnId?.trim()
+        || `chatgpt-turn:${assistantMessageId}`;
+    return Object.freeze({ turnId, userMessageId, assistantMessageId });
 }
 
 const ROLE_SELECTOR = '[data-message-author-role]';
@@ -236,6 +264,47 @@ function pushUnique(nodes: HTMLElement[], node: HTMLElement | null | undefined):
     if (node && !nodes.includes(node)) nodes.push(node);
 }
 
+function createAssistantOnlyRoundRef(
+    adapter: SiteAdapter,
+    assistantRootEl: HTMLElement,
+    assistantIndex: number,
+): ChatGPTDomRoundRef {
+    const realAssistantMessageEl = findAssistantMessage(adapter, assistantRootEl);
+    const assistantMessageId = readMessageId(realAssistantMessageEl, assistantRootEl);
+    const assistantTurnId = readRoundId(assistantRootEl);
+    const id = assistantMessageId
+        || assistantTurnId
+        || readElementId(assistantRootEl, 'data-turn-id-container')
+        || assistantRootEl.getAttribute('data-testid')
+        || `chatgpt-assistant-round-${assistantIndex + 1}`;
+    const assistantMessageEl = realAssistantMessageEl
+        ?? createEmptyChatGPTAssistantMessageFallback(id);
+    return {
+        id,
+        identity: {
+            roundId: null,
+            userMessageId: null,
+            assistantMessageId,
+            assistantTurnId,
+        },
+        // Keep the public ref shape stable for legacy adapter callers. The
+        // source marker and one-element group make the missing user side
+        // explicit to the canonical materialization layer.
+        userRootEl: assistantRootEl,
+        userMessageEl: assistantMessageEl,
+        anchorEl: assistantRootEl,
+        jumpAnchorEl: assistantRootEl,
+        assistantRootEl,
+        assistantMessageEl,
+        assistantContentRootEl: findAssistantContentRoot(adapter, realAssistantMessageEl),
+        groupEls: [assistantRootEl],
+        assistantIndex,
+        isStreaming: realAssistantMessageEl instanceof HTMLElement
+            && adapter.isStreamingMessage(realAssistantMessageEl),
+        source: 'assistant-only',
+    };
+}
+
 function collectTurnWrapperRoundRefs(adapter: SiteAdapter, root: ParentNode): ChatGPTDomRoundRef[] {
     const turnWrappers = listTurnWrappers(root);
     const rounds: ChatGPTDomRoundRef[] = [];
@@ -262,11 +331,14 @@ function collectTurnWrapperRoundRefs(adapter: SiteAdapter, root: ParentNode): Ch
             const previousGroupEl = previousRound?.groupEls[previousRound.groupEls.length - 1];
             if (previousGroupEl && areAdjacentConversationItems(previousGroupEl, turnWrapper)) {
                 pushUnique(previousRound!.groupEls, turnWrapper);
+                continue;
             }
+            rounds.push(createAssistantOnlyRoundRef(adapter, turnWrapper, rounds.length));
             continue;
         }
         if (!areAdjacentConversationItems(pendingUser.root, turnWrapper)) {
             pendingUser = null;
+            rounds.push(createAssistantOnlyRoundRef(adapter, turnWrapper, rounds.length));
             continue;
         }
 
@@ -342,11 +414,14 @@ function collectLegacyContainerRoundRefs(adapter: SiteAdapter, root: ParentNode)
             const previousGroupEl = previousRound?.groupEls[previousRound.groupEls.length - 1];
             if (previousGroupEl && areAdjacentConversationItems(previousGroupEl, container)) {
                 pushUnique(previousRound!.groupEls, container);
+                continue;
             }
+            rounds.push(createAssistantOnlyRoundRef(adapter, assistantRootEl, rounds.length));
             continue;
         }
         if (!areAdjacentConversationItems(pendingUser.container, container)) {
             pendingUser = null;
+            rounds.push(createAssistantOnlyRoundRef(adapter, assistantRootEl, rounds.length));
             continue;
         }
 
@@ -430,11 +505,14 @@ function discoverChatGPTDomRoundRefs(adapter: SiteAdapter): ChatGPTDomRoundRef[]
             const previousGroupEl = previousRound?.groupEls[previousRound.groupEls.length - 1];
             if (previousGroupEl && areAdjacentConversationItems(previousGroupEl, roleRoot)) {
                 pushUnique(previousRound!.groupEls, roleRoot);
+                continue;
             }
+            rounds.push(createAssistantOnlyRoundRef(adapter, roleRoot, rounds.length));
             continue;
         }
         if (!areAdjacentConversationItems(pendingUser.root, roleRoot)) {
             pendingUser = null;
+            rounds.push(createAssistantOnlyRoundRef(adapter, roleRoot, rounds.length));
             continue;
         }
 
