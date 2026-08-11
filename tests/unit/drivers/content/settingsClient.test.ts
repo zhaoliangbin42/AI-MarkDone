@@ -125,6 +125,48 @@ describe('SettingsClient', () => {
         expect(settings?.formula.assetFontSizePx).toBe(36);
     });
 
+    it('retries initial hydration once so persisted settings are applied after a transient startup failure', async () => {
+        vi.useFakeTimers();
+        try {
+            const persisted = structuredClone(DEFAULT_SETTINGS);
+            persisted.chatgptBehavior.pageWidthScale = 145;
+            sendExtRequest
+                .mockResolvedValueOnce({
+                    kind: 'transport-failure',
+                    failure: {
+                        code: 'RECEIVER_UNAVAILABLE',
+                        message: 'Background is not ready yet.',
+                        delivery: 'unknown',
+                    },
+                } as any)
+                .mockResolvedValueOnce({
+                    kind: 'response',
+                    response: {
+                        v: 1,
+                        id: 'settings-request-retry',
+                        type: 'settings:getAll',
+                        ok: true,
+                        data: { settings: persisted },
+                    },
+                } as any);
+
+            const { SettingsClient } = await import('@/drivers/content/settings/settingsClient');
+            const client = new SettingsClient();
+            const listener = vi.fn();
+            client.subscribe(listener);
+
+            const ready = client.init();
+            await vi.advanceTimersByTimeAsync(500);
+
+            await expect(ready).resolves.toEqual(persisted);
+            expect(sendExtRequest).toHaveBeenCalledTimes(2);
+            expect(listener).toHaveBeenLastCalledWith({ settings: persisted });
+            expect(client.getCached()?.chatgptBehavior.pageWidthScale).toBe(145);
+        } finally {
+            vi.useRealTimers();
+        }
+    });
+
     it('preserves transport failure details when a category write is not confirmed', async () => {
         sendExtRequest.mockResolvedValueOnce({
             kind: 'transport-failure',

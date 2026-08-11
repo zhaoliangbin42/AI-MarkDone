@@ -1,5 +1,15 @@
 # Release Notes
 
+## v5.2.1 (2026-08-11)
+
+This patch continues the ChatGPT content-discovery improvements from 5.2.0 and focuses on the remaining directory and settings reliability issues.
+
+### Fixed
+- Restored the directory rail when it failed to appear under some website hydration conditions. Thanks to Xiaohongshu user @影 and everyone who helped test and report the issue in Xiaohongshu and the QQ group.
+- Restored the saved ChatGPT page width after a page reload. Thanks to Xiaohongshu user @秒睡大王.
+- Kept the directory highlight aligned with the message currently being viewed.
+- Kept first and subsequent replies synchronized across the directory, toolbars, word count, Reader, copy, formulas, export, navigation, and bookmarks.
+
 ## v5.2.0 (2026-08-07)
 
 This release restores ChatGPT content discovery after a website update changed formula presentation and on-demand message loading. The directory, Reader, word count, export, copy, bookmarks, and formula actions now consume the same stable content path.
@@ -30,16 +40,7 @@ This release restores stability after recent ChatGPT website changes and adds lo
 
 ## v5.1.0 (2026-08-04)
 
-This release restores stability after recent ChatGPT website changes and adds local Reader annotation workflows.
-
-### Added
-- Added local persistence for Reader annotations per ChatGPT conversation, shared by the in-page and detached Reader. Thanks to GitHub user @KryogenBlue.
-- Added an annotation manager with current/all views, search, conversation and timeline grouping, exact navigation, and bulk deletion. Thanks to Xiaohongshu user @小红薯67542EF1.
-- Added `Ctrl/Cmd+Enter` annotation saving while keeping Enter as a newline. Thanks to Xiaohongshu user @小红薯Jesse.
-- Added configurable `Ctrl/Cmd+C` and `Ctrl/Cmd+Shift+C` shortcuts for copying complete ChatGPT units as canonical Markdown.
-
-### Fixed
-- Upgraded ChatGPT content discovery to stabilize the Reader directory rail, message word counts, Reader content, copy, export, and bookmark flows after new replies, refreshes, and page virtualization. Thanks to the Xiaohongshu community.
+This release began the Reader annotation and ChatGPT content-discovery work that was expanded and stabilized in 5.1.1.
 
 ## v5.0.2 (2026-07-26)
 

@@ -8,7 +8,7 @@
     <a href="./LICENSE">
       <img src="https://img.shields.io/github/license/zhaoliangbin42/AI-MarkDone?label=License" alt="License">
     </a>
-    <img src="https://img.shields.io/badge/Version-5.2.0-10A37F" alt="Version 5.2.0">
+    <img src="https://img.shields.io/badge/Version-5.2.1-10A37F" alt="Version 5.2.1">
     </br>
     <img src="https://img.shields.io/badge/Browsers-Chrome%20%7C%20Firefox-10A37F" alt="Browsers">
     <img src="https://img.shields.io/badge/Primary%20Platform-ChatGPT-10A37F" alt="Primary Platform">
@@ -200,10 +200,10 @@ npm run build
 
 ## 📅 Changelog (Latest)
 
-### 5.2.0
-- Rebuilt ChatGPT content discovery and the shared adapter path for more reliable directory, Reader, export, word count, bookmark, copy, and formula features.
-- Improved formula recognition and copying after ChatGPT changed its formula presentation.
-- Improved handling of ChatGPT's on-demand message loading so recognized content stays consistent across features.
+### 5.2.1
+- Improved ChatGPT directory availability and kept its active highlight aligned with the message currently in view.
+- Fixed ChatGPT page-width settings not being restored after a page reload.
+- Continued the shared content-discovery improvements for directory, Reader, copy, export, word count, bookmarks, and formulas.
 
 [Full Changelog](./CHANGELOG.md)
 [Release Notes](./RELEASE_NOTES.md)

@@ -6,6 +6,7 @@ import {
     requestRuntimeClient,
     type RuntimeClientResult,
 } from '../../shared/clients/clientResult';
+import type { RpcOptions } from '../../shared/rpc';
 import { createRequestId, PROTOCOL_VERSION } from '../../../contracts/protocol';
 import { LEGACY_STORAGE_KEYS } from '../../../contracts/storage';
 import { loadAndNormalize } from '../../../core/settings/migrations';
@@ -16,6 +17,9 @@ export type SettingsSnapshot = {
 };
 
 type Listener = (snap: SettingsSnapshot) => void;
+
+const INITIAL_HYDRATION_RETRY_DELAY_MS = 300;
+const INITIAL_HYDRATION_TIMEOUT_MS = 1500;
 
 function normalizeAppSettings(value: unknown): AppSettings | null {
     if (!isRecord(value)) return null;
@@ -28,9 +32,10 @@ export class SettingsClient {
     private cache: AppSettings | null = null;
     private listeners = new Set<Listener>();
     private initialized = false;
+    private initialHydration: Promise<AppSettings | null> | null = null;
 
-    init(): void {
-        if (this.initialized) return;
+    init(): Promise<AppSettings | null> {
+        if (this.initialized) return this.initialHydration ?? Promise.resolve(this.cache);
         this.initialized = true;
 
         browser.storage.onChanged.addListener((changes: any, areaName: string) => {
@@ -43,7 +48,13 @@ export class SettingsClient {
             this.emit();
         });
 
-        void this.refresh();
+        // Content scripts can start a few milliseconds before the background
+        // runtime is ready to answer. Hydrate once, then allow exactly one
+        // bounded retry; after that the live storage listener remains the
+        // source of future updates. This avoids both the default-value race
+        // and an unbounded settings poller.
+        this.initialHydration = this.hydrateInitially();
+        return this.initialHydration;
     }
 
     subscribe(listener: Listener): () => void {
@@ -56,12 +67,12 @@ export class SettingsClient {
         return this.cache;
     }
 
-    async refresh(): Promise<AppSettings | null> {
+    async refresh(options?: RpcOptions): Promise<AppSettings | null> {
         const res = await requestRuntimeClient<{ settings?: unknown }>({
             v: PROTOCOL_VERSION,
             id: createRequestId(),
             type: 'settings:getAll',
-        } as any);
+        } as any, options);
         if (!res.ok) return null;
         const settings = res.data?.settings;
         const normalized = normalizeAppSettings(settings);
@@ -69,6 +80,16 @@ export class SettingsClient {
         this.cache = normalized;
         this.emit();
         return normalized;
+    }
+
+    private async hydrateInitially(): Promise<AppSettings | null> {
+        const first = await this.refresh({ timeoutMs: INITIAL_HYDRATION_TIMEOUT_MS });
+        if (first || this.cache) return this.cache;
+
+        await new Promise<void>((resolve) => {
+            window.setTimeout(resolve, INITIAL_HYDRATION_RETRY_DELAY_MS);
+        });
+        return this.refresh({ timeoutMs: INITIAL_HYDRATION_TIMEOUT_MS });
     }
 
     async getCategory(category: SettingsCategory): Promise<unknown | null> {

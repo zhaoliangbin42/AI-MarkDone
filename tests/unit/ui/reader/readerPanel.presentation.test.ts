@@ -82,7 +82,7 @@ describe('ReaderPanel presentation', () => {
         vi.mocked(bookmarksClient.getChangelogNotice).mockResolvedValueOnce({
             ok: true,
             data: {
-                pendingVersion: '5.2.0',
+                pendingVersion: '5.2.1',
                 lastShownVersion: null,
                 reason: 'update',
                 previousVersion: '4.4.6',
@@ -100,17 +100,17 @@ describe('ReaderPanel presentation', () => {
             const shadow = host.shadowRoot as ShadowRoot;
             const modal = shadow.querySelector<HTMLElement>('.mock-modal');
 
-            expect(modal?.querySelector('.mock-modal__title-copy strong')?.textContent).toBe("What's new in AI-MarkDone 5.2.0");
-            expect(modal?.textContent).toContain('2026-08-07');
-            expect(modal?.textContent).toContain('Formula display changed');
-            expect(modal?.textContent).toContain('Message loading changed');
+            expect(modal?.querySelector('.mock-modal__title-copy strong')?.textContent).toBe("What's new in AI-MarkDone 5.2.1");
+            expect(modal?.textContent).toContain('2026-08-11');
+            expect(modal?.textContent).toContain('directory rail failing to appear');
+            expect(modal?.textContent).toContain('page width not being restored');
             expect(Array.from(modal?.querySelectorAll<HTMLButtonElement>('.mock-modal__button') ?? []).map((button) => button.textContent)).toEqual(['OK']);
 
             const okButton = modal?.querySelector<HTMLButtonElement>('.mock-modal__button');
             okButton?.click();
             await Promise.resolve();
 
-            expect(bookmarksClient.ackChangelogNotice).toHaveBeenCalledWith('5.2.0');
+            expect(bookmarksClient.ackChangelogNotice).toHaveBeenCalledWith('5.2.1');
         } finally {
             panel.hide();
         }

@@ -7,20 +7,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [5.2.1] - 2026-08-11
+
 ### Fixed
-- ChatGPT: New replies now survive React's split message hydration and enter the shared content pool even when the official action row is delayed; ambiguous virtualized ordering is deferred instead of appending the wrong turn.
-- ChatGPT: Directory, message navigation, and message toolbars now restore themselves after website hydration replaces extension-owned UI hosts, without rescanning streamed content or disturbing official controls.
-- ChatGPT: Completed page messages now immediately power word count, Reader, formulas, copy, Directory, navigation, and exports even when the URL has no conversation ID or passive history arrives later; bookmarks safely enable once a canonical conversation becomes available.
-- ChatGPT: Conversation discovery now recognizes verified website Graph responses across general conversation URL prefixes and endpoint layouts, including custom GPT conversation routes, without observing POST or issuing additional requests.
-- ChatGPT: SPA conversation switches now fence pending page work immediately, preventing content from the previous conversation from entering the new message pool.
-- ChatGPT: Message toolbars and Directory active highlighting now remain aligned when virtualization temporarily leaves an assistant response mounted without its user prompt.
-- ChatGPT: The directory rail now derives the active highlight from the complete canonical user/assistant DOM group, so long replies no longer leave the highlight on the previous message because a toolbar anchor sits below the reading line.
-- ChatGPT: Copy selected Markdown on the official page now works for newly generated replies by projecting the selection onto the same sealed content used by Reader and word counts.
-- ChatGPT: The first completed reply now waits for ChatGPT's stable completion commit before mounting its message toolbar and word count, preventing the official actions from disappearing or the send control from returning to a stuck Stop state.
-- ChatGPT: New replies in an existing conversation now update Reader, copy, bookmarks, export, and message word counts from the same stable content snapshot, without additional conversation requests.
+- ChatGPT: Restored the directory rail when website hydration or host replacement would otherwise make it unavailable. Thanks to Xiaohongshu user @影 and everyone who shared feedback in Xiaohongshu and the QQ group.
+- ChatGPT: Kept the directory highlight aligned with the complete message currently in view, including long replies and virtualized assistant surfaces.
+- ChatGPT: New and first replies now enter the shared content pool reliably, keeping toolbars, word counts, Reader, formulas, copy, export, navigation, and bookmarks synchronized without additional conversation requests.
+- ChatGPT: Continued passive Graph and stable DOM discovery across common conversation routes, including pages without a changing conversation URL, while preserving official controls and avoiding POST observation.
+- ChatGPT: Fixed page-width settings not being restored after a page reload. Thanks to Xiaohongshu user @秒睡大王.
+- ChatGPT: Fixed selected Markdown copy for newly generated replies by using the same canonical content consumed by Reader and word counts.
 
 ### Changed
-- ChatGPT: Directory, toolbars, message navigation, and the stepper now share one atomic page projection; the retired coordinator, duplicate conversation index/materialization layers, and toolbar retry scanner have been removed.
+- ChatGPT: Directory, toolbars, message navigation, and the stepper now share one atomic page projection instead of maintaining separate discovery and recovery paths.
 
 ## [5.2.0] - 2026-08-07
 
@@ -58,13 +56,7 @@ Recent ChatGPT website changes could cause the directory rail and message word c
 
 ## [5.1.0] - 2026-08-04
 
-大家好，最近网站有一定的更新，导致目录条和字数统计等功能可能失效。感谢各位反馈的小伙伴，我抽空修复了这个问题，欢迎大家更新使用。
-
-1. 增加阅读器注释内容的持久化（感谢 GitHub 用户 @KryogenBlue）。
-2. 在阅读器中增加批注汇总能力（感谢小红书用户 @小红薯67542EF1）。
-3. 注释支持 `Ctrl/Cmd + Enter` 保存，普通 Enter 继续换行（感谢小红书用户 @小红薯Jesse）。
-4. 升级了内容发现链路，解决了阅读器目录条以及字数统计等不稳定的问题（感谢小红书各位群里的小伙伴）。
-5. 局部复制支持 `Ctrl/Cmd+C` 或 `Ctrl/Cmd+Shift+C` 快捷键，可在设置里配置。
+This release began the Reader annotation and ChatGPT content-discovery work that was expanded and stabilized in 5.1.1.
 
 ## [5.0.2] - 2026-07-26
 
