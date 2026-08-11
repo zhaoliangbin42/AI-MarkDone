@@ -15,16 +15,18 @@ describe('bookmarks content parser', () => {
         expect(zh.entries[0]?.date).toBe('2026-08-11');
         expect(zh.entries[0]?.leadBlocks[0]).toEqual(expect.objectContaining({
             type: 'paragraph',
-            text: expect.stringContaining('朋友们，修复来了'),
+            text: expect.stringContaining('5.2.1 终于来了'),
         }));
         expect(en.entries[0]?.leadBlocks[0]).toEqual(expect.objectContaining({
             type: 'paragraph',
-            text: expect.stringContaining('Friends, the fix is here'),
+            text: expect.stringContaining('5.2.1 is here'),
         }));
-        expect(JSON.stringify(zh.entries[0]?.leadBlocks)).toContain('页面元素变了');
-        expect(JSON.stringify(en.entries[0]?.leadBlocks)).toContain('where its content is stored');
-        expect(JSON.stringify(zh.entries[0]?.leadBlocks)).toContain('页面宽度设置刷新后没有恢复');
-        expect(JSON.stringify(en.entries[0]?.leadBlocks)).toContain('page width not being restored');
+        expect(zh.entries[0]?.leadBlocks[0]?.text).toContain('公式显示方式发生变化');
+        expect(en.entries[0]?.leadBlocks[0]?.text).toContain('Message loading changed');
+        expect(zh.entries[0]?.sections.map((section) => section.heading)).toEqual(['修复']);
+        expect(en.entries[0]?.sections.map((section) => section.heading)).toEqual(['Fixed']);
+        expect(JSON.stringify(zh.entries[0]?.sections[0]?.blocks)).toContain('页面宽度设置刷新后没有恢复');
+        expect(JSON.stringify(en.entries[0]?.sections[0]?.blocks)).toContain('page width not being restored');
         expect(zh.entries[6]?.date).toBe('2026-07-19');
         expect(en.entries[14]?.leadBlocks[0]).toEqual(
             expect.objectContaining({
