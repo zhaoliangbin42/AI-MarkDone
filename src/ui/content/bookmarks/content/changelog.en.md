@@ -52,7 +52,13 @@ Recent ChatGPT website changes could cause the directory rail and message word c
 # 5.1.0
 2026-08-04
 
-This release began the Reader annotation and ChatGPT content-discovery work that was expanded and stabilized in 5.1.1.
+Recent ChatGPT website changes could cause the directory rail and message word counts to stop working. Thanks to everyone who reported it; this release restores those paths and adds Reader annotation workflows.
+
+1. Added local Reader annotation persistence. Thanks to GitHub user @KryogenBlue.
+2. Added a centralized Reader annotation manager. Thanks to Xiaohongshu user @小红薯67542EF1.
+3. Added `Ctrl/Cmd+Enter` to save annotations while Enter remains a newline. Thanks to Xiaohongshu user @小红薯Jesse.
+4. Upgraded ChatGPT content discovery to stabilize the Reader directory rail and message word counts. Thanks to the Xiaohongshu community.
+5. Added configurable `Ctrl/Cmd+C` and `Ctrl/Cmd+Shift+C` shortcuts for canonical Markdown selection copy.
 
 # 5.0.2
 2026-07-26

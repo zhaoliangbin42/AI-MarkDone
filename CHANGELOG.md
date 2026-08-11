@@ -56,7 +56,13 @@ Recent ChatGPT website changes could cause the directory rail and message word c
 
 ## [5.1.0] - 2026-08-04
 
-This release began the Reader annotation and ChatGPT content-discovery work that was expanded and stabilized in 5.1.1.
+大家好，最近网站有一定的更新，导致目录条和字数统计等功能可能失效。感谢各位反馈的小伙伴，我抽空修复了这个问题，欢迎大家更新使用。
+
+1. 增加阅读器注释内容的持久化（感谢 GitHub 用户 @KryogenBlue）。
+2. 在阅读器中增加批注汇总能力（感谢小红书用户 @小红薯67542EF1）。
+3. 注释支持 `Ctrl/Cmd + Enter` 保存，普通 Enter 继续换行（感谢小红书用户 @小红薯Jesse）。
+4. 升级了内容发现链路，解决了阅读器目录条以及字数统计等不稳定的问题（感谢小红书各位群里的小伙伴）。
+5. 局部复制支持 `Ctrl/Cmd+C` 或 `Ctrl/Cmd+Shift+C` 快捷键，可在设置里配置。
 
 ## [5.0.2] - 2026-07-26
 
