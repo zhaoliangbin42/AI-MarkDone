@@ -69,6 +69,18 @@ describe('ChatGPTPageWidthController', () => {
         expect(css).not.toContain('calc(');
     });
 
+    it('keeps the width rule effective when the page root flag is lost', () => {
+        appendConversationNode('768px');
+        const controller = new ChatGPTPageWidthController();
+
+        controller.setScale(200);
+        document.documentElement.removeAttribute('data-aimd-chatgpt-page-width');
+
+        const css = document.getElementById('aimd-chatgpt-page-width-style')?.textContent ?? '';
+        expect(css).toContain('max-width: 1536px');
+        expect(css).not.toContain('html[data-aimd-chatgpt-page-width="1"]');
+    });
+
     it('clears the override when scale returns to normal', () => {
         appendConversationNode();
         const controller = new ChatGPTPageWidthController();

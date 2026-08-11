@@ -65,7 +65,7 @@ export class ChatGPTPageWidthController {
         const rules = entries
             .map(([selector, base]) => {
                 const scaledWidth = Math.max(1, Math.round(base * this.scale / 100));
-                return `html[data-aimd-chatgpt-page-width="1"] ${selector} { max-width: ${scaledWidth}px; }`;
+                return `${selector} { max-width: ${scaledWidth}px; }`;
             })
             .join('\n');
         this.styleEl!.textContent = rules;
