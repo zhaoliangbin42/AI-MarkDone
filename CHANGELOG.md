@@ -16,6 +16,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - ChatGPT: Continued passive Graph and stable DOM discovery across common conversation routes, including pages without a changing conversation URL, while preserving official controls and avoiding POST observation.
 - ChatGPT: Fixed page-width settings not being restored after a page reload. Thanks to Xiaohongshu user @秒睡大王.
 - ChatGPT: Fixed selected Markdown copy for newly generated replies by using the same canonical content consumed by Reader and word counts.
+- ChatGPT: Aligned official-page atomic selection highlighting with Reader for code, formulas, tables, images, and structural Markdown units.
 
 ### Changed
 - ChatGPT: Directory, toolbars, message navigation, and the stepper now share one atomic page projection instead of maintaining separate discovery and recovery paths.

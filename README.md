@@ -204,6 +204,7 @@ npm run build
 - Improved ChatGPT directory availability and kept its active highlight aligned with the message currently in view.
 - Fixed ChatGPT page-width settings not being restored after a page reload.
 - Continued the shared content-discovery improvements for directory, Reader, copy, export, word count, bookmarks, and formulas.
+- Aligned official-page atomic selection highlighting with Reader for code, formulas, tables, images, and structural Markdown units.
 
 [Full Changelog](./CHANGELOG.md)
 [Release Notes](./RELEASE_NOTES.md)

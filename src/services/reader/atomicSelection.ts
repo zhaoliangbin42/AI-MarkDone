@@ -227,6 +227,42 @@ export function resolveStrictRenderedAtomicUnits(range: Range, root: HTMLElement
     return selection.isValid ? selection.units : [];
 }
 
+/**
+ * Resolves unannotated page-rendered units using the same selection semantics
+ * as Reader. This is a visual/materialization helper only; it does not create
+ * Reader source identities or participate in Markdown serialization.
+ */
+export function resolveSelectedRenderedAtomicUnits(range: Range, root: HTMLElement): RenderedAtomicUnit[] {
+    if (!root.contains(range.startContainer) || !root.contains(range.endContainer)) return [];
+
+    const selected = collectStrictCandidateElements(range, root)
+        .map((element) => {
+            const kind = resolveRenderedAtomicUnitKind(element);
+            if (!kind) return null;
+            return {
+                element,
+                kind,
+                mode: resolveRenderedAtomicUnitMode(element, kind),
+            };
+        })
+        .filter((unit): unit is RenderedAtomicUnit => Boolean(unit))
+        .filter((unit) => rangeIntersectsElement(range, unit.element))
+        .filter((unit) => {
+            if (unit.mode === 'structural' || isTextSelectableAtomicUnitKind(unit.kind)) {
+                return rangeCoversElementText(range, unit.element);
+            }
+            return true;
+        });
+
+    return selected
+        .filter((unit) => !selected.some((candidate) => (
+            candidate !== unit
+            && candidate.mode === 'structural'
+            && candidate.element.contains(unit.element)
+        )))
+        .sort((left, right) => compareDocumentOrder(left.element, right.element));
+}
+
 export function resolveStrictRenderedAtomicSelection(range: Range, root: HTMLElement): StrictRenderedAtomicSelection {
     if (!root.contains(range.startContainer) || !root.contains(range.endContainer)) {
         return { units: [], hasPartialUnit: false, isValid: false };

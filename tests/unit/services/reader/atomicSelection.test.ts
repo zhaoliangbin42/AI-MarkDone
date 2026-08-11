@@ -3,6 +3,7 @@ import { describe, expect, it } from 'vitest';
 import {
     annotateRenderedAtomicUnits,
     resolveReaderSelectionRange,
+    resolveSelectedRenderedAtomicUnits,
     resolveSelectedAtomicUnits,
     resolveStrictRenderedAtomicUnits,
 } from '@/services/reader/atomicSelection';
@@ -17,6 +18,31 @@ function buildSelectionStub(range: Range, composedRange?: StaticRange): Selectio
 }
 
 describe('atomicSelection', () => {
+    it('resolves page-rendered units with the same selection semantics as Reader', () => {
+        const root = document.createElement('div');
+        root.innerHTML = '<h2>Heading</h2><p>Before <code>answer</code> after</p>';
+
+        const heading = root.querySelector('h2')!;
+        const headingRange = document.createRange();
+        headingRange.selectNodeContents(heading);
+        expect(resolveSelectedRenderedAtomicUnits(headingRange, root).map((unit) => unit.kind)).toEqual(['heading']);
+
+        const codeText = root.querySelector('code')!.firstChild as Text;
+        const partialCodeRange = document.createRange();
+        partialCodeRange.setStart(codeText, 1);
+        partialCodeRange.setEnd(codeText, codeText.data.length);
+        expect(resolveSelectedRenderedAtomicUnits(partialCodeRange, root)).toHaveLength(0);
+
+        const fullCodeRange = document.createRange();
+        fullCodeRange.selectNodeContents(root.querySelector('code')!);
+        expect(resolveSelectedRenderedAtomicUnits(fullCodeRange, root).map((unit) => unit.kind)).toEqual(['inline-code']);
+
+        const paragraphRange = document.createRange();
+        paragraphRange.selectNodeContents(root.querySelector('p')!);
+        expect(resolveSelectedRenderedAtomicUnits(paragraphRange, root)).toHaveLength(1);
+        expect(resolveSelectedRenderedAtomicUnits(paragraphRange, root)[0]?.kind).toBe('inline-code');
+    });
+
     it('requires complete visible coverage for every strict page atomic unit', () => {
         const root = document.createElement('div');
         root.innerHTML = '<p>Before <code>answer</code> after</p>';

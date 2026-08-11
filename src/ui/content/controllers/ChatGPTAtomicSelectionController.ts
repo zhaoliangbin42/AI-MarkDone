@@ -16,7 +16,7 @@ import {
     formatCanonicalMarkdownForCopy,
 } from '../../../services/copy/canonicalMarkdownCopy';
 import {
-    resolveStrictRenderedAtomicUnits,
+    resolveSelectedRenderedAtomicUnits,
     type RenderedAtomicUnit,
 } from '../../../services/reader/atomicSelection';
 import {
@@ -165,7 +165,7 @@ export class ChatGPTAtomicSelectionController {
             return;
         }
         const selectedUnits = context
-            ? resolveStrictRenderedAtomicUnits(context.range, context.root)
+            ? resolveSelectedRenderedAtomicUnits(context.range, context.root)
             : [];
         const snapshot = context ? this.buildSelectionSnapshot(context, selectedUnits) : null;
         // Atomic recognition is an independent visual contract. Canonical
@@ -195,7 +195,7 @@ export class ChatGPTAtomicSelectionController {
     private resolveCurrentSelectionSnapshot(): PageMarkdownSelectionSnapshot | null {
         const context = this.surfaceAdapter.captureSelection(window.getSelection());
         if (!context) return null;
-        const selectedUnits = resolveStrictRenderedAtomicUnits(context.range, context.root);
+        const selectedUnits = resolveSelectedRenderedAtomicUnits(context.range, context.root);
         const snapshot = this.lastSelection;
         if (snapshot && this.isSameSelection(context, snapshot) && this.isSnapshotCurrent(snapshot)) {
             this.applySelectedElements(snapshot.units);
@@ -217,9 +217,9 @@ export class ChatGPTAtomicSelectionController {
                 materialization: this.materialization,
                 evidence: context.evidence,
             });
-            // Once canonical source ports are present, an unresolved projection
-            // must fail open. Reviving DOM reconstruction here would turn
-            // ambiguity into apparently canonical output.
+            // Once canonical source ports are present, an unresolved or
+            // degraded projection must fail open. Reviving DOM reconstruction
+            // here would turn ambiguity into apparently canonical output.
             if (semantic.status !== 'ready') return null;
             return {
                 range: context.range.cloneRange(),
@@ -298,15 +298,26 @@ export class ChatGPTAtomicSelectionController {
         style.id = STYLE_ID;
         style.textContent = `
 [data-message-author-role="assistant"][data-message-id] .markdown.prose [${STATE_ATTRIBUTE}="selected"] {
+  --_reader-atomic-selected-bg: color-mix(in srgb, var(--aimd-interactive-selected) 92%, var(--aimd-bg-primary));
+  --_reader-atomic-selected-bg-strong: color-mix(in srgb, var(--aimd-interactive-selected) 96%, var(--aimd-bg-primary));
+  --_reader-atomic-selected-border: color-mix(in srgb, var(--aimd-interactive-primary) 28%, transparent);
+  --_reader-atomic-selected-border-strong: color-mix(in srgb, var(--aimd-interactive-primary) 42%, transparent);
+  --_reader-atomic-selection-effect: inset 0 0 0 1px var(--_reader-atomic-selected-border);
+  --_reader-atomic-selection-strong-effect: inset 0 0 0 1px var(--_reader-atomic-selected-border-strong);
+  --_reader-atomic-formula-effect: inset 0 -0.22em 0 var(--_reader-atomic-selected-bg-strong), inset 0 0 0 1px var(--_reader-atomic-selected-border-strong);
   border-radius: var(--aimd-radius-sm);
-  background: color-mix(in srgb, var(--aimd-interactive-selected) 92%, transparent);
-  outline: 1px solid color-mix(in srgb, var(--aimd-interactive-primary) 32%, transparent);
-  outline-offset: -1px;
+  background: var(--_reader-atomic-selected-bg);
+  box-shadow: var(--_reader-atomic-selection-effect);
 }
 
-[data-message-author-role="assistant"][data-message-id] .markdown.prose :is(.katex, .katex-display, code, pre, table, img)[${STATE_ATTRIBUTE}="selected"] {
-  background: color-mix(in srgb, var(--aimd-interactive-selected) 96%, transparent);
-  outline-color: color-mix(in srgb, var(--aimd-interactive-primary) 44%, transparent);
+[data-message-author-role="assistant"][data-message-id] .markdown.prose :is(.katex, .katex-display)[${STATE_ATTRIBUTE}="selected"] {
+  background: var(--_reader-atomic-selected-bg-strong);
+  box-shadow: var(--_reader-atomic-formula-effect);
+}
+
+[data-message-author-role="assistant"][data-message-id] .markdown.prose :is(code, pre, table, img)[${STATE_ATTRIBUTE}="selected"] {
+  background: var(--_reader-atomic-selected-bg-strong);
+  box-shadow: var(--_reader-atomic-selection-strong-effect);
 }
 `;
         (document.head || document.documentElement).appendChild(style);

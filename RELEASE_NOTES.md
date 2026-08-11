@@ -9,6 +9,7 @@ This patch continues the ChatGPT content-discovery improvements from 5.2.0 and f
 - Restored the saved ChatGPT page width after a page reload. Thanks to Xiaohongshu user @秒睡大王.
 - Kept the directory highlight aligned with the message currently being viewed.
 - Kept first and subsequent replies synchronized across the directory, toolbars, word count, Reader, copy, formulas, export, navigation, and bookmarks.
+- Aligned official-page atomic selection highlighting with Reader for code, formulas, tables, images, and structural Markdown units.
 
 ## v5.2.0 (2026-08-07)
 

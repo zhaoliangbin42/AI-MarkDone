@@ -30,6 +30,7 @@ Finally, I also hope you will take a look at my iOS app, Mappamory—a private m
 - Fixed the directory rail failing to appear under some conditions (thanks to Xiaohongshu user @影 for helping test, and to everyone who shared feedback in Xiaohongshu and the QQ group).
 - Fixed ChatGPT page width not being restored after a page reload (thanks to Xiaohongshu user @秒睡大王).
 - Fixed the directory highlight not always matching the message currently being viewed.
+- Aligned official-page atomic selection highlighting with Reader for code, formulas, tables, images, and structural Markdown units.
 
 # 5.2.0
 2026-08-07

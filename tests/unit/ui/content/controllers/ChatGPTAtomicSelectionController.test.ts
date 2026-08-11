@@ -406,11 +406,36 @@ describe('ChatGPTAtomicSelectionController', () => {
         expect(copy.setData).toHaveBeenCalledWith('text/plain', '`answer`');
         const selectionCss = document.getElementById('aimd-chatgpt-atomic-selection-style')?.textContent ?? '';
         expect(selectionCss).not.toContain('!important');
-        expect(selectionCss).not.toContain('box-shadow:');
-        expect(selectionCss).toContain('outline: 1px solid color-mix(in srgb, var(--aimd-interactive-primary) 32%, transparent);');
+        expect(selectionCss).toContain('box-shadow: var(--_reader-atomic-selection-effect);');
+        expect(selectionCss).not.toContain('outline:');
 
         controller.dispose();
         expect(code.hasAttribute('data-aimd-page-atomic-state')).toBe(false);
+    });
+
+    it('uses the Reader unit range for formulas and structural blocks on the official page', async () => {
+        const message = mountMessage('<h2>Heading</h2><p>Result <span class="katex"><span class="katex-html">x+y</span></span></p>');
+        const controller = createController();
+        controller.init();
+
+        const heading = message.querySelector('h2')!;
+        const headingRange = document.createRange();
+        headingRange.selectNodeContents(heading);
+        selectRange(headingRange);
+        document.dispatchEvent(new Event('selectionchange'));
+        await flushSelectionFrame();
+        expect(heading.getAttribute('data-aimd-page-atomic-state')).toBe('selected');
+
+        const formulaText = message.querySelector('.katex-html')!.firstChild as Text;
+        const formulaRange = document.createRange();
+        formulaRange.selectNodeContents(formulaText.parentElement!);
+        selectRange(formulaRange);
+        document.dispatchEvent(new Event('selectionchange'));
+        await flushSelectionFrame();
+        expect(message.querySelector('.katex')?.getAttribute('data-aimd-page-atomic-state')).toBe('selected');
+        expect(heading.hasAttribute('data-aimd-page-atomic-state')).toBe(false);
+
+        controller.dispose();
     });
 
     it('leaves partial atomic selections entirely to ChatGPT and the browser', async () => {
@@ -435,7 +460,7 @@ describe('ChatGPTAtomicSelectionController', () => {
         controller.dispose();
     });
 
-    it('fails open when a complete atom is mixed with a partial formula', async () => {
+    it('keeps Reader atomic units when a complete atom is mixed with a partial formula', async () => {
         const message = mountMessage(`
             <p>
                 <code>answer</code>
@@ -462,7 +487,7 @@ describe('ChatGPTAtomicSelectionController', () => {
         await flushSelectionFrame();
 
         const copy = dispatchCopy();
-        expect(code.hasAttribute('data-aimd-page-atomic-state')).toBe(false);
+        expect(code.getAttribute('data-aimd-page-atomic-state')).toBe('selected');
         expect(copy.event.defaultPrevented).toBe(false);
         expect(copy.setData).not.toHaveBeenCalled();
         expect(document.querySelector('.aimd-toolbar-hover-action-host')).toBeNull();

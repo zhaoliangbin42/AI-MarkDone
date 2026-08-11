@@ -60,6 +60,7 @@ Both master switches preserve child values when disabled. Effective capability s
 ## ChatGPT Atomic Selection Copy
 
 - **Atomic Markdown shortcut**: `chatgptBehavior.atomicMarkdownCopyShortcut` is the only ChatGPT direct-selection Markdown copy control. It is `none`, `mod-c` (`Ctrl/Cmd+C`), or `mod-shift-c` (`Ctrl/Cmd+Shift+C`); fresh installs default to `mod-shift-c`, while legacy `atomicMarkdownCopy` values migrate to `mod-c` or `none`.
+- **Reader-compatible visual atomic selection**: the official ChatGPT page uses the same rendered-unit range and selected-effect semantics as Reader for code, formulas, tables, images, headings, lists, and blockquotes. Plain paragraphs and inline formatting wrappers are not promoted to separate visual atoms; this visual layer never becomes a Markdown source.
 - **Keyboard-only exit**: ChatGPT direct selection no longer creates a copy button or inverse action. Ordinary, structured, and formula selections use Surface Projection to recover canonical source Markdown. The old strict atomic DOM converter remains only for legacy composition roots that have no canonical content/materialization ports; it is never revived after a production semantic projection rejects evidence. Invalid, editable, streaming, cross-message, ambiguous, stale, reconstructed, or DevTools-consumed configured shortcuts fail closed without publishing visual text; the host remains untouched when the shortcut is disabled or no canonical ports exist.
 
 ## Reader Annotations (v1 shipped)
