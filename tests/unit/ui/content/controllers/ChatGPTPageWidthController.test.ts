@@ -50,7 +50,8 @@ describe('ChatGPTPageWidthController', () => {
         controller.setScale(125);
 
         const style = document.getElementById('aimd-chatgpt-page-width-style');
-        expect(style?.textContent).toContain('max-width: calc(720px * 125 / 100)');
+        expect(style?.textContent).toContain('max-width: 900px');
+        expect(style?.textContent).not.toContain('calc(');
         expect(style?.textContent).not.toContain('!important');
         expect(document.documentElement.dataset.aimdChatgptPageWidth).toBe('1');
     });
@@ -64,7 +65,8 @@ describe('ChatGPTPageWidthController', () => {
 
         const css = document.getElementById('aimd-chatgpt-page-width-style')?.textContent ?? '';
         expect(css).toContain('[class*="max-w-(--thread-content-max-width)"]');
-        expect(css).toContain('max-width: calc(768px * 150 / 100)');
+        expect(css).toContain('max-width: 1152px');
+        expect(css).not.toContain('calc(');
     });
 
     it('clears the override when scale returns to normal', () => {
@@ -87,7 +89,7 @@ describe('ChatGPTPageWidthController', () => {
         appendConversationNode('900px');
         await Promise.resolve();
 
-        expect(document.getElementById('aimd-chatgpt-page-width-style')?.textContent).toContain('calc(900px * 140 / 100)');
+        expect(document.getElementById('aimd-chatgpt-page-width-style')?.textContent).toContain('max-width: 1260px');
     });
 
     it('removes injected state on dispose', () => {

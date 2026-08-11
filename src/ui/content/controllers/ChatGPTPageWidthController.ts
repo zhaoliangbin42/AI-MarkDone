@@ -20,7 +20,7 @@ export class ChatGPTPageWidthController {
     private scale = DEFAULT_CHATGPT_PAGE_WIDTH_SCALE;
     private styleEl: HTMLStyleElement | null = null;
     private observer: MutationObserver | null = null;
-    private originalWidths: Partial<Record<typeof CHATGPT_PAGE_WIDTH_SELECTORS[number], string>> = {};
+    private originalWidths: Partial<Record<typeof CHATGPT_PAGE_WIDTH_SELECTORS[number], number>> = {};
 
     init(): void {
         this.apply();
@@ -63,7 +63,10 @@ export class ChatGPTPageWidthController {
 
         document.documentElement.dataset[CHATGPT_PAGE_WIDTH_DATASET] = '1';
         const rules = entries
-            .map(([selector, base]) => `html[data-aimd-chatgpt-page-width="1"] ${selector} { max-width: calc(${base} * ${this.scale} / 100); }`)
+            .map(([selector, base]) => {
+                const scaledWidth = Math.max(1, Math.round(base * this.scale / 100));
+                return `html[data-aimd-chatgpt-page-width="1"] ${selector} { max-width: ${scaledWidth}px; }`;
+            })
             .join('\n');
         this.styleEl!.textContent = rules;
         this.watchForElements();
@@ -103,8 +106,9 @@ export class ChatGPTPageWidthController {
             const candidates = document.querySelectorAll<HTMLElement>(selector);
             for (const element of candidates) {
                 const value = window.getComputedStyle(element).maxWidth;
-                if (value && value !== 'none' && value !== '100%') {
-                    this.originalWidths[selector] = value;
+                const numericValue = Number.parseFloat(value);
+                if (value && value !== 'none' && value !== '100%' && Number.isFinite(numericValue) && numericValue > 0) {
+                    this.originalWidths[selector] = numericValue;
                     break;
                 }
             }
