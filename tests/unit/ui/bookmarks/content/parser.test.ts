@@ -19,10 +19,11 @@ describe('bookmarks content parser', () => {
         }));
         expect(en.entries[0]?.leadBlocks[0]).toEqual(expect.objectContaining({
             type: 'paragraph',
-            text: expect.stringContaining('Friends, the fix is here'),
+            text: expect.stringContaining('5.2.1 is here'),
         }));
-        expect(JSON.stringify(zh.entries[0]?.leadBlocks)).toContain('蓝色的“<>”符号');
-        expect(JSON.stringify(en.entries[0]?.leadBlocks)).toContain('blue “<>” button');
+        expect(JSON.stringify(zh.entries[0]?.leadBlocks)).toContain('英雄召集贴');
+        expect(JSON.stringify(zh.entries[0]?.leadBlocks)).toContain('缓存中对话的存放位置');
+        expect(en.entries[0]?.leadBlocks[0]?.text).toContain('Message loading changed');
         expect(zh.entries[0]?.sections.map((section) => section.heading)).toEqual(['修复']);
         expect(en.entries[0]?.sections.map((section) => section.heading)).toEqual(['Fixed']);
         expect(JSON.stringify(zh.entries[0]?.sections[0]?.blocks)).toContain('页面宽度设置刷新后没有恢复');

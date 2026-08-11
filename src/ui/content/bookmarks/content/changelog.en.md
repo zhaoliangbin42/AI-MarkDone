@@ -3,9 +3,27 @@
 # 5.2.1
 2026-08-11
 
-Friends, the fix is here. Last week, ChatGPT made a major update to its website. The page elements changed, and the location where content is stored changed as well. I then released 5.2.0, but that version involved fairly large changes and had not been tested enough, so it introduced some new bugs. This release fixes some of the known issues and I hope it gives everyone a better experience. If you run into any problems, please email us or join the group to share feedback. Your participation will greatly help improve this extension. I will also stay true to the original goal and continue building this project as a focused productivity extension.
+After a lot of waiting, AI-MarkDone 5.2.1 is here.
 
-Last week’s ChatGPT website update looked almost unchanged on the surface, but the overall experience also improved in several ways. The composer now supports basic Markdown rendering—for example, typing ` ``` ` and pressing Enter can create a code block. This is an official ChatGPT feature. I had considered implementing it before, but I felt that doing so would interfere too much with the page. The extension still provides additional input-enhancement features: when Input Enhancement is enabled in the extension settings, a blue “<>” button appears to the left of the composer, offering basic Markdown completions, formula previews, and formula suggestions.
+ChatGPT recently updated its website. The visible experience changed only slightly, but the way the page organizes and loads content changed substantially, which disrupted AI-MarkDone's content discovery.
+
+The directory rail, Reader, export, word count, formula recognition, and bookmarks all depend on that same discovery path. Once the path became unreliable, each of these features was affected in different ways.
+
+Thank you for all the feedback, testing, and persistent requests for an update. This release continues the reorganization of content discovery, page adaptation, and feature consumption into a more reliable, stable, and coherent flow.
+
+1. Formula display changed
+
+   ChatGPT changed how formulas are displayed on the page. The previous recognition path could no longer reliably find the formula source, so copied formulas could become ordinary text. Formula recognition and copying have been adapted to the new presentation.
+
+2. Message loading changed
+
+   ChatGPT does not keep every message visibly mounted at the same time. It loads and displays parts of a conversation as needed. The old approach could mistake the messages currently visible on the page for the entire conversation, leaving the directory, Reader, export, and word count incomplete.
+
+   The discovery path is now organized around one shared source: messages are recognized first, then the adapter turns them into stable content for the directory, Reader, export, copy, bookmarks, and word count. This reduces inconsistencies between features and makes the extension better prepared for future website updates.
+
+![5.2.0 content architecture](icons/aimd-content-architecture-5.2.0.svg)
+
+Finally, I also hope you will take a look at my iOS app, Mappamory—a private map contact book for remembering friends and the places connected to your stories.
 
 ## Fixed
 
