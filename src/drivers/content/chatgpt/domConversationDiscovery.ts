@@ -562,6 +562,7 @@ export function getChatGPTPageIndex(adapter: SiteAdapter): ChatGPTPageIndex {
         // Observe the stable document element so body/main replacement is a
         // signal instead of a missed mutation on a detached host root.
         resolveRoot: () => document.documentElement ?? document,
+        resolveSurfaceRoot: () => getDiscoveryRoot(adapter),
         discover: () => discoverChatGPTDomRoundRefs(adapter),
     });
     pageIndexByAdapter.set(adapter, index);

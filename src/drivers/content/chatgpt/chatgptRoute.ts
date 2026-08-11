@@ -14,13 +14,40 @@ function isAllowedRouteUrl(url: string): boolean {
 export function getChatGPTConversationId(url: string): string | null {
     if (!isAllowedRouteUrl(url)) return null;
     try {
-        const pathname = new URL(url).pathname;
-        return pathname.match(/(?:^|\/)(?:c|conversation)\/([0-9a-f-]{8,})/i)?.[1] ?? null;
+        const pathname = new URL(
+            url,
+            typeof window !== 'undefined' ? window.location.href : 'https://chatgpt.com',
+        ).pathname;
+        return readConversationPathToken(pathname);
     } catch {
-        return url.match(/(?:^|\/)(?:c|conversation)\/([0-9a-f-]{8,})/i)?.[1] ?? null;
+        return readConversationPathToken(url.split(/[?#]/, 1)[0] ?? '');
     }
 }
 
 export function isChatGPTConversationPage(url: string): boolean {
     return getChatGPTConversationId(url) !== null;
+}
+
+function readConversationPathToken(pathname: string): string | null {
+    const segments = pathname.split('/').filter(Boolean);
+    for (let index = 0; index < segments.length - 1; index += 1) {
+        const marker = segments[index]?.toLowerCase();
+        if (marker !== 'c' && marker !== 'conversation') continue;
+        const encoded = segments[index + 1] ?? '';
+        let candidate = encoded;
+        try {
+            candidate = decodeURIComponent(encoded);
+        } catch {
+            continue;
+        }
+        if (isCanonicalConversationToken(candidate)) return candidate;
+    }
+    return null;
+}
+
+function isCanonicalConversationToken(value: string): boolean {
+    const token = value.trim();
+    return token.length >= 8
+        && token.length <= 160
+        && /^[A-Za-z0-9][A-Za-z0-9._~-]*$/.test(token);
 }

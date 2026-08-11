@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 
 import {
     createConversationDocumentKeyV1,
+    createConversationPageDocumentKeyV1,
     freezeConversationSnapshotV1,
     isConversationDocumentRefV1,
     isConversationSnapshotV1,
@@ -52,6 +53,22 @@ describe('Conversation Content Port V1 contract', () => {
         expect(isConversationDocumentRefV1({
             ...document,
             key: 'chatgpt:conversation:other',
+        })).toBe(false);
+    });
+
+    it('represents a page-scoped conversation without inventing a canonical conversation id', () => {
+        const document = {
+            key: createConversationPageDocumentKeyV1('chatgpt', 'page-epoch-1'),
+            platformId: 'chatgpt',
+            identityKind: 'page',
+            conversationId: null,
+            canonicalUrl: 'https://chatgpt.com/',
+        } as const;
+
+        expect(isConversationDocumentRefV1(document)).toBe(true);
+        expect(isConversationDocumentRefV1({
+            ...document,
+            conversationId: 'invented-id',
         })).toBe(false);
     });
 

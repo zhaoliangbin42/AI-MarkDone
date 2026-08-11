@@ -1,7 +1,9 @@
 import { describe, expect, it } from 'vitest';
 import {
+    buildChatGPTReaderContent,
     buildChatGPTReaderItems as buildChatGPTReaderItemsV1,
 } from '@/services/reader/chatgptReaderItems';
+import { createConversationPageDocumentKeyV1 } from '@/contracts/conversationContent';
 import {
     toConversationSnapshotV1,
     type ConversationSnapshotFixture,
@@ -20,6 +22,40 @@ function buildChatGPTReaderItems(
 }
 
 describe('buildChatGPTReaderItems', () => {
+    it('keeps page-scoped content readable while marking bookmarks unavailable', () => {
+        const documentKey = createConversationPageDocumentKeyV1('chatgpt', 'reader-page');
+        const result = buildChatGPTReaderContent({
+            schemaVersion: 1,
+            document: {
+                key: documentKey,
+                platformId: 'chatgpt',
+                identityKind: 'page',
+                conversationId: null,
+                canonicalUrl: 'https://chatgpt.com/',
+            },
+            projectionId: 'projection-page',
+            contentToken: 'content-page',
+            coverage: 'complete',
+            turns: [{
+                key: 'round-1:assistant-1',
+                ordinal: 1,
+                identity: {
+                    turnId: 'round-1',
+                    userMessageId: 'user-1',
+                    assistantMessageId: 'assistant-1',
+                },
+                userText: 'Page question',
+                assistantMarkdown: 'Page answer',
+            }],
+        }, 'https://chatgpt.com/');
+
+        expect(result.items[0]).toMatchObject({
+            content: 'Page answer',
+            meta: { bookmarkable: false },
+        });
+        expect(result.annotationDocument.conversationId).toBe(documentKey);
+    });
+
     it('maps ChatGPT rounds to shared reader items and starts at the requested message', () => {
         const { items, startIndex, annotationDocument } = buildChatGPTReaderItems({
             conversationId: 'conv-1',

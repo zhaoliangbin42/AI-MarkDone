@@ -6,7 +6,7 @@ import {
     type ConversationDocumentRefV1,
 } from '../../../contracts/conversationContent';
 import { decodeBridgeDetail, encodeBridgeRequest, type BridgeWireDetail } from './bridgeTransport';
-import { getChatGPTConversationId, isChatGPTConversationPage } from './chatgptRoute';
+import { getChatGPTConversationId } from './chatgptRoute';
 import { normalizeChatGPTReaderMarkdown } from './normalizeReaderMarkdown';
 import type { ChatGPTConversationRound } from './types';
 
@@ -36,42 +36,29 @@ type BridgeResponse = {
 
 export class ChatGPTConversationDiscoveryAdapter {
     private readonly signalListeners = new Set<() => void>();
-    private completedGeneration: { conversationId: string; assistantMessageId: string } | null = null;
     private readonly handleCapture = (event: Event) => {
         const detail = decodeBridgeDetail<{
             kind?: unknown;
             conversationId?: unknown;
-            assistantMessageId?: unknown;
         }>(
             (event as CustomEvent<unknown>).detail,
         );
-        if (typeof detail?.conversationId !== 'string') return;
-        const currentId = getChatGPTConversationId(window.location.href)?.trim().toLowerCase() ?? null;
-        const conversationId = detail.conversationId.trim().toLowerCase();
+        if (detail?.kind !== 'graph' || typeof detail.conversationId !== 'string') return;
+        const currentId = getChatGPTConversationId(window.location.href)?.trim() ?? null;
+        const conversationId = detail.conversationId.trim();
         if (conversationId !== currentId) return;
-        if (detail.kind === 'generation-start') {
-            this.completedGeneration = null;
-        } else if (
-            detail.kind === 'generation-complete'
-            && typeof detail.assistantMessageId === 'string'
-            && detail.assistantMessageId.trim()
-        ) {
-            this.completedGeneration = {
-                conversationId,
-                assistantMessageId: detail.assistantMessageId.trim(),
-            };
-        }
         for (const listener of Array.from(this.signalListeners)) listener();
     };
 
-    resolveDocument(): ConversationDocumentRefV1 | null {
-        const conversationId = getChatGPTConversationId(window.location.href)?.trim().toLowerCase() ?? null;
-        if (!conversationId || !isChatGPTConversationPage(window.location.href)) return null;
+    resolveDocument(pageUrl = window.location.href): ConversationDocumentRefV1 | null {
+        const conversationId = getChatGPTConversationId(pageUrl)?.trim() ?? null;
+        if (!conversationId) return null;
         return Object.freeze({
             key: createConversationDocumentKeyV1('chatgpt', conversationId),
             platformId: 'chatgpt',
+            identityKind: 'canonical' as const,
             conversationId,
-            canonicalUrl: window.location.href,
+            canonicalUrl: pageUrl,
         });
     }
 
@@ -88,21 +75,11 @@ export class ChatGPTConversationDiscoveryAdapter {
         };
     }
 
-    getCompletedAssistantMessageId(conversationId: string): string | null {
-        const normalizedId = conversationId.trim().toLowerCase();
-        return this.completedGeneration?.conversationId === normalizedId
-            ? this.completedGeneration.assistantMessageId
-            : null;
-    }
-
-    notifyLifecycleSignal(): void {
-        // Retained for the shared coordinator contract. A lifecycle signal
-        // may trigger another peek, but never an extension-issued request.
-    }
-
     peek(signal?: AbortSignal): Promise<ConversationContentCandidateV1 | null> {
         const document = this.resolveDocument();
-        if (!document) return Promise.resolve(null);
+        if (!document || document.identityKind === 'page' || !document.conversationId) {
+            return Promise.resolve(null);
+        }
         return this.request('peek', document, PEEK_TIMEOUT_MS, signal);
     }
 
@@ -112,13 +89,12 @@ export class ChatGPTConversationDiscoveryAdapter {
 
     dispose(): void {
         window.removeEventListener(CAPTURE_EVENT, this.handleCapture as EventListener);
-        this.completedGeneration = null;
         this.signalListeners.clear();
     }
 
     private request(
         type: BridgeRequestType,
-        document: ConversationDocumentRefV1,
+        document: ConversationDocumentRefV1 & { conversationId: string },
         timeoutMs: number,
         signal?: AbortSignal,
     ): Promise<ConversationContentCandidateV1 | null> {

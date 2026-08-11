@@ -8,11 +8,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Fixed
+- ChatGPT: New replies now survive React's split message hydration and enter the shared content pool even when the official action row is delayed; ambiguous virtualized ordering is deferred instead of appending the wrong turn.
+- ChatGPT: Directory, message navigation, and message toolbars now restore themselves after website hydration replaces extension-owned UI hosts, without rescanning streamed content or disturbing official controls.
+- ChatGPT: Completed page messages now immediately power word count, Reader, formulas, copy, Directory, navigation, and exports even when the URL has no conversation ID or passive history arrives later; bookmarks safely enable once a canonical conversation becomes available.
+- ChatGPT: Conversation discovery now recognizes verified website Graph responses across general conversation URL prefixes and endpoint layouts, including custom GPT conversation routes, without observing POST or issuing additional requests.
+- ChatGPT: SPA conversation switches now fence pending page work immediately, preventing content from the previous conversation from entering the new message pool.
 - ChatGPT: Message toolbars and Directory active highlighting now remain aligned when virtualization temporarily leaves an assistant response mounted without its user prompt.
 - ChatGPT: The directory rail now derives the active highlight from the complete canonical user/assistant DOM group, so long replies no longer leave the highlight on the previous message because a toolbar anchor sits below the reading line.
 - ChatGPT: Copy selected Markdown on the official page now works for newly generated replies by projecting the selection onto the same sealed content used by Reader and word counts.
 - ChatGPT: The first completed reply now waits for ChatGPT's stable completion commit before mounting its message toolbar and word count, preventing the official actions from disappearing or the send control from returning to a stuck Stop state.
 - ChatGPT: New replies in an existing conversation now update Reader, copy, bookmarks, export, and message word counts from the same stable content snapshot, without additional conversation requests.
+
+### Changed
+- ChatGPT: Directory, toolbars, message navigation, and the stepper now share one atomic page projection; the retired coordinator, duplicate conversation index/materialization layers, and toolbar retry scanner have been removed.
 
 ## [5.2.0] - 2026-08-07
 

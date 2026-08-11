@@ -79,6 +79,26 @@ describe('ChatGPTConversationDiscoveryAdapter', () => {
         adapter.dispose();
     });
 
+    it('preserves a safe non-UUID conversation token exactly across route and Bridge identity', async () => {
+        const genericId = 'conv_ABC-12345678';
+        history.replaceState({}, '', `/workspace/g/project/c/${genericId}`);
+        const adapter = new ChatGPTConversationDiscoveryAdapter();
+        const responder = ((event: Event) => {
+            const request = (event as CustomEvent<any>).detail;
+            dispatchResponse(request, { ...snapshot(), conversationId: genericId });
+        }) as EventListener;
+        window.addEventListener(REQUEST_EVENT, responder);
+
+        try {
+            expect(adapter.resolveDocument()?.conversationId).toBe(genericId);
+            const result = await adapter.peek();
+            expect(result?.document.conversationId).toBe(genericId);
+        } finally {
+            window.removeEventListener(REQUEST_EVENT, responder);
+            adapter.dispose();
+        }
+    });
+
     it('adapts provider-specific Markdown once before it crosses the content port', async () => {
         const adapter = new ChatGPTConversationDiscoveryAdapter();
         const responder = ((event: Event) => {
@@ -124,56 +144,54 @@ describe('ChatGPTConversationDiscoveryAdapter', () => {
         adapter.dispose();
     });
 
-    it('scopes transport completion evidence to the current assistant generation', () => {
+    it('notifies baseline admission only for a Graph capture on the current conversation', () => {
         const adapter = new ChatGPTConversationDiscoveryAdapter();
         const listener = vi.fn();
         const unsubscribe = adapter.subscribeSignals(listener);
 
         window.dispatchEvent(new CustomEvent(CAPTURE_EVENT, {
             detail: JSON.stringify({
-                kind: 'generation-complete',
+                kind: 'unrelated-host-event',
                 conversationId,
-                assistantMessageId: 'assistant-1',
             }),
         }));
-        expect(adapter.getCompletedAssistantMessageId(conversationId)).toBe('assistant-1');
+        expect(listener).not.toHaveBeenCalled();
 
         window.dispatchEvent(new CustomEvent(CAPTURE_EVENT, {
             detail: JSON.stringify({
-                kind: 'generation-start',
+                kind: 'graph',
                 conversationId,
             }),
         }));
-        expect(adapter.getCompletedAssistantMessageId(conversationId)).toBeNull();
-        expect(listener).toHaveBeenCalledTimes(2);
+        expect(listener).toHaveBeenCalledTimes(1);
 
         unsubscribe();
         adapter.dispose();
     });
 
-    it('retains completion evidence only for the current conversation', () => {
+    it('ignores Graph capture signals for a conversation other than the current route', () => {
         const adapter = new ChatGPTConversationDiscoveryAdapter();
-        const unsubscribe = adapter.subscribeSignals(() => undefined);
+        const listener = vi.fn();
+        const unsubscribe = adapter.subscribeSignals(listener);
+        const nextConversationId = '795499b7-464c-8323-a998-119f661ac954';
+
         window.dispatchEvent(new CustomEvent(CAPTURE_EVENT, {
             detail: JSON.stringify({
-                kind: 'generation-complete',
-                conversationId,
-                assistantMessageId: 'assistant-1',
+                kind: 'graph',
+                conversationId: nextConversationId,
             }),
         }));
+        expect(listener).not.toHaveBeenCalled();
 
-        const nextConversationId = '795499b7-464c-8323-a998-119f661ac954';
         history.replaceState({}, '', `/c/${nextConversationId}`);
         window.dispatchEvent(new CustomEvent(CAPTURE_EVENT, {
             detail: JSON.stringify({
-                kind: 'generation-complete',
+                kind: 'graph',
                 conversationId: nextConversationId,
-                assistantMessageId: 'assistant-2',
             }),
         }));
 
-        expect(adapter.getCompletedAssistantMessageId(conversationId)).toBeNull();
-        expect(adapter.getCompletedAssistantMessageId(nextConversationId)).toBe('assistant-2');
+        expect(listener).toHaveBeenCalledTimes(1);
         unsubscribe();
         adapter.dispose();
     });

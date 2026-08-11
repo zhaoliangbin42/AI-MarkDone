@@ -13,30 +13,30 @@
 
 1. 确认当前站点是否仍被对应 adapter 匹配
 2. 检查 `src/drivers/content/adapters/sites/*` 中的选择器与锚点是否失效
-3. 检查 `MessageToolbarOrchestrator` 是否仍能扫描到 assistant message roots
-4. 检查 action bar fallback 是否触发
+3. ChatGPT：检查 `ChatGPTPageIndex` 是否仍输出 typed assistant surface；其他平台再检查 `MessageToolbarOrchestrator` 的本地扫描
+4. 检查 adapter 是否仍能提供经过验证的官方 action anchor；ChatGPT 不允许 content-body fallback
 5. 检查主题探测是否仍输出有效 theme
 
 ### ChatGPT-specific checks
 
 当问题只发生在 ChatGPT，不要只盯 DOM selector。先区分 canonical semantic snapshot 与当前 materialized anchors：
 
-1. `ConversationContentRepository` 是否建立了当前 conversation ID 的一次性基线或正在等待首轮 DOM 绑定
-   - bridge 必须在 `document_start` 被动观察 ChatGPT 页面自身的 same-origin conversation `GET` 响应；不得读取认证信息或主动重放 session/conversation 请求
+1. `ConversationContentRepository` 是否已由可信 Graph 或稳定 DOM 批次建立当前 conversation ID 的唯一消息池
+   - bridge 必须在 `document_start` 只被动观察 ChatGPT 页面自身成功的 same-origin `GET`；候选 URL 精确携带当前 ID，JSON payload 在 4 层/256 对象预算内具备合法 Graph。不得固定 endpoint、观察 POST、读取认证信息或主动重放 session/conversation 请求
    - 检查 page bridge graph parser 与 content-world DTO validator；缺节点、环、route/ID/branch/identity 不一致必须 fail closed
    - 不要用 React props、内部 store 或消费者侧 DOM fallback 补齐正文；生成中的 assistant 不进入基线，稳定、可编译的新 DOM 消息才追加到唯一缓存
    - 缓存中的消息默认可消费；不再把消息标记为 `partial` 或把整条会话置为 `stale`。单条 DOM 编译失败只保留该 assistant identity 的 dirty 状态，等待下一次真实 host signal 重试
-   - 直接进入已有 canonical conversation 时，即使局部 DOM 已经挂载，也必须等待该会话纪元的一次被动基线；只有空白页已通过 typed-DOM empty fact 并在临时 `WEB` 路由下产生首轮事实时，才允许 host-born 绑定
-2. 比较 `ChatGPTConversationIndex` 的完整 canonical rounds 与 `ChatGPTPageIndex` 的当前 connected anchors
+   - canonical conversation 没有 Graph 时，完整且稳定的 DOM rounds 应原子建立 `host` pool；后到 Graph 只能在 typed identity 可靠重合时补入历史前缀，不能覆盖已有正文。无 canonical identity 时同一批 rounds 也应直接以 page identity 发布；仅书签与跨页能力等待正式 ID
+2. 比较 `ChatGPTConversationSurface.readFrame()` 的全部 obtained turns 与 `ChatGPTPageIndex` 的当前 connected anchors
    - DOM hydration window 变小只应减少 anchors，不能减少目录/stepper count 或已缓存消息
    - typed `roundId` / `userMessageId` / `assistantMessageId` 无法唯一连接时，应修复 adapter/driver identity，不得使用 prompt 或 DOM-local position 猜测
 3. 如果正文完整但 Reader/Copy/Save Messages 不完整
    - 检查入口是否仍统一经过 `readerContentSource -> ConversationContentSourceV1 -> ReaderItem[]`；已进入缓存的 host-rendered 消息也必须进入该链路
 4. 如果目录能显示但同页跳转失败
-   - 检查 `ChatGPTConversationNavigation` 是否对未挂载目标执行有界、可取消、route-safe 的 materialization seek，并只在 exact identity 命中后成功
+   - 检查 `ChatGPTConversationNavigation` 是否对未挂载目标执行有界、可取消、projection-safe 的 materialization seek，并只在 exact identity 命中后成功；URL 文本本身不是取消边界
    - UI `chatgptDirectory/navigation.ts` 只负责命中后的视觉对齐，不得恢复第二套 selector 或 bookmark fallback
 5. 如果工具栏 Reader/书签映射漂移
-   - 检查 clicked element 是否通过 ConversationIndex 唯一解析为 canonical round；显式 element 无法映射时必须 fail closed
+   - 检查 clicked element 是否通过当前 Surface Materialization Port 唯一解析为 obtained turn；显式 element 无法映射时必须 fail closed
    - 不要为了兼容 ChatGPT 动态窗口修改 bookmark storage key/schema
 
 ## Related Documents

@@ -43,6 +43,9 @@ These documents record bounded refactor execution and closeout evidence. They do
   - frozen provider-neutral ChatGPT semantic content port V1
 - `src/contracts/conversationMaterialization.ts`
   - content-runtime-only typed DOM materialization port V1
+- `src/contracts/conversationSurface.ts`
+  - atomic ChatGPT page frame joining obtained content with pending, mounted,
+    assistant-only, and unmounted surface facts
 - `src/contracts/semanticContent.ts`
   - provider-neutral Semantic Content Module interface, immutable document model, source spans, selectors, and projections
 - `src/contracts/contentSurface.ts`
@@ -60,14 +63,16 @@ These documents record bounded refactor execution and closeout evidence. They do
 ### Decisions
 
 - `docs/adr/README.md`
-- `docs/adr/ADR-0017-chatgpt-baseline-and-host-tail-lifecycle.md`
-  - active ChatGPT lifecycle: one passive baseline, one shared Page Monitor,
-    stable DOM append into one consumable cache, and consumer convergence
+- `docs/adr/ADR-0018-chatgpt-identity-proven-single-content-pool.md`
+  - active ChatGPT lifecycle: page identity, optional structurally verified
+    passive GET evidence, stable typed DOM batches, one monotonic pool, and one
+    atomic Conversation Surface; the former Coordinator, Conversation Index,
+    and standalone Materialization projections are retired and deleted
 - `docs/adr/ADR-0011-semantic-content-and-surface-projection.md`
   - retained semantic/source-span and sole surface-to-source projection rules;
-    its source-only body rule is superseded by ADR-0017
+    its source-only body rule is superseded by ADR-0018
 
-ADR-0009 through ADR-0016 are historical inputs where ADR-0017 says they are
+ADR-0009 through ADR-0017 are historical inputs where ADR-0018 says they are
 superseded. They are not alternate current ChatGPT architectures.
 
 ### Style

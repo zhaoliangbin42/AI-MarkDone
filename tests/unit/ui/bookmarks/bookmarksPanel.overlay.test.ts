@@ -81,7 +81,27 @@ describe('BookmarksPanel overlay surface', () => {
 
         const panel = new BookmarksPanel(controller, { show: vi.fn(), hide: vi.fn() } as any);
         const adapter = new ChatGPTAdapter();
+        const conversationSurface = {
+            readFrame: () => ({
+                frameToken: 'frame:overlay-test',
+                surfaceToken: 'surface:overlay-test',
+                contentKind: 'idle',
+                document: null,
+                snapshot: null,
+                projectionId: null,
+                contentToken: null,
+                obtainedTurns: [],
+                pendingSurfaces: [],
+            }),
+            subscribeFrame: vi.fn((listener: (frame: unknown) => void) => {
+                listener(conversationSurface.readFrame());
+                return () => {};
+            }),
+            refreshSurface: vi.fn(),
+            materialization: {} as any,
+        };
         const stepper = new ChatGPTMessageStepperController(adapter, {
+            surface: conversationSurface,
             onOpenBookmarksPanel: () => panel.toggle(),
         });
         stepper.init();

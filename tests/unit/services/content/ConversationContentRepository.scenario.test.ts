@@ -7,6 +7,7 @@ import {
 } from '@/services/content/ConversationContentRepository';
 import {
     createConversationDocumentKeyV1,
+    createConversationPageDocumentKeyV1,
     type ConversationDocumentRefV1,
     type ConversationTurnV1,
 } from '@/contracts/conversationContent';
@@ -18,6 +19,16 @@ function document(conversationId: string): ConversationDocumentRefV1 {
         conversationId,
         title: `Conversation ${conversationId}`,
         canonicalUrl: `https://chatgpt.com/c/${conversationId}`,
+    };
+}
+
+function pageDocument(pageEpochId: string): ConversationDocumentRefV1 {
+    return {
+        key: createConversationPageDocumentKeyV1('chatgpt', pageEpochId),
+        platformId: 'chatgpt',
+        identityKind: 'page',
+        conversationId: null,
+        canonicalUrl: 'https://chatgpt.com/',
     };
 }
 
@@ -118,6 +129,21 @@ function deferred<T>(): {
 describe('ConversationContentRepository', () => {
     beforeEach(() => {
         vi.useFakeTimers();
+    });
+
+    it('stays idle when no page document is bound instead of treating the URL as an unsupported content route', async () => {
+        const readBaseline = vi.fn();
+        const repository = new ConversationContentRepository({
+            resolveDocument: () => null,
+            readBaseline,
+        });
+
+        expect(await repository.enterCurrentEpoch()).toEqual({
+            kind: 'idle',
+            document: null,
+            snapshot: null,
+        });
+        expect(readBaseline).not.toHaveBeenCalled();
     });
 
     it('keeps consumer refresh local and cannot start baseline admission', async () => {
@@ -224,25 +250,6 @@ describe('ConversationContentRepository', () => {
         expect(readBaseline).toHaveBeenCalledTimes(1);
     });
 
-    it('can resume after a page-scoped runtime disable', async () => {
-        const ref = document('conversation-resume');
-        const readBaseline = vi.fn(async () => candidate(ref));
-        const repository = new ConversationContentRepository({
-            resolveDocument: () => ref,
-            readBaseline,
-        });
-
-        await repository.enterCurrentEpoch();
-        repository.dispose();
-        expect(await repository.refresh()).toEqual(repository.read());
-        expect(readBaseline).toHaveBeenCalledTimes(1);
-
-        repository.resume();
-        await repository.refresh();
-        expect(readBaseline).toHaveBeenCalledTimes(1);
-        expect(repository.read().kind).toBe('ready');
-    });
-
     it('does not let a late old-epoch result overwrite a new document', async () => {
         let current: ConversationDocumentRefV1 | null = document('conversation-a');
         const pendingA = deferred<ConversationContentCandidateV1 | null>();
@@ -285,6 +292,311 @@ describe('ConversationContentRepository', () => {
         expect(repository.isCurrent('')).toBe(false);
     });
 
+    it('publishes a stable host message immediately when the canonical session has no baseline', () => {
+        const ref = document('conversation-host-first');
+        const readBaseline = vi.fn(async () => null);
+        const repository = new ConversationContentRepository({
+            resolveDocument: () => ref,
+            readBaseline,
+        });
+
+        const state = repository.ingestHostTurn({
+            turn: hostTurn(1, 'Rendered answer'),
+            semanticDigest: 'host-first',
+            captureId: 'host-first',
+            revision: 1,
+            predecessorAssistantMessageId: null,
+        });
+
+        expect(state.kind).toBe('ready');
+        if (state.kind !== 'ready') throw new Error('expected ready host snapshot');
+        expect(state.snapshot.proof).toEqual({ basis: 'host' });
+        expect(state.snapshot.turns.map((turn) => turn.assistantMarkdown)).toEqual(['Rendered answer']);
+        expect(readBaseline).not.toHaveBeenCalled();
+    });
+
+    it('publishes host content without a canonical id and promotes identity without rebuilding the pool', async () => {
+        const page = pageDocument('page-epoch-1');
+        const canonical = document('conversation-promoted-after-host');
+        let current: ConversationDocumentRefV1 = page;
+        const readBaseline = vi.fn(async () => null);
+        const repository = new ConversationContentRepository({
+            resolveDocument: () => current,
+            readBaseline,
+        });
+
+        expect(await repository.enterCurrentEpoch()).toMatchObject({
+            kind: 'syncing',
+            document: page,
+            snapshot: null,
+        });
+        expect(readBaseline).not.toHaveBeenCalled();
+
+        const hostReady = repository.ingestHostTurn({
+            turn: hostTurn(1, 'Rendered without route identity'),
+            semanticDigest: 'page-host-1',
+            captureId: 'page-host-1',
+            revision: 1,
+            predecessorAssistantMessageId: null,
+        });
+        expect(hostReady.kind).toBe('ready');
+        if (hostReady.kind !== 'ready') throw new Error('expected page-scoped host snapshot');
+        const projectionId = hostReady.snapshot.projectionId;
+        const contentToken = hostReady.snapshot.contentToken;
+        const pageTarget = {
+            documentKey: page.key,
+            turnId: 'turn-1',
+            userMessageId: 'user-1',
+            assistantMessageId: 'assistant-1',
+        };
+
+        current = canonical;
+        const promoted = await repository.enterCurrentEpoch();
+
+        expect(promoted.kind).toBe('ready');
+        if (promoted.kind !== 'ready') throw new Error('expected promoted host snapshot');
+        expect(promoted.document).toEqual(canonical);
+        expect(promoted.snapshot.projectionId).toBe(projectionId);
+        expect(promoted.snapshot.contentToken).toBe(contentToken);
+        expect(promoted.snapshot.turns.map((turn) => turn.assistantMarkdown)).toEqual([
+            'Rendered without route identity',
+        ]);
+        expect(repository.readTurn(pageTarget)).toMatchObject({
+            kind: 'ready',
+            contentToken,
+            turn: { assistantMarkdown: 'Rendered without route identity' },
+        });
+        expect(readBaseline).toHaveBeenCalledTimes(1);
+    });
+
+    it('publishes stable unbound host facts as soon as a canonical identity appears', () => {
+        const ref = document('conversation-bound-after-host');
+        let current: ConversationDocumentRefV1 | null = null;
+        const readBaseline = vi.fn(async () => null);
+        const repository = new ConversationContentRepository({
+            resolveDocument: () => current,
+            readBaseline,
+        });
+
+        repository.ingestHostTurn({
+            turn: hostTurn(1, 'Rendered before route binding'),
+            semanticDigest: 'unbound-host-1',
+            captureId: 'unbound-host-1',
+            revision: 1,
+            predecessorAssistantMessageId: null,
+        });
+        expect(repository.read().kind).toBe('idle');
+
+        current = ref;
+        repository.bindCurrentDocument();
+
+        const state = repository.read();
+        expect(state.kind).toBe('ready');
+        if (state.kind !== 'ready') throw new Error('expected bound host snapshot');
+        expect(state.document.key).toBe(ref.key);
+        expect(state.snapshot.proof).toEqual({ basis: 'host' });
+        expect(state.snapshot.turns[0]?.assistantMarkdown).toBe('Rendered before route binding');
+        expect(readBaseline).not.toHaveBeenCalled();
+    });
+
+    it('keeps a host-ready cache available when passive baseline admission fails', async () => {
+        const ref = document('conversation-host-baseline-failure');
+        const repository = new ConversationContentRepository({
+            resolveDocument: () => ref,
+            readBaseline: async () => null,
+        });
+        const hostReady = repository.ingestHostTurn({
+            turn: hostTurn(1, 'Rendered answer'),
+            semanticDigest: 'host-first',
+            captureId: 'host-first',
+            revision: 1,
+            predecessorAssistantMessageId: null,
+        });
+        if (hostReady.kind !== 'ready') throw new Error('expected ready host snapshot');
+
+        const afterFailure = await repository.enterCurrentEpoch();
+
+        expect(afterFailure.kind).toBe('ready');
+        if (afterFailure.kind !== 'ready') throw new Error('expected host cache to remain ready');
+        expect(afterFailure.snapshot.contentToken).toBe(hostReady.snapshot.contentToken);
+        expect(afterFailure.snapshot.turns[0]?.assistantMarkdown).toBe('Rendered answer');
+    });
+
+    it('adds only a verified historical prefix when the first baseline arrives after host messages', async () => {
+        const ref = document('conversation-late-prefix');
+        const readBaseline = vi.fn(async () => completeCandidate(ref, [
+            'Source answer 1',
+            'Source answer 2',
+            'Source answer 3',
+        ]));
+        const repository = new ConversationContentRepository({
+            resolveDocument: () => ref,
+            readBaseline,
+        });
+        repository.ingestHostTurn({
+            turn: hostTurn(2, 'Rendered answer 2'),
+            semanticDigest: 'host-2',
+            captureId: 'host-2',
+            revision: 1,
+            predecessorAssistantMessageId: null,
+        });
+        const hostReady = repository.ingestHostTurn({
+            turn: hostTurn(3, 'Rendered answer 3'),
+            semanticDigest: 'host-3',
+            captureId: 'host-3',
+            revision: 2,
+            predecessorAssistantMessageId: 'assistant-2',
+        });
+        if (hostReady.kind !== 'ready') throw new Error('expected host-ready projection');
+        const publishedTokens: string[] = [];
+        repository.subscribe((state) => {
+            if (state.kind === 'ready') publishedTokens.push(state.snapshot.contentToken);
+        });
+
+        const merged = await repository.enterCurrentEpoch();
+
+        expect(merged.kind).toBe('ready');
+        if (merged.kind !== 'ready') throw new Error('expected merged projection');
+        expect(merged.snapshot.proof).toEqual({ basis: 'hybrid' });
+        expect(merged.snapshot.turns.map((turn) => turn.assistantMarkdown)).toEqual([
+            'Source answer 1',
+            'Rendered answer 2',
+            'Rendered answer 3',
+        ]);
+        expect(merged.snapshot.turns.map((turn) => turn.ordinal)).toEqual([1, 2, 3]);
+        expect(merged.snapshot.contentToken).not.toBe(hostReady.snapshot.contentToken);
+        expect(new Set(publishedTokens)).toEqual(new Set([
+            hostReady.snapshot.contentToken,
+            merged.snapshot.contentToken,
+        ]));
+        expect(readBaseline).toHaveBeenCalledTimes(1);
+    });
+
+    it('ignores an unrelated late Graph and keeps the baseline gate open for a later overlap', async () => {
+        const ref = document('conversation-late-overlap');
+        const unrelatedBase = completeCandidate(ref, ['Unrelated source answer']);
+        const unrelated: ConversationContentCandidateV1 = {
+            ...unrelatedBase,
+            turns: [{
+                ...unrelatedBase.turns[0]!,
+                identity: {
+                    ...unrelatedBase.turns[0]!.identity,
+                    assistantMessageId: 'unrelated-assistant',
+                },
+            }],
+        };
+        const verified = completeCandidate(ref, ['Source answer 1', 'Source answer 2']);
+        const readBaseline = vi.fn()
+            .mockResolvedValueOnce(unrelated)
+            .mockResolvedValueOnce(verified);
+        const repository = new ConversationContentRepository({
+            resolveDocument: () => ref,
+            readBaseline,
+        });
+        const hostReady = repository.ingestHostTurn({
+            turn: hostTurn(2, 'Rendered answer 2'),
+            semanticDigest: 'host-2',
+            captureId: 'host-2',
+            revision: 1,
+            predecessorAssistantMessageId: null,
+        });
+        if (hostReady.kind !== 'ready') throw new Error('expected host-ready projection');
+
+        const unchanged = await repository.enterCurrentEpoch();
+        expect(unchanged.kind).toBe('ready');
+        if (unchanged.kind !== 'ready') throw new Error('expected host cache to remain ready');
+        expect(unchanged.snapshot.contentToken).toBe(hostReady.snapshot.contentToken);
+        expect(unchanged.snapshot.turns.map((turn) => turn.assistantMarkdown)).toEqual(['Rendered answer 2']);
+
+        repository.notifyBaselineCaptured();
+        await vi.advanceTimersByTimeAsync(150);
+
+        const merged = repository.read();
+        expect(merged.kind).toBe('ready');
+        if (merged.kind !== 'ready') throw new Error('expected verified late prefix');
+        expect(merged.snapshot.turns.map((turn) => turn.assistantMarkdown)).toEqual([
+            'Source answer 1',
+            'Rendered answer 2',
+        ]);
+        expect(readBaseline).toHaveBeenCalledTimes(2);
+    });
+
+    it('rejects a late Graph whose overlapping assistant ID has conflicting typed identity', async () => {
+        const ref = document('conversation-late-identity-conflict');
+        const source = completeCandidate(ref, ['Source answer 1', 'Source answer 2']);
+        const conflicting: ConversationContentCandidateV1 = {
+            ...source,
+            turns: source.turns.map((turn) => turn.identity.assistantMessageId === 'assistant-2'
+                ? {
+                    ...turn,
+                    identity: { ...turn.identity, userMessageId: 'different-user' },
+                }
+                : turn),
+        };
+        const repository = new ConversationContentRepository({
+            resolveDocument: () => ref,
+            readBaseline: async () => conflicting,
+        });
+        const hostReady = repository.ingestHostTurn({
+            turn: hostTurn(2, 'Rendered answer 2'),
+            semanticDigest: 'host-2',
+            captureId: 'host-2',
+            revision: 1,
+            predecessorAssistantMessageId: null,
+        });
+        if (hostReady.kind !== 'ready') throw new Error('expected host-ready projection');
+
+        const unchanged = await repository.enterCurrentEpoch();
+
+        expect(unchanged.kind).toBe('ready');
+        if (unchanged.kind !== 'ready') throw new Error('expected host cache to remain ready');
+        expect(unchanged.snapshot.contentToken).toBe(hostReady.snapshot.contentToken);
+        expect(unchanged.snapshot.turns).toHaveLength(1);
+        expect(unchanged.snapshot.proof).toEqual({ basis: 'host' });
+    });
+
+    it('publishes one snapshot for an initial stable host batch', () => {
+        const ref = document('conversation-host-batch');
+        const repository = new ConversationContentRepository({
+            resolveDocument: () => ref,
+            readBaseline: async () => null,
+        });
+        const readySnapshots: string[] = [];
+        repository.subscribe((state) => {
+            if (state.kind === 'ready') readySnapshots.push(state.snapshot.contentToken);
+        });
+
+        const ready = repository.ingestHostBatch([
+            {
+                turn: hostTurn(1, 'Rendered answer 1'),
+                semanticDigest: 'host-1',
+                captureId: 'host-1',
+                revision: 1,
+                predecessorAssistantMessageId: null,
+            },
+            {
+                turn: hostTurn(2, 'Rendered answer 2'),
+                semanticDigest: 'host-2',
+                captureId: 'host-2',
+                revision: 1,
+                predecessorAssistantMessageId: 'assistant-1',
+            },
+            {
+                turn: hostTurn(3, 'Rendered answer 3'),
+                semanticDigest: 'host-3',
+                captureId: 'host-3',
+                revision: 1,
+                predecessorAssistantMessageId: 'assistant-2',
+            },
+        ]);
+
+        expect(ready.kind).toBe('ready');
+        if (ready.kind !== 'ready') throw new Error('expected batched host projection');
+        expect(ready.snapshot.turns).toHaveLength(3);
+        expect(ready.snapshot.proof).toEqual({ basis: 'host' });
+        expect(readySnapshots).toEqual([ready.snapshot.contentToken]);
+    });
+
     it('publishes a complete baseline and appends a stable host turn to the same cache', async () => {
         const ref = document('conversation-coverage');
         const repository = new ConversationContentRepository({
@@ -303,7 +615,6 @@ describe('ConversationContentRepository', () => {
             captureId: 'host-turn-2',
             revision: 2,
             predecessorAssistantMessageId: 'assistant-1',
-            emptyProven: false,
         });
         expect(complete.kind).toBe('ready');
         if (complete.kind !== 'ready') throw new Error('expected complete ready state');
@@ -421,7 +732,6 @@ describe('ConversationContentRepository', () => {
             captureId: 'host-conflict',
             revision: 2,
             predecessorAssistantMessageId: null,
-            emptyProven: false,
         });
 
         expect(conflicted.kind).toBe('ready');
@@ -438,7 +748,7 @@ describe('ConversationContentRepository', () => {
         });
     });
 
-    it('keeps the baseline authoritative when a pre-route host fact conflicts with it', async () => {
+    it('keeps the first obtained host body when a late overlapping baseline differs', async () => {
         const ref = document('conversation-pending-prefix-conflict');
         let current: ConversationDocumentRefV1 | null = null;
         const repository = new ConversationContentRepository({
@@ -451,7 +761,6 @@ describe('ConversationContentRepository', () => {
             captureId: 'pending-conflict',
             revision: 1,
             predecessorAssistantMessageId: null,
-            emptyProven: false,
         });
 
         current = ref;
@@ -459,7 +768,8 @@ describe('ConversationContentRepository', () => {
 
         expect(state.kind).toBe('ready');
         if (state.kind !== 'ready') throw new Error('expected ready state');
-        expect(state.snapshot.turns[0]?.assistantMarkdown).toBe('Canonical baseline answer');
+        expect(state.snapshot.proof?.basis).toBe('hybrid');
+        expect(state.snapshot.turns[0]?.assistantMarkdown).toBe('Divergent rendered answer');
     });
 
     it('treats identical pre-route host and baseline bodies as idempotent across provenance', async () => {
@@ -475,7 +785,6 @@ describe('ConversationContentRepository', () => {
             captureId: 'pending-match',
             revision: 1,
             predecessorAssistantMessageId: null,
-            emptyProven: false,
         });
 
         current = ref;
@@ -483,7 +792,7 @@ describe('ConversationContentRepository', () => {
 
         expect(state.kind).toBe('ready');
         if (state.kind !== 'ready') throw new Error('expected ready state');
-        expect(state.snapshot.proof?.basis).toBe('source');
+        expect(state.snapshot.proof?.basis).toBe('hybrid');
         expect(state.snapshot.turns).toHaveLength(1);
         expect(state.snapshot.turns[0]?.assistantMarkdown).toBe('Answer 1');
     });
@@ -502,7 +811,6 @@ describe('ConversationContentRepository', () => {
             captureId: 'host-2',
             revision: 2,
             predecessorAssistantMessageId: 'assistant-1',
-            emptyProven: false,
         });
         const before = repository.ingestHostTurn({
             turn: hostTurn(3, 'Answer 3'),
@@ -510,7 +818,6 @@ describe('ConversationContentRepository', () => {
             captureId: 'host-3',
             revision: 3,
             predecessorAssistantMessageId: 'assistant-2',
-            emptyProven: false,
         });
         if (before.kind !== 'ready') throw new Error('expected hybrid projection');
 
@@ -528,7 +835,6 @@ describe('ConversationContentRepository', () => {
             captureId: 'host-3b',
             revision: 4,
             predecessorAssistantMessageId: 'assistant-2',
-            emptyProven: false,
         });
 
         expect(regenerated.kind).toBe('ready');
@@ -538,6 +844,43 @@ describe('ConversationContentRepository', () => {
             'assistant-1',
             'assistant-2',
             'assistant-3',
+        ]);
+    });
+
+    it('rejects an invalid atomic page replacement before changing the maintained pool', () => {
+        const ref = pageDocument('atomic-page-replacement');
+        const repository = new ConversationContentRepository({
+            resolveDocument: () => ref,
+            readBaseline: async () => null,
+        });
+        repository.ingestHostTurn({
+            turn: hostTurn(1, 'Answer 1'),
+            semanticDigest: 'atomic-page-old-1',
+            captureId: 'atomic-page-old-1',
+            revision: 1,
+            predecessorAssistantMessageId: null,
+        });
+        const before = repository.read();
+
+        const rejected = repository.replaceCurrentPageConversationHostBatch([{
+            turn: hostTurn(9, 'Invalid replacement'),
+            semanticDigest: 'atomic-page-invalid-9',
+            captureId: 'atomic-page-invalid-9',
+            revision: 2,
+            predecessorAssistantMessageId: 'assistant-missing',
+        }]);
+
+        expect(rejected).toBe(before);
+        const appended = repository.ingestHostTurn({
+            turn: hostTurn(2, 'Answer 2'),
+            semanticDigest: 'atomic-page-old-2',
+            captureId: 'atomic-page-old-2',
+            revision: 3,
+            predecessorAssistantMessageId: 'assistant-1',
+        });
+        expect(appended.snapshot?.turns.map((turn) => turn.identity.assistantMessageId)).toEqual([
+            'assistant-1',
+            'assistant-2',
         ]);
     });
 
@@ -564,7 +907,6 @@ describe('ConversationContentRepository', () => {
             captureId: 'historical-2b',
             revision: 2,
             predecessorAssistantMessageId: 'assistant-1',
-            emptyProven: false,
         });
 
         expect(conflicted.kind).toBe('ready');

@@ -107,7 +107,7 @@ Content runtime 共享同一份 TypeScript 源码，但浏览器对部分 Web AP
 当前长期规则：
 
 - `requestIdleCallback` / `cancelIdleCallback` 必须以 `window` 作为 receiver 调用。Firefox 对裸函数调用会执行 WebIDL receiver 校验，裸调用可能抛出 `called on an object that does not implement interface Window`，从而中断扫描调度、公式增量增强或其他延迟任务。
-- ChatGPT page bridge 的 request/response 在 Firefox 使用 JSON string `CustomEvent.detail`，Chrome/Chromium 使用 object detail；graph/generation capture 在两端都使用 JSON string detail。bridge 双端必须同时支持 object 与 string detail，浏览器差异只能停留在 transport encode/decode 层，不允许扩散到 Reader、Bookmark、Copy 或 ChatGPT snapshot 业务逻辑。
+- ChatGPT page bridge 的 request/response 在 Firefox 使用 JSON string `CustomEvent.detail`，Chrome/Chromium 使用 object detail；Graph capture 在两端都使用 JSON string detail。bridge 双端必须同时支持 object 与 string detail，浏览器差异只能停留在 transport encode/decode 层，不允许扩散到 Reader、Bookmark、Copy 或 ChatGPT snapshot 业务逻辑。Bridge 不观察 POST、generation stream 或 resource timing。
 - ChatGPT page bridge 只能被动观察宿主自身的 same-origin conversation `GET` 响应；不得读取 Cookie、Token、认证请求头，不得调用 session endpoint，也不得由扩展主动重放 conversation 请求。
 - ChatGPT 原子选区不做 Chrome/Firefox、Word 或 Office 版本分支，也不生成扩展自定义的富剪贴板 payload。`chatgptBehavior.atomicMarkdownCopyShortcut` 只允许 `none`、`mod-c` 或 `mod-shift-c`：`mod-c` 由一次 `keydown → copy` 意图驱动，`mod-shift-c` 由合法选区的用户手势直接写入 canonical Markdown，`none` 完全交还宿主。输入控件和非完整选区必须 fail-open；DevTools 抢占快捷键时允许浏览器优先处理，不保证扩展拦截。该入口不再创建反向 selection action，也不调用 programmatic native copy。单公式 MathML 资产复制继续由独立 capability detection 与 fallback 负责，不属于原子选区合同。
 - Shadow DOM 样式注入不得假设 `shadowRoot.adoptedStyleSheets` 在所有浏览器中都是普通数组。共享样式路径应先安全读取并验证必要数组能力；若读取、构造样式表、`replaceSync` 或重新赋值失败，必须降级到 root-scoped `<style data-aimd-style-id>` 注入。

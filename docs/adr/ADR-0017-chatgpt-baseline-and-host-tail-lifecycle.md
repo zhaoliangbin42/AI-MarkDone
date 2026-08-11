@@ -1,5 +1,11 @@
 # ADR-0017: ChatGPT baseline and append-only content cache
 
+## Status
+
+Superseded on 2026-08-10 by
+[ADR-0018](ADR-0018-chatgpt-identity-proven-single-content-pool.md). This file
+remains a historical record of the earlier source-first and birth-route model.
+
 ## Context
 
 ChatGPT's own conversation GET is the only practical way to recover a long,
@@ -160,10 +166,3 @@ The focused gate must cover:
 type-check`, `npm run perf:chatgpt`, `npm run build` and `git diff --check` are
 required. Installed Chrome and Firefox acceptance remain separate host-level
 evidence.
-
-## Status
-
-Accepted and implemented on 2026-08-10. This ADR is the current ChatGPT
-content-discovery decision. Earlier discovery ADRs remain historical records;
-where they describe a second repository, DOM-as-never-content, or consumer
-blocking state, this ADR supersedes them.

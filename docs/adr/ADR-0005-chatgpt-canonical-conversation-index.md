@@ -3,11 +3,12 @@
 ## Status
 
 Superseded by `ADR-0007-chatgpt-conversation-fact-reducer.md`, then by
-`ADR-0009-conversation-content-port-v1.md`, and finally by ADR-0017.
+`ADR-0009-conversation-content-port-v1.md`, ADR-0017, and finally ADR-0018.
 
 The decisions below describe the historical graph-baseline design. They are not
-the current implementation contract; ADR-0017 is authoritative for content
-discovery, semantic state, and consumer ownership.
+the current implementation contract; ADR-0018 is authoritative for content
+discovery, semantic state, page identity, and consumer ownership. The former
+Conversation Index implementation has been deleted.
 
 ## Context
 

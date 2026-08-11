@@ -28,7 +28,7 @@ describe('ChatGPT performance benchmark contract', () => {
 
         expect(source).toContain('PERF_CONVERSATION_ID');
         expect(source).toContain('createFixtureGraph(rounds)');
-        expect(source).toContain('window.fetch(`/backend-api/conversation/${conversationId}`)');
+        expect(source).toContain('window.fetch(`/api/runtime/conversation-state?conversation_id=${conversationId}`)');
         expect(source).toContain('The extension never initiates it.');
         expect(source).toContain('data-message-id="user-${index + 1}"');
         expect(source).toContain('data-message-id="assistant-${index + 1}"');

@@ -1,9 +1,11 @@
 # ADR-0015: ChatGPT directory uses the unified content source
 
-> Supersession note: ADR-0017 keeps the passive Graph as the once-only complete
-> history baseline, but permits compiler-verified stable DOM successors after
-> that baseline. DOM still cannot reconstruct missing history or trigger
-> extension network acquisition.
+## Status
+
+Superseded by ADR-0018. The passive Graph remains optional once-per-canonical-
+epoch evidence for hidden history, while stable typed DOM may establish or
+append to the one pool even before a canonical ID exists. Directory now
+consumes the atomic Conversation Surface rather than a standalone index.
 
 ## Context
 
@@ -73,9 +75,3 @@ complete history.
   local selection and annotation still require source-span proof. The
   materialization adapter maps currently mounted typed surfaces and may expose
   a pending toolbar anchor before content sealing.
-
-## Status
-
-Amended by ADR-0017 — the passive history baseline and directory source rules
-remain active, while the stable DOM tail now shares that same content seam.
-Installed-browser acceptance remains required.

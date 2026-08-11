@@ -7,8 +7,9 @@ import {
 } from '@/drivers/content/chatgpt/domConversationDiscovery';
 import { collectConversationTurnRefs } from '@/drivers/content/conversation/collectConversationTurnRefs';
 import { collectChatGPTRoundPositions } from '@/ui/content/chatgptDirectory/navigation';
-import { getChatGPTConversationIndex } from '@/drivers/content/chatgpt/ChatGPTConversationIndex';
+import { ChatGPTConversationSurface } from '@/drivers/content/chatgpt/ChatGPTConversationSurface';
 import { createConversationContentSource } from '../../../../helpers/chatgptContentFixtures';
+import { AIMD_CONVERSATION_SURFACE_CONSUMER_ATTRIBUTE } from '@/contracts/conversationSurface';
 
 function appendRound(index: number): void {
     const main = document.querySelector('main');
@@ -81,15 +82,17 @@ describe('ChatGPTPageIndex', () => {
                 assistantMessageId: 'assistant-1',
             }],
         } as const;
-        getChatGPTConversationIndex(adapter).bindConversationSource(
-            createConversationContentSource(snapshot),
-        );
-        const positions = collectChatGPTRoundPositions(adapter);
+        const surface = new ChatGPTConversationSurface({
+            adapter,
+            content: createConversationContentSource(snapshot),
+        });
+        const positions = collectChatGPTRoundPositions(surface);
 
         expect(secondTurns).toBe(firstTurns);
         expect(positions.map((position) => position.assistantRoot)).toEqual(
             firstTurns.map((turn) => turn.assistantRootEl),
         );
+        surface.dispose();
     });
 
     it('keeps user and assistant turn identities typed when their host ids differ', () => {
@@ -159,7 +162,7 @@ describe('ChatGPTPageIndex', () => {
                 <div class="z-0 flex"><button data-testid="copy-turn-action-button">Copy</button></div>
             </section>
         `;
-        getChatGPTConversationIndex(adapter).bindConversationSource(createConversationContentSource({
+        const surface = new ChatGPTConversationSurface({ adapter, content: createConversationContentSource({
             conversationId: '12345678-1234-1234-1234-123456789abc',
             revision: 1,
             proof: 'observed-graph' as const,
@@ -175,9 +178,9 @@ describe('ChatGPTPageIndex', () => {
                 userMessageId: 'user-14',
                 assistantMessageId: 'assistant-14',
             }],
-        }));
+        }) });
 
-        const positions = collectChatGPTRoundPositions(adapter);
+        const positions = collectChatGPTRoundPositions(surface);
         const range = positions[0];
         if (!range?.groupEls[0]) throw new Error('assistant-only Directory range is missing');
         range.groupEls[0].getBoundingClientRect = vi.fn(
@@ -189,6 +192,7 @@ describe('ChatGPTPageIndex', () => {
         expect(range.userAnchor).toBe(range.assistantRoot);
         expect(range.groupEls).toHaveLength(1);
         expect(resolveChatGPTActivePosition(positions, 240)).toBe(1);
+        surface.dispose();
     });
 
     it('pairs turns through persistent host slots when inner wrappers repeat the slot marker', () => {
@@ -408,6 +412,92 @@ describe('ChatGPTPageIndex', () => {
         unsubscribe();
     });
 
+    it('tracks generation start and completion across separate mutation batches', async () => {
+        const batches: Array<{
+            started: readonly string[];
+            completed: readonly string[];
+        }> = [];
+        const unsubscribe = getChatGPTPageIndex(adapter).subscribeObservations((batch) => {
+            batches.push({
+                started: batch.generationStartedAssistantMessageIds,
+                completed: batch.generationCompletedAssistantMessageIds,
+            });
+        });
+
+        document.body.insertAdjacentHTML('beforeend', '<button data-testid="stop-button">Stop</button>');
+        appendRound(2);
+        await deliverMutations();
+        document.querySelector('button[data-testid="stop-button"]')?.remove();
+        await deliverMutations();
+
+        expect(batches.some((batch) => batch.started.includes('assistant-2'))).toBe(true);
+        expect(batches.some((batch) => batch.completed.includes('assistant-2'))).toBe(true);
+        unsubscribe();
+    });
+
+    it('reports an assistant identity replacement inside the same mounted turn owner', async () => {
+        const replacements: Array<readonly {
+            previousAssistantMessageId: string;
+            nextAssistantMessageId: string;
+        }[]> = [];
+        const index = getChatGPTPageIndex(adapter);
+        index.getSnapshot();
+        const unsubscribe = index.subscribeObservations((batch) => {
+            replacements.push(batch.assistantIdentityReplacements);
+        });
+        const assistant = document.querySelector('[data-message-id="assistant-1"]');
+        if (!(assistant instanceof HTMLElement)) throw new Error('fixture assistant is missing');
+
+        assistant.setAttribute('data-message-id', 'assistant-1-regenerated');
+        await deliverMutations();
+
+        expect(replacements.flat()).toContainEqual({
+            previousAssistantMessageId: 'assistant-1',
+            nextAssistantMessageId: 'assistant-1-regenerated',
+        });
+        unsubscribe();
+    });
+
+    it('reports a content-root replacement without manufacturing generation facts', async () => {
+        const batches: Array<{
+            surfaceRebased: boolean;
+            started: readonly string[];
+            replacements: readonly unknown[];
+        }> = [];
+        const index = getChatGPTPageIndex(adapter);
+        index.getSnapshot();
+        const unsubscribe = index.subscribeObservations((batch) => {
+            batches.push({
+                surfaceRebased: batch.surfaceRebased,
+                started: batch.generationStartedAssistantMessageIds,
+                replacements: batch.assistantIdentityReplacements,
+            });
+        });
+        const replacement = document.createElement('main');
+        replacement.innerHTML = `
+            <section data-turn="user" data-turn-id="turn-replacement">
+                <div data-message-author-role="user" data-message-id="user-replacement">Prompt</div>
+            </section>
+            <section data-turn="assistant" data-turn-id="turn-replacement">
+                <div data-message-author-role="assistant" data-message-id="assistant-replacement">
+                    <div class="markdown prose">Answer</div>
+                </div>
+                <div><button data-testid="copy-turn-action-button">Copy</button></div>
+            </section>
+        `;
+
+        document.querySelector('main')!.replaceWith(replacement);
+        await deliverMutations();
+
+        expect(batches).toHaveLength(1);
+        expect(batches[0]).toMatchObject({
+            surfaceRebased: true,
+            started: [],
+            replacements: [],
+        });
+        unsubscribe();
+    });
+
     it('publishes typed host observation batches with an independent revision', async () => {
         const batches: Array<{ revision: number; kinds: readonly string[]; ids: readonly string[] }> = [];
         const unsubscribe = getChatGPTPageIndex(adapter).subscribeObservations((batch) => {
@@ -426,6 +516,42 @@ describe('ChatGPTPageIndex', () => {
         expect(batches[0]?.kinds).toContain('structure');
         expect(batches[0]?.ids).toContain('assistant-2');
         expect(getChatGPTPageIndex(adapter).getObservationRevision()).toBe(1);
+        unsubscribe();
+    });
+
+    it('attaches the current page URL and advances the surface epoch across route-bound host facts', async () => {
+        const batches: Array<{ pageUrl: string; surfaceEpoch: number }> = [];
+        const unsubscribe = getChatGPTPageIndex(adapter).subscribeObservations((batch) => {
+            batches.push({ pageUrl: batch.pageUrl, surfaceEpoch: batch.surfaceEpoch });
+        });
+
+        appendRound(2);
+        await deliverMutations();
+        window.history.replaceState({}, '', '/workspace/g/project/c/conv_ABC-12345678');
+        appendRound(3);
+        await deliverMutations();
+
+        expect(batches).toHaveLength(2);
+        expect(batches[0]?.pageUrl).toContain('/c/12345678-1234-1234-1234-123456789abc');
+        expect(batches[1]?.pageUrl).toContain('/workspace/g/project/c/conv_ABC-12345678');
+        expect(batches[1]!.surfaceEpoch).toBeGreaterThan(batches[0]!.surfaceEpoch);
+        unsubscribe();
+    });
+
+    it('keeps the surface epoch stable for query and hash changes on the same route', async () => {
+        const epochs: number[] = [];
+        const unsubscribe = getChatGPTPageIndex(adapter).subscribeObservations((batch) => {
+            epochs.push(batch.surfaceEpoch);
+        });
+
+        appendRound(2);
+        await deliverMutations();
+        window.history.replaceState({}, '', '/c/12345678-1234-1234-1234-123456789abc?model=test#latest');
+        appendRound(3);
+        await deliverMutations();
+
+        expect(epochs).toHaveLength(2);
+        expect(epochs[1]).toBe(epochs[0]);
         unsubscribe();
     });
 
@@ -481,7 +607,6 @@ describe('ChatGPTPageIndex', () => {
             const discoveryQueryCount = querySelectorAll.mock.calls.length;
 
             collectConversationTurnRefs(adapter);
-            collectChatGPTRoundPositions(adapter);
             adapter.getConversationGroupRefs();
 
             expect(firstTurns).toHaveLength(200);
@@ -507,6 +632,27 @@ describe('ChatGPTPageIndex', () => {
         await deliverMutations();
 
         expect(collectChatGPTDomRoundRefs(adapter)).toBe(first);
+    });
+
+    it('publishes removed extension consumers as Surface-only lifecycle without invalidating content', async () => {
+        const first = collectChatGPTDomRoundRefs(adapter);
+        const batches: Array<{ kinds: readonly string[] }> = [];
+        const unsubscribe = getChatGPTPageIndex(adapter).subscribeObservations((batch) => {
+            batches.push({ kinds: batch.kinds });
+        });
+        const consumer = document.createElement('div');
+        consumer.dataset.aimdRole = 'chatgpt-directory-rail';
+        consumer.setAttribute(AIMD_CONVERSATION_SURFACE_CONSUMER_ATTRIBUTE, '');
+        document.body.appendChild(consumer);
+        await deliverMutations();
+        batches.length = 0;
+
+        consumer.remove();
+        await deliverMutations();
+
+        expect(batches).toEqual([{ kinds: ['surface'] }]);
+        expect(collectChatGPTDomRoundRefs(adapter)).toBe(first);
+        unsubscribe();
     });
 
     it('invalidates for host attributes that can change message identity', async () => {
@@ -546,12 +692,12 @@ describe('ChatGPTPageIndex', () => {
         try {
             const firstSnapshot = collectChatGPTDomRoundRefs(adapter);
             const firstTurns = collectConversationTurnRefs(adapter);
-            const firstIndex = getChatGPTConversationIndex(adapter);
+            const firstIndex = getChatGPTPageIndex(adapter);
 
             adapter.dispose();
             const rebuiltSnapshot = collectChatGPTDomRoundRefs(adapter);
             const rebuiltTurns = collectConversationTurnRefs(adapter);
-            const rebuiltIndex = getChatGPTConversationIndex(adapter);
+            const rebuiltIndex = getChatGPTPageIndex(adapter);
 
             expect(disconnect).toHaveBeenCalled();
             expect(rebuiltSnapshot).not.toBe(firstSnapshot);

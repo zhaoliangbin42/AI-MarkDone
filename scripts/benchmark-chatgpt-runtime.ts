@@ -214,7 +214,10 @@ async function preparePage(context: BrowserContext, rounds: number): Promise<Pag
     await installHarness(page);
     await page.route('https://chatgpt.com/**', async (route) => {
         const url = new URL(route.request().url());
-        if (url.pathname === `/backend-api/conversation/${PERF_CONVERSATION_ID}`) {
+        if (
+            url.pathname === '/api/runtime/conversation-state'
+            && url.searchParams.get('conversation_id') === PERF_CONVERSATION_ID
+        ) {
             await route.fulfill({
                 status: 200,
                 contentType: 'application/json',
@@ -281,7 +284,7 @@ async function runRuntimeBenchmark(extensionPath: string, rounds: number, mutati
         // Exercise the production contract: this is a website-owned GET that
         // the page bridge observes passively. The extension never initiates it.
         await page.evaluate(async (conversationId) => {
-            const response = await window.fetch(`/backend-api/conversation/${conversationId}`);
+            const response = await window.fetch(`/api/runtime/conversation-state?conversation_id=${conversationId}`);
             if (!response.ok) throw new Error(`Fixture graph failed with ${response.status}`);
             await response.json();
         }, PERF_CONVERSATION_ID);

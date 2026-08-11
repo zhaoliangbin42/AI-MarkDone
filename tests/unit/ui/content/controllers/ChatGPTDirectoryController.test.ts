@@ -7,7 +7,8 @@ import { ChatGPTDirectoryController } from '@/ui/content/controllers/ChatGPTDire
 import { ChatGPTDirectoryRail } from '@/ui/content/chatgptDirectory/ChatGPTDirectoryRail';
 import { AIMD_VIEWPORT_RESIZE_IDLE_EVENT } from '@/ui/content/controllers/ViewportResizeSuspendController';
 import { setLocale } from '@/ui/content/components/i18n';
-import { getChatGPTConversationIndex } from '@/drivers/content/chatgpt/ChatGPTConversationIndex';
+import { ChatGPTConversationSurface } from '@/drivers/content/chatgpt/ChatGPTConversationSurface';
+import type { ConversationSurfacePortV1 } from '@/contracts/conversationSurface';
 import {
     createConversationContentSource,
     readyConversationState,
@@ -39,6 +40,9 @@ const detector: ThemeDetector = {
 };
 
 const DEFAULT_CONVERSATION_ID = '11111111-1111-1111-1111-111111111111';
+const directoryControllers = new Set<ChatGPTDirectoryController>();
+const directorySurfaces = new Set<ChatGPTConversationSurface>();
+const contentSourcesByAdapter = new WeakMap<SiteAdapter, ReturnType<typeof createConversationContentSource>>();
 
 class ChatGPTTestAdapter extends SiteAdapter {
     matches(): boolean { return true; }
@@ -158,17 +162,21 @@ function buildState(snapshot: any) {
 }
 
 function setCanonicalSnapshot(adapter: SiteAdapter, snapshot: ReturnType<typeof buildSnapshot> | null): void {
-    getChatGPTConversationIndex(adapter).bindConversationSource(
-        snapshot
-            ? createConversationContentSource(snapshot)
-            : createConversationContentSource({
-                kind: 'unavailable',
-                document: null,
-                snapshot: null,
-                reason: 'source-unavailable',
-                retryable: true,
-            }),
-    );
+    const next = snapshot
+        ? readyConversationState(snapshot)
+        : {
+            kind: 'unavailable' as const,
+            document: null,
+            snapshot: null,
+            reason: 'source-unavailable' as const,
+            retryable: true,
+        };
+    const existing = contentSourcesByAdapter.get(adapter);
+    if (existing) {
+        existing.publish(next);
+        return;
+    }
+    contentSourcesByAdapter.set(adapter, createConversationContentSource(next));
 }
 
 function createSourceFromEngine(engine: {
@@ -215,10 +223,33 @@ function createDirectoryController(
         subscribe: (listener: (state: ReturnType<typeof buildState>) => void) => () => void;
     },
     bookmarksState: ConstructorParameters<typeof ChatGPTDirectoryController>[1] = null,
-    contentOptions: ConstructorParameters<typeof ChatGPTDirectoryController>[2] = {},
+    contentOptions: {
+        surface?: ConversationSurfacePortV1;
+        navigation?: ConstructorParameters<typeof ChatGPTDirectoryController>[2]['navigation'];
+        materialization?: ConversationSurfacePortV1['materialization'];
+    } = {},
 ): ChatGPTDirectoryController {
-    getChatGPTConversationIndex(adapter).bindConversationSource(createSourceFromEngine(engine));
-    return new ChatGPTDirectoryController(adapter, bookmarksState, contentOptions);
+    const source = createSourceFromEngine(engine);
+    contentSourcesByAdapter.set(adapter, source);
+    const ownedSurface = contentOptions.surface
+        ? null
+        : new ChatGPTConversationSurface({ adapter, content: source });
+    if (ownedSurface) directorySurfaces.add(ownedSurface);
+    const baseSurface = contentOptions.surface ?? ownedSurface!;
+    const surface: ConversationSurfacePortV1 = contentOptions.materialization
+        ? {
+            readFrame: () => baseSurface.readFrame(),
+            subscribeFrame: (listener) => baseSurface.subscribeFrame(listener),
+            refreshSurface: () => baseSurface.refreshSurface(),
+            materialization: contentOptions.materialization,
+        }
+        : baseSurface;
+    const controller = new ChatGPTDirectoryController(adapter, bookmarksState, {
+        surface,
+        navigation: contentOptions.navigation,
+    });
+    directoryControllers.add(controller);
+    return controller;
 }
 
 function buildMaterializedRoundDom() {
@@ -271,6 +302,10 @@ describe('ChatGPTDirectoryController', () => {
     });
 
     afterEach(() => {
+        directoryControllers.forEach((controller) => controller.dispose());
+        directoryControllers.clear();
+        directorySurfaces.forEach((surface) => surface.dispose());
+        directorySurfaces.clear();
         vi.runOnlyPendingTimers();
         vi.useRealTimers();
         document.body.innerHTML = '';
@@ -297,7 +332,7 @@ describe('ChatGPTDirectoryController', () => {
         await vi.advanceTimersByTimeAsync(1000);
 
         expect(anchor.scrollIntoView).toHaveBeenCalledWith({ behavior: 'auto', block: 'start' });
-        expect(navigationMocks.highlightNavigationTarget).toHaveBeenCalledWith(anchor);
+        expect(navigationMocks.highlightNavigationTarget).not.toHaveBeenCalled();
         expect(navigationMocks.scrollToBookmarkTargetWithRetry).not.toHaveBeenCalled();
     });
 
@@ -353,7 +388,7 @@ describe('ChatGPTDirectoryController', () => {
 
         expect(targetSlot.scrollIntoView).toHaveBeenCalledTimes(1);
         expect(targetAnchorScroll).toHaveBeenCalledWith({ behavior: 'auto', block: 'start' });
-        expect(navigationMocks.highlightNavigationTarget).toHaveBeenCalledWith(document.getElementById('user-2'));
+        expect(navigationMocks.highlightNavigationTarget).not.toHaveBeenCalled();
         expect(navigationMocks.scrollToBookmarkTargetWithRetry).not.toHaveBeenCalled();
     });
 
@@ -379,7 +414,6 @@ describe('ChatGPTDirectoryController', () => {
         } as any;
         const engine = { subscribe: vi.fn(() => () => undefined) } as any;
         const controller = createDirectoryController(adapter, engine, null, {
-            contentSource: getChatGPTConversationIndex(adapter).getConversationSource(),
             materialization,
         });
 
@@ -858,10 +892,13 @@ describe('ChatGPTDirectoryController', () => {
         rail.dispose();
     });
 
-    it('hides the rail outside a canonical ChatGPT conversation route even when turn DOM is present', async () => {
+    it('shows Runtime-bound conversation content without re-parsing the page URL', async () => {
         window.history.replaceState({}, '', '/');
         const adapter = new ChatGPTTestAdapter();
-        const engine = { subscribe: vi.fn(() => () => undefined) } as any;
+        const engine = {
+            getState: vi.fn(() => buildState(buildSnapshot())),
+            subscribe: vi.fn(() => () => undefined),
+        } as any;
         const controller = createDirectoryController(adapter, engine);
 
         controller.init('light');
@@ -869,8 +906,8 @@ describe('ChatGPTDirectoryController', () => {
 
         const host = document.getElementById('aimd-chatgpt-directory-rail') as HTMLElement | null;
         const items = Array.from(host?.shadowRoot?.querySelectorAll<HTMLButtonElement>('.rail__item') ?? []);
-        expect(host?.style.display).toBe('none');
-        expect(items).toHaveLength(0);
+        expect(host?.style.display).not.toBe('none');
+        expect(items).toHaveLength(2);
     });
 
     it('mounts the host rail before semantic content becomes available', async () => {
@@ -891,6 +928,121 @@ describe('ChatGPTDirectoryController', () => {
         expect((host as HTMLElement | null)?.dataset.aimdRole).toBe('chatgpt-directory-rail');
 
         await Promise.resolve();
+        controller.dispose();
+    });
+
+    it('atomically reveals the rail and its rounds when unavailable content becomes ready', async () => {
+        const adapter = new ChatGPTTestAdapter();
+        const source = createConversationContentSource({
+            kind: 'unavailable',
+            document: null,
+            snapshot: null,
+            reason: 'source-unavailable',
+            retryable: true,
+        });
+        const surface = new ChatGPTConversationSurface({ adapter, content: source });
+        directorySurfaces.add(surface);
+        const controller = new ChatGPTDirectoryController(adapter, null, { surface });
+        directoryControllers.add(controller);
+
+        controller.init('light');
+        await Promise.resolve();
+
+        const host = document.getElementById('aimd-chatgpt-directory-rail') as HTMLElement;
+        expect(host.style.display).toBe('none');
+        expect(host.shadowRoot?.querySelectorAll('.rail__item')).toHaveLength(0);
+
+        source.publish(buildSnapshot());
+        await vi.advanceTimersByTimeAsync(150);
+
+        expect(host.style.display).not.toBe('none');
+        expect(host.shadowRoot?.querySelectorAll('.rail__item')).toHaveLength(2);
+        controller.dispose();
+    });
+
+    it('uses one Surface subscription to reveal page-scoped obtained turns', async () => {
+        const adapter = new ChatGPTTestAdapter();
+        const pageDocument = {
+            key: 'chatgpt:page:directory-surface',
+            platformId: 'chatgpt',
+            identityKind: 'page' as const,
+            conversationId: null,
+            canonicalUrl: 'https://chatgpt.com/',
+        };
+        const emptyFrame = {
+            frameToken: 'frame:empty',
+            surfaceToken: 'surface:empty',
+            contentKind: 'syncing' as const,
+            document: pageDocument,
+            snapshot: null,
+            projectionId: null,
+            contentToken: null,
+            obtainedTurns: [],
+            pendingSurfaces: [],
+        };
+        let frame: any = emptyFrame;
+        let listener: ((next: any) => void) | null = null;
+        const subscribeFrame = vi.fn((next: (value: any) => void) => {
+            listener = next;
+            next(frame);
+            return () => {
+                listener = null;
+            };
+        });
+        const surface = {
+            readFrame: () => frame,
+            subscribeFrame,
+            refreshSurface: vi.fn(),
+            materialization: {} as any,
+        };
+        const controller = new ChatGPTDirectoryController(adapter, null, { surface });
+        controller.init('light');
+
+        const host = document.getElementById('aimd-chatgpt-directory-rail') as HTMLElement;
+        expect(host.style.display).toBe('none');
+        frame = {
+            ...emptyFrame,
+            frameToken: 'frame:ready',
+            contentKind: 'ready',
+            projectionId: 'projection:1',
+            contentToken: 'content:1',
+            obtainedTurns: [1, 2].map((position) => ({
+                status: 'obtained',
+                target: {
+                    documentKey: pageDocument.key,
+                    turnId: `turn-${position}`,
+                    userMessageId: `user-${position}`,
+                    assistantMessageId: `assistant-${position}`,
+                },
+                turn: {
+                    key: `turn-${position}:assistant-${position}`,
+                    ordinal: position,
+                    identity: {
+                        turnId: `turn-${position}`,
+                        userMessageId: `user-${position}`,
+                        assistantMessageId: `assistant-${position}`,
+                    },
+                    userText: `Question ${position}`,
+                    assistantMarkdown: `Answer ${position}`,
+                },
+                materialization: null,
+            })),
+        };
+        listener?.(frame);
+        await vi.advanceTimersByTimeAsync(150);
+
+        expect(subscribeFrame).toHaveBeenCalledTimes(1);
+        expect(host.style.display).not.toBe('none');
+        expect(host.shadowRoot?.querySelectorAll('.rail__item')).toHaveLength(2);
+
+        controller.setEnabled(false);
+        expect(host.style.display).toBe('none');
+        expect(host.shadowRoot?.querySelectorAll('.rail__item')).toHaveLength(0);
+
+        controller.setEnabled(true);
+        await Promise.resolve();
+        expect(host.style.display).not.toBe('none');
+        expect(host.shadowRoot?.querySelectorAll('.rail__item')).toHaveLength(2);
         controller.dispose();
     });
 
@@ -1600,7 +1752,7 @@ describe('ChatGPTDirectoryController', () => {
         const controller = createDirectoryController(adapter, engine);
 
         try {
-            (controller as any).scheduleIndexRebuild('test');
+            (controller as any).scheduleFrameReconcile('test');
 
             expect(requestIdleCallback).toHaveBeenCalledTimes(1);
         } finally {

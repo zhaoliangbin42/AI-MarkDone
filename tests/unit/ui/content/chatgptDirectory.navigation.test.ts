@@ -1,7 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { SiteAdapter, type ConversationGroupRef, type ThemeDetector } from '@/drivers/content/adapters/base';
-import { getChatGPTConversationIndex } from '@/drivers/content/chatgpt/ChatGPTConversationIndex';
 import { invalidateChatGPTDomRoundSnapshot } from '@/drivers/content/chatgpt/domConversationDiscovery';
+import { ChatGPTConversationSurface } from '@/drivers/content/chatgpt/ChatGPTConversationSurface';
 import { createConversationContentSource } from '../../../helpers/chatgptContentFixtures';
 
 const navigationMocks = vi.hoisted(() => ({
@@ -129,11 +129,30 @@ function buildMaterializedRoundDom(): HTMLElement {
     return document.getElementById('user-1') as HTMLElement;
 }
 
+const surfacesByAdapter = new WeakMap<SiteAdapter, ChatGPTConversationSurface>();
+const sourcesByAdapter = new WeakMap<SiteAdapter, ReturnType<typeof createConversationContentSource>>();
+const ownedSurfaces = new Set<ChatGPTConversationSurface>();
+
 function setCanonicalSnapshot(
     adapter: SiteAdapter,
     snapshot: any,
-): void {
-    getChatGPTConversationIndex(adapter).bindConversationSource(createConversationContentSource(snapshot));
+): ChatGPTConversationSurface {
+    surfacesByAdapter.get(adapter)?.dispose();
+    const source = createConversationContentSource(snapshot);
+    const surface = new ChatGPTConversationSurface({
+        adapter,
+        content: source,
+    });
+    surfacesByAdapter.set(adapter, surface);
+    sourcesByAdapter.set(adapter, source);
+    ownedSurfaces.add(surface);
+    return surface;
+}
+
+function getSurface(adapter: SiteAdapter): ChatGPTConversationSurface {
+    const surface = surfacesByAdapter.get(adapter);
+    if (!surface) throw new Error('test Surface is missing');
+    return surface;
 }
 
 function publishCanonicalRounds(adapter: SiteAdapter, assistantMessageIds: string[]): void {
@@ -144,15 +163,37 @@ function publishCanonicalRounds(adapter: SiteAdapter, assistantMessageIds: strin
         branchKey: 'branch-test',
         capturedAt: Date.now(),
         rounds: assistantMessageIds.map((assistantMessageId, index) => ({
-            id: `canonical-round-${index + 1}`,
+            id: `group-${index + 1}`,
             position: index + 1,
             userPrompt: `Prompt ${index + 1}`,
             assistantContent: `Answer ${index + 1}`,
             preview: `Prompt ${index + 1}`,
             messageId: assistantMessageId,
-            userMessageId: null,
+            userMessageId: assistantMessageId.replace(/^a/, 'u'),
             assistantMessageId,
         })),
+    });
+}
+
+function publishDifferentProjection(adapter: SiteAdapter): void {
+    const source = sourcesByAdapter.get(adapter);
+    const current = source?.read();
+    if (!source || !current?.snapshot) throw new Error('test content source is missing');
+    const documentRef = {
+        ...current.snapshot.document,
+        key: 'chatgpt:conversation:other',
+        conversationId: 'other',
+        canonicalUrl: 'https://chatgpt.com/c/other',
+    } as const;
+    source.publish({
+        kind: 'ready',
+        document: documentRef,
+        snapshot: {
+            ...current.snapshot,
+            document: documentRef,
+            projectionId: 'projection:other',
+            contentToken: 'projection:other',
+        },
     });
 }
 
@@ -272,6 +313,26 @@ function attachTestScrollRoot(adapter: ChatGPTNavigationTestAdapter): HTMLElemen
 }
 
 describe('ChatGPT directory navigation', () => {
+    it('navigates directly from the Runtime Surface without a duplicate content projection', async () => {
+        const { navigateChatGPTDirectoryTarget } = await import('@/ui/content/chatgptDirectory/navigation');
+        const adapter = new ChatGPTNavigationTestAdapter();
+        mountRoleWindow([1]);
+        const source = createConversationContentSource(buildCanonicalSnapshot(1));
+        const surface = new ChatGPTConversationSurface({ adapter, content: source });
+        const anchor = document.getElementById('user-1');
+        if (!(anchor instanceof HTMLElement)) throw new Error('surface anchor is missing');
+        anchor.scrollIntoView = vi.fn();
+
+        const result = await navigateChatGPTDirectoryTarget(adapter, { position: 1 }, {
+            surface,
+            alignmentTimeoutMs: 0,
+        });
+
+        expect(result).toEqual({ ok: true });
+        expect(anchor.scrollIntoView).toHaveBeenCalledTimes(1);
+        surface.dispose();
+    });
+
     beforeEach(() => {
         vi.useFakeTimers();
         window.history.replaceState({}, '', '/c/12345678-1234-1234-1234-123456789abc');
@@ -282,6 +343,8 @@ describe('ChatGPT directory navigation', () => {
     });
 
     afterEach(() => {
+        ownedSurfaces.forEach((surface) => surface.dispose());
+        ownedSurfaces.clear();
         vi.runOnlyPendingTimers();
         vi.useRealTimers();
         document.body.innerHTML = '';
@@ -317,6 +380,7 @@ describe('ChatGPT directory navigation', () => {
         });
 
         const resultPromise = navigateChatGPTDirectoryTarget(adapter, { position: 1 }, {
+            surface: getSurface(adapter),
             alignmentTimeoutMs: 240,
             alignmentQuietMs: 40,
             alignmentTolerancePx: 8,
@@ -358,6 +422,7 @@ describe('ChatGPT directory navigation', () => {
         });
 
         const resultPromise = navigateChatGPTDirectoryTarget(adapter, { position: 1 }, {
+            surface: getSurface(adapter),
             alignmentTimeoutMs: 240,
             alignmentQuietMs: 40,
             alignmentTolerancePx: 8,
@@ -398,6 +463,7 @@ describe('ChatGPT directory navigation', () => {
         });
 
         const resultPromise = navigateChatGPTDirectoryTarget(adapter, { position: 1 }, {
+            surface: getSurface(adapter),
             alignmentTimeoutMs: 180,
             alignmentQuietMs: 40,
             alignmentTolerancePx: 8,
@@ -448,6 +514,7 @@ describe('ChatGPT directory navigation', () => {
             const observerCountBeforeNavigation = mutationObserverConstructor.mock.calls.length;
 
             const resultPromise = navigateChatGPTDirectoryTarget(adapter, { position: 1 }, {
+                surface: getSurface(adapter),
                 alignmentTimeoutMs: 160,
                 alignmentQuietMs: 40,
             });
@@ -476,9 +543,8 @@ describe('ChatGPT directory navigation', () => {
         });
 
         const resultPromise = navigateChatGPTDirectoryTarget(adapter, { position: 10 }, {
+            surface: getSurface(adapter),
             timeoutMs: 300,
-            intervalMs: 20,
-            maxSeekAttempts: 3,
             alignmentTimeoutMs: 0,
         });
         await vi.advanceTimersByTimeAsync(100);
@@ -509,9 +575,8 @@ describe('ChatGPT directory navigation', () => {
 
         try {
             const resultPromise = navigateChatGPTDirectoryTarget(adapter, { position: 10 }, {
+                surface: getSurface(adapter),
                 timeoutMs: 300,
-                intervalMs: 20,
-                maxSeekAttempts: 3,
                 alignmentTimeoutMs: 0,
             });
             await vi.advanceTimersByTimeAsync(100);
@@ -546,9 +611,8 @@ describe('ChatGPT directory navigation', () => {
         });
 
         const resultPromise = navigateChatGPTDirectoryTarget(adapter, { position: 2 }, {
+            surface: getSurface(adapter),
             timeoutMs: 500,
-            intervalMs: 20,
-            maxSeekAttempts: 8,
             alignmentTimeoutMs: 0,
         });
         await vi.advanceTimersByTimeAsync(520);
@@ -580,9 +644,8 @@ describe('ChatGPT directory navigation', () => {
         });
 
         const resultPromise = navigateChatGPTDirectoryTarget(adapter, { position: 10 }, {
+            surface: getSurface(adapter),
             timeoutMs: 300,
-            intervalMs: 20,
-            maxSeekAttempts: 3,
             alignmentTimeoutMs: 0,
         });
         await vi.advanceTimersByTimeAsync(100);
@@ -607,9 +670,8 @@ describe('ChatGPT directory navigation', () => {
         });
 
         const resultPromise = navigateChatGPTDirectoryTarget(adapter, { position: 3 }, {
+            surface: getSurface(adapter),
             timeoutMs: 300,
-            intervalMs: 20,
-            maxSeekAttempts: 3,
             alignmentTimeoutMs: 0,
         });
         await vi.advanceTimersByTimeAsync(100);
@@ -631,9 +693,8 @@ describe('ChatGPT directory navigation', () => {
         targetSlot.scrollIntoView = vi.fn();
 
         const resultPromise = navigateChatGPTDirectoryTarget(adapter, { position: 2 }, {
+            surface: getSurface(adapter),
             timeoutMs: 200,
-            intervalMs: 20,
-            maxSeekAttempts: 4,
             alignmentTimeoutMs: 0,
         });
         await vi.advanceTimersByTimeAsync(220);
@@ -660,9 +721,8 @@ describe('ChatGPT directory navigation', () => {
 
         try {
             const resultPromise = navigateChatGPTDirectoryTarget(adapter, { position: 100 }, {
+                surface: getSurface(adapter),
                 timeoutMs: 300,
-                intervalMs: 20,
-                maxSeekAttempts: 8,
                 alignmentTimeoutMs: 0,
             });
             await vi.advanceTimersByTimeAsync(100);
@@ -690,8 +750,8 @@ describe('ChatGPT directory navigation', () => {
         targetSlot.scrollIntoView = vi.fn();
 
         const resultPromise = navigateChatGPTDirectoryTarget(adapter, { position: 50 }, {
+            surface: getSurface(adapter),
             timeoutMs: 300,
-            intervalMs: 20,
         });
         await Promise.resolve();
         document.dispatchEvent(new WheelEvent('wheel', { bubbles: true }));
@@ -700,7 +760,7 @@ describe('ChatGPT directory navigation', () => {
         await expect(resultPromise).resolves.toEqual({ ok: false, message: 'Navigation cancelled' });
     });
 
-    it('cancels materialization when the conversation route changes', async () => {
+    it('cancels materialization when the Surface projection changes without relying on URL text', async () => {
         const { navigateChatGPTDirectoryTarget } = await import('@/ui/content/chatgptDirectory/navigation');
         window.history.replaceState({}, '', '/c/12345678-1234-1234-1234-123456789abc');
         const adapter = new ChatGPTNavigationTestAdapter();
@@ -711,17 +771,14 @@ describe('ChatGPT directory navigation', () => {
         targetSlot.scrollIntoView = vi.fn();
 
         const resultPromise = navigateChatGPTDirectoryTarget(adapter, { position: 50 }, {
+            surface: getSurface(adapter),
             timeoutMs: 300,
-            intervalMs: 20,
         });
         await Promise.resolve();
-        window.setTimeout(() => {
-            window.history.replaceState({}, '', '/c/aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee');
-            window.dispatchEvent(new PopStateEvent('popstate'));
-        }, 10);
+        window.setTimeout(() => publishDifferentProjection(adapter), 10);
         await vi.advanceTimersByTimeAsync(60);
 
-        await expect(resultPromise).resolves.toEqual({ ok: false, message: 'Conversation route changed' });
+        await expect(resultPromise).resolves.toEqual({ ok: false, message: 'Conversation changed' });
     });
 
     it('fails closed when bounded materialization never exposes the exact identity', async () => {
@@ -734,9 +791,8 @@ describe('ChatGPT directory navigation', () => {
         targetSlot.scrollIntoView = vi.fn();
 
         const resultPromise = navigateChatGPTDirectoryTarget(adapter, { position: 50 }, {
+            surface: getSurface(adapter),
             timeoutMs: 100,
-            intervalMs: 20,
-            maxSeekAttempts: 2,
         });
         await vi.advanceTimersByTimeAsync(120);
 
@@ -769,7 +825,7 @@ describe('ChatGPT directory navigation', () => {
         `;
         publishCanonicalRounds(adapter, ['a1a', 'a2']);
 
-        const positions = collectChatGPTRoundPositions(adapter);
+        const positions = collectChatGPTRoundPositions(getSurface(adapter));
 
         expect(positions).toHaveLength(2);
         expect(positions[0]?.position).toBe(1);

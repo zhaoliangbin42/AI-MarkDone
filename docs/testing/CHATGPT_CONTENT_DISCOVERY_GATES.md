@@ -1,87 +1,143 @@
 # ChatGPT Content Discovery Gates
 
-This file is the tracked acceptance contract for the active ChatGPT content
-discovery lifecycle. It records architecture facts and gate results only; it
-must not contain conversation text, cookies, authorization values, tokens, raw
-request headers, or raw Graph payloads.
+This file is the executable acceptance contract for the active ChatGPT content
+discovery lifecycle. It must not contain conversation text, cookies,
+authorization values, tokens, raw request headers, request bodies, or raw Graph
+payloads.
 
 ## Active contract
 
 The production lifecycle is defined by
-[ADR-0017](../adr/ADR-0017-chatgpt-baseline-and-host-tail-lifecycle.md):
+[ADR-0018](../adr/ADR-0018-chatgpt-identity-proven-single-content-pool.md):
 
-- one website-owned, passively observed complete Graph baseline per
-  conversation epoch;
-- one shared `ChatGPTPageIndex` observer for typed identity, lifecycle,
-  materialization and dirty-assistant signals;
-- one `ConversationContentRepository` cache. A message in the cache is
-  available to every consumer; streaming and compilation are internal timing
-  only;
-- stable new DOM turns are compiled once and appended to that cache. Existing
-  assistant identities are authoritative and duplicate DOM observations are
-  idempotent;
-- zero extension conversation GET/POST requests, no credential reads, no
-  generation-response body parsing, and no replay polling;
-- the existing Content Port and Materialization Port remain the only consumer
-  seams. Non-ChatGPT platforms keep their current discovery paths.
+- `ChatGPTConversationContentRuntime` is the only lifecycle owner. It handles
+  initial synchronization, PageIndex facts, page/canonical identity, valid
+  Graph captures, History `pushState`/`replaceState`, `popstate`, `hashchange`,
+  and `pageshow`; the content chain has no polling route watcher.
+- `ChatGPTPageIndex` is the only content-related DOM observer. It emits typed
+  rounds, current URL, surface epoch, completion/materialization facts, and
+  assistant-only remounts.
+- `ConversationContentRepository` is the only semantic message pool. A stable
+  DOM batch or one passive Graph may establish it; all consumers read the same
+  Content Port.
+- `ChatGPTConversationSurface` is the only production join of that pool and
+  current PageIndex facts. Directory, Toolbar and Stepper subscribe only to its
+  atomic Frame; the compatibility Materialization Port is projected from it.
+- The former Discovery Coordinator, Conversation Index, standalone
+  Conversation Materialization module, source-only V2 integration harness, and
+  their dedicated tests are absent. Governance fails if a consumer reintroduces
+  those projections or joins Content and PageIndex itself.
+- Removal of a marked extension-owned Directory, Stepper, or Toolbar host is a
+  Surface-only PageIndex fact. It must reattach through the same Frame without
+  another observer, content read, or content-token change. Character-stream
+  mutations must not rebuild Surface topology before stable commit.
+- A message has only two user meanings: not obtained, or obtained. Every
+  obtained body is dense and `complete`; streaming, debounce, compilation, and
+  retry are internal timing states.
+- The extension issues zero conversation GET/POST requests, observes no POST,
+  reads no request body or credentials, and never forces virtualization by
+  scrolling.
+
+## Identity and passive Graph proof
+
+- On the exact supported ChatGPT hosts, a canonical conversation route is a
+  safe token immediately following a semantic `c` or `conversation` path
+  segment at any depth. `/c/:id`, `/conversation/:id`,
+  `/g/.../c/:id`, and future equivalent prefixes use this one rule.
+- `/g/:gptId`, `/share/:id`, query-only identity, unsafe tokens, and a
+  URL-stable anonymous page are not canonical Conversation Documents. The
+  latter still has a non-persisted Runtime page identity for local content use.
+- An eligible baseline response must be a successful website-owned same-origin
+  `GET`; its decoded path/query tokens must contain the current canonical ID
+  exactly, and its Content-Type must be JSON.
+- Within at most four wrapper levels and 256 ordinary objects, the payload must
+  expose `mapping + current_node`. A payload identity, when present, must match;
+  active branch, parent chain, roles, message identities, and complete
+  user/assistant rounds must validate.
+- Endpoint names are not identity proof. Cross-origin requests, POST, SSE,
+  wrong IDs, deep wrappers, malformed branches, and Graph-shaped decoys are
+  ignored without changing website behavior.
+- The bridge reads only `response.clone()` and stores the latest valid evidence
+  in page memory. Chrome object transport and Firefox JSON-string transport
+  must yield the same repository behavior.
+
+## Pool admission rules
+
+- Graph first: one valid Graph establishes a `source/complete` pool and closes
+  the epoch gate. Later Graph captures and `refresh()` cannot change it.
+- DOM first: one stable, compiler-verified batch atomically establishes a
+  `host/complete` pool while the baseline gate remains open.
+- Graph after DOM: the first trustworthy Graph may add only unseen turns before
+  the first host turn when typed identity and order overlap exactly. Existing
+  Markdown, digest, and assistant identity are never overwritten. One accepted
+  prefix produces one snapshot and one content-token change, then closes the
+  gate.
+- A Graph with no overlap, conflicting identity, conflicting order, or arrival
+  after gate closure does not mutate the pool. Baseline failure never demotes a
+  host-ready pool.
+- The same assistant identity is idempotent. A new assistant identity appends
+  at the tail; uncertain ordering or one compiler failure defers only that
+  identity and leaves obtained messages available.
+- Before canonical identity, stable typed rounds publish against the Runtime's
+  page identity. Formal identity promotes the same projection without changing
+  bodies, projection ID or content token; canonical A→B immediately fences old
+  staging and old compiler results.
+- A same-URL id-less new conversation resets only after the old typed turns are
+  explicitly cleared and a later first-round generation-start fact appears. A root
+  replacement or virtualized unmount alone cannot clear the pool.
+- Virtualized unmount/remount changes only materialization. An assistant-only
+  surface can reconnect an already cached assistant but cannot invent a user
+  message or semantic body.
 
 ## Required scenarios
 
 | Scenario | Required evidence |
 |---|---|
-| Blank-page first turn | Full typed-DOM scan proves empty; `/` → temporary `/c/WEB:*` → canonical `/c/:id` binds the birth facts; one `host-born/complete` turn reaches the cache; the toolbar mounts with a numeric word count; the official action row and completed send state remain intact; zero extension acquisition |
-| Existing conversation | One complete passive Graph baseline; second/third/fourth turns append from stable DOM only; Reader, copy, bookmark, export and word-count counts agree |
-| Direct navigation to an existing conversation | DOM facts visible before route delivery cannot bypass the baseline; the canonical conversation waits for its one passive baseline |
-| Anonymous stable URL | Not currently supported or green; a page without `/c/<id>` or `/conversation/<id>` remains unavailable. A future page-session gate must seed observed DOM without treating URL shape or one empty virtualized window as identity |
-| Streaming pressure | 1,000 assistant mutations cause zero compile before the completion/quiet boundary and at most one compile after stability; no Bridge replay |
-| Closed baseline gate | Later same-conversation Graph captures and consumer `refresh()` do not read the Bridge again, change the cache token, or rebuild the cache |
-| Identity and page epochs | A→B→A, hard refresh, hash change, BFCache, root replacement and temporary `WEB` binding keep cache boundaries correct |
-| Virtualization | Unmount/remount preserves cached content, ordinal and token; a toolbar remounts once; a missing DOM predecessor may use the maintained cache tail |
-| Single-message retry | A compiler rejection or temporary DOM shell keeps only that assistant ID dirty; the next real host signal retries it without affecting cached messages |
-| Complex content | Formula/code/table use their validated semantic carriers; an unsupported embed or budget overflow affects only that turn and never invalidates the cache |
-| Browser parity | Chrome object and Firefox JSON bridge transports produce the same baseline admission and Content Port behavior |
+| Generic route matrix | `/c/:id`, `/conversation/:id`, `/g/.../c/:id`, arbitrary prefixes, mixed safe tokens, `/g/:gptId` rejection |
+| Generic passive baseline | Fixed and arbitrary GET paths/query locations admit the same valid Graph; cross-origin, POST, SSE, wrong identity, deep wrapper and pseudo-Graph fail closed |
+| DOM-first canonical conversation | With no Graph, one stable typed batch immediately yields `host/complete`; toolbar word count, Reader, copy, formula, bookmark and export consume it when canonical identity is present |
+| First turn without identity | One stable round immediately yields `host/complete`; toolbar numeric word count, Directory, Stepper, Reader, copy, formula and export work while bookmark save/remove is never called |
+| Identity promotion | A later formal ID preserves bodies, projection ID and content token, then re-enables the existing bookmark path without changing its data/protocol |
+| DOM first, Graph later | Only a verified historical prefix is prepended; existing bodies are byte-for-byte preserved; exactly one token update |
+| Invalid or failed baseline | No overlap, order/identity conflict, or baseline failure leaves the host-ready pool unchanged and still consumable |
+| Existing Graph-backed conversation | Baseline provides virtualized history; second/third/fourth completed DOM turns append once and every consumer count agrees |
+| Streaming pressure | 1,000 mutations compile zero times before completion/quiet and at most once after stability; no bridge replay and no content-only Surface topology scan |
+| Split hydration and completion | Persistent user/assistant slots may hydrate across separate mutation batches; action anchor, generation end, or a later typed round is a strong completion signal, while an otherwise complete turn uses one bounded 2-second quiet confirmation |
+| Tail order ambiguity | A unique mounted pool tail anchors append order; a generated candidate before it or beyond an unresolved round is deferred, while a generated tail can anchor to the cached tail when only older history is mounted |
+| Consumer host replacement | Removing a marked Directory rail, Stepper or message toolbar emits one Surface-only fact and reattaches the consumer with the same obtained content; official controls remain untouched |
+| URL-independent lifecycle | Stable DOM content continues to append when the URL is unchanged; URL/hash text alone neither resets the pool nor cancels navigation, while a changed Surface projection does |
+| Epoch fencing | `pushState`, `replaceState`, `popstate`, `hashchange`, A→B→A, hard refresh, BFCache/pageshow, root replacement and stale compiler completion never mix pools |
+| Same-URL id-less reset | Explicit old-turn clear plus a later first-round generation start atomically replaces the projection only after compilation; virtualization and root replacement alone preserve it |
+| Virtualization | Unmount/remount preserves content token and ordinal; assistant-only remount produces one toolbar and a numeric word count |
+| Complex content | Formula, code and table use canonical host Markdown through toolbar, Reader, local selection, bookmark and export entrypoints |
+| Browser parity | Chrome object and Firefox JSON transport produce equivalent baseline admission; both extension targets build |
 
-## Invariants
+## Consumer and safety invariants
 
-- Domain and route select the ChatGPT adapter and bind conversation identity;
-  they never prove that a page is empty.
-- The current route identity rule recognizes `/c/<id>`,
-  `/conversation/<id>`, and nested paths containing `/c/<id>` on the exact
-  ChatGPT page hosts. It does not recognize `/g/<id>`, `/share/<id>`,
-  query-only conversation IDs, or URL-stable anonymous pages. `/c/WEB:*` is a
-  temporary birth signal, not a canonical document identity.
-- Empty state is a typed-DOM fact. A canonical existing conversation always
-  waits for its baseline, even if a local DOM window is already mounted.
-- The cache publishes only `complete` snapshots. `partial` is not a content
-  state exposed to consumers; `syncing` and `unavailable` describe whether a
-  usable cache has been established.
-- `source`, `hybrid` and `host-born` are diagnostic basis values only. They do
-  not gate a message that is already in the cache.
-- A new assistant identity appends after the maintained cache tail. The same
-  identity is ignored after its first accepted body; the repository does not
-  rebuild history or perform suffix replacement.
-- If DOM order cannot yet be confirmed, only that new observation is deferred.
-  Existing cached messages remain consumable and the session does not become
-  stale.
-- One legal append publishes one atomic snapshot and one new `contentToken`.
-- Cached `host-rendered/normalized` whole turns may feed Reader, whole-message
-  copy, bookmark, word count and export. Precise local selection still needs
-  its own SurfaceProjection evidence; `stale-content` and `stale-surface` are
-  operation-level invalidation results, not cache states.
-- Pending Materialization is read-only for toolbar injection. The official
-  action row is touched only after exact `readTurn()` availability and a
-  non-streaming assistant, so the host page keeps ownership of its own action
-  state.
-- After the stable window there is no discovery timer, rescan, acquisition or
-  network activity until a real typed host, route, page or Bridge signal occurs.
-- “Complete” describes the maintained cache entry, not unseen history. A
-  future DOM-only page-session mode may guarantee only messages observed in the
-  current page runtime; complete historical recovery still requires the
-  website-owned Graph baseline.
+- `ConversationContentSourceV1` and `ConversationSurfacePortV1` are the only
+  production consumer seams. Directory, Toolbar and Stepper consume one Surface
+  Frame; Reader, whole-message copy, word count, formula and export consume the
+  same Content Port. None parse Graphs, rediscover body DOM, or infer content
+  availability from URL.
+- Without canonical ID/URL, bookmark actions are unavailable and make zero
+  save/remove calls. Promotion restores the existing bookmark chain; bookmark
+  types, protocol, storage, migrations and compatibility data remain unchanged.
+- Precise local Markdown selection joins a current Range to the canonical pool
+  through `SurfaceProjection`. A content/materialization/surface token change
+  fails open; the next user selection may establish fresh proof.
+- A pending surface cannot enable content-dependent toolbar actions or mutate
+  the official action row. Exact `readTurn()` availability, a connected
+  official action anchor, and a non-streaming assistant are required for the
+  obtained toolbar; the action anchor is not required for prior content-pool
+  admission. Official action and send state remain owned by ChatGPT.
+- `proof.basis` is diagnostic only: `source | hybrid | host`. `complete`
+  describes obtained messages, not hidden history that neither a trustworthy
+  Graph nor the DOM exposed.
+- No consumer may issue recovery requests, replay Bridge memory, read React
+  private stores, inspect credentials/request bodies, create a second content
+  repository, or add another content observer.
 
 ## Automated commands
-
-The closeout runs:
 
 ```text
 npm run test:chatgpt-discovery
@@ -94,37 +150,20 @@ npm run build
 git diff --check
 ```
 
-`npm run test:chatgpt-discovery` includes the Repository, retained compiler,
-bridge/adapter transport, PageIndex, Host Monitor, materialization,
-ConversationIndex, coordinator, Reader/export/bookmark and real toolbar
-trigger coverage. Performance success requires its assertions to pass;
-browser launch or zero long tasks alone is not a green gate.
+The focused gate includes route parsing, passive bridge transport, Adapter,
+Repository, PageIndex, Host Monitor, Conversation Surface and its compatibility
+Materialization projection, Reader/export/bookmark/selection consumers, the
+real Directory/Toolbar/Stepper lifecycles, and content-runtime composition.
+Performance success requires every assertion to pass; browser launch alone is
+not a green gate.
 
-## Current implementation evidence — 2026-08-10
+Installed Chrome acceptance must use the logged-in profile and cover ordinary
+`/c/...` plus `/g/.../c/...` pages without fabricating or replaying POST. A user
+must manually send any test prompt. Installed Firefox acceptance remains a
+separate manual gate; automated JSON transport and dual-target build evidence
+cannot be reported as installed-browser proof.
 
-- `npm run test:chatgpt-discovery`: passed, 27 files / 333 tests.
-- `npm run test:core`: passed, 280 files / 1,957 tests.
-- `npm run test:smoke`: passed, 7 files / 54 tests.
-- `npm run test:acceptance`: passed, 30 files / 317 tests.
-- `npm run type-check`: passed.
-- `npm run perf:chatgpt`: passed with 200/200 toolbars, zero duplicate action
-  rows, 200 streaming mutations and zero idle-phase mutations.
-- `npm run build`: passed for Chrome MV3 and Firefox MV2, including entry
-  format, passive ChatGPT boundary and bundle-size checks.
-- Anonymous URL-stable DOM-only discovery is not covered by the current green
-  evidence and must not be reported as supported until a page-session identity,
-  same-URL reset, virtualized remount, late-attach and real-browser matrix are
-  implemented and tested.
-- Installed-browser Chrome MV3 and Firefox MV2 acceptance remain a separate
-  manual gate and must be recorded independently from Vitest, performance and
-  build output.
-
-## Historical acceptance note — 2026-08-05
-
-The previous controlled Chrome context reached an ordinary conversation but did
-not load the local unpacked extension, and its isolated evaluation surface
-rejected page fetch/DOM injection. That attempt was indeterminate: it proved
-neither endpoint behavior nor installed-extension behavior. No token, cookie,
-authorization header, request body or conversation text was recorded. The
-previous active-acquisition and source-only conclusions are superseded by
-ADR-0017 and must not be used as current acceptance evidence.
+Extension re-enable mid-page, shared links, Temporary Chat, and complex
+historical branch replacement remain out of scope for this contract. URL-stable
+id-less conversations are in scope for page-local discovery and consumers, but
+not for bookmark persistence or cross-page navigation.

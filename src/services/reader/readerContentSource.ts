@@ -16,6 +16,7 @@ import type {
     ConversationTurnReadResultV1,
 } from '../../contracts/conversationDiscovery';
 import {
+    getConversationDocumentIdentityKeyV1,
     getConversationSnapshotSourceQualityV1,
     getConversationTurnSourceQualityV1,
     type ConversationSnapshotSourceQualityV1,
@@ -132,7 +133,7 @@ function buildConversationReaderContent(
         )),
         annotationDocument: {
             platform: 'chatgpt',
-            conversationId: snapshot.document.conversationId,
+            conversationId: getConversationDocumentIdentityKeyV1(snapshot.document),
             title: snapshot.document.title,
             lastKnownUrl: normalizedUrl,
         },
@@ -160,7 +161,7 @@ function buildConversationReaderItem(
             assistantMessageId: turn.identity.assistantMessageId,
             position: turn.ordinal,
             url: pageUrl,
-            bookmarkable: true,
+            bookmarkable: Boolean(document.conversationId),
             bookmarked: false,
             sourceQuality: getConversationTurnSourceQualityV1(turn),
         },
@@ -178,13 +179,13 @@ function directReaderItemForTarget(
     if (result.kind !== 'ready') return null;
     const state = source.read();
     const document = state.document;
-    if (!document || document.key !== target.documentKey) return null;
+    if (!document) return null;
     return {
         item: buildConversationReaderItem(result.turn, document, pageUrl),
         sourceRevision: {
             routeEpoch: 0,
             revision: 0,
-            conversationId: document.conversationId,
+            conversationId: getConversationDocumentIdentityKeyV1(document),
             contentToken: result.contentToken,
         },
     };
@@ -198,7 +199,7 @@ function getConversationContentRevision(
     return {
         routeEpoch: 0,
         revision: 0,
-        conversationId: snapshot.document.conversationId,
+        conversationId: getConversationDocumentIdentityKeyV1(snapshot.document),
         contentToken: snapshot.contentToken,
     };
 }

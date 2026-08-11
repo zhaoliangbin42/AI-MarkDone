@@ -1,8 +1,9 @@
 import type { SiteAdapter } from '../adapters/base';
-import {
-    getChatGPTConversationIndex,
-    type ChatGPTIndexedRound,
-} from './ChatGPTConversationIndex';
+import type {
+    ConversationObtainedSurfaceTurnV1,
+    ConversationSurfaceMaterializationV1,
+    ConversationSurfacePortV1,
+} from '../../../contracts/conversationSurface';
 import { collectChatGPTDomTurnSlots, invalidateChatGPTDomRoundSnapshot } from './domConversationDiscovery';
 import { releaseChatGPTSendPositionRestore } from './sendPositionRestoreEvents';
 
@@ -15,14 +16,22 @@ export type ChatGPTCanonicalNavigationTarget = {
 };
 
 export type ChatGPTMaterializationOptions = {
+    surface: ConversationSurfacePortV1;
     timeoutMs?: number;
-    intervalMs?: number;
-    maxSeekAttempts?: number;
     signal?: AbortSignal;
 };
 
+export type ChatGPTNavigationRound = Readonly<{
+    position: number;
+    messageId: string;
+    roundId: string;
+    userMessageId: string | null;
+    assistantMessageId: string;
+    materialization: ConversationSurfaceMaterializationV1 | null;
+}>;
+
 export type ChatGPTMaterializationResult =
-    | { ok: true; anchor: HTMLElement; indexedRound: ChatGPTIndexedRound }
+    | { ok: true; anchor: HTMLElement; round: ChatGPTNavigationRound }
     | { ok: false; message: string };
 
 function normalizeIdentity(value: string | null | undefined): string | null {
@@ -39,27 +48,27 @@ function hasExplicitIdentity(target: ChatGPTCanonicalNavigationTarget): boolean 
     );
 }
 
-function matchesTargetIdentity(round: ChatGPTIndexedRound, target: ChatGPTCanonicalNavigationTarget): boolean {
+function matchesTargetIdentity(round: ChatGPTNavigationRound, target: ChatGPTCanonicalNavigationTarget): boolean {
     const expectedRoundId = normalizeIdentity(target.roundId);
     const expectedUserMessageId = normalizeIdentity(target.userMessageId);
     const expectedAssistantMessageId = normalizeIdentity(target.assistantMessageId);
     const expectedMessageId = normalizeIdentity(target.messageId);
-    if (expectedRoundId && round.identity.roundId !== expectedRoundId) return false;
-    if (expectedUserMessageId && round.identity.userMessageId !== expectedUserMessageId) return false;
-    if (expectedAssistantMessageId && round.identity.assistantMessageId !== expectedAssistantMessageId) return false;
+    if (expectedRoundId && round.roundId !== expectedRoundId) return false;
+    if (expectedUserMessageId && round.userMessageId !== expectedUserMessageId) return false;
+    if (expectedAssistantMessageId && round.assistantMessageId !== expectedAssistantMessageId) return false;
     if (
         expectedMessageId
-        && normalizeIdentity(round.round.messageId) !== expectedMessageId
-        && round.identity.assistantMessageId !== expectedMessageId
+        && round.messageId !== expectedMessageId
+        && round.assistantMessageId !== expectedMessageId
     ) return false;
     return true;
 }
 
 export function resolveChatGPTCanonicalTarget(
-    adapter: SiteAdapter,
+    surface: ConversationSurfacePortV1,
     target: ChatGPTCanonicalNavigationTarget,
-): ChatGPTIndexedRound | null {
-    const rounds = getChatGPTConversationIndex(adapter).getRounds();
+): ChatGPTNavigationRound | null {
+    const rounds = readNavigationRounds(surface);
     if (hasExplicitIdentity(target)) {
         const matches = rounds.filter((round) => matchesTargetIdentity(round, target));
         return matches.length === 1 ? matches[0]! : null;
@@ -68,38 +77,38 @@ export function resolveChatGPTCanonicalTarget(
     return matches.length === 1 ? matches[0]! : null;
 }
 
-function toExactTarget(round: ChatGPTIndexedRound): ChatGPTCanonicalNavigationTarget {
+function toExactTarget(round: ChatGPTNavigationRound): ChatGPTCanonicalNavigationTarget {
     return {
         position: round.position,
-        messageId: round.round.messageId,
-        roundId: round.identity.roundId,
-        userMessageId: round.identity.userMessageId,
-        assistantMessageId: round.identity.assistantMessageId,
+        messageId: round.messageId,
+        roundId: round.roundId,
+        userMessageId: round.userMessageId,
+        assistantMessageId: round.assistantMessageId,
     };
 }
 
 type CanonicalSlotEntry = {
-    round: ChatGPTIndexedRound;
+    round: ChatGPTNavigationRound;
     role: 'user' | 'assistant';
     materializedEl: HTMLElement | null;
 };
 
 function resolveCanonicalHostSlot(
     adapter: SiteAdapter,
-    rounds: ChatGPTIndexedRound[],
-    target: ChatGPTIndexedRound,
+    rounds: ChatGPTNavigationRound[],
+    target: ChatGPTNavigationRound,
 ): HTMLElement | null {
     const sequence: CanonicalSlotEntry[] = [];
     for (const round of rounds) {
-        if (!round.identity.userMessageId || !round.identity.assistantMessageId) return null;
+        if (!round.userMessageId || !round.assistantMessageId) return null;
         sequence.push({
             round,
             role: 'user',
-            materializedEl: round.materialized?.userRootEl ?? null,
+            materializedEl: round.materialization?.userElement ?? null,
         }, {
             round,
             role: 'assistant',
-            materializedEl: round.materialized?.assistantRootEl ?? null,
+            materializedEl: round.materialization?.assistantElement ?? null,
         });
     }
 
@@ -133,9 +142,9 @@ function resolveCanonicalHostSlot(
         }
         return knownRoles.size === 0 || knownRoles.has(role);
     };
-    const targetUserMessageId = normalizeIdentity(target.identity.userMessageId);
-    const targetAssistantMessageId = normalizeIdentity(target.identity.assistantMessageId);
-    const targetRoundId = normalizeIdentity(target.identity.roundId);
+    const targetUserMessageId = normalizeIdentity(target.userMessageId);
+    const targetAssistantMessageId = normalizeIdentity(target.assistantMessageId);
+    const targetRoundId = normalizeIdentity(target.roundId);
     const identityCandidates: Array<{ id: string; role: 'user' | 'assistant' }> = [];
     if (targetUserMessageId) identityCandidates.push({ id: targetUserMessageId, role: 'user' });
     if (targetRoundId) identityCandidates.push({ id: targetRoundId, role: 'user' });
@@ -194,19 +203,21 @@ function resolveCanonicalHostSlot(
 export async function materializeChatGPTConversationTarget(
     adapter: SiteAdapter,
     target: ChatGPTCanonicalNavigationTarget,
-    options?: ChatGPTMaterializationOptions,
+    options: ChatGPTMaterializationOptions,
 ): Promise<ChatGPTMaterializationResult> {
-    const index = getChatGPTConversationIndex(adapter);
-    const canonicalTarget = resolveChatGPTCanonicalTarget(adapter, target);
+    const { surface } = options;
+    const readRounds = () => readNavigationRounds(surface);
+    const canonicalTarget = resolveChatGPTCanonicalTarget(surface, target);
     if (!canonicalTarget) return { ok: false, message: 'Canonical target unavailable' };
     const exactTarget = toExactTarget(canonicalTarget);
-    const mountedAnchor = canonicalTarget.materialized?.jumpAnchorEl;
+    const mountedAnchor = canonicalTarget.materialization?.jumpAnchorElement;
     if (mountedAnchor instanceof HTMLElement) {
-        return { ok: true, anchor: mountedAnchor, indexedRound: canonicalTarget };
+        return { ok: true, anchor: mountedAnchor, round: canonicalTarget };
     }
 
-    const timeoutMs = Math.max(1, Math.min(15_000, options?.timeoutMs ?? 15_000));
-    const routeAtStart = window.location.href;
+    const timeoutMs = Math.max(1, Math.min(15_000, options.timeoutMs ?? 15_000));
+    const projectionAtStart = surface.readFrame().projectionId;
+    const conversationBoundaryChanged = () => surface.readFrame().projectionId !== projectionAtStart;
     let abortedByUser = false;
     let cancelPending: (() => void) | null = null;
     const abortForUser = () => {
@@ -226,7 +237,10 @@ export async function materializeChatGPTConversationTarget(
             let unsubscribe: () => void = () => undefined;
             let coarseSlot: HTMLElement | null = null;
             let routeChangedPending: (() => void) | null = null;
-            const routeChanged = () => routeChangedPending?.();
+            const routeChanged = () => {
+                if (conversationBoundaryChanged()) routeChangedPending?.();
+                else check();
+            };
             const finish = (result: ChatGPTMaterializationResult) => {
                 if (settled) return;
                 settled = true;
@@ -239,28 +253,28 @@ export async function materializeChatGPTConversationTarget(
                 resolve(result);
             };
             cancelPending = () => finish({ ok: false, message: 'Navigation cancelled' });
-            routeChangedPending = () => finish({ ok: false, message: 'Conversation route changed' });
+            routeChangedPending = () => finish({ ok: false, message: 'Conversation changed' });
             window.addEventListener('popstate', routeChanged);
             window.addEventListener('hashchange', routeChanged);
             const check = () => {
-                if (abortedByUser || options?.signal?.aborted) {
+                if (abortedByUser || options.signal?.aborted) {
                     finish({ ok: false, message: 'Navigation cancelled' });
                     return;
                 }
-                if (window.location.href !== routeAtStart) {
-                    finish({ ok: false, message: 'Conversation route changed' });
+                if (conversationBoundaryChanged()) {
+                    finish({ ok: false, message: 'Conversation changed' });
                     return;
                 }
-                const currentTarget = resolveChatGPTCanonicalTarget(adapter, exactTarget);
+                const currentTarget = resolveChatGPTCanonicalTarget(surface, exactTarget);
                 if (!currentTarget) return;
-                const currentAnchor = currentTarget.materialized?.jumpAnchorEl;
+                const currentAnchor = currentTarget.materialization?.jumpAnchorElement;
                 if (currentAnchor instanceof HTMLElement) {
-                    finish({ ok: true, anchor: currentAnchor, indexedRound: currentTarget });
+                    finish({ ok: true, anchor: currentAnchor, round: currentTarget });
                     return;
                 }
                 if (coarseSlot?.isConnected) return;
                 coarseSlot = null;
-                const targetSlot = resolveCanonicalHostSlot(adapter, index.getRounds(), currentTarget);
+                const targetSlot = resolveCanonicalHostSlot(adapter, readRounds(), currentTarget);
                 if (!targetSlot || typeof targetSlot.scrollIntoView !== 'function') return;
                 coarseSlot = targetSlot;
                 targetSlot.scrollIntoView({ behavior: 'auto', block: 'start' });
@@ -269,11 +283,16 @@ export async function materializeChatGPTConversationTarget(
                 // immediate verification observes that replacement without
                 // introducing a polling loop.
                 invalidateChatGPTDomRoundSnapshot(adapter);
+                surface.refreshSurface();
                 check();
             };
-            unsubscribe = index.subscribe(check);
+            let subscribing = true;
+            unsubscribe = surface.subscribeFrame(() => {
+                if (!subscribing) check();
+            });
+            subscribing = false;
             timeoutId = window.setTimeout(() => finish({ ok: false, message: 'Conversation hydration timeout' }), timeoutMs);
-            options?.signal?.addEventListener('abort', () => finish({ ok: false, message: 'Navigation cancelled' }), { once: true });
+            options.signal?.addEventListener('abort', () => finish({ ok: false, message: 'Navigation cancelled' }), { once: true });
             check();
         });
     } finally {
@@ -282,4 +301,20 @@ export async function materializeChatGPTConversationTarget(
         }
     }
 
+}
+
+function readNavigationRounds(surface: ConversationSurfacePortV1): ChatGPTNavigationRound[] {
+    return surface.readFrame().obtainedTurns.map(toNavigationRound);
+}
+
+function toNavigationRound(entry: ConversationObtainedSurfaceTurnV1): ChatGPTNavigationRound {
+    const { turn, materialization } = entry;
+    return {
+        position: turn.ordinal,
+        messageId: turn.identity.assistantMessageId,
+        roundId: turn.identity.turnId,
+        userMessageId: turn.identity.userMessageId,
+        assistantMessageId: turn.identity.assistantMessageId,
+        materialization,
+    };
 }

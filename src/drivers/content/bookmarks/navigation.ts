@@ -4,8 +4,6 @@ import {
     scrollToConversationTargetWithRetry,
 } from '../conversation/navigation';
 import { highlightNavigationTarget } from '../conversation/highlight';
-import { materializeChatGPTConversationTarget } from '../chatgpt/ChatGPTConversationNavigation';
-import { releaseChatGPTSendPositionRestore } from '../chatgpt/sendPositionRestoreEvents';
 import { isChatGPTPageHostname } from '../../../contracts/chatgptHosts';
 
 const NAV_KEY = 'aimd:bookmarkNavigate:v1';
@@ -185,14 +183,6 @@ function buildBookmarkTargetLocators(target: BookmarkNavigationTarget): Array<{ 
     return locators;
 }
 
-function scrollElementIntoView(targetEl: HTMLElement, options?: { behavior?: ScrollBehavior; block?: ScrollLogicalPosition }): ScrollResult {
-    if (typeof targetEl.scrollIntoView !== 'function') return { ok: false, message: 'Scroll target unavailable' };
-    releaseChatGPTSendPositionRestore();
-    targetEl.scrollIntoView({ behavior: options?.behavior ?? 'smooth', block: options?.block ?? 'center' });
-    window.setTimeout(() => highlightNavigationTarget(targetEl), 100);
-    return { ok: true };
-}
-
 export function scrollToBookmarkTarget(adapter: SiteAdapter, target: BookmarkNavigationTarget): ScrollResult {
     const isChatGpt = adapter.getPlatformId?.() === 'chatgpt';
     if (isChatGpt) return { ok: false, message: 'Canonical async navigation required' };
@@ -216,12 +206,7 @@ export async function scrollToAssistantPositionWithRetry(
     options?: { timeoutMs?: number; intervalMs?: number; behavior?: ScrollBehavior; block?: ScrollLogicalPosition }
 ): Promise<ScrollResult> {
     if (adapter.getPlatformId?.() === 'chatgpt') {
-        const materialized = await materializeChatGPTConversationTarget(adapter, { position }, {
-            timeoutMs: options?.timeoutMs,
-            intervalMs: options?.intervalMs,
-        });
-        if (!materialized.ok) return materialized;
-        return scrollElementIntoView(materialized.anchor, options);
+        return { ok: false, message: 'Canonical navigation port required' };
     }
 
     const mapped = await scrollToConversationTargetWithRetry(adapter, { kind: 'legacyAssistantPosition', position }, options);
@@ -252,15 +237,7 @@ export async function scrollToBookmarkTargetWithRetry(
         block: options?.block ?? ('start' as ScrollLogicalPosition),
     };
     if (isChatGpt) {
-        const materialized = await materializeChatGPTConversationTarget(adapter, {
-            position: target.position,
-            messageId: normalizeMessageId(target.messageId),
-        }, {
-            timeoutMs: options?.timeoutMs,
-            intervalMs: options?.intervalMs,
-        });
-        if (!materialized.ok) return materialized;
-        return scrollElementIntoView(materialized.anchor, navOptions);
+        return { ok: false, message: 'Canonical navigation port required' };
     }
 
     const locators = buildBookmarkTargetLocators(target);

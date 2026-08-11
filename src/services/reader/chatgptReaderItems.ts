@@ -1,4 +1,5 @@
 import {
+    getConversationDocumentIdentityKeyV1,
     getConversationTurnSourceQualityV1,
     type ConversationSnapshotV1,
 } from '../../contracts/conversationContent';
@@ -99,7 +100,7 @@ export function buildChatGPTReaderContent(
             branchKey,
             position: turn.ordinal,
             url: normalizedUrl,
-            bookmarkable: true,
+            bookmarkable: Boolean(snapshot.document.conversationId),
             bookmarked: false,
             sourceQuality: getConversationTurnSourceQualityV1(turn),
         },
@@ -109,7 +110,7 @@ export function buildChatGPTReaderContent(
         items,
         annotationDocument: {
             platform: 'chatgpt',
-            conversationId: snapshot.document.conversationId,
+            conversationId: getConversationDocumentIdentityKeyV1(snapshot.document),
             title: snapshot.document.title ?? resolveConversationTitle(),
             lastKnownUrl: normalizedUrl,
         },

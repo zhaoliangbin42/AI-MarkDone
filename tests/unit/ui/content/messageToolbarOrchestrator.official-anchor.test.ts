@@ -1,8 +1,12 @@
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { MessageToolbarOrchestrator } from '@/ui/content/controllers/MessageToolbarOrchestrator';
-import { createConversationContentSource } from '../../../helpers/chatgptContentFixtures';
+import { afterEach, describe, expect, it, vi } from 'vitest';
+import type { ConversationContentStateV1 } from '@/contracts/conversationContent';
 import { SiteAdapter, type ThemeDetector } from '@/drivers/content/adapters/base';
-import { getChatGPTConversationIndex } from '@/drivers/content/chatgpt/ChatGPTConversationIndex';
+import { ChatGPTConversationSurface } from '@/drivers/content/chatgpt/ChatGPTConversationSurface';
+import { MessageToolbarOrchestrator } from '@/ui/content/controllers/MessageToolbarOrchestrator';
+import {
+    createConversationContentSource,
+    readyConversationState,
+} from '../../../helpers/chatgptContentFixtures';
 
 const detector: ThemeDetector = {
     detect: () => 'light',
@@ -12,525 +16,193 @@ const detector: ThemeDetector = {
 
 class FakeOfficialToolbarAdapter extends SiteAdapter {
     private streaming = false;
-    private injectFailuresRemaining = 0;
 
-    matches(): boolean {
-        return true;
-    }
-
-    getPlatformId(): string {
-        return 'chatgpt';
-    }
-
-    getThemeDetector(): ThemeDetector {
-        return detector;
-    }
-
-    extractUserPrompt(): string | null {
-        return 'Prompt';
-    }
-
-    getMessageSelector(): string {
-        return '.assistant-message';
-    }
-
-    getMessageContentSelector(): string {
-        return '.content';
-    }
-
-    getActionBarSelector(): string {
-        return '.official-toolbar';
-    }
-
+    matches(): boolean { return true; }
+    getPlatformId(): string { return 'chatgpt'; }
+    getThemeDetector(): ThemeDetector { return detector; }
+    extractUserPrompt(): string | null { return 'Prompt'; }
+    getMessageSelector(): string { return '.assistant-message'; }
+    getMessageContentSelector(): string { return '.content'; }
+    getActionBarSelector(): string { return '.official-toolbar'; }
     getToolbarAnchorElement(messageElement: HTMLElement): HTMLElement | null {
         const actionBar = messageElement.querySelector('.official-toolbar');
         return actionBar instanceof HTMLElement ? actionBar : null;
     }
-
     injectToolbar(messageElement: HTMLElement, toolbarHost: HTMLElement): boolean {
-        if (this.injectFailuresRemaining > 0) {
-            this.injectFailuresRemaining -= 1;
-            return false;
-        }
         const anchor = this.getToolbarAnchorElement(messageElement);
         if (!anchor) return false;
-        toolbarHost.dataset.aimdPlacement = 'actionbar';
-        toolbarHost.setAttribute('data-aimd-role', 'message-toolbar');
         anchor.appendChild(toolbarHost);
         return true;
     }
-
-    isStreamingMessage(): boolean {
-        return this.streaming;
-    }
-
+    isStreamingMessage(): boolean { return this.streaming; }
     getMessageId(messageElement: HTMLElement): string | null {
         return messageElement.getAttribute('data-message-id');
     }
-
-    getObserverContainer(): HTMLElement | null {
-        return document.body;
-    }
-
-    setStreaming(streaming: boolean): void {
-        this.streaming = streaming;
-    }
-
-    failNextInjections(count: number): void {
-        this.injectFailuresRemaining = count;
-    }
+    getObserverContainer(): HTMLElement | null { return document.body; }
+    setStreaming(streaming: boolean): void { this.streaming = streaming; }
 }
 
-function getToolbarCount(root: ParentNode = document): number {
-    return root.querySelectorAll('[data-aimd-role="message-toolbar"]').length;
+const SNAPSHOT = {
+    conversationId: 'conv-1',
+    revision: 1,
+    rounds: [{
+        id: 'round-1',
+        position: 1,
+        userPrompt: 'Prompt',
+        assistantContent: 'First complete answer',
+        preview: 'Prompt',
+        messageId: 'm1',
+        userMessageId: 'u1',
+        assistantMessageId: 'm1',
+    }],
+};
+
+type Harness = {
+    adapter: FakeOfficialToolbarAdapter;
+    source: ReturnType<typeof createConversationContentSource>;
+    surface: ChatGPTConversationSurface;
+    orchestrator: MessageToolbarOrchestrator;
+};
+
+const harnesses = new Set<Harness>();
+
+function renderTurn(options: { officialToolbar?: boolean; stopButton?: boolean } = {}): void {
+    document.body.innerHTML = `
+      <main>
+        <article data-turn="user" data-turn-id="round-1">
+          <div data-message-author-role="user" data-message-id="u1">Prompt</div>
+        </article>
+        <article data-turn="assistant" data-turn-id="assistant-turn-1">
+          <div class="assistant-message" data-message-author-role="assistant" data-message-id="m1">
+            <div class="content">First complete answer</div>
+            ${options.officialToolbar === false ? '' : '<div class="official-toolbar"><button data-testid="copy-turn-action-button">Copy</button></div>'}
+          </div>
+        </article>
+      </main>
+      ${options.stopButton ? '<button data-testid="stop-button">Stop</button>' : ''}
+    `;
 }
 
-describe('MessageToolbarOrchestrator official-anchor sync', () => {
-    beforeEach(() => {
-        document.body.innerHTML = '';
+function createHarness(initial?: ConversationContentStateV1): Harness {
+    const adapter = new FakeOfficialToolbarAdapter();
+    const source = createConversationContentSource(initial ?? SNAPSHOT);
+    const surface = new ChatGPTConversationSurface({ adapter, content: source });
+    const orchestrator = new MessageToolbarOrchestrator(adapter, {
+        readerPanel: { setTheme() {}, show: async () => undefined } as any,
+        conversationContentSource: source,
+        conversationMaterialization: surface.materialization,
+        conversationSurface: surface,
     });
+    const harness = { adapter, source, surface, orchestrator };
+    harnesses.add(harness);
+    return harness;
+}
 
+function toolbarHosts(): NodeListOf<HTMLElement> {
+    return document.querySelectorAll<HTMLElement>('[data-aimd-role="message-toolbar"]');
+}
+
+describe('MessageToolbarOrchestrator Surface-driven official toolbar lifecycle', () => {
     afterEach(() => {
+        for (const harness of harnesses) {
+            harness.orchestrator.dispose();
+            harness.surface.dispose();
+            harness.adapter.dispose?.();
+        }
+        harnesses.clear();
+        document.body.innerHTML = '';
         vi.useRealTimers();
     });
 
-    it('does not inject for messages whose official toolbar is absent', () => {
-        document.body.innerHTML = `
-          <div class="assistant-message" data-message-id="m1">
-            <div class="content">First</div>
-            <div class="official-toolbar"><button>copy</button></div>
-          </div>
-          <div class="assistant-message" data-message-id="m2">
-            <div class="content">Second</div>
-          </div>
-        `;
+    it('waits for the official action row and injects once when PageIndex observes it', async () => {
+        renderTurn({ officialToolbar: false });
+        const { orchestrator } = createHarness();
+        orchestrator.init();
 
-        const adapter = new FakeOfficialToolbarAdapter();
-        const readerPanel = { setTheme() {}, show: async () => undefined } as any;
-        const orchestrator = new MessageToolbarOrchestrator(adapter, { readerPanel });
-        orchestrator.setBehaviorFlags({ showWordCount: false, showSaveMessages: false });
+        expect(toolbarHosts()).toHaveLength(0);
 
-        (orchestrator as any).scanAndInject();
+        const message = document.querySelector('.assistant-message');
+        if (!(message instanceof HTMLElement)) throw new Error('assistant fixture is missing');
+        message.insertAdjacentHTML(
+            'beforeend',
+            '<div class="official-toolbar"><button data-testid="copy-turn-action-button">Copy</button></div>',
+        );
 
-        const first = document.querySelector('[data-message-id="m1"] .official-toolbar') as HTMLElement;
-        const second = document.querySelector('[data-message-id="m2"]') as HTMLElement;
-
-        expect(first.querySelectorAll('[data-aimd-role="message-toolbar"]')).toHaveLength(1);
-        expect(second.querySelectorAll('[data-aimd-role="message-toolbar"]')).toHaveLength(0);
-        expect(getToolbarCount()).toBe(1);
+        await vi.waitFor(() => expect(toolbarHosts()).toHaveLength(1));
+        expect(document.querySelectorAll('[data-testid="copy-turn-action-button"]')).toHaveLength(1);
     });
 
-    it('clears existing message toolbars and stops injection when the master toolbar setting is disabled', () => {
-        document.body.innerHTML = `
-          <div class="assistant-message" data-message-id="m1">
-            <div class="content">First</div>
-            <div class="official-toolbar"><button>copy</button></div>
-          </div>
-          <div class="assistant-message" data-message-id="m2">
-            <div class="content">Second</div>
-            <div class="official-toolbar"><button>copy</button></div>
-          </div>
-        `;
-
-        const adapter = new FakeOfficialToolbarAdapter();
-        const readerPanel = { setTheme() {}, show: async () => undefined } as any;
-        const orchestrator = new MessageToolbarOrchestrator(adapter, { readerPanel });
-        orchestrator.setBehaviorFlags({ showWordCount: false, showSaveMessages: false });
-
-        (orchestrator as any).scanAndInject(new Set(['init']));
-        expect(getToolbarCount()).toBe(2);
+    it('removes only extension UI when the toolbar feature is disabled', async () => {
+        renderTurn();
+        const { orchestrator } = createHarness();
+        orchestrator.init();
+        await vi.waitFor(() => expect(toolbarHosts()).toHaveLength(1));
 
         orchestrator.setBehaviorFlags({ showMessageToolbar: false });
-        expect(getToolbarCount()).toBe(0);
 
-        (orchestrator as any).scanAndInject(new Set(['mutation']));
-        expect(getToolbarCount()).toBe(0);
+        expect(toolbarHosts()).toHaveLength(0);
+        expect(document.querySelectorAll('[data-testid="copy-turn-action-button"]')).toHaveLength(1);
+        expect(document.querySelector('.official-toolbar')).toBeTruthy();
     });
 
-    it('injects once when the official toolbar appears through an action-bar mutation without a full rescan', () => {
-        document.body.innerHTML = `
-          <div class="assistant-message" data-message-id="m1">
-            <div class="content">First</div>
-          </div>
-        `;
+    it('repairs a removed extension host through the shared PageIndex without duplicating it', async () => {
+        renderTurn();
+        const { orchestrator } = createHarness();
+        orchestrator.init();
+        await vi.waitFor(() => expect(toolbarHosts()).toHaveLength(1));
 
-        const adapter = new FakeOfficialToolbarAdapter();
-        const readerPanel = { setTheme() {}, show: async () => undefined } as any;
-        const orchestrator = new MessageToolbarOrchestrator(adapter, { readerPanel });
-        orchestrator.setBehaviorFlags({ showWordCount: false, showSaveMessages: false });
+        toolbarHosts()[0]?.remove();
 
-        (orchestrator as any).scanAndInject();
-        expect(getToolbarCount()).toBe(0);
-
-        const message = document.querySelector('[data-message-id="m1"]') as HTMLElement;
-        const actionBar = document.createElement('div');
-        actionBar.className = 'official-toolbar';
-        actionBar.appendChild(document.createElement('button'));
-        message.appendChild(actionBar);
-
-        const fullScanSpy = vi.spyOn(orchestrator as any, 'buildFullScanSnapshot');
-
-        (orchestrator as any).handleObservedMutations([
-            {
-                addedNodes: [actionBar],
-                removedNodes: [],
-            },
-        ]);
-        (orchestrator as any).scanAndInject(new Set(['mutation']));
-
-        expect(fullScanSpy).not.toHaveBeenCalled();
-        expect(actionBar.querySelectorAll('[data-aimd-role="message-toolbar"]')).toHaveLength(1);
-        expect(getToolbarCount()).toBe(1);
+        await vi.waitFor(() => expect(toolbarHosts()).toHaveLength(1));
+        expect(document.querySelectorAll('[data-testid="copy-turn-action-button"]')).toHaveLength(1);
     });
 
-    it('rebuilds only the affected toolbar when the official toolbar rehydrates', () => {
-        document.body.innerHTML = `
-          <div class="assistant-message" data-message-id="m1">
-            <div class="content">First</div>
-            <div class="official-toolbar"><button>copy</button></div>
-          </div>
-        `;
+    it('follows an official action-row replacement and never removes host controls', async () => {
+        renderTurn();
+        const { orchestrator } = createHarness();
+        orchestrator.init();
+        await vi.waitFor(() => expect(toolbarHosts()).toHaveLength(1));
 
-        const adapter = new FakeOfficialToolbarAdapter();
-        const readerPanel = { setTheme() {}, show: async () => undefined } as any;
-        const orchestrator = new MessageToolbarOrchestrator(adapter, { readerPanel });
-        orchestrator.setBehaviorFlags({ showWordCount: false, showSaveMessages: false });
+        const previous = document.querySelector('.official-toolbar');
+        if (!(previous instanceof HTMLElement)) throw new Error('official toolbar fixture is missing');
+        const replacement = document.createElement('div');
+        replacement.className = 'official-toolbar';
+        replacement.innerHTML = '<button data-testid="copy-turn-action-button">Copy replacement</button>';
+        previous.replaceWith(replacement);
 
-        (orchestrator as any).scanAndInject(new Set(['init']));
-        expect(getToolbarCount()).toBe(1);
-
-        const message = document.querySelector('[data-message-id="m1"]') as HTMLElement;
-        const oldActionBar = message.querySelector('.official-toolbar') as HTMLElement;
-        oldActionBar.remove();
-
-        (orchestrator as any).handleObservedMutations([{
-            target: message,
-            addedNodes: [],
-            removedNodes: [oldActionBar],
-        }]);
-        (orchestrator as any).scanAndInject(new Set(['mutation']));
-        expect(getToolbarCount()).toBe(0);
-
-        const fullScanSpy = vi.spyOn(orchestrator as any, 'buildFullScanSnapshot');
-        const nextActionBar = document.createElement('div');
-        nextActionBar.className = 'official-toolbar';
-        nextActionBar.appendChild(document.createElement('button'));
-        message.appendChild(nextActionBar);
-
-        (orchestrator as any).handleObservedMutations([
-            {
-                addedNodes: [nextActionBar],
-                removedNodes: [],
-            },
-        ]);
-        (orchestrator as any).scanAndInject(new Set(['mutation']));
-
-        expect(fullScanSpy).not.toHaveBeenCalled();
-        expect(nextActionBar.querySelectorAll('[data-aimd-role="message-toolbar"]')).toHaveLength(1);
-        expect(getToolbarCount()).toBe(1);
-    });
-
-    it('rebuilds a stale toolbar host for the same message without a full rescan', () => {
-        document.body.innerHTML = `
-          <div class="assistant-message" data-message-id="m1">
-            <div class="content">First</div>
-            <div class="official-toolbar"><button>copy</button></div>
-          </div>
-        `;
-
-        const adapter = new FakeOfficialToolbarAdapter();
-        const readerPanel = { setTheme() {}, show: async () => undefined } as any;
-        const orchestrator = new MessageToolbarOrchestrator(adapter, { readerPanel });
-        orchestrator.setBehaviorFlags({ showWordCount: false, showSaveMessages: false });
-
-        (orchestrator as any).scanAndInject(new Set(['init']));
-        const firstHost = document.querySelector('[data-aimd-role="message-toolbar"]') as HTMLElement;
-        expect(firstHost).toBeTruthy();
-
-        const fullScanSpy = vi.spyOn(orchestrator as any, 'buildFullScanSnapshot');
-        const actionBar = firstHost.parentElement as HTMLElement;
-        firstHost.remove();
-
-        (orchestrator as any).handleObservedMutations([{
-            target: actionBar,
-            addedNodes: [],
-            removedNodes: [firstHost],
-        }]);
-        (orchestrator as any).scanAndInject(new Set(['mutation']));
-
-        const nextHost = document.querySelector('[data-aimd-role="message-toolbar"]') as HTMLElement;
-        expect(fullScanSpy).not.toHaveBeenCalled();
-        expect(nextHost).toBeTruthy();
-        expect(nextHost).not.toBe(firstHost);
-        expect(getToolbarCount()).toBe(1);
-    });
-
-    it('recovers a ChatGPT toolbar when the first anchor injection fails without waiting for page refresh', () => {
-        vi.useFakeTimers();
-        document.body.innerHTML = `
-          <div class="assistant-message" data-message-id="m1">
-            <div class="content">First</div>
-            <div class="official-toolbar"><button>copy</button></div>
-          </div>
-        `;
-
-        const adapter = new FakeOfficialToolbarAdapter();
-        adapter.failNextInjections(1);
-        const readerPanel = { setTheme() {}, show: async () => undefined } as any;
-        const orchestrator = new MessageToolbarOrchestrator(adapter, { readerPanel });
-        orchestrator.setBehaviorFlags({ showWordCount: false, showSaveMessages: false });
-
-        (orchestrator as any).scanAndInject(new Set(['init']));
-        expect(getToolbarCount()).toBe(0);
-
-        const fullScanSpy = vi.spyOn(orchestrator as any, 'buildFullScanSnapshot');
-        vi.advanceTimersByTime(450);
-
-        expect(fullScanSpy).not.toHaveBeenCalled();
-        expect(getToolbarCount()).toBe(1);
-        orchestrator.dispose();
-    });
-
-    it('recovers a ChatGPT toolbar when an anchor appears after an anchor-pending scan without a captured mutation', () => {
-        vi.useFakeTimers();
-        document.body.innerHTML = `
-          <div class="assistant-message" data-message-id="m1">
-            <div class="content">First</div>
-          </div>
-        `;
-
-        const adapter = new FakeOfficialToolbarAdapter();
-        const readerPanel = { setTheme() {}, show: async () => undefined } as any;
-        const orchestrator = new MessageToolbarOrchestrator(adapter, { readerPanel });
-        orchestrator.setBehaviorFlags({ showWordCount: false, showSaveMessages: false });
-
-        (orchestrator as any).scanAndInject(new Set(['init']));
-        expect(getToolbarCount()).toBe(0);
-
-        const message = document.querySelector('[data-message-id="m1"]') as HTMLElement;
-        const actionBar = document.createElement('div');
-        actionBar.className = 'official-toolbar';
-        actionBar.appendChild(document.createElement('button'));
-        message.appendChild(actionBar);
-
-        const fullScanSpy = vi.spyOn(orchestrator as any, 'buildFullScanSnapshot');
-        vi.advanceTimersByTime(450);
-
-        expect(fullScanSpy).not.toHaveBeenCalled();
-        expect(getToolbarCount()).toBe(1);
-        expect(actionBar.querySelectorAll('[data-aimd-role="message-toolbar"]')).toHaveLength(1);
-        orchestrator.dispose();
-    });
-
-    it('immediately removes only the affected message toolbar when its official toolbar disappears', () => {
-        document.body.innerHTML = `
-          <div class="assistant-message" data-message-id="m1">
-            <div class="content">First</div>
-            <div class="official-toolbar"><button>copy</button></div>
-          </div>
-          <div class="assistant-message" data-message-id="m2">
-            <div class="content">Second</div>
-            <div class="official-toolbar"><button>copy</button></div>
-          </div>
-        `;
-
-        const adapter = new FakeOfficialToolbarAdapter();
-        const readerPanel = { setTheme() {}, show: async () => undefined } as any;
-        const orchestrator = new MessageToolbarOrchestrator(adapter, { readerPanel });
-        orchestrator.setBehaviorFlags({ showWordCount: false, showSaveMessages: false });
-
-        (orchestrator as any).scanAndInject();
-        expect(getToolbarCount()).toBe(2);
-
-        const firstActionBar = document.querySelector('[data-message-id="m1"] .official-toolbar') as HTMLElement;
-        const secondMessage = document.querySelector('[data-message-id="m2"]') as HTMLElement;
-        const secondActionBar = document.querySelector('[data-message-id="m2"] .official-toolbar') as HTMLElement;
-        secondActionBar.remove();
-
-        (orchestrator as any).handleObservedMutations([{
-            target: secondMessage,
-            addedNodes: [],
-            removedNodes: [secondActionBar],
-        }]);
-        (orchestrator as any).scanAndInject(new Set(['mutation']));
-
-        expect(firstActionBar.querySelectorAll('[data-aimd-role="message-toolbar"]')).toHaveLength(1);
-        expect(document.querySelector('[data-message-id="m2"] [data-aimd-role="message-toolbar"]')).toBeNull();
-        expect(getToolbarCount()).toBe(1);
-    });
-
-    it('cleans only the affected toolbar when an official toolbar removal mutation is observed', () => {
-        document.body.innerHTML = `
-          <div class="assistant-message" data-message-id="m1">
-            <div class="content">First</div>
-            <div class="official-toolbar"><button>copy</button></div>
-          </div>
-          <div class="assistant-message" data-message-id="m2">
-            <div class="content">Second</div>
-            <div class="official-toolbar"><button>copy</button></div>
-          </div>
-        `;
-
-        const adapter = new FakeOfficialToolbarAdapter();
-        const readerPanel = { setTheme() {}, show: async () => undefined } as any;
-        const orchestrator = new MessageToolbarOrchestrator(adapter, { readerPanel });
-        orchestrator.setBehaviorFlags({ showWordCount: false, showSaveMessages: false });
-
-        (orchestrator as any).scanAndInject(new Set(['init']));
-        expect(getToolbarCount()).toBe(2);
-
-        const fullScanSpy = vi.spyOn(orchestrator as any, 'buildFullScanSnapshot');
-        const firstActionBar = document.querySelector('[data-message-id="m1"] .official-toolbar') as HTMLElement;
-        const secondActionBar = document.querySelector('[data-message-id="m2"] .official-toolbar') as HTMLElement;
-        const firstMessage = document.querySelector('[data-message-id="m1"]') as HTMLElement;
-        firstActionBar.remove();
-
-        (orchestrator as any).handleObservedMutations([
-            {
-                target: firstMessage,
-                addedNodes: [],
-                removedNodes: [firstActionBar],
-            },
-        ]);
-        (orchestrator as any).scanAndInject(new Set(['mutation']));
-
-        expect(fullScanSpy).not.toHaveBeenCalled();
-        expect(firstMessage.querySelector('[data-aimd-role="message-toolbar"]')).toBeNull();
-        expect(secondActionBar.querySelectorAll('[data-aimd-role="message-toolbar"]')).toHaveLength(1);
-        expect(getToolbarCount()).toBe(1);
-    });
-
-    it('uses incremental mutation candidates for added messages instead of forcing a full rescan', () => {
-        document.body.innerHTML = `
-          <div class="assistant-message" data-message-id="m1">
-            <div class="content">First</div>
-            <div class="official-toolbar"><button>copy</button></div>
-          </div>
-        `;
-
-        const adapter = new FakeOfficialToolbarAdapter();
-        const readerPanel = { setTheme() {}, show: async () => undefined } as any;
-        const orchestrator = new MessageToolbarOrchestrator(adapter, { readerPanel });
-        orchestrator.setBehaviorFlags({ showWordCount: false, showSaveMessages: false });
-
-        (orchestrator as any).scanAndInject(new Set(['init']));
-        expect(getToolbarCount()).toBe(1);
-
-        const fullScanSpy = vi.spyOn(orchestrator as any, 'buildFullScanSnapshot');
-
-        const message = document.createElement('div');
-        message.className = 'assistant-message';
-        message.setAttribute('data-message-id', 'm2');
-        message.innerHTML = `
-          <div class="content">Second</div>
-          <div class="official-toolbar"><button>copy</button></div>
-        `;
-        document.body.appendChild(message);
-
-        (orchestrator as any).handleObservedMutations([
-            {
-                addedNodes: [message],
-                removedNodes: [],
-            },
-        ]);
-        (orchestrator as any).scanAndInject(new Set(['mutation']));
-
-        expect(fullScanSpy).not.toHaveBeenCalled();
-        expect(getToolbarCount()).toBe(2);
-        expect(message.querySelectorAll('[data-aimd-role="message-toolbar"]')).toHaveLength(1);
-    });
-
-    it('falls back to a full rescan when mutations remove nodes', () => {
-        document.body.innerHTML = `
-          <div class="assistant-message" data-message-id="m1">
-            <div class="content">First</div>
-            <div class="official-toolbar"><button>copy</button></div>
-          </div>
-          <div class="assistant-message" data-message-id="m2">
-            <div class="content">Second</div>
-            <div class="official-toolbar"><button>copy</button></div>
-          </div>
-        `;
-
-        const adapter = new FakeOfficialToolbarAdapter();
-        const readerPanel = { setTheme() {}, show: async () => undefined } as any;
-        const orchestrator = new MessageToolbarOrchestrator(adapter, { readerPanel });
-        orchestrator.setBehaviorFlags({ showWordCount: false, showSaveMessages: false });
-
-        (orchestrator as any).scanAndInject(new Set(['init']));
-        expect(getToolbarCount()).toBe(2);
-
-        const fullScanSpy = vi.spyOn(orchestrator as any, 'buildFullScanSnapshot');
-        const removed = document.querySelector('[data-message-id="m2"]') as HTMLElement;
-        removed.remove();
-
-        (orchestrator as any).handleObservedMutations([
-            {
-                addedNodes: [],
-                removedNodes: [removed],
-            },
-        ]);
-        (orchestrator as any).scanAndInject(new Set(['mutation']));
-
-        expect(fullScanSpy).toHaveBeenCalledTimes(1);
-        expect(getToolbarCount()).toBe(1);
-        expect(document.querySelector('[data-message-id="m2"] [data-aimd-role="message-toolbar"]')).toBeNull();
-    });
-
-    it('keeps toolbar actions enabled but guards reader while the message is still streaming', async () => {
-        document.body.innerHTML = `
-          <div class="assistant-message" data-message-id="m1">
-            <div class="content">First</div>
-            <div class="official-toolbar"><button>copy</button></div>
-          </div>
-        `;
-
-        const adapter = new FakeOfficialToolbarAdapter();
-        adapter.setStreaming(true);
-        const readerPanel = { setTheme() {}, show: vi.fn(async () => undefined) } as any;
-        window.history.replaceState({}, '', '/c/conv-1');
-        const snapshot = {
-            conversationId: 'conv-1',
-            revision: 1,
-            proof: 'observed-graph' as const,
-            branchKey: 'm1',
-            capturedAt: 1,
-            rounds: [{
-                id: 'round-1',
-                position: 1,
-                userPrompt: 'Prompt',
-                assistantContent: 'First',
-                preview: 'Prompt',
-                messageId: 'm1',
-                userMessageId: 'u1',
-                assistantMessageId: 'm1',
-            }],
-        };
-        const conversationContentSource = createConversationContentSource(snapshot);
-        getChatGPTConversationIndex(adapter).bindConversationSource(conversationContentSource);
-        const orchestrator = new MessageToolbarOrchestrator(adapter, {
-            readerPanel,
-            conversationContentSource,
+        await vi.waitFor(() => {
+            expect(replacement.querySelectorAll('[data-aimd-role="message-toolbar"]')).toHaveLength(1);
         });
-        orchestrator.setBehaviorFlags({ showWordCount: false, showSaveMessages: false });
+        expect(toolbarHosts()).toHaveLength(1);
+        expect(document.querySelectorAll('[data-testid="copy-turn-action-button"]')).toHaveLength(1);
+    });
 
-        (orchestrator as any).scanAndInject(new Set(['init']));
+    it('keeps official controls untouched while content is pending, then upgrades from the pool', async () => {
+        renderTurn({ stopButton: true });
+        const documentRef = readyConversationState(SNAPSHOT).document;
+        const syncing: ConversationContentStateV1 = {
+            kind: 'syncing',
+            document: documentRef,
+            snapshot: null,
+        };
+        const harness = createHarness(syncing);
+        harness.adapter.setStreaming(true);
+        harness.orchestrator.init();
 
-        const toolbarHost = document.querySelector('[data-aimd-role="message-toolbar"]') as HTMLElement;
-        const shadow = toolbarHost.shadowRoot as ShadowRoot;
-        const readerButton = shadow.querySelector<HTMLButtonElement>('[data-action="reader"]');
+        expect(toolbarHosts()).toHaveLength(0);
+        expect(document.querySelector('[data-testid="stop-button"]')).toBeTruthy();
+        expect(document.querySelector('[data-testid="copy-turn-action-button"]')).toBeTruthy();
 
-        expect(readerButton).toBeTruthy();
-        expect(readerButton?.disabled).toBe(false);
+        harness.adapter.setStreaming(false);
+        harness.source.publish(SNAPSHOT);
 
-        readerButton?.click();
-        await Promise.resolve();
-        await Promise.resolve();
-
-        expect(readerPanel.show).not.toHaveBeenCalled();
-
-        adapter.setStreaming(false);
-        readerButton?.click();
-        await vi.waitFor(() => expect(readerPanel.show).toHaveBeenCalledTimes(1));
+        await vi.waitFor(() => expect(toolbarHosts()).toHaveLength(1));
+        const stats = toolbarHosts()[0]?.shadowRoot
+            ?.querySelector<HTMLElement>('[data-role="stats"]')
+            ?.textContent?.trim();
+        expect(stats).toBeTruthy();
+        expect(stats).not.toContain('—');
+        expect(document.querySelector('[data-testid="stop-button"]')).toBeTruthy();
+        expect(document.querySelector('[data-testid="copy-turn-action-button"]')).toBeTruthy();
     });
 });

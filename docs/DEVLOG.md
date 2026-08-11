@@ -4,6 +4,135 @@ Purpose: evidence log for major changes (commands run + observed results). Keep 
 
 ---
 
+## 2026-08-11 — ChatGPT content lifecycle structural closure
+
+- Made `ChatGPTConversationSurface` the only Content × DOM join. Directory,
+  message toolbars, Stepper and canonical navigation now consume its atomic
+  frame; Reader, copy, formula, word count and export continue to consume the
+  single `ConversationContentRepository` pool.
+- Deleted the production `ChatGPTConversationDiscoveryCoordinator`,
+  `ChatGPTConversationIndex` and standalone
+  `ChatGPTConversationMaterialization`. Removed their unit suites, the obsolete
+  V2 integration harness, and ChatGPT toolbar tests that called private scanner
+  and retry state instead of entering through the shared Surface lifecycle.
+- Kept the generic toolbar scanner only for non-ChatGPT adapters. ChatGPT
+  toolbar recovery, delayed official actions, pending-to-obtained promotion,
+  Directory visibility and navigation are now covered through PageIndex,
+  Repository and Surface entry paths.
+- Rewrote the active architecture, dependency, runtime, testing and runbook
+  SSOT around the one-pool/one-Surface model. Historical ADRs remain for record
+  but explicitly defer current ChatGPT lifecycle authority to ADR-0018.
+- Bookmark types, persisted fields, runtime protocol and compatibility data are
+  unchanged. An id-less page can consume obtained content, while existing
+  bookmark operations still require canonical identity.
+- Removed the remaining V1 `unsupported-route` content state. An unbound generic
+  Repository is `idle`; ChatGPT always binds page identity before observing DOM,
+  so route text cannot make page-local content unavailable.
+
+Verification:
+
+- `npm run test:chatgpt-discovery`: passed (28 files / 434 tests); `npm run
+  test:core`: passed (277 / 1,984); `npm run test:smoke`: passed (7 / 54);
+  `npm run test:acceptance`: passed (33 / 436); type-check and `git diff
+  --check` passed.
+- `npm run perf:chatgpt` passed with 200/200 toolbars, zero duplicate action
+  rows, zero idle mutations, 200 streaming mutations, 84.7 ms toolbar recovery
+  and zero export-renderer requests before an image action.
+- Chrome MV3 and Firefox MV2 builds, entry-format verification, single-pool
+  content-boundary checks and bundle budgets passed. Both content bundles are
+  827.95 kB raw / 217.89 kB gzip.
+
+---
+
+## 2026-08-11 — ChatGPT split-hydration tail admission and final lifecycle fencing
+
+- Reproduced the missing second-message path with persistent user/assistant
+  slots hydrating across separate MutationObserver batches. Removed same-batch
+  birth admission and made PageIndex publish generation start/end plus stable
+  same-owner assistant identity replacement facts.
+- Host Monitor now orders candidates from the maintained pool tail. A unique
+  mounted tail is authoritative; when it is unmounted, only a real generation
+  start or same-owner replacement of that tail may anchor the next message.
+  Candidates before a visible tail or beyond an unresolved round are deferred.
+- Content admission accepts an official action row, observed generation end, or
+  later typed round as strong completion. A bounded 2-second quiet confirmation
+  covers delayed/absent action rows; toolbar placement still requires its
+  official anchor. Root replacement and content-token changes fence and replan
+  in-flight compilation.
+- Same-URL id-less replacement keeps the old projection until the new first
+  turn compiles, then replaces it atomically. Repository validates the complete
+  replacement predecessor chain before clearing the old pool.
+- Updated ADR-0018, current architecture/runtime/dependency/testing SSOT,
+  Features, Context and Changelog to the same semantics. Bookmark types,
+  protocol, storage fields and compatibility data remain unchanged.
+
+Verification:
+
+- `npm run test:chatgpt-discovery`: passed (28 files / 401 tests); `npm run
+  test:core`: passed (280 / 2,012); `npm run test:smoke`: passed (7 / 54);
+  `npm run test:acceptance`: passed (35 / 451); type-check and `git diff
+  --check` passed.
+- Chrome MV3 and Firefox MV2 builds, entry-format checks, passive Graph
+  boundaries and bundle budgets passed. Both content bundles are 848.30 kB raw
+  / 222.15 kB gzip.
+- `npm run perf:chatgpt` passed with 200/200 toolbars, zero duplicate action
+  rows, zero idle mutations, 200 streaming mutations, 83.8 ms toolbar recovery
+  and zero export-renderer requests before an image action.
+- Installed Chrome read-only acceptance passed on two existing `/c` pages. The
+  short conversation had 3 directory items and 3 numeric toolbars. The formula
+  conversation retained 4 directory items while only 3 assistants were
+  mounted, with 3 numeric toolbars, 24 authoritative TeX carriers, no stop
+  button and no AI-MarkDone warning/error. Directory navigation matched full
+  message-group geometry. No message or test POST was sent. Manual generation
+  of a fresh first/later formula-code-table response remains user-driven.
+
+---
+
+## 2026-08-10 — ChatGPT identity-proven single content pool
+
+- Replaced fixed `/backend-api/conversation/:id` matching with bounded,
+  identity-proven inspection of successful same-origin JSON GET responses. The
+  bridge accepts a structurally valid `mapping + current_node` graph only when
+  its decoded URL and payload identity match the active conversation; POST,
+  SSE, cross-origin, over-depth and conflicting candidates are ignored.
+- Generalized canonical route identity to a safe token following any `c` or
+  `conversation` semantic segment, including `/c/:id`,
+  `/conversation/:id`, and `/g/.../c/:id`; `/g/:gptId` remains a non-conversation
+  route. Removed the discovery Coordinator and its polling RouteWatcher so the
+  content Runtime now owns navigation, PageIndex and baseline signal ordering.
+- Made `ConversationContentRepository` the one monotonic pool. A stable typed
+  DOM batch may establish a `host` snapshot before Graph; one later overlapping
+  Graph may prepend verified history and produce `hybrid`, without replacing an
+  obtained body. Baseline failure cannot downgrade a ready host pool.
+- Kept `ChatGPTPageIndex` as the only content observer and fenced in-flight
+  host compilation across conversation switches. Runtime `refresh()` now waits
+  for already-observed local DOM compilation without reopening the baseline
+  gate, replaying Bridge evidence, polling, or looping on a failed turn.
+- Added ADR-0018 and rewrote the active architecture, protocol, dependency,
+  testing, runbook, feature and context SSOT around the identity-proven single
+  pool. ADR-0017 is retained only as superseded history.
+
+Verification:
+- `npm run test:chatgpt-discovery`: passed (27 files / 372 tests); the new
+  no-sleep Runtime flush regression failed before the composition fix and
+  passed afterward.
+- `npm run test:core`: passed (279 files / 1,980 tests); `npm run test:smoke`
+  passed (7 / 54); `npm run test:acceptance` passed (34 / 423); type-check
+  passed.
+- Dual-browser build, Chrome/Firefox entry format, passive-content boundary and
+  bundle budgets passed. Chrome and Firefox content bundles are 825.86 kB raw /
+  217.39 kB gzip.
+- `npm run perf:chatgpt` passed with 200/200 toolbars, zero duplicate action
+  rows, zero idle mutations, 200 streaming mutations, 69 ms toolbar recovery
+  and zero export-renderer requests before an image action.
+- Installed Chrome final-build read-only reload passed on both ordinary `/c`
+  and `/g/.../c`: the ordinary page retained 4 directory messages with 3
+  mounted numeric toolbars; the scoped page retained 9 directory messages from
+  24 persistent slots while only 3 assistants were mounted, also with 3 numeric
+  toolbars. No stop button remained. No message or test POST was sent; manual
+  generation of a new formula/code/table response remains a user-driven
+  acceptance step.
+
 ## 2026-08-10 — ChatGPT route identity and anonymous-page boundary audit
 
 - Audited the executable route rule in `src/drivers/content/chatgpt/chatgptRoute.ts`.

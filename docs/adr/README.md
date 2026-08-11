@@ -25,7 +25,7 @@
 
 编号递增，标题保持简短。
 
-当前 ChatGPT 内容生命周期见 [ADR-0017-chatgpt-baseline-and-host-tail-lifecycle.md](ADR-0017-chatgpt-baseline-and-host-tail-lifecycle.md)：官网自有 conversation GET 只被动建立一次完整历史基线，随后由共享 Page Monitor 将稳定的新 DOM 消息追加到同一份可消费缓存；同一个 V1 content/materialization seam 服务目录、Reader、书签、复制、公式、字数与导出。ADR-0015 的被动网络边界继续有效，ADR-0016 的 snapshot-first 消费继续有效，但其重复 refresh、partial/stale content 与分支替换语义由 ADR-0017 取代。ADR-0014 的稳定 compiler 能力已被吸收，第二 observer/第二生产仓库仍被 supersede。
+当前 ChatGPT 内容生命周期见 [ADR-0018-chatgpt-identity-proven-single-content-pool.md](ADR-0018-chatgpt-identity-proven-single-content-pool.md)：Runtime page identity 让无 ID 的稳定 DOM 消息也能进入唯一内容池；后到 canonical token 只提升 identity 并打开一次被动 Graph gate，可信 Graph 最多补可靠历史前缀。`ChatGPTConversationSurface` 是内容池与 PageIndex 的唯一生产 join，统一驱动 Directory、Toolbar、Stepper 和导航；Reader、复制、公式、字数与导出读取同一 Content Port。无 ID 时书签不可用且不发请求，既有书签数据与协议不变。旧 Discovery Coordinator、Conversation Index 与独立 Materialization 已删除。ADR-0005/0007/0009、ADR-0013 至 ADR-0017 的 ChatGPT discovery/projection 语义均为历史记录；ADR-0011 只继续约束通用 Semantic Content 与 source/surface proof。
 
 ## Required Sections
 

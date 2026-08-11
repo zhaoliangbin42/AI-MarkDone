@@ -9,7 +9,6 @@ import {
     disposeChatGPTPageIndex,
     type ChatGPTDomRoundRef,
 } from '../../chatgpt/domConversationDiscovery';
-import { disposeChatGPTConversationIndex } from '../../chatgpt/ChatGPTConversationIndex';
 import { isChatGPTPageUrl } from '../../../../contracts/chatgptHosts';
 
 const DEEP_RESEARCH_SCREENSHOT_ROOT_SELECTOR = '[data-conversation-screenshot-content]';
@@ -316,7 +315,6 @@ export class ChatGPTAdapter extends SiteAdapter {
     }
 
     dispose(): void {
-        disposeChatGPTConversationIndex(this);
         disposeChatGPTPageIndex(this);
         this.conversationGroupCache = null;
     }

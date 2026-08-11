@@ -9,6 +9,8 @@ describe('ChatGPT route identity', () => {
         ['https://chatgpt.com/c/12345678-1234-1234-1234-123456789abc', '12345678-1234-1234-1234-123456789abc'],
         ['https://chatgpt.com/conversation/aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee', 'aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee'],
         ['https://chatgpt.com/g/project-id/c/12345678-1234-1234-1234-123456789abc?model=auto#latest', '12345678-1234-1234-1234-123456789abc'],
+        ['https://chatgpt.com/workspace/alpha/g/project-id/c/conv_ABC-12345678?model=auto', 'conv_ABC-12345678'],
+        ['https://chatgpt.com/workspace/c/short/g/project-id/conversation/conv_LATER-12345678', 'conv_LATER-12345678'],
     ])('recognizes supported conversation paths', (url, expectedId) => {
         expect(getChatGPTConversationId(url)).toBe(expectedId);
         expect(isChatGPTConversationPage(url)).toBe(true);
@@ -17,6 +19,7 @@ describe('ChatGPT route identity', () => {
     it('rejects non-conversation routes', () => {
         expect(getChatGPTConversationId('https://chatgpt.com/')).toBeNull();
         expect(getChatGPTConversationId('https://chatgpt.com/g/gpt-id')).toBeNull();
+        expect(getChatGPTConversationId('https://chatgpt.com/c/WEB%3Atemporary-session')).toBeNull();
         expect(isChatGPTConversationPage('https://chatgpt.com/')).toBe(false);
     });
 

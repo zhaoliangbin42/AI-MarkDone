@@ -6,11 +6,13 @@ Accepted and implemented. Installed Chrome current-build acceptance passed for
 ordinary and formula local Markdown selection on 2026-08-10; Firefox MV2 remains
 a separate release gate.
 
-ADR-0017 supersedes this ADR's absolute prohibition on host-rendered whole-turn
+ADR-0018 supersedes this ADR's absolute prohibition on host-rendered whole-turn
 bodies. Compiler-verified stable tail turns may now carry `host-rendered /
 normalized` provenance. A sealed host-rendered turn may also supply canonical
 Markdown spans for local copy through `SurfaceProjection`; it still does not
-claim provider-original source provenance.
+claim provider-original source provenance. This ADR remains authoritative only
+for the provider-neutral Semantic Content and source/surface proof boundary;
+ADR-0018 owns ChatGPT discovery, identity, pool, and page Surface lifecycle.
 
 ## Context
 

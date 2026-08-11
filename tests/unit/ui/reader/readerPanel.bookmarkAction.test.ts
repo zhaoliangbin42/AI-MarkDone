@@ -1,4 +1,4 @@
-import { describe, expect, it, vi } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 const navigationMocks = vi.hoisted(() => ({
     navigateChatGPTDirectoryTarget: vi.fn(async () => ({ ok: true })),
     conversationNavigation: {
@@ -17,12 +17,26 @@ vi.mock('@/ui/content/chatgptDirectory/navigation', () => ({
     navigateChatGPTDirectoryTarget: navigationMocks.navigateChatGPTDirectoryTarget,
 }));
 import { ChatGPTAdapter } from '@/drivers/content/adapters/sites/chatgpt';
-import { getChatGPTConversationIndex } from '@/drivers/content/chatgpt/ChatGPTConversationIndex';
+import { ChatGPTConversationSurface } from '@/drivers/content/chatgpt/ChatGPTConversationSurface';
 import { MessageToolbarOrchestrator } from '@/ui/content/controllers/MessageToolbarOrchestrator';
 import { bookmarkSaveDialog } from '@/ui/content/bookmarks/save/bookmarkSaveDialogSingleton';
 import { createConversationContentSource } from '../../../helpers/chatgptContentFixtures';
 
 describe('ReaderPanel bookmark action injection', () => {
+    const ownedOrchestrators = new Set<MessageToolbarOrchestrator>();
+    const ownedSurfaces = new Set<ChatGPTConversationSurface>();
+    const ownedAdapters = new Set<ChatGPTAdapter>();
+
+    afterEach(() => {
+        for (const orchestrator of ownedOrchestrators) orchestrator.dispose();
+        for (const surface of ownedSurfaces) surface.dispose();
+        for (const adapter of ownedAdapters) adapter.dispose();
+        ownedOrchestrators.clear();
+        ownedSurfaces.clear();
+        ownedAdapters.clear();
+        document.body.innerHTML = '';
+    });
+
     function createOrchestrator(adapter: ChatGPTAdapter, options: any) {
         window.history.replaceState({}, '', '/c/conv-1');
         const snapshot = {
@@ -43,11 +57,17 @@ describe('ReaderPanel bookmark action injection', () => {
             }],
         };
         const source = createConversationContentSource(snapshot);
-        getChatGPTConversationIndex(adapter).bindConversationSource(source);
-        return new MessageToolbarOrchestrator(adapter, {
+        const surface = new ChatGPTConversationSurface({ adapter, content: source });
+        const orchestrator = new MessageToolbarOrchestrator(adapter, {
             ...options,
             conversationContentSource: source,
+            conversationMaterialization: surface.materialization,
+            conversationSurface: surface,
         });
+        ownedAdapters.add(adapter);
+        ownedSurfaces.add(surface);
+        ownedOrchestrators.add(orchestrator);
+        return orchestrator;
     }
 
     it('injects a header bookmark action for conversation reader entries', async () => {

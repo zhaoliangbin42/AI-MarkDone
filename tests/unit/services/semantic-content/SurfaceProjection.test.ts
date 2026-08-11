@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 
 import {
     createConversationDocumentKeyV1,
+    createConversationPageDocumentKeyV1,
     type ConversationContentSourceV1,
     type ConversationSnapshotV1,
 } from '@/contracts/conversationContent';
@@ -152,6 +153,42 @@ describe('projectSurfaceSelectionToMarkdown', () => {
             materialization: createMaterialization(snapshot, 'materialization-2'),
             evidence: createEvidence(),
         })).toEqual({ status: 'unavailable', reason: 'stale-surface' });
+    });
+
+    it('keeps an in-flight selection valid across page identity promotion', () => {
+        const snapshot = createSnapshot();
+        const pageTarget = {
+            ...target,
+            documentKey: createConversationPageDocumentKeyV1('chatgpt', 'selection-page'),
+        };
+        const canonicalTarget = { ...target };
+        const source = {
+            ...createSource(snapshot),
+            readTurn: () => ({
+                kind: 'ready' as const,
+                target: pageTarget,
+                turn: snapshot.turns[0]!,
+                contentToken: snapshot.contentToken,
+            }),
+        };
+        const anchorElement = document.createElement('article');
+        const materialization = {
+            ...createMaterialization(snapshot),
+            read: () => ({
+                materializationToken: 'materialization-1',
+                contentToken: snapshot.contentToken,
+                entries: [{ target: canonicalTarget, anchorElement }],
+            }),
+        };
+
+        expect(projectSurfaceSelectionToMarkdown({
+            source,
+            materialization,
+            evidence: createEvidence({ target: pageTarget }),
+        })).toMatchObject({
+            status: 'ready',
+            markdown: '**clean Markdown**',
+        });
     });
 
     it('never promotes reconstructed DOM text to canonical Markdown', () => {

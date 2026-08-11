@@ -2,13 +2,13 @@ import type { SiteAdapter } from '../../../drivers/content/adapters/base';
 import type { ScrollResult } from '../../../drivers/content/bookmarks/navigation';
 import { highlightNavigationTarget } from '../../../drivers/content/conversation/highlight';
 import { releaseChatGPTSendPositionRestore } from '../../../drivers/content/chatgpt/sendPositionRestoreEvents';
-import { getChatGPTConversationIndex } from '../../../drivers/content/chatgpt/ChatGPTConversationIndex';
 import {
     materializeChatGPTConversationTarget,
     resolveChatGPTCanonicalTarget,
     type ChatGPTCanonicalNavigationTarget,
     type ChatGPTMaterializationOptions,
 } from '../../../drivers/content/chatgpt/ChatGPTConversationNavigation';
+import type { ConversationSurfacePortV1 } from '../../../contracts/conversationSurface';
 
 export type ChatGPTRoundPosition = {
     position: number;
@@ -86,26 +86,28 @@ function scrollAnchor(anchor: HTMLElement): void {
     anchor.scrollIntoView({ behavior: 'auto', block: 'start' });
 }
 
-function getAnchorForTarget(adapter: SiteAdapter, target: ChatGPTNavigationTarget): HTMLElement | null {
-    return resolveChatGPTCanonicalTarget(adapter, target)?.materialized?.jumpAnchorEl ?? null;
+function getAnchorForTarget(
+    target: ChatGPTNavigationTarget,
+    surface: ConversationSurfacePortV1,
+): HTMLElement | null {
+    return resolveChatGPTCanonicalTarget(surface, target)?.materialization?.jumpAnchorElement ?? null;
 }
 
-export function collectChatGPTRoundPositions(adapter: SiteAdapter): ChatGPTRoundPosition[] {
-    return getChatGPTConversationIndex(adapter).getRounds().map((indexedRound) => {
-        const materialized = indexedRound.materialized;
+export function collectChatGPTRoundPositions(surface: ConversationSurfacePortV1): ChatGPTRoundPosition[] {
+    return surface.readFrame().obtainedTurns.map(({ turn, materialization }) => {
         return {
-            position: indexedRound.position,
-            id: indexedRound.round.id,
-            messageId: indexedRound.round.messageId ?? indexedRound.round.assistantMessageId,
-            roundId: indexedRound.identity.roundId,
-            userMessageId: indexedRound.identity.userMessageId,
-            assistantMessageId: indexedRound.identity.assistantMessageId,
-            userPromptText: indexedRound.round.userPrompt,
+            position: turn.ordinal,
+            id: turn.identity.turnId,
+            messageId: turn.identity.assistantMessageId,
+            roundId: turn.identity.turnId,
+            userMessageId: turn.identity.userMessageId,
+            assistantMessageId: turn.identity.assistantMessageId,
+            userPromptText: turn.userText,
             userPromptQuality: 'real',
-            jumpAnchor: materialized?.jumpAnchorEl ?? null,
-            userAnchor: materialized?.userRootEl ?? null,
-            assistantRoot: materialized?.assistantRootEl ?? null,
-            groupEls: materialized?.groupEls ?? [],
+            jumpAnchor: materialization?.jumpAnchorElement ?? null,
+            userAnchor: materialization?.userElement ?? null,
+            assistantRoot: materialization?.assistantElement ?? null,
+            groupEls: materialization ? Array.from(materialization.groupElements) : [],
         };
     });
 }
@@ -162,16 +164,16 @@ export function resolveChatGPTActivePosition(
 export async function navigateChatGPTDirectoryTarget(
     adapter: SiteAdapter,
     target: ChatGPTNavigationTarget,
-    options?: ChatGPTNavigationOptions
+    options: ChatGPTNavigationOptions,
 ): Promise<ScrollResult> {
     const materialized = await materializeChatGPTConversationTarget(adapter, target, options);
     if (!materialized.ok) return materialized;
     const exactTarget: ChatGPTNavigationTarget = {
-        position: materialized.indexedRound.position,
-        messageId: materialized.indexedRound.round.messageId,
-        roundId: materialized.indexedRound.identity.roundId,
-        userMessageId: materialized.indexedRound.identity.userMessageId,
-        assistantMessageId: materialized.indexedRound.identity.assistantMessageId,
+        position: materialized.round.position,
+        messageId: materialized.round.messageId,
+        roundId: materialized.round.roundId,
+        userMessageId: materialized.round.userMessageId,
+        assistantMessageId: materialized.round.assistantMessageId,
     };
     const anchor = materialized.anchor;
     if (anchor && typeof anchor.scrollIntoView === 'function') {
@@ -187,7 +189,7 @@ async function scrollChatGPTAnchorWithAlignment(
     adapter: SiteAdapter,
     target: ChatGPTNavigationTarget,
     initialAnchor: HTMLElement,
-    options?: ChatGPTNavigationOptions,
+    options: ChatGPTNavigationOptions,
 ): Promise<AlignmentResult> {
     const timeoutMs = Math.max(0, options?.alignmentTimeoutMs ?? DEFAULT_ALIGNMENT_TIMEOUT_MS);
     const quietMs = Math.max(16, options?.alignmentQuietMs ?? DEFAULT_ALIGNMENT_QUIET_MS);
@@ -247,7 +249,7 @@ async function scrollChatGPTAnchorWithAlignment(
             await sleep(quietMs);
             if (aborted) break;
 
-            const nextAnchor = getAnchorForTarget(adapter, target);
+            const nextAnchor = getAnchorForTarget(target, options.surface);
             if (nextAnchor && nextAnchor !== anchor) {
                 resizeObserver?.unobserve(anchor);
                 anchor = nextAnchor;

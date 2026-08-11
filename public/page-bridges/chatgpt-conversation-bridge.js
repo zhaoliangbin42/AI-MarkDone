@@ -1,6 +1,6 @@
 (() => {
   const BRIDGE_KEY = '__AIMD_CHATGPT_CONVERSATION_BRIDGE__';
-  const BRIDGE_VERSION = 4;
+  const BRIDGE_VERSION = 5;
   const existingBridge = window[BRIDGE_KEY];
   if (existingBridge?.version === BRIDGE_VERSION) return;
   existingBridge?.dispose?.();
@@ -9,11 +9,8 @@
   const RESPONSE_EVENT = 'aimd:chatgpt-conversation-bridge:response';
   const CAPTURE_EVENT = 'aimd:chatgpt-conversation-bridge:capture';
   const MAX_CAPTURED_CONVERSATIONS = 3;
-  const MAX_PENDING_GENERATIONS = 4;
   const bridgeState = {
     graphsByConversation: new Map(),
-    pendingGenerations: [],
-    completedGeneration: null,
     requestSequence: 0,
     captureSequence: 0,
   };
@@ -179,6 +176,17 @@
     return getMessageContent(message);
   }
 
+  function isExplicitlyIncompleteAssistantMessage(message) {
+    const status = readString(message, 'status')?.toLowerCase() || '';
+    const metadata = readRecord(message?.metadata);
+    return message?.end_turn === false
+      || metadata?.is_complete === false
+      || status === 'in_progress'
+      || status === 'pending'
+      || status === 'queued'
+      || status === 'streaming';
+  }
+
   function getNodeMessage(node) {
     if (!node || typeof node !== 'object') return null;
     return readRecord(node.message);
@@ -238,6 +246,7 @@
         pendingRound.assistantContent = reportContent;
         pendingRound.assistantMessageId = reportMessageId;
         pendingRound.messageId = reportMessageId || pendingRound.messageId || pendingRound.userMessageId;
+        pendingRound.incomplete = false;
         pendingDeepResearchReport = true;
         pendingRound.preview = truncatePreview(
           pendingRound.userPrompt || reportContent || `Message ${pendingRound.position}`
@@ -258,6 +267,7 @@
           messageId: null,
           userMessageId: getMessageId(message),
           assistantMessageId: null,
+          incomplete: false,
         };
         rounds.push(pendingRound);
         pendingDeepResearchReport = false;
@@ -268,8 +278,17 @@
       if (!pendingRound) continue;
       if (!isDisplayableMessage(message, 'assistant')) continue;
 
+      if (isExplicitlyIncompleteAssistantMessage(message)) {
+        pendingRound.assistantContent = '';
+        pendingRound.assistantMessageId = getMessageId(message) || pendingRound.assistantMessageId;
+        pendingRound.messageId = pendingRound.assistantMessageId || pendingRound.messageId || pendingRound.userMessageId;
+        pendingRound.incomplete = true;
+        continue;
+      }
+
       const assistantContent = getDisplayableMessageContent(message, 'assistant');
       if (assistantContent && !pendingDeepResearchReport) {
+        pendingRound.incomplete = false;
         pendingRound.assistantContent = pendingRound.assistantContent
           ? `${pendingRound.assistantContent}\n\n${assistantContent}`
           : assistantContent;
@@ -286,6 +305,7 @@
       && round.userPrompt.trim()
       && typeof round.assistantContent === 'string'
       && round.assistantContent.trim()
+      && round.incomplete !== true
     ));
     // An empty assistant shell in the middle of an otherwise continued
     // source branch is not the active streaming tail. ChatGPT can retain
@@ -295,10 +315,13 @@
     // Filtering an unfinished head can leave the provider's display
     // positions starting at 2 (or later). The semantic port requires a
     // contiguous local ordinal; message/node IDs remain the real identity.
-    const normalizedRounds = visibleRounds.map((round, index) => ({
-      ...round,
-      position: index + 1,
-    }));
+    const normalizedRounds = visibleRounds.map((round, index) => {
+      const { incomplete: _incomplete, ...completeRound } = round;
+      return {
+        ...completeRound,
+        position: index + 1,
+      };
+    });
     return {
       rounds: normalizedRounds,
       // The content port only publishes messages that have been obtained by
@@ -332,11 +355,66 @@
     try {
       const url = new URL(value, window.location.href);
       if (url.origin !== window.location.origin) return null;
-      const match = url.pathname.match(/^\/backend-api\/conversation\/([^/]+)\/?$/);
-      return match?.[1] ? decodeURIComponent(match[1]) : null;
+      const conversationId = getCurrentConversationId();
+      if (!conversationId) return null;
+      return requestCarriesConversationId(url, conversationId) ? conversationId : null;
     } catch {
       return null;
     }
+  }
+
+  function requestCarriesConversationId(url, conversationId) {
+    const decodedSegments = url.pathname
+      .split('/')
+      .filter(Boolean)
+      .map((segment) => {
+        try {
+          return decodeURIComponent(segment);
+        } catch {
+          return '';
+        }
+      });
+    if (decodedSegments.includes(conversationId)) return true;
+    for (const value of url.searchParams.values()) {
+      if (value === conversationId) return true;
+    }
+    return false;
+  }
+
+  function findObservedGraphPayloads(root, expectedConversationId) {
+    const queue = [{ value: root, depth: 0 }];
+    const seen = new Set();
+    const matches = [];
+    let inspected = 0;
+
+    while (queue.length > 0 && inspected < 256) {
+      const entry = queue.shift();
+      const candidate = readRecord(entry?.value);
+      if (!candidate || seen.has(candidate)) continue;
+      seen.add(candidate);
+      inspected += 1;
+
+      const mapping = readRecord(candidate.mapping);
+      const currentNodeId = getPayloadCurrentNodeId(candidate);
+      const candidateConversationId = getPayloadConversationId(candidate);
+      if (
+        mapping
+        && currentNodeId
+        && readRecord(mapping[currentNodeId])
+        && (!candidateConversationId || candidateConversationId === expectedConversationId)
+      ) {
+        matches.push(candidate);
+        // A Graph mapping can be large and cannot contain a competing wrapper
+        // candidate. Keep the bounded search focused on sibling containers.
+        continue;
+      }
+
+      if ((entry?.depth ?? 0) >= 4) continue;
+      for (const value of Object.values(candidate)) {
+        if (readRecord(value)) queue.push({ value, depth: (entry?.depth ?? 0) + 1 });
+      }
+    }
+    return matches;
   }
 
   function getObservedRequestUrl(input) {
@@ -402,10 +480,15 @@
 
   function rememberObservedPayload(expectedConversationId, payload, requestSequence) {
     if (!payload || typeof payload !== 'object') return false;
-    const conversationId = getPayloadConversationId(payload);
+    const payloadConversationId = getPayloadConversationId(payload);
+    const conversationId = payloadConversationId || expectedConversationId;
     const currentNodeId = getPayloadCurrentNodeId(payload);
     const mapping = readRecord(payload.mapping);
-    if (conversationId !== expectedConversationId || !currentNodeId || !mapping) return false;
+    if (
+      (payloadConversationId && payloadConversationId !== expectedConversationId)
+      || !currentNodeId
+      || !mapping
+    ) return false;
 
     const previous = bridgeState.graphsByConversation.get(conversationId);
     const isCompletePayload = buildBranchNodesFromMapping(mapping, currentNodeId) !== null;
@@ -435,6 +518,13 @@
       bridgeState.graphsByConversation.delete(oldestConversationId);
     }
 
+    const validatedProjection = buildRoundsFromPayload({
+      conversation_id: conversationId,
+      current_node: nextCurrentNodeId,
+      mapping: mergedMapping,
+    });
+    if (!validatedProjection) return false;
+
     window.dispatchEvent(new CustomEvent(CAPTURE_EVENT, {
       detail: JSON.stringify({
         kind: 'graph',
@@ -452,8 +542,11 @@
     const contentType = response.headers?.get?.('content-type') || '';
     if (!contentType.toLowerCase().includes('json')) return;
     try {
-      const payload = await response.clone().json();
-      rememberObservedPayload(conversationId, payload, requestSequence);
+      const rawPayload = await response.clone().json();
+      const payloads = findObservedGraphPayloads(rawPayload, expectedConversationId);
+      for (const payload of payloads) {
+        if (rememberObservedPayload(conversationId, payload, requestSequence)) break;
+      }
     } catch {
       // The host response remains untouched; an unreadable clone simply yields no observation.
     }
@@ -466,9 +559,6 @@
       const requestUrl = getObservedRequestUrl(input);
       const requestMethod = getObservedRequestMethod(input, init[0]);
       const conversationId = getObservedConversationId(requestUrl);
-      if (requestMethod === 'POST' && isGenerationRequestUrl(requestUrl)) {
-        rememberGenerationRequest(requestUrl);
-      }
       const result = nativeFetch.call(this, input, ...init);
       if (!conversationId || requestMethod !== 'GET') return result;
       const requestSequence = ++bridgeState.requestSequence;
@@ -484,110 +574,23 @@
   }
 
   function getCurrentConversationId() {
-    return window.location.pathname.match(/(?:^|\/)(?:c|conversation)\/([0-9a-f-]{8,})(?:\/|$)/i)?.[1] || null;
-  }
-
-  function getCurrentAssistantMessageId() {
-    const messages = document.querySelectorAll('[data-message-author-role="assistant"][data-message-id]');
-    return messages[messages.length - 1]?.getAttribute('data-message-id')?.trim() || null;
-  }
-
-  function isGenerationRequestUrl(value) {
-    if (typeof value !== 'string' || !value) return false;
-    try {
-      const url = new URL(value, window.location.href);
-      return url.origin === window.location.origin
-        && /^\/backend-api(?:\/f)?\/conversation\/?$/.test(url.pathname);
-    } catch {
-      return false;
-    }
-  }
-
-  function getGenerationRequestKey(value) {
-    if (!isGenerationRequestUrl(value)) return null;
-    try {
-      const url = new URL(value, window.location.href);
-      return `${url.origin}${url.pathname}`;
-    } catch {
-      return null;
-    }
-  }
-
-  function rememberGenerationRequest(requestUrl) {
-    const requestKey = getGenerationRequestKey(requestUrl);
-    if (!requestKey) return;
-    const conversationId = getCurrentConversationId();
-    bridgeState.completedGeneration = null;
-    bridgeState.pendingGenerations.push({
-      requestKey,
-      conversationId,
-      assistantMessageIdAtStart: getCurrentAssistantMessageId(),
-    });
-    while (bridgeState.pendingGenerations.length > MAX_PENDING_GENERATIONS) {
-      bridgeState.pendingGenerations.shift();
-    }
-    if (conversationId) {
-      dispatchGenerationLifecycle('generation-start', conversationId, null);
-    }
-  }
-
-  function takePendingGeneration(resourceUrl) {
-    const requestKey = getGenerationRequestKey(resourceUrl);
-    if (!requestKey) return null;
-    const index = bridgeState.pendingGenerations.findIndex((pending) => (
-      pending.requestKey === requestKey
-    ));
-    if (index < 0) return null;
-    return bridgeState.pendingGenerations.splice(index, 1)[0] || null;
-  }
-
-  function dispatchGenerationLifecycle(kind, conversationId, assistantMessageId) {
-    window.dispatchEvent(new CustomEvent(CAPTURE_EVENT, {
-      detail: JSON.stringify({
-        kind,
-        conversationId,
-        assistantMessageId: assistantMessageId || undefined,
-      }),
-    }));
-  }
-
-  function flushCompletedGeneration() {
-    const completed = bridgeState.completedGeneration;
-    if (!completed) return;
-    const currentConversationId = getCurrentConversationId();
-    if (completed.conversationId && completed.conversationId !== currentConversationId) {
-      bridgeState.completedGeneration = null;
-      return;
-    }
-    const conversationId = completed.conversationId || currentConversationId;
-    const assistantMessageId = getCurrentAssistantMessageId();
-    if (!conversationId || !assistantMessageId) return;
-    if (assistantMessageId === completed.assistantMessageIdAtStart) return;
-    bridgeState.completedGeneration = null;
-    dispatchGenerationLifecycle('generation-complete', conversationId, assistantMessageId);
-  }
-
-  function installGenerationCompletionObserver() {
-    const Observer = window.PerformanceObserver;
-    if (typeof Observer !== 'function') return () => {};
-
-    const observer = new Observer((list) => {
-      for (const entry of list.getEntries()) {
-        if (
-          entry.entryType !== 'resource'
-          || entry.initiatorType !== 'fetch'
-          || !isGenerationRequestUrl(entry.name)
-        ) continue;
-        const pending = takePendingGeneration(entry.name);
-        if (!pending) continue;
-        const currentConversationId = getCurrentConversationId();
-        if (pending.conversationId && pending.conversationId !== currentConversationId) continue;
-        bridgeState.completedGeneration = pending;
-        flushCompletedGeneration();
+    const segments = window.location.pathname.split('/').filter(Boolean);
+    for (let index = 0; index < segments.length - 1; index += 1) {
+      const marker = segments[index]?.toLowerCase();
+      if (marker !== 'c' && marker !== 'conversation') continue;
+      let candidate = segments[index + 1] || '';
+      try {
+        candidate = decodeURIComponent(candidate);
+      } catch {
+        continue;
       }
-    });
-    observer.observe({ type: 'resource', buffered: true });
-    return () => observer.disconnect();
+      if (
+        candidate.length >= 8
+        && candidate.length <= 160
+        && /^[A-Za-z0-9][A-Za-z0-9._~-]*$/.test(candidate)
+      ) return candidate;
+    }
+    return null;
   }
 
   function getSnapshot(conversationId) {
@@ -601,12 +604,7 @@
     const built = buildRoundsFromPayload(payload);
     if (!built) return null;
 
-    const generationPending = bridgeState.pendingGenerations.some((pending) => (
-      pending.conversationId === conversationId
-    ));
-    const rounds = generationPending && built.activeAssistantMessageId
-      ? built.rounds.filter((round) => round.assistantMessageId !== built.activeAssistantMessageId)
-      : built.rounds;
+    const rounds = built.rounds;
     if (rounds.length === 0) return null;
 
     return {
@@ -623,7 +621,6 @@
     const rawDetail = event instanceof CustomEvent ? event.detail : null;
     const detail = decodeBridgeDetail(rawDetail);
     if (!detail || !['snapshot', 'peek'].includes(detail.type)) return;
-    flushCompletedGeneration();
     const requestWasString = typeof rawDetail === 'string';
     const respond = (payload) => {
       window.dispatchEvent(new CustomEvent(RESPONSE_EVENT, {
@@ -657,17 +654,13 @@
   };
 
   const restoreFetch = installFetchObserver();
-  const disconnectGenerationCompletionObserver = installGenerationCompletionObserver();
   window.addEventListener(REQUEST_EVENT, handleSnapshotRequest);
   window[BRIDGE_KEY] = {
     version: BRIDGE_VERSION,
     dispose() {
       window.removeEventListener(REQUEST_EVENT, handleSnapshotRequest);
-      disconnectGenerationCompletionObserver();
       restoreFetch();
       bridgeState.graphsByConversation.clear();
-      bridgeState.pendingGenerations.length = 0;
-      bridgeState.completedGeneration = null;
     },
   };
 })();

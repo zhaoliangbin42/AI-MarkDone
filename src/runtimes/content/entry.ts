@@ -139,11 +139,9 @@ if (adapter) {
         cancelContentFeaturePrewarm?.();
         cancelContentFeaturePrewarm = null;
     };
-    // ChatGPT has one production content seam.  The passive graph-backed
-    // source owns identity, prompt, Markdown and canonical position; the
-    // materialization port owns only the current DOM anchor.  The V2 host
-    // discovery implementation remains isolated inside the runtime for
-    // compatibility tests, but must not become a second consumer source.
+    // ChatGPT has one production content seam. The Repository owns obtained
+    // messages; the Runtime-owned Surface projects those messages onto the
+    // currently mounted host DOM without creating another content source.
     const conversationMaterialization = adapter.getPlatformId() === 'chatgpt'
         ? chatGptConversationContentRuntime?.materialization ?? null
         : null;
@@ -154,6 +152,7 @@ if (adapter) {
                 timeoutMs: options.timeoutMs,
                 signal: options.signal,
                 alignmentTimeoutMs: Math.min(options.timeoutMs ?? 15000, 1500),
+                surface: chatGptConversationContentRuntime!.surface,
             }),
         })
         : null;
@@ -186,8 +185,7 @@ if (adapter) {
     // visible navigation affordance.
     const chatGptDirectory = adapter.getPlatformId() === 'chatgpt'
         ? new ChatGPTDirectoryController(adapter, bookmarksController, {
-            contentSource: conversationContentSource,
-            materialization: conversationMaterialization,
+            surface: chatGptConversationContentRuntime!.surface,
             navigation: conversationNavigation,
         })
         : null;
@@ -227,8 +225,7 @@ if (adapter) {
     });
     const chatGptMessageStepper = adapter.getPlatformId() === 'chatgpt'
         ? new ChatGPTMessageStepperController(adapter, {
-            contentSource: conversationContentSource,
-            materialization: conversationMaterialization,
+            surface: chatGptConversationContentRuntime!.surface,
             navigation: conversationNavigation,
             onOpenBookmarksPanel: () => bookmarksPanel.toggle(),
             onOpenDetachedReader: () => openDetachedReaderFromStepper(),
@@ -300,6 +297,7 @@ if (adapter) {
         copyMessagePng,
         conversationContentSource,
         conversationMaterialization,
+        conversationSurface: chatGptConversationContentRuntime?.surface ?? null,
         conversationNavigation,
     });
     const chatGptConversationReaderBinding = conversationContentSource
@@ -311,20 +309,23 @@ if (adapter) {
             pageUrl: () => window.location.href.split('#')[0] || window.location.href,
             prepareItems: (items) => {
                 const url = window.location.href.split('#')[0] || window.location.href;
+                const bookmarkable = Boolean(conversationContentSource.read().document?.conversationId);
                 const turns = items
                     .map((item) => ({
                         position: Number(item.meta?.position ?? 0),
                         assistantMessageId: String(item.meta?.assistantMessageId ?? item.meta?.messageId ?? '').trim(),
                     }))
                     .filter((turn) => turn.position > 0 && turn.assistantMessageId.length > 0);
-                const bookmarkedPositions = bookmarksController.resolveConversationBookmarkPositions(url, turns);
+                const bookmarkedPositions = bookmarkable
+                    ? bookmarksController.resolveConversationBookmarkPositions(url, turns)
+                    : new Set<number>();
                 for (const item of items) {
                     const position = Number(item.meta?.position ?? 0);
                     item.meta = {
                         ...(item.meta ?? {}),
                         url,
-                        bookmarkable: position > 0,
-                        bookmarked: position > 0
+                        bookmarkable: bookmarkable && position > 0,
+                        bookmarked: bookmarkable && position > 0
                             ? bookmarkedPositions.has(position)
                             : false,
                     };

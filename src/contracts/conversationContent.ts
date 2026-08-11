@@ -51,13 +51,25 @@ export class ConversationContentAcquisitionError extends Error {
     }
 }
 
-export type ConversationDocumentRefV1 = Readonly<{
+type ConversationDocumentRefBaseV1 = Readonly<{
     key: string;
     platformId: string;
-    conversationId: string;
     title?: string;
     canonicalUrl?: string;
 }>;
+
+export type ConversationDocumentRefV1 = ConversationDocumentRefBaseV1 & Readonly<
+    | {
+        /** Legacy producers may omit the discriminator; they are canonical. */
+        identityKind?: 'canonical';
+        conversationId: string;
+    }
+    | {
+        /** Page identity makes obtained DOM content consumable before a route id exists. */
+        identityKind: 'page';
+        conversationId: null;
+    }
+>;
 
 export type ConversationTurnIdentityV1 = Readonly<{
     turnId: string;
@@ -93,11 +105,10 @@ export type ConversationSnapshotV1 = Readonly<{
 
 export type ConversationSnapshotProofV1 = Readonly<{
     /** How the active projection was established. */
-    basis?: 'source' | 'hybrid' | 'host-born';
+    basis?: 'source' | 'hybrid' | 'host';
 }>;
 
 export type ConversationUnavailableReasonV1 =
-    | 'unsupported-route'
     | 'source-unavailable'
     | 'invalid-payload'
     | 'identity-conflict';
@@ -146,14 +157,39 @@ export function createConversationDocumentKeyV1(
     return `${normalizedPlatform}:conversation:${encodeURIComponent(normalizedConversation)}`;
 }
 
+export function createConversationPageDocumentKeyV1(
+    platformId: string,
+    pageEpochId: string,
+): string {
+    const normalizedPlatform = platformId.trim().toLowerCase();
+    const normalizedPageEpoch = pageEpochId.trim().toLowerCase();
+    return `${normalizedPlatform}:page:${encodeURIComponent(normalizedPageEpoch)}`;
+}
+
+/** Stable semantic identity for consumers that do not require a canonical route id. */
+export function getConversationDocumentIdentityKeyV1(
+    document: ConversationDocumentRefV1,
+): string {
+    return document.conversationId ?? document.key;
+}
+
 export function isConversationDocumentRefV1(value: unknown): value is ConversationDocumentRefV1 {
     if (!isRecord(value)) return false;
-    return isNonEmptyString(value.key)
-        && isNonEmptyString(value.platformId)
+    if (
+        !isNonEmptyString(value.key)
+        || !isNonEmptyString(value.platformId)
+        || !isOptionalString(value.title)
+        || !isOptionalString(value.canonicalUrl)
+    ) return false;
+    const identityKind = value.identityKind ?? 'canonical';
+    if (identityKind === 'page') {
+        return value.conversationId === null
+            && value.key.startsWith(`${value.platformId.trim().toLowerCase()}:page:`)
+            && value.key.length > `${value.platformId.trim().toLowerCase()}:page:`.length;
+    }
+    return identityKind === 'canonical'
         && isNonEmptyString(value.conversationId)
-        && value.key === createConversationDocumentKeyV1(value.platformId, value.conversationId)
-        && isOptionalString(value.title)
-        && isOptionalString(value.canonicalUrl);
+        && value.key === createConversationDocumentKeyV1(value.platformId, value.conversationId);
 }
 
 export function isConversationSnapshotV1(value: unknown): value is ConversationSnapshotV1 {
@@ -237,7 +273,7 @@ function isConversationSnapshotProofV1(value: unknown): value is ConversationSna
         value.basis !== undefined
         && value.basis !== 'source'
         && value.basis !== 'hybrid'
-        && value.basis !== 'host-born'
+        && value.basis !== 'host'
     ) return false;
     return Object.keys(value).every((key) => key === 'basis');
 }

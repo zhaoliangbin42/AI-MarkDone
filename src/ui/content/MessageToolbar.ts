@@ -51,6 +51,7 @@ export class MessageToolbar {
     private readonly appearanceScope: AppearanceScope;
     private actions: MessageToolbarAction[];
     private actionButtons = new Map<string, HTMLButtonElement>();
+    private explicitlyDisabledActions = new Set<string>();
     private pending: boolean = false;
     private openMenuFor: string | null = null;
     private onDocPointerDown: ((e: Event) => void) | null = null;
@@ -115,7 +116,7 @@ export class MessageToolbar {
         for (const action of this.actions) {
             if (!action.disabledWhenPending) continue;
             const btn = this.actionButtons.get(action.id);
-            if (btn) btn.disabled = pending;
+            if (btn) btn.disabled = pending || this.explicitlyDisabledActions.has(action.id);
         }
         if (note) note.textContent = pending ? t('streamingStatus') : '';
         this.syncNoteVisibility();
@@ -151,6 +152,15 @@ export class MessageToolbar {
         if (actionId === 'bookmark_toggle') {
             btn.classList.toggle('primary', active);
         }
+    }
+
+    setActionDisabled(actionId: string, disabled: boolean): void {
+        if (disabled) this.explicitlyDisabledActions.add(actionId);
+        else this.explicitlyDisabledActions.delete(actionId);
+        const button = this.actionButtons.get(actionId);
+        if (!button) return;
+        const action = this.actions.find((candidate) => candidate.id === actionId);
+        button.disabled = disabled || Boolean(this.pending && action?.disabledWhenPending);
     }
 
     private mount(): void {

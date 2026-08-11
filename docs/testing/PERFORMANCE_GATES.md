@@ -2,16 +2,22 @@
 
 This document is the execution contract for the 2026 ChatGPT content-runtime performance program. It turns performance work into staged, reproducible gates while preserving toolbar reliability and user-facing behavior.
 
-## Active architecture override — 2026-08-10
+## Active architecture override — 2026-08-11
 
-Current ChatGPT ownership follows ADR-0017. Historical phase records below are
+Current ChatGPT ownership follows ADR-0018. Historical phase records below are
 evidence for their dated builds; their references to an independent toolbar
 reconciler, source-only content, repeated refresh, or consumer-owned discovery
 are not current architecture. The benchmark now uses a canonical conversation
 route, complete typed user/assistant identities and one synthetic website-owned
-conversation GET. The production Page Bridge observes that response passively;
-the extension never initiates it. Toolbars mount only after the resulting
-authoritative baseline joins the shared PageIndex → Materialization lifecycle.
+same-origin GET carrying a structurally valid Graph. The production Page Bridge
+observes that response passively; the extension never initiates it and never
+observes POST. Toolbars mount only after the resulting canonical pool joins the
+shared PageIndex → Conversation Surface lifecycle. Production may also
+establish the same pool from one stable DOM batch when no Graph is available,
+including an ID-less page. The former toolbar-owned ChatGPT scanner/recovery
+timer, Discovery Coordinator, Conversation Index, and standalone
+Materialization are deleted; benchmark recovery must therefore be caused by
+one PageIndex surface fact and one Surface reconciliation.
 The fixture must never weaken production content, route or identity validation
 to preserve an old benchmark.
 
@@ -33,7 +39,7 @@ The benchmark must always satisfy all of these invariants:
 
 - 200 of 200 message toolbars appear.
 - every official action row contains exactly one AI-MarkDone toolbar.
-- all replaced official action rows recover within 500 ms.
+- all replaced official action rows recover through PageIndex/Surface within 500 ms, without a toolbar-owned observer, route watcher, scan timer, or stale-recovery timer.
 - no content feature module is requested before the explicit Bookmarks trigger in the synthetic benchmark, which has no verified ChatGPT snapshot; in a live ChatGPT page, Reader/export chunks may be prewarmed once during an eligible idle window after a snapshot exists. After any trigger, every feature URL remains on the extension origin rather than the host page origin.
 - no phase may increase an already accepted bundle or runtime median captured under the same measurement protocol by more than 10% without an explicit documented reason.
 - the direct-selection phase must produce no long task and no more than one `data-aimd-page-atomic-state` set plus one clear, regardless of repeated unchanged `selectionchange` events.
@@ -230,10 +236,10 @@ The automated counts, bundle sizes, and performance medians above were produced 
 
 - Ordinary ChatGPT Reader, Save Messages, Bookmark Preparation, word count and copy paths now read the last published V1 snapshot. They no longer wait for a bridge peek or call `ConversationContentSourceV1.refresh()` on every click.
 - `readerContentSource` caches immutable base `ReaderItem[]` projections by snapshot identity and normalized page URL. Consumer calls receive shallow mutable views; the cache never stores DOM or detached nodes. ChatGPT Markdown is normalized at the discovery adapter boundary only.
-- Complete source, hybrid and host-born snapshots remain consumable. A historical-prefix conflict preserves last-good diagnostics as `stale`, but full Reader and full Save Messages export pause until page reload. An empty snapshot remains unavailable. Explicit Reader Refresh only awaits or returns Session work already observed and cannot start baseline admission.
+- Complete source, hybrid and host snapshots remain consumable. A conflicting late Graph is ignored and cannot demote or pause a host-ready pool; an empty snapshot remains unavailable. Explicit Reader Refresh only awaits or returns Session work already observed and cannot start baseline admission.
 - Reader/export chunks have a bounded, single-flight idle prewarm after a verified ChatGPT snapshot exists and the page is visible. `saveData` skips prewarm, teardown cancels it, and all module URLs remain extension-origin. The synthetic benchmark has a passive Graph snapshot; its current prewarm and explicit-trigger assertions are recorded in the latest section below.
 
-### Baseline-and-host-tail lifecycle — 2026-08-10
+### Identity-proven single-pool lifecycle — 2026-08-10
 
 - The 200-round fixture now uses a valid canonical conversation ID, typed user,
   assistant and turn identities, and one page-owned conversation GET whose

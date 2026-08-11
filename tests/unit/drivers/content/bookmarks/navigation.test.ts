@@ -3,7 +3,6 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 const scrollToConversationTarget = vi.fn();
 const scrollToConversationTargetWithRetry = vi.fn();
 const resolveConversationTarget = vi.fn();
-const materializeChatGPTConversationTarget = vi.fn();
 const highlightNavigationTarget = vi.fn();
 
 vi.mock('@/drivers/content/conversation/navigation', () => ({
@@ -14,10 +13,6 @@ vi.mock('@/drivers/content/conversation/navigation', () => ({
 
 vi.mock('@/drivers/content/conversation/highlight', () => ({
     highlightNavigationTarget,
-}));
-
-vi.mock('@/drivers/content/chatgpt/ChatGPTConversationNavigation', () => ({
-    materializeChatGPTConversationTarget,
 }));
 
 describe('bookmark navigation', () => {
@@ -145,12 +140,8 @@ describe('bookmark navigation', () => {
         expect(scrollIntoView).not.toHaveBeenCalled();
     });
 
-    it('resolves a legacy position-only ChatGPT bookmark through the canonical index', async () => {
+    it('keeps ChatGPT bookmark navigation on the injected Surface navigation port', async () => {
         const { scrollToBookmarkTargetWithRetry } = await import('@/drivers/content/bookmarks/navigation');
-        materializeChatGPTConversationTarget.mockResolvedValueOnce({
-            ok: false,
-            message: 'Canonical target unavailable',
-        });
 
         const result = await scrollToBookmarkTargetWithRetry({ getPlatformId: () => 'chatgpt' } as any, {
             position: 50,
@@ -159,49 +150,9 @@ describe('bookmark navigation', () => {
             intervalMs: 10,
         });
 
-        expect(result).toEqual({ ok: false, message: 'Canonical target unavailable' });
-        expect(materializeChatGPTConversationTarget).toHaveBeenCalledWith(
-            { getPlatformId: expect.any(Function) },
-            { position: 50, messageId: null },
-            { timeoutMs: 100, intervalMs: 10 }
-        );
+        expect(result).toEqual({ ok: false, message: 'Canonical navigation port required' });
+        expect(scrollToConversationTargetWithRetry).not.toHaveBeenCalled();
         expect(resolveConversationTarget).not.toHaveBeenCalled();
-    });
-
-    it('materializes and scrolls an off-screen ChatGPT bookmark target through the canonical driver', async () => {
-        vi.useFakeTimers();
-        const { scrollToBookmarkTargetWithRetry } = await import('@/drivers/content/bookmarks/navigation');
-        const message = document.createElement('div');
-        const scrollIntoView = vi.fn();
-        const releaseListener = vi.fn();
-        window.addEventListener('aimd:chatgpt-send-position-restore:release', releaseListener);
-        message.scrollIntoView = scrollIntoView;
-        materializeChatGPTConversationTarget.mockResolvedValueOnce({
-            ok: true,
-            anchor: message,
-            indexedRound: { position: 4 },
-        });
-
-        const result = await scrollToBookmarkTargetWithRetry({ getPlatformId: () => 'chatgpt' } as any, {
-            position: 4,
-            messageId: 'msg-4',
-        }, {
-            timeoutMs: 100,
-            intervalMs: 10,
-        });
-
-        expect(result).toEqual({ ok: true });
-        expect(materializeChatGPTConversationTarget).toHaveBeenCalledWith(
-            { getPlatformId: expect.any(Function) },
-            { position: 4, messageId: 'msg-4' },
-            { timeoutMs: 100, intervalMs: 10 }
-        );
-        expect(resolveConversationTarget).not.toHaveBeenCalled();
-        expect(releaseListener).toHaveBeenCalledTimes(1);
-        expect(scrollIntoView).toHaveBeenCalledWith({ behavior: 'smooth', block: 'start' });
-        await vi.advanceTimersByTimeAsync(100);
-        expect(highlightNavigationTarget).toHaveBeenCalledWith(message);
-        window.removeEventListener('aimd:chatgpt-send-position-restore:release', releaseListener);
     });
 
 });

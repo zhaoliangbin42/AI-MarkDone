@@ -147,6 +147,7 @@ describe('ChatGPT content discovery lifecycle', () => {
             readerPanel: { setTheme() {}, show: async () => undefined } as any,
             conversationContentSource: runtime.source,
             conversationMaterialization: runtime.materialization,
+            conversationSurface: runtime.surface,
         });
         try {
             runtime.init();
@@ -170,23 +171,40 @@ describe('ChatGPT content discovery lifecycle', () => {
                         <div class="z-0 flex"><button data-testid="copy-turn-action-button">Copy</button></div>
                     </section>
                 </div>
-                <div data-turn-id-container="user-slot-2">
+                <div id="user-slot-2" data-turn-id-container="user-slot-2"></div>
+                <div id="assistant-slot-2" data-turn-id-container="assistant-slot-2"></div>
+            `;
+            await Promise.resolve();
+
+            document.getElementById('user-slot-2')!.innerHTML = `
+                <div>
                     <section data-turn="user" data-turn-id="turn-2">
                         <div data-message-author-role="user" data-message-id="user-2">Question 2</div>
                     </section>
                 </div>
-                <div data-turn-id-container="assistant-slot-2">
+            `;
+            await Promise.resolve();
+
+            document.getElementById('assistant-slot-2')!.innerHTML = `
+                <div>
                     <section data-turn="assistant" data-turn-id="turn-2">
                         <div data-message-author-role="assistant" data-message-id="assistant-2">
                             <div class="markdown prose"><p>Answer 2 from DOM</p></div>
                         </div>
-                        <div class="z-0 flex"><button data-testid="copy-turn-action-button">Copy</button></div>
                     </section>
                 </div>
             `;
+            await Promise.resolve();
 
-            await new Promise((resolve) => window.setTimeout(resolve, 80));
-            const hybrid = runtime.source.read();
+            document.querySelector('#assistant-slot-2 section')!.insertAdjacentHTML(
+                'beforeend',
+                '<div class="z-0 flex"><button data-testid="copy-turn-action-button">Copy</button></div>',
+            );
+
+            await vi.waitFor(() => {
+                expect(runtime.source.read().snapshot?.proof?.basis).toBe('hybrid');
+            });
+            const hybrid = await runtime.source.refresh();
             expect(hybrid.kind).toBe('ready');
             if (hybrid.kind !== 'ready') throw new Error('expected a hybrid ready state');
             expect(hybrid.snapshot.proof?.basis).toBe('hybrid');
@@ -206,7 +224,7 @@ describe('ChatGPT content discovery lifecycle', () => {
             expect(secondStats).not.toContain('—');
 
             window.dispatchEvent(new CustomEvent('aimd:chatgpt-conversation-bridge:capture', {
-                detail: { kind: 'generation-complete', conversationId, assistantMessageId: 'assistant-2' },
+                detail: { kind: 'graph', conversationId },
             }));
             await new Promise((resolve) => window.setTimeout(resolve, 220));
             expect(bridgeRequests).toBe(1);
@@ -353,7 +371,7 @@ describe('ChatGPT content discovery lifecycle', () => {
         const fetchSpy = vi.spyOn(window, 'fetch');
 
         const adapter = new ChatGPTAdapter();
-        const runtime = new ChatGPTConversationContentRuntime(adapter);
+        const runtime = new ChatGPTConversationContentRuntime(adapter, { hostSettleDelayMs: 20 });
         try {
             runtime.init();
             const state = await runtime.source.refresh();
@@ -413,7 +431,79 @@ describe('ChatGPT content discovery lifecycle', () => {
         expect(ready.snapshot.turns).toHaveLength(2);
     });
 
-    it('does not publish DOM-only content when source capture is unavailable', async () => {
+    it('does not seed a new route from the previous route surface before new host facts arrive', async () => {
+        document.documentElement.innerHTML = '<head></head><body><main></main></body>';
+        history.replaceState({}, '', '/c/conversation-route-a');
+        document.querySelector('main')!.innerHTML = `
+            <article data-turn="user" data-turn-id="turn-a">
+                <div data-message-author-role="user" data-message-id="user-a">Question A</div>
+            </article>
+            <article data-turn="assistant" data-turn-id="turn-a">
+                <div data-message-author-role="assistant" data-message-id="assistant-a">
+                    <div class="markdown prose">Answer A</div>
+                </div>
+                <div class="z-0 flex"><button data-testid="copy-turn-action-button">Copy</button></div>
+            </article>
+        `;
+        const adapter = new ChatGPTAdapter();
+        const runtime = new ChatGPTConversationContentRuntime(adapter, { hostSettleDelayMs: 20 });
+        const toolbarOrchestrator = new MessageToolbarOrchestrator(adapter, {
+            readerPanel: { setTheme() {}, show: async () => undefined } as any,
+            conversationContentSource: runtime.source,
+            conversationMaterialization: runtime.materialization,
+            conversationSurface: runtime.surface,
+        });
+        const responder = ((event: Event) => {
+            const request = (event as CustomEvent<any>).detail;
+            window.dispatchEvent(new CustomEvent('aimd:chatgpt-conversation-bridge:response', {
+                detail: {
+                    requestId: request.requestId,
+                    ok: false,
+                    error: { code: 'BRIDGE_UNAVAILABLE', retryable: true },
+                },
+            }));
+        }) as EventListener;
+        window.addEventListener('aimd:chatgpt-conversation-bridge:request', responder);
+
+        try {
+            runtime.init();
+            toolbarOrchestrator.init();
+            await new Promise((resolve) => window.setTimeout(resolve, 50));
+            expect(runtime.source.read().snapshot?.turns[0]?.assistantMarkdown).toBe('Answer A');
+
+            history.replaceState({}, '', '/c/conversation-route-b');
+            await new Promise((resolve) => window.setTimeout(resolve, 50));
+
+            const beforeHostFacts = runtime.source.read();
+            expect(beforeHostFacts.document?.conversationId).toBe('conversation-route-b');
+            expect(beforeHostFacts.snapshot).toBeNull();
+
+            document.querySelector('main')!.innerHTML = `
+                <article data-turn="user" data-turn-id="turn-b">
+                    <div data-message-author-role="user" data-message-id="user-b">Question B</div>
+                </article>
+                <article data-turn="assistant" data-turn-id="turn-b">
+                    <div data-message-author-role="assistant" data-message-id="assistant-b">
+                        <div class="markdown prose">Answer B</div>
+                    </div>
+                    <div class="z-0 flex"><button data-testid="copy-turn-action-button">Copy</button></div>
+                </article>
+            `;
+            await new Promise((resolve) => window.setTimeout(resolve, 50));
+
+            const readyB = runtime.source.read();
+            expect(readyB.kind).toBe('ready');
+            if (readyB.kind !== 'ready') throw new Error('expected route B host facts');
+            expect(readyB.snapshot.turns.map((turn) => turn.assistantMarkdown)).toEqual(['Answer B']);
+        } finally {
+            window.removeEventListener('aimd:chatgpt-conversation-bridge:request', responder);
+            toolbarOrchestrator.dispose();
+            runtime.dispose();
+            adapter.dispose();
+        }
+    });
+
+    it('keeps stable DOM content consumable when passive source capture is unavailable', async () => {
         document.documentElement.innerHTML = '<head></head><body><main></main></body>';
         history.replaceState({}, '', '/c/695499b7-464c-8323-a998-119f661ac953');
         document.querySelector('main')?.insertAdjacentHTML('beforeend', `
@@ -430,22 +520,26 @@ describe('ChatGPT content discovery lifecycle', () => {
             </article>
         `);
         const adapter = new ChatGPTAdapter();
-        const runtime = new ChatGPTConversationContentRuntime(adapter);
+        const runtime = new ChatGPTConversationContentRuntime(adapter, { hostSettleDelayMs: 20 });
         let directory: ChatGPTDirectoryController | null = null;
         try {
             runtime.init();
+            await new Promise((resolve) => window.setTimeout(resolve, 25));
             const first = await runtime.source.refresh();
-            expect(first.kind).toBe('unavailable');
-            expect(first.snapshot).toBeNull();
+            expect(first.kind).toBe('ready');
+            if (first.kind !== 'ready') throw new Error('expected a host-ready snapshot');
+            expect(first.snapshot.proof).toEqual({ basis: 'host' });
+            expect(first.snapshot.turns.map((turn) => turn.assistantMarkdown)).toEqual(['Answer 1']);
 
             directory = new ChatGPTDirectoryController(adapter, null, {
+                surface: runtime.surface,
                 contentSource: runtime.source,
                 materialization: runtime.materialization,
             });
             directory.init('light');
             const mountedRail = document.getElementById('aimd-chatgpt-directory-rail');
             expect(mountedRail?.parentElement).toBe(document.body);
-            expect(mountedRail?.shadowRoot?.querySelectorAll('.rail__item')).toHaveLength(0);
+            expect(mountedRail?.shadowRoot?.querySelectorAll('.rail__item')).toHaveLength(1);
 
             document.querySelector('main')?.insertAdjacentHTML('beforeend', `
                 <article data-turn="user" data-turn-id="user-turn-2">
@@ -460,9 +554,15 @@ describe('ChatGPT content discovery lifecycle', () => {
                     <div class="z-0 flex"><button data-testid="copy-turn-action-button">Copy</button></div>
                 </article>
             `);
-            const second = await runtime.source.refresh();
-            expect(second.kind).toBe('unavailable');
-            expect(second.snapshot).toBeNull();
+            await new Promise((resolve) => window.setTimeout(resolve, 700));
+            const second = runtime.source.read();
+            expect(second.kind).toBe('ready');
+            if (second.kind !== 'ready') throw new Error('expected the DOM tail in the shared pool');
+            expect(second.snapshot.turns.map((turn) => turn.assistantMarkdown)).toEqual([
+                'Answer 1',
+                'Answer 2',
+            ]);
+            expect(mountedRail?.shadowRoot?.querySelectorAll('.rail__item')).toHaveLength(2);
         } finally {
             directory?.dispose();
             runtime.dispose();
@@ -470,7 +570,7 @@ describe('ChatGPT content discovery lifecycle', () => {
         }
     });
 
-    it('does not publish a DOM-only first turn in a newly created conversation', async () => {
+    it('publishes a stable DOM-only first turn in a canonical conversation', async () => {
         document.documentElement.innerHTML = '<head></head><body><main></main></body>';
         history.replaceState({}, '', '/c/6a72103d-0a30-83ec-b432-b27dab6e72e2');
         document.querySelector('main')?.insertAdjacentHTML('beforeend', `
@@ -501,9 +601,13 @@ describe('ChatGPT content discovery lifecycle', () => {
         window.addEventListener('aimd:chatgpt-conversation-bridge:request', responder);
         try {
             runtime.init();
-            const state = await runtime.source.refresh();
-            expect(state.kind).toBe('unavailable');
-            expect(state.snapshot).toBeNull();
+            await runtime.source.refresh();
+            await new Promise((resolve) => window.setTimeout(resolve, 520));
+            const state = runtime.source.read();
+            expect(state.kind).toBe('ready');
+            if (state.kind !== 'ready') throw new Error('expected a host-ready first turn');
+            expect(state.snapshot.proof).toEqual({ basis: 'host' });
+            expect(state.snapshot.turns[0]?.assistantMarkdown).toBe('测试完成');
         } finally {
             window.removeEventListener('aimd:chatgpt-conversation-bridge:request', responder);
             runtime.dispose();
@@ -511,7 +615,230 @@ describe('ChatGPT content discovery lifecycle', () => {
         }
     });
 
-    it('does not publish DOM completion before the source graph is available', async () => {
+    it('publishes a stable first turn while the page remains without a canonical conversation id', async () => {
+        document.documentElement.innerHTML = '<head></head><body><main></main></body>';
+        history.replaceState({}, '', '/');
+        document.querySelector('main')?.insertAdjacentHTML('beforeend', `
+            <section data-testid="conversation-turn-1" data-turn="user" data-turn-id="page-user-turn-1">
+                <div data-message-author-role="user" data-message-id="page-user-1">Page-scoped question</div>
+            </section>
+            <section data-testid="conversation-turn-2" data-turn="assistant" data-turn-id="page-assistant-turn-1">
+                <div data-message-author-role="assistant" data-message-id="page-assistant-1">
+                    <div class="markdown prose">Page-scoped answer</div>
+                </div>
+                <div class="z-0 flex"><button data-testid="copy-turn-action-button">Copy</button></div>
+            </section>
+        `);
+        const adapter = new ChatGPTAdapter();
+        const runtime = new ChatGPTConversationContentRuntime(adapter, { hostSettleDelayMs: 20 });
+        const refreshPositionsForUrl = vi.fn(async () => undefined);
+        const bookmarkSaveDialog = { open: vi.fn() };
+        const bookmarksController = {
+            refreshPositionsForUrl,
+            resolveConversationBookmarkPositions: vi.fn(() => new Set<number>()),
+            isPositionBookmarked: vi.fn(() => false),
+        };
+        const toolbarOrchestrator = new MessageToolbarOrchestrator(adapter, {
+            readerPanel: { setTheme() {}, show: async () => undefined } as any,
+            bookmarksController: bookmarksController as any,
+            bookmarkSaveDialog: bookmarkSaveDialog as any,
+            conversationContentSource: runtime.source,
+            conversationMaterialization: runtime.materialization,
+            conversationSurface: runtime.surface,
+        });
+        let bridgeRequests = 0;
+        const observeBridgeRequest = () => {
+            bridgeRequests += 1;
+        };
+        window.addEventListener('aimd:chatgpt-conversation-bridge:request', observeBridgeRequest);
+
+        try {
+            runtime.init();
+            toolbarOrchestrator.init();
+            await new Promise((resolve) => window.setTimeout(resolve, 50));
+
+            const state = runtime.source.read();
+            expect(state.kind).toBe('ready');
+            if (state.kind !== 'ready') throw new Error('expected page-scoped host content');
+            expect(state.document).toMatchObject({
+                identityKind: 'page',
+                conversationId: null,
+            });
+            expect(state.snapshot.proof).toEqual({ basis: 'host' });
+            expect(state.snapshot.turns.map((turn) => turn.assistantMarkdown)).toEqual([
+                'Page-scoped answer',
+            ]);
+            expect(runtime.surface.readFrame()).toMatchObject({
+                contentToken: state.snapshot.contentToken,
+                obtainedTurns: [{
+                    status: 'obtained',
+                    turn: { identity: { assistantMessageId: 'page-assistant-1' } },
+                    materialization: { messageElement: expect.any(HTMLElement) },
+                }],
+                pendingSurfaces: [],
+            });
+            const toolbar = document.querySelector('[data-message-id="page-assistant-1"]')
+                ?.closest('section')
+                ?.querySelector<HTMLElement>('[data-aimd-role="message-toolbar"]');
+            const stats = toolbar?.shadowRoot
+                ?.querySelector<HTMLElement>('[data-role="stats"]')
+                ?.textContent?.trim() ?? '';
+            expect(toolbar).toBeTruthy();
+            expect(stats).toMatch(/\d/);
+            expect(stats).not.toContain('—');
+            expect(bridgeRequests).toBe(0);
+
+            const bookmarkButton = toolbar?.shadowRoot
+                ?.querySelector<HTMLButtonElement>('[data-action="bookmark_toggle"]');
+            expect(bookmarkButton?.disabled).toBe(true);
+            bookmarkButton?.click();
+            await Promise.resolve();
+            expect(bookmarkSaveDialog.open).not.toHaveBeenCalled();
+            expect(refreshPositionsForUrl).not.toHaveBeenCalled();
+
+            const projectionId = state.snapshot.projectionId;
+            const contentToken = state.snapshot.contentToken;
+            history.replaceState({}, '', '/c/page-promoted-conversation');
+            await Promise.resolve();
+
+            const promoted = runtime.source.read();
+            expect(promoted.document?.conversationId).toBe('page-promoted-conversation');
+            expect(promoted.snapshot?.projectionId).toBe(projectionId);
+            expect(promoted.snapshot?.contentToken).toBe(contentToken);
+            expect(bookmarkButton?.disabled).toBe(false);
+            expect(refreshPositionsForUrl).toHaveBeenCalledWith(
+                expect.stringContaining('/c/page-promoted-conversation'),
+            );
+        } finally {
+            window.removeEventListener('aimd:chatgpt-conversation-bridge:request', observeBridgeRequest);
+            toolbarOrchestrator.dispose();
+            runtime.dispose();
+            adapter.dispose();
+        }
+    });
+
+    it('publishes generated content before a delayed action row and mounts numeric toolbar afterward', async () => {
+        document.documentElement.innerHTML = '<head></head><body><main></main></body>';
+        history.replaceState({}, '', '/');
+        const adapter = new ChatGPTAdapter();
+        const runtime = new ChatGPTConversationContentRuntime(adapter, { hostSettleDelayMs: 20 });
+        const toolbarOrchestrator = new MessageToolbarOrchestrator(adapter, {
+            readerPanel: { setTheme() {}, show: async () => undefined } as any,
+            conversationContentSource: runtime.source,
+            conversationMaterialization: runtime.materialization,
+            conversationSurface: runtime.surface,
+        });
+
+        try {
+            runtime.init();
+            toolbarOrchestrator.init();
+            document.body.insertAdjacentHTML('beforeend', '<button data-testid="stop-button">Stop</button>');
+            document.querySelector('main')!.innerHTML = `
+                <section data-turn="user" data-turn-id="turn-late-action">
+                    <div data-message-author-role="user" data-message-id="user-late-action">Question</div>
+                </section>
+                <section data-turn="assistant" data-turn-id="turn-late-action">
+                    <div data-message-author-role="assistant" data-message-id="assistant-late-action">
+                        <div class="markdown prose">Answer before action row</div>
+                    </div>
+                </section>
+            `;
+            await Promise.resolve();
+            document.querySelector('button[data-testid="stop-button"]')?.remove();
+
+            await vi.waitFor(() => {
+                expect(runtime.source.read().snapshot?.turns).toHaveLength(1);
+            });
+            const ready = runtime.source.read();
+            expect(ready.kind).toBe('ready');
+            if (ready.kind !== 'ready') throw new Error('expected host content before the action row');
+            expect(buildChatGPTReaderContent(ready.snapshot).items).toHaveLength(1);
+            expect(document.querySelector('[data-aimd-role="message-toolbar"]')).toBeNull();
+
+            document.querySelector('section[data-turn="assistant"]')!.insertAdjacentHTML(
+                'beforeend',
+                '<div><button data-testid="copy-turn-action-button">Copy</button></div>',
+            );
+            await vi.waitFor(() => {
+                const toolbar = document.querySelector<HTMLElement>('[data-aimd-role="message-toolbar"]');
+                const stats = toolbar?.shadowRoot
+                    ?.querySelector<HTMLElement>('[data-role="stats"]')
+                    ?.textContent ?? '';
+                expect(toolbar).toBeTruthy();
+                expect(stats).toMatch(/\d/);
+                expect(stats).not.toContain('—');
+            });
+        } finally {
+            toolbarOrchestrator.dispose();
+            runtime.dispose();
+            adapter.dispose();
+        }
+    });
+
+    it('starts a new page projection only after an id-less surface clears and a new generation begins', async () => {
+        document.documentElement.innerHTML = '<head></head><body><main></main></body>';
+        history.replaceState({}, '', '/');
+        const main = document.querySelector('main')!;
+        main.innerHTML = `
+            <section data-turn="user" data-turn-id="turn-old">
+                <div data-message-author-role="user" data-message-id="user-old">Old question</div>
+            </section>
+            <section data-turn="assistant" data-turn-id="turn-old">
+                <div data-message-author-role="assistant" data-message-id="assistant-old">
+                    <div class="markdown prose">Old answer</div>
+                </div>
+                <div><button data-testid="copy-turn-action-button">Copy</button></div>
+            </section>
+        `;
+        const adapter = new ChatGPTAdapter();
+        const runtime = new ChatGPTConversationContentRuntime(adapter, { hostSettleDelayMs: 20 });
+
+        try {
+            runtime.init();
+            await new Promise((resolve) => window.setTimeout(resolve, 25));
+            const first = runtime.source.read();
+            expect(first.kind).toBe('ready');
+            if (first.kind !== 'ready') throw new Error('expected first page projection');
+            const firstProjection = first.snapshot.projectionId;
+
+            main.innerHTML = '';
+            await Promise.resolve();
+            main.innerHTML = `
+                <section data-turn="user" data-turn-id="turn-new">
+                    <div data-message-author-role="user" data-message-id="user-new">New question</div>
+                </section>
+                <section data-turn="assistant" data-turn-id="turn-new">
+                    <div data-message-author-role="assistant" data-message-id="assistant-new">
+                        <div class="streaming-animation markdown prose">New answer</div>
+                    </div>
+                    <button data-testid="stop-button">Stop</button>
+                </section>
+            `;
+            await Promise.resolve();
+            document.querySelector('.streaming-animation')?.classList.remove('streaming-animation');
+            document.querySelector('button[data-testid="stop-button"]')?.replaceWith(
+                Object.assign(document.createElement('button'), { textContent: 'Copy' }),
+            );
+            document.querySelector('section[data-turn="assistant"] button')?.setAttribute(
+                'data-testid',
+                'copy-turn-action-button',
+            );
+            await new Promise((resolve) => window.setTimeout(resolve, 25));
+
+            const second = runtime.source.read();
+            expect(second.kind).toBe('ready');
+            if (second.kind !== 'ready') throw new Error('expected second page projection');
+            expect(second.snapshot.projectionId).not.toBe(firstProjection);
+            expect(second.snapshot.turns.map((turn) => turn.identity.assistantMessageId)).toEqual([
+                'assistant-new',
+            ]);
+        } finally {
+            runtime.dispose();
+            adapter.dispose();
+        }
+    });
+
+    it('publishes DOM completion without requiring a source Graph', async () => {
         document.documentElement.innerHTML = '<head></head><body><main></main></body>';
         history.replaceState({}, '', '/c/6a721381-e3ec-83ec-ba07-2c2885d2b9c6');
         document.querySelector('main')?.insertAdjacentHTML('beforeend', `
@@ -554,18 +881,14 @@ describe('ChatGPT content discovery lifecycle', () => {
                 throw new Error('first-turn completion controls are missing');
             }
             markdown.textContent = '首轮探针完成';
-            window.dispatchEvent(new CustomEvent('aimd:chatgpt-conversation-bridge:capture', {
-                detail: {
-                    kind: 'generation-complete',
-                    conversationId: '6a721381-e3ec-83ec-ba07-2c2885d2b9c6',
-                    assistantMessageId: 'ac579e24-71d7-45a4-8b8b-5fc07f3761f5',
-                },
-            }));
+            stop.remove();
 
-            await new Promise((resolve) => window.setTimeout(resolve, 220));
+            await new Promise((resolve) => window.setTimeout(resolve, 520));
             const ready = runtime.source.read();
-            expect(ready.kind).toBe('unavailable');
-            expect(ready.snapshot).toBeNull();
+            expect(ready.kind).toBe('ready');
+            if (ready.kind !== 'ready') throw new Error('expected stable DOM completion');
+            expect(ready.snapshot.proof).toEqual({ basis: 'host' });
+            expect(ready.snapshot.turns[0]?.assistantMarkdown).toBe('首轮探针完成');
         } finally {
             window.removeEventListener('aimd:chatgpt-conversation-bridge:request', responder);
             runtime.dispose();
@@ -573,7 +896,7 @@ describe('ChatGPT content discovery lifecycle', () => {
         }
     });
 
-    it('does not recover content from a host-filled body without a source graph', async () => {
+    it('recovers a completed host body without a source Graph', async () => {
         document.documentElement.innerHTML = '<head></head><body><main></main></body>';
         history.replaceState({}, '', '/c/6a7214b7-0a30-83ec-ba07-2c2885d2b9c6');
         document.querySelector('main')?.insertAdjacentHTML('beforeend', `
@@ -611,10 +934,12 @@ describe('ChatGPT content discovery lifecycle', () => {
             if (!(markdown instanceof HTMLElement)) throw new Error('assistant body is missing');
             markdown.textContent = 'Loaded after refresh';
 
-            await new Promise((resolve) => window.setTimeout(resolve, 220));
+            await new Promise((resolve) => window.setTimeout(resolve, 520));
             const recovered = runtime.source.read();
-            expect(recovered.kind).toBe('unavailable');
-            expect(recovered.snapshot).toBeNull();
+            expect(recovered.kind).toBe('ready');
+            if (recovered.kind !== 'ready') throw new Error('expected host recovery');
+            expect(recovered.snapshot.proof).toEqual({ basis: 'host' });
+            expect(recovered.snapshot.turns[0]?.assistantMarkdown).toBe('Loaded after refresh');
         } finally {
             window.removeEventListener('aimd:chatgpt-conversation-bridge:request', responder);
             runtime.dispose();
@@ -622,7 +947,7 @@ describe('ChatGPT content discovery lifecycle', () => {
         }
     });
 
-    it('publishes a host-born first turn after home-page DOM completion without replaying the source graph', async () => {
+    it('binds a home-page DOM first turn directly to the canonical conversation', async () => {
         document.documentElement.innerHTML = '<head></head><body><main></main></body>';
         history.replaceState({}, '', '/');
         const adapter = new ChatGPTAdapter();
@@ -631,6 +956,7 @@ describe('ChatGPT content discovery lifecycle', () => {
             readerPanel: { setTheme() {}, show: async () => undefined } as any,
             conversationContentSource: runtime.source,
             conversationMaterialization: runtime.materialization,
+            conversationSurface: runtime.surface,
         });
         let bridgeRequests = 0;
         const responder = ((event: Event) => {
@@ -651,7 +977,6 @@ describe('ChatGPT content discovery lifecycle', () => {
             expect((toolbarOrchestrator as any).observer).toBeNull();
             expect((toolbarOrchestrator as any).routeWatcher).toBeNull();
             expect((toolbarOrchestrator as any).scanScheduler).toBeNull();
-            history.pushState({}, '', '/c/WEB:68fd340e-b1b6-4435-8dc7-a9d9152e87f4');
             document.querySelector('main')?.insertAdjacentHTML('beforeend', `
                 <div class="conversation-root">
                     <div data-turn-id-container="client-created-root"></div>
@@ -700,8 +1025,8 @@ describe('ChatGPT content discovery lifecycle', () => {
             await new Promise((resolve) => window.setTimeout(resolve, 520));
             const state = runtime.source.read();
             expect(state.kind).toBe('ready');
-            if (state.kind !== 'ready') throw new Error('expected a host-born ready state');
-            expect(state.snapshot.proof?.basis).toBe('host-born');
+            if (state.kind !== 'ready') throw new Error('expected a host-ready state');
+            expect(state.snapshot.proof?.basis).toBe('host');
             expect(state.snapshot.turns).toHaveLength(1);
             expect(state.snapshot.turns[0]).toMatchObject({
                 userText: '首轮问题',
@@ -723,10 +1048,58 @@ describe('ChatGPT content discovery lifecycle', () => {
             expect(stats).not.toContain('—');
             expect(document.querySelector('button[data-testid="stop-button"]')).toBeNull();
             expect(document.querySelectorAll('button[data-testid="copy-turn-action-button"]')).toHaveLength(1);
-            expect(bridgeRequests).toBe(0);
+            expect(bridgeRequests).toBe(1);
         } finally {
             window.removeEventListener('aimd:chatgpt-conversation-bridge:request', responder);
             toolbarOrchestrator.dispose();
+            runtime.dispose();
+            adapter.dispose();
+        }
+    });
+
+    it('reattaches the Directory rail through the shared PageIndex after host removal', async () => {
+        document.documentElement.innerHTML = '<head></head><body><main></main></body>';
+        history.replaceState({}, '', '/c/directory-host-replacement');
+        document.querySelector('main')?.insertAdjacentHTML('beforeend', `
+            <article data-turn="user" data-turn-id="user-turn-1">
+                <div data-message-author-role="user" data-message-id="user-1">
+                    <div class="whitespace-pre-wrap">Question 1</div>
+                </div>
+            </article>
+            <article data-turn="assistant" data-turn-id="assistant-turn-1">
+                <div data-message-author-role="assistant" data-message-id="assistant-1">
+                    <div class="markdown prose">Answer 1</div>
+                </div>
+                <div class="z-0 flex"><button data-testid="copy-turn-action-button">Copy</button></div>
+            </article>
+        `);
+        const adapter = new ChatGPTAdapter();
+        const runtime = new ChatGPTConversationContentRuntime(adapter, { hostSettleDelayMs: 20 });
+        const directory = new ChatGPTDirectoryController(adapter, null, {
+            surface: runtime.surface,
+        });
+        try {
+            runtime.init();
+            await new Promise((resolve) => window.setTimeout(resolve, 25));
+            const state = await runtime.source.refresh();
+            expect(state.kind).toBe('ready');
+            directory.init('light');
+            await new Promise((resolve) => window.setTimeout(resolve, 180));
+
+            const firstRail = document.getElementById('aimd-chatgpt-directory-rail');
+            expect(firstRail?.shadowRoot?.querySelectorAll('.rail__item')).toHaveLength(1);
+            expect((firstRail as HTMLElement | null)?.style.display).not.toBe('none');
+
+            firstRail?.remove();
+            await new Promise((resolve) => window.setTimeout(resolve, 180));
+
+            const reattachedRail = document.getElementById('aimd-chatgpt-directory-rail');
+            expect(reattachedRail).toBe(firstRail);
+            expect(reattachedRail?.parentElement).toBe(document.body);
+            expect((reattachedRail as HTMLElement | null)?.style.display).not.toBe('none');
+            expect(reattachedRail?.shadowRoot?.querySelectorAll('.rail__item')).toHaveLength(1);
+        } finally {
+            directory.dispose();
             runtime.dispose();
             adapter.dispose();
         }
@@ -745,6 +1118,7 @@ describe('ChatGPT content discovery lifecycle', () => {
         const adapter = new ChatGPTAdapter();
         const runtime = new ChatGPTConversationContentRuntime(adapter);
         const directory = new ChatGPTDirectoryController(adapter, null, {
+            surface: runtime.surface,
             contentSource: runtime.source,
             materialization: runtime.materialization,
         });

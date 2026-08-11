@@ -27,6 +27,7 @@ export type ChatGPTConversationHostMonitorOptions = Readonly<{
 }>;
 
 const DEFAULT_SETTLE_DELAY_MS = 400;
+const COMPATIBILITY_SETTLE_DELAY_MS = 1_600;
 
 /**
  * ChatGPT host port backed by the shared PageIndex observer.
@@ -39,19 +40,24 @@ export class ChatGPTConversationHostMonitor {
     private readonly parserCapability;
     private readonly elementTokens = new WeakMap<HTMLElement, string>();
     private readonly dirtyAssistantIds = new Set<string>();
+    private readonly generationAssistantIds = new Set<string>();
+    private readonly tailReplacementAssistantIds = new Set<string>();
+    private readonly completedGenerationAssistantIds = new Set<string>();
+    private readonly weakCompletionReadyAt = new Map<string, number>();
     private unsubscribe: (() => void) | null = null;
     private settleTimer: ReturnType<typeof setTimeout> | null = null;
-    private captureInFlight = false;
+    private capturePromise: Promise<void> | null = null;
+    private activeCaptureRunId: number | null = null;
     private captureRequested = false;
+    private captureRunSequence = 0;
+    private documentFence = 0;
     private elementSequence = 0;
     private captureSequence = 0;
     private globalDirty = false;
-    private emptyProven = false;
-    private birthFactsObserved = false;
-    private birthRouteObserved = false;
     private initialized = false;
     private disposed = false;
-    private lastDocumentKey: string | null = null;
+    private lastDocument: ConversationDocumentRefV1 | null = null;
+    private pageSurfaceCleared = false;
 
     constructor(private readonly options: ChatGPTConversationHostMonitorOptions) {
         const parserAdapter = options.adapter.getMarkdownParserAdapter();
@@ -72,52 +78,38 @@ export class ChatGPTConversationHostMonitor {
         this.initialized = true;
         const rounds = this.options.index.getSnapshot();
         const document = this.options.resolveDocument();
-        this.lastDocumentKey = document?.key ?? null;
-        this.birthRouteObserved = document === null && isTemporaryBirthRoute(window.location.href);
-        this.emptyProven = document === null && rounds.length === 0 && countTypedMessages() === 0;
+        this.lastDocument = document;
+        if (rounds.length > 0) {
+            this.globalDirty = true;
+        }
         this.unsubscribe = this.options.index.subscribeObservations((batch) => this.observe(batch));
     }
 
-    notifyRouteChanged(): void {
+    notifyRouteChanged(captureCurrentSurface = false): void {
         if (this.disposed) return;
-        const nextDocumentKey = this.options.resolveDocument()?.key ?? null;
-        const birthFactsAlreadyVisible = this.lastDocumentKey === null
-            && this.emptyProven
-            && this.birthRouteObserved
-            && (this.birthFactsObserved || countTypedMessages() > 0);
-        if (
-            nextDocumentKey !== null
-            && nextDocumentKey !== this.lastDocumentKey
-        ) {
+        const nextDocument = this.options.resolveDocument();
+        const changed = nextDocument?.key !== this.lastDocument?.key;
+        const promotesPageIdentity = this.lastDocument?.identityKind === 'page'
+            && nextDocument?.identityKind !== 'page'
+            && nextDocument?.conversationId !== null;
+        const bindsStagedPage = this.lastDocument === null && nextDocument !== null;
+        if (changed && !bindsStagedPage && !promotesPageIdentity) {
+            this.documentFence += 1;
+            this.activeCaptureRunId = null;
+            this.captureRequested = false;
             this.dirtyAssistantIds.clear();
-            this.globalDirty = true;
-            // A canonical route reached directly from an empty home page is
-            // an existing conversation unless real host facts were observed
-            // before route binding. The latter is the blank-page birth path.
-            if (!birthFactsAlreadyVisible) this.emptyProven = false;
-            this.birthFactsObserved = false;
-            this.birthRouteObserved = false;
+            this.generationAssistantIds.clear();
+            this.tailReplacementAssistantIds.clear();
+            this.completedGenerationAssistantIds.clear();
+            this.weakCompletionReadyAt.clear();
+            this.globalDirty = false;
+            this.pageSurfaceCleared = false;
+            if (this.settleTimer !== null) clearTimeout(this.settleTimer);
+            this.settleTimer = null;
         }
-        if (nextDocumentKey === null) {
-            const temporaryBirthRoute = isTemporaryBirthRoute(window.location.href);
-            if (temporaryBirthRoute) {
-                this.birthRouteObserved = true;
-            } else if (
-                this.options.index.getSnapshot().length === 0
-                && countTypedMessages() === 0
-            ) {
-                this.birthRouteObserved = false;
-            }
-        }
-        this.lastDocumentKey = nextDocumentKey;
-        if (
-            nextDocumentKey === null
-            && this.options.index.getSnapshot().length === 0
-            && countTypedMessages() === 0
-        ) {
-            this.emptyProven = true;
-            this.birthFactsObserved = false;
-        }
+        if (captureCurrentSurface) this.globalDirty = true;
+        this.lastDocument = nextDocument;
+        if (nextDocument?.identityKind !== 'page') this.pageSurfaceCleared = false;
         this.options.repository.bindCurrentDocument();
         if (this.dirtyAssistantIds.size > 0 || this.globalDirty) this.scheduleStableCapture();
     }
@@ -129,6 +121,23 @@ export class ChatGPTConversationHostMonitor {
         this.scheduleStableCapture();
     }
 
+    /**
+     * Flush only host work that PageIndex has already observed. This never
+     * scans for a new baseline or retries a website response. One failed turn
+     * remains dirty for the next related host signal instead of making refresh
+     * spin until it succeeds.
+     */
+    async flushObserved(): Promise<void> {
+        if (this.disposed) return;
+        // Give a queued MutationObserver delivery a chance to publish its
+        // typed batch before checking the local dirty set.
+        await Promise.resolve();
+        const activeCapture = this.capturePromise;
+        if (activeCapture) await activeCapture;
+        // A refresh is a local drain, not a completion signal. In particular,
+        // it must not shorten the quiet window or compile a streaming DOM.
+    }
+
     dispose(): void {
         this.disposed = true;
         this.initialized = false;
@@ -136,63 +145,137 @@ export class ChatGPTConversationHostMonitor {
         this.unsubscribe = null;
         if (this.settleTimer !== null) clearTimeout(this.settleTimer);
         this.settleTimer = null;
+        this.documentFence += 1;
+        this.activeCaptureRunId = null;
         this.captureRequested = false;
         this.dirtyAssistantIds.clear();
-        this.lastDocumentKey = null;
-        this.birthFactsObserved = false;
-        this.birthRouteObserved = false;
+        this.generationAssistantIds.clear();
+        this.tailReplacementAssistantIds.clear();
+        this.completedGenerationAssistantIds.clear();
+        this.weakCompletionReadyAt.clear();
+        this.lastDocument = null;
+        this.pageSurfaceCleared = false;
     }
 
     private observe(batch: ChatGPTHostObservationBatch): void {
         if (this.disposed) return;
-        // A typed host mutation may be the first signal after `/c/WEB:*`
-        // becomes canonical. Bind identity now so Materialization can publish
-        // the pending toolbar before stable content compilation completes.
-        this.options.repository.bindCurrentDocument();
-        if (
-            batch.kinds.includes('structure')
-            && this.options.resolveDocument() === null
-            && this.options.index.getSnapshot().length === 0
-            && countTypedMessages() === 0
-        ) {
-            this.emptyProven = true;
+        if (batch.kinds.every((kind) => kind === 'surface')) return;
+        if (batch.surfaceRebased) {
+            this.documentFence += 1;
+            this.generationAssistantIds.clear();
+            this.tailReplacementAssistantIds.clear();
+            this.completedGenerationAssistantIds.clear();
+            this.weakCompletionReadyAt.clear();
+            this.pageSurfaceCleared = false;
+            this.globalDirty = true;
         }
-        if (
-            this.options.resolveDocument() === null
-            && this.emptyProven
-            && this.options.index.getSnapshot().length > 0
-        ) {
-            this.birthFactsObserved = true;
+        // A typed host mutation may be the first signal after a canonical
+        // conversation identity appears. Bind it before stable compilation so
+        // Materialization and Content remain in the same page epoch.
+        this.options.repository.bindCurrentDocument();
+        const document = this.options.resolveDocument();
+        const maintained = this.options.repository.read().snapshot?.turns ?? [];
+        const topologyChanged = batch.kinds.some((kind) => kind !== 'content' && kind !== 'surface');
+        if (topologyChanged) {
+            const mountedIds = new Set(
+                this.options.index.getSnapshot()
+                    .map((round) => round.identity.assistantMessageId?.trim() ?? '')
+                    .filter(Boolean),
+            );
+            if (
+                !batch.surfaceRebased
+                && document?.identityKind === 'page'
+                && maintained.length > 0
+                && mountedIds.size === 0
+            ) {
+                this.pageSurfaceCleared = true;
+            }
         }
         if (batch.assistantMessageIds.length === 0) this.globalDirty = true;
         for (const id of batch.assistantMessageIds) {
             const normalized = id.trim();
-            if (normalized) this.dirtyAssistantIds.add(normalized);
+            if (normalized) {
+                this.dirtyAssistantIds.add(normalized);
+                this.weakCompletionReadyAt.delete(normalized);
+            }
+        }
+        for (const id of batch.generationStartedAssistantMessageIds ?? []) {
+            const normalized = id.trim();
+            if (normalized) this.generationAssistantIds.add(normalized);
+        }
+        for (const id of batch.generationCompletedAssistantMessageIds ?? []) {
+            const normalized = id.trim();
+            if (normalized) this.completedGenerationAssistantIds.add(normalized);
+        }
+        const maintainedTailId = maintained[maintained.length - 1]?.identity.assistantMessageId ?? null;
+        for (const replacement of batch.assistantIdentityReplacements ?? []) {
+            if (replacement.previousAssistantMessageId === maintainedTailId) {
+                this.tailReplacementAssistantIds.add(replacement.nextAssistantMessageId);
+            }
+        }
+        for (const id of batch.removedAssistantMessageIds ?? []) {
+            const normalized = id.trim();
+            if (normalized) this.weakCompletionReadyAt.delete(normalized);
         }
         this.scheduleStableCapture();
     }
 
-    private scheduleStableCapture(): void {
+    private scheduleStableCapture(delayOverrideMs?: number): void {
         if (this.settleTimer !== null) clearTimeout(this.settleTimer);
-        const delay = Math.max(0, this.options.settleDelayMs ?? DEFAULT_SETTLE_DELAY_MS);
+        const delay = Math.max(
+            0,
+            delayOverrideMs ?? this.options.settleDelayMs ?? DEFAULT_SETTLE_DELAY_MS,
+        );
         this.settleTimer = setTimeout(() => {
             this.settleTimer = null;
-            void this.captureStableTail();
+            void this.startStableCapture();
         }, delay);
+    }
+
+    private startStableCapture(): Promise<void> {
+        if (this.capturePromise) {
+            this.captureRequested = true;
+            return this.capturePromise;
+        }
+        const promise = this.captureStableTail().finally(() => {
+            if (this.capturePromise === promise) this.capturePromise = null;
+        });
+        this.capturePromise = promise;
+        return promise;
     }
 
     private async captureStableTail(): Promise<void> {
         if (this.disposed || !this.compiler || !this.parserCapability) return;
-        if (this.captureInFlight) {
+        if (this.activeCaptureRunId !== null) {
             this.captureRequested = true;
             return;
         }
-        this.captureInFlight = true;
+        const runId = ++this.captureRunSequence;
+        const captureFence = this.documentFence;
+        this.activeCaptureRunId = runId;
         try {
             const captureRevision = this.options.index.getObservationRevision();
             const rounds = this.options.index.getSnapshot();
+            const captureContentToken = this.options.repository.read().snapshot?.contentToken ?? null;
+            const documentAtCapture = this.options.resolveDocument();
             const dirtyIds = new Set(this.dirtyAssistantIds);
             const captureAll = this.globalDirty;
+            const maintainedTurnsAtCapture = this.options.repository.read().snapshot?.turns ?? [];
+            const maintainedTailId = maintainedTurnsAtCapture[maintainedTurnsAtCapture.length - 1]
+                ?.identity.assistantMessageId ?? null;
+            const maintainedTailIndexes = maintainedTailId
+                ? rounds.flatMap((round, index) => (
+                    round.identity.assistantMessageId?.trim() === maintainedTailId ? [index] : []
+                ))
+                : [];
+            const mountedMaintainedTailIndex = maintainedTailIndexes.length === 1
+                ? maintainedTailIndexes[0]!
+                : -1;
+            const observations: ConversationHostTurnObservationV1[] = [];
+            let plannedPredecessorAssistantMessageId: string | null = maintainedTailId;
+            let replaceCurrentPageConversation = false;
+            let captureInvalidated = false;
+            let compatibilityRetryDelay: number | null = null;
             this.dirtyAssistantIds.clear();
             this.globalDirty = false;
 
@@ -207,35 +290,164 @@ export class ChatGPTConversationHostMonitor {
                     // Baseline-cache bodies are already authoritative. A
                     // mounted copy only changes materialization, never content.
                     this.dirtyAssistantIds.delete(assistantMessageId);
+                    this.generationAssistantIds.delete(assistantMessageId);
+                    this.tailReplacementAssistantIds.delete(assistantMessageId);
+                    this.completedGenerationAssistantIds.delete(assistantMessageId);
+                    this.weakCompletionReadyAt.delete(assistantMessageId);
                     continue;
                 }
+                if (
+                    mountedMaintainedTailIndex >= 0
+                    && index > mountedMaintainedTailIndex
+                    && resolveChatGPTDomRoundIdentity(round) === null
+                ) {
+                    for (let pendingIndex = index; pendingIndex < rounds.length; pendingIndex += 1) {
+                        const pendingId = rounds[pendingIndex]?.identity.assistantMessageId?.trim();
+                        if (pendingId) this.dirtyAssistantIds.add(pendingId);
+                    }
+                    break;
+                }
                 if (!captureAll && !dirtyIds.has(assistantMessageId)) continue;
-                const observation = await this.compileRound(round, rounds[index - 1] ?? null, captureRevision);
+                const maintainedTurns = this.options.repository.read().snapshot?.turns ?? [];
+                const hasTailAdmissionEvidence = this.generationAssistantIds.has(assistantMessageId)
+                    || this.tailReplacementAssistantIds.has(assistantMessageId);
+                if (
+                    maintainedTurns.length > 0
+                    && mountedMaintainedTailIndex >= 0
+                    && index < mountedMaintainedTailIndex
+                    && hasTailAdmissionEvidence
+                ) {
+                    // A uniquely mounted pool tail is the strongest local
+                    // ordering fact. Generation evidence proves that this is
+                    // live content, but cannot prove that a candidate rendered
+                    // before the tail belongs after it. Preserve the dirty
+                    // fact and wait for the host order to settle.
+                    this.dirtyAssistantIds.add(assistantMessageId);
+                    break;
+                }
+                const beginsNewPageProjection = Boolean(
+                    this.pageSurfaceCleared
+                    && documentAtCapture?.identityKind === 'page'
+                    && this.generationAssistantIds.has(assistantMessageId),
+                );
+                if (beginsNewPageProjection && observations.length === 0) {
+                    plannedPredecessorAssistantMessageId = null;
+                    replaceCurrentPageConversation = true;
+                }
+                const followsMountedMaintainedTail = mountedMaintainedTailIndex >= 0
+                    && index > mountedMaintainedTailIndex;
+                if (
+                    maintainedTurns.length > 0
+                    && !hasTailAdmissionEvidence
+                    && !followsMountedMaintainedTail
+                ) {
+                    // Unknown content hydrated into an existing virtual slot
+                    // is not evidence of a new tail message.
+                    this.dirtyAssistantIds.delete(assistantMessageId);
+                    continue;
+                }
+                const hasOfficialCompletionAnchor = Boolean(
+                    this.options.adapter.getToolbarAnchorElement(round.assistantMessageEl)?.isConnected,
+                );
+                const hasLaterTypedRound = rounds.slice(index + 1).some((candidate) => (
+                    resolveChatGPTDomRoundIdentity(candidate) !== null
+                ));
+                const hasStrongCompletion = hasOfficialCompletionAnchor
+                    || this.completedGenerationAssistantIds.has(assistantMessageId)
+                    || hasLaterTypedRound;
+                if (!hasStrongCompletion) {
+                    const now = Date.now();
+                    const readyAt = this.weakCompletionReadyAt.get(assistantMessageId);
+                    if (readyAt === undefined) {
+                        this.weakCompletionReadyAt.set(
+                            assistantMessageId,
+                            now + COMPATIBILITY_SETTLE_DELAY_MS,
+                        );
+                        compatibilityRetryDelay = COMPATIBILITY_SETTLE_DELAY_MS;
+                    } else if (readyAt > now) {
+                        compatibilityRetryDelay = Math.min(
+                            compatibilityRetryDelay ?? Number.POSITIVE_INFINITY,
+                            readyAt - now,
+                        );
+                    }
+                    if (readyAt === undefined || readyAt > now) {
+                        for (let pendingIndex = index; pendingIndex < rounds.length; pendingIndex += 1) {
+                            const pendingId = rounds[pendingIndex]?.identity.assistantMessageId?.trim();
+                            if (pendingId) this.dirtyAssistantIds.add(pendingId);
+                        }
+                        break;
+                    }
+                }
+                this.weakCompletionReadyAt.delete(assistantMessageId);
+                const observation = await this.compileRound(
+                    round,
+                    plannedPredecessorAssistantMessageId,
+                    captureRevision,
+                );
+                if (this.documentFence !== captureFence || this.disposed) {
+                    captureInvalidated = true;
+                    break;
+                }
+                if ((this.options.repository.read().snapshot?.contentToken ?? null) !== captureContentToken) {
+                    for (let pendingIndex = index; pendingIndex < rounds.length; pendingIndex += 1) {
+                        const pendingId = rounds[pendingIndex]?.identity.assistantMessageId?.trim();
+                        if (pendingId) this.dirtyAssistantIds.add(pendingId);
+                    }
+                    captureInvalidated = true;
+                    this.scheduleStableCapture();
+                    break;
+                }
                 if (!observation) {
                     // A transient host shell, streaming turn, or compiler
                     // rejection is local to this message. Keep it dirty so a
-                    // later structure/completion signal can retry it.
-                    this.dirtyAssistantIds.add(assistantMessageId);
-                    continue;
+                    // later structure/completion signal can retry it. Do not
+                    // cross the unresolved gap and compile a later round.
+                    for (let pendingIndex = index; pendingIndex < rounds.length; pendingIndex += 1) {
+                        const pendingId = rounds[pendingIndex]?.identity.assistantMessageId?.trim();
+                        if (pendingId) this.dirtyAssistantIds.add(pendingId);
+                    }
+                    break;
                 }
                 if (this.options.index.getObservationRevision() !== captureRevision) {
                     this.dirtyAssistantIds.add(assistantMessageId);
+                    captureInvalidated = true;
                     this.scheduleStableCapture();
-                    continue;
+                    break;
                 }
-                this.options.repository.ingestHostTurn(observation);
-                if (this.options.repository.read().snapshot?.turns.some((turn) => (
-                    turn.identity.assistantMessageId === assistantMessageId
-                ))) {
-                    this.dirtyAssistantIds.delete(assistantMessageId);
+                observations.push(observation);
+                plannedPredecessorAssistantMessageId = assistantMessageId;
+            }
+
+            if (!captureInvalidated && this.documentFence === captureFence && observations.length > 0) {
+                if (replaceCurrentPageConversation) {
+                    this.options.repository.replaceCurrentPageConversationHostBatch(observations);
                 } else {
-                    // Keep a deferred observation alive. A later virtualization
-                    // or structure signal can make its predecessor available.
-                    this.dirtyAssistantIds.add(assistantMessageId);
+                    this.options.repository.ingestHostBatch(observations);
+                }
+                for (const observation of observations) {
+                    const assistantMessageId = observation.turn.identity.assistantMessageId;
+                    if (this.options.repository.read().snapshot?.turns.some((turn) => (
+                        turn.identity.assistantMessageId === assistantMessageId
+                    ))) {
+                        this.dirtyAssistantIds.delete(assistantMessageId);
+                        this.generationAssistantIds.delete(assistantMessageId);
+                        this.tailReplacementAssistantIds.delete(assistantMessageId);
+                        this.completedGenerationAssistantIds.delete(assistantMessageId);
+                        this.weakCompletionReadyAt.delete(assistantMessageId);
+                        if (replaceCurrentPageConversation) this.pageSurfaceCleared = false;
+                    } else {
+                        // Keep a deferred observation alive. A later virtualization
+                        // or structure signal can make its predecessor available.
+                        this.dirtyAssistantIds.add(assistantMessageId);
+                    }
                 }
             }
+            if (compatibilityRetryDelay !== null && !this.disposed) {
+                this.scheduleStableCapture(compatibilityRetryDelay);
+            }
         } finally {
-            this.captureInFlight = false;
+            if (this.activeCaptureRunId !== runId) return;
+            this.activeCaptureRunId = null;
             if (this.captureRequested && !this.disposed) {
                 this.captureRequested = false;
                 this.scheduleStableCapture();
@@ -245,7 +457,7 @@ export class ChatGPTConversationHostMonitor {
 
     private async compileRound(
         round: ChatGPTDomRoundRef,
-        predecessor: ChatGPTDomRoundRef | null,
+        predecessorAssistantMessageId: string | null,
         captureRevision: number,
     ): Promise<ConversationHostTurnObservationV1 | null> {
         if (round.isStreaming) return null;
@@ -254,7 +466,6 @@ export class ChatGPTConversationHostMonitor {
         const { turnId, userMessageId, assistantMessageId } = identityParts;
         if (!round.userMessageEl.isConnected || !round.assistantMessageEl.isConnected) return null;
         if (!round.assistantContentRootEl?.isConnected) return null;
-        if (!this.options.adapter.getToolbarAnchorElement(round.assistantMessageEl)?.isConnected) return null;
 
         const userContentRoot = resolveUserContentRoot(round);
         const identity = createIdentityV2(turnId, userMessageId, assistantMessageId);
@@ -272,11 +483,6 @@ export class ChatGPTConversationHostMonitor {
         });
         if (result.kind !== 'ready') return null;
 
-        const maintainedSnapshot = this.options.repository.read().snapshot;
-        const maintainedTail = maintainedSnapshot?.turns[maintainedSnapshot.turns.length - 1];
-        const predecessorAssistantMessageId = predecessor?.identity.assistantMessageId?.trim()
-            || maintainedTail?.identity.assistantMessageId
-            || null;
         const turn: ConversationTurnV1 = Object.freeze({
             key: `${turnId}:${assistantMessageId}`,
             ordinal: round.assistantIndex + 1,
@@ -295,7 +501,6 @@ export class ChatGPTConversationHostMonitor {
             captureId: `chatgpt-host:${assistantMessageId}:${++this.captureSequence}`,
             revision: captureRevision,
             predecessorAssistantMessageId,
-            emptyProven: this.emptyProven,
         });
     }
 
@@ -312,19 +517,4 @@ export class ChatGPTConversationHostMonitor {
 function resolveUserContentRoot(round: ChatGPTDomRoundRef): HTMLElement {
     const prompt = round.userMessageEl.querySelector('.whitespace-pre-wrap');
     return prompt instanceof HTMLElement ? prompt : round.userMessageEl;
-}
-
-function countTypedMessages(): number {
-    return document.querySelectorAll([
-        '[data-message-author-role="user"]',
-        '[data-message-author-role="assistant"]',
-    ].join(',')).length;
-}
-
-function isTemporaryBirthRoute(url: string): boolean {
-    try {
-        return /(?:^|\/)(?:c|conversation)\/WEB:[^/]+/i.test(new URL(url, window.location.href).pathname);
-    } catch {
-        return /(?:^|\/)(?:c|conversation)\/WEB:[^/]+/i.test(url);
-    }
 }

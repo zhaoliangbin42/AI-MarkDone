@@ -28,8 +28,6 @@ export type ConversationHostTurnObservationV1 = Readonly<{
     revision: number;
     /** The typed assistant immediately before this turn in the observed host projection. */
     predecessorAssistantMessageId: string | null;
-    /** True only when a page-entry full scan proved that no typed messages existed. */
-    emptyProven: boolean;
 }>;
 
 export type ConversationContentRepositoryOptionsV1 = Readonly<{
@@ -58,9 +56,10 @@ type StoredHostObservation = Readonly<{
 /**
  * Page-scoped content session and the single semantic SSOT.
  *
- * A website-owned graph is admitted through a once-only baseline gate. After
- * that gate closes, only stable typed host turns may extend the immutable
- * projection. Public refreshes never reopen the gate or replay graph capture.
+ * A website-owned Graph or one stable typed host batch may establish the same
+ * monotonic pool. The first later overlapping Graph may prepend only verified
+ * history; obtained bodies are never replaced. Public refreshes never reopen
+ * the gate or replay Graph capture.
  */
 export class ConversationContentRepository implements ConversationContentSourceV1, ConversationTurnReadPortV1 {
     private state: ConversationContentStateV1 = Object.freeze({
@@ -79,6 +78,7 @@ export class ConversationContentRepository implements ConversationContentSourceV
     private basis: ConversationSnapshotProofV1['basis'] | null = null;
     private turns: readonly ConversationTurnV1[] = Object.freeze([]);
     private readonly turnDigests = new Map<string, string>();
+    private readonly projectionDocumentKeys = new Set<string>();
     private readonly pendingHost = new Map<string, StoredHostObservation>();
     private scheduledTimer: ReturnType<typeof setTimeout> | null = null;
     private disposed = false;
@@ -121,10 +121,13 @@ export class ConversationContentRepository implements ConversationContentSourceV
         const document = this.options.resolveDocument();
         if (!document) {
             this.unbindDocument();
-            this.publishUnavailable(null, 'unsupported-route', false);
+            this.publish({ kind: 'idle', document: null, snapshot: null });
             return Promise.resolve(this.state);
         }
         this.switchDocument(document);
+        if (document.identityKind === 'page' || document.conversationId === null) {
+            return Promise.resolve(this.state);
+        }
         if (this.baselineGate === 'closed') return Promise.resolve(this.state);
         if (this.flight?.epoch === this.epoch) return this.flight.promise;
         if (this.baselineAttempted) return Promise.resolve(this.state);
@@ -145,11 +148,13 @@ export class ConversationContentRepository implements ConversationContentSourceV
         const controller = new AbortController();
         this.baselineGate = 'inflight';
         this.baselineAttempted = true;
-        this.publish({
-            kind: 'syncing',
-            document: this.currentDocument!,
-            snapshot: null,
-        });
+        if (!this.basis || this.turns.length === 0) {
+            this.publish({
+                kind: 'syncing',
+                document: this.currentDocument!,
+                snapshot: null,
+            });
+        }
 
         const promise = Promise.resolve()
             .then(() => this.options.readBaseline(this.currentDocument!, controller.signal))
@@ -163,8 +168,8 @@ export class ConversationContentRepository implements ConversationContentSourceV
                 if (!candidate) {
                     throw new ConversationContentAcquisitionError('source-unavailable', { retryable: true });
                 }
-                this.acceptBaseline(candidate, this.currentDocument!);
-                this.baselineGate = 'closed';
+                const accepted = this.acceptBaseline(candidate, this.currentDocument!);
+                this.baselineGate = accepted ? 'closed' : 'open';
                 this.flushPendingHost();
                 this.publishProjection();
                 return this.state;
@@ -173,11 +178,15 @@ export class ConversationContentRepository implements ConversationContentSourceV
                 if (this.isObsolete(epoch, controller)) return this.state;
                 this.baselineGate = 'open';
                 const normalized = normalizeAcquisitionError(error);
-                this.publishUnavailable(
-                    this.currentDocument,
-                    toUnavailableReason(normalized.reason),
-                    normalized.retryable,
-                );
+                if (this.basis && this.turns.length > 0) {
+                    this.publishProjection();
+                } else {
+                    this.publishUnavailable(
+                        this.currentDocument,
+                        toUnavailableReason(normalized.reason),
+                        normalized.retryable,
+                    );
+                }
                 return this.state;
             })
             .finally(() => {
@@ -210,35 +219,104 @@ export class ConversationContentRepository implements ConversationContentSourceV
         this.switchDocument(document);
     }
 
-    /** Admit one compiler-verified host turn into the active immutable projection. */
+    /** Start another id-less conversation inside the same page runtime. */
+    beginNewPageConversation(): boolean {
+        return this.resetCurrentPageConversation(true);
+    }
+
+    /** Atomically replace one id-less page projection with a verified host batch. */
+    replaceCurrentPageConversationHostBatch(
+        observations: readonly ConversationHostTurnObservationV1[],
+    ): ConversationContentStateV1 {
+        const admissible = observations.filter((observation) => (
+            Boolean(observation.turn.identity.userMessageId?.trim())
+        ));
+        if (admissible.length === 0) return this.state;
+        try {
+            const assistantIds = new Set<string>();
+            admissible.forEach((observation, index) => {
+                const turn = validateAndFreezeTurn(observation.turn, index + 1, true);
+                const assistantMessageId = turn.identity.assistantMessageId;
+                if (!observation.semanticDigest.trim() || assistantIds.has(assistantMessageId)) {
+                    throw new Error('invalid host replacement batch');
+                }
+                const expectedPredecessor = index === 0
+                    ? null
+                    : admissible[index - 1]!.turn.identity.assistantMessageId;
+                if (observation.predecessorAssistantMessageId !== expectedPredecessor) {
+                    throw new Error('non-contiguous host replacement batch');
+                }
+                assistantIds.add(assistantMessageId);
+            });
+        } catch {
+            return this.state;
+        }
+        if (!this.resetCurrentPageConversation(false)) return this.state;
+        return this.ingestHostBatch(admissible);
+    }
+
+    private resetCurrentPageConversation(publishSyncing: boolean): boolean {
+        if (this.disposed) return false;
+        const document = this.options.resolveDocument();
+        if (
+            !document
+            || document.identityKind !== 'page'
+            || document.conversationId !== null
+            || this.currentDocument?.key !== document.key
+        ) return false;
+        if (this.scheduledTimer !== null) clearTimeout(this.scheduledTimer);
+        this.scheduledTimer = null;
+        this.epoch += 1;
+        this.flight?.controller.abort();
+        this.flight = null;
+        this.currentDocument = freezeDocument(document);
+        this.baselineGate = 'open';
+        this.baselineAttempted = false;
+        this.basis = null;
+        this.turns = Object.freeze([]);
+        this.turnDigests.clear();
+        this.pendingHost.clear();
+        this.projectionDocumentKeys.clear();
+        this.projectionDocumentKeys.add(this.currentDocument.key);
+        if (publishSyncing) {
+            this.startProjection();
+            this.publish({
+                kind: 'syncing',
+                document: this.currentDocument,
+                snapshot: null,
+            });
+        }
+        return true;
+    }
+
+    /** Admit one compiler-verified host turn into the active monotonic pool. */
     ingestHostTurn(observation: ConversationHostTurnObservationV1): ConversationContentStateV1 {
+        return this.ingestHostBatch([observation]);
+    }
+
+    /** Admit one stable host window and publish at most one immutable projection. */
+    ingestHostBatch(observations: readonly ConversationHostTurnObservationV1[]): ConversationContentStateV1 {
         if (this.disposed) return this.state;
-        if (!observation.turn.identity.userMessageId?.trim()) return this.state;
+        const admissible = observations.filter((observation) => (
+            Boolean(observation.turn.identity.userMessageId?.trim())
+        ));
+        if (admissible.length === 0) return this.state;
         const document = this.options.resolveDocument();
         if (!document) {
-            this.queueHost(observation);
+            for (const observation of admissible) this.queueHost(observation);
             return this.state;
         }
         this.switchDocument(document);
-        this.queueHost(observation);
+        for (const observation of admissible) this.queueHost(observation);
 
         if (!this.basis) {
-            if (!observation.emptyProven) return this.state;
-            this.baselineGate = 'closed';
-            this.flight?.controller.abort();
-            this.flight = null;
-            this.basis = 'host-born';
+            this.basis = 'host';
             this.startProjection();
         }
 
         this.flushPendingHost();
         if (this.turns.length > 0) this.publishProjection();
         return this.state;
-    }
-
-    /** Re-enable a page-scoped repository after the content runtime is toggled back on. */
-    resume(): void {
-        this.disposed = false;
     }
 
     isCurrent(contentToken: string): boolean {
@@ -249,7 +327,7 @@ export class ConversationContentRepository implements ConversationContentSourceV
 
     readTurn(target: ConversationTargetV1): ConversationTurnReadResultV1 {
         const snapshot = this.state.snapshot;
-        if (!snapshot || snapshot.document.key !== target.documentKey) {
+        if (!snapshot || !this.projectionDocumentKeys.has(target.documentKey)) {
             return {
                 kind: 'unavailable',
                 target: Object.freeze({ ...target }),
@@ -289,7 +367,7 @@ export class ConversationContentRepository implements ConversationContentSourceV
     private acceptBaseline(
         candidate: ConversationContentCandidateV1,
         expectedDocument: ConversationDocumentRefV1,
-    ): void {
+    ): boolean {
         if (candidate.document.key !== expectedDocument.key) {
             throw new ConversationContentAcquisitionError('identity-conflict', { retryable: false });
         }
@@ -300,11 +378,41 @@ export class ConversationContentRepository implements ConversationContentSourceV
         if (new Set(turns.map((turn) => turn.identity.assistantMessageId)).size !== turns.length) {
             throw new ConversationContentAcquisitionError('identity-conflict', { retryable: false });
         }
+        if (this.basis === 'host' && this.turns.length > 0) {
+            const sourceIndexes = new Map(
+                turns.map((turn, index) => [turn.identity.assistantMessageId, index] as const),
+            );
+            const firstHostId = this.turns[0]!.identity.assistantMessageId;
+            const firstHostIndex = sourceIndexes.get(firstHostId);
+            if (firstHostIndex === undefined) return false;
+            if (!sameTurnIdentity(this.turns[0]!, turns[firstHostIndex]!)) return false;
+
+            let previousSourceIndex = firstHostIndex - 1;
+            for (const hostTurn of this.turns) {
+                const sourceIndex = sourceIndexes.get(hostTurn.identity.assistantMessageId);
+                if (sourceIndex === undefined) continue;
+                if (!sameTurnIdentity(hostTurn, turns[sourceIndex]!)) return false;
+                if (sourceIndex <= previousSourceIndex) return false;
+                previousSourceIndex = sourceIndex;
+            }
+
+            const maintainedIds = new Set(this.turns.map((turn) => turn.identity.assistantMessageId));
+            const prefix = turns
+                .slice(0, firstHostIndex)
+                .filter((turn) => !maintainedIds.has(turn.identity.assistantMessageId));
+            this.turns = freezeTurns([...prefix, ...this.turns]);
+            for (const turn of prefix) {
+                this.turnDigests.set(turn.identity.assistantMessageId, digestTurnContent(turn));
+            }
+            this.basis = 'hybrid';
+            return true;
+        }
         this.turns = Object.freeze(turns);
         this.turnDigests.clear();
         for (const turn of turns) this.turnDigests.set(turn.identity.assistantMessageId, digestTurnContent(turn));
         this.basis = 'source';
         this.startProjection();
+        return true;
     }
 
     private flushPendingHost(): void {
@@ -343,7 +451,7 @@ export class ConversationContentRepository implements ConversationContentSourceV
         }
 
         if (this.turns.length === 0) {
-            if (this.basis !== 'host-born' || observation.predecessorAssistantMessageId !== null) return 'deferred';
+            if (this.basis !== 'host' || observation.predecessorAssistantMessageId !== null) return 'deferred';
             this.appendHostTurn(incoming, digest);
             return 'changed';
         }
@@ -425,7 +533,28 @@ export class ConversationContentRepository implements ConversationContentSourceV
             return;
         }
 
-        const preserveBirthBuffer = previousKey === null && this.turns.length === 0;
+        const promotesPageIdentity = this.currentDocument?.identityKind === 'page'
+            && document.identityKind !== 'page'
+            && document.conversationId !== null;
+        if (promotesPageIdentity) {
+            if (this.currentDocument) this.projectionDocumentKeys.add(this.currentDocument.key);
+            this.currentDocument = freezeDocument(document);
+            this.projectionDocumentKeys.add(this.currentDocument.key);
+            this.baselineGate = 'open';
+            this.baselineAttempted = false;
+            if (this.turns.length > 0) {
+                this.publishProjection();
+            } else {
+                this.publish({
+                    kind: 'syncing',
+                    document: this.currentDocument,
+                    snapshot: null,
+                });
+            }
+            return;
+        }
+
+        const preserveUnboundHostBuffer = previousKey === null && this.turns.length === 0;
         if (this.scheduledTimer !== null) clearTimeout(this.scheduledTimer);
         this.scheduledTimer = null;
         this.epoch += 1;
@@ -437,13 +566,20 @@ export class ConversationContentRepository implements ConversationContentSourceV
         this.basis = null;
         this.turns = Object.freeze([]);
         this.turnDigests.clear();
-        if (!preserveBirthBuffer) this.pendingHost.clear();
+        this.projectionDocumentKeys.clear();
+        this.projectionDocumentKeys.add(this.currentDocument.key);
+        if (!preserveUnboundHostBuffer) this.pendingHost.clear();
         this.startProjection();
         this.publish({
             kind: 'syncing',
             document: this.currentDocument,
             snapshot: null,
         });
+        if (preserveUnboundHostBuffer && this.pendingHost.size > 0) {
+            this.basis = 'host';
+            this.flushPendingHost();
+            if (this.turns.length > 0) this.publishProjection();
+        }
     }
 
     private unbindDocument(): void {
@@ -459,6 +595,7 @@ export class ConversationContentRepository implements ConversationContentSourceV
         this.basis = null;
         this.turns = Object.freeze([]);
         this.turnDigests.clear();
+        this.projectionDocumentKeys.clear();
         this.pendingHost.clear();
     }
 
@@ -523,6 +660,12 @@ function digestTurnContent(turn: ConversationTurnV1): string {
     });
 }
 
+function sameTurnIdentity(left: ConversationTurnV1, right: ConversationTurnV1): boolean {
+    return left.identity.turnId === right.identity.turnId
+        && left.identity.userMessageId === right.identity.userMessageId
+        && left.identity.assistantMessageId === right.identity.assistantMessageId;
+}
+
 function normalizeAcquisitionError(error: unknown): {
     reason: ConversationContentAcquisitionReasonV1;
     retryable: boolean;
@@ -540,6 +683,7 @@ function toUnavailableReason(reason: ConversationContentAcquisitionReasonV1): Co
 function sameDisplayDocument(left: ConversationDocumentRefV1, right: ConversationDocumentRefV1): boolean {
     return left.key === right.key
         && left.platformId === right.platformId
+        && left.identityKind === right.identityKind
         && left.conversationId === right.conversationId
         && left.title === right.title
         && left.canonicalUrl === right.canonicalUrl;
@@ -551,7 +695,6 @@ function freezeDocument(document: ConversationDocumentRefV1): ConversationDocume
 
 function createContentToken(snapshot: Omit<ConversationSnapshotV1, 'contentToken'>): string {
     const semantic = JSON.stringify({
-        documentKey: snapshot.document.key,
         projectionId: snapshot.projectionId,
         turns: snapshot.turns.map((turn) => ({
             key: turn.key,

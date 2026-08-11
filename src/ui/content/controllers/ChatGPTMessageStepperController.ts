@@ -8,18 +8,18 @@ import {
 import { AppearanceScope } from '../../../style/appearanceScope';
 import type { Theme } from '../../../core/types/theme';
 import { subscribeLocaleChange, t } from '../components/i18n';
-import { getChatGPTConversationIndex } from '../../../drivers/content/chatgpt/ChatGPTConversationIndex';
 import {
     collectChatGPTRoundPositions,
     navigateChatGPTDirectoryTarget,
     resolveChatGPTActivePosition,
     type ChatGPTRoundPosition,
 } from '../chatgptDirectory/navigation';
-import { isChatGPTConversationPage } from '../../../drivers/content/chatgpt/chatgptRoute';
 import { showEphemeralTooltip } from '../../../utils/tooltip';
-import type { ConversationContentSourceV1 } from '../../../contracts/conversationContent';
-import type { ConversationMaterializationPortV1 } from '../../../contracts/conversationMaterialization';
 import type { ConversationNavigationPortV1 } from '../../../contracts/conversationNavigation';
+import {
+    AIMD_CONVERSATION_SURFACE_CONSUMER_ATTRIBUTE,
+    type ConversationSurfacePortV1,
+} from '../../../contracts/conversationSurface';
 
 const HOST_ID = 'aimd-chatgpt-message-stepper';
 const STYLE_ID = 'aimd-chatgpt-message-stepper-style';
@@ -84,9 +84,7 @@ export class ChatGPTMessageStepperController {
     private nextButton: HTMLButtonElement | null = null;
     private rounds: ChatGPTRoundPosition[] = [];
     private activePosition = 0;
-    private unsubscribeRoundChanges: (() => void) | null = null;
-    private unsubscribeContent: (() => void) | null = null;
-    private unsubscribeMaterialization: (() => void) | null = null;
+    private unsubscribeSurface: (() => void) | null = null;
     private unsubscribeLocale: (() => void) | null = null;
     private refreshAnimationFrame: number | null = null;
     private navigationLockUntil = 0;
@@ -100,18 +98,13 @@ export class ChatGPTMessageStepperController {
             onOpenPrompts?: (anchor: HTMLElement) => Promise<void> | void;
             onTogglePageBookmark?: (url: string) => Promise<PageBookmarkMutationResult> | PageBookmarkMutationResult;
             onRefreshPageBookmarkState?: (url: string) => Promise<PageBookmarkStatusResult> | PageBookmarkStatusResult;
-            contentSource?: ConversationContentSourceV1 | null;
-            materialization?: ConversationMaterializationPortV1 | null;
+            surface: ConversationSurfacePortV1;
             navigation?: ConversationNavigationPortV1 | null;
-        } = {},
+        },
     ) {}
 
-    private get contentSource(): ConversationContentSourceV1 | null {
-        return this.options.contentSource ?? null;
-    }
-
-    private get materialization(): ConversationMaterializationPortV1 | null {
-        return this.options.materialization ?? null;
+    private get surface(): ConversationSurfacePortV1 {
+        return this.options.surface;
     }
 
     init(): void {
@@ -123,10 +116,7 @@ export class ChatGPTMessageStepperController {
         document.addEventListener('keydown', this.onKeyDownCapture, { capture: true });
         window.addEventListener('scroll', this.onScroll, { capture: true, passive: true });
         document.addEventListener('scroll', this.onScroll, { capture: true, passive: true });
-        this.unsubscribeRoundChanges = getChatGPTConversationIndex(this.adapter)
-            .subscribe(() => this.scheduleRefreshState());
-        this.unsubscribeContent = this.contentSource?.subscribe(() => this.scheduleRefreshState()) ?? null;
-        this.unsubscribeMaterialization = this.materialization?.subscribe(() => this.scheduleRefreshState()) ?? null;
+        this.unsubscribeSurface = this.surface.subscribeFrame(() => this.scheduleRefreshState());
     }
 
     dispose(): void {
@@ -135,12 +125,8 @@ export class ChatGPTMessageStepperController {
         document.removeEventListener('keydown', this.onKeyDownCapture, { capture: true } as any);
         window.removeEventListener('scroll', this.onScroll, { capture: true } as any);
         document.removeEventListener('scroll', this.onScroll, { capture: true } as any);
-        this.unsubscribeRoundChanges?.();
-        this.unsubscribeRoundChanges = null;
-        this.unsubscribeContent?.();
-        this.unsubscribeContent = null;
-        this.unsubscribeMaterialization?.();
-        this.unsubscribeMaterialization = null;
+        this.unsubscribeSurface?.();
+        this.unsubscribeSurface = null;
         this.unsubscribeLocale?.();
         this.unsubscribeLocale = null;
         if (this.refreshAnimationFrame !== null) {
@@ -230,6 +216,7 @@ export class ChatGPTMessageStepperController {
         host.id = HOST_ID;
         host.className = 'aimd-chatgpt-message-stepper';
         host.dataset.aimdRole = 'chatgpt-message-stepper';
+        host.setAttribute(AIMD_CONVERSATION_SURFACE_CONSUMER_ATTRIBUTE, '');
         host.dataset.visible = '0';
 
         const bookmarksPanel = this.createButton('open-bookmarks-panel', this.getLabel('bookmarks', 'Bookmarks'), () => {
@@ -440,7 +427,7 @@ export class ChatGPTMessageStepperController {
                 roundId: target.roundId,
                 userMessageId: target.userMessageId,
                 assistantMessageId: target.assistantMessageId,
-            }).then((result) => ({ ok: result.ok }));
+            }, { surface: this.surface }).then((result) => ({ ok: result.ok }));
         void navigation.then((result) => {
             if (requestId !== this.navigationRequestId) return;
             if (!result.ok) {
@@ -462,10 +449,7 @@ export class ChatGPTMessageStepperController {
     private refreshState(options: { preserveLogicalPosition?: boolean } = {}): void {
         if (!this.initialized) return;
         this.ensureHost();
-        const contentState = this.contentSource?.read();
-        this.rounds = contentState && !contentState.snapshot
-            ? []
-            : collectChatGPTRoundPositions(this.adapter);
+        this.rounds = collectChatGPTRoundPositions(this.surface);
         const visible = this.adapter.getPlatformId() === 'chatgpt' && Boolean(this.bookmarksPanelButton);
         if (this.host) {
             this.host.dataset.visible = visible ? '1' : '0';
@@ -523,7 +507,7 @@ export class ChatGPTMessageStepperController {
 
     private syncPageBookmarkButton(): void {
         if (!this.pageBookmarkButton) return;
-        const visible = this.pageBookmarkVisibleEnabled && isChatGPTConversationPage(window.location.href);
+        const visible = this.pageBookmarkVisibleEnabled && this.resolveBoundConversationUrl() !== null;
         this.pageBookmarkButton.hidden = !visible;
         this.pageBookmarkButton.disabled = this.pageBookmarkMutationPending;
         this.pageBookmarkButton.dataset.pending = this.pageBookmarkMutationPending ? '1' : '0';
@@ -546,8 +530,8 @@ export class ChatGPTMessageStepperController {
     }
 
     private refreshPageBookmarkStatusIfNeeded(): void {
-        const url = window.location.href.split('#')[0] || window.location.href;
-        if (!this.pageBookmarkVisibleEnabled || !isChatGPTConversationPage(url)) {
+        const url = this.resolveBoundConversationUrl();
+        if (!this.pageBookmarkVisibleEnabled || !url) {
             this.pageBookmarkRequestId += 1;
             this.pageBookmarkStatusUrl = null;
             this.pageBookmarkState = 'unknown';
@@ -590,7 +574,8 @@ export class ChatGPTMessageStepperController {
         if (!this.pageBookmarkButton || this.pageBookmarkButton.hidden || this.pageBookmarkButton.disabled) return;
         const toggle = this.options.onTogglePageBookmark;
         if (!toggle) return;
-        const url = window.location.href.split('#')[0] || window.location.href;
+        const url = this.resolveBoundConversationUrl();
+        if (!url) return;
         const requestId = this.pageBookmarkRequestId + 1;
         this.pageBookmarkRequestId = requestId;
         this.pageBookmarkMutationPending = true;
@@ -600,7 +585,7 @@ export class ChatGPTMessageStepperController {
             const result = await toggle(url);
             if (
                 requestId !== this.pageBookmarkRequestId
-                || (window.location.href.split('#')[0] || window.location.href) !== url
+                || this.resolveBoundConversationUrl() !== url
             ) return;
             if (result.ok) {
                 this.setPageBookmarked(result.saved);
@@ -610,7 +595,7 @@ export class ChatGPTMessageStepperController {
         } catch (error: unknown) {
             if (
                 requestId !== this.pageBookmarkRequestId
-                || (window.location.href.split('#')[0] || window.location.href) !== url
+                || this.resolveBoundConversationUrl() !== url
             ) return;
             this.presentPageBookmarkMutationError(error instanceof Error && error.message
                 ? error.message
@@ -618,7 +603,7 @@ export class ChatGPTMessageStepperController {
         } finally {
             if (requestId !== this.pageBookmarkRequestId) return;
             this.pageBookmarkMutationPending = false;
-            if ((window.location.href.split('#')[0] || window.location.href) !== url) {
+            if (this.resolveBoundConversationUrl() !== url) {
                 this.refreshPageBookmarkStatusIfNeeded();
             } else {
                 this.syncPageBookmarkButton();
@@ -632,7 +617,15 @@ export class ChatGPTMessageStepperController {
         showEphemeralTooltip({ anchor: this.pageBookmarkButton, text: message });
     }
 
+    private resolveBoundConversationUrl(): string | null {
+        const frame = this.surface.readFrame();
+        if (!frame.document?.conversationId) return null;
+        const canonicalUrl = frame.document.canonicalUrl?.trim();
+        return canonicalUrl ? canonicalUrl.split('#')[0] || canonicalUrl : null;
+    }
+
     private resolveInitialTheme(): Theme {
         return document.documentElement.getAttribute('data-aimd-theme') === 'dark' ? 'dark' : 'light';
     }
+
 }

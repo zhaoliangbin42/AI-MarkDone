@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { readFileSync, readdirSync, statSync } from 'node:fs';
+import { existsSync, readFileSync, readdirSync, statSync } from 'node:fs';
 import { join } from 'node:path';
 
 function read(relativePath: string): string {
@@ -52,11 +52,17 @@ describe('Semantic Content architecture', () => {
         expect(contract).not.toMatch(/\b(?:mdast|hast|unist|Root|RootContent)\b/i);
     });
 
-    it('keeps all ChatGPT consumers on the baseline-and-host-tail V1 seam', () => {
+    it('keeps ChatGPT production consumers on one content pool and one Surface frame seam', () => {
         const entry = read('src/runtimes/content/entry.ts');
         const runtime = read('src/runtimes/content/ChatGPTConversationContentRuntime.ts');
+        const surface = read('src/drivers/content/chatgpt/ChatGPTConversationSurface.ts');
         const contentContract = read('src/contracts/conversationContent.ts');
-        const coordinator = read('src/drivers/content/chatgpt/ChatGPTConversationDiscoveryCoordinator.ts');
+        const chatGPTDriverFiles = listTypeScriptFiles('src/drivers/content/chatgpt');
+        const surfaceConsumerFiles = [
+            'src/ui/content/controllers/MessageToolbarOrchestrator.ts',
+            'src/ui/content/controllers/ChatGPTDirectoryController.ts',
+            'src/ui/content/controllers/ChatGPTMessageStepperController.ts',
+        ].map(read);
         const consumerFiles = [
             'src/services/reader/readerContentSource.ts',
             'src/ui/content/controllers/MessageToolbarOrchestrator.ts',
@@ -66,21 +72,50 @@ describe('Semantic Content architecture', () => {
             'src/ui/content/controllers/ChatGPTMessageStepperController.ts',
             'src/ui/content/export/SaveMessagesDialog.ts',
         ].map(read);
+        const retiredFiles = [
+            'src/drivers/content/chatgpt/ChatGPTConversationDiscoveryCoordinator.ts',
+            'src/drivers/content/chatgpt/ChatGPTConversationIndex.ts',
+            'src/drivers/content/chatgpt/ChatGPTConversationMaterialization.ts',
+        ];
+        const packageManifest = read('package.json');
 
         expect(entry).toContain('conversationContentSource');
         expect(entry).toContain('conversationMaterialization');
+        expect(entry).toContain('conversationSurface: chatGptConversationContentRuntime?.surface');
+        expect(entry).toContain('surface: chatGptConversationContentRuntime!.surface');
         expect(runtime).toContain('ConversationContentRepository');
         expect(runtime).toContain('ChatGPTConversationHostMonitor');
+        expect(runtime).toContain('new ChatGPTConversationSurface');
+        expect(runtime).toContain('subscribeSignals');
+        expect(runtime).toContain('subscribeObservations');
+        expect(runtime).toContain("'pageshow'");
+        expect(runtime).toContain("'popstate'");
+        expect(runtime).not.toContain('ChatGPTConversationDiscoveryCoordinator');
+        expect(runtime).not.toContain('RouteWatcher');
+        expect(runtime).not.toMatch(/setInterval\s*\(/);
+        for (const retiredFile of retiredFiles) {
+            expect(chatGPTDriverFiles).not.toContain(retiredFile);
+            expect(existsSync(join(process.cwd(), retiredFile))).toBe(false);
+        }
         expect(runtime).not.toContain('ConversationDiscoveryModuleV2');
         expect(runtime).not.toContain('ChatGPTVirtualConversationHostAdapter');
         expect(contentContract).not.toContain('ConversationContentCoordinatorV1');
         expect(contentContract).not.toContain('scheduleReconcile');
         expect(contentContract).not.toMatch(/\breconcile\s*\(/);
-        expect(coordinator).toContain('enterCurrentEpoch');
-        expect(coordinator).toContain('notifyBaselineCaptured');
+        expect(surface).toContain('ConversationContentSourceV1');
+        expect(surface).toContain('ChatGPTPageIndex');
+        expect(surface).not.toContain('new MutationObserver');
+        for (const source of surfaceConsumerFiles) {
+            expect(source).toContain('subscribeFrame');
+        }
         for (const source of consumerFiles) {
             expect(source).not.toContain('ConversationDiscoveryPortV2');
             expect(source).not.toContain('conversationDiscoveryV2');
+            expect(source).not.toContain('ChatGPTConversationIndex');
+            expect(source).not.toContain('ChatGPTConversationMaterialization');
         }
+        expect(packageManifest).not.toContain('ChatGPTConversationIndex.test.ts');
+        expect(packageManifest).not.toContain('ChatGPTConversationMaterialization.test.ts');
+        expect(packageManifest).not.toContain('chatgpt-content-discovery.v2.test.ts');
     });
 });

@@ -278,13 +278,6 @@ const contentRuntimeCtor = vi.fn(function () {
         materialization: contentRuntimeMaterialization,
     };
 });
-const conversationIndexBindConversationSource = vi.fn();
-const getChatGPTConversationIndex = vi.fn(() => ({
-    bindConversationSource: conversationIndexBindConversationSource,
-    subscribe: vi.fn(() => () => undefined),
-    getRounds: vi.fn(() => []),
-    resolveRoundForElement: vi.fn(() => null),
-}));
 const setLocale = vi.fn(async () => {});
 const setLazyContentFeatureLocale = vi.fn();
 const t = vi.fn((key: string) => key);
@@ -510,10 +503,6 @@ vi.mock('@/runtimes/content/ChatGPTConversationContentRuntime', () => ({
     ChatGPTConversationContentRuntime: contentRuntimeCtor,
 }));
 
-
-vi.mock('@/drivers/content/chatgpt/ChatGPTConversationIndex', () => ({
-    getChatGPTConversationIndex,
-}));
 
 vi.mock('@/ui/content/sending/SendController', () => ({
     SendController: sendControllerCtor,
@@ -820,18 +809,16 @@ describe('content runtime entry', () => {
         }));
     });
 
-    it('starts ChatGPT navigation without binding the retired DOM conversation index', async () => {
+    it('starts ChatGPT navigation through the Runtime-owned Surface', async () => {
         adapterPlatformId = 'chatgpt';
         vi.resetModules();
         await import('@/runtimes/content/entry');
 
-        expect(getChatGPTConversationIndex).not.toHaveBeenCalled();
-        expect(conversationIndexBindConversationSource).not.toHaveBeenCalled();
         expect(messageStepperInit).toHaveBeenCalled();
         expect(directoryInit).toHaveBeenCalled();
     });
 
-    it('does not bind the canonical conversation index while ChatGPT runtime starts disabled', async () => {
+    it('does not start the ChatGPT content runtime while the platform is disabled', async () => {
         adapterPlatformId = 'chatgpt';
         settingsGetCached.mockReturnValue({
             platforms: { chatgpt: false },
@@ -839,8 +826,6 @@ describe('content runtime entry', () => {
         vi.resetModules();
         await import('@/runtimes/content/entry');
 
-        expect(getChatGPTConversationIndex).not.toHaveBeenCalled();
-        expect(conversationIndexBindConversationSource).not.toHaveBeenCalled();
         expect(contentRuntimeInit).not.toHaveBeenCalled();
         expect(directoryInit).not.toHaveBeenCalled();
         expect(messageStepperInit).not.toHaveBeenCalled();
@@ -1358,8 +1343,6 @@ describe('content runtime entry', () => {
         });
 
         expect(messageToolbarsInit).toHaveBeenCalledTimes(2);
-        expect(getChatGPTConversationIndex).not.toHaveBeenCalled();
-        expect(conversationIndexBindConversationSource).not.toHaveBeenCalled();
         expect(viewportResizeSuspendInit).toHaveBeenCalledTimes(2);
         expect(sendPositionRestoreInit).toHaveBeenCalledTimes(2);
         expect(sendPositionRestoreSetEnabled).toHaveBeenLastCalledWith(false);

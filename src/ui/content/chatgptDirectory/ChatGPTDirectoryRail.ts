@@ -8,6 +8,7 @@ import { AppearanceScope } from '../../../style/appearanceScope';
 import type { UserThemeOverrides } from '../../../style/tokens';
 import { ensureStyle } from '../../../style/shadow';
 import type { ChatGPTConversationRound } from '../../../drivers/content/chatgpt/types';
+import { AIMD_CONVERSATION_SURFACE_CONSUMER_ATTRIBUTE } from '../../../contracts/conversationSurface';
 import {
     CHATGPT_DIRECTORY_RIGHT_INSET_STEP_PX,
     DEFAULT_CHATGPT_DIRECTORY_RIGHT_INSET_PX,
@@ -89,9 +90,11 @@ export class ChatGPTDirectoryRail {
         this.rootEl.id = RAIL_ID;
         this.rootEl.className = 'aimd-chatgpt-directory-rail';
         this.rootEl.dataset.aimdRole = 'chatgpt-directory-rail';
+        this.rootEl.setAttribute(AIMD_CONVERSATION_SURFACE_CONSUMER_ATTRIBUTE, '');
         this.rootEl.dataset.mode = this.displayMode;
         this.rootEl.dataset.expanded = '0';
         this.rootEl.setAttribute('data-aimd-theme', theme);
+        this.rootEl.style.display = 'none';
         this.shadowRoot = this.rootEl.attachShadow({ mode: 'open' });
         this.applyRightOffsetVars();
 
@@ -150,6 +153,7 @@ export class ChatGPTDirectoryRail {
         this.previewEl.id = PREVIEW_ID;
         this.previewEl.className = 'aimd-chatgpt-directory-preview';
         this.previewEl.dataset.aimdRole = 'chatgpt-directory-preview';
+        this.previewEl.setAttribute(AIMD_CONVERSATION_SURFACE_CONSUMER_ATTRIBUTE, '');
         this.previewEl.dataset.open = '0';
         this.previewEl.setAttribute('data-aimd-theme', theme);
         this.previewEl.innerHTML = '<div class="aimd-chatgpt-directory-preview__title"></div><div class="aimd-chatgpt-directory-preview__body"></div>';
@@ -195,16 +199,6 @@ export class ChatGPTDirectoryRail {
         this.previewAppearanceScope.apply(snapshot);
     }
 
-    setVisible(visible: boolean): void {
-        this.rootEl.style.display = visible ? 'block' : 'none';
-        if (!visible) {
-            this.previewEl.dataset.open = '0';
-            this.hoverPosition = null;
-            this.setExpanded(false);
-            this.renderHoverState();
-        }
-    }
-
     setDisplayMode(mode: ChatGPTDirectoryMode): void {
         this.displayMode = mode === 'expanded' ? 'expanded' : 'preview';
         this.listEl.dataset.mode = this.displayMode;
@@ -227,10 +221,22 @@ export class ChatGPTDirectoryRail {
 
     setRounds(rounds: ChatGPTConversationRound[]): void {
         const signature = this.buildRoundsSignature(rounds);
-        if (signature === this.roundsSignature) return;
-        this.roundsSignature = signature;
-        this.rounds = rounds.slice();
-        this.render();
+        if (signature !== this.roundsSignature) {
+            this.roundsSignature = signature;
+            this.rounds = rounds.slice();
+            this.render();
+        }
+        this.syncVisibilityFromRounds();
+    }
+
+    private syncVisibilityFromRounds(): void {
+        const visible = this.rounds.length > 0;
+        this.rootEl.style.display = visible ? 'block' : 'none';
+        if (visible) return;
+        this.previewEl.dataset.open = '0';
+        this.hoverPosition = null;
+        this.setExpanded(false);
+        this.renderHoverState();
     }
 
     setBookmarkedPositions(positions: Iterable<number>): void {

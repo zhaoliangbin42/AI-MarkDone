@@ -2,24 +2,31 @@ import type { SiteAdapter } from '../../drivers/content/adapters/base';
 import type { ConversationMaterializationPortV1 } from '../../contracts/conversationMaterialization';
 import type { ConversationDiscoveryContentPortV1 } from '../../contracts/conversationDiscovery';
 import type { ConversationNavigationPortV1 } from '../../contracts/conversationNavigation';
+import type { ConversationSurfacePortV1 } from '../../contracts/conversationSurface';
+import {
+    createConversationPageDocumentKeyV1,
+    type ConversationDocumentRefV1,
+} from '../../contracts/conversationContent';
 import { ConversationContentRepository } from '../../services/content/ConversationContentRepository';
 import { ChatGPTConversationDiscoveryAdapter } from '../../drivers/content/chatgpt/ChatGPTConversationDiscoveryAdapter';
-import { ChatGPTConversationDiscoveryCoordinator } from '../../drivers/content/chatgpt/ChatGPTConversationDiscoveryCoordinator';
-import { ChatGPTConversationMaterialization } from '../../drivers/content/chatgpt/ChatGPTConversationMaterialization';
+import { ChatGPTConversationSurface } from '../../drivers/content/chatgpt/ChatGPTConversationSurface';
 import { ChatGPTConversationHostMonitor } from '../../drivers/content/chatgpt/ChatGPTConversationHostMonitor';
-import { getChatGPTConversationIndex } from '../../drivers/content/chatgpt/ChatGPTConversationIndex';
 import { getChatGPTPageIndex } from '../../drivers/content/chatgpt/domConversationDiscovery';
+import type { ChatGPTPageIndex } from '../../drivers/content/chatgpt/ChatGPTPageIndex';
 
 export type ChatGPTConversationContentRuntimeOptions = Readonly<{
     /** Test seam; production uses the 400ms stable-host quiet window. */
     hostSettleDelayMs?: number;
 }>;
 
+let pageEpochSequence = 0;
+
 /**
  * ChatGPT composition root. The published content/materialization ports are
- * backed by one passive-baseline/stable-host-tail Repository and one shared
- * DOM materialization adapter. No consumer may introduce another content
- * observer, repository, or extraction path.
+ * backed by one identity-proven Graph/stable-host Repository and one shared
+ * DOM materialization adapter. Either input may establish the same monotonic
+ * pool. No consumer may introduce another content observer, repository, or
+ * extraction path.
  *
  * The `source` and `materialization` fields are read-only projections.
  * The graph adapter only peeks at evidence captured from the website's own
@@ -27,46 +34,73 @@ export type ChatGPTConversationContentRuntimeOptions = Readonly<{
  */
 export class ChatGPTConversationContentRuntime {
     readonly source: ConversationDiscoveryContentPortV1;
+    readonly surface: ConversationSurfacePortV1 & ChatGPTConversationSurface;
     readonly materialization: ConversationMaterializationPortV1 & { dispose(): void };
     private readonly graphAdapter: ChatGPTConversationDiscoveryAdapter;
     private readonly repository: ConversationContentRepository;
-    private readonly coordinator: ChatGPTConversationDiscoveryCoordinator;
-    private readonly graphMaterialization: ChatGPTConversationMaterialization;
     private readonly hostMonitor: ChatGPTConversationHostMonitor;
+    private readonly pageIndex: ChatGPTPageIndex;
+    private readonly pageDocument: ConversationDocumentRefV1;
+    private unsubscribeGraph: (() => void) | null = null;
+    private unsubscribePage: (() => void) | null = null;
+    private lastDocumentKey: string | null | undefined;
+    private initialized = false;
+    private disposed = false;
+    private originalPushState: History['pushState'] | null = null;
+    private originalReplaceState: History['replaceState'] | null = null;
+    private wrappedPushState: History['pushState'] | null = null;
+    private wrappedReplaceState: History['replaceState'] | null = null;
+    private readonly handlePageShow = () => {
+        this.hostMonitor.notifyPageShow();
+        this.synchronizeCurrentEpoch(true);
+        this.surface.refreshSurface();
+    };
+    private readonly handlePopState = () => {
+        this.synchronizeCurrentEpoch(true);
+    };
+    private readonly handleHashChange = () => {
+        this.synchronizeCurrentEpoch(false);
+    };
 
     constructor(
         adapter: SiteAdapter,
         _options: ChatGPTConversationContentRuntimeOptions = {},
     ) {
+        const pageEpochId = `runtime-${Date.now().toString(36)}-${++pageEpochSequence}`;
+        this.pageDocument = Object.freeze({
+            key: createConversationPageDocumentKeyV1('chatgpt', pageEpochId),
+            platformId: 'chatgpt',
+            identityKind: 'page' as const,
+            conversationId: null,
+            canonicalUrl: window.location.href,
+        });
         this.graphAdapter = new ChatGPTConversationDiscoveryAdapter();
         this.repository = new ConversationContentRepository({
-            resolveDocument: () => this.graphAdapter.resolveDocument(),
+            resolveDocument: () => this.resolveCurrentDocument(),
             readBaseline: (_document, signal) => this.graphAdapter.readBaseline(signal),
         });
-        const index = getChatGPTConversationIndex(adapter);
-        const pageIndex = getChatGPTPageIndex(adapter);
-        index.bindConversationSource(this.repository);
+        this.pageIndex = getChatGPTPageIndex(adapter);
         this.hostMonitor = new ChatGPTConversationHostMonitor({
             adapter,
-            index: pageIndex,
+            index: this.pageIndex,
             repository: this.repository,
-            resolveDocument: () => this.graphAdapter.resolveDocument(),
+            resolveDocument: () => this.resolveCurrentDocument(),
             settleDelayMs: _options.hostSettleDelayMs,
         });
-        this.coordinator = new ChatGPTConversationDiscoveryCoordinator({
-            adapter,
-            discoveryAdapter: this.graphAdapter,
-            repository: this.repository,
-            hostMonitor: this.hostMonitor,
-            pageIndex,
-        });
-        this.graphMaterialization = new ChatGPTConversationMaterialization({
+        this.surface = new ChatGPTConversationSurface({
             adapter,
             content: this.repository,
-            index,
+            pageIndex: this.pageIndex,
         });
-        this.source = this.repository;
-        this.materialization = this.graphMaterialization;
+        const source: ConversationDiscoveryContentPortV1 = {
+            read: () => this.repository.read(),
+            subscribe: (listener) => this.repository.subscribe(listener),
+            refresh: () => this.refreshObservedContent(),
+            isCurrent: (contentToken) => this.repository.isCurrent(contentToken),
+            readTurn: (target) => this.repository.readTurn(target),
+        };
+        this.source = Object.freeze(source);
+        this.materialization = this.surface;
     }
 
     get content(): ConversationDiscoveryContentPortV1 {
@@ -74,17 +108,114 @@ export class ChatGPTConversationContentRuntime {
     }
 
     setNavigationPort(navigation: ConversationNavigationPortV1 | null): void {
-        this.graphMaterialization.setNavigationPort(navigation);
+        this.surface.setNavigationPort(navigation);
     }
 
     init(): void {
-        this.coordinator.init();
+        if (this.initialized || this.disposed) return;
+        this.initialized = true;
+        // Subscribe route ownership before the Host Monitor so a PageIndex
+        // batch fences the old epoch before the same batch dirties new turns.
+        this.unsubscribePage = this.pageIndex.subscribeObservations((batch) => {
+            this.synchronizeCurrentEpoch(false, batch.pageUrl);
+        });
+        this.hostMonitor.init();
+        this.unsubscribeGraph = this.graphAdapter.subscribeSignals(() => {
+            // A capture can race a pushState/replaceState commit. Identity is
+            // synchronized first so the evidence reaches the correct gate.
+            this.synchronizeCurrentEpoch(false);
+            this.repository.notifyBaselineCaptured();
+        });
+        window.addEventListener('pageshow', this.handlePageShow);
+        window.addEventListener('popstate', this.handlePopState);
+        window.addEventListener('hashchange', this.handleHashChange);
+        this.installHistoryHooks();
+        this.synchronizeCurrentEpoch(true);
     }
 
     dispose(): void {
-        this.graphMaterialization.dispose();
-        this.coordinator.dispose();
+        if (this.disposed) return;
+        this.disposed = true;
+        this.initialized = false;
+        window.removeEventListener('pageshow', this.handlePageShow);
+        window.removeEventListener('popstate', this.handlePopState);
+        window.removeEventListener('hashchange', this.handleHashChange);
+        this.restoreHistoryHooks();
+        this.unsubscribePage?.();
+        this.unsubscribePage = null;
+        this.unsubscribeGraph?.();
+        this.unsubscribeGraph = null;
+        this.surface.dispose();
+        this.hostMonitor.dispose();
+        this.pageIndex.dispose();
         this.repository.dispose();
         this.graphAdapter.dispose();
+        this.lastDocumentKey = undefined;
+    }
+
+    private synchronizeCurrentEpoch(force: boolean, pageUrl = window.location.href): void {
+        const nextDocumentKey = this.resolveCurrentDocument(pageUrl).key;
+        const changed = nextDocumentKey !== this.lastDocumentKey;
+        const isInitialSynchronization = this.lastDocumentKey === undefined;
+        if (changed) this.hostMonitor.notifyRouteChanged(isInitialSynchronization);
+        this.lastDocumentKey = nextDocumentKey;
+        if (changed || force) void this.repository.enterCurrentEpoch();
+    }
+
+    private resolveCurrentDocument(pageUrl = window.location.href): ConversationDocumentRefV1 {
+        return this.graphAdapter.resolveDocument(pageUrl) ?? Object.freeze({
+            ...this.pageDocument,
+            canonicalUrl: pageUrl,
+        });
+    }
+
+    private async refreshObservedContent() {
+        await this.repository.refresh();
+        await this.hostMonitor.flushObserved();
+        return this.repository.read();
+    }
+
+    private installHistoryHooks(): void {
+        if (this.originalPushState || this.originalReplaceState) return;
+        const runtime = this;
+        this.originalPushState = window.history.pushState;
+        this.originalReplaceState = window.history.replaceState;
+        this.wrappedPushState = function pushState(
+            this: History,
+            data: unknown,
+            unused: string,
+            url?: string | URL | null,
+        ): void {
+            runtime.originalPushState!.call(this, data, unused, url);
+            runtime.synchronizeCurrentEpoch(false);
+        };
+        this.wrappedReplaceState = function replaceState(
+            this: History,
+            data: unknown,
+            unused: string,
+            url?: string | URL | null,
+        ): void {
+            runtime.originalReplaceState!.call(this, data, unused, url);
+            runtime.synchronizeCurrentEpoch(false);
+        };
+        window.history.pushState = this.wrappedPushState;
+        window.history.replaceState = this.wrappedReplaceState;
+    }
+
+    private restoreHistoryHooks(): void {
+        if (this.wrappedPushState && window.history.pushState === this.wrappedPushState && this.originalPushState) {
+            window.history.pushState = this.originalPushState;
+        }
+        if (
+            this.wrappedReplaceState
+            && window.history.replaceState === this.wrappedReplaceState
+            && this.originalReplaceState
+        ) {
+            window.history.replaceState = this.originalReplaceState;
+        }
+        this.originalPushState = null;
+        this.originalReplaceState = null;
+        this.wrappedPushState = null;
+        this.wrappedReplaceState = null;
     }
 }

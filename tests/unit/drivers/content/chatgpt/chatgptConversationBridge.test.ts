@@ -232,7 +232,53 @@ describe('ChatGPT conversation bridge', () => {
         expect(pageIndex).toContain('isAssistantContentNode');
     });
 
-    it('signals generation completion from resource timing without reading the response', async () => {
+    it('leaves generation POST requests completely unobserved', async () => {
+        const observerConstructor = vi.fn();
+        const originalObserver = window.PerformanceObserver;
+        Object.defineProperty(window, 'PerformanceObserver', {
+            configurable: true,
+            value: class MockPerformanceObserver {
+                constructor() {
+                    observerConstructor();
+                }
+            },
+        });
+        const hostResponse = new Response('data: [DONE]\n\n', {
+            status: 200,
+            headers: { 'Content-Type': 'text/event-stream' },
+        });
+        const cloneSpy = vi.spyOn(hostResponse, 'clone');
+        const fetchMock = vi.fn(async () => hostResponse);
+        Object.defineProperty(window, 'fetch', { configurable: true, value: fetchMock });
+        vi.stubGlobal('fetch', fetchMock);
+        const captures: unknown[] = [];
+        const listener = ((event: Event) => {
+            captures.push(decodeDetail((event as CustomEvent<unknown>).detail));
+        }) as EventListener;
+        window.addEventListener(CAPTURE_EVENT, listener);
+
+        try {
+            installBridge();
+            const returned = await window.fetch('/backend-api/conversation', {
+                method: 'POST',
+                body: '{"prompt":"must remain opaque"}',
+            });
+            await new Promise((resolve) => window.setTimeout(resolve, 0));
+
+            expect(returned).toBe(hostResponse);
+            expect(observerConstructor).not.toHaveBeenCalled();
+            expect(cloneSpy).not.toHaveBeenCalled();
+            expect(captures).toEqual([]);
+        } finally {
+            window.removeEventListener(CAPTURE_EVENT, listener);
+            Object.defineProperty(window, 'PerformanceObserver', {
+                configurable: true,
+                value: originalObserver,
+            });
+        }
+    });
+
+    it('does not derive generation completion from resource timing', async () => {
         const conversationId = '69e8d157-5fec-839c-9124-2179ba8b7d7c';
         history.replaceState({}, '', `/c/${conversationId}`);
         document.body.innerHTML = '<main></main>';
@@ -263,7 +309,7 @@ describe('ChatGPT conversation bridge', () => {
 
         try {
             installBridge();
-            expect(observe).toHaveBeenCalledWith({ type: 'resource', buffered: true });
+            expect(observe).not.toHaveBeenCalled();
             await window.fetch('/backend-api/f/conversation', { method: 'POST' });
             document.querySelector('main')?.insertAdjacentHTML(
                 'beforeend',
@@ -277,13 +323,9 @@ describe('ChatGPT conversation bridge', () => {
                 }],
             });
 
-            expect(captures).toContainEqual({
-                kind: 'generation-complete',
-                conversationId,
-                assistantMessageId: 'assistant-live',
-            });
+            expect(captures).toEqual([]);
             (window as any).__AIMD_CHATGPT_CONVERSATION_BRIDGE__?.dispose?.();
-            expect(disconnect).toHaveBeenCalledTimes(1);
+            expect(disconnect).not.toHaveBeenCalled();
         } finally {
             window.removeEventListener(CAPTURE_EVENT, listener);
             Object.defineProperty(window, 'PerformanceObserver', {
@@ -293,7 +335,7 @@ describe('ChatGPT conversation bridge', () => {
         }
     });
 
-    it('does not bind a generation completion to a conversation entered after the request started', async () => {
+    it('does not derive generation lifecycle while routes change around a POST', async () => {
         const conversationA = '69e8d157-5fec-839c-9124-2179ba8b7d7a';
         const conversationB = '69e8d157-5fec-839c-9124-2179ba8b7d7b';
         history.replaceState({}, '', `/c/${conversationA}`);
@@ -342,11 +384,7 @@ describe('ChatGPT conversation bridge', () => {
                 }],
             });
 
-            expect(captures).toContainEqual({
-                kind: 'generation-start',
-                conversationId: conversationA,
-            });
-            expect(captures.filter((capture) => capture.kind === 'generation-complete')).toEqual([]);
+            expect(captures).toEqual([]);
         } finally {
             window.removeEventListener(CAPTURE_EVENT, listener);
             (window as any).__AIMD_CHATGPT_CONVERSATION_BRIDGE__?.dispose?.();
@@ -357,7 +395,7 @@ describe('ChatGPT conversation bridge', () => {
         }
     });
 
-    it('binds a generation started on the blank route to the canonical conversation created by that request', async () => {
+    it('does not derive generation lifecycle from a blank-route POST', async () => {
         const createdConversationId = '69e8d157-5fec-839c-9124-2179ba8b7d7c';
         history.replaceState({}, '', '/');
         let observerCallback: ((list: { getEntries(): Array<Record<string, unknown>> }) => void) | null = null;
@@ -400,12 +438,7 @@ describe('ChatGPT conversation bridge', () => {
                 }],
             });
 
-            expect(captures.filter((capture) => capture.kind === 'generation-start')).toEqual([]);
-            expect(captures).toContainEqual({
-                kind: 'generation-complete',
-                conversationId: createdConversationId,
-                assistantMessageId: 'assistant-created',
-            });
+            expect(captures).toEqual([]);
         } finally {
             window.removeEventListener(CAPTURE_EVENT, listener);
             (window as any).__AIMD_CHATGPT_CONVERSATION_BRIDGE__?.dispose?.();
@@ -416,7 +449,7 @@ describe('ChatGPT conversation bridge', () => {
         }
     });
 
-    it('retains blank-route completion evidence until the canonical route and assistant identity mount', async () => {
+    it('does not retain blank-route POST completion state', async () => {
         const createdConversationId = '69e8d157-5fec-839c-9124-2179ba8b7d7c';
         history.replaceState({}, '', '/');
         let observerCallback: ((list: { getEntries(): Array<Record<string, unknown>> }) => void) | null = null;
@@ -462,11 +495,7 @@ describe('ChatGPT conversation bridge', () => {
             `;
             await requestSnapshot(createdConversationId, { type: 'peek' });
 
-            expect(captures).toContainEqual({
-                kind: 'generation-complete',
-                conversationId: createdConversationId,
-                assistantMessageId: 'assistant-created',
-            });
+            expect(captures).toEqual([]);
         } finally {
             window.removeEventListener(CAPTURE_EVENT, listener);
             (window as any).__AIMD_CHATGPT_CONVERSATION_BRIDGE__?.dispose?.();
@@ -477,7 +506,7 @@ describe('ChatGPT conversation bridge', () => {
         }
     });
 
-    it('waits for a new assistant identity instead of completing the previous turn', async () => {
+    it('does not derive completion when assistant identities change after a POST', async () => {
         const conversationId = '69e8d157-5fec-839c-9124-2179ba8b7d7c';
         history.replaceState({}, '', `/c/${conversationId}`);
         document.body.innerHTML = `
@@ -518,7 +547,7 @@ describe('ChatGPT conversation bridge', () => {
                     name: new URL('/backend-api/f/conversation', window.location.href).href,
                 }],
             });
-            expect(captures.filter((capture) => capture.kind === 'generation-complete')).toEqual([]);
+            expect(captures).toEqual([]);
 
             document.querySelector('main')?.insertAdjacentHTML(
                 'beforeend',
@@ -526,11 +555,7 @@ describe('ChatGPT conversation bridge', () => {
             );
             await requestSnapshot(conversationId, { type: 'peek' });
 
-            expect(captures).toContainEqual({
-                kind: 'generation-complete',
-                conversationId,
-                assistantMessageId: 'assistant-new',
-            });
+            expect(captures).toEqual([]);
         } finally {
             window.removeEventListener(CAPTURE_EVENT, listener);
             (window as any).__AIMD_CHATGPT_CONVERSATION_BRIDGE__?.dispose?.();
@@ -581,6 +606,128 @@ describe('ChatGPT conversation bridge', () => {
         expect(response.snapshot.rounds.map((round: any) => round.assistantContent)).toEqual(['Answer 1', 'Answer 2']);
         expect(response.snapshot.rounds.map((round: any) => round.messageId)).toEqual(['a1', 'a2']);
         expect(fetchMock).toHaveBeenCalledTimes(1);
+    });
+
+    it('captures a structurally verified graph from an arbitrary same-origin GET carrying the current identity', async () => {
+        const conversationId = 'conv_ABC-12345678';
+        history.replaceState({}, '', `/workspace/c/short/g/project-id/conversation/${conversationId}`);
+        const fetchMock = vi.fn(async () => new Response(JSON.stringify({
+            data: {
+                result: graphPayload(conversationId, 'Wrapped question', 'Wrapped answer'),
+            },
+        }), {
+            status: 200,
+            headers: { 'Content-Type': 'application/problem+json' },
+        }));
+        Object.defineProperty(window, 'fetch', { configurable: true, value: fetchMock });
+        vi.stubGlobal('fetch', fetchMock);
+
+        installBridge();
+        await window.fetch(`/api/thread-data?conversation_id=${encodeURIComponent(conversationId)}`);
+        await new Promise((resolve) => window.setTimeout(resolve, 0));
+        const response = await requestSnapshot(conversationId);
+
+        expect(response.ok).toBe(true);
+        expect(response.snapshot.rounds).toHaveLength(1);
+        expect(response.snapshot.rounds[0]).toMatchObject({
+            userPrompt: 'Wrapped question',
+            assistantContent: 'Wrapped answer',
+        });
+    });
+
+    it('binds an identity-less valid Graph to the exact conversation token carried by its GET', async () => {
+        const conversationId = 'conv_REQUEST-12345678';
+        history.replaceState({}, '', `/c/${conversationId}`);
+        const payload = graphPayload(conversationId, 'Request-bound question', 'Request-bound answer');
+        delete payload.conversation_id;
+        const fetchMock = vi.fn(async () => new Response(JSON.stringify(payload), {
+            status: 200,
+            headers: { 'Content-Type': 'application/json' },
+        }));
+        Object.defineProperty(window, 'fetch', { configurable: true, value: fetchMock });
+        vi.stubGlobal('fetch', fetchMock);
+
+        installBridge();
+        await window.fetch(`/api/thread-data/${conversationId}`);
+        await new Promise((resolve) => window.setTimeout(resolve, 0));
+
+        const response = await requestSnapshot(conversationId);
+        expect(response.ok).toBe(true);
+        expect(response.snapshot.rounds[0]?.assistantContent).toBe('Request-bound answer');
+    });
+
+    it('does not signal an over-nested wrapper or a graph-shaped payload without a complete round', async () => {
+        const conversationId = 'conv_BOUNDED-12345678';
+        history.replaceState({}, '', `/workspace/c/${conversationId}`);
+        const deepPayload = {
+            level1: { level2: { level3: { level4: { level5: graphPayload(conversationId) } } } },
+        };
+        const pseudoGraph = {
+            conversation_id: conversationId,
+            current_node: 'shell',
+            mapping: {
+                shell: { id: 'shell', parent: null, message: null },
+            },
+        };
+        const fetchMock = vi.fn()
+            .mockResolvedValueOnce(new Response(JSON.stringify(deepPayload), {
+                status: 200,
+                headers: { 'Content-Type': 'application/json' },
+            }))
+            .mockResolvedValueOnce(new Response(JSON.stringify(pseudoGraph), {
+                status: 200,
+                headers: { 'Content-Type': 'application/json' },
+            }));
+        Object.defineProperty(window, 'fetch', { configurable: true, value: fetchMock });
+        vi.stubGlobal('fetch', fetchMock);
+        const captures: any[] = [];
+        const listener = ((event: Event) => {
+            captures.push(JSON.parse(String((event as CustomEvent).detail)));
+        }) as EventListener;
+        window.addEventListener(CAPTURE_EVENT, listener);
+
+        try {
+            installBridge();
+            await window.fetch(`/api/thread-data/${conversationId}`);
+            await window.fetch(`/api/thread-data/${conversationId}`);
+            await new Promise((resolve) => window.setTimeout(resolve, 0));
+
+            expect(captures).toEqual([]);
+            expect((await requestSnapshot(conversationId)).ok).toBe(false);
+        } finally {
+            window.removeEventListener(CAPTURE_EVENT, listener);
+        }
+    });
+
+    it('continues bounded traversal when a graph-shaped decoy precedes a valid wrapped Graph', async () => {
+        const conversationId = 'conv_DECOY-12345678';
+        history.replaceState({}, '', `/c/${conversationId}`);
+        const payload = {
+            decoy: {
+                conversation_id: conversationId,
+                current_node: 'shell',
+                mapping: {
+                    shell: { id: 'shell', parent: null, message: null },
+                },
+            },
+            data: {
+                result: graphPayload(conversationId, 'Real question', 'Real answer'),
+            },
+        };
+        const fetchMock = vi.fn(async () => new Response(JSON.stringify(payload), {
+            status: 200,
+            headers: { 'Content-Type': 'application/json' },
+        }));
+        Object.defineProperty(window, 'fetch', { configurable: true, value: fetchMock });
+        vi.stubGlobal('fetch', fetchMock);
+
+        installBridge();
+        await window.fetch(`/api/thread-data/${conversationId}`);
+        await new Promise((resolve) => window.setTimeout(resolve, 0));
+
+        const response = await requestSnapshot(conversationId);
+        expect(response.ok).toBe(true);
+        expect(response.snapshot.rounds[0]?.assistantContent).toBe('Real answer');
     });
 
     it('does not publish an empty assistant turn as a complete snapshot while generation is pending', async () => {
@@ -643,7 +790,10 @@ describe('ChatGPT conversation bridge', () => {
                 'assistant-node-2': {
                     id: 'assistant-node-2',
                     parent: 'user-node-2',
-                    message: message('assistant-message-2', 'assistant', ''),
+                    message: message('assistant-message-2', 'assistant', 'Partial streamed answer', {
+                        status: 'in_progress',
+                        end_turn: false,
+                    }),
                 },
             },
         }), {
@@ -745,7 +895,7 @@ describe('ChatGPT conversation bridge', () => {
         expect(response.error?.code).toBe('BRIDGE_UNAVAILABLE');
     });
 
-    it('rejects graph content that cannot prove the requested conversation identity', async () => {
+    it('accepts an identity-less Graph when the same-origin GET exactly carries the current identity', async () => {
         const conversationId = '69e8d157-5fec-839c-9124-2179ba8b7d7c';
         const payload = {
             current_node: 'assistant-node',
@@ -774,8 +924,8 @@ describe('ChatGPT conversation bridge', () => {
         await observeConversationFetch(conversationId);
         const response = await requestSnapshot(conversationId);
 
-        expect(response.ok).toBe(false);
-        expect(response.snapshot).toBeUndefined();
+        expect(response.ok).toBe(true);
+        expect(response.snapshot.rounds[0]?.assistantContent).toBe('Unproven answer');
     });
 
     it('rejects a graph whose active branch has a missing parent node', async () => {

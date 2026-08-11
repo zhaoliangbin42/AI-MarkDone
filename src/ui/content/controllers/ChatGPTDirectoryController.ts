@@ -1,12 +1,9 @@
 import type { Theme } from '../../../core/types/theme';
 import type { SiteAdapter } from '../../../drivers/content/adapters/base';
-import { RouteWatcher } from '../../../drivers/content/injection/routeWatcher';
-import { getChatGPTConversationIndex, type ChatGPTConversationIndex } from '../../../drivers/content/chatgpt/ChatGPTConversationIndex';
 import type { ChatGPTConversationRound } from '../../../drivers/content/chatgpt/types';
 import type { ChatGPTDirectoryMode, ChatGPTDirectoryPromptLabelMode } from '../../../core/settings/types';
 import { ChatGPTDirectoryRail } from '../chatgptDirectory/ChatGPTDirectoryRail';
 import {
-    navigateChatGPTDirectoryTarget,
     resolveChatGPTActivePosition,
     type ChatGPTRoundPosition,
 } from '../chatgptDirectory/navigation';
@@ -17,10 +14,11 @@ import {
 } from '../../../style/appearance';
 import { AIMD_VIEWPORT_RESIZE_IDLE_EVENT } from './ViewportResizeSuspendController';
 import { subscribeLocaleChange } from '../components/i18n';
-import { isChatGPTConversationPage } from '../../../drivers/content/chatgpt/chatgptRoute';
-import type { ConversationContentSourceV1 } from '../../../contracts/conversationContent';
-import type { ConversationMaterializationPortV1 } from '../../../contracts/conversationMaterialization';
 import type { ConversationNavigationPortV1 } from '../../../contracts/conversationNavigation';
+import type {
+    ConversationSurfaceFrameV1,
+    ConversationSurfacePortV1,
+} from '../../../contracts/conversationSurface';
 
 type DirectoryBookmarksState = {
     refreshPositionsForUrl?: (url: string) => Promise<void>;
@@ -33,15 +31,9 @@ type DirectoryBookmarksState = {
 };
 
 type ChatGPTDirectoryContentOptions = {
-    contentSource?: ConversationContentSourceV1 | null;
-    materialization?: ConversationMaterializationPortV1 | null;
+    surface: ConversationSurfacePortV1;
     navigation?: ConversationNavigationPortV1 | null;
 };
-
-type ChatGPTMountedRoundGeometry = Pick<
-    ChatGPTRoundPosition,
-    'jumpAnchor' | 'userAnchor' | 'assistantRoot' | 'groupEls'
->;
 
 function writeDebugState(patch: Record<string, string | boolean | number | null | undefined>): void {
     try {
@@ -53,39 +45,23 @@ function writeDebugState(patch: Record<string, string | boolean | number | null 
     }
 }
 
-function getDirectoryBookmarkUrl(): string {
-    try {
-        const parsed = new URL(window.location.href);
-        parsed.hash = '';
-        // ChatGPT may append transport/view flags such as mweb_fallback;
-        // bookmark identity is the conversation URL, not those query flags.
-        parsed.search = '';
-        return `${parsed.origin}${parsed.pathname}${parsed.search}`;
-    } catch {
-        return window.location.href.split('#')[0] || window.location.href;
-    }
-}
-
 export class ChatGPTDirectoryController {
     private adapter: SiteAdapter;
-    private conversationIndex: ChatGPTConversationIndex | null = null;
     private bookmarksState: DirectoryBookmarksState | null;
     private rail: ChatGPTDirectoryRail | null = null;
     private appearance: AppearanceSnapshot = createAppearanceSnapshot('light');
     private enabled = true;
     private displayMode: ChatGPTDirectoryMode = 'preview';
     private promptLabelMode: ChatGPTDirectoryPromptLabelMode = 'head';
-    private routeWatcher: RouteWatcher | null = null;
     private scrollRoot: HTMLElement | null = null;
     private roundPositions: ChatGPTRoundPosition[] = [];
     private activePosition = 0;
     private rafId: number | null = null;
     private rebuildTimer: number | null = null;
+    private rebuildTimerKind: 'idle' | 'timeout' | null = null;
     private pendingRebuildReasons = new Set<string>();
     private unsubscribeBookmarks: (() => void) | null = null;
-    private unsubscribeRoundChanges: (() => void) | null = null;
-    private unsubscribeContent: (() => void) | null = null;
-    private unsubscribeMaterialization: (() => void) | null = null;
+    private unsubscribeSurface: (() => void) | null = null;
     private unsubscribeLocale: (() => void) | null = null;
     private initialized = false;
     private globalScrollFallbacksBound = false;
@@ -96,24 +72,16 @@ export class ChatGPTDirectoryController {
     constructor(
         adapter: SiteAdapter,
         bookmarksState: DirectoryBookmarksState | null = null,
-        contentOptions: ChatGPTDirectoryContentOptions = {},
+        contentOptions: ChatGPTDirectoryContentOptions,
     ) {
         this.adapter = adapter;
         this.bookmarksState = bookmarksState;
-        this.contentSource = contentOptions.contentSource ?? null;
-        this.materialization = contentOptions.materialization ?? null;
+        this.surface = contentOptions.surface;
         this.navigation = contentOptions.navigation ?? null;
     }
 
-    private readonly contentSource: ConversationContentSourceV1 | null;
-    private readonly materialization: ConversationMaterializationPortV1 | null;
+    private readonly surface: ConversationSurfacePortV1;
     private readonly navigation: ConversationNavigationPortV1 | null;
-
-    private getCanonicalContentSource(): ConversationContentSourceV1 | null {
-        return this.contentSource
-            ?? (this.conversationIndex ?? getChatGPTConversationIndex(this.adapter)).getConversationSource()
-            ?? null;
-    }
 
     init(theme: Theme): void {
         if (this.adapter.getPlatformId() !== 'chatgpt') return;
@@ -126,30 +94,14 @@ export class ChatGPTDirectoryController {
             return;
         }
         this.initialized = true;
-        this.conversationIndex = getChatGPTConversationIndex(this.adapter);
         writeDebugState({ DirectoryInit: 'start' });
-        this.routeWatcher = new RouteWatcher(() => {
-            this.cancelActiveLocate();
-            this.refresh();
-        }, { intervalMs: 500 });
-        this.routeWatcher.start();
-        const legacyIndex = this.conversationIndex ?? getChatGPTConversationIndex(this.adapter);
-        this.unsubscribeRoundChanges = legacyIndex.subscribe(() => {
-            this.scheduleIndexRebuild('mutation');
+        this.unsubscribeSurface = this.surface.subscribeFrame((frame) => {
+            this.scheduleFrameReconcile(`surface:${frame.frameToken}`);
         });
-        // When the source is supplied through the shared index, the index
-        // subscription above is already the invalidation seam. Subscribe
-        // directly only for an explicitly injected composition-root source.
-        this.unsubscribeContent = this.contentSource?.subscribe(() => {
-            this.scheduleIndexRebuild('content');
-        }) ?? null;
-        this.unsubscribeMaterialization = this.materialization?.subscribe(() => {
-            this.scheduleIndexRebuild('materialization');
-        }) ?? null;
         this.unsubscribeBookmarks = this.bookmarksState?.subscribe?.(() => {
-            this.render();
+            this.reconcile();
         }) ?? null;
-        this.unsubscribeLocale = subscribeLocaleChange(() => this.render());
+        this.unsubscribeLocale = subscribeLocaleChange(() => this.reconcile());
         void this.refresh();
     }
 
@@ -160,23 +112,21 @@ export class ChatGPTDirectoryController {
             this.rafId = null;
         }
         if (this.rebuildTimer !== null) {
-            window.clearTimeout(this.rebuildTimer);
+            if (this.rebuildTimerKind === 'idle' && typeof window.cancelIdleCallback === 'function') {
+                window.cancelIdleCallback(this.rebuildTimer);
+            } else {
+                window.clearTimeout(this.rebuildTimer);
+            }
             this.rebuildTimer = null;
+            this.rebuildTimerKind = null;
         }
         this.pendingRebuildReasons.clear();
-        this.routeWatcher?.stop();
-        this.routeWatcher = null;
         this.unsubscribeBookmarks?.();
         this.unsubscribeBookmarks = null;
-        this.unsubscribeRoundChanges?.();
-        this.unsubscribeRoundChanges = null;
-        this.unsubscribeContent?.();
-        this.unsubscribeContent = null;
-        this.unsubscribeMaterialization?.();
-        this.unsubscribeMaterialization = null;
+        this.unsubscribeSurface?.();
+        this.unsubscribeSurface = null;
         this.activeIntersectionObserver?.disconnect();
         this.activeIntersectionObserver = null;
-        this.conversationIndex = null;
         this.unsubscribeLocale?.();
         this.unsubscribeLocale = null;
         this.scrollRoot?.removeEventListener('scroll', this.handleScroll, { capture: true } as EventListenerOptions);
@@ -196,10 +146,9 @@ export class ChatGPTDirectoryController {
 
     setEnabled(enabled: boolean): void {
         this.enabled = enabled;
-        this.rail?.setVisible(enabled);
-        if (enabled) {
-            void this.refresh();
-        }
+        if (!this.initialized) return;
+        if (enabled) void this.refresh();
+        else this.reconcile();
     }
 
     setDisplayMode(mode: ChatGPTDirectoryMode): void {
@@ -228,7 +177,6 @@ export class ChatGPTDirectoryController {
                     return;
                 }
                 this.rail.ensureAttached();
-                this.rail.setVisible(this.enabled);
                 writeDebugState({ DirectoryHost: 'reattached' });
             } else {
                 this.rail.ensureAttached();
@@ -241,54 +189,71 @@ export class ChatGPTDirectoryController {
         this.rail.setDisplayMode(this.displayMode);
         this.rail.setPromptLabelMode(this.promptLabelMode);
         this.rail.ensureAttached();
-        this.rail.setVisible(this.enabled);
         writeDebugState({ DirectoryHost: 'created' });
     }
 
     private async refresh(): Promise<void> {
-        if (!this.enabled || !isChatGPTConversationPage(window.location.href)) {
-            this.rail?.setRounds([]);
-            this.rail?.setVisible(false);
-            writeDebugState({ DirectoryVisible: false, DirectoryReason: 'not-conversation' });
-            return;
-        }
-        this.ensureRail();
-        this.rail?.setVisible(true);
-        this.rebindScrollRoot();
-        this.render();
-        const bookmarkUrl = getDirectoryBookmarkUrl();
+        if (!this.reconcile()) return;
+        const contentToken = this.surface.readFrame().contentToken;
+        const bookmarkUrl = this.resolveBookmarkUrl();
+        if (!bookmarkUrl) return;
         await (
             this.bookmarksState?.refreshPositionsForUrl?.(bookmarkUrl).catch(() => undefined)
             ?? Promise.resolve()
         );
-        this.render();
+        const currentToken = this.surface.readFrame().contentToken;
+        if (currentToken === contentToken) {
+            this.reconcile();
+        }
+    }
+
+    private reconcile(): boolean {
+        this.ensureRail();
+        if (!this.rail) return false;
+        // ChatGPT may replace body contents while hydrating a route. Keep the
+        // fixed page-level host aligned with the same body portal used by the
+        // lower-right controls before rendering the next list state.
+        this.rail.ensureAttached();
+        const frame = this.surface.readFrame();
+        const hasObtainedContent = frame.obtainedTurns.length > 0;
+        if (!this.enabled || !hasObtainedContent) {
+            this.roundPositions = [];
+            this.rail.setRounds([]);
+            this.bindActiveIntersectionObserver();
+            writeDebugState({ DirectoryVisible: false, DirectoryReason: 'no-content' });
+            return false;
+        }
+
+        this.rebindScrollRoot();
+        this.refreshRoundPositionsFromFrame(frame);
+        const rounds = this.buildDirectoryRoundsFromFrame(frame);
+        this.rail.setRounds(rounds);
+        this.bindActiveIntersectionObserver();
+        this.syncBookmarkedPositions(rounds);
+        this.updateActivePosition();
         writeDebugState({
             DirectoryVisible: true,
             DirectoryReason: this.roundPositions.length > 0 ? 'snapshot' : 'placeholder',
             DirectoryRounds: this.roundPositions.length,
             DirectoryAnchors: this.roundPositions.filter((round) => round.jumpAnchor instanceof HTMLElement).length,
         });
+        return true;
     }
 
-    private render(): void {
-        if (!this.rail) return;
-        // ChatGPT may replace body contents while hydrating a route. Keep the
-        // fixed page-level host aligned with the same body portal used by the
-        // lower-right controls before rendering the next list state.
-        this.rail.ensureAttached();
-        this.refreshRoundPositions();
-        const rounds = this.buildDirectoryRounds();
-        this.rail.setRounds(rounds);
-        this.bindActiveIntersectionObserver();
-        this.syncBookmarkedPositions(rounds);
-        this.updateActivePosition();
+    /** @internal Synchronous test/debug entry; production is Surface-driven. */
+    render(): void {
+        this.reconcile();
     }
 
     private syncBookmarkedPositions(rounds: ChatGPTConversationRound[]): void {
         if (!this.rail) {
             return;
         }
-        const url = getDirectoryBookmarkUrl();
+        const url = this.resolveBookmarkUrl();
+        if (!url) {
+            this.rail.setBookmarkedPositions([]);
+            return;
+        }
         if (this.bookmarksState?.resolveConversationBookmarkPositions) {
             const positions = this.bookmarksState.resolveConversationBookmarkPositions(
                 url,
@@ -365,19 +330,22 @@ export class ChatGPTDirectoryController {
         anchors.forEach((anchor) => this.activeIntersectionObserver?.observe(anchor));
     }
 
-    private scheduleIndexRebuild(reason: string): void {
+    private scheduleFrameReconcile(reason: string): void {
         this.pendingRebuildReasons.add(reason);
         if (this.rebuildTimer !== null) return;
         const run = () => {
             this.rebuildTimer = null;
+            this.rebuildTimerKind = null;
             this.pendingRebuildReasons.clear();
-            this.render();
+            this.reconcile();
         };
         const ric = window.requestIdleCallback as ((cb: () => void, opts?: { timeout: number }) => number) | undefined;
         if (typeof ric === 'function') {
             this.rebuildTimer = ric.call(window, run, { timeout: 500 });
+            this.rebuildTimerKind = 'idle';
         } else {
             this.rebuildTimer = window.setTimeout(run, 120);
+            this.rebuildTimerKind = 'timeout';
         }
     }
 
@@ -411,81 +379,38 @@ export class ChatGPTDirectoryController {
         return document.documentElement.dataset.aimdViewportResizing === '1';
     }
 
-    private refreshRoundPositions(): void {
-        const contentState = this.getCanonicalContentSource()?.read();
-        if (contentState?.document && contentState.snapshot) {
-            const index = this.conversationIndex ?? getChatGPTConversationIndex(this.adapter);
-            // Materialization anchors are intentionally toolbar-facing. They
-            // can sit after a very long assistant response, so they are not
-            // valid input for reading-position geometry. Keep them only as a
-            // fallback; the shared index owns the complete user+assistant DOM
-            // group used by active-position resolution.
-            const materializedByTarget = new Map<string, ChatGPTMountedRoundGeometry>(
-                this.materialization?.read().entries.map((entry) => [
-                    `${entry.target.turnId}:${entry.target.assistantMessageId}`,
-                    {
-                        jumpAnchor: entry.anchorElement,
-                        userAnchor: entry.messageElement ?? entry.anchorElement,
-                        assistantRoot: entry.messageElement ?? entry.anchorElement,
-                        groupEls: [entry.messageElement ?? entry.anchorElement],
-                    },
-                ]) ?? [],
-            );
-            const mountedByTarget = new Map<string, ChatGPTMountedRoundGeometry>(materializedByTarget);
-            for (const entry of index.getRounds()) {
-                if (!entry.materialized) continue;
-                mountedByTarget.set(
-                    `${entry.identity.roundId}:${entry.identity.assistantMessageId}`,
-                    {
-                        jumpAnchor: entry.materialized.jumpAnchorEl,
-                        userAnchor: entry.materialized.userRootEl,
-                        assistantRoot: entry.materialized.assistantRootEl,
-                        groupEls: entry.materialized.groupEls,
-                    },
-                );
-            }
-            this.roundPositions = contentState.snapshot.turns.map((turn) => {
-                const mounted = mountedByTarget.get(
-                    `${turn.identity.turnId}:${turn.identity.assistantMessageId}`,
-                ) ?? null;
-                const jumpAnchor = mounted?.jumpAnchor ?? null;
-                return {
-                    position: turn.ordinal,
-                    id: turn.identity.turnId,
-                    messageId: turn.identity.assistantMessageId,
-                    roundId: turn.identity.turnId,
-                    userMessageId: turn.identity.userMessageId,
-                    assistantMessageId: turn.identity.assistantMessageId,
-                    userPromptText: turn.userText,
-                    userPromptQuality: 'real',
-                    jumpAnchor,
-                    userAnchor: mounted?.userAnchor ?? null,
-                    assistantRoot: mounted?.assistantRoot ?? null,
-                    groupEls: mounted?.groupEls ?? [],
-                };
-            });
-            return;
-        }
-        // A ChatGPT directory without a verified graph-backed snapshot is
-        // unavailable. A mounted DOM window is never a complete conversation.
-        this.roundPositions = [];
-    }
-
-    private buildDirectoryRounds(): ChatGPTConversationRound[] {
-        const snapshot = this.getCanonicalContentSource()?.read().snapshot;
-        if (snapshot) {
-            return snapshot.turns.map((turn) => ({
-                id: turn.identity.turnId,
+    private refreshRoundPositionsFromFrame(frame: ConversationSurfaceFrameV1): void {
+        this.roundPositions = frame.obtainedTurns.map((entry) => {
+            const turn = entry.turn;
+            const mounted = entry.materialization;
+            return {
                 position: turn.ordinal,
-                userPrompt: turn.userText,
-                assistantContent: turn.assistantMarkdown,
-                preview: turn.userText,
+                id: turn.identity.turnId,
                 messageId: turn.identity.assistantMessageId,
+                roundId: turn.identity.turnId,
                 userMessageId: turn.identity.userMessageId,
                 assistantMessageId: turn.identity.assistantMessageId,
-            }));
-        }
-        return [];
+                userPromptText: turn.userText,
+                userPromptQuality: 'real' as const,
+                jumpAnchor: mounted?.jumpAnchorElement ?? null,
+                userAnchor: mounted?.userElement ?? null,
+                assistantRoot: mounted?.assistantElement ?? null,
+                groupEls: mounted ? Array.from(mounted.groupElements) : [],
+            };
+        });
+    }
+
+    private buildDirectoryRoundsFromFrame(frame: ConversationSurfaceFrameV1): ChatGPTConversationRound[] {
+        return frame.obtainedTurns.map(({ turn }) => ({
+            id: turn.identity.turnId,
+            position: turn.ordinal,
+            userPrompt: turn.userText,
+            assistantContent: turn.assistantMarkdown,
+            preview: turn.userText,
+            messageId: turn.identity.assistantMessageId,
+            userMessageId: turn.identity.userMessageId,
+            assistantMessageId: turn.identity.assistantMessageId,
+        }));
     }
 
     private updateActivePosition(options?: { followRail?: boolean }): void {
@@ -523,45 +448,23 @@ export class ChatGPTDirectoryController {
                 }, { align: 'start', signal, timeoutMs: 15_000 });
                 return;
             }
-            const contentState = this.getCanonicalContentSource()?.read();
-            if (contentState?.document && contentState.snapshot && this.materialization) {
-                const turn = contentState.snapshot.turns.find((candidate) => (
-                    candidate.identity.turnId === round.id
-                    && candidate.identity.assistantMessageId === (round.assistantMessageId ?? round.messageId)
+            const frame = this.surface.readFrame();
+            const entry = frame.obtainedTurns.find((candidate) => (
+                candidate.turn.identity.turnId === round.id
+                && candidate.turn.identity.assistantMessageId === (round.assistantMessageId ?? round.messageId)
+            ));
+            if (!entry) return;
+            const located = await this.surface.materialization.locate(entry.target, signal);
+            if (located === 'cancelled' || signal.aborted) return;
+            if (located === 'located' && !signal.aborted) {
+                const current = this.surface.readFrame().obtainedTurns.find((candidate) => (
+                    candidate.turn.identity.assistantMessageId === entry.turn.identity.assistantMessageId
                 ));
-                if (turn) {
-                    const located = await this.materialization.locate({
-                        documentKey: contentState.document.key,
-                        turnId: turn.identity.turnId,
-                        assistantMessageId: turn.identity.assistantMessageId,
-                        userMessageId: turn.identity.userMessageId,
-                    }, signal);
-                    if (located === 'cancelled' || signal.aborted) return;
-                    if (located === 'located' && !signal.aborted) {
-                        const entry = this.materialization.read().entries.find((candidate) => (
-                            candidate.target.turnId === turn.identity.turnId
-                            && candidate.target.assistantMessageId === turn.identity.assistantMessageId
-                        ));
-                        if (!signal.aborted) {
-                            entry?.anchorElement.scrollIntoView({ behavior: 'auto', block: 'start' });
-                        }
-                        return;
-                    }
+                const anchor = current?.materialization?.jumpAnchorElement;
+                if (anchor && typeof anchor.scrollIntoView === 'function') {
+                    anchor.scrollIntoView({ behavior: 'auto', block: 'start' });
                 }
             }
-            if (!contentState?.document || !contentState.snapshot || signal.aborted) return;
-            const turn = contentState.snapshot.turns.find((candidate) => (
-                candidate.identity.turnId === round.id
-                && candidate.identity.assistantMessageId === (round.assistantMessageId ?? round.messageId)
-            ));
-            if (!turn) return;
-            await navigateChatGPTDirectoryTarget(this.adapter, {
-                position: turn.ordinal,
-                messageId: turn.identity.assistantMessageId,
-                roundId: turn.identity.turnId,
-                userMessageId: turn.identity.userMessageId,
-                assistantMessageId: turn.identity.assistantMessageId,
-            }, { timeoutMs: 1500, intervalMs: 120, signal });
         } finally {
             if (this.activeLocateAbortController === locateController) {
                 this.activeLocateAbortController = null;
@@ -572,5 +475,12 @@ export class ChatGPTDirectoryController {
     private cancelActiveLocate(): void {
         this.activeLocateAbortController?.abort();
         this.activeLocateAbortController = null;
+    }
+
+    private resolveBookmarkUrl(): string | null {
+        const frame = this.surface.readFrame();
+        if (!frame.document?.conversationId) return null;
+        const url = frame.document.canonicalUrl?.trim();
+        return url ? url.split('#')[0] || url : null;
     }
 }

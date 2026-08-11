@@ -2,11 +2,11 @@
 
 ## Status
 
-Superseded as the production lifecycle by ADR-0017.
-`ConversationEvidenceLedger` remains a provider-neutral reducer/compatibility
-test seam; `ConversationContentRepository` now owns the only production
-baseline gate, cache, projection and direct-read lifecycle. Installed
-Chrome/Firefox acceptance remains a separate release gate.
+Superseded as the production lifecycle by ADR-0018. The standalone
+`ConversationEvidenceLedger`, stable-capture implementation, and their
+dedicated test seam have been deleted; `ConversationContentRepository` owns the
+only production baseline gate, message pool, projection, and direct-read
+lifecycle. Installed Chrome/Firefox acceptance remains a separate release gate.
 
 ## Context
 

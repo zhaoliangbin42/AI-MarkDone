@@ -45,8 +45,7 @@ export function projectSurfaceSelectionToMarkdown(options: Readonly<{
     const snapshot = state.snapshot;
     if (!state.document || !snapshot) return unavailable('source-unavailable');
     if (
-        state.document.key !== options.evidence.target.documentKey
-        || snapshot.contentToken !== options.evidence.contentToken
+        snapshot.contentToken !== options.evidence.contentToken
         || !options.source.isCurrent(options.evidence.contentToken)
     ) return unavailable('stale-content');
 
@@ -58,8 +57,7 @@ export function projectSurfaceSelectionToMarkdown(options: Readonly<{
         return unavailable('stale-surface');
     }
     const materializedMatches = materialization.entries.filter(({ target }) => (
-        target.documentKey === options.evidence.target.documentKey
-        && target.turnId === options.evidence.target.turnId
+        target.turnId === options.evidence.target.turnId
         && target.assistantMessageId === options.evidence.target.assistantMessageId
         && (
             options.evidence.target.userMessageId === undefined

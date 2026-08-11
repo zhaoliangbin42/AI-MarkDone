@@ -1,17 +1,34 @@
 import type { ChatGPTDomRoundRef } from './domConversationDiscovery';
 import { logger } from '../../../core/logger';
+import { AIMD_CONVERSATION_SURFACE_CONSUMER_ATTRIBUTE } from '../../../contracts/conversationSurface';
 
 type ChatGPTPageIndexOptions = {
     resolveRoot: () => ParentNode;
+    resolveSurfaceRoot?: () => ParentNode;
     discover: () => ChatGPTDomRoundRef[];
 };
 
-export type ChatGPTHostObservationKind = 'structure' | 'identity' | 'content' | 'lifecycle';
+export type ChatGPTHostObservationKind = 'structure' | 'identity' | 'content' | 'lifecycle' | 'surface';
 
 export type ChatGPTHostObservationBatch = Readonly<{
     revision: number;
+    surfaceEpoch: number;
+    pageUrl: string;
     kinds: readonly ChatGPTHostObservationKind[];
     assistantMessageIds: readonly string[];
+    /** Typed assistant surfaces removed from the mounted host window. */
+    removedAssistantMessageIds: readonly string[];
+    /** Assistants whose active generation state began in this page epoch. */
+    generationStartedAssistantMessageIds: readonly string[];
+    /** Still-mounted assistants whose active generation state ended. */
+    generationCompletedAssistantMessageIds: readonly string[];
+    /** Assistant identity changes inside one stable mounted turn owner. */
+    assistantIdentityReplacements: readonly Readonly<{
+        previousAssistantMessageId: string;
+        nextAssistantMessageId: string;
+    }>[];
+    /** The current host content root was replaced in this observation batch. */
+    surfaceRebased: boolean;
 }>;
 
 const ROUND_STRUCTURE_SELECTOR = [
@@ -42,6 +59,7 @@ const GENERATION_LIFECYCLE_SELECTOR = [
     'button[data-testid="copy-turn-action-button"]',
     '[data-conversation-screenshot-content] iframe[title="internal://deep-research"]',
 ].join(',');
+const CONVERSATION_SURFACE_CONSUMER_SELECTOR = `[${AIMD_CONVERSATION_SURFACE_CONSUMER_ATTRIBUTE}]`;
 
 function getElementForOwnershipCheck(node: Node): Element | null {
     if (node.nodeType === 1) return node as Element;
@@ -85,11 +103,26 @@ function mutationAffectsHostPage(mutation: MutationRecord): boolean {
             || previousTestId === 'copy-turn-action-button';
     }
 
+    if (mutationRemovesConversationSurfaceConsumer(mutation)) return true;
     const changedNodes = [...mutation.addedNodes, ...mutation.removedNodes];
     if (isAssistantContentNode(mutation.target)) return true;
     return changedNodes.some((node) => (
         !isExtensionOwnedNode(node) && nodeMayContainContentLifecycle(node)
     ));
+}
+
+function nodeMayContainConversationSurfaceConsumer(node: Node): boolean {
+    if (node.nodeType !== 1 && node.nodeType !== 11) return false;
+    const queryable = node as Element | DocumentFragment;
+    if (node.nodeType === 1 && (queryable as Element).matches(CONVERSATION_SURFACE_CONSUMER_SELECTOR)) {
+        return true;
+    }
+    return queryable.querySelector(CONVERSATION_SURFACE_CONSUMER_SELECTOR) !== null;
+}
+
+function mutationRemovesConversationSurfaceConsumer(mutation: MutationRecord): boolean {
+    return mutation.type === 'childList'
+        && Array.from(mutation.removedNodes).some(nodeMayContainConversationSurfaceConsumer);
 }
 
 function nodeMayContainRoundStructure(node: Node): boolean {
@@ -124,11 +157,17 @@ export class ChatGPTPageIndex {
     private readonly options: ChatGPTPageIndexOptions;
     private observer: MutationObserver | null = null;
     private observedRoot: ParentNode | null = null;
+    private surfaceRoot: ParentNode | null = null;
     private snapshot: ChatGPTDomRoundRef[] | null = null;
     private roundSubscribers = new Set<() => void>();
     private mutationSubscribers = new Set<() => void>();
     private observationSubscribers = new Set<(batch: ChatGPTHostObservationBatch) => void>();
     private observationRevision = 0;
+    private surfaceEpoch = 0;
+    private pageUrl = '';
+    private surfaceRouteKey = '';
+    private activeGenerationAssistantIds = new Set<string>();
+    private assistantIdByOwner = new WeakMap<HTMLElement, string>();
 
     constructor(options: ChatGPTPageIndexOptions) {
         this.options = options;
@@ -136,7 +175,10 @@ export class ChatGPTPageIndex {
 
     getSnapshot(): ChatGPTDomRoundRef[] {
         this.ensureObservedRoot();
-        if (!this.snapshot) this.snapshot = this.options.discover();
+        if (!this.snapshot) {
+            this.snapshot = this.options.discover();
+            this.seedAssistantIdentityOwners(this.snapshot);
+        }
         return this.snapshot;
     }
 
@@ -171,10 +213,16 @@ export class ChatGPTPageIndex {
         this.observer?.disconnect();
         this.observer = null;
         this.observedRoot = null;
+        this.surfaceRoot = null;
         this.roundSubscribers.clear();
         this.mutationSubscribers.clear();
         this.observationSubscribers.clear();
         this.observationRevision = 0;
+        this.surfaceEpoch = 0;
+        this.pageUrl = '';
+        this.surfaceRouteKey = '';
+        this.activeGenerationAssistantIds.clear();
+        this.assistantIdByOwner = new WeakMap<HTMLElement, string>();
         this.invalidate();
     }
 
@@ -190,30 +238,100 @@ export class ChatGPTPageIndex {
         if (nextRoot === this.observedRoot && currentRootIsConnected) return;
 
         const hadRoot = this.observedRoot !== null;
+        const rootChanged = hadRoot && nextRoot !== this.observedRoot;
         this.observer?.disconnect();
         this.observer = null;
         this.observedRoot = nextRoot;
+        this.surfaceRoot = this.options.resolveSurfaceRoot?.() ?? nextRoot;
         if (hadRoot) this.invalidate();
+        this.advanceSurface(window.location.href, rootChanged);
 
         if (typeof MutationObserver !== 'function') return;
         this.observer = new MutationObserver((mutations) => {
+            // A jsdom document can flush queued records after its test realm
+            // has been torn down. Production always has window; a dead realm
+            // is not a host lifecycle signal and must not leak an exception.
+            if (typeof window === 'undefined') return;
             const hostMutations = mutations.filter(mutationAffectsHostPage);
             if (hostMutations.length === 0) return;
-            this.invalidate();
+            const nextSurfaceRoot = this.options.resolveSurfaceRoot?.() ?? this.observedRoot;
+            const surfaceRebased = Boolean(
+                this.surfaceRoot
+                && nextSurfaceRoot
+                && nextSurfaceRoot !== this.surfaceRoot,
+            );
+            if (surfaceRebased) {
+                this.activeGenerationAssistantIds.clear();
+                this.assistantIdByOwner = new WeakMap<HTMLElement, string>();
+            }
+            if (nextSurfaceRoot) this.surfaceRoot = nextSurfaceRoot;
             const kinds = new Set<ChatGPTHostObservationKind>();
             const assistantMessageIds = new Set<string>();
+            const removedAssistantMessageIds = new Set<string>();
             for (const mutation of hostMutations) {
                 mutationKinds(mutation).forEach((kind) => kinds.add(kind));
                 collectAssistantMessageIds(mutation).forEach((id) => assistantMessageIds.add(id));
+                collectRemovedAssistantMessageIds(mutation).forEach((id) => removedAssistantMessageIds.add(id));
             }
+            const hostEvidenceChanged = Array.from(kinds).some((kind) => kind !== 'surface');
+            if (hostEvidenceChanged) this.invalidate();
+            this.advanceSurface(window.location.href, surfaceRebased);
             this.observationRevision += 1;
+            const shouldReadGenerationState = Array.from(kinds).some((kind) => (
+                kind === 'structure' || kind === 'identity' || kind === 'lifecycle'
+            ));
+            let activeGenerationAssistantMessageIds: string[] = [];
+            let generationStartedAssistantMessageIds: string[] = [];
+            let generationCompletedAssistantMessageIds: string[] = [];
+            let assistantIdentityReplacements: Array<Readonly<{
+                previousAssistantMessageId: string;
+                nextAssistantMessageId: string;
+            }>> = [];
+            if (shouldReadGenerationState) {
+                const mountedRounds = this.getSnapshot();
+                assistantIdentityReplacements = this.collectAssistantIdentityReplacements(mountedRounds);
+                const mountedAssistantIds = new Set(
+                    mountedRounds
+                        .map((round) => round.identity.assistantMessageId?.trim() ?? '')
+                        .filter(Boolean),
+                );
+                activeGenerationAssistantMessageIds = mountedRounds
+                    .filter((round) => {
+                        const id = round.identity.assistantMessageId?.trim();
+                        return Boolean(
+                            id
+                            && (
+                                round.isStreaming
+                                || round.assistantRootEl.querySelector('button[data-testid="stop-button"]')
+                            )
+                        );
+                    })
+                    .map((round) => round.identity.assistantMessageId!.trim());
+                const nextActive = new Set(activeGenerationAssistantMessageIds);
+                if (!surfaceRebased) {
+                    generationStartedAssistantMessageIds = activeGenerationAssistantMessageIds.filter(
+                        (id) => !this.activeGenerationAssistantIds.has(id),
+                    );
+                    generationCompletedAssistantMessageIds = Array.from(this.activeGenerationAssistantIds).filter(
+                        (id) => !nextActive.has(id) && mountedAssistantIds.has(id),
+                    );
+                }
+                this.activeGenerationAssistantIds = nextActive;
+            }
             this.notifyObservations({
                 revision: this.observationRevision,
+                surfaceEpoch: this.surfaceEpoch,
+                pageUrl: this.pageUrl,
                 kinds: Object.freeze(Array.from(kinds)),
                 assistantMessageIds: Object.freeze(Array.from(assistantMessageIds)),
+                removedAssistantMessageIds: Object.freeze(Array.from(removedAssistantMessageIds)),
+                generationStartedAssistantMessageIds: Object.freeze(generationStartedAssistantMessageIds),
+                generationCompletedAssistantMessageIds: Object.freeze(generationCompletedAssistantMessageIds),
+                assistantIdentityReplacements: Object.freeze(assistantIdentityReplacements),
+                surfaceRebased,
             });
-            this.notify(this.mutationSubscribers, 'Content-change');
-            if (!hostMutations.some(mutationAffectsRoundStructure)) return;
+            if (hostEvidenceChanged) this.notify(this.mutationSubscribers, 'Content-change');
+            if (!kinds.has('structure') && !kinds.has('identity')) return;
             this.notify(this.roundSubscribers, 'Round-change');
         });
         this.observer.observe(nextRoot, {
@@ -224,6 +342,15 @@ export class ChatGPTPageIndex {
             characterData: true,
             subtree: true,
         });
+    }
+
+    private advanceSurface(pageUrl: string, force: boolean): void {
+        const nextRouteKey = resolveSurfaceRouteKey(pageUrl);
+        const routeChanged = nextRouteKey !== this.surfaceRouteKey;
+        const firstSurface = this.pageUrl === '';
+        this.pageUrl = pageUrl;
+        this.surfaceRouteKey = nextRouteKey;
+        if (firstSurface || force || routeChanged) this.surfaceEpoch += 1;
     }
 
     private notify(subscribers: Set<() => void>, label: string): void {
@@ -245,6 +372,49 @@ export class ChatGPTPageIndex {
             }
         }
     }
+
+    private seedAssistantIdentityOwners(rounds: readonly ChatGPTDomRoundRef[]): void {
+        for (const round of rounds) {
+            const id = round.identity.assistantMessageId?.trim();
+            if (!id) continue;
+            const owner = resolveAssistantIdentityOwner(round);
+            if (!this.assistantIdByOwner.has(owner)) this.assistantIdByOwner.set(owner, id);
+        }
+    }
+
+    private collectAssistantIdentityReplacements(
+        rounds: readonly ChatGPTDomRoundRef[],
+    ): Array<Readonly<{ previousAssistantMessageId: string; nextAssistantMessageId: string }>> {
+        const replacements: Array<Readonly<{
+            previousAssistantMessageId: string;
+            nextAssistantMessageId: string;
+        }>> = [];
+        for (const round of rounds) {
+            const nextAssistantMessageId = round.identity.assistantMessageId?.trim();
+            if (!nextAssistantMessageId) continue;
+            const owner = resolveAssistantIdentityOwner(round);
+            const previousAssistantMessageId = this.assistantIdByOwner.get(owner);
+            if (previousAssistantMessageId && previousAssistantMessageId !== nextAssistantMessageId) {
+                replacements.push(Object.freeze({ previousAssistantMessageId, nextAssistantMessageId }));
+            }
+            this.assistantIdByOwner.set(owner, nextAssistantMessageId);
+        }
+        return replacements;
+    }
+}
+
+function resolveAssistantIdentityOwner(round: ChatGPTDomRoundRef): HTMLElement {
+    return round.assistantRootEl.closest<HTMLElement>('[data-turn-id-container]')
+        ?? round.assistantRootEl;
+}
+
+function resolveSurfaceRouteKey(pageUrl: string): string {
+    try {
+        const url = new URL(pageUrl, window.location.origin);
+        return `${url.origin}${url.pathname}`;
+    } catch {
+        return pageUrl.split(/[?#]/, 1)[0] ?? pageUrl;
+    }
 }
 
 function mutationKinds(mutation: MutationRecord): ChatGPTHostObservationKind[] {
@@ -262,9 +432,12 @@ function mutationKinds(mutation: MutationRecord): ChatGPTHostObservationKind[] {
         }
         return ['identity'];
     }
-    if (mutationAffectsRoundStructure(mutation)) return ['structure'];
-    if (nodeMayContainContentLifecycleFromMutation(mutation)) return ['lifecycle'];
-    return ['content'];
+    const kinds = new Set<ChatGPTHostObservationKind>();
+    if (mutationAffectsRoundStructure(mutation)) kinds.add('structure');
+    if (mutationRemovesConversationSurfaceConsumer(mutation)) kinds.add('surface');
+    if (nodeMayContainContentLifecycleFromMutation(mutation)) kinds.add('lifecycle');
+    if (kinds.size === 0) kinds.add('content');
+    return Array.from(kinds);
 }
 
 function nodeMayContainContentLifecycleFromMutation(mutation: MutationRecord): boolean {
@@ -294,5 +467,23 @@ function collectAssistantMessageIds(mutation: MutationRecord): string[] {
     collect(mutation.target);
     mutation.addedNodes.forEach(collect);
     mutation.removedNodes.forEach(collect);
+    return Array.from(ids);
+}
+
+function collectRemovedAssistantMessageIds(mutation: MutationRecord): string[] {
+    if (mutation.type !== 'childList') return [];
+    const ids = new Set<string>();
+    for (const removedNode of Array.from(mutation.removedNodes)) {
+        if (removedNode.nodeType !== 1 && removedNode.nodeType !== 11) continue;
+        const root = removedNode as Element | DocumentFragment;
+        if (removedNode.nodeType === 1 && (removedNode as Element).matches('[data-message-author-role="assistant"]')) {
+            const direct = (removedNode as Element).getAttribute('data-message-id')?.trim();
+            if (direct) ids.add(direct);
+        }
+        root.querySelectorAll('[data-message-author-role="assistant"][data-message-id]').forEach((assistant) => {
+            const id = assistant.getAttribute('data-message-id')?.trim();
+            if (id) ids.add(id);
+        });
+    }
     return Array.from(ids);
 }

@@ -68,6 +68,7 @@ export async function prepareChatGPTBookmark(
     // and never waits for passive baseline admission.
     const state = source.read();
     const snapshot = state.snapshot;
+    if (!state.document?.conversationId) return null;
     const target = materialization.resolveElement(messageElement);
     if (!snapshot || !state.document || !target) return null;
     if (target.documentKey !== snapshot.document.key) return null;

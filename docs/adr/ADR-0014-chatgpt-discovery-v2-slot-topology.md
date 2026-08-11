@@ -2,11 +2,12 @@
 
 ## Status
 
-Superseded as a standalone production module by ADR-0017. Its
-`RenderedContentCompilerV2`, stable-capture and surface-fencing ideas are now
-used behind the shared Host Monitor; `ConversationDiscoveryModuleV2` and
-`ChatGPTVirtualConversationHostAdapter` are not a second production repository
-or observer. Installed Chrome MV3 and Firefox MV2 acceptance remains separate.
+Superseded as a standalone production module by ADR-0018. Its bounded
+`RenderedContentCompilerV2`, slot-topology, and surface-fencing techniques are
+used behind PageIndex/Host Monitor. The standalone discovery module, virtual
+host adapter, and stable-capture classes and tests have been deleted; they are
+not compatibility production paths. Installed Chrome MV3 and Firefox MV2
+acceptance remains separate.
 
 ## Context
 
