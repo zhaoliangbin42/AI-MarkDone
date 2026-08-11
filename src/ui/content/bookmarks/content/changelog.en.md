@@ -3,7 +3,29 @@
 # 5.2.1
 2026-08-11
 
-AI-MarkDone 5.2.1 continues the ChatGPT content-discovery improvements from 5.2.0 and focuses on the remaining directory and settings reliability issues.
+After a lot of waiting, AI-MarkDone 5.2.1 is here.
+
+ChatGPT recently updated its website. The visible experience changed only slightly, but the way the page organizes and loads content changed substantially, which disrupted AI-MarkDone's content discovery.
+
+The directory rail, Reader, export, word count, formula recognition, and bookmarks all depend on that same discovery path. Once the path became unreliable, each of these features was affected in different ways.
+
+Thank you for all the feedback, testing, and persistent requests for an update. This release continues the reorganization of content discovery, page adaptation, and feature consumption into a more reliable, stable, and coherent flow.
+
+1. Formula display changed
+
+   ChatGPT changed how formulas are displayed on the page. The previous recognition path could no longer reliably find the formula source, so copied formulas could become ordinary text. Formula recognition and copying have been adapted to the new presentation.
+
+2. Message loading changed
+
+   ChatGPT does not keep every message visibly mounted at the same time. It loads and displays parts of a conversation as needed. The old approach could mistake the messages currently visible on the page for the entire conversation, leaving the directory, Reader, export, and word count incomplete.
+
+   The discovery path is now organized around one shared source: messages are recognized first, then the adapter turns them into stable content for the directory, Reader, export, copy, bookmarks, and word count. This reduces inconsistencies between features and makes the extension better prepared for future website updates.
+
+![5.2.0 content architecture](icons/aimd-content-architecture-5.2.0.svg)
+
+Finally, I also hope you will take a look at my iOS app, Mappamory—a private map contact book for remembering friends and the places connected to your stories.
+
+## Fixed
 
 - Fixed the directory rail failing to appear under some conditions (thanks to Xiaohongshu user @影 for helping test, and to everyone who shared feedback in Xiaohongshu and the QQ group).
 - Fixed ChatGPT page width not being restored after a page reload (thanks to Xiaohongshu user @秒睡大王).
