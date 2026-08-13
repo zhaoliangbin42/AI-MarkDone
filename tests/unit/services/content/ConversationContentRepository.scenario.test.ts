@@ -968,4 +968,160 @@ describe('ConversationContentRepository', () => {
             deferredHostCount: 1,
         });
     });
+
+    it('upgrades a weak-sealed host turn when a strong completion observation arrives', async () => {
+        const ref = document('conversation-weak-upgrade');
+        const repository = new ConversationContentRepository({
+            resolveDocument: () => ref,
+            readBaseline: async () => null,
+        });
+        const weak = repository.ingestHostTurn({
+            turn: hostTurn(1, 'Partial'),
+            semanticDigest: 'weak-upgrade-partial',
+            captureId: 'weak-upgrade-partial',
+            revision: 1,
+            predecessorAssistantMessageId: null,
+            completionEvidence: 'bounded-quiet',
+        });
+        expect(weak.kind).toBe('ready');
+        if (weak.kind !== 'ready') throw new Error('expected weak-sealed ready state');
+        expect(repository.readDiagnosticsFacts().weakSealedCount).toBe(1);
+        const weakToken = weak.snapshot.contentToken;
+
+        const upgraded = repository.ingestHostTurn({
+            turn: hostTurn(1, 'Complete answer'),
+            semanticDigest: 'weak-upgrade-complete',
+            captureId: 'weak-upgrade-complete',
+            revision: 2,
+            predecessorAssistantMessageId: null,
+            completionEvidence: 'strong',
+        });
+        expect(upgraded.kind).toBe('ready');
+        if (upgraded.kind !== 'ready') throw new Error('expected upgraded ready state');
+        expect(upgraded.snapshot.turns[0]?.assistantMarkdown).toBe('Complete answer');
+        expect(upgraded.snapshot.contentToken).not.toBe(weakToken);
+        expect(repository.readDiagnosticsFacts().weakSealedCount).toBe(0);
+    });
+
+    it('never lets an equal-evidence DOM copy rewrite a sealed body', async () => {
+        const ref = document('conversation-weak-no-downgrade');
+        const repository = new ConversationContentRepository({
+            resolveDocument: () => ref,
+            readBaseline: async () => null,
+        });
+        const weak = repository.ingestHostTurn({
+            turn: hostTurn(1, 'Partial'),
+            semanticDigest: 'weak-no-downgrade-partial',
+            captureId: 'weak-no-downgrade-partial',
+            revision: 1,
+            predecessorAssistantMessageId: null,
+            completionEvidence: 'bounded-quiet',
+        });
+        if (weak.kind !== 'ready') throw new Error('expected weak-sealed ready state');
+        const weakToken = weak.snapshot.contentToken;
+
+        const rewrapped = repository.ingestHostTurn({
+            turn: hostTurn(1, 'Different partial'),
+            semanticDigest: 'weak-no-downgrade-other',
+            captureId: 'weak-no-downgrade-other',
+            revision: 2,
+            predecessorAssistantMessageId: null,
+            completionEvidence: 'bounded-quiet',
+        });
+        expect(rewrapped.kind).toBe('ready');
+        if (rewrapped.kind !== 'ready') throw new Error('expected ready state');
+        expect(rewrapped.snapshot.turns[0]?.assistantMarkdown).toBe('Partial');
+        expect(rewrapped.snapshot.contentToken).toBe(weakToken);
+        expect(repository.readDiagnosticsFacts().weakSealedCount).toBe(1);
+    });
+
+    it('replaces weak-sealed maintained bodies with overlapping Graph bodies during baseline merge', async () => {
+        const ref = document('conversation-graph-upgrade');
+        const repository = new ConversationContentRepository({
+            resolveDocument: () => ref,
+            readBaseline: async () => ({
+                document: ref,
+                coverage: 'complete',
+                turns: [
+                    { ...hostTurn(0, 'Full answer 0'), key: 'turn-0:assistant-0' },
+                    { ...hostTurn(1, 'Full answer 1'), key: 'turn-1:assistant-1' },
+                    { ...hostTurn(2, 'Answer 2'), key: 'turn-2:assistant-2' },
+                ],
+            }),
+        });
+        // DOM-first pool: turn 1 weak-sealed, turn 2 strong.
+        repository.ingestHostTurn({
+            turn: hostTurn(1, 'Partial answer 1'),
+            semanticDigest: 'graph-upgrade-partial-1',
+            captureId: 'graph-upgrade-partial-1',
+            revision: 1,
+            predecessorAssistantMessageId: null,
+            completionEvidence: 'bounded-quiet',
+        });
+        repository.ingestHostTurn({
+            turn: hostTurn(2, 'Answer 2'),
+            semanticDigest: 'graph-upgrade-2',
+            captureId: 'graph-upgrade-2',
+            revision: 2,
+            predecessorAssistantMessageId: 'assistant-1',
+            completionEvidence: 'strong',
+        });
+        expect(repository.readDiagnosticsFacts().weakSealedCount).toBe(1);
+
+        const merged = await repository.enterCurrentEpoch();
+        expect(merged.kind).toBe('ready');
+        if (merged.kind !== 'ready') throw new Error('expected merged ready state');
+        expect(merged.snapshot.turns.map((turn) => turn.assistantMarkdown)).toEqual([
+            'Full answer 0',
+            'Full answer 1',
+            'Answer 2',
+        ]);
+        expect(repository.readDiagnosticsFacts()).toMatchObject({
+            basis: 'hybrid',
+            weakSealedCount: 0,
+            turnCount: 3,
+        });
+    });
+
+    it('re-evaluates deferred host observations on demand and reports the remaining count', async () => {
+        const ref = document('conversation-deferred-reevaluation');
+        const repository = new ConversationContentRepository({
+            resolveDocument: () => ref,
+            readBaseline: async () => null,
+        });
+        repository.ingestHostTurn({
+            turn: hostTurn(1, 'Answer 1'),
+            semanticDigest: 'deferred-reevaluation-1',
+            captureId: 'deferred-reevaluation-1',
+            revision: 1,
+            predecessorAssistantMessageId: null,
+            completionEvidence: 'strong',
+        });
+        repository.ingestHostTurn({
+            turn: hostTurn(3, 'Answer 3'),
+            semanticDigest: 'deferred-reevaluation-3',
+            captureId: 'deferred-reevaluation-3',
+            revision: 2,
+            predecessorAssistantMessageId: 'assistant-2',
+            completionEvidence: 'strong',
+        });
+        expect(repository.readDiagnosticsFacts().deferredHostCount).toBe(1);
+        // Without new evidence the re-evaluation changes nothing.
+        expect(repository.reevaluateDeferredHost()).toBe(1);
+
+        repository.ingestHostTurn({
+            turn: hostTurn(2, 'Answer 2'),
+            semanticDigest: 'deferred-reevaluation-2',
+            captureId: 'deferred-reevaluation-2',
+            revision: 3,
+            predecessorAssistantMessageId: 'assistant-1',
+            completionEvidence: 'strong',
+        });
+        expect(repository.read().snapshot?.turns.map((turn) => turn.identity.assistantMessageId)).toEqual([
+            'assistant-1',
+            'assistant-2',
+            'assistant-3',
+        ]);
+        expect(repository.reevaluateDeferredHost()).toBe(0);
+    });
 });

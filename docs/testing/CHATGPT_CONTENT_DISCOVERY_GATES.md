@@ -98,7 +98,7 @@ The production lifecycle is defined by
 | DOM-first canonical conversation | With no Graph, one stable typed batch immediately yields `host/complete`; toolbar word count, Reader, copy, formula, bookmark and export consume it when canonical identity is present |
 | First turn without identity | One stable round immediately yields `host/complete`; toolbar numeric word count, Directory, Stepper, Reader, copy, formula and export work while bookmark save/remove is never called |
 | Identity promotion | A later formal ID preserves bodies, projection ID and content token, then re-enables the existing bookmark path without changing its data/protocol |
-| DOM first, Graph later | Only a verified historical prefix is prepended; existing bodies are byte-for-byte preserved; exactly one token update |
+| DOM first, Graph later | Only a verified historical prefix is prepended; strong existing bodies are byte-for-byte preserved and weak-sealed bodies are upgraded by their overlapping Graph turns (ADR-0019); exactly one token update |
 | Invalid or failed baseline | No overlap, order/identity conflict, or baseline failure leaves the host-ready pool unchanged and still consumable |
 | Existing Graph-backed conversation | Baseline provides virtualized history; second/third/fourth completed DOM turns append once and every consumer count agrees |
 | Streaming pressure | 1,000 mutations compile zero times before completion/quiet and at most once after stability; no bridge replay and no content-only Surface topology scan |

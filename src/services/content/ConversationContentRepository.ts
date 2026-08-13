@@ -29,6 +29,14 @@ export type ConversationHostTurnObservationV1 = Readonly<{
     revision: number;
     /** The typed assistant immediately before this turn in the observed host projection. */
     predecessorAssistantMessageId: string | null;
+    /**
+     * 'bounded-quiet' marks a turn admitted through the bounded quiet
+     * confirmation without a strong completion signal; its body may be
+     * upgraded later by stronger evidence. Absent in legacy producers and
+     * treated as 'strong' at this seam, preserving the historical
+     * never-rewrite behavior for them.
+     */
+    completionEvidence?: 'strong' | 'bounded-quiet';
 }>;
 
 export type ConversationContentRepositoryOptionsV1 = Readonly<{
@@ -79,6 +87,7 @@ export class ConversationContentRepository implements ConversationContentSourceV
     private basis: ConversationSnapshotProofV1['basis'] | null = null;
     private turns: readonly ConversationTurnV1[] = Object.freeze([]);
     private readonly turnDigests = new Map<string, string>();
+    private readonly weakSealedIds = new Set<string>();
     private readonly projectionDocumentKeys = new Set<string>();
     private readonly pendingHost = new Map<string, StoredHostObservation>();
     private scheduledTimer: ReturnType<typeof setTimeout> | null = null;
@@ -227,9 +236,7 @@ export class ConversationContentRepository implements ConversationContentSourceV
             epoch: this.epoch,
             turnCount: this.turns.length,
             deferredHostCount: this.pendingHost.size,
-            // Weak-sealed turn counting lands with the completion-evidence
-            // tiers; the field exists now so the snapshot schema stays stable.
-            weakSealedCount: 0,
+            weakSealedCount: this.weakSealedIds.size,
         };
     }
 
@@ -297,6 +304,7 @@ export class ConversationContentRepository implements ConversationContentSourceV
         this.basis = null;
         this.turns = Object.freeze([]);
         this.turnDigests.clear();
+        this.weakSealedIds.clear();
         this.pendingHost.clear();
         this.projectionDocumentKeys.clear();
         this.projectionDocumentKeys.add(this.currentDocument.key);
@@ -314,6 +322,21 @@ export class ConversationContentRepository implements ConversationContentSourceV
     /** Admit one compiler-verified host turn into the active monotonic pool. */
     ingestHostTurn(observation: ConversationHostTurnObservationV1): ConversationContentStateV1 {
         return this.ingestHostBatch([observation]);
+    }
+
+    /**
+     * Re-run the pending-host flush on demand. New host evidence normally
+     * drives the retry; this bounded re-evaluation covers quiet periods after
+     * a capture left deferred work behind. Returns the remaining deferred
+     * count so callers can decide whether another attempt is worthwhile.
+     */
+    reevaluateDeferredHost(): number {
+        if (this.disposed) return this.pendingHost.size;
+        const progressed = this.flushPendingHost();
+        // Only a flush that actually changed the pool is a semantic change;
+        // an unchanged pool must not recompute/publish a new projection.
+        if (progressed && this.turns.length > 0 && this.currentDocument) this.publishProjection();
+        return this.pendingHost.size;
     }
 
     /** Admit one stable host window and publish at most one immutable projection. */
@@ -422,7 +445,21 @@ export class ConversationContentRepository implements ConversationContentSourceV
             const prefix = turns
                 .slice(0, firstHostIndex)
                 .filter((turn) => !maintainedIds.has(turn.identity.assistantMessageId));
-            this.turns = freezeTurns([...prefix, ...this.turns]);
+            // The Graph is stronger authority than bounded-quiet DOM evidence:
+            // upgrade weak-sealed maintained bodies from overlapping source
+            // turns in place (identity, order and ordinals stay unchanged).
+            const upgradedMaintained = this.turns.map((hostTurn) => {
+                const sourceIndex = sourceIndexes.get(hostTurn.identity.assistantMessageId);
+                if (sourceIndex === undefined || !this.weakSealedIds.has(hostTurn.identity.assistantMessageId)) {
+                    return hostTurn;
+                }
+                const sourceTurn = turns[sourceIndex]!;
+                const next = { ...sourceTurn, ordinal: hostTurn.ordinal };
+                this.turnDigests.set(hostTurn.identity.assistantMessageId, digestTurnContent(next));
+                this.weakSealedIds.delete(hostTurn.identity.assistantMessageId);
+                return next;
+            });
+            this.turns = freezeTurns([...prefix, ...upgradedMaintained]);
             for (const turn of prefix) {
                 this.turnDigests.set(turn.identity.assistantMessageId, digestTurnContent(turn));
             }
@@ -431,24 +468,28 @@ export class ConversationContentRepository implements ConversationContentSourceV
         }
         this.turns = Object.freeze(turns);
         this.turnDigests.clear();
+        this.weakSealedIds.clear();
         for (const turn of turns) this.turnDigests.set(turn.identity.assistantMessageId, digestTurnContent(turn));
         this.basis = 'source';
         this.startProjection();
         return true;
     }
 
-    private flushPendingHost(): void {
-        if (!this.basis || !this.currentDocument) return;
-        let progressed = true;
-        while (progressed) {
-            progressed = false;
+    private flushPendingHost(): boolean {
+        if (!this.basis || !this.currentDocument) return false;
+        let progressed = false;
+        while (true) {
+            let changedThisPass = false;
             for (const [assistantMessageId, stored] of Array.from(this.pendingHost.entries())) {
                 const result = this.applyHostObservation(stored.observation, stored.digest);
                 if (result === 'deferred') continue;
                 this.pendingHost.delete(assistantMessageId);
-                progressed = result === 'changed' || progressed;
+                changedThisPass = result === 'changed' || changedThisPass;
             }
+            if (!changedThisPass) break;
+            progressed = true;
         }
+        return progressed;
     }
 
     private applyHostObservation(
@@ -461,10 +502,27 @@ export class ConversationContentRepository implements ConversationContentSourceV
         } catch {
             return 'rejected';
         }
+        const evidence = observation.completionEvidence ?? 'strong';
         const incomingId = incoming.identity.assistantMessageId;
         const existingIndex = this.turns.findIndex((turn) => turn.identity.assistantMessageId === incomingId);
         if (existingIndex >= 0) {
-            if (this.turnDigests.get(incomingId) === digest) return 'duplicate';
+            if (this.weakSealedIds.has(incomingId) && evidence === 'strong') {
+                // A weak-sealed body was admitted without a strong completion
+                // signal. Stronger evidence for the same typed identity may
+                // upgrade it in place; equal evidence never rewrites.
+                const existing = this.turns[existingIndex]!;
+                if (this.turnDigests.get(incomingId) === digest) {
+                    this.weakSealedIds.delete(incomingId);
+                    return 'duplicate';
+                }
+                const next = this.turns.map((turn, index) => (
+                    index === existingIndex ? { ...incoming, ordinal: existing.ordinal } : turn
+                ));
+                this.turns = freezeTurns(next);
+                this.turnDigests.set(incomingId, digest);
+                this.weakSealedIds.delete(incomingId);
+                return 'changed';
+            }
             // Once a message has entered the maintained cache, it is the
             // current authority. A later DOM copy with the same typed identity
             // is a remount or a host rewrite, not a reason to invalidate the
@@ -474,7 +532,7 @@ export class ConversationContentRepository implements ConversationContentSourceV
 
         if (this.turns.length === 0) {
             if (this.basis !== 'host' || observation.predecessorAssistantMessageId !== null) return 'deferred';
-            this.appendHostTurn(incoming, digest);
+            this.appendHostTurn(incoming, digest, evidence);
             return 'changed';
         }
 
@@ -484,7 +542,7 @@ export class ConversationContentRepository implements ConversationContentSourceV
         if (predecessorIndex < 0) return 'deferred';
 
         if (predecessorIndex === this.turns.length - 1) {
-            this.appendHostTurn(incoming, digest);
+            this.appendHostTurn(incoming, digest, evidence);
             return 'changed';
         }
 
@@ -494,10 +552,11 @@ export class ConversationContentRepository implements ConversationContentSourceV
         return 'deferred';
     }
 
-    private appendHostTurn(turn: ConversationTurnV1, digest: string): void {
+    private appendHostTurn(turn: ConversationTurnV1, digest: string, evidence: 'strong' | 'bounded-quiet'): void {
         const next = [...this.turns, { ...turn, ordinal: this.turns.length + 1 }];
         this.turns = freezeTurns(next);
         this.turnDigests.set(turn.identity.assistantMessageId, digest);
+        if (evidence === 'bounded-quiet') this.weakSealedIds.add(turn.identity.assistantMessageId);
         if (this.basis === 'source') this.basis = 'hybrid';
     }
 
@@ -588,6 +647,7 @@ export class ConversationContentRepository implements ConversationContentSourceV
         this.basis = null;
         this.turns = Object.freeze([]);
         this.turnDigests.clear();
+        this.weakSealedIds.clear();
         this.projectionDocumentKeys.clear();
         this.projectionDocumentKeys.add(this.currentDocument.key);
         if (!preserveUnboundHostBuffer) this.pendingHost.clear();
@@ -617,6 +677,7 @@ export class ConversationContentRepository implements ConversationContentSourceV
         this.basis = null;
         this.turns = Object.freeze([]);
         this.turnDigests.clear();
+        this.weakSealedIds.clear();
         this.projectionDocumentKeys.clear();
         this.pendingHost.clear();
     }

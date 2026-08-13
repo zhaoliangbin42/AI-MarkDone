@@ -27,6 +27,8 @@
 
 当前 ChatGPT 内容生命周期见 [ADR-0018-chatgpt-identity-proven-single-content-pool.md](ADR-0018-chatgpt-identity-proven-single-content-pool.md)：Runtime page identity 让无 ID 的稳定 DOM 消息也能进入唯一内容池；后到 canonical token 只提升 identity 并打开一次被动 Graph gate，可信 Graph 最多补可靠历史前缀。`ChatGPTConversationSurface` 是内容池与 PageIndex 的唯一生产 join，统一驱动 Directory、Toolbar、Stepper 和导航；Reader、复制、公式、字数与导出读取同一 Content Port。无 ID 时书签不可用且不发请求，既有书签数据与协议不变。旧 Discovery Coordinator、Conversation Index 与独立 Materialization 已删除。ADR-0005/0007/0009、ADR-0013 至 ADR-0017 的 ChatGPT discovery/projection 语义均为历史记录；ADR-0011 只继续约束通用 Semantic Content 与 source/surface proof。
 
+[ADR-0019-completion-evidence-tiers-and-bounded-resweeps.md](ADR-0019-completion-evidence-tiers-and-bounded-resweeps.md) 窄化 ADR-0018 的「正文永不改写」：`bounded-quiet` 证据入池的 weak-sealed 正文可被同 identity 的更强完成证据（strong DOM 观察或重叠 Graph）原位升级；同等证据永不改写。同时增加有界 deferred re-sweep 让安静页面上的失败候选不再永久缺失。
+
 ## Required Sections
 
 - Context

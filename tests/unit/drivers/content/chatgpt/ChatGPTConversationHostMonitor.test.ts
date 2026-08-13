@@ -1979,4 +1979,79 @@ describe('ChatGPTConversationHostMonitor', () => {
             adapter.dispose();
         }
     });
+
+    it('boundedly re-attempts rejected captures until admission without new host signals', async () => {
+        const currentDocument: ConversationDocumentRefV1 = {
+            key: createConversationDocumentKeyV1('chatgpt', 'bounded-sweep'),
+            platformId: 'chatgpt',
+            conversationId: 'bounded-sweep',
+        };
+        history.replaceState({}, '', '/c/bounded-sweep');
+        const repository = new ConversationContentRepository({
+            resolveDocument: () => currentDocument,
+            readBaseline: async () => null,
+        });
+        const compiler: RenderedContentCompilerV2 = {
+            compile: vi.fn()
+                .mockResolvedValueOnce({ kind: 'rejected', reason: 'empty-content' })
+                .mockResolvedValueOnce({ kind: 'rejected', reason: 'empty-content' })
+                .mockResolvedValue({
+                    kind: 'ready' as const,
+                    user: { markdown: 'Question 1', text: 'Question 1' },
+                    assistant: { markdown: 'Answer 1 final', text: 'Answer 1 final' },
+                    semanticDigest: 'bounded-sweep-digest',
+                    surfaceDigest: 'bounded-sweep-surface',
+                    manifest: {
+                        nodeCount: 2,
+                        formulaCount: 0,
+                        codeBlockCount: 0,
+                        tableCount: 0,
+                        imageCount: 0,
+                    },
+                }),
+        };
+        const adapter = new ChatGPTAdapter();
+        const monitor = new ChatGPTConversationHostMonitor({
+            adapter,
+            index: getChatGPTPageIndex(adapter),
+            repository,
+            resolveDocument: () => currentDocument,
+            compiler,
+        });
+
+        try {
+            monitor.init();
+            document.querySelector('main')!.innerHTML = `
+                <section data-testid="conversation-turn-1" data-turn="user" data-turn-id="turn-1">
+                    <div data-message-author-role="user" data-message-id="user-1">Question 1</div>
+                </section>
+                <section data-testid="conversation-turn-2" data-turn="assistant" data-turn-id="turn-1">
+                    <div data-message-author-role="assistant" data-message-id="assistant-1">
+                        <div class="markdown prose">Answer 1 final</div>
+                    </div>
+                </section>
+            `;
+            await Promise.resolve();
+            // Quiet window + bounded-quiet arm + rejection + sweep retries.
+            await vi.advanceTimersByTimeAsync(400);
+            await vi.advanceTimersByTimeAsync(1_600);
+            await vi.advanceTimersByTimeAsync(1_200);
+            await vi.advanceTimersByTimeAsync(1_600);
+            await vi.advanceTimersByTimeAsync(3_000);
+            await vi.advanceTimersByTimeAsync(1_600);
+            await Promise.resolve();
+
+            expect(repository.read().snapshot?.turns ?? []).toHaveLength(1);
+            expect(repository.read().snapshot?.turns[0]?.assistantMarkdown).toBe('Answer 1 final');
+            expect(monitor.readDiagnosticsFacts()).toMatchObject({
+                weakCompletionAdmissions: 1,
+                compileRejections: { 'empty-content': 2 },
+                dirtyAssistantCount: 0,
+            });
+        } finally {
+            monitor.dispose();
+            repository.dispose();
+            adapter.dispose();
+        }
+    });
 });

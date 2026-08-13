@@ -795,9 +795,11 @@ describe('ChatGPT content discovery lifecycle', () => {
 
         try {
             runtime.init();
-            await new Promise((resolve) => window.setTimeout(resolve, 25));
+            await vi.waitFor(() => {
+                const first = runtime.source.read();
+                expect(first.kind).toBe('ready');
+            }, { timeout: 2000 });
             const first = runtime.source.read();
-            expect(first.kind).toBe('ready');
             if (first.kind !== 'ready') throw new Error('expected first page projection');
             const firstProjection = first.snapshot.projectionId;
 
@@ -823,10 +825,13 @@ describe('ChatGPT content discovery lifecycle', () => {
                 'data-testid',
                 'copy-turn-action-button',
             );
-            await new Promise((resolve) => window.setTimeout(resolve, 25));
 
+            await vi.waitFor(() => {
+                const second = runtime.source.read();
+                expect(second.kind).toBe('ready');
+                expect(second.snapshot?.projectionId).not.toBe(firstProjection);
+            }, { timeout: 2000 });
             const second = runtime.source.read();
-            expect(second.kind).toBe('ready');
             if (second.kind !== 'ready') throw new Error('expected second page projection');
             expect(second.snapshot.projectionId).not.toBe(firstProjection);
             expect(second.snapshot.turns.map((turn) => turn.identity.assistantMessageId)).toEqual([
