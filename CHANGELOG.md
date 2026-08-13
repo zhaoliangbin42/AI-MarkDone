@@ -7,6 +7,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+- ChatGPT: A Content Discovery Status card in Settings shows which discovery path is active, whether hidden history may exist, and pending work, with a one-click "Retry discovery" action and a copyable diagnostics snapshot for feedback.
+- ChatGPT: Enabling the extension on an already-open ChatGPT page now activates it without a manual reload.
+
+### Fixed
+- ChatGPT: A reply that briefly pauses while generating is no longer permanently recorded with incomplete content; when completion evidence arrives, the shared pool upgrades the body so word counts, Reader, copy, formulas, and export all self-correct.
+- ChatGPT: Replies that failed or were deferred during a quiet page now retry on a bounded schedule, so a finished reply no longer stays missing from the directory, Reader, word counts, or export.
+- ChatGPT: Conversation history capture now also works when the page requests its data before the address shows the conversation id, and the current conversation's captured history is protected from being discarded during quick navigation.
+- ChatGPT: After a missed capture, reopening a restored page or pressing "Retry discovery" recovers the full conversation history without any additional conversation requests.
+
+### Changed
+- ChatGPT: The content snapshot now honestly reports whether the whole conversation is known, instead of implying completeness when only the visible part was discovered.
+
 ## [5.2.1] - 2026-08-11
 
 ### Fixed
