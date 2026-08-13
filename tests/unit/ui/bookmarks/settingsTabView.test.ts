@@ -130,6 +130,7 @@ describe('SettingsTabView', () => {
             'copyFormulaExportSettingsLabel',
             'settingsLanguageLabel',
             'dataManagement',
+            'settingsDiscoveryDiagnosticsLabel',
         ]);
 
         const buttonsPage = root.querySelector<HTMLElement>('[data-role="settings-buttons-page"]')!;
@@ -1109,5 +1110,78 @@ describe('SettingsTabView', () => {
         expect(css).toContain('.settings-select-shell[data-open="1"] {');
         expect(css).toContain('z-index: calc(var(--_bookmarks-inline-menu-z) + 1);');
         expect(css).not.toContain('.settings-card {\n  width: 100%;\n  max-width: 100%;\n  min-width: 0;\n  overflow: hidden;');
+    });
+
+    it('renders the content discovery diagnostics row and copies the snapshot', async () => {
+        vi.useFakeTimers();
+        try {
+            const modal = { confirm: vi.fn(async () => true) } as any;
+            const diagnosticsSnapshot = {
+                schemaVersion: 1,
+                generatedAt: Date.now(),
+                basis: 'host',
+                historyStatus: 'partial',
+                repository: {
+                    stateKind: 'ready',
+                    documentKind: 'canonical',
+                    basis: 'host',
+                    baselineGate: 'closed',
+                    baselineAttempted: true,
+                    epoch: 1,
+                    turnCount: 3,
+                    deferredHostCount: 1,
+                    weakSealedCount: 0,
+                },
+                hostMonitor: {
+                    stableCaptureCount: 4,
+                    dirtyAssistantCount: 0,
+                    weakCompletionAdmissions: 1,
+                    compileRejections: { 'empty-content': 1 },
+                },
+                bridge: null,
+                bridgeUnavailable: false,
+                captureSignalCount: 0,
+            };
+            const readDiscoveryDiagnostics = vi.fn(() => diagnosticsSnapshot as any);
+            const writeText = vi.fn(async () => undefined);
+            Object.defineProperty(navigator, 'clipboard', { configurable: true, value: { writeText } });
+
+            const view = new SettingsTabView({ modal, readDiscoveryDiagnostics });
+            const root = view.getElement();
+            const summary = root.querySelector<HTMLElement>('[data-role="settings-discovery-diagnostics-summary"]');
+            expect(summary).toBeTruthy();
+            expect(summary!.textContent).toContain('basis=host');
+            expect(summary!.textContent).toContain('history=partial');
+            expect(summary!.textContent).toContain('turns=3');
+            expect(summary!.textContent).toContain('deferred=1');
+            expect(summary!.textContent).toContain('rejected=1');
+
+            const copy = root.querySelector<HTMLButtonElement>('[data-role="settings-discovery-diagnostics-copy"]');
+            expect(copy).toBeTruthy();
+            expect(copy!.hidden).toBe(false);
+            copy!.click();
+            await Promise.resolve();
+            await Promise.resolve();
+            expect(writeText).toHaveBeenCalledTimes(1);
+            const written = JSON.parse(writeText.mock.calls[0]![0]);
+            expect(written).toMatchObject({ historyStatus: 'partial', basis: 'host' });
+            expect(copy!.textContent).toContain('Copied');
+            vi.advanceTimersByTime(1_600);
+            expect(copy!.textContent).not.toContain('Copied');
+        } finally {
+            vi.useRealTimers();
+        }
+    });
+
+    it('shows unavailable diagnostics without a provider and hides the copy action', () => {
+        const modal = { confirm: vi.fn(async () => true) } as any;
+        const view = new SettingsTabView({ modal });
+        const root = view.getElement();
+
+        const summary = root.querySelector<HTMLElement>('[data-role="settings-discovery-diagnostics-summary"]');
+        expect(summary).toBeTruthy();
+        expect(summary!.textContent).toContain('settingsDiscoveryDiagnosticsUnavailable');
+        const copy = root.querySelector<HTMLButtonElement>('[data-role="settings-discovery-diagnostics-copy"]');
+        expect(copy!.hidden).toBe(true);
     });
 });

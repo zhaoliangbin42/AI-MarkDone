@@ -1665,6 +1665,26 @@
         "message": "Choose your preferred language",
         "description": "Message for settingsLanguageDesc"
     },
+    "settingsDiscoveryDiagnosticsLabel": {
+        "message": "Content Discovery Status",
+        "description": "Message for settingsDiscoveryDiagnosticsLabel"
+    },
+    "settingsDiscoveryDiagnosticsDesc": {
+        "message": "Active discovery path and pending work",
+        "description": "Message for settingsDiscoveryDiagnosticsDesc"
+    },
+    "settingsDiscoveryDiagnosticsCopy": {
+        "message": "Copy diagnostics",
+        "description": "Message for settingsDiscoveryDiagnosticsCopy"
+    },
+    "settingsDiscoveryDiagnosticsCopied": {
+        "message": "Copied",
+        "description": "Message for settingsDiscoveryDiagnosticsCopied"
+    },
+    "settingsDiscoveryDiagnosticsUnavailable": {
+        "message": "Discovery diagnostics are unavailable on this page",
+        "description": "Message for settingsDiscoveryDiagnosticsUnavailable"
+    },
     "languageAuto": {
         "message": "Auto (Browser Language)",
         "description": "Message for languageAuto"

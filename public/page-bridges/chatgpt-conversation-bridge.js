@@ -1,9 +1,20 @@
 (() => {
   const BRIDGE_KEY = '__AIMD_CHATGPT_CONVERSATION_BRIDGE__';
-  const BRIDGE_VERSION = 5;
+  const BRIDGE_VERSION = 6;
   const existingBridge = window[BRIDGE_KEY];
   if (existingBridge?.version === BRIDGE_VERSION) return;
   existingBridge?.dispose?.();
+
+  const MAX_RESPONSE_BYTES = 8 * 1024 * 1024;
+  const bridgeStats = {
+    observedEligibleGets: 0,
+    graphsAccepted: 0,
+    graphsRejected: 0,
+    capturesPublished: 0,
+    evictions: 0,
+    bytesSkipped: 0,
+    parseFailures: 0,
+  };
 
   const REQUEST_EVENT = 'aimd:chatgpt-conversation-bridge:request';
   const RESPONSE_EVENT = 'aimd:chatgpt-conversation-bridge:response';
@@ -516,6 +527,7 @@
       const oldestConversationId = bridgeState.graphsByConversation.keys().next().value;
       if (!oldestConversationId) break;
       bridgeState.graphsByConversation.delete(oldestConversationId);
+      bridgeStats.evictions += 1;
     }
 
     const validatedProjection = buildRoundsFromPayload({
@@ -523,8 +535,13 @@
       current_node: nextCurrentNodeId,
       mapping: mergedMapping,
     });
-    if (!validatedProjection) return false;
+    if (!validatedProjection) {
+      bridgeStats.graphsRejected += 1;
+      return false;
+    }
 
+    bridgeStats.graphsAccepted += 1;
+    bridgeStats.capturesPublished += 1;
     window.dispatchEvent(new CustomEvent(CAPTURE_EVENT, {
       detail: JSON.stringify({
         kind: 'graph',
@@ -541,6 +558,16 @@
     if (!conversationId || conversationId !== expectedConversationId) return;
     const contentType = response.headers?.get?.('content-type') || '';
     if (!contentType.toLowerCase().includes('json')) return;
+    const contentLengthHeader = response.headers?.get?.('content-length') || '';
+    const contentLength = Number(contentLengthHeader);
+    if (Number.isFinite(contentLength) && contentLength > MAX_RESPONSE_BYTES) {
+      // Parsing a multi-megabyte Graph on the page's main thread can jank the
+      // host. A response this large is either an unusual payload or a host
+      // shape change; skip observation and keep the counter visible to the
+      // content runtime instead of silently spending main-thread time.
+      bridgeStats.bytesSkipped += 1;
+      return;
+    }
     try {
       const rawPayload = await response.clone().json();
       const payloads = findObservedGraphPayloads(rawPayload, expectedConversationId);
@@ -549,6 +576,7 @@
       }
     } catch {
       // The host response remains untouched; an unreadable clone simply yields no observation.
+      bridgeStats.parseFailures += 1;
     }
   }
 
@@ -561,6 +589,7 @@
       const conversationId = getObservedConversationId(requestUrl);
       const result = nativeFetch.call(this, input, ...init);
       if (!conversationId || requestMethod !== 'GET') return result;
+      bridgeStats.observedEligibleGets += 1;
       const requestSequence = ++bridgeState.requestSequence;
       Promise.resolve(result)
         .then((response) => captureObservedResponse(response, requestUrl, conversationId, requestSequence))
@@ -568,6 +597,17 @@
       return result;
     };
     window.fetch = observedFetch;
+    try {
+      // Keep the wrapped function indistinguishable from the native one for
+      // pages that inspect fetch.toString(); observation itself stays passive.
+      Object.defineProperty(observedFetch, 'toString', {
+        value: () => nativeFetch.toString(),
+        configurable: true,
+        writable: true,
+      });
+    } catch {
+      // Older engines without configurable function props keep the plain wrapper.
+    }
     return () => {
       if (window.fetch === observedFetch) window.fetch = nativeFetch;
     };
@@ -617,16 +657,39 @@
     };
   }
 
+  const getDiagnostics = () => ({
+    version: BRIDGE_VERSION,
+    observedEligibleGets: bridgeStats.observedEligibleGets,
+    graphsAccepted: bridgeStats.graphsAccepted,
+    graphsRejected: bridgeStats.graphsRejected,
+    capturesPublished: bridgeStats.capturesPublished,
+    evictions: bridgeStats.evictions,
+    bytesSkipped: bridgeStats.bytesSkipped,
+    parseFailures: bridgeStats.parseFailures,
+    graphCount: bridgeState.graphsByConversation.size,
+  });
+
   const handleSnapshotRequest = (event) => {
     const rawDetail = event instanceof CustomEvent ? event.detail : null;
     const detail = decodeBridgeDetail(rawDetail);
-    if (!detail || !['snapshot', 'peek'].includes(detail.type)) return;
+    if (!detail) return;
     const requestWasString = typeof rawDetail === 'string';
     const respond = (payload) => {
       window.dispatchEvent(new CustomEvent(RESPONSE_EVENT, {
         detail: encodeBridgeResponse(payload, requestWasString),
       }));
     };
+
+    if (detail.type === 'diagnostics') {
+      respond({
+        requestId: detail.requestId,
+        ok: true,
+        diagnostics: getDiagnostics(),
+      });
+      return;
+    }
+
+    if (!['snapshot', 'peek'].includes(detail.type)) return;
 
     const result = Promise.resolve({ snapshot: getSnapshot(detail.conversationId), error: undefined });
 

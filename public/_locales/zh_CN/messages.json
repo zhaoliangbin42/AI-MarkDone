@@ -1665,6 +1665,26 @@
         "message": "选择你的首选语言",
         "description": "Message for settingsLanguageDesc"
     },
+    "settingsDiscoveryDiagnosticsLabel": {
+        "message": "内容发现状态",
+        "description": "Message for settingsDiscoveryDiagnosticsLabel"
+    },
+    "settingsDiscoveryDiagnosticsDesc": {
+        "message": "当前生效的发现路径与待处理工作",
+        "description": "Message for settingsDiscoveryDiagnosticsDesc"
+    },
+    "settingsDiscoveryDiagnosticsCopy": {
+        "message": "复制诊断",
+        "description": "Message for settingsDiscoveryDiagnosticsCopy"
+    },
+    "settingsDiscoveryDiagnosticsCopied": {
+        "message": "已复制",
+        "description": "Message for settingsDiscoveryDiagnosticsCopied"
+    },
+    "settingsDiscoveryDiagnosticsUnavailable": {
+        "message": "当前页面无内容发现诊断信息",
+        "description": "Message for settingsDiscoveryDiagnosticsUnavailable"
+    },
     "languageAuto": {
         "message": "自动（浏览器语言）",
         "description": "Message for languageAuto"

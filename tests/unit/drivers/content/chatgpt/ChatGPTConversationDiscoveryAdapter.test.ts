@@ -196,4 +196,115 @@ describe('ChatGPTConversationDiscoveryAdapter', () => {
         adapter.dispose();
     });
 
+    it('pulls bridge diagnostics counters and caches the last snapshot', async () => {
+        const adapter = new ChatGPTConversationDiscoveryAdapter();
+        const bridgeDiagnostics = {
+            version: 6,
+            observedEligibleGets: 3,
+            graphsAccepted: 2,
+            graphsRejected: 1,
+            capturesPublished: 2,
+            evictions: 0,
+            bytesSkipped: 0,
+            parseFailures: 1,
+            graphCount: 1,
+        };
+        const responder = ((event: Event) => {
+            const request = (event as CustomEvent<any>).detail;
+            if (request?.type !== 'diagnostics') return;
+            window.dispatchEvent(new CustomEvent(RESPONSE_EVENT, {
+                detail: { requestId: request.requestId, ok: true, diagnostics: bridgeDiagnostics },
+            }));
+        }) as EventListener;
+        window.addEventListener(REQUEST_EVENT, responder);
+
+        try {
+            const diagnostics = await adapter.readBridgeDiagnostics();
+            expect(diagnostics).toEqual(bridgeDiagnostics);
+            expect(adapter.getCachedBridgeDiagnostics()).toEqual(bridgeDiagnostics);
+            expect(adapter.isBridgeUnavailable()).toBe(false);
+        } finally {
+            window.removeEventListener(REQUEST_EVENT, responder);
+            adapter.dispose();
+        }
+    });
+
+    it('marks the bridge unavailable on BRIDGE_UNAVAILABLE and on bootstrap load failure', async () => {
+        const adapter = new ChatGPTConversationDiscoveryAdapter();
+        const responder = ((event: Event) => {
+            const request = (event as CustomEvent<any>).detail;
+            if (request?.type !== 'peek') return;
+            window.dispatchEvent(new CustomEvent(RESPONSE_EVENT, {
+                detail: {
+                    requestId: request.requestId,
+                    ok: false,
+                    error: { code: 'BRIDGE_UNAVAILABLE', retryable: true },
+                },
+            }));
+        }) as EventListener;
+        window.addEventListener(REQUEST_EVENT, responder);
+
+        try {
+            await expect(adapter.peek()).rejects.toMatchObject({ reason: 'source-unavailable' });
+            expect(adapter.isBridgeUnavailable()).toBe(true);
+        } finally {
+            window.removeEventListener(REQUEST_EVENT, responder);
+        }
+
+        const diagnosticsResponder = ((event: Event) => {
+            const request = (event as CustomEvent<any>).detail;
+            if (request?.type !== 'diagnostics') return;
+            window.dispatchEvent(new CustomEvent(RESPONSE_EVENT, {
+                detail: {
+                    requestId: request.requestId,
+                    ok: true,
+                    diagnostics: {
+                        version: 6,
+                        observedEligibleGets: 0,
+                        graphsAccepted: 0,
+                        graphsRejected: 0,
+                        capturesPublished: 0,
+                        evictions: 0,
+                        bytesSkipped: 0,
+                        parseFailures: 0,
+                        graphCount: 0,
+                    },
+                },
+            }));
+        }) as EventListener;
+        window.addEventListener(REQUEST_EVENT, diagnosticsResponder);
+        try {
+            await adapter.readBridgeDiagnostics();
+            expect(adapter.isBridgeUnavailable()).toBe(false);
+
+            window.dispatchEvent(new Event('aimd:chatgpt-conversation-bridge:bootstrap-error'));
+            expect(adapter.isBridgeUnavailable()).toBe(true);
+        } finally {
+            window.removeEventListener(REQUEST_EVENT, diagnosticsResponder);
+            adapter.dispose();
+        }
+    });
+
+    it('counts capture signals only for the current conversation', () => {
+        const adapter = new ChatGPTConversationDiscoveryAdapter();
+        // The capture listener registers with the first signal subscriber,
+        // matching the production runtime wiring order.
+        const unsubscribe = adapter.subscribeSignals(() => {});
+
+        window.dispatchEvent(new CustomEvent(CAPTURE_EVENT, {
+            detail: JSON.stringify({ kind: 'graph', conversationId }),
+        }));
+        expect(adapter.getCaptureSignalCount()).toBe(1);
+
+        window.dispatchEvent(new CustomEvent(CAPTURE_EVENT, {
+            detail: JSON.stringify({ kind: 'graph', conversationId: '795499b7-464c-8323-a998-119f661ac954' }),
+        }));
+        window.dispatchEvent(new CustomEvent(CAPTURE_EVENT, {
+            detail: JSON.stringify({ kind: 'unrelated-host-event', conversationId }),
+        }));
+        expect(adapter.getCaptureSignalCount()).toBe(1);
+
+        unsubscribe();
+        adapter.dispose();
+    });
 });

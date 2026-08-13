@@ -16,6 +16,7 @@ import type {
     ConversationTurnReadPortV1,
     ConversationTurnReadResultV1,
 } from '../../contracts/conversationDiscovery';
+import type { DiscoveryRepositoryFactsV1 } from '../../contracts/conversationDiscoveryDiagnostics';
 import type { ConversationTargetV1 } from '../../contracts/conversationMaterialization';
 
 export type { ConversationContentCandidateV1 } from '../../contracts/conversationContent';
@@ -202,13 +203,34 @@ export class ConversationContentRepository implements ConversationContentSourceV
         return promise;
     }
 
-    /**
-     * Flush already-observed local work only. It may await an in-flight
+    /** Flush already-observed local work only. It may await an in-flight
      * baseline admission but never starts or retries one.
      */
     refresh(): Promise<ConversationContentStateV1> {
         if (this.flight?.epoch === this.epoch) return this.flight.promise;
         return Promise.resolve(this.state);
+    }
+
+    /** Read-only diagnostics facts for the discovery diagnostics snapshot. */
+    readDiagnosticsFacts(): DiscoveryRepositoryFactsV1 {
+        return {
+            stateKind: this.state.kind,
+            // The contract defaults an absent identityKind to 'canonical';
+            // mirror that normalization here so facts never report null for
+            // a bound canonical document.
+            documentKind: this.currentDocument
+                ? (this.currentDocument.identityKind ?? 'canonical')
+                : null,
+            basis: this.basis ?? null,
+            baselineGate: this.baselineGate,
+            baselineAttempted: this.baselineAttempted,
+            epoch: this.epoch,
+            turnCount: this.turns.length,
+            deferredHostCount: this.pendingHost.size,
+            // Weak-sealed turn counting lands with the completion-evidence
+            // tiers; the field exists now so the snapshot schema stays stable.
+            weakSealedCount: 0,
+        };
     }
 
     /** Bind a canonical route without forcing a second passive read. */

@@ -1489,4 +1489,119 @@ describe('ChatGPT conversation bridge', () => {
             'Question 3',
         ]);
     });
+
+    it('serves read-only diagnostics counters without touching snapshot memory', async () => {
+        const conversationId = '69e8d157-5fec-839c-9124-2179ba8b7d7c';
+        history.replaceState({}, '', `/c/${conversationId}`);
+        installBridge();
+
+        const response = await requestSnapshot(conversationId, { type: 'diagnostics' });
+
+        expect(response.ok).toBe(true);
+        expect(response.diagnostics).toMatchObject({
+            version: 6,
+            observedEligibleGets: 0,
+            graphsAccepted: 0,
+            graphsRejected: 0,
+            capturesPublished: 0,
+            evictions: 0,
+            bytesSkipped: 0,
+            parseFailures: 0,
+            graphCount: 0,
+        });
+        const snapshot = await requestSnapshot(conversationId);
+        expect(snapshot.ok).toBe(false);
+    });
+
+    it('skips responses over the byte cap and counts them without capturing', async () => {
+        const conversationId = '69e8d157-5fec-839c-9124-2179ba8b7d7c';
+        history.replaceState({}, '', `/c/${conversationId}`);
+        const fetchMock = vi.fn(async () => new Response(JSON.stringify(graphPayload(conversationId)), {
+            status: 200,
+            headers: {
+                'Content-Type': 'application/json',
+                'Content-Length': String(9 * 1024 * 1024),
+            },
+        }));
+        Object.defineProperty(window, 'fetch', { configurable: true, value: fetchMock });
+        vi.stubGlobal('fetch', fetchMock);
+
+        installBridge();
+        await observeConversationFetch(conversationId);
+
+        const diagnostics = await requestSnapshot(conversationId, { type: 'diagnostics' });
+        expect(diagnostics.diagnostics.bytesSkipped).toBe(1);
+        expect(diagnostics.diagnostics.graphsAccepted).toBe(0);
+        expect(diagnostics.diagnostics.graphCount).toBe(0);
+        const snapshot = await requestSnapshot(conversationId);
+        expect(snapshot.ok).toBe(false);
+    });
+
+    it('keeps the fetch wrapper transparent to toString inspection', () => {
+        const originalFetch = window.fetch;
+        const originalSource = originalFetch.toString();
+
+        installBridge();
+
+        expect(window.fetch).not.toBe(originalFetch);
+        expect(window.fetch.toString()).toBe(originalSource);
+    });
+
+    it('counts eligible gets, accepted graphs, capture publications and LRU evictions', async () => {
+        const conversationIds = [
+            '69e8d157-5fec-839c-9124-2179ba8b7d7c',
+            '71e8d157-5fec-839c-9124-2179ba8b7d7d',
+            '72e8d157-5fec-839c-9124-2179ba8b7d7e',
+            '73e8d157-5fec-839c-9124-2179ba8b7d7f',
+        ];
+        const payloadsByConversation = new Map(
+            conversationIds.map((conversationId) => [conversationId, graphPayload(
+                conversationId,
+                `Question ${conversationId}`,
+                `Answer ${conversationId}`,
+            )]),
+        );
+        const fetchMock = vi.fn(async (input: any) => {
+            const conversationId = String(input).split('/').pop();
+            return new Response(JSON.stringify(payloadsByConversation.get(conversationId)), {
+                status: 200,
+                headers: { 'Content-Type': 'application/json' },
+            });
+        });
+        Object.defineProperty(window, 'fetch', { configurable: true, value: fetchMock });
+        vi.stubGlobal('fetch', fetchMock);
+
+        installBridge();
+        for (const conversationId of conversationIds) {
+            history.replaceState({}, '', `/c/${conversationId}`);
+            await observeConversationFetch(conversationId);
+        }
+
+        const diagnostics = await requestSnapshot(conversationIds[0]!, { type: 'diagnostics' });
+        expect(diagnostics.diagnostics.observedEligibleGets).toBe(conversationIds.length);
+        expect(diagnostics.diagnostics.graphsAccepted).toBe(conversationIds.length);
+        expect(diagnostics.diagnostics.capturesPublished).toBe(conversationIds.length);
+        expect(diagnostics.diagnostics.graphCount).toBe(3);
+        expect(diagnostics.diagnostics.evictions).toBe(1);
+    });
+
+    it('signals a bootstrap load failure to the content runtime', () => {
+        const runtime = { getURL: () => 'chrome-extension://aimd/page-bridges/chatgpt-conversation-bridge.js' };
+        vi.stubGlobal('chrome', { runtime });
+        const events: string[] = [];
+        const listener = ((event: Event) => events.push(event.type)) as EventListener;
+        window.addEventListener('aimd:chatgpt-conversation-bridge:bootstrap-error', listener);
+        try {
+            const bootstrapSource = readFileSync('public/page-bridges/chatgpt-conversation-bootstrap.js', 'utf-8');
+            window.eval(bootstrapSource);
+            const script = document.querySelector('script[src*="chatgpt-conversation-bridge.js"]');
+            expect(script).toBeTruthy();
+            script!.dispatchEvent(new Event('error'));
+            expect(events).toContain('aimd:chatgpt-conversation-bridge:bootstrap-error');
+            expect(document.querySelector('script[src*="chatgpt-conversation-bridge.js"]')).toBeNull();
+        } finally {
+            window.removeEventListener('aimd:chatgpt-conversation-bridge:bootstrap-error', listener);
+            vi.unstubAllGlobals();
+        }
+    });
 });

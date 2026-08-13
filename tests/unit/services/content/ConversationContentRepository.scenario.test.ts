@@ -917,4 +917,55 @@ describe('ConversationContentRepository', () => {
             'assistant-2',
         ]);
     });
+
+    it('publishes discovery diagnostics facts: basis, gate, turn and deferred counts', async () => {
+        const ref = document('conversation-diagnostics-facts');
+        const repository = new ConversationContentRepository({
+            resolveDocument: () => ref,
+            readBaseline: async () => null,
+        });
+
+        expect(repository.readDiagnosticsFacts()).toMatchObject({
+            stateKind: 'idle',
+            documentKind: null,
+            basis: null,
+            baselineGate: 'open',
+            baselineAttempted: false,
+            turnCount: 0,
+            deferredHostCount: 0,
+            weakSealedCount: 0,
+        });
+
+        await repository.enterCurrentEpoch();
+        expect(repository.readDiagnosticsFacts()).toMatchObject({
+            documentKind: 'canonical',
+            baselineGate: 'open',
+            baselineAttempted: true,
+        });
+
+        const first = repository.ingestHostTurn({
+            turn: hostTurn(1, 'Answer 1'),
+            semanticDigest: 'diagnostics-host-1',
+            captureId: 'diagnostics-host-1',
+            revision: 1,
+            predecessorAssistantMessageId: null,
+        });
+        expect(first.kind).toBe('ready');
+        // A candidate pointing into an older window is held, not guessed.
+        const deferred = repository.ingestHostTurn({
+            turn: hostTurn(3, 'Answer 3'),
+            semanticDigest: 'diagnostics-host-3',
+            captureId: 'diagnostics-host-3',
+            revision: 2,
+            predecessorAssistantMessageId: 'assistant-2',
+        });
+        expect(deferred.kind).toBe('ready');
+
+        expect(repository.readDiagnosticsFacts()).toMatchObject({
+            stateKind: 'ready',
+            basis: 'host',
+            turnCount: 1,
+            deferredHostCount: 1,
+        });
+    });
 });

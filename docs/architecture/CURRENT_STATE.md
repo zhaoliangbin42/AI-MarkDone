@@ -27,6 +27,24 @@
 > formula or export. Obtained but unmounted turns remain in the pool and remain
 > available to content consumers.
 
+> **Discovery diagnostics boundary (2026-08-13)**
+>
+> `DiscoveryDiagnostics` aggregates read-only facts from the Repository
+> (basis, baseline gate state, turn/deferred counts), the Host Monitor (stable
+> captures, weak-completion admissions, compiler rejection counts) and the page
+> bridge (observed GETs, accepted/rejected graphs, published captures, LRU
+> evictions, byte-cap skips, parse failures, held graph count). It publishes
+> one `DiscoveryDiagnosticsSnapshotV1` and never carries message bodies,
+> prompts, tokens, or personal content. The Settings panel shows a compact
+> status line with a copy-diagnostics action, and
+> `window.__AIMD_DISCOVERY_DIAGNOSTICS__` exposes the same snapshot for
+> troubleshooting. The page bridge serves its counters through a `diagnostics`
+> request type, skips eligible responses whose declared Content-Length exceeds
+> 8 MB (counted as `bytesSkipped`), keeps its fetch wrapper
+> `toString`-transparent, and the bootstrap dispatches a failure event when
+> the bridge script cannot load. Bridge diagnostics pulls are throttled and
+> are never issued before a canonical conversation identity exists.
+
 > **Bookmark boundary (unchanged storage and protocol)**
 >
 > Bookmark types, storage fields, keys, save/remove protocol, migrations, old

@@ -62,6 +62,8 @@ import { buildCommentsExport, normalizeCommentTemplate, normalizeReaderCommentEx
 import { ReaderCommentTemplateSettingsPopover } from '../../../reader/ReaderCommentTemplateSettingsPopover';
 import type { RuntimeClientFailure } from '../../../../../drivers/shared/clients/clientResult';
 import { getRuntimeFailurePresentation } from '../../../components/runtimeFailurePresentation';
+import type { DiscoveryDiagnosticsSnapshotV1 } from '../../../../../contracts/conversationDiscoveryDiagnostics';
+import { copyTextToClipboard } from '../../../../../drivers/content/clipboard/clipboard';
 
 export type SettingsDataState =
     | { kind: 'loading' }
@@ -198,11 +200,15 @@ export class SettingsTabView {
     private buttonsPageRoot: HTMLElement | null = null;
     private languageChangeRevision = 0;
     private languageSaveQueue: Promise<void> = Promise.resolve();
+    private readonly readDiscoveryDiagnostics: (() => DiscoveryDiagnosticsSnapshotV1 | null) | null;
+    private diagnosticsSummary: HTMLElement;
+    private diagnosticsCopyButton: HTMLButtonElement;
 
-    constructor(params: { modal: ModalHost; actions?: SettingsTabViewActions; onOpenPromptManager?: (anchor: HTMLElement) => Promise<void> | void }) {
+    constructor(params: { modal: ModalHost; actions?: SettingsTabViewActions; onOpenPromptManager?: (anchor: HTMLElement) => Promise<void> | void; readDiscoveryDiagnostics?: () => DiscoveryDiagnosticsSnapshotV1 | null }) {
         this.modal = params.modal;
         this.actions = params.actions ?? {};
         this.onOpenPromptManager = params.onOpenPromptManager;
+        this.readDiscoveryDiagnostics = params.readDiscoveryDiagnostics ?? null;
 
         this.root = document.createElement('div');
         this.root.className = 'aimd-settings';
@@ -534,6 +540,29 @@ export class SettingsTabView {
 
         const advancedGroup = this.createAdvancedSettingsGroup();
 
+        const diagnosticsGroup = this.createGroup(Icons.info, t('settingsDiscoveryDiagnosticsLabel'));
+        const diagnosticsItem = document.createElement('div');
+        diagnosticsItem.className = 'settings-row settings-item';
+        const diagnosticsInfo = document.createElement('div');
+        diagnosticsInfo.className = 'settings-label settings-item-info';
+        const diagnosticsTitle = document.createElement('strong');
+        diagnosticsTitle.textContent = t('settingsDiscoveryDiagnosticsLabel');
+        const diagnosticsSummary = document.createElement('p');
+        diagnosticsSummary.className = 'reader-settings-summary';
+        diagnosticsSummary.dataset.role = 'settings-discovery-diagnostics-summary';
+        diagnosticsInfo.append(diagnosticsTitle, diagnosticsSummary);
+        const diagnosticsCopyButton = document.createElement('button');
+        diagnosticsCopyButton.type = 'button';
+        diagnosticsCopyButton.className = 'secondary-btn';
+        diagnosticsCopyButton.dataset.role = 'settings-discovery-diagnostics-copy';
+        diagnosticsCopyButton.textContent = t('settingsDiscoveryDiagnosticsCopy');
+        diagnosticsCopyButton.addEventListener('click', () => void this.copyDiscoveryDiagnostics());
+        diagnosticsItem.append(diagnosticsInfo, diagnosticsCopyButton);
+        diagnosticsGroup.body.appendChild(diagnosticsItem);
+        this.diagnosticsSummary = diagnosticsSummary;
+        this.diagnosticsCopyButton = diagnosticsCopyButton;
+        this.refreshDiscoveryDiagnostics();
+
         content.append(
             platformsGroup.root,
             buttonsEntryGroup.root,
@@ -543,6 +572,7 @@ export class SettingsTabView {
             languageGroup.root,
             storageGroup.root,
             advancedGroup.root,
+            diagnosticsGroup.root,
         );
         scroll.append(content, buttonsContent);
         this.root.append(runtimeNotice, scroll);
@@ -1135,6 +1165,39 @@ export class SettingsTabView {
         const toggle = input.closest<HTMLElement>('.toggle-switch');
         if (!toggle) return;
         toggle.dataset.checked = input.checked ? '1' : '0';
+    }
+
+    private refreshDiscoveryDiagnostics(): void {
+        if (!this.diagnosticsSummary) return;
+        const snapshot = this.readDiscoveryDiagnostics?.() ?? null;
+        if (!snapshot) {
+            this.diagnosticsSummary.textContent = t('settingsDiscoveryDiagnosticsUnavailable');
+            this.diagnosticsCopyButton.hidden = true;
+            return;
+        }
+        this.diagnosticsCopyButton.hidden = false;
+        const rejectionTotal = Object.values(snapshot.hostMonitor.compileRejections)
+            .reduce((sum, count) => sum + count, 0);
+        const parts = [
+            `basis=${snapshot.basis ?? 'none'}`,
+            `history=${snapshot.historyStatus}`,
+            `turns=${snapshot.repository.turnCount}`,
+            `deferred=${snapshot.repository.deferredHostCount}`,
+            `rejected=${rejectionTotal}`,
+            `bridge=${snapshot.bridgeUnavailable ? 'down' : (snapshot.bridge ? `v${snapshot.bridge.version}` : 'none')}`,
+        ];
+        this.diagnosticsSummary.textContent = `${t('settingsDiscoveryDiagnosticsDesc')} — ${parts.join(' · ')}`;
+    }
+
+    private async copyDiscoveryDiagnostics(): Promise<void> {
+        const snapshot = this.readDiscoveryDiagnostics?.() ?? null;
+        if (!snapshot) return;
+        const ok = await copyTextToClipboard(JSON.stringify(snapshot, null, 2));
+        if (!ok) return;
+        this.diagnosticsCopyButton.textContent = t('settingsDiscoveryDiagnosticsCopied');
+        window.setTimeout(() => {
+            this.diagnosticsCopyButton.textContent = t('settingsDiscoveryDiagnosticsCopy');
+        }, 1500);
     }
 
     private createGroup(icon: string, title: string): { root: HTMLElement; body: HTMLElement } {

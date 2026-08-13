@@ -168,7 +168,16 @@ if (adapter) {
     const bookmarksController = new BookmarksPanelController(adapter, {
         navigation: conversationNavigation,
         conversationContentSource,
+        readDiscoveryDiagnostics: () => chatGptConversationContentRuntime?.readDiscoveryDiagnostics() ?? null,
     });
+    if (chatGptConversationContentRuntime && !('__AIMD_DISCOVERY_DIAGNOSTICS__' in window)) {
+        // Advanced-troubleshooting seam. The snapshot contains only counts and
+        // status facts; it never exposes message bodies or personal content.
+        Object.defineProperty(window, '__AIMD_DISCOVERY_DIAGNOSTICS__', {
+            value: () => chatGptConversationContentRuntime!.readDiscoveryDiagnostics(),
+            configurable: true,
+        });
+    }
     if (conversationContentSource && conversationMaterialization) {
         const parser = contentAdapter.getMarkdownParserAdapter();
         if (parser) {

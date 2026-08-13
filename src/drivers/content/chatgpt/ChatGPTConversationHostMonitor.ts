@@ -16,6 +16,7 @@ import {
 } from './domConversationDiscovery';
 import type { ChatGPTHostObservationBatch, ChatGPTPageIndex } from './ChatGPTPageIndex';
 import type { RenderedContentCompilerV2 as RenderedContentCompilerPortV2 } from '../../../contracts/conversationDiscoveryV2';
+import type { DiscoveryHostMonitorFactsV1 } from '../../../contracts/conversationDiscoveryDiagnostics';
 
 export type ChatGPTConversationHostMonitorOptions = Readonly<{
     adapter: SiteAdapter;
@@ -53,6 +54,9 @@ export class ChatGPTConversationHostMonitor {
     private documentFence = 0;
     private elementSequence = 0;
     private captureSequence = 0;
+    private stableCaptureCount = 0;
+    private weakCompletionAdmissions = 0;
+    private readonly compileRejectionCounts = new Map<string, number>();
     private globalDirty = false;
     private initialized = false;
     private disposed = false;
@@ -253,6 +257,7 @@ export class ChatGPTConversationHostMonitor {
         const runId = ++this.captureRunSequence;
         const captureFence = this.documentFence;
         this.activeCaptureRunId = runId;
+        this.stableCaptureCount += 1;
         try {
             const captureRevision = this.options.index.getObservationRevision();
             const rounds = this.options.index.getSnapshot();
@@ -272,6 +277,7 @@ export class ChatGPTConversationHostMonitor {
                 ? maintainedTailIndexes[0]!
                 : -1;
             const observations: ConversationHostTurnObservationV1[] = [];
+            const observationWeakFlags: boolean[] = [];
             let plannedPredecessorAssistantMessageId: string | null = maintainedTailId;
             let replaceCurrentPageConversation = false;
             let captureInvalidated = false;
@@ -379,6 +385,7 @@ export class ChatGPTConversationHostMonitor {
                     }
                 }
                 this.weakCompletionReadyAt.delete(assistantMessageId);
+                const compiledWithWeakCompletion = !hasStrongCompletion;
                 const observation = await this.compileRound(
                     round,
                     plannedPredecessorAssistantMessageId,
@@ -415,6 +422,7 @@ export class ChatGPTConversationHostMonitor {
                     break;
                 }
                 observations.push(observation);
+                observationWeakFlags.push(compiledWithWeakCompletion);
                 plannedPredecessorAssistantMessageId = assistantMessageId;
             }
 
@@ -424,11 +432,12 @@ export class ChatGPTConversationHostMonitor {
                 } else {
                     this.options.repository.ingestHostBatch(observations);
                 }
-                for (const observation of observations) {
+                for (const [observationIndex, observation] of observations.entries()) {
                     const assistantMessageId = observation.turn.identity.assistantMessageId;
                     if (this.options.repository.read().snapshot?.turns.some((turn) => (
                         turn.identity.assistantMessageId === assistantMessageId
                     ))) {
+                        if (observationWeakFlags[observationIndex]) this.weakCompletionAdmissions += 1;
                         this.dirtyAssistantIds.delete(assistantMessageId);
                         this.generationAssistantIds.delete(assistantMessageId);
                         this.tailReplacementAssistantIds.delete(assistantMessageId);
@@ -481,7 +490,11 @@ export class ChatGPTConversationHostMonitor {
             parser: this.parserCapability!,
             policy: DEFAULT_RENDERED_CONTENT_POLICY_V2,
         });
-        if (result.kind !== 'ready') return null;
+        if (result.kind !== 'ready') {
+            const reason = result.reason;
+            this.compileRejectionCounts.set(reason, (this.compileRejectionCounts.get(reason) ?? 0) + 1);
+            return null;
+        }
 
         const turn: ConversationTurnV1 = Object.freeze({
             key: `${turnId}:${assistantMessageId}`,
@@ -511,6 +524,16 @@ export class ChatGPTConversationHostMonitor {
             this.elementTokens.set(root, token);
         }
         return `${token}:revision:${revision}`;
+    }
+
+    /** Read-only diagnostics facts for the discovery diagnostics snapshot. */
+    readDiagnosticsFacts(): DiscoveryHostMonitorFactsV1 {
+        return {
+            stableCaptureCount: this.stableCaptureCount,
+            dirtyAssistantCount: this.dirtyAssistantIds.size,
+            weakCompletionAdmissions: this.weakCompletionAdmissions,
+            compileRejections: Object.freeze(Object.fromEntries(this.compileRejectionCounts)),
+        };
     }
 }
 

@@ -961,6 +961,7 @@ describe('ChatGPT content discovery lifecycle', () => {
         let bridgeRequests = 0;
         const responder = ((event: Event) => {
             const request = (event as CustomEvent<any>).detail;
+            if (request?.type !== 'peek') return;
             bridgeRequests += 1;
             window.dispatchEvent(new CustomEvent('aimd:chatgpt-conversation-bridge:response', {
                 detail: {
@@ -1134,6 +1135,82 @@ describe('ChatGPT content discovery lifecycle', () => {
             expect(rail?.shadowRoot?.querySelectorAll('.rail__item')).toHaveLength(0);
         } finally {
             directory.dispose();
+            runtime.dispose();
+            adapter.dispose();
+        }
+    });
+
+    it('aggregates discovery diagnostics across repository, host monitor and bridge', async () => {
+        document.documentElement.innerHTML = '<head></head><body><main></main></body>';
+        history.replaceState({}, '', '/c/695499b7-464c-8323-a998-119f661ac953');
+        const adapter = new ChatGPTAdapter();
+        const runtime = new ChatGPTConversationContentRuntime(adapter);
+        const conversationId = '695499b7-464c-8323-a998-119f661ac953';
+        const graphSnapshot = {
+            conversationId,
+            branchKey: 'assistant-1',
+            coverage: 'complete' as const,
+            rounds: [{
+                id: 'turn-1',
+                position: 1,
+                userPrompt: 'Question 1',
+                assistantContent: 'Answer 1',
+                preview: 'Question 1',
+                messageId: 'assistant-1',
+                userMessageId: 'user-1',
+                assistantMessageId: 'assistant-1',
+            }],
+        };
+        const bridgeDiagnostics = {
+            version: 6,
+            observedEligibleGets: 2,
+            graphsAccepted: 1,
+            graphsRejected: 0,
+            capturesPublished: 1,
+            evictions: 0,
+            bytesSkipped: 0,
+            parseFailures: 0,
+            graphCount: 1,
+        };
+        const responder = ((event: Event) => {
+            const request = (event as CustomEvent<any>).detail;
+            if (request?.type === 'peek') {
+                window.dispatchEvent(new CustomEvent('aimd:chatgpt-conversation-bridge:response', {
+                    detail: { requestId: request.requestId, ok: true, snapshot: graphSnapshot },
+                }));
+                return;
+            }
+            if (request?.type === 'diagnostics') {
+                window.dispatchEvent(new CustomEvent('aimd:chatgpt-conversation-bridge:response', {
+                    detail: { requestId: request.requestId, ok: true, diagnostics: bridgeDiagnostics },
+                }));
+            }
+        }) as EventListener;
+        window.addEventListener('aimd:chatgpt-conversation-bridge:request', responder);
+
+        try {
+            runtime.init();
+            const state = await runtime.source.refresh();
+            expect(state.kind).toBe('ready');
+            // Let the throttled background diagnostics pull settle.
+            await new Promise((resolve) => window.setTimeout(resolve, 0));
+
+            const snapshot = runtime.readDiscoveryDiagnostics();
+            expect(snapshot.basis).toBe('source');
+            expect(snapshot.historyStatus).toBe('complete');
+            expect(snapshot.repository).toMatchObject({
+                documentKind: 'canonical',
+                baselineGate: 'closed',
+                turnCount: 1,
+            });
+            expect(snapshot.bridge).toMatchObject({
+                version: 6,
+                graphsAccepted: 1,
+            });
+            expect(snapshot.bridgeUnavailable).toBe(false);
+            expect(snapshot.captureSignalCount).toBe(0);
+        } finally {
+            window.removeEventListener('aimd:chatgpt-conversation-bridge:request', responder);
             runtime.dispose();
             adapter.dispose();
         }
