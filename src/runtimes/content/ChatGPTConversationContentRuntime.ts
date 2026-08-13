@@ -5,6 +5,7 @@ import type { ConversationNavigationPortV1 } from '../../contracts/conversationN
 import type { ConversationSurfacePortV1 } from '../../contracts/conversationSurface';
 import {
     createConversationPageDocumentKeyV1,
+    type ConversationContentStateV1,
     type ConversationDocumentRefV1,
 } from '../../contracts/conversationContent';
 import type { DiscoveryDiagnosticsSnapshotV1 } from '../../contracts/conversationDiscoveryDiagnostics';
@@ -56,6 +57,10 @@ export class ChatGPTConversationContentRuntime {
     private wrappedReplaceState: History['replaceState'] | null = null;
     private readonly handlePageShow = () => {
         this.hostMonitor.notifyPageShow();
+        // BFCache restores keep the page bridge and its memory alive. A
+        // baseline peek that missed the capture before the restore gets one
+        // bounded re-arm; an accepted Graph stays untouched.
+        this.repository.reopenBaselineGate();
         this.synchronizeCurrentEpoch(true);
         this.surface.refreshSurface();
     };
@@ -109,6 +114,16 @@ export class ChatGPTConversationContentRuntime {
 
     get content(): ConversationDiscoveryContentPortV1 {
         return this.source;
+    }
+
+    /**
+     * Explicit user-triggered retry of the passive baseline peek. Re-arms a
+     * failed (open) gate and reads bridge memory again; never issues a
+     * request and never reopens a gate that already accepted a Graph.
+     */
+    retryBaselineDiscovery(): Promise<ConversationContentStateV1> {
+        this.repository.reopenBaselineGate();
+        return this.repository.enterCurrentEpoch();
     }
 
     setNavigationPort(navigation: ConversationNavigationPortV1 | null): void {

@@ -1173,6 +1173,53 @@ describe('SettingsTabView', () => {
         }
     });
 
+    it('retries baseline discovery from the diagnostics row and refreshes the summary', async () => {
+        const modal = { confirm: vi.fn(async () => true) } as any;
+        let historyStatus = 'partial';
+        const readDiscoveryDiagnostics = vi.fn(() => ({
+            schemaVersion: 1,
+            generatedAt: Date.now(),
+            basis: 'host',
+            historyStatus,
+            repository: {
+                stateKind: 'ready',
+                documentKind: 'canonical',
+                basis: 'host',
+                baselineGate: 'open',
+                baselineAttempted: true,
+                epoch: 1,
+                turnCount: 1,
+                deferredHostCount: 0,
+                weakSealedCount: 0,
+            },
+            hostMonitor: {
+                stableCaptureCount: 1,
+                dirtyAssistantCount: 0,
+                weakCompletionAdmissions: 0,
+                compileRejections: {},
+            },
+            bridge: null,
+            bridgeUnavailable: false,
+            captureSignalCount: 0,
+        }) as any);
+        const retryBaselineDiscovery = vi.fn(async () => {
+            historyStatus = 'complete';
+        });
+        const view = new SettingsTabView({ modal, readDiscoveryDiagnostics, retryBaselineDiscovery });
+        const root = view.getElement();
+        const summary = root.querySelector<HTMLElement>('[data-role="settings-discovery-diagnostics-summary"]');
+        const retry = root.querySelector<HTMLButtonElement>('[data-role="settings-discovery-diagnostics-retry"]');
+        expect(retry).toBeTruthy();
+        expect(retry!.hidden).toBe(false);
+        expect(summary!.textContent).toContain('history=partial');
+
+        retry!.click();
+        await Promise.resolve();
+        await Promise.resolve();
+        expect(retryBaselineDiscovery).toHaveBeenCalledTimes(1);
+        expect(summary!.textContent).toContain('history=complete');
+    });
+
     it('shows unavailable diagnostics without a provider and hides the copy action', () => {
         const modal = { confirm: vi.fn(async () => true) } as any;
         const view = new SettingsTabView({ modal });
@@ -1183,5 +1230,7 @@ describe('SettingsTabView', () => {
         expect(summary!.textContent).toContain('settingsDiscoveryDiagnosticsUnavailable');
         const copy = root.querySelector<HTMLButtonElement>('[data-role="settings-discovery-diagnostics-copy"]');
         expect(copy!.hidden).toBe(true);
+        const retry = root.querySelector<HTMLButtonElement>('[data-role="settings-discovery-diagnostics-retry"]');
+        expect(retry!.hidden).toBe(true);
     });
 });

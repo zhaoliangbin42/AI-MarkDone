@@ -1677,6 +1677,10 @@
         "message": "Copy diagnostics",
         "description": "Message for settingsDiscoveryDiagnosticsCopy"
     },
+    "settingsDiscoveryDiagnosticsRetry": {
+        "message": "Retry discovery",
+        "description": "Message for settingsDiscoveryDiagnosticsRetry"
+    },
     "settingsDiscoveryDiagnosticsCopied": {
         "message": "Copied",
         "description": "Message for settingsDiscoveryDiagnosticsCopied"

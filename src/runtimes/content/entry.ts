@@ -169,6 +169,8 @@ if (adapter) {
         navigation: conversationNavigation,
         conversationContentSource,
         readDiscoveryDiagnostics: () => chatGptConversationContentRuntime?.readDiscoveryDiagnostics() ?? null,
+        retryBaselineDiscovery: () => chatGptConversationContentRuntime?.retryBaselineDiscovery()
+            ?? Promise.resolve(null),
     });
     if (chatGptConversationContentRuntime && !('__AIMD_DISCOVERY_DIAGNOSTICS__' in window)) {
         // Advanced-troubleshooting seam. The snapshot contains only counts and

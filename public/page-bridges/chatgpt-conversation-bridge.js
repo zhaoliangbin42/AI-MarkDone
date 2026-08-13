@@ -1,6 +1,6 @@
 (() => {
   const BRIDGE_KEY = '__AIMD_CHATGPT_CONVERSATION_BRIDGE__';
-  const BRIDGE_VERSION = 6;
+  const BRIDGE_VERSION = 7;
   const existingBridge = window[BRIDGE_KEY];
   if (existingBridge?.version === BRIDGE_VERSION) return;
   existingBridge?.dispose?.();
@@ -374,6 +374,16 @@
     }
   }
 
+  function isSameOriginRequestUrl(value) {
+    if (typeof value !== 'string' || !value) return false;
+    try {
+      const url = new URL(value, window.location.href);
+      return url.origin === window.location.origin;
+    } catch {
+      return false;
+    }
+  }
+
   function requestCarriesConversationId(url, conversationId) {
     const decodedSegments = url.pathname
       .split('/')
@@ -392,7 +402,7 @@
     return false;
   }
 
-  function findObservedGraphPayloads(root, expectedConversationId) {
+  function findObservedGraphPayloads(root) {
     const queue = [{ value: root, depth: 0 }];
     const seen = new Set();
     const matches = [];
@@ -407,13 +417,7 @@
 
       const mapping = readRecord(candidate.mapping);
       const currentNodeId = getPayloadCurrentNodeId(candidate);
-      const candidateConversationId = getPayloadConversationId(candidate);
-      if (
-        mapping
-        && currentNodeId
-        && readRecord(mapping[currentNodeId])
-        && (!candidateConversationId || candidateConversationId === expectedConversationId)
-      ) {
+      if (mapping && currentNodeId && readRecord(mapping[currentNodeId])) {
         matches.push(candidate);
         // A Graph mapping can be large and cannot contain a competing wrapper
         // candidate. Keep the bounded search focused on sibling containers.
@@ -554,8 +558,6 @@
 
   async function captureObservedResponse(response, requestUrl, expectedConversationId, requestSequence) {
     if (!response?.ok) return;
-    const conversationId = getObservedConversationId(response.url || requestUrl);
-    if (!conversationId || conversationId !== expectedConversationId) return;
     const contentType = response.headers?.get?.('content-type') || '';
     if (!contentType.toLowerCase().includes('json')) return;
     const contentLengthHeader = response.headers?.get?.('content-length') || '';
@@ -570,9 +572,20 @@
     }
     try {
       const rawPayload = await response.clone().json();
-      const payloads = findObservedGraphPayloads(rawPayload, expectedConversationId);
+      const payloads = findObservedGraphPayloads(rawPayload);
+      const urlCarriedIdentity = getObservedConversationId(response.url || requestUrl) === expectedConversationId;
       for (const payload of payloads) {
-        if (rememberObservedPayload(conversationId, payload, requestSequence)) break;
+        // When the request URL carried the identity, an identity-less payload
+        // still binds to it. When the URL did not carry it (pre-rewrite GET,
+        // account-specific endpoint shapes), only a payload that declares the
+        // current canonical conversation id is accepted; anything else is a
+        // graph-shaped decoy from another conversation.
+        const declaredId = getPayloadConversationId(payload);
+        if (!urlCarriedIdentity && declaredId !== expectedConversationId) {
+          bridgeStats.graphsRejected += 1;
+          continue;
+        }
+        if (rememberObservedPayload(expectedConversationId, payload, requestSequence)) break;
       }
     } catch {
       // The host response remains untouched; an unreadable clone simply yields no observation.
@@ -586,13 +599,21 @@
     const observedFetch = function observedFetch(input, ...init) {
       const requestUrl = getObservedRequestUrl(input);
       const requestMethod = getObservedRequestMethod(input, init[0]);
-      const conversationId = getObservedConversationId(requestUrl);
       const result = nativeFetch.call(this, input, ...init);
-      if (!conversationId || requestMethod !== 'GET') return result;
+      if (requestMethod !== 'GET' || !isSameOriginRequestUrl(requestUrl)) return result;
+      // Two eligible shapes: the request URL already carries the current
+      // conversation id, or the page is on a canonical conversation and the
+      // payload may declare the id itself (a GET issued before the SPA
+      // rewrote the URL, or an account-specific endpoint shape). Everything
+      // else is ignored before any body parsing happens.
+      const conversationId = getObservedConversationId(requestUrl);
+      const currentId = getCurrentConversationId();
+      if (!conversationId && !currentId) return result;
+      const expectedConversationId = conversationId || currentId;
       bridgeStats.observedEligibleGets += 1;
       const requestSequence = ++bridgeState.requestSequence;
       Promise.resolve(result)
-        .then((response) => captureObservedResponse(response, requestUrl, conversationId, requestSequence))
+        .then((response) => captureObservedResponse(response, requestUrl, expectedConversationId, requestSequence))
         .catch(() => {});
       return result;
     };

@@ -201,14 +201,17 @@ export class SettingsTabView {
     private languageChangeRevision = 0;
     private languageSaveQueue: Promise<void> = Promise.resolve();
     private readonly readDiscoveryDiagnostics: (() => DiscoveryDiagnosticsSnapshotV1 | null) | null;
+    private readonly retryBaselineDiscovery: (() => Promise<unknown> | void) | null;
     private diagnosticsSummary: HTMLElement;
     private diagnosticsCopyButton: HTMLButtonElement;
+    private diagnosticsRetryButton: HTMLButtonElement;
 
-    constructor(params: { modal: ModalHost; actions?: SettingsTabViewActions; onOpenPromptManager?: (anchor: HTMLElement) => Promise<void> | void; readDiscoveryDiagnostics?: () => DiscoveryDiagnosticsSnapshotV1 | null }) {
+    constructor(params: { modal: ModalHost; actions?: SettingsTabViewActions; onOpenPromptManager?: (anchor: HTMLElement) => Promise<void> | void; readDiscoveryDiagnostics?: () => DiscoveryDiagnosticsSnapshotV1 | null; retryBaselineDiscovery?: () => Promise<unknown> | void }) {
         this.modal = params.modal;
         this.actions = params.actions ?? {};
         this.onOpenPromptManager = params.onOpenPromptManager;
         this.readDiscoveryDiagnostics = params.readDiscoveryDiagnostics ?? null;
+        this.retryBaselineDiscovery = params.retryBaselineDiscovery ?? null;
 
         this.root = document.createElement('div');
         this.root.className = 'aimd-settings';
@@ -557,10 +560,17 @@ export class SettingsTabView {
         diagnosticsCopyButton.dataset.role = 'settings-discovery-diagnostics-copy';
         diagnosticsCopyButton.textContent = t('settingsDiscoveryDiagnosticsCopy');
         diagnosticsCopyButton.addEventListener('click', () => void this.copyDiscoveryDiagnostics());
-        diagnosticsItem.append(diagnosticsInfo, diagnosticsCopyButton);
+        const diagnosticsRetryButton = document.createElement('button');
+        diagnosticsRetryButton.type = 'button';
+        diagnosticsRetryButton.className = 'secondary-btn';
+        diagnosticsRetryButton.dataset.role = 'settings-discovery-diagnostics-retry';
+        diagnosticsRetryButton.textContent = t('settingsDiscoveryDiagnosticsRetry');
+        diagnosticsRetryButton.addEventListener('click', () => void this.retryDiscoveryBaseline());
+        diagnosticsItem.append(diagnosticsInfo, diagnosticsRetryButton, diagnosticsCopyButton);
         diagnosticsGroup.body.appendChild(diagnosticsItem);
         this.diagnosticsSummary = diagnosticsSummary;
         this.diagnosticsCopyButton = diagnosticsCopyButton;
+        this.diagnosticsRetryButton = diagnosticsRetryButton;
         this.refreshDiscoveryDiagnostics();
 
         content.append(
@@ -1170,6 +1180,8 @@ export class SettingsTabView {
     private refreshDiscoveryDiagnostics(): void {
         if (!this.diagnosticsSummary) return;
         const snapshot = this.readDiscoveryDiagnostics?.() ?? null;
+        const hasRetry = Boolean(this.retryBaselineDiscovery);
+        this.diagnosticsRetryButton.hidden = !hasRetry;
         if (!snapshot) {
             this.diagnosticsSummary.textContent = t('settingsDiscoveryDiagnosticsUnavailable');
             this.diagnosticsCopyButton.hidden = true;
@@ -1187,6 +1199,17 @@ export class SettingsTabView {
             `bridge=${snapshot.bridgeUnavailable ? 'down' : (snapshot.bridge ? `v${snapshot.bridge.version}` : 'none')}`,
         ];
         this.diagnosticsSummary.textContent = `${t('settingsDiscoveryDiagnosticsDesc')} — ${parts.join(' · ')}`;
+    }
+
+    private async retryDiscoveryBaseline(): Promise<void> {
+        if (!this.retryBaselineDiscovery) return;
+        this.diagnosticsRetryButton.disabled = true;
+        try {
+            await this.retryBaselineDiscovery();
+            this.refreshDiscoveryDiagnostics();
+        } finally {
+            this.diagnosticsRetryButton.disabled = false;
+        }
     }
 
     private async copyDiscoveryDiagnostics(): Promise<void> {

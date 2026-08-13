@@ -316,16 +316,21 @@ For a missed ChatGPT baseline capture, the selected gate must prove a stable DOM
 batch can establish a host-ready pool and every obtained message remains
 consumable. A late runtime may consume the Bridge's latest in-memory Graph or
 wait for one real future capture while its gate remains open; only a reliable
-overlap may add history before the first host turn. Runtime/PageIndex/pageshow/
-popstate/refresh signals may bind identity or flush observed local work, but
-cannot initiate an active read or reopen a closed gate. An unfinished assistant
-is omitted until the matching stable DOM turn enters the pool.
+overlap may add history before the first host turn. Runtime/PageIndex/popstate/
+refresh signals may bind identity or flush observed local work, but cannot
+initiate an active read. Under ADR-0020, `pageshow` and the Settings "Retry
+discovery" action may re-arm one bounded peek only while the gate is open; a
+gate that already accepted a Graph never reopens. Bridge capture additionally
+accepts a payload-declared current conversation id on a same-origin JSON GET
+whose URL did not carry it, while graph-shaped payloads declaring another
+conversation are counted as rejected and never remembered. An unfinished
+assistant is omitted until the matching stable DOM turn enters the pool.
 
 # Current ChatGPT discovery gate (identity-proven single pool)
 
 The active production contract is the single-pool lifecycle in ADR-0018:
 
-- `ChatGPTConversationDiscoveryAdapter` and the page bridge admit at most one identity- and structure-verified passive Graph per conversation epoch with Chrome/Firefox transport parity and zero extension network requests or POST observation.
+- `ChatGPTConversationDiscoveryAdapter` and the page bridge admit at most one identity- and structure-verified passive Graph per conversation epoch with Chrome/Firefox transport parity and zero extension network requests or POST observation. Since ADR-0020 the bridge also accepts a payload-declared current conversation id when the same-origin GET URL did not carry it; declared-other-id payloads are counted as rejected and never remembered.
 - The route contract reads a safe token after semantic `c` or `conversation` at any path depth. `/c/<id>`, `/conversation/<id>` and `/g/.../c/<id>` share the same rule; `/g/<id>`, `/share/<id>` and query-only identity are not canonical Conversation Documents. URL-stable pages instead use a Runtime page identity for local content.
 - `ChatGPTConversationContentRuntime` owns page/canonical identity, History/navigation signal ordering and epoch fencing; the production content chain contains no Coordinator or polling RouteWatcher.
 - `ChatGPTPageIndex` is the only Page Monitor; `ChatGPTConversationHostMonitor` carries split-hydration identity and generation facts, applies pool-tail order, quiet/completion, compiler-budget and surface-revision fences, and atomically admits a stable DOM batch without requiring the toolbar action row.

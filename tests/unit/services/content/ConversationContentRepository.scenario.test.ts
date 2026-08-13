@@ -1083,6 +1083,35 @@ describe('ConversationContentRepository', () => {
         });
     });
 
+    it('re-arms a failed baseline peek on demand but never a closed gate', async () => {
+        const ref = document('conversation-gate-reopen');
+        let attempts = 0;
+        const readBaseline = vi.fn(async () => {
+            attempts += 1;
+            return attempts >= 2 ? candidate(ref, 'Answer after retry') : null;
+        });
+        const repository = new ConversationContentRepository({
+            resolveDocument: () => ref,
+            readBaseline,
+        });
+
+        const first = await repository.enterCurrentEpoch();
+        expect(first.kind).toBe('unavailable');
+        expect(readBaseline).toHaveBeenCalledTimes(1);
+
+        repository.reopenBaselineGate();
+        const second = await repository.enterCurrentEpoch();
+        expect(second.kind).toBe('ready');
+        expect(readBaseline).toHaveBeenCalledTimes(2);
+
+        // An accepted Graph closes the gate; re-arming is a no-op and the
+        // accepted baseline stays authoritative for the epoch.
+        repository.reopenBaselineGate();
+        const third = await repository.enterCurrentEpoch();
+        expect(readBaseline).toHaveBeenCalledTimes(2);
+        expect(third.kind).toBe('ready');
+    });
+
     it('re-evaluates deferred host observations on demand and reports the remaining count', async () => {
         const ref = document('conversation-deferred-reevaluation');
         const repository = new ConversationContentRepository({

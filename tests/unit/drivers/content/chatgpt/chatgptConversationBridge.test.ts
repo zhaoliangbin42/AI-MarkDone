@@ -1304,6 +1304,7 @@ describe('ChatGPT conversation bridge', () => {
 
     it('does not inspect responses outside the conversation graph transport', async () => {
         const conversationId = '69e8d157-5fec-839c-9124-2179ba8b7d7c';
+        history.replaceState({}, '', '/');
         const hostResponse = new Response(JSON.stringify({ state: 'private' }), {
             status: 200,
             headers: { 'Content-Type': 'application/json' },
@@ -1321,6 +1322,28 @@ describe('ChatGPT conversation bridge', () => {
         expect(returned).toBe(hostResponse);
         expect(cloneSpy).not.toHaveBeenCalled();
         expect(snapshot.ok).toBe(false);
+    });
+
+    it('parses but never remembers a graph-less JSON GET while on a canonical conversation', async () => {
+        const conversationId = '69e8d157-5fec-839c-9124-2179ba8b7d7c';
+        history.replaceState({}, '', `/c/${conversationId}`);
+        const hostResponse = new Response(JSON.stringify({ state: 'private' }), {
+            status: 200,
+            headers: { 'Content-Type': 'application/json' },
+        });
+        const fetchMock = vi.fn(async () => hostResponse);
+        Object.defineProperty(window, 'fetch', { configurable: true, value: fetchMock });
+        vi.stubGlobal('fetch', fetchMock);
+
+        installBridge();
+        await window.fetch('/api/session-state');
+        await new Promise((resolve) => window.setTimeout(resolve, 0));
+        const snapshot = await requestSnapshot(conversationId);
+
+        expect(snapshot.ok).toBe(false);
+        const diagnostics = await requestSnapshot(conversationId, { type: 'diagnostics' });
+        expect(diagnostics.diagnostics.graphsAccepted).toBe(0);
+        expect(diagnostics.diagnostics.observedEligibleGets).toBe(1);
     });
 
     it('does not inspect a cross-origin conversation write response', async () => {
@@ -1499,7 +1522,7 @@ describe('ChatGPT conversation bridge', () => {
 
         expect(response.ok).toBe(true);
         expect(response.diagnostics).toMatchObject({
-            version: 6,
+            version: 7,
             observedEligibleGets: 0,
             graphsAccepted: 0,
             graphsRejected: 0,
@@ -1603,5 +1626,95 @@ describe('ChatGPT conversation bridge', () => {
             window.removeEventListener('aimd:chatgpt-conversation-bridge:bootstrap-error', listener);
             vi.unstubAllGlobals();
         }
+    });
+
+    it('captures a Graph whose GET fired before the URL carried the identity, matching by payload-declared id', async () => {
+        const conversationId = '69e8d157-5fec-839c-9124-2179ba8b7d7c';
+        history.replaceState({}, '', `/c/${conversationId}`);
+        const fetchMock = vi.fn(async () => new Response(JSON.stringify(graphPayload(conversationId, 'Late-bound question', 'Late-bound answer')), {
+            status: 200,
+            headers: { 'Content-Type': 'application/json' },
+        }));
+        Object.defineProperty(window, 'fetch', { configurable: true, value: fetchMock });
+        vi.stubGlobal('fetch', fetchMock);
+
+        installBridge();
+        // A generic same-origin GET whose URL never carries the conversation id.
+        await window.fetch('/backend-api/generic-snapshot');
+        await new Promise((resolve) => window.setTimeout(resolve, 0));
+        const response = await requestSnapshot(conversationId);
+
+        expect(response.ok).toBe(true);
+        expect(response.snapshot.rounds).toHaveLength(1);
+        expect(response.snapshot.rounds[0]).toMatchObject({
+            userPrompt: 'Late-bound question',
+            assistantContent: 'Late-bound answer',
+        });
+        const diagnostics = await requestSnapshot(conversationId, { type: 'diagnostics' });
+        expect(diagnostics.diagnostics.graphsAccepted).toBe(1);
+    });
+
+    it('ignores graph-shaped payloads whose declared identity belongs to another conversation', async () => {
+        const conversationId = '69e8d157-5fec-839c-9124-2179ba8b7d7c';
+        const otherId = '71e8d157-5fec-839c-9124-2179ba8b7d7d';
+        history.replaceState({}, '', `/c/${conversationId}`);
+        const fetchMock = vi.fn(async () => new Response(JSON.stringify(graphPayload(otherId, 'Other question', 'Other answer')), {
+            status: 200,
+            headers: { 'Content-Type': 'application/json' },
+        }));
+        Object.defineProperty(window, 'fetch', { configurable: true, value: fetchMock });
+        vi.stubGlobal('fetch', fetchMock);
+
+        installBridge();
+        await window.fetch('/backend-api/generic-snapshot');
+        await new Promise((resolve) => window.setTimeout(resolve, 0));
+
+        const response = await requestSnapshot(conversationId);
+        expect(response.ok).toBe(false);
+        const diagnostics = await requestSnapshot(conversationId, { type: 'diagnostics' });
+        expect(diagnostics.diagnostics.graphsAccepted).toBe(0);
+        expect(diagnostics.diagnostics.graphsRejected).toBe(1);
+    });
+
+    it('keeps a revisited conversation graph through the next LRU eviction pass', async () => {
+        const conversationIds = [
+            '69e8d157-5fec-839c-9124-2179ba8b7d7c',
+            '71e8d157-5fec-839c-9124-2179ba8b7d7d',
+            '72e8d157-5fec-839c-9124-2179ba8b7d7e',
+            '73e8d157-5fec-839c-9124-2179ba8b7d7f',
+        ];
+        const payloadsByConversation = new Map(
+            conversationIds.map((id) => [id, graphPayload(id, `Question ${id}`, `Answer ${id}`)]),
+        );
+        const fetchMock = vi.fn(async (input: any) => {
+            const payload = payloadsByConversation.get(String(input).split('/').pop()) ?? null;
+            return new Response(JSON.stringify(payload), {
+                status: 200,
+                headers: { 'Content-Type': 'application/json' },
+            });
+        });
+        Object.defineProperty(window, 'fetch', { configurable: true, value: fetchMock });
+        vi.stubGlobal('fetch', fetchMock);
+
+        installBridge();
+        const visit = async (conversationId: string) => {
+            history.replaceState({}, '', `/c/${conversationId}`);
+            await observeConversationFetch(conversationId);
+        };
+        await visit(conversationIds[0]!);
+        await visit(conversationIds[1]!);
+        await visit(conversationIds[2]!);
+        // Re-visiting re-inserts the graph as the newest entry.
+        await visit(conversationIds[0]!);
+        await visit(conversationIds[3]!);
+
+        const diagnostics = await requestSnapshot(conversationIds[3]!, { type: 'diagnostics' });
+        expect(diagnostics.diagnostics.graphCount).toBe(3);
+        expect(diagnostics.diagnostics.evictions).toBe(1);
+        // The revisited conversation survived; the oldest un-revisited one did not.
+        const revisited = await requestSnapshot(conversationIds[0]!);
+        expect(revisited.ok).toBe(true);
+        const evicted = await requestSnapshot(conversationIds[1]!);
+        expect(evicted.ok).toBe(false);
     });
 });

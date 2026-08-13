@@ -1677,6 +1677,10 @@
         "message": "复制诊断",
         "description": "Message for settingsDiscoveryDiagnosticsCopy"
     },
+    "settingsDiscoveryDiagnosticsRetry": {
+        "message": "重新获取内容",
+        "description": "Message for settingsDiscoveryDiagnosticsRetry"
+    },
     "settingsDiscoveryDiagnosticsCopied": {
         "message": "已复制",
         "description": "Message for settingsDiscoveryDiagnosticsCopied"

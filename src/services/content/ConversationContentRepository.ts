@@ -248,6 +248,19 @@ export class ConversationContentRepository implements ConversationContentSourceV
         this.switchDocument(document);
     }
 
+    /**
+     * Re-arm one bounded baseline peek after a failed attempt. Only an OPEN
+     * gate (no accepted Graph) can be re-armed; an accepted Graph stays
+     * authoritative for the epoch. The re-armed read still only peeks passive
+     * bridge memory and never issues a request. Driver-side lifecycle signals
+     * (pageshow) and explicit user actions use this seam; the consumer-facing
+     * refresh() contract does not.
+     */
+    reopenBaselineGate(): void {
+        if (this.disposed || this.baselineGate === 'closed') return;
+        this.baselineAttempted = false;
+    }
+
     /** Start another id-less conversation inside the same page runtime. */
     beginNewPageConversation(): boolean {
         return this.resetCurrentPageConversation(true);

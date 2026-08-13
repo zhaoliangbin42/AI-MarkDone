@@ -80,6 +80,15 @@ export function buildManifest(target: ExtensionTarget, options: BuildManifestOpt
         }
     }
 
+    if (target === 'chrome') {
+        // Mid-session injection of the content scripts into already-open
+        // supported tabs (see src/runtimes/background/midSessionInjection.ts).
+        manifest.permissions = [
+            ...(manifest.permissions as string[]),
+            'scripting',
+        ];
+    }
+
     if (target === 'firefox' && googleDriveCloudBackup.enabled) {
         const webAuthClientId = googleDriveCloudBackup.webAuthClientId?.trim() || '';
         if (!isValidGoogleOAuthClientId(webAuthClientId)) {

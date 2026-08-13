@@ -1220,4 +1220,111 @@ describe('ChatGPT content discovery lifecycle', () => {
             adapter.dispose();
         }
     });
+
+    it('re-peeks passive bridge memory on pageshow after a missed capture', async () => {
+        document.documentElement.innerHTML = '<head></head><body><main></main></body>';
+        history.replaceState({}, '', '/c/695499b7-464c-8323-a998-119f661ac953');
+        const adapter = new ChatGPTAdapter();
+        const runtime = new ChatGPTConversationContentRuntime(adapter);
+        const conversationId = '695499b7-464c-8323-a998-119f661ac953';
+        const graphSnapshot = {
+            conversationId,
+            branchKey: 'assistant-1',
+            coverage: 'complete' as const,
+            rounds: [{
+                id: 'turn-1',
+                position: 1,
+                userPrompt: 'Question 1',
+                assistantContent: 'Answer 1',
+                preview: 'Question 1',
+                messageId: 'assistant-1',
+                userMessageId: 'user-1',
+                assistantMessageId: 'assistant-1',
+            }],
+        };
+        let peeks = 0;
+        const responder = ((event: Event) => {
+            const request = (event as CustomEvent<any>).detail;
+            if (request?.type !== 'peek') return;
+            peeks += 1;
+            window.dispatchEvent(new CustomEvent('aimd:chatgpt-conversation-bridge:response', {
+                detail: peeks === 1
+                    ? { requestId: request.requestId, ok: false, error: { code: 'BRIDGE_UNAVAILABLE', retryable: true } }
+                    : { requestId: request.requestId, ok: true, snapshot: graphSnapshot },
+            }));
+        }) as EventListener;
+        window.addEventListener('aimd:chatgpt-conversation-bridge:request', responder);
+
+        try {
+            runtime.init();
+            await runtime.source.refresh();
+            expect(runtime.source.read().kind).toBe('unavailable');
+            expect(peeks).toBe(1);
+
+            window.dispatchEvent(new Event('pageshow'));
+            await new Promise((resolve) => window.setTimeout(resolve, 0));
+            const state = runtime.source.read();
+            expect(state.kind).toBe('ready');
+            if (state.kind !== 'ready') throw new Error('expected re-peeked ready state');
+            expect(state.snapshot.turns).toHaveLength(1);
+            expect(peeks).toBe(2);
+        } finally {
+            window.removeEventListener('aimd:chatgpt-conversation-bridge:request', responder);
+            runtime.dispose();
+            adapter.dispose();
+        }
+    });
+
+    it('re-peeks on explicit retry only while the baseline gate is open', async () => {
+        document.documentElement.innerHTML = '<head></head><body><main></main></body>';
+        history.replaceState({}, '', '/c/695499b7-464c-8323-a998-119f661ac953');
+        const adapter = new ChatGPTAdapter();
+        const conversationId = '695499b7-464c-8323-a998-119f661ac953';
+        const graphSnapshot = {
+            conversationId,
+            branchKey: 'assistant-1',
+            coverage: 'complete' as const,
+            rounds: [{
+                id: 'turn-1',
+                position: 1,
+                userPrompt: 'Question 1',
+                assistantContent: 'Answer 1',
+                preview: 'Question 1',
+                messageId: 'assistant-1',
+                userMessageId: 'user-1',
+                assistantMessageId: 'assistant-1',
+            }],
+        };
+        let peeks = 0;
+        const responder = ((event: Event) => {
+            const request = (event as CustomEvent<any>).detail;
+            if (request?.type !== 'peek') return;
+            peeks += 1;
+            window.dispatchEvent(new CustomEvent('aimd:chatgpt-conversation-bridge:response', {
+                detail: peeks === 1
+                    ? { requestId: request.requestId, ok: false, error: { code: 'BRIDGE_UNAVAILABLE', retryable: true } }
+                    : { requestId: request.requestId, ok: true, snapshot: graphSnapshot },
+            }));
+        }) as EventListener;
+        window.addEventListener('aimd:chatgpt-conversation-bridge:request', responder);
+
+        try {
+            const runtime = new ChatGPTConversationContentRuntime(adapter);
+            runtime.init();
+            await runtime.source.refresh();
+            expect(runtime.source.read().kind).toBe('unavailable');
+            expect(peeks).toBe(1);
+
+            const retried = await runtime.retryBaselineDiscovery();
+            expect(retried.kind).toBe('ready');
+            expect(peeks).toBe(2);
+            // The accepted Graph closes the gate; further retries do not peek.
+            await runtime.retryBaselineDiscovery();
+            expect(peeks).toBe(2);
+            runtime.dispose();
+        } finally {
+            window.removeEventListener('aimd:chatgpt-conversation-bridge:request', responder);
+            adapter.dispose();
+        }
+    });
 });

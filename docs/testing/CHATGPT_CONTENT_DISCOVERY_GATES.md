@@ -100,6 +100,8 @@ The production lifecycle is defined by
 | Identity promotion | A later formal ID preserves bodies, projection ID and content token, then re-enables the existing bookmark path without changing its data/protocol |
 | DOM first, Graph later | Only a verified historical prefix is prepended; strong existing bodies are byte-for-byte preserved and weak-sealed bodies are upgraded by their overlapping Graph turns (ADR-0019); exactly one token update |
 | Invalid or failed baseline | No overlap, order/identity conflict, or baseline failure leaves the host-ready pool unchanged and still consumable |
+| Late-bound / payload-declared Graph | A same-origin JSON GET whose URL never carried the id still contributes the Graph when the payload declares the current conversation id; a graph-shaped payload declaring another conversation is counted rejected and never remembered; a non-canonical page parses nothing |
+| Gate re-arm | `pageshow` and the Settings retry action re-peek bridge memory only while the gate is open; an accepted Graph closes the gate and no later signal re-opens it; consumer `refresh()` never re-arms |
 | Existing Graph-backed conversation | Baseline provides virtualized history; second/third/fourth completed DOM turns append once and every consumer count agrees |
 | Streaming pressure | 1,000 mutations compile zero times before completion/quiet and at most once after stability; no bridge replay and no content-only Surface topology scan |
 | Split hydration and completion | Persistent user/assistant slots may hydrate across separate mutation batches; action anchor, generation end, or a later typed round is a strong completion signal, while an otherwise complete turn uses one bounded 2-second quiet confirmation |

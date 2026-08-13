@@ -8,6 +8,7 @@ import { handleSettingsRequest } from './handlers/settings';
 import { browserCompat } from '../../drivers/shared/browser';
 import { logger } from '../../core/logger';
 import { SUPPORTED_HOST_PATTERNS } from '../../../config/extension/hosts';
+import { injectIntoOpenSupportedTabs } from './midSessionInjection';
 
 function matchesHostPatterns(url: string | undefined, patterns: readonly string[]): boolean {
     if (!url) return false;
@@ -183,6 +184,7 @@ async function safeActionOperation(label: string, method: 'setIcon' | 'setPopup'
 const tabs = browserCompat.tabs;
 const action = browserCompat.action;
 const runtime = browserCompat.runtime;
+const nativeRuntime = (browserCompat as unknown as { runtime?: { onStartup?: { addListener: (listener: () => void) => void } } }).runtime;
 
 runtime?.onInstalled?.addListener?.((details: { reason?: string; previousVersion?: string }) => {
     const manifestVersion = String(runtime?.getManifest?.()?.version ?? '').trim();
@@ -195,6 +197,14 @@ runtime?.onInstalled?.addListener?.((details: { reason?: string; previousVersion
     }).catch(() => {
         // best-effort metadata write; keep runtime boot non-fatal.
     });
+    // Tabs that were already open never ran the static content scripts.
+    // Inject them once so enabling the extension mid-session works without
+    // a manual reload; tabs with a live content runtime are skipped.
+    void injectIntoOpenSupportedTabs();
+});
+
+nativeRuntime?.onStartup?.addListener?.(() => {
+    void injectIntoOpenSupportedTabs();
 });
 
 // Best-effort recovery: if a previous folder relocate was interrupted, replay it.
