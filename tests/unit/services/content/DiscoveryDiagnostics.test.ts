@@ -15,6 +15,7 @@ function repositoryFacts(overrides: Partial<DiscoveryRepositoryFactsV1> = {}): D
         turnCount: 0,
         deferredHostCount: 0,
         weakSealedCount: 0,
+        historyStatus: 'unknown',
         ...overrides,
     };
 }
@@ -31,40 +32,20 @@ describe('DiscoveryDiagnostics', () => {
         expect(snapshot.captureSignalCount).toBe(0);
     });
 
-    it('derives complete history from a source basis', () => {
+    it('publishes the repository-authoritative history status', () => {
         const diagnostics = new DiscoveryDiagnostics();
-        diagnostics.setRepositoryFacts(repositoryFacts({ basis: 'source' }));
+        diagnostics.setRepositoryFacts(repositoryFacts({ basis: 'source', historyStatus: 'complete' }));
         expect(diagnostics.snapshot().historyStatus).toBe('complete');
-    });
 
-    it('derives complete history from a hybrid basis', () => {
-        const diagnostics = new DiscoveryDiagnostics();
-        diagnostics.setRepositoryFacts(repositoryFacts({ basis: 'hybrid' }));
-        expect(diagnostics.snapshot().historyStatus).toBe('complete');
-    });
-
-    it('derives partial history for a canonical host-only pool', () => {
-        const diagnostics = new DiscoveryDiagnostics();
-        diagnostics.setRepositoryFacts(repositoryFacts({
-            basis: 'host',
-            documentKind: 'canonical',
-        }));
+        diagnostics.setRepositoryFacts(repositoryFacts({ basis: 'host', historyStatus: 'partial' }));
         expect(diagnostics.snapshot().historyStatus).toBe('partial');
-    });
-
-    it('derives unknown history for a page-identity host-only pool', () => {
-        const diagnostics = new DiscoveryDiagnostics();
-        diagnostics.setRepositoryFacts(repositoryFacts({
-            basis: 'host',
-            documentKind: 'page',
-        }));
-        expect(diagnostics.snapshot().historyStatus).toBe('unknown');
     });
 
     it('aggregates bridge and host monitor facts into one frozen snapshot', () => {
         const diagnostics = new DiscoveryDiagnostics();
         diagnostics.setRepositoryFacts(repositoryFacts({
             basis: 'host',
+            historyStatus: 'partial',
             turnCount: 3,
             deferredHostCount: 2,
         }));

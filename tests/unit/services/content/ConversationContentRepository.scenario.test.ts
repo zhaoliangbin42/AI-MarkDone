@@ -1112,6 +1112,53 @@ describe('ConversationContentRepository', () => {
         expect(third.kind).toBe('ready');
     });
 
+    it('tracks historyStatus from unknown to partial to complete', async () => {
+        let current: ConversationDocumentRefV1 | null = pageDocument('history-status-page');
+        const canonical = document('conversation-history-status');
+        let baselineAttempts = 0;
+        const repository = new ConversationContentRepository({
+            resolveDocument: () => current,
+            readBaseline: async () => {
+                baselineAttempts += 1;
+                return baselineAttempts >= 2
+                    ? completeCandidate(canonical, ['Full answer 0', 'Answer 1'])
+                    : null;
+            },
+        });
+
+        const host = repository.ingestHostTurn({
+            turn: hostTurn(1, 'Answer 1'),
+            semanticDigest: 'history-status-host-1',
+            captureId: 'history-status-host-1',
+            revision: 1,
+            predecessorAssistantMessageId: null,
+            completionEvidence: 'strong',
+        });
+        expect(host.kind).toBe('ready');
+        if (host.kind !== 'ready') throw new Error('expected page host pool');
+        expect(host.snapshot.historyStatus).toBe('unknown');
+        expect(repository.readDiagnosticsFacts().historyStatus).toBe('unknown');
+        const pageToken = host.snapshot.contentToken;
+
+        // Identity promotion preserves the content token while the knowledge
+        // status narrows to partial: a canonical DOM-only pool with no Graph
+        // baseline yet.
+        current = canonical;
+        const promoted = await repository.enterCurrentEpoch();
+        expect(promoted.kind).toBe('ready');
+        if (promoted.kind !== 'ready') throw new Error('expected promoted pool');
+        expect(promoted.snapshot.historyStatus).toBe('partial');
+        expect(promoted.snapshot.contentToken).toBe(pageToken);
+
+        // The accepted Graph baseline proves the whole branch.
+        repository.reopenBaselineGate();
+        const complete = await repository.enterCurrentEpoch();
+        expect(complete.kind).toBe('ready');
+        if (complete.kind !== 'ready') throw new Error('expected graph-complete pool');
+        expect(complete.snapshot.historyStatus).toBe('complete');
+        expect(repository.readDiagnosticsFacts().historyStatus).toBe('complete');
+    });
+
     it('re-evaluates deferred host observations on demand and reports the remaining count', async () => {
         const ref = document('conversation-deferred-reevaluation');
         const repository = new ConversationContentRepository({

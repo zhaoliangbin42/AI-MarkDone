@@ -54,6 +54,8 @@ export type DiscoveryRepositoryFactsV1 = Readonly<{
     deferredHostCount: number;
     /** Turns admitted under bounded-quiet completion evidence only. */
     weakSealedCount: number;
+    /** Repository-authoritative whole-conversation knowledge status. */
+    historyStatus: DiscoveryHistoryStatusV1;
 }>;
 
 export type DiscoveryHostMonitorFactsV1 = Readonly<{

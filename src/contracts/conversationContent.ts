@@ -5,6 +5,7 @@
  */
 
 import type { SemanticContentProvenanceV1 } from './semanticContent';
+import type { DiscoveryHistoryStatusV1 } from './conversationDiscoveryDiagnostics';
 
 export type ConversationContentTokenV1 = string;
 
@@ -96,8 +97,17 @@ export type ConversationSnapshotV1 = Readonly<{
     /** Stable page/document projection identity used by async consumers. */
     projectionId?: string;
     contentToken: ConversationContentTokenV1;
-    /** Compatibility field; the maintained message cache is always complete. */
+    /** Bodies of every admitted turn are dense and complete. */
     coverage: 'complete';
+    /**
+     * Whether the pool is known to cover the whole conversation:
+     * 'complete' once a validated Graph baseline was accepted, 'partial'
+     * when a canonical conversation runs from stable DOM evidence only, and
+     * 'unknown' before a document identity binds or on a page-identity pool.
+     * Additive honesty field; snapshots that omit it are treated as
+     * 'unknown' by {@link getConversationHistoryStatusV1}.
+     */
+    historyStatus?: DiscoveryHistoryStatusV1;
     turns: readonly ConversationTurnV1[];
     /** Additive proof metadata. Older V1 snapshots may omit this field. */
     proof?: ConversationSnapshotProofV1;
@@ -173,6 +183,17 @@ export function getConversationDocumentIdentityKeyV1(
     return document.conversationId ?? document.key;
 }
 
+/**
+ * Whole-conversation knowledge status of a snapshot. Snapshots produced
+ * before the additive historyStatus field default to 'unknown': they do not
+ * claim knowledge they cannot prove.
+ */
+export function getConversationHistoryStatusV1(
+    snapshot: ConversationSnapshotV1,
+): DiscoveryHistoryStatusV1 {
+    return snapshot.historyStatus ?? 'unknown';
+}
+
 export function isConversationDocumentRefV1(value: unknown): value is ConversationDocumentRefV1 {
     if (!isRecord(value)) return false;
     if (
@@ -198,6 +219,12 @@ export function isConversationSnapshotV1(value: unknown): value is ConversationS
     if (value.projectionId !== undefined && !isNonEmptyString(value.projectionId)) return false;
     if (!isNonEmptyString(value.contentToken)) return false;
     if (value.coverage !== 'complete') return false;
+    if (
+        value.historyStatus !== undefined
+        && value.historyStatus !== 'unknown'
+        && value.historyStatus !== 'partial'
+        && value.historyStatus !== 'complete'
+    ) return false;
     if (!Array.isArray(value.turns)) return false;
     if (value.proof !== undefined && !isConversationSnapshotProofV1(value.proof)) return false;
 

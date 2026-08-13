@@ -16,7 +16,7 @@ import type {
     ConversationTurnReadPortV1,
     ConversationTurnReadResultV1,
 } from '../../contracts/conversationDiscovery';
-import type { DiscoveryRepositoryFactsV1 } from '../../contracts/conversationDiscoveryDiagnostics';
+import type { DiscoveryHistoryStatusV1, DiscoveryRepositoryFactsV1 } from '../../contracts/conversationDiscoveryDiagnostics';
 import type { ConversationTargetV1 } from '../../contracts/conversationMaterialization';
 
 export type { ConversationContentCandidateV1 } from '../../contracts/conversationContent';
@@ -84,6 +84,7 @@ export class ConversationContentRepository implements ConversationContentSourceV
     private flight: Flight | null = null;
     private baselineGate: BaselineGate = 'open';
     private baselineAttempted = false;
+    private baselineSource: 'graph' | 'dom' | null = null;
     private basis: ConversationSnapshotProofV1['basis'] | null = null;
     private turns: readonly ConversationTurnV1[] = Object.freeze([]);
     private readonly turnDigests = new Map<string, string>();
@@ -237,6 +238,9 @@ export class ConversationContentRepository implements ConversationContentSourceV
             turnCount: this.turns.length,
             deferredHostCount: this.pendingHost.size,
             weakSealedCount: this.weakSealedIds.size,
+            historyStatus: this.currentDocument
+                ? deriveHistoryStatus(this.baselineSource, this.currentDocument)
+                : 'unknown',
         };
     }
 
@@ -315,6 +319,7 @@ export class ConversationContentRepository implements ConversationContentSourceV
         this.baselineGate = 'open';
         this.baselineAttempted = false;
         this.basis = null;
+        this.baselineSource = null;
         this.turns = Object.freeze([]);
         this.turnDigests.clear();
         this.weakSealedIds.clear();
@@ -369,6 +374,7 @@ export class ConversationContentRepository implements ConversationContentSourceV
 
         if (!this.basis) {
             this.basis = 'host';
+            this.baselineSource = 'dom';
             this.startProjection();
         }
 
@@ -477,6 +483,7 @@ export class ConversationContentRepository implements ConversationContentSourceV
                 this.turnDigests.set(turn.identity.assistantMessageId, digestTurnContent(turn));
             }
             this.basis = 'hybrid';
+            this.baselineSource = 'graph';
             return true;
         }
         this.turns = Object.freeze(turns);
@@ -484,6 +491,7 @@ export class ConversationContentRepository implements ConversationContentSourceV
         this.weakSealedIds.clear();
         for (const turn of turns) this.turnDigests.set(turn.identity.assistantMessageId, digestTurnContent(turn));
         this.basis = 'source';
+        this.baselineSource = 'graph';
         this.startProjection();
         return true;
     }
@@ -586,11 +594,13 @@ export class ConversationContentRepository implements ConversationContentSourceV
     private buildProjectionSnapshot(): ConversationSnapshotV1 | null {
         if (!this.currentDocument || !this.basis || this.turns.length === 0) return null;
         const proof: ConversationSnapshotProofV1 = Object.freeze({ basis: this.basis });
+        const historyStatus = deriveHistoryStatus(this.baselineSource, this.currentDocument);
         const snapshotWithoutToken = {
             schemaVersion: 1 as const,
             document: this.currentDocument,
             projectionId: this.projectionId,
             coverage: 'complete' as const,
+            historyStatus,
             turns: this.turns,
             proof,
         };
@@ -658,6 +668,7 @@ export class ConversationContentRepository implements ConversationContentSourceV
         this.baselineGate = 'open';
         this.baselineAttempted = false;
         this.basis = null;
+        this.baselineSource = null;
         this.turns = Object.freeze([]);
         this.turnDigests.clear();
         this.weakSealedIds.clear();
@@ -672,6 +683,7 @@ export class ConversationContentRepository implements ConversationContentSourceV
         });
         if (preserveUnboundHostBuffer && this.pendingHost.size > 0) {
             this.basis = 'host';
+            this.baselineSource = 'dom';
             this.flushPendingHost();
             if (this.turns.length > 0) this.publishProjection();
         }
@@ -688,6 +700,7 @@ export class ConversationContentRepository implements ConversationContentSourceV
         this.baselineGate = 'open';
         this.baselineAttempted = false;
         this.basis = null;
+        this.baselineSource = null;
         this.turns = Object.freeze([]);
         this.turnDigests.clear();
         this.weakSealedIds.clear();
@@ -776,6 +789,22 @@ function toUnavailableReason(reason: ConversationContentAcquisitionReasonV1): Co
     return reason === 'source-timeout' ? 'source-unavailable' : reason;
 }
 
+/**
+ * Whole-conversation knowledge status. An accepted Graph baseline proves the
+ * full branch at capture time; a DOM-only pool on a canonical document only
+ * knows the mounted window; a page-identity document cannot be judged.
+ */
+function deriveHistoryStatus(
+    baselineSource: 'graph' | 'dom' | null,
+    document: ConversationDocumentRefV1,
+): DiscoveryHistoryStatusV1 {
+    if (baselineSource === 'graph') return 'complete';
+    if (baselineSource === 'dom') {
+        return (document.identityKind ?? 'canonical') === 'canonical' ? 'partial' : 'unknown';
+    }
+    return 'unknown';
+}
+
 function sameDisplayDocument(left: ConversationDocumentRefV1, right: ConversationDocumentRefV1): boolean {
     return left.key === right.key
         && left.platformId === right.platformId
@@ -835,6 +864,7 @@ function sameState(left: ConversationContentStateV1, right: ConversationContentS
     if (left.kind !== right.kind) return false;
     if (left.document?.key !== right.document?.key) return false;
     if (left.snapshot?.contentToken !== right.snapshot?.contentToken) return false;
+    if ((left.snapshot?.historyStatus ?? 'unknown') !== (right.snapshot?.historyStatus ?? 'unknown')) return false;
     if (JSON.stringify(left.snapshot?.proof) !== JSON.stringify(right.snapshot?.proof)) return false;
     if (left.kind === 'unavailable' && right.kind === 'unavailable') {
         return left.reason === right.reason && left.retryable === right.retryable;

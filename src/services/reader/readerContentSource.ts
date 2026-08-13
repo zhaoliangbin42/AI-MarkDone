@@ -17,6 +17,7 @@ import type {
 } from '../../contracts/conversationDiscovery';
 import {
     getConversationDocumentIdentityKeyV1,
+    getConversationHistoryStatusV1,
     getConversationSnapshotSourceQualityV1,
     getConversationTurnSourceQualityV1,
     type ConversationSnapshotSourceQualityV1,
@@ -48,6 +49,8 @@ export type ReaderContentSourceResult = CollectReaderItemsResult & {
     status?: ReaderContentSourceStatus;
     /** Canonical ChatGPT coverage; maintained conversation snapshots are complete. */
     coverage?: ConversationSnapshotV1['coverage'];
+    /** Whole-conversation knowledge status from the authoritative snapshot. */
+    historyStatus?: ConversationSnapshotV1['historyStatus'];
     /** Independent of coverage: whether every projected body is source-backed. */
     sourceQuality?: ConversationSnapshotSourceQualityV1;
     /** Optional diagnostic counts from a platform topology projection. */
@@ -301,6 +304,7 @@ function projectConversationContent(
         startIndex,
         metadataSource: 'chatgpt-content-v1',
         coverage: content.coverage,
+        historyStatus: getConversationHistoryStatusV1(snapshot),
         sourceQuality: content.sourceQuality,
         annotationDocument: {
             ...content.annotationDocument,

@@ -15,6 +15,7 @@ const EMPTY_REPOSITORY_FACTS: DiscoveryRepositoryFactsV1 = Object.freeze({
     turnCount: 0,
     deferredHostCount: 0,
     weakSealedCount: 0,
+    historyStatus: 'unknown',
 });
 
 const EMPTY_HOST_MONITOR_FACTS: DiscoveryHostMonitorFactsV1 = Object.freeze({
@@ -61,7 +62,7 @@ export class DiscoveryDiagnostics {
             schemaVersion: 1,
             generatedAt: Date.now(),
             basis: this.repositoryFacts.basis,
-            historyStatus: deriveHistoryStatus(this.repositoryFacts),
+            historyStatus: this.repositoryFacts.historyStatus,
             repository: this.repositoryFacts,
             hostMonitor: this.hostMonitorFacts,
             bridge: this.bridge,
@@ -69,18 +70,4 @@ export class DiscoveryDiagnostics {
             captureSignalCount: this.captureSignalCount,
         });
     }
-}
-
-/**
- * An accepted Graph baseline proves the full conversation branch at capture
- * time, so any 'source' or 'hybrid' basis means the maintained pool knows the
- * complete history. A 'host' pool on a canonical document only knows the
- * mounted DOM window, and a page-identity document cannot be judged at all.
- */
-function deriveHistoryStatus(facts: DiscoveryRepositoryFactsV1): DiscoveryDiagnosticsSnapshotV1['historyStatus'] {
-    if (facts.basis === 'source' || facts.basis === 'hybrid') return 'complete';
-    if (facts.basis === 'host') {
-        return facts.documentKind === 'canonical' ? 'partial' : 'unknown';
-    }
-    return 'unknown';
 }
