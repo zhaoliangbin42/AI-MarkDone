@@ -138,7 +138,6 @@
   - 通过 `readerSession:*` protocol 为 detached Reader extension page 维护 `sessionId + sourceTabId + readerTabId` 绑定，并把 refresh/draft/beforeSend/send/locate 请求路由回源 ChatGPT content runtime
   - 对已关闭、discard/freeze 恢复中、content script 暂不可达的 tab 做 best-effort 静默降级
   - 在启动时执行 best-effort journal recovery
-  - 在 `onInstalled`（install/update）与 `onStartup` 时向已打开的 supported tabs 做一次 **mid-session injection**（ADR-0020 配套）：先用 `ping` 探测 tab 是否已有 live content runtime，没有才按序注入 `page-bridges/chatgpt-conversation-bootstrap.js` 与 `content.js`（Chrome MV3 走 `scripting.executeScript`，需要 manifest `scripting` 权限；Firefox MV2 走 `tabs.executeScript`）。同一次 background 生命周期内串行化，避免 install 与 startup 竞态重复注入；已运行扩展的 tab 跳过，不产生二次初始化。
 
 ---
 
