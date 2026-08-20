@@ -92,6 +92,21 @@ describe('ReaderPanel comments', () => {
         clearReaderCommentScope(scopeId);
     });
 
+    it('runs one persistent comment pass after content rendering', async () => {
+        const panel = new ReaderPanel();
+        await panel.show(
+            [{ id: 'a', userPrompt: 'Q1', content: 'content' }],
+            0,
+            'light',
+        );
+
+        const syncCommentUi = vi.spyOn(panel as any, 'syncCommentUi');
+        await (panel as any).renderCurrentContent();
+
+        expect(syncCommentUi).toHaveBeenCalledTimes(1);
+        panel.hide();
+    });
+
     afterEach(() => {
         clearReaderCommentScope(scopeId);
         document.querySelector('#aimd-reader-panel-host')?.remove();
@@ -121,6 +136,7 @@ describe('ReaderPanel comments', () => {
 
         const getSelectionSpy = vi.spyOn(window, 'getSelection').mockReturnValue(createSelection(range));
         document.dispatchEvent(new Event('selectionchange'));
+        document.dispatchEvent(new Event('pointerup'));
         await Promise.resolve();
 
         const commentActions = shadow.querySelectorAll<HTMLButtonElement>('.reader-comment-action__button');
@@ -182,6 +198,7 @@ describe('ReaderPanel comments', () => {
 
         const getSelectionSpy = vi.spyOn(window, 'getSelection').mockReturnValue(createSelection(range));
         document.dispatchEvent(new Event('selectionchange'));
+        document.dispatchEvent(new Event('pointerup'));
         await Promise.resolve();
 
         shadow.querySelectorAll<HTMLButtonElement>('.reader-comment-action__button')[1]!.click();
@@ -264,6 +281,7 @@ describe('ReaderPanel comments', () => {
 
         const getSelectionSpy = vi.spyOn(window, 'getSelection').mockReturnValue(createSelection(range));
         document.dispatchEvent(new Event('selectionchange'));
+        document.dispatchEvent(new Event('pointerup'));
         await Promise.resolve();
 
         shadow.querySelectorAll<HTMLButtonElement>('.reader-comment-action__button')[1]!.click();
@@ -328,6 +346,7 @@ describe('ReaderPanel comments', () => {
 
         const getSelectionSpy = vi.spyOn(window, 'getSelection').mockReturnValue(createSelection(range));
         document.dispatchEvent(new Event('selectionchange'));
+        document.dispatchEvent(new Event('pointerup'));
         await Promise.resolve();
 
         shadow.querySelectorAll<HTMLButtonElement>('.reader-comment-action__button')[1]!.click();
@@ -387,6 +406,7 @@ describe('ReaderPanel comments', () => {
 
         const getSelectionSpy = vi.spyOn(window, 'getSelection').mockReturnValue(createSelection(range));
         document.dispatchEvent(new Event('selectionchange'));
+        document.dispatchEvent(new Event('pointerup'));
         await Promise.resolve();
 
         shadow.querySelectorAll<HTMLButtonElement>('.reader-comment-action__button')[1]!.click();
@@ -665,6 +685,7 @@ describe('ReaderPanel comments', () => {
 
         const getSelectionSpy = vi.spyOn(window, 'getSelection').mockReturnValue(createSelection(range));
         document.dispatchEvent(new Event('selectionchange'));
+        document.dispatchEvent(new Event('pointerup'));
         await Promise.resolve();
 
         shadow.querySelectorAll<HTMLButtonElement>('.reader-comment-action__button')[1]!.click();
@@ -762,6 +783,7 @@ describe('ReaderPanel comments', () => {
         const getSelectionSpy = vi.spyOn(window, 'getSelection').mockReturnValue(createSelection(range));
         for (const text of ['First note', 'Second note']) {
             document.dispatchEvent(new Event('selectionchange'));
+            document.dispatchEvent(new Event('pointerup'));
             await Promise.resolve();
             const actionButtons = shadow.querySelectorAll<HTMLButtonElement>('.reader-comment-action__button');
             expect(actionButtons).toHaveLength(3);
@@ -814,6 +836,7 @@ describe('ReaderPanel comments', () => {
 
         const getSelectionSpy = vi.spyOn(window, 'getSelection').mockReturnValue(createSelection(range));
         document.dispatchEvent(new Event('selectionchange'));
+        document.dispatchEvent(new Event('pointerup'));
         await Promise.resolve();
 
         shadow.querySelectorAll<HTMLButtonElement>('.reader-comment-action__button')[1]!.click();
@@ -877,10 +900,12 @@ describe('ReaderPanel comments', () => {
             .mockReturnValueOnce(createSelection(labelRange));
 
         document.dispatchEvent(new Event('selectionchange'));
+        document.dispatchEvent(new Event('pointerup'));
         await Promise.resolve();
         expect(shadow.querySelectorAll('.reader-comment-action__button')).toHaveLength(0);
 
         document.dispatchEvent(new Event('selectionchange'));
+        document.dispatchEvent(new Event('pointerup'));
         await Promise.resolve();
         expect(shadow.querySelectorAll('.reader-comment-action__button')).toHaveLength(0);
 

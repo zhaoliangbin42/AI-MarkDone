@@ -1,5 +1,16 @@
 # Changelog
 
+# 5.3.0
+2026-08-20
+
+Hi everyone. The website received some updates last week. In short, the page became a little more “lazy,” which meant that the previous proactive content-discovery path could fail in some situations, such as when the network was slow, leaving only the fallback strategy active. The fallback strategy simply reads content already loaded on the page, so it cannot read content that has not loaded yet. In that situation, the directory rail can show only entries for the loaded content instead of the entire conversation. We have now strengthened the content-discovery path, which should resolve this issue. Please continue to send feedback.
+
+- Added Reader reading-position memory for the current page lifecycle; refreshing the page resets it. (Thanks to QQ user @1.)
+- Added direct annotations on ChatGPT pages, with persistence across page refreshes and page switches.
+- Fixed incomplete directory entries.
+- Fixed several known issues.
+- Updated the sponsor thank-you list. Thank you everyone for your support—it makes me very happy!
+
 # 5.2.1
 2026-08-11
 

@@ -62,6 +62,39 @@ describe('ChatGPTPageIndex', () => {
         expect(changed.map((round) => round.id)).toEqual(['assistant-1', 'assistant-2']);
     });
 
+    it('does not drop a newly mounted role-shaped round after wrapper-shaped history', async () => {
+        const main = document.querySelector('main');
+        if (!(main instanceof HTMLElement)) throw new Error('fixture main is missing');
+        main.innerHTML = `
+            <section data-testid="conversation-turn-1" data-turn="user" data-turn-id="turn-1">
+                <div data-message-author-role="user" data-message-id="user-1">Prompt 1</div>
+            </section>
+            <section data-testid="conversation-turn-2" data-turn="assistant" data-turn-id="turn-1">
+                <div data-message-author-role="assistant" data-message-id="assistant-1">
+                    <div class="markdown prose">Answer 1</div>
+                </div>
+                <div class="z-0 flex"><button data-testid="copy-turn-action-button">Copy</button></div>
+            </section>
+        `;
+        expect(collectChatGPTDomRoundRefs(adapter).map((round) => round.identity.assistantMessageId)).toEqual([
+            'assistant-1',
+        ]);
+
+        main.insertAdjacentHTML('beforeend', `
+            <div data-message-author-role="user" data-message-id="user-2">Prompt 2</div>
+            <div data-message-author-role="assistant" data-message-id="assistant-2">
+                <div class="markdown prose">Answer 2</div>
+                <div class="z-0 flex"><button data-testid="copy-turn-action-button">Copy</button></div>
+            </div>
+        `);
+        await deliverMutations();
+
+        expect(collectChatGPTDomRoundRefs(adapter).map((round) => round.identity.assistantMessageId)).toEqual([
+            'assistant-1',
+            'assistant-2',
+        ]);
+    });
+
     it('shares the same mapped turn snapshot across toolbar, directory, and navigation callers', () => {
         const firstTurns = collectConversationTurnRefs(adapter);
         const secondTurns = collectConversationTurnRefs(adapter);

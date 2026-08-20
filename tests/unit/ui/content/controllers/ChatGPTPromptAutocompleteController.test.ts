@@ -433,6 +433,9 @@ describe('ChatGPTPromptAutocompleteController', () => {
         const host = document.getElementById('aimd-chatgpt-prompt-popover-host')!;
         const shadow = host.shadowRoot!;
         expect(shadow.querySelector('[data-role="prompt-suggestion"]')?.textContent).toContain('Rewrite Clearly');
+        const hint = shadow.querySelector<HTMLElement>('[data-role="prompt-autocomplete-hint"]');
+        expect(hint?.textContent).toContain('\\');
+        expect(hint?.textContent).toContain('→');
 
         const event = new KeyboardEvent('keydown', { key: 'Tab', bubbles: true, cancelable: true });
         composer.dispatchEvent(event);
@@ -444,6 +447,79 @@ describe('ChatGPTPromptAutocompleteController', () => {
         expect(selection?.isCollapsed).toBe(true);
         expect(client.recordUse).toHaveBeenCalledWith('rewrite');
         expect(document.getElementById('aimd-chatgpt-prompt-popover-host')).toBeNull();
+        controller.dispose();
+    });
+
+    it('uses ArrowRight to insert the selected prompt composed with current annotations', async () => {
+        const composer = createComposer('\\re');
+        const prompt = createPrompt({
+            id: 'rewrite-with-annotations',
+            title: 'Rewrite Clearly',
+            triggerText: 'rewrite',
+            content: 'Rewrite this clearly:\n{{cursor}}',
+        });
+        const client = {
+            listPrompts: vi.fn(async () => [prompt]),
+            recordUse: vi.fn(async () => undefined),
+            savePrompt: vi.fn(),
+            deletePrompt: vi.fn(),
+            restoreDefaults: vi.fn(),
+        };
+        const adapter = {
+            getPlatformId: () => 'chatgpt',
+            getComposerInputElement: () => composer,
+            getComposerKind: () => 'contenteditable',
+        } as any;
+
+        const controller = new ChatGPTPromptAutocompleteController(adapter, client);
+        const composeAnnotations = vi.fn((userPrompt: string) => (
+            `${userPrompt.replace('{{cursor}}', '').trim()}\n\n1. **Selected quote**\n   Keep this context`
+        ));
+        controller.setAnnotationComposer(composeAnnotations);
+        controller.init();
+        composer.dispatchEvent(new Event('input', { bubbles: true }));
+        await tick();
+
+        const event = new KeyboardEvent('keydown', { key: 'ArrowRight', bubbles: true, cancelable: true });
+        composer.dispatchEvent(event);
+        await tick();
+
+        expect(event.defaultPrevented).toBe(true);
+        expect(composeAnnotations).toHaveBeenCalledWith(prompt.content);
+        expect(parseContenteditableToPlainText(composer)).toBe('Rewrite this clearly:\n\n1. **Selected quote**\n   Keep this context');
+        expect(client.recordUse).toHaveBeenCalledWith(prompt.id);
+        controller.dispose();
+    });
+
+    it('does not claim ArrowRight when the annotation provider has no current annotations', async () => {
+        const composer = createComposer('\\re');
+        const prompt = createPrompt({ id: 'rewrite-empty', triggerText: 'rewrite' });
+        const client = {
+            listPrompts: vi.fn(async () => [prompt]),
+            recordUse: vi.fn(async () => undefined),
+            savePrompt: vi.fn(),
+            deletePrompt: vi.fn(),
+            restoreDefaults: vi.fn(),
+        };
+        const adapter = {
+            getPlatformId: () => 'chatgpt',
+            getComposerInputElement: () => composer,
+            getComposerKind: () => 'contenteditable',
+        } as any;
+
+        const controller = new ChatGPTPromptAutocompleteController(adapter, client);
+        controller.setAnnotationComposer(() => '');
+        controller.init();
+        composer.dispatchEvent(new Event('input', { bubbles: true }));
+        await tick();
+
+        const event = new KeyboardEvent('keydown', { key: 'ArrowRight', bubbles: true, cancelable: true });
+        composer.dispatchEvent(event);
+        await tick();
+
+        expect(event.defaultPrevented).toBe(false);
+        expect(parseContenteditableToPlainText(composer)).toBe('\\re');
+        expect(client.recordUse).not.toHaveBeenCalled();
         controller.dispose();
     });
 

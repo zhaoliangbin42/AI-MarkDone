@@ -5,7 +5,36 @@ All notable changes to AI-MarkDone will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [Unreleased]
+## [5.3.0] - 2026-08-20
+
+ChatGPT's recent website updates made the page more incremental in some
+conditions, especially on slower connections. This release strengthens the
+content-discovery path so the directory can recover more of the conversation
+instead of relying only on content already mounted on the page.
+
+### Added
+- ChatGPT: A Content Discovery Status card in Settings shows which discovery path is active, whether hidden history may exist, and pending work, with a one-click "Retry discovery" action and a copyable diagnostics snapshot for feedback.
+- ChatGPT: Enabling the extension on an already-open ChatGPT page now activates it without a manual reload.
+- ChatGPT: Select any text in a reply to annotate it directly on the page. A floating toolbar uses the selection geometry (with a bounded pointer-release fallback), saved annotations pin a button in the gutter right of the text column, and a chip embedded in the input box (next to the Markdown enhancement button) shows the annotation count — click it to open the manager for current/all views, search, locate/edit, single delete, and current-conversation insertion. A master toggle in Settings → ChatGPT controls the whole feature (default on). Page annotations share the Reader's local storage, so they stay in sync across the page and the Reader.
+
+### Fixed
+- ChatGPT: Repaired passive conversation discovery so a complete later Graph can expand the shared content pool after DOM-first or partial Graph discovery, while preserving strong message bodies and keeping invalid branch/order changes fail-closed.
+- ChatGPT: A reply that briefly pauses while generating is no longer permanently recorded with incomplete content; when completion evidence arrives, the shared pool upgrades the body so word counts, Reader, copy, formulas, and export all self-correct.
+- ChatGPT: Replies that failed or were deferred during a quiet page now retry on a bounded schedule, so a finished reply no longer stays missing from the directory, Reader, word counts, or export.
+- ChatGPT: Recovered newly generated replies when ChatGPT mixes wrapper-shaped history with role-shaped DOM hydration; a late official action row now remains a bounded wake/completion fallback without becoming a second content source.
+- ChatGPT: Conversation history capture now also works when the page requests its data before the address shows the conversation id, and the current conversation's captured history is protected from being discarded during quick navigation.
+- ChatGPT: After a missed capture, reopening a restored page or pressing "Retry discovery" recovers the full conversation history without any additional conversation requests.
+- ChatGPT: Long-background pages now reconcile passive conversation evidence when a frozen document resumes, while coalescing nearby `resume`/`pageshow` signals into one recovery pass and keeping the zero-request boundary.
+- ChatGPT: Page annotation actions now reset cleanly after create/edit/cancel/delete, so a later selection can open the toolbar again reliably; the selection toolbar stays beside the mouse release position instead of being pinned above the selected text. Ordinary annotation insertion no longer adds an implicit Prompt. Toolbar, marker, and composer-chip actions now expose clear labels, and a stale selection reports a retryable failure instead of doing nothing.
+- ChatGPT: The page annotation manager no longer treats storage failures as an empty list, and the All view now shows and searches each annotation's source conversation.
+
+### Changed
+- General: Updated the sponsor thank-you list. Thank you everyone for your support—it makes me very happy!
+- Reader: Reading position now remains available across message switching, Reader close/reopen, in-page content replacement, and the detached/bookmark Reader profiles for the current page lifecycle; refreshing the page still resets it.
+- ChatGPT: The content snapshot now honestly reports whether the whole conversation is known, instead of implying completeness when only the visible part was discovered.
+- ChatGPT: Reduced page-side consumer work during selection and rendering by sharing one selection frame, deferring canonical Markdown/evidence work until Copy or Comment, separating Reader persistent annotations from transient selection UI, and consolidating toolbar, navigation, formula, composer, and overlay lifecycles without changing the content discovery contract.
+- ChatGPT: Further reduced steady-state page pressure by scoping rendered-unit candidate collection to the active selection, filtering composer rebinds to relevant mutations, short-circuiting delegated formula parsing outside enabled replies, and skipping unchanged toolbar/Reader annotation derivations.
+- Prompts: With autocomplete suggestions open, the `\\` trigger and keyboard actions are shown directly in the list; ArrowRight explicitly inserts the selected Prompt composed with current page annotations through the existing Reader export semantics, while Enter/Tab remain ordinary Prompt insertion.
 
 ## [5.2.1] - 2026-08-11
 

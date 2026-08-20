@@ -16,6 +16,7 @@ vi.mock('@/drivers/content/chatgpt/chatgptRoute', () => ({
 import { ChatGPTAdapter } from '@/drivers/content/adapters/sites/chatgpt';
 import { ChatGPTConversationSurface } from '@/drivers/content/chatgpt/ChatGPTConversationSurface';
 import { MessageToolbarOrchestrator } from '@/ui/content/controllers/MessageToolbarOrchestrator';
+import { ReaderPanel } from '@/ui/content/reader/ReaderPanel';
 import { SiteAdapter, type ThemeDetector } from '@/drivers/content/adapters/base';
 import { saveMessagesDialog } from '@/ui/content/export/SaveMessagesDialog';
 import { bookmarkSaveDialog } from '@/ui/content/bookmarks/save/bookmarkSaveDialogSingleton';
@@ -223,6 +224,111 @@ describe('MessageToolbarOrchestrator ChatGPT reader path', () => {
             expect.objectContaining({ profile: 'conversation-reader' }),
         );
         expect(shownItems[0].content).toBe('Formula: $x = y + z$');
+    });
+
+    it('preserves Reader position when reopening through the real toolbar trigger', async () => {
+        document.body.innerHTML = `
+          <div id="thread">
+            <article data-turn="user">
+              <div data-message-author-role="user">
+                <div class="whitespace-pre-wrap">Hello from user</div>
+              </div>
+            </article>
+            <article data-turn="assistant">
+              <div data-message-author-role="assistant" data-message-id="a1">
+                <div class="markdown prose">Hi</div>
+              </div>
+              <div class="z-0 flex">
+                <div><button data-testid="copy-turn-action-button">copy</button></div>
+              </div>
+            </article>
+          </div>
+        `;
+
+        const originalScrollHeight = Object.getOwnPropertyDescriptor(HTMLElement.prototype, 'scrollHeight');
+        const originalClientHeight = Object.getOwnPropertyDescriptor(HTMLElement.prototype, 'clientHeight');
+        const originalScrollTop = Object.getOwnPropertyDescriptor(HTMLElement.prototype, 'scrollTop');
+        const scrollTopByElement = new WeakMap<Element, number>();
+        Object.defineProperty(HTMLElement.prototype, 'scrollHeight', {
+            configurable: true,
+            get: () => 2000,
+        });
+        Object.defineProperty(HTMLElement.prototype, 'clientHeight', {
+            configurable: true,
+            get: () => 500,
+        });
+        Object.defineProperty(HTMLElement.prototype, 'scrollTop', {
+            configurable: true,
+            get() {
+                return scrollTopByElement.get(this) ?? 0;
+            },
+            set(value: number) {
+                scrollTopByElement.set(this, Number(value));
+            },
+        });
+
+        const adapter = new ChatGPTAdapter();
+        const readerPanel = new ReaderPanel();
+        const snapshot = {
+            conversationId: 'conv-1',
+            revision: 1,
+            proof: 'observed-graph' as const,
+            capturedAt: Date.now(),
+            branchKey: 'a1',
+            rounds: [{
+                id: 'round-1',
+                position: 1,
+                userPrompt: 'Hello from user',
+                assistantContent: 'Answer from the canonical Reader source',
+                preview: 'Hello from user',
+                messageId: 'a1',
+                userMessageId: 'u1',
+                assistantMessageId: 'a1',
+            }],
+        };
+        const conversationContentSource = createConversationSource(snapshot);
+        const orchestrator = createOrchestrator(adapter, { readerPanel, conversationContentSource });
+
+        const getReaderBody = (): HTMLElement | null => document
+            .querySelector<HTMLElement>('#aimd-reader-panel-host')
+            ?.shadowRoot
+            ?.querySelector<HTMLElement>('.reader-body') ?? null;
+
+        try {
+            orchestrator.init();
+            await vi.waitFor(() => {
+                expect(document.querySelector<HTMLElement>('[data-aimd-role="message-toolbar"]')).toBeTruthy();
+            });
+            const readerButton = document
+                .querySelector<HTMLElement>('[data-aimd-role="message-toolbar"]')
+                ?.shadowRoot
+                ?.querySelector<HTMLButtonElement>('[data-action="reader"]');
+            expect(readerButton).toBeTruthy();
+
+            readerButton!.click();
+            await vi.waitFor(() => expect(getReaderBody()).toBeTruthy());
+            const firstBody = getReaderBody();
+            expect(firstBody).toBeTruthy();
+            firstBody!.scrollTop = 750;
+            firstBody!.dispatchEvent(new Event('scroll'));
+
+            readerButton!.click();
+            await vi.waitFor(() => expect(getReaderBody()?.scrollTop).toBe(750));
+        } finally {
+            orchestrator.dispose();
+            adapter.dispose();
+            const readerHost = document.querySelector<HTMLElement>('#aimd-reader-panel-host');
+            const readerWindow = readerHost?.shadowRoot?.querySelector<HTMLElement>('.panel-window');
+            readerPanel.hide();
+            readerWindow?.dispatchEvent(new Event('animationend', { bubbles: true }));
+            readerHost?.remove();
+            if (originalScrollHeight) Object.defineProperty(HTMLElement.prototype, 'scrollHeight', originalScrollHeight);
+            else Reflect.deleteProperty(HTMLElement.prototype, 'scrollHeight');
+            if (originalClientHeight) Object.defineProperty(HTMLElement.prototype, 'clientHeight', originalClientHeight);
+            else Reflect.deleteProperty(HTMLElement.prototype, 'clientHeight');
+            if (originalScrollTop) Object.defineProperty(HTMLElement.prototype, 'scrollTop', originalScrollTop);
+            else Reflect.deleteProperty(HTMLElement.prototype, 'scrollTop');
+        }
     });
 
     it('validates a fresh Reader result against the V1 content token when both source shapes are present', async () => {

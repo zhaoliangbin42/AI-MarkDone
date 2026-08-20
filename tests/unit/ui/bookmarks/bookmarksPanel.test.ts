@@ -595,7 +595,7 @@ describe('BookmarksPanel', () => {
         vi.mocked(bookmarksClient.getChangelogNotice).mockResolvedValueOnce({
             ok: true,
             data: {
-                pendingVersion: '5.2.1',
+                pendingVersion: '5.3.0',
                 lastShownVersion: null,
                 reason: 'update',
                 previousVersion: '4.4.6',
@@ -649,16 +649,16 @@ describe('BookmarksPanel', () => {
         const shadow = host.shadowRoot!;
         const modal = shadow.querySelector<HTMLElement>('.mock-modal');
 
-        expect(modal?.querySelector('.mock-modal__title-copy strong')?.textContent).toBe("What's new in AI-MarkDone 5.2.1");
-        expect(modal?.textContent).toContain('2026-08-11');
-        expect(modal?.textContent).toContain('directory rail failing to appear');
-        expect(modal?.textContent).toContain('page width not being restored');
+        expect(modal?.querySelector('.mock-modal__title-copy strong')?.textContent).toBe("What's new in AI-MarkDone 5.3.0");
+        expect(modal?.textContent).toContain('2026-08-20');
+        expect(modal?.textContent).toContain('Fixed incomplete directory entries');
+        expect(modal?.textContent).toContain('Fixed several known issues');
 
         const okButton = Array.from(modal?.querySelectorAll<HTMLButtonElement>('.mock-modal__button') ?? []).find((button) => button.textContent === 'OK');
         okButton?.click();
         await flushUi();
 
-        expect(bookmarksClient.ackChangelogNotice).toHaveBeenCalledWith('5.2.1');
+        expect(bookmarksClient.ackChangelogNotice).toHaveBeenCalledWith('5.3.0');
     });
 
     it('acks the notice and routes to the changelog tab from the modal secondary action', async () => {
@@ -666,7 +666,7 @@ describe('BookmarksPanel', () => {
         vi.mocked(bookmarksClient.getChangelogNotice).mockResolvedValueOnce({
             ok: true,
             data: {
-                pendingVersion: '5.2.1',
+                pendingVersion: '5.3.0',
                 lastShownVersion: null,
                 reason: 'update',
                 previousVersion: '4.4.6',
@@ -724,7 +724,7 @@ describe('BookmarksPanel', () => {
         viewAllButton?.click();
         await flushUi();
 
-        expect(bookmarksClient.ackChangelogNotice).toHaveBeenCalledWith('5.2.1');
+        expect(bookmarksClient.ackChangelogNotice).toHaveBeenCalledWith('5.3.0');
         expect(shadow.querySelector<HTMLElement>('.changelog-panel')?.dataset.active).toBe('1');
         expect(shadow.querySelector('.aimd-panel-title')?.textContent).toBe('Changelog');
     });
@@ -735,7 +735,7 @@ describe('BookmarksPanel', () => {
             .mockResolvedValueOnce({
                 ok: true,
                 data: {
-                pendingVersion: '5.2.1',
+                pendingVersion: '5.3.0',
                     lastShownVersion: null,
                     reason: 'update',
                     previousVersion: '4.4.6',
@@ -745,7 +745,7 @@ describe('BookmarksPanel', () => {
                 ok: true,
                 data: {
                     pendingVersion: null,
-                    lastShownVersion: '5.2.1',
+                    lastShownVersion: '5.3.0',
                     reason: null,
                     previousVersion: '4.4.6',
                 },

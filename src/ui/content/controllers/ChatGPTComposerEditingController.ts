@@ -57,10 +57,9 @@ import {
 import { InputEnhancementPopover } from '../components/InputEnhancementPopover';
 import { OverlaySession } from '../overlay/OverlaySession';
 import { t } from '../components/i18n';
+import { ChatGPTComposerBindingSource, type ChatGPTComposerInput } from './ChatGPTComposerBindingSource';
 
-type ComposerInput = HTMLElement | HTMLTextAreaElement | HTMLInputElement;
-
-const REBIND_DELAY_MS = 200;
+type ComposerInput = ChatGPTComposerInput;
 const FORMULA_REFRESH_DELAY_MS = 120;
 const FORMULA_HOVER_DELAY_MS = 160;
 const FORMULA_PREVIEW_MAX_SOURCE_LENGTH = 4000;
@@ -70,6 +69,7 @@ export type ChatGPTComposerEditingControllerOptions = {
     loadFormulaSnippets?: () => Promise<LatexSnippetCatalog>;
     renderFormula?: (options: FormulaRenderOptions) => Promise<FormulaSvgAsset>;
     prewarmFormula?: () => void;
+    bindingSource?: ChatGPTComposerBindingSource;
 };
 
 type FormulaSnippetSession = {
@@ -85,8 +85,8 @@ export class ChatGPTComposerEditingController {
     };
     private initialized = false;
     private composer: ComposerInput | null = null;
-    private observer: MutationObserver | null = null;
-    private rebindTimer: number | null = null;
+    private readonly bindingSource: ChatGPTComposerBindingSource;
+    private unsubscribeBinding: (() => void) | null = null;
     private inputEnhancementButton: InputEnhancementButton | null = null;
     private inputEnhancementPopover: InputEnhancementPopover | null = null;
     private inputEnhancementMountCleanup: (() => void) | null = null;
@@ -109,30 +109,29 @@ export class ChatGPTComposerEditingController {
     constructor(
         private readonly adapter: SiteAdapter,
         private readonly options: ChatGPTComposerEditingControllerOptions = {},
-    ) {}
+    ) {
+        this.bindingSource = options.bindingSource
+            ?? new ChatGPTComposerBindingSource(() => this.adapter.getComposerInputElement?.() ?? null);
+    }
 
     init(): void {
         if (this.initialized) return;
         this.initialized = true;
         this.bindComposer();
-        this.observeComposerReplacements();
+        this.unsubscribeBinding = this.bindingSource.subscribe(() => this.bindComposer());
     }
 
     dispose(): void {
         if (!this.initialized) return;
         this.initialized = false;
         this.detachComposer();
-        this.observer?.disconnect();
-        this.observer = null;
+        this.unsubscribeBinding?.();
+        this.unsubscribeBinding = null;
         this.clearFormulaTimers();
         this.formulaAssistant?.dispose();
         this.formulaAssistant = null;
         this.inputEnhancementGuideSession?.unmount();
         this.inputEnhancementGuideSession = null;
-        if (this.rebindTimer != null) {
-            window.clearTimeout(this.rebindTimer);
-            this.rebindTimer = null;
-        }
     }
 
     setInputEnhancementSettings(settings: ChatGPTInputEnhancementSettings): void {
@@ -332,21 +331,6 @@ export class ChatGPTComposerEditingController {
                 this.inputEnhancementGuideSession = null;
             },
         });
-    }
-
-    private observeComposerReplacements(): void {
-        if (this.observer || typeof MutationObserver !== 'function') return;
-        const target = document.body ?? document.documentElement;
-        this.observer = new MutationObserver(() => this.scheduleRebind());
-        this.observer.observe(target, { childList: true, subtree: true });
-    }
-
-    private scheduleRebind(): void {
-        if (!this.initialized || this.rebindTimer != null) return;
-        this.rebindTimer = window.setTimeout(() => {
-            this.rebindTimer = null;
-            this.bindComposer();
-        }, REBIND_DELAY_MS);
     }
 
     private onKeyDownCapture = (event: KeyboardEvent): void => {

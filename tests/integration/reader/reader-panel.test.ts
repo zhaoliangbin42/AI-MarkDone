@@ -350,6 +350,7 @@ describe('ReaderPanel (MVP)', () => {
 
         const getSelectionSpy = vi.spyOn(window, 'getSelection').mockReturnValue(selection);
         document.dispatchEvent(new Event('selectionchange'));
+        document.dispatchEvent(new Event('pointerup'));
         await Promise.resolve();
 
         const clipboardData = {
@@ -405,6 +406,7 @@ describe('ReaderPanel (MVP)', () => {
 
         const getSelectionSpy = vi.spyOn(window, 'getSelection').mockReturnValue(createSelection(range));
         document.dispatchEvent(new Event('selectionchange'));
+        document.dispatchEvent(new Event('pointerup'));
         await Promise.resolve();
 
         shadow.querySelector<HTMLButtonElement>('[data-action="reader-selection-copy"]')!.click();
@@ -418,6 +420,7 @@ describe('ReaderPanel (MVP)', () => {
         await Promise.resolve();
 
         document.dispatchEvent(new Event('selectionchange'));
+        document.dispatchEvent(new Event('pointerup'));
         await Promise.resolve();
         shadow.querySelector<HTMLButtonElement>('[data-action="reader-selection-stick"]')!.click();
         await Promise.resolve();

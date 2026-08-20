@@ -62,6 +62,8 @@ import { buildCommentsExport, normalizeCommentTemplate, normalizeReaderCommentEx
 import { ReaderCommentTemplateSettingsPopover } from '../../../reader/ReaderCommentTemplateSettingsPopover';
 import type { RuntimeClientFailure } from '../../../../../drivers/shared/clients/clientResult';
 import { getRuntimeFailurePresentation } from '../../../components/runtimeFailurePresentation';
+import type { DiscoveryDiagnosticsSnapshotV1 } from '../../../../../contracts/conversationDiscoveryDiagnostics';
+import { copyTextToClipboard } from '../../../../../drivers/content/clipboard/clipboard';
 
 export type SettingsDataState =
     | { kind: 'loading' }
@@ -150,6 +152,7 @@ type Refs = {
         atomicMarkdownCopyShortcut: SelectRef;
         inputEnhancement: HTMLInputElement;
         promptAutocomplete: HTMLInputElement;
+        pageAnnotationsEnabled: HTMLInputElement;
         showMessageStepper: HTMLInputElement;
         showPageBookmarkControl: HTMLInputElement;
         showDetachedReaderControl: HTMLInputElement;
@@ -198,11 +201,18 @@ export class SettingsTabView {
     private buttonsPageRoot: HTMLElement | null = null;
     private languageChangeRevision = 0;
     private languageSaveQueue: Promise<void> = Promise.resolve();
+    private readonly readDiscoveryDiagnostics: (() => DiscoveryDiagnosticsSnapshotV1 | null) | null;
+    private readonly retryBaselineDiscovery: (() => Promise<unknown> | void) | null;
+    private diagnosticsSummary: HTMLElement;
+    private diagnosticsCopyButton: HTMLButtonElement;
+    private diagnosticsRetryButton: HTMLButtonElement;
 
-    constructor(params: { modal: ModalHost; actions?: SettingsTabViewActions; onOpenPromptManager?: (anchor: HTMLElement) => Promise<void> | void }) {
+    constructor(params: { modal: ModalHost; actions?: SettingsTabViewActions; onOpenPromptManager?: (anchor: HTMLElement) => Promise<void> | void; readDiscoveryDiagnostics?: () => DiscoveryDiagnosticsSnapshotV1 | null; retryBaselineDiscovery?: () => Promise<unknown> | void }) {
         this.modal = params.modal;
         this.actions = params.actions ?? {};
         this.onOpenPromptManager = params.onOpenPromptManager;
+        this.readDiscoveryDiagnostics = params.readDiscoveryDiagnostics ?? null;
+        this.retryBaselineDiscovery = params.retryBaselineDiscovery ?? null;
 
         this.root = document.createElement('div');
         this.root.className = 'aimd-settings';
@@ -359,6 +369,11 @@ export class SettingsTabView {
             chatGptDirectoryGroup.body,
             t('chatgptPromptAutocompleteLabel'),
             t('chatgptPromptAutocompleteDesc'),
+        );
+        const chatGptPageAnnotationsEnabled = this.createToggle(
+            chatGptDirectoryGroup.body,
+            t('chatgptPageAnnotationsLabel'),
+            t('chatgptPageAnnotationsDesc'),
         );
         const chatGptArrowKeyMessageNavigation = this.createToggle(
             chatGptDirectoryGroup.body,
@@ -534,6 +549,36 @@ export class SettingsTabView {
 
         const advancedGroup = this.createAdvancedSettingsGroup();
 
+        const diagnosticsGroup = this.createGroup(Icons.info, t('settingsDiscoveryDiagnosticsLabel'));
+        const diagnosticsItem = document.createElement('div');
+        diagnosticsItem.className = 'settings-row settings-item';
+        const diagnosticsInfo = document.createElement('div');
+        diagnosticsInfo.className = 'settings-label settings-item-info';
+        const diagnosticsTitle = document.createElement('strong');
+        diagnosticsTitle.textContent = t('settingsDiscoveryDiagnosticsLabel');
+        const diagnosticsSummary = document.createElement('p');
+        diagnosticsSummary.className = 'reader-settings-summary';
+        diagnosticsSummary.dataset.role = 'settings-discovery-diagnostics-summary';
+        diagnosticsInfo.append(diagnosticsTitle, diagnosticsSummary);
+        const diagnosticsCopyButton = document.createElement('button');
+        diagnosticsCopyButton.type = 'button';
+        diagnosticsCopyButton.className = 'secondary-btn';
+        diagnosticsCopyButton.dataset.role = 'settings-discovery-diagnostics-copy';
+        diagnosticsCopyButton.textContent = t('settingsDiscoveryDiagnosticsCopy');
+        diagnosticsCopyButton.addEventListener('click', () => void this.copyDiscoveryDiagnostics());
+        const diagnosticsRetryButton = document.createElement('button');
+        diagnosticsRetryButton.type = 'button';
+        diagnosticsRetryButton.className = 'secondary-btn';
+        diagnosticsRetryButton.dataset.role = 'settings-discovery-diagnostics-retry';
+        diagnosticsRetryButton.textContent = t('settingsDiscoveryDiagnosticsRetry');
+        diagnosticsRetryButton.addEventListener('click', () => void this.retryDiscoveryBaseline());
+        diagnosticsItem.append(diagnosticsInfo, diagnosticsRetryButton, diagnosticsCopyButton);
+        diagnosticsGroup.body.appendChild(diagnosticsItem);
+        this.diagnosticsSummary = diagnosticsSummary;
+        this.diagnosticsCopyButton = diagnosticsCopyButton;
+        this.diagnosticsRetryButton = diagnosticsRetryButton;
+        this.refreshDiscoveryDiagnostics();
+
         content.append(
             platformsGroup.root,
             buttonsEntryGroup.root,
@@ -543,6 +588,7 @@ export class SettingsTabView {
             languageGroup.root,
             storageGroup.root,
             advancedGroup.root,
+            diagnosticsGroup.root,
         );
         scroll.append(content, buttonsContent);
         this.root.append(runtimeNotice, scroll);
@@ -585,6 +631,7 @@ export class SettingsTabView {
                 atomicMarkdownCopyShortcut: chatGptAtomicMarkdownCopyShortcut,
                 inputEnhancement: chatGptInputEnhancement.input,
                 promptAutocomplete: chatGptPromptAutocomplete.input,
+                pageAnnotationsEnabled: chatGptPageAnnotationsEnabled.input,
                 showMessageStepper: chatGptShowMessageStepper.input,
                 showPageBookmarkControl: chatGptShowPageBookmarkControl.input,
                 showDetachedReaderControl: chatGptShowDetachedReaderControl.input,
@@ -630,6 +677,7 @@ export class SettingsTabView {
         this.refs.chatgptDirectory.atomicMarkdownCopyShortcut.trigger.dataset.role = 'settings-chatgpt-atomic-markdown-copy-shortcut';
         this.refs.chatgptDirectory.inputEnhancement.dataset.role = 'settings-chatgpt-input-enhancement';
         this.refs.chatgptDirectory.promptAutocomplete.dataset.role = 'settings-chatgpt-prompt-autocomplete';
+        this.refs.chatgptDirectory.pageAnnotationsEnabled.dataset.role = 'settings-chatgpt-page-annotations';
         this.refs.chatgptDirectory.showMessageStepper.dataset.role = 'settings-chatgpt-show-message-stepper';
         this.refs.chatgptDirectory.showPageBookmarkControl.dataset.role = 'settings-chatgpt-show-page-bookmark-control';
         this.refs.chatgptDirectory.showDetachedReaderControl.dataset.role = 'settings-chatgpt-show-detached-reader-control';
@@ -923,6 +971,11 @@ export class SettingsTabView {
             this.settings.chatgptBehavior.promptAutocomplete = next;
             void this.actions.setChatGptBehaviorSettings?.({ promptAutocomplete: next });
         });
+        this.refs.chatgptDirectory.pageAnnotationsEnabled.addEventListener('change', () => {
+            const next = this.refs.chatgptDirectory.pageAnnotationsEnabled.checked;
+            this.settings.chatgptBehavior.pageAnnotationsEnabled = next;
+            void this.actions.setChatGptBehaviorSettings?.({ pageAnnotationsEnabled: next });
+        });
         this.refs.chatgptDirectory.showMessageStepper.addEventListener('change', () => {
             const next = this.refs.chatgptDirectory.showMessageStepper.checked;
             this.settings.chatgptBehavior.showMessageStepper = next;
@@ -1079,6 +1132,7 @@ export class SettingsTabView {
         );
         this.refs.chatgptDirectory.inputEnhancement.checked = Boolean(s.chatgptBehavior.inputEnhancement.available);
         this.refs.chatgptDirectory.promptAutocomplete.checked = Boolean(s.chatgptBehavior.promptAutocomplete);
+        this.refs.chatgptDirectory.pageAnnotationsEnabled.checked = Boolean(s.chatgptBehavior.pageAnnotationsEnabled);
         this.refs.chatgptDirectory.showMessageStepper.checked = Boolean(s.chatgptBehavior.showMessageStepper);
         this.refs.chatgptDirectory.showPageBookmarkControl.checked = Boolean(s.chatgptBehavior.showPageBookmarkControl);
         this.refs.chatgptDirectory.showDetachedReaderControl.checked = Boolean(s.chatgptBehavior.showDetachedReaderControl);
@@ -1110,6 +1164,7 @@ export class SettingsTabView {
         this.syncToggle(this.refs.chatgptDirectory.restorePositionAfterSend);
         this.syncToggle(this.refs.chatgptDirectory.inputEnhancement);
         this.syncToggle(this.refs.chatgptDirectory.promptAutocomplete);
+        this.syncToggle(this.refs.chatgptDirectory.pageAnnotationsEnabled);
         this.syncToggle(this.refs.chatgptDirectory.showMessageStepper);
         this.syncToggle(this.refs.chatgptDirectory.showPageBookmarkControl);
         this.syncToggle(this.refs.chatgptDirectory.showDetachedReaderControl);
@@ -1135,6 +1190,52 @@ export class SettingsTabView {
         const toggle = input.closest<HTMLElement>('.toggle-switch');
         if (!toggle) return;
         toggle.dataset.checked = input.checked ? '1' : '0';
+    }
+
+    private refreshDiscoveryDiagnostics(): void {
+        if (!this.diagnosticsSummary) return;
+        const snapshot = this.readDiscoveryDiagnostics?.() ?? null;
+        const hasRetry = Boolean(this.retryBaselineDiscovery);
+        this.diagnosticsRetryButton.hidden = !hasRetry;
+        if (!snapshot) {
+            this.diagnosticsSummary.textContent = t('settingsDiscoveryDiagnosticsUnavailable');
+            this.diagnosticsCopyButton.hidden = true;
+            return;
+        }
+        this.diagnosticsCopyButton.hidden = false;
+        const rejectionTotal = Object.values(snapshot.hostMonitor.compileRejections)
+            .reduce((sum, count) => sum + count, 0);
+        const parts = [
+            `basis=${snapshot.basis ?? 'none'}`,
+            `history=${snapshot.historyStatus}`,
+            `turns=${snapshot.repository.turnCount}`,
+            `deferred=${snapshot.repository.deferredHostCount}`,
+            `rejected=${rejectionTotal}`,
+            `bridge=${snapshot.bridgeUnavailable ? 'down' : (snapshot.bridge ? `v${snapshot.bridge.version}` : 'none')}`,
+        ];
+        this.diagnosticsSummary.textContent = `${t('settingsDiscoveryDiagnosticsDesc')} — ${parts.join(' · ')}`;
+    }
+
+    private async retryDiscoveryBaseline(): Promise<void> {
+        if (!this.retryBaselineDiscovery) return;
+        this.diagnosticsRetryButton.disabled = true;
+        try {
+            await this.retryBaselineDiscovery();
+            this.refreshDiscoveryDiagnostics();
+        } finally {
+            this.diagnosticsRetryButton.disabled = false;
+        }
+    }
+
+    private async copyDiscoveryDiagnostics(): Promise<void> {
+        const snapshot = this.readDiscoveryDiagnostics?.() ?? null;
+        if (!snapshot) return;
+        const ok = await copyTextToClipboard(JSON.stringify(snapshot, null, 2));
+        if (!ok) return;
+        this.diagnosticsCopyButton.textContent = t('settingsDiscoveryDiagnosticsCopied');
+        window.setTimeout(() => {
+            this.diagnosticsCopyButton.textContent = t('settingsDiscoveryDiagnosticsCopy');
+        }, 1500);
     }
 
     private createGroup(icon: string, title: string): { root: HTMLElement; body: HTMLElement } {

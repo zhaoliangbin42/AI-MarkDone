@@ -1,51 +1,43 @@
 import type { SiteAdapter } from '../../../drivers/content/adapters/base';
-import type { ContentSurfaceSelectionEvidenceV1 } from '../../../contracts/contentSurface';
 import type { ConversationContentSourceV1 } from '../../../contracts/conversationContent';
 import type { ConversationMaterializationPortV1 } from '../../../contracts/conversationMaterialization';
 import {
     DOMContentSurfaceAdapter,
     type ContentSurfaceAdapter,
-    type ContentSurfaceSelectionCapture,
 } from '../../../drivers/content/adapters/ContentSurfaceAdapter';
 import type { ChatGPTAtomicMarkdownCopyShortcut } from '../../../core/settings/types';
 import {
-    buildPageAtomicSelectionSnapshot,
-} from '../../../services/copy/atomicSelectionMarkdown';
+    PageMarkdownSelectionResolver,
+    type PageMarkdownSelectionSnapshot,
+} from '../selectionMarkdownSnapshot';
+import {
+    ChatGPTPageSelectionCoordinator,
+    type ChatGPTPageSelectionFrame,
+} from './ChatGPTPageSelectionCoordinator';
 import {
     copyCanonicalMarkdownToClipboard,
     formatCanonicalMarkdownForCopy,
 } from '../../../services/copy/canonicalMarkdownCopy';
 import {
-    resolveSelectedRenderedAtomicUnits,
     type RenderedAtomicUnit,
 } from '../../../services/reader/atomicSelection';
-import {
-    projectSurfaceSelectionToMarkdown,
-} from '../../../services/semantic-content/SurfaceProjection';
 import { showToast } from '../../../utils/toast';
 import { t } from '../components/i18n';
 
 const STYLE_ID = 'aimd-chatgpt-atomic-selection-style';
 const STATE_ATTRIBUTE = 'data-aimd-page-atomic-state';
 
-type PageMarkdownSelectionSnapshot = {
-    range: Range;
-    root: HTMLElement;
-    units: RenderedAtomicUnit[];
-    canonicalMarkdown: string;
-    evidence: ContentSurfaceSelectionEvidenceV1 | null;
-};
-
 export type ChatGPTAtomicSelectionControllerOptions = Readonly<{
     contentSource?: ConversationContentSourceV1 | null;
     materialization?: ConversationMaterializationPortV1 | null;
     surfaceAdapter?: ContentSurfaceAdapter;
+    selectionCoordinator?: ChatGPTPageSelectionCoordinator;
+    markdownResolver?: PageMarkdownSelectionResolver;
 }>;
 
 export class ChatGPTAtomicSelectionController {
     private readonly selectedElements = new Set<HTMLElement>();
     private initialized = false;
-    private rafId: number | null = null;
     private lastSelection: PageMarkdownSelectionSnapshot | null = null;
     private markdownCopyShortcut: ChatGPTAtomicMarkdownCopyShortcut = 'mod-shift-c';
     private pendingModCopy = false;
@@ -53,22 +45,40 @@ export class ChatGPTAtomicSelectionController {
     private readonly contentSource: ConversationContentSourceV1 | null;
     private readonly materialization: ConversationMaterializationPortV1 | null;
     private readonly surfaceAdapter: ContentSurfaceAdapter;
+    private readonly selectionCoordinator: ChatGPTPageSelectionCoordinator;
+    private readonly markdownResolver: PageMarkdownSelectionResolver;
+    private readonly ownsSelectionCoordinator: boolean;
+    private unsubscribeSelection: (() => void) | null = null;
 
     constructor(
-        private readonly adapter: SiteAdapter,
+        adapter: SiteAdapter,
         options: ChatGPTAtomicSelectionControllerOptions = {},
     ) {
         this.contentSource = options.contentSource ?? null;
         this.materialization = options.materialization ?? null;
         this.surfaceAdapter = options.surfaceAdapter
             ?? new DOMContentSurfaceAdapter(adapter, this.materialization);
+        this.ownsSelectionCoordinator = !options.selectionCoordinator;
+        this.selectionCoordinator = options.selectionCoordinator
+            ?? new ChatGPTPageSelectionCoordinator({
+                surfaceAdapter: this.surfaceAdapter,
+                materialization: this.materialization,
+            });
+        this.markdownResolver = options.markdownResolver
+            ?? new PageMarkdownSelectionResolver({
+                adapter,
+                contentSource: this.contentSource,
+                materialization: this.materialization,
+                surfaceAdapter: this.surfaceAdapter,
+            });
     }
 
     init(): void {
         if (this.initialized) return;
         this.initialized = true;
         this.ensureStyle();
-        document.addEventListener('selectionchange', this.handleSelectionChange);
+        if (this.ownsSelectionCoordinator) this.selectionCoordinator.init();
+        this.unsubscribeSelection = this.selectionCoordinator.subscribe(this.handleSelectionFrame);
         window.addEventListener('keydown', this.handleKeyDown);
         window.addEventListener('keyup', this.handleKeyUp);
         // ChatGPT may rewrite formula clipboard data from a document-level React handler.
@@ -78,14 +88,12 @@ export class ChatGPTAtomicSelectionController {
     dispose(): void {
         if (!this.initialized) return;
         this.initialized = false;
-        document.removeEventListener('selectionchange', this.handleSelectionChange);
+        this.unsubscribeSelection?.();
+        this.unsubscribeSelection = null;
         window.removeEventListener('keydown', this.handleKeyDown);
         window.removeEventListener('keyup', this.handleKeyUp);
         window.removeEventListener('copy', this.handleCopy);
-        if (this.rafId !== null) {
-            window.cancelAnimationFrame(this.rafId);
-            this.rafId = null;
-        }
+        if (this.ownsSelectionCoordinator) this.selectionCoordinator.dispose();
         this.applySelectedElements([]);
         this.clearSelectionSnapshot();
         document.getElementById(STYLE_ID)?.remove();
@@ -98,12 +106,8 @@ export class ChatGPTAtomicSelectionController {
         this.pendingModCopy = false;
     }
 
-    private readonly handleSelectionChange = (): void => {
-        if (this.rafId !== null) return;
-        this.rafId = window.requestAnimationFrame(() => {
-            this.rafId = null;
-            this.syncSelection();
-        });
+    private readonly handleSelectionFrame = (frame: ChatGPTPageSelectionFrame | null): void => {
+        this.syncSelection(frame);
     };
 
     private readonly handleKeyDown = (event: KeyboardEvent): void => {
@@ -158,21 +162,16 @@ export class ChatGPTAtomicSelectionController {
         }
     };
 
-    private syncSelection(): void {
-        const context = this.surfaceAdapter.captureSelection(window.getSelection());
-        if (context && this.lastSelection && this.isSameSelection(context, this.lastSelection)) {
-            this.applySelectedElements(this.lastSelection.units);
-            return;
-        }
-        const selectedUnits = context
-            ? resolveSelectedRenderedAtomicUnits(context.range, context.root)
-            : [];
-        const snapshot = context ? this.buildSelectionSnapshot(context, selectedUnits) : null;
+    private syncSelection(frame: ChatGPTPageSelectionFrame | null): void {
+        const selectedUnits = frame?.renderedAtomicUnits ?? [];
         // Atomic recognition is an independent visual contract. Canonical
         // projection controls Markdown copy eligibility only; a stale or
         // unresolved source must not erase a complete rendered atom.
         this.applySelectedElements(selectedUnits);
-        this.lastSelection = snapshot;
+        // Build the Markdown snapshot lazily on the copy path instead of
+        // compiling canonical Markdown on every selection frame (drag
+        // selection would otherwise recompile the whole turn per frame).
+        this.lastSelection = null;
     }
 
     private async handleMarkdownShortcut(snapshot: PageMarkdownSelectionSnapshot): Promise<void> {
@@ -193,61 +192,23 @@ export class ChatGPTAtomicSelectionController {
     }
 
     private resolveCurrentSelectionSnapshot(): PageMarkdownSelectionSnapshot | null {
-        const context = this.surfaceAdapter.captureSelection(window.getSelection());
-        if (!context) return null;
-        const selectedUnits = resolveSelectedRenderedAtomicUnits(context.range, context.root);
+        const frame = this.selectionCoordinator.refreshNow();
+        if (!frame) return null;
         const snapshot = this.lastSelection;
-        if (snapshot && this.isSameSelection(context, snapshot) && this.isSnapshotCurrent(snapshot)) {
+        if (snapshot && this.isSameFrame(frame, snapshot) && this.isSnapshotCurrent(snapshot)) {
             this.applySelectedElements(snapshot.units);
             return snapshot;
         }
-        const next = this.buildSelectionSnapshot(context, selectedUnits);
-        this.applySelectedElements(selectedUnits);
+        const next = this.markdownResolver.resolve(frame);
+        this.applySelectedElements(frame.renderedAtomicUnits);
+        this.lastSelection = next;
         return next;
     }
 
-    private buildSelectionSnapshot(
-        context: ContentSurfaceSelectionCapture,
-        selectedUnits: RenderedAtomicUnit[],
-    ): PageMarkdownSelectionSnapshot | null {
-        if (this.contentSource && this.materialization) {
-            if (!context.evidence) return null;
-            const semantic = projectSurfaceSelectionToMarkdown({
-                source: this.contentSource,
-                materialization: this.materialization,
-                evidence: context.evidence,
-            });
-            // Once canonical source ports are present, an unresolved or
-            // degraded projection must fail open. Reviving DOM reconstruction
-            // here would turn ambiguity into apparently canonical output.
-            if (semantic.status !== 'ready') return null;
-            return {
-                range: context.range.cloneRange(),
-                root: context.root,
-                units: selectedUnits,
-                canonicalMarkdown: semantic.markdown,
-                evidence: context.evidence,
-            };
-        }
-
-        const canonicalMarkdown = buildPageAtomicSelectionSnapshot({
-            adapter: this.adapter,
-            range: context.range,
-            root: context.root,
-        })?.canonicalMarkdown ?? '';
-        if (!canonicalMarkdown) return null;
-        return {
-            range: context.range.cloneRange(),
-            root: context.root,
-            units: selectedUnits,
-            canonicalMarkdown,
-            evidence: null,
-        };
-    }
-
     private hasCanonicalSurfaceEvidence(): boolean {
-        if (!this.contentSource || !this.materialization) return false;
-        return Boolean(this.surfaceAdapter.captureSelection(window.getSelection())?.evidence);
+        const frame = this.selectionCoordinator.refreshNow();
+        if (!frame) return false;
+        return this.markdownResolver.hasEvidence(frame);
     }
 
     private clearSelectionSnapshot(): void {
@@ -255,18 +216,18 @@ export class ChatGPTAtomicSelectionController {
         this.pendingModCopy = false;
     }
 
-    private isSameSelection(
-        context: ContentSurfaceSelectionCapture,
+    private isSameFrame(
+        frame: ChatGPTPageSelectionFrame,
         snapshot: PageMarkdownSelectionSnapshot,
     ): boolean {
         const left = snapshot.range;
-        const right = context.range;
-        return snapshot.root === context.root
+        const right = frame.location.range;
+        return snapshot.root === frame.location.root
             && left.startContainer === right.startContainer
             && left.startOffset === right.startOffset
             && left.endContainer === right.endContainer
             && left.endOffset === right.endOffset
-            && sameSurfaceEvidence(snapshot.evidence, context.evidence);
+            && snapshot.evidence === this.markdownResolver.resolve(frame)?.evidence;
     }
 
     private isSnapshotCurrent(snapshot: PageMarkdownSelectionSnapshot): boolean {
@@ -322,21 +283,6 @@ export class ChatGPTAtomicSelectionController {
 `;
         (document.head || document.documentElement).appendChild(style);
     }
-}
-
-function sameSurfaceEvidence(
-    left: ContentSurfaceSelectionEvidenceV1 | null,
-    right: ContentSurfaceSelectionEvidenceV1 | null,
-): boolean {
-    if (!left || !right) return left === right;
-    return left.contentToken === right.contentToken
-        && left.materializationToken === right.materializationToken
-        && left.surfaceToken === right.surfaceToken
-        && left.target.documentKey === right.target.documentKey
-        && left.target.assistantMessageId === right.target.assistantMessageId
-        && left.selector.exact === right.selector.exact
-        && left.selector.prefix === right.selector.prefix
-        && left.selector.suffix === right.selector.suffix;
 }
 
 function isChatGPTAtomicMarkdownCopyShortcut(value: unknown): value is ChatGPTAtomicMarkdownCopyShortcut {

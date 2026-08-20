@@ -5,6 +5,7 @@ import type {
 import type { ConversationMaterializationPortV1 } from '../../../contracts/conversationMaterialization';
 import type { ConversationDiscoveryPortV2 } from '../../../contracts/conversationDiscoveryV2';
 import type { SiteAdapter } from './base';
+import { emitContentPerformanceEvent } from '../performanceDiagnostics';
 
 const QUOTE_CONTEXT_LENGTH = 96;
 
@@ -15,8 +16,35 @@ export type ContentSurfaceSelectionCapture = Readonly<{
     evidence: ContentSurfaceSelectionEvidenceV1 | null;
 }>;
 
+/**
+ * The cheap half of a page selection.  It deliberately contains no text or
+ * semantic evidence so it can be produced once per animation frame while a
+ * user is dragging through a rendered response.
+ */
+export type ContentSurfaceSelectionLocation = Readonly<{
+    range: Range;
+    root: HTMLElement;
+    messageElement: HTMLElement;
+}>;
+
 export interface ContentSurfaceAdapter {
+    locateSelection(selection: Selection | null): ContentSurfaceSelectionLocation | null;
+    materializeSelection(location: ContentSurfaceSelectionLocation): ContentSurfaceSelectionCapture | null;
+    /** Compatibility entry point for callers that still need both phases. */
     captureSelection(selection: Selection | null): ContentSurfaceSelectionCapture | null;
+}
+
+/**
+ * Resolve the content root candidates for a message element using the same
+ * site-owned content selector that selection capture relies on. Shared so
+ * annotation re-anchoring never drifts from the capture path.
+ */
+export function listMessageContentRoots(site: SiteAdapter, messageElement: HTMLElement): HTMLElement[] {
+    const contentSelector = site.getMessageContentSelector();
+    return [
+        ...(messageElement.matches(contentSelector) ? [messageElement] : []),
+        ...Array.from(messageElement.querySelectorAll<HTMLElement>(contentSelector)),
+    ];
 }
 
 /**
@@ -91,7 +119,7 @@ export class DOMContentSurfaceAdapter implements ContentSurfaceAdapter {
         private readonly materialization: ConversationMaterializationPortV1 | null,
     ) {}
 
-    captureSelection(selection: Selection | null): ContentSurfaceSelectionCapture | null {
+    locateSelection(selection: Selection | null): ContentSurfaceSelectionLocation | null {
         if (!selection || selection.rangeCount !== 1 || selection.isCollapsed) return null;
         const range = selection.getRangeAt(0);
         if (range.collapsed) return null;
@@ -106,21 +134,35 @@ export class DOMContentSurfaceAdapter implements ContentSurfaceAdapter {
         if (this.site.isStreamingMessage(startMessage)) return null;
 
         const contentSelector = this.site.getMessageContentSelector();
-        const roots = [
-            ...(startMessage.matches(contentSelector) ? [startMessage] : []),
-            ...Array.from(startMessage.querySelectorAll<HTMLElement>(contentSelector)),
-        ];
-        const root = roots.find((candidate) => (
-            candidate.contains(range.startContainer) && candidate.contains(range.endContainer)
-        ));
-        if (!root) return null;
+        const root = startElement.closest<HTMLElement>(contentSelector);
+        const endRoot = endElement.closest<HTMLElement>(contentSelector);
+        if (!root || root !== endRoot || !startMessage.contains(root)) return null;
+        if (!root.contains(range.startContainer) || !root.contains(range.endContainer)) return null;
 
         return Object.freeze({
-            range,
+            range: range.cloneRange(),
             root,
             messageElement: startMessage,
-            evidence: this.captureSemanticEvidence(range, root, startMessage),
         });
+    }
+
+    materializeSelection(location: ContentSurfaceSelectionLocation): ContentSurfaceSelectionCapture | null {
+        emitContentPerformanceEvent({
+            kind: 'materialize',
+            rangeToStringCalls: 3,
+        });
+        if (!location.root.isConnected || !location.messageElement.isConnected) return null;
+        if (!location.root.contains(location.range.startContainer)
+            || !location.root.contains(location.range.endContainer)) return null;
+        return Object.freeze({
+            ...location,
+            evidence: this.captureSemanticEvidence(location.range, location.root, location.messageElement),
+        });
+    }
+
+    captureSelection(selection: Selection | null): ContentSurfaceSelectionCapture | null {
+        const location = this.locateSelection(selection);
+        return location ? this.materializeSelection(location) : null;
     }
 
     private captureSemanticEvidence(
@@ -236,6 +278,7 @@ function captureFormulaFragments(
     latex: string;
     isBlock: boolean;
 }> {
+    emitContentPerformanceEvent({ kind: 'formula-evidence', formulaScans: 1 });
     const parser = site.getMarkdownParserAdapter();
     if (!parser) return [];
 
@@ -252,7 +295,17 @@ function captureFormulaFragments(
     for (const candidate of candidates) {
         if (!parser.isMathNode(candidate)) continue;
         const extracted = parser.extractLatex(candidate);
-        const renderedText = normalizeSurfaceText(candidate.textContent ?? '');
+        // KaTeX keeps an accessibility MathML tree beside the visible HTML
+        // tree.  `textContent` on the container therefore contains both the
+        // TeX annotation and the rendered glyph text, which makes a fully
+        // selected visual formula look only partially selected.  Evidence is
+        // materialized on explicit actions, so prefer the visible `.katex-html`
+        // carrier and retain the old textContent fallback for other parsers.
+        const renderedText = normalizeSurfaceText(
+            candidate.querySelector<HTMLElement>('.katex-html')?.textContent
+                ?? candidate.textContent
+                ?? '',
+        );
         const latex = extracted?.latex.trim() ?? '';
         if (!latex || !renderedText || !isFullySelectedFormula(range, candidate, renderedText)) continue;
         fragments.push(Object.freeze({

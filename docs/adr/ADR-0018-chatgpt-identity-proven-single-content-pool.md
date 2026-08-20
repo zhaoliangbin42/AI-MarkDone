@@ -8,6 +8,17 @@ ADR-0005, ADR-0007, ADR-0009, ADR-0011, ADR-0013, ADR-0014, ADR-0015, and
 ADR-0017. ADR-0011 remains authoritative for the provider-neutral Semantic
 Content and source/surface proof contract only.
 
+The obtained-body immutability rule ("existing bodies never change") is
+narrowed by
+[ADR-0019](ADR-0019-completion-evidence-tiers-and-bounded-resweeps.md):
+weak-sealed turns admitted under bounded-quiet evidence may be upgraded in
+place by strictly stronger completion evidence for the same typed identity.
+The passive-Graph gate semantics are extended by
+[ADR-0020](ADR-0020-payload-declared-graph-identity-and-gate-rearm.md):
+the bridge additionally accepts payload-declared current-identity Graphs, and
+an OPEN gate may be re-armed by pageshow or the explicit Settings retry; an
+accepted Graph still closes the gate permanently for its epoch.
+
 ## Context
 
 ChatGPT can expose complete history through a website-owned JSON Graph while

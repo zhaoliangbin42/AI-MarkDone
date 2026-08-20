@@ -1,9 +1,20 @@
 (() => {
   const BRIDGE_KEY = '__AIMD_CHATGPT_CONVERSATION_BRIDGE__';
-  const BRIDGE_VERSION = 5;
+  const BRIDGE_VERSION = 7;
   const existingBridge = window[BRIDGE_KEY];
   if (existingBridge?.version === BRIDGE_VERSION) return;
   existingBridge?.dispose?.();
+
+  const MAX_RESPONSE_BYTES = 8 * 1024 * 1024;
+  const bridgeStats = {
+    observedEligibleGets: 0,
+    graphsAccepted: 0,
+    graphsRejected: 0,
+    capturesPublished: 0,
+    evictions: 0,
+    bytesSkipped: 0,
+    parseFailures: 0,
+  };
 
   const REQUEST_EVENT = 'aimd:chatgpt-conversation-bridge:request';
   const RESPONSE_EVENT = 'aimd:chatgpt-conversation-bridge:response';
@@ -363,6 +374,16 @@
     }
   }
 
+  function isSameOriginRequestUrl(value) {
+    if (typeof value !== 'string' || !value) return false;
+    try {
+      const url = new URL(value, window.location.href);
+      return url.origin === window.location.origin;
+    } catch {
+      return false;
+    }
+  }
+
   function requestCarriesConversationId(url, conversationId) {
     const decodedSegments = url.pathname
       .split('/')
@@ -381,7 +402,7 @@
     return false;
   }
 
-  function findObservedGraphPayloads(root, expectedConversationId) {
+  function findObservedGraphPayloads(root) {
     const queue = [{ value: root, depth: 0 }];
     const seen = new Set();
     const matches = [];
@@ -396,13 +417,7 @@
 
       const mapping = readRecord(candidate.mapping);
       const currentNodeId = getPayloadCurrentNodeId(candidate);
-      const candidateConversationId = getPayloadConversationId(candidate);
-      if (
-        mapping
-        && currentNodeId
-        && readRecord(mapping[currentNodeId])
-        && (!candidateConversationId || candidateConversationId === expectedConversationId)
-      ) {
+      if (mapping && currentNodeId && readRecord(mapping[currentNodeId])) {
         matches.push(candidate);
         // A Graph mapping can be large and cannot contain a competing wrapper
         // candidate. Keep the bounded search focused on sibling containers.
@@ -516,6 +531,7 @@
       const oldestConversationId = bridgeState.graphsByConversation.keys().next().value;
       if (!oldestConversationId) break;
       bridgeState.graphsByConversation.delete(oldestConversationId);
+      bridgeStats.evictions += 1;
     }
 
     const validatedProjection = buildRoundsFromPayload({
@@ -523,8 +539,13 @@
       current_node: nextCurrentNodeId,
       mapping: mergedMapping,
     });
-    if (!validatedProjection) return false;
+    if (!validatedProjection) {
+      bridgeStats.graphsRejected += 1;
+      return false;
+    }
 
+    bridgeStats.graphsAccepted += 1;
+    bridgeStats.capturesPublished += 1;
     window.dispatchEvent(new CustomEvent(CAPTURE_EVENT, {
       detail: JSON.stringify({
         kind: 'graph',
@@ -537,18 +558,38 @@
 
   async function captureObservedResponse(response, requestUrl, expectedConversationId, requestSequence) {
     if (!response?.ok) return;
-    const conversationId = getObservedConversationId(response.url || requestUrl);
-    if (!conversationId || conversationId !== expectedConversationId) return;
     const contentType = response.headers?.get?.('content-type') || '';
     if (!contentType.toLowerCase().includes('json')) return;
+    const contentLengthHeader = response.headers?.get?.('content-length') || '';
+    const contentLength = Number(contentLengthHeader);
+    if (Number.isFinite(contentLength) && contentLength > MAX_RESPONSE_BYTES) {
+      // Parsing a multi-megabyte Graph on the page's main thread can jank the
+      // host. A response this large is either an unusual payload or a host
+      // shape change; skip observation and keep the counter visible to the
+      // content runtime instead of silently spending main-thread time.
+      bridgeStats.bytesSkipped += 1;
+      return;
+    }
     try {
       const rawPayload = await response.clone().json();
-      const payloads = findObservedGraphPayloads(rawPayload, expectedConversationId);
+      const payloads = findObservedGraphPayloads(rawPayload);
+      const urlCarriedIdentity = getObservedConversationId(response.url || requestUrl) === expectedConversationId;
       for (const payload of payloads) {
-        if (rememberObservedPayload(conversationId, payload, requestSequence)) break;
+        // When the request URL carried the identity, an identity-less payload
+        // still binds to it. When the URL did not carry it (pre-rewrite GET,
+        // account-specific endpoint shapes), only a payload that declares the
+        // current canonical conversation id is accepted; anything else is a
+        // graph-shaped decoy from another conversation.
+        const declaredId = getPayloadConversationId(payload);
+        if (!urlCarriedIdentity && declaredId !== expectedConversationId) {
+          bridgeStats.graphsRejected += 1;
+          continue;
+        }
+        if (rememberObservedPayload(expectedConversationId, payload, requestSequence)) break;
       }
     } catch {
       // The host response remains untouched; an unreadable clone simply yields no observation.
+      bridgeStats.parseFailures += 1;
     }
   }
 
@@ -558,16 +599,36 @@
     const observedFetch = function observedFetch(input, ...init) {
       const requestUrl = getObservedRequestUrl(input);
       const requestMethod = getObservedRequestMethod(input, init[0]);
-      const conversationId = getObservedConversationId(requestUrl);
       const result = nativeFetch.call(this, input, ...init);
-      if (!conversationId || requestMethod !== 'GET') return result;
+      if (requestMethod !== 'GET' || !isSameOriginRequestUrl(requestUrl)) return result;
+      // Two eligible shapes: the request URL already carries the current
+      // conversation id, or the page is on a canonical conversation and the
+      // payload may declare the id itself (a GET issued before the SPA
+      // rewrote the URL, or an account-specific endpoint shape). Everything
+      // else is ignored before any body parsing happens.
+      const conversationId = getObservedConversationId(requestUrl);
+      const currentId = getCurrentConversationId();
+      if (!conversationId && !currentId) return result;
+      const expectedConversationId = conversationId || currentId;
+      bridgeStats.observedEligibleGets += 1;
       const requestSequence = ++bridgeState.requestSequence;
       Promise.resolve(result)
-        .then((response) => captureObservedResponse(response, requestUrl, conversationId, requestSequence))
+        .then((response) => captureObservedResponse(response, requestUrl, expectedConversationId, requestSequence))
         .catch(() => {});
       return result;
     };
     window.fetch = observedFetch;
+    try {
+      // Keep the wrapped function indistinguishable from the native one for
+      // pages that inspect fetch.toString(); observation itself stays passive.
+      Object.defineProperty(observedFetch, 'toString', {
+        value: () => nativeFetch.toString(),
+        configurable: true,
+        writable: true,
+      });
+    } catch {
+      // Older engines without configurable function props keep the plain wrapper.
+    }
     return () => {
       if (window.fetch === observedFetch) window.fetch = nativeFetch;
     };
@@ -617,16 +678,39 @@
     };
   }
 
+  const getDiagnostics = () => ({
+    version: BRIDGE_VERSION,
+    observedEligibleGets: bridgeStats.observedEligibleGets,
+    graphsAccepted: bridgeStats.graphsAccepted,
+    graphsRejected: bridgeStats.graphsRejected,
+    capturesPublished: bridgeStats.capturesPublished,
+    evictions: bridgeStats.evictions,
+    bytesSkipped: bridgeStats.bytesSkipped,
+    parseFailures: bridgeStats.parseFailures,
+    graphCount: bridgeState.graphsByConversation.size,
+  });
+
   const handleSnapshotRequest = (event) => {
     const rawDetail = event instanceof CustomEvent ? event.detail : null;
     const detail = decodeBridgeDetail(rawDetail);
-    if (!detail || !['snapshot', 'peek'].includes(detail.type)) return;
+    if (!detail) return;
     const requestWasString = typeof rawDetail === 'string';
     const respond = (payload) => {
       window.dispatchEvent(new CustomEvent(RESPONSE_EVENT, {
         detail: encodeBridgeResponse(payload, requestWasString),
       }));
     };
+
+    if (detail.type === 'diagnostics') {
+      respond({
+        requestId: detail.requestId,
+        ok: true,
+        diagnostics: getDiagnostics(),
+      });
+      return;
+    }
+
+    if (!['snapshot', 'peek'].includes(detail.type)) return;
 
     const result = Promise.resolve({ snapshot: getSnapshot(detail.conversationId), error: undefined });
 

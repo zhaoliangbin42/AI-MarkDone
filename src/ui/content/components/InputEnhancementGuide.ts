@@ -81,6 +81,7 @@ export function createInputEnhancementGuideContent(): HTMLElement {
         createSection('chatgptInputEnhancementGuideEditingTitle', [
             ['Backspace', 'chatgptInputEnhancementGuideBackspaceBehavior'],
             ['\\', 'chatgptInputEnhancementGuideFormulaTrigger'],
+            ['\\ + trigger', 'chatgptInputEnhancementGuidePromptTrigger'],
         ], 'kbd'),
     );
     return root;
