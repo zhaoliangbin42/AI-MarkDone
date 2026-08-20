@@ -8,8 +8,7 @@
     "permissions": [
         "clipboardWrite",
         "storage",
-        "identity",
-        "scripting"
+        "identity"
     ],
     "minimum_chrome_version": "111",
     "oauth2": {
