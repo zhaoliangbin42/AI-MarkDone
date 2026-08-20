@@ -152,6 +152,7 @@ type Refs = {
         atomicMarkdownCopyShortcut: SelectRef;
         inputEnhancement: HTMLInputElement;
         promptAutocomplete: HTMLInputElement;
+        pageAnnotationsEnabled: HTMLInputElement;
         showMessageStepper: HTMLInputElement;
         showPageBookmarkControl: HTMLInputElement;
         showDetachedReaderControl: HTMLInputElement;
@@ -368,6 +369,11 @@ export class SettingsTabView {
             chatGptDirectoryGroup.body,
             t('chatgptPromptAutocompleteLabel'),
             t('chatgptPromptAutocompleteDesc'),
+        );
+        const chatGptPageAnnotationsEnabled = this.createToggle(
+            chatGptDirectoryGroup.body,
+            t('chatgptPageAnnotationsLabel'),
+            t('chatgptPageAnnotationsDesc'),
         );
         const chatGptArrowKeyMessageNavigation = this.createToggle(
             chatGptDirectoryGroup.body,
@@ -625,6 +631,7 @@ export class SettingsTabView {
                 atomicMarkdownCopyShortcut: chatGptAtomicMarkdownCopyShortcut,
                 inputEnhancement: chatGptInputEnhancement.input,
                 promptAutocomplete: chatGptPromptAutocomplete.input,
+                pageAnnotationsEnabled: chatGptPageAnnotationsEnabled.input,
                 showMessageStepper: chatGptShowMessageStepper.input,
                 showPageBookmarkControl: chatGptShowPageBookmarkControl.input,
                 showDetachedReaderControl: chatGptShowDetachedReaderControl.input,
@@ -670,6 +677,7 @@ export class SettingsTabView {
         this.refs.chatgptDirectory.atomicMarkdownCopyShortcut.trigger.dataset.role = 'settings-chatgpt-atomic-markdown-copy-shortcut';
         this.refs.chatgptDirectory.inputEnhancement.dataset.role = 'settings-chatgpt-input-enhancement';
         this.refs.chatgptDirectory.promptAutocomplete.dataset.role = 'settings-chatgpt-prompt-autocomplete';
+        this.refs.chatgptDirectory.pageAnnotationsEnabled.dataset.role = 'settings-chatgpt-page-annotations';
         this.refs.chatgptDirectory.showMessageStepper.dataset.role = 'settings-chatgpt-show-message-stepper';
         this.refs.chatgptDirectory.showPageBookmarkControl.dataset.role = 'settings-chatgpt-show-page-bookmark-control';
         this.refs.chatgptDirectory.showDetachedReaderControl.dataset.role = 'settings-chatgpt-show-detached-reader-control';
@@ -963,6 +971,11 @@ export class SettingsTabView {
             this.settings.chatgptBehavior.promptAutocomplete = next;
             void this.actions.setChatGptBehaviorSettings?.({ promptAutocomplete: next });
         });
+        this.refs.chatgptDirectory.pageAnnotationsEnabled.addEventListener('change', () => {
+            const next = this.refs.chatgptDirectory.pageAnnotationsEnabled.checked;
+            this.settings.chatgptBehavior.pageAnnotationsEnabled = next;
+            void this.actions.setChatGptBehaviorSettings?.({ pageAnnotationsEnabled: next });
+        });
         this.refs.chatgptDirectory.showMessageStepper.addEventListener('change', () => {
             const next = this.refs.chatgptDirectory.showMessageStepper.checked;
             this.settings.chatgptBehavior.showMessageStepper = next;
@@ -1119,6 +1132,7 @@ export class SettingsTabView {
         );
         this.refs.chatgptDirectory.inputEnhancement.checked = Boolean(s.chatgptBehavior.inputEnhancement.available);
         this.refs.chatgptDirectory.promptAutocomplete.checked = Boolean(s.chatgptBehavior.promptAutocomplete);
+        this.refs.chatgptDirectory.pageAnnotationsEnabled.checked = Boolean(s.chatgptBehavior.pageAnnotationsEnabled);
         this.refs.chatgptDirectory.showMessageStepper.checked = Boolean(s.chatgptBehavior.showMessageStepper);
         this.refs.chatgptDirectory.showPageBookmarkControl.checked = Boolean(s.chatgptBehavior.showPageBookmarkControl);
         this.refs.chatgptDirectory.showDetachedReaderControl.checked = Boolean(s.chatgptBehavior.showDetachedReaderControl);
@@ -1150,6 +1164,7 @@ export class SettingsTabView {
         this.syncToggle(this.refs.chatgptDirectory.restorePositionAfterSend);
         this.syncToggle(this.refs.chatgptDirectory.inputEnhancement);
         this.syncToggle(this.refs.chatgptDirectory.promptAutocomplete);
+        this.syncToggle(this.refs.chatgptDirectory.pageAnnotationsEnabled);
         this.syncToggle(this.refs.chatgptDirectory.showMessageStepper);
         this.syncToggle(this.refs.chatgptDirectory.showPageBookmarkControl);
         this.syncToggle(this.refs.chatgptDirectory.showDetachedReaderControl);

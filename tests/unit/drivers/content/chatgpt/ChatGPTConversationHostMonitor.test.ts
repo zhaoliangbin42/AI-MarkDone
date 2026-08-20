@@ -1239,6 +1239,97 @@ describe('ChatGPTConversationHostMonitor', () => {
         }
     });
 
+    it('uses a late official action row to recover a new mixed-shape DOM turn', async () => {
+        const currentDocument: ConversationDocumentRefV1 = {
+            key: createConversationDocumentKeyV1('chatgpt', 'mixed-shape-action-fallback'),
+            platformId: 'chatgpt',
+            conversationId: 'mixed-shape-action-fallback',
+        };
+        document.querySelector('main')!.innerHTML = `
+            <section data-testid="conversation-turn-1" data-turn="user" data-turn-id="turn-1">
+                <div data-message-author-role="user" data-message-id="user-1">Question 1</div>
+            </section>
+            <section data-testid="conversation-turn-2" data-turn="assistant" data-turn-id="turn-1">
+                <div data-message-author-role="assistant" data-message-id="assistant-1">
+                    <div class="markdown prose">Answer 1</div>
+                </div>
+                <div class="z-0 flex"><button data-testid="copy-turn-action-button">Copy</button></div>
+            </section>
+        `;
+        const repository = new ConversationContentRepository({
+            resolveDocument: () => currentDocument,
+            readBaseline: async () => ({
+                document: currentDocument,
+                coverage: 'complete' as const,
+                turns: [{
+                    key: 'turn-1:assistant-1',
+                    ordinal: 1,
+                    identity: {
+                        turnId: 'turn-1',
+                        userMessageId: 'user-1',
+                        assistantMessageId: 'assistant-1',
+                    },
+                    userText: 'Question 1',
+                    assistantMarkdown: 'Answer 1',
+                }],
+            }),
+        });
+        const compiler: RenderedContentCompilerV2 = {
+            compile: vi.fn(async () => ({
+                kind: 'ready' as const,
+                user: { markdown: 'Question 2', text: 'Question 2' },
+                assistant: { markdown: 'Answer 2', text: 'Answer 2' },
+                semanticDigest: 'mixed-shape-action-fallback-2',
+                surfaceDigest: 'mixed-shape-action-fallback-2-surface',
+                manifest: {
+                    nodeCount: 2,
+                    formulaCount: 0,
+                    codeBlockCount: 0,
+                    tableCount: 0,
+                    imageCount: 0,
+                },
+            })),
+        };
+        const adapter = new ChatGPTAdapter();
+        const monitor = new ChatGPTConversationHostMonitor({
+            adapter,
+            index: getChatGPTPageIndex(adapter),
+            repository,
+            resolveDocument: () => currentDocument,
+            compiler,
+        });
+
+        try {
+            monitor.init();
+            await repository.enterCurrentEpoch();
+            const main = document.querySelector('main')!;
+            main.insertAdjacentHTML('beforeend', `
+                <div data-message-author-role="user" data-message-id="user-2">Question 2</div>
+                <div data-message-author-role="assistant" data-message-id="assistant-2">
+                    <div class="markdown prose">Answer 2</div>
+                </div>
+            `);
+            await Promise.resolve();
+            document.querySelector('[data-message-id="assistant-2"]')!.insertAdjacentHTML(
+                'beforeend',
+                '<div class="z-0 flex"><button data-testid="copy-turn-action-button">Copy</button></div>',
+            );
+            await Promise.resolve();
+            await vi.advanceTimersByTimeAsync(400);
+            await Promise.resolve();
+
+            expect(compiler.compile).toHaveBeenCalledTimes(1);
+            expect(repository.read().snapshot?.turns.map((turn) => turn.identity.assistantMessageId)).toEqual([
+                'assistant-1',
+                'assistant-2',
+            ]);
+        } finally {
+            monitor.dispose();
+            repository.dispose();
+            adapter.dispose();
+        }
+    });
+
     it('uses a longer stable confirmation when no completion signal is available', async () => {
         const currentDocument: ConversationDocumentRefV1 = {
             key: createConversationDocumentKeyV1('chatgpt', 'weak-completion'),

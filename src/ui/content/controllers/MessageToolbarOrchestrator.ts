@@ -55,6 +55,7 @@ import type {
     ConversationMaterializationPortV1,
 } from '../../../contracts/conversationMaterialization';
 import type { ConversationNavigationPortV1 } from '../../../contracts/conversationNavigation';
+import { ChatGptToolbarFrameIndex } from './ChatGptToolbarFrameIndex';
 import {
     AIMD_CONVERSATION_SURFACE_CONSUMER_ATTRIBUTE,
     type ConversationSurfaceFrameV1,
@@ -81,6 +82,7 @@ type ToolbarRecord = {
     pending: boolean;
     position: number;
     boundAtUrl: string;
+    lastDerivedStateKey?: string;
 };
 
 type ScanSnapshotItem = {
@@ -142,6 +144,11 @@ export class MessageToolbarOrchestrator {
     private messageSegmentIndexByElement = new WeakMap<HTMLElement, number>();
     private turnRefs: ConversationTurnRef[] = [];
     private turnRefBySegment = new WeakMap<HTMLElement, ConversationTurnRef>();
+    private readonly chatGptFrameIndex = new ChatGptToolbarFrameIndex();
+    private wordStatsByTurnKey = new Map<string, string[]>();
+    private frameBookmarkPositions: ReadonlySet<number> | null = null;
+    private frameBookmarkUrl: string | null = null;
+    private frameBookmarkToken: string | null = null;
     private currentReaderItemByMessageKey = new Map<string, Promise<FreshReaderItemResult | null>>();
     private conversationSnapshotRevision = 0;
     private lastConversationSemanticKey: string | null = null;
@@ -213,6 +220,8 @@ export class MessageToolbarOrchestrator {
     }
 
     private readChatGptTurnForElement(messageElement: HTMLElement) {
+        const indexed = this.chatGptFrameIndex.read(messageElement);
+        if (indexed) return indexed.turn;
         const source = this.conversationContentSource as (
             ConversationContentSourceV1 & Partial<ConversationTurnReadPortV1>
         ) | null;
@@ -241,7 +250,20 @@ export class MessageToolbarOrchestrator {
             this.lastConversationHadSnapshot = Boolean(frame.snapshot);
             this.conversationSnapshotRevision += 1;
             this.clearReaderItemCache();
+            this.wordStatsByTurnKey.clear();
             if (shouldCloseDialog) this.saveMessagesDialog?.close();
+        }
+
+        this.chatGptFrameIndex.setFrame(frame);
+        const canonicalUrl = frame.document?.conversationId
+            ? frame.document.canonicalUrl?.split('#')[0] ?? this.getBookmarkPageUrl()
+            : null;
+        if (this.frameBookmarkUrl !== canonicalUrl || this.frameBookmarkToken !== frame.contentToken) {
+            this.frameBookmarkUrl = canonicalUrl;
+            this.frameBookmarkToken = frame.contentToken;
+            this.frameBookmarkPositions = canonicalUrl
+                ? this.resolveCanonicalBookmarkPositions(canonicalUrl)
+                : null;
         }
 
         const items = new Map<string, ScanSnapshotItem>();
@@ -282,27 +304,6 @@ export class MessageToolbarOrchestrator {
         this.messageOrder = this.sortMessagesByDocumentOrder(mountedMessages);
         this.reconcileScanSnapshot(items, 'full');
 
-        const revision = this.conversationSnapshotRevision;
-        for (const record of this.recordsByMessageKey.values()) {
-            if (!this.behavior.showWordCount) continue;
-            if (record.pending) {
-                record.toolbar.setStats([]);
-                continue;
-            }
-            const turn = this.readChatGptTurnForElement(record.message);
-            if (turn && revision === this.conversationSnapshotRevision) {
-                this.applyWordCount(record.toolbar, turn.assistantMarkdown);
-            } else {
-                record.toolbar.setStats(['—']);
-            }
-        }
-
-        const canonicalUrl = frame.document?.conversationId
-            ? frame.document.canonicalUrl?.split('#')[0] ?? this.getBookmarkPageUrl()
-            : null;
-        for (const record of this.recordsByMessageKey.values()) {
-            record.toolbar.setActionDisabled('bookmark_toggle', !canonicalUrl);
-        }
         if (this.bookmarksController && canonicalUrl && canonicalUrl !== this.lastChatGptMaterializationUrl) {
             this.lastChatGptMaterializationUrl = canonicalUrl;
             void this.bookmarksController.refreshPositionsForUrl(canonicalUrl)
@@ -748,6 +749,11 @@ export class MessageToolbarOrchestrator {
         this.lastConversationSemanticKey = null;
         this.lastConversationHadSnapshot = false;
         this.lastChatGptMaterializationUrl = null;
+        this.chatGptFrameIndex.clear();
+        this.wordStatsByTurnKey.clear();
+        this.frameBookmarkPositions = null;
+        this.frameBookmarkUrl = null;
+        this.frameBookmarkToken = null;
         this.clearAllToolbars();
     }
 
@@ -1312,8 +1318,7 @@ export class MessageToolbarOrchestrator {
             }
 
             existing.pending = item.pending;
-            this.refreshBookmarkStateForToolbar(existing.toolbar, item.message, item.position);
-            this.refreshWordCountForToolbar(existing.toolbar, item.message, item.pending);
+            this.refreshDerivedStateForToolbar(existing, item.message, item.position, item.pending);
         }
 
         if (mode === 'full') {
@@ -1371,12 +1376,48 @@ export class MessageToolbarOrchestrator {
             return;
         }
 
-        const indexedPosition = this.resolveCanonicalPosition(messageElement);
-        const resolvedBookmarkPositions = this.resolveCanonicalBookmarkPositions(url);
+        const indexedPosition = this.chatGptFrameIndex.read(messageElement)?.position
+            ?? this.resolveCanonicalPosition(messageElement);
+        const resolvedBookmarkPositions = this.frameBookmarkUrl === url
+            ? this.frameBookmarkPositions
+            : this.resolveCanonicalBookmarkPositions(url);
         const active = indexedPosition
             ? this.isBookmarkActive(url, indexedPosition, resolvedBookmarkPositions)
             : false;
         toolbar.setActionActive('bookmark_toggle', active);
+    }
+
+    /**
+     * Surface frames can change because another virtualized turn mounted while
+     * this toolbar's canonical turn and bookmark context stayed identical.
+     * Avoid repeating bookmark lookup and word-count derivation for that stable
+     * record; explicit bookmark-state refreshes still bypass this cache.
+     */
+    private refreshDerivedStateForToolbar(
+        record: ToolbarRecord,
+        messageElement: HTMLElement,
+        position: number,
+        pending: boolean,
+    ): void {
+        if (this.adapter.getPlatformId() !== 'chatgpt') {
+            this.refreshBookmarkStateForToolbar(record.toolbar, messageElement, position);
+            this.refreshWordCountForToolbar(record.toolbar, messageElement, pending);
+            return;
+        }
+
+        const indexed = this.chatGptFrameIndex.read(messageElement);
+        const key = [
+            indexed?.turnKey ?? `pending:${position}`,
+            String(position),
+            pending ? 'pending' : 'ready',
+            this.behavior.showWordCount ? 'word-count' : 'no-word-count',
+            this.frameBookmarkUrl ?? '',
+            this.frameBookmarkToken ?? '',
+        ].join('|');
+        if (record.lastDerivedStateKey === key) return;
+        record.lastDerivedStateKey = key;
+        this.refreshBookmarkStateForToolbar(record.toolbar, messageElement, position);
+        this.refreshWordCountForToolbar(record.toolbar, messageElement, pending);
     }
 
     private refreshBookmarkActionStates(): void {
@@ -1434,11 +1475,18 @@ export class MessageToolbarOrchestrator {
             toolbar.setStats(['—']);
             return;
         }
-        const res = this.wordCounter.count(normalized);
-        const formatted = this.wordCounter.format(res);
-        const parts = formatted.split(' / ');
-        if (parts.length >= 2) toolbar.setStats([parts[0], parts.slice(1).join(' ')]);
-        else toolbar.setStats([formatted]);
+        const key = normalized;
+        let stats = this.wordStatsByTurnKey.get(key);
+        if (!stats) {
+            const res = this.wordCounter.count(normalized);
+            const formatted = this.wordCounter.format(res);
+            const parts = formatted.split(' / ');
+            stats = parts.length >= 2
+                ? [parts[0]!, parts.slice(1).join(' ')]
+                : [formatted];
+            this.wordStatsByTurnKey.set(key, stats);
+        }
+        toolbar.setStats(stats);
     }
 
     private async syncReaderTailPages(): Promise<void> {

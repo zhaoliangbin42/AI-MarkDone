@@ -26,6 +26,12 @@ import { ChatGPTPromptAutocompleteController } from '../../ui/content/controller
 import { ChatGPTOfficialNavigationVisibilityController } from '../../ui/content/controllers/ChatGPTOfficialNavigationVisibilityController';
 import { ChatGPTPageWidthController } from '../../ui/content/controllers/ChatGPTPageWidthController';
 import { ChatGPTAtomicSelectionController } from '../../ui/content/controllers/ChatGPTAtomicSelectionController';
+import { ChatGPTPageAnnotationController } from '../../ui/content/controllers/ChatGPTPageAnnotationController';
+import { ChatGPTActivePositionTracker } from '../../ui/content/controllers/ChatGPTActivePositionTracker';
+import { ChatGPTComposerBindingSource } from '../../ui/content/controllers/ChatGPTComposerBindingSource';
+import { DOMContentSurfaceAdapter } from '../../drivers/content/adapters/ContentSurfaceAdapter';
+import { ChatGPTPageSelectionCoordinator } from '../../ui/content/controllers/ChatGPTPageSelectionCoordinator';
+import { PageMarkdownSelectionResolver } from '../../ui/content/selectionMarkdownSnapshot';
 import { ChatGPTConversationReaderBinding } from '../../ui/content/controllers/ChatGPTConversationReaderBinding';
 import { createPromptLibraryClient } from '../../drivers/content/prompts/promptLibraryClient';
 import { OverlaySession } from '../../ui/content/overlay/OverlaySession';
@@ -194,10 +200,14 @@ if (adapter) {
     // admission. Create and mount it even while the semantic source is
     // still unavailable so a transient discovery failure cannot remove the
     // visible navigation affordance.
+    const chatGptActivePositionTracker = adapter.getPlatformId() === 'chatgpt'
+        ? new ChatGPTActivePositionTracker(chatGptConversationContentRuntime!.surface)
+        : null;
     const chatGptDirectory = adapter.getPlatformId() === 'chatgpt'
         ? new ChatGPTDirectoryController(adapter, bookmarksController, {
             surface: chatGptConversationContentRuntime!.surface,
             navigation: conversationNavigation,
+            activePositionTracker: chatGptActivePositionTracker ?? undefined,
         })
         : null;
     const chatGptOfficialNavigationVisibility = adapter.getPlatformId() === 'chatgpt'
@@ -209,8 +219,12 @@ if (adapter) {
     const chatGptSendPositionRestore = adapter.getPlatformId() === 'chatgpt'
         ? new ChatGPTSendPositionRestoreController(adapter)
         : null;
+    const chatGptComposerBindingSource = adapter.getPlatformId() === 'chatgpt'
+        ? new ChatGPTComposerBindingSource(() => adapter.getComposerInputElement?.() ?? null)
+        : null;
     const chatGptComposerEditing = adapter.getPlatformId() === 'chatgpt'
         ? new ChatGPTComposerEditingController(adapter, {
+            bindingSource: chatGptComposerBindingSource ?? undefined,
             renderFormula: createLazyRenderFormulaSvgAsset(),
             onInputEnhancementChange: async (inputEnhancement) => {
                 const current = {
@@ -228,7 +242,7 @@ if (adapter) {
         ? createPromptLibraryClient()
         : null;
     const chatGptPromptAutocomplete = promptLibraryClient
-        ? new ChatGPTPromptAutocompleteController(adapter, promptLibraryClient)
+        ? new ChatGPTPromptAutocompleteController(adapter, promptLibraryClient, chatGptComposerBindingSource ?? undefined)
         : null;
     sendController.setPromptAutocompleteController(chatGptPromptAutocomplete);
     const bookmarksPanel = createLazyBookmarksPanel(bookmarksController, readerPanel, {
@@ -238,6 +252,7 @@ if (adapter) {
         ? new ChatGPTMessageStepperController(adapter, {
             surface: chatGptConversationContentRuntime!.surface,
             navigation: conversationNavigation,
+            activePositionTracker: chatGptActivePositionTracker ?? undefined,
             onOpenBookmarksPanel: () => bookmarksPanel.toggle(),
             onOpenDetachedReader: () => openDetachedReaderFromStepper(),
             onOpenPrompts: (anchor) => chatGptPromptAutocomplete?.openManager(anchor),
@@ -293,12 +308,45 @@ if (adapter) {
     const chatGptPageWidth = adapter.getPlatformId() === 'chatgpt'
         ? new ChatGPTPageWidthController()
         : null;
+    const sharedChatGptSurfaceAdapter = adapter.getPlatformId() === 'chatgpt'
+        ? new DOMContentSurfaceAdapter(adapter, conversationMaterialization)
+        : undefined;
+    const sharedChatGptSelectionCoordinator = sharedChatGptSurfaceAdapter
+        ? new ChatGPTPageSelectionCoordinator({
+            surfaceAdapter: sharedChatGptSurfaceAdapter,
+            materialization: conversationMaterialization,
+        })
+        : undefined;
+    const sharedChatGptMarkdownResolver = sharedChatGptSurfaceAdapter
+        ? new PageMarkdownSelectionResolver({
+            adapter,
+            contentSource: conversationContentSource,
+            materialization: conversationMaterialization,
+            surfaceAdapter: sharedChatGptSurfaceAdapter,
+        })
+        : undefined;
     const chatGptAtomicSelection = adapter.getPlatformId() === 'chatgpt'
         ? new ChatGPTAtomicSelectionController(adapter, {
             contentSource: conversationContentSource,
             materialization: conversationMaterialization,
+            surfaceAdapter: sharedChatGptSurfaceAdapter,
+            selectionCoordinator: sharedChatGptSelectionCoordinator,
+            markdownResolver: sharedChatGptMarkdownResolver,
         })
         : null;
+    const chatGptPageAnnotation = adapter.getPlatformId() === 'chatgpt'
+        ? new ChatGPTPageAnnotationController(adapter, {
+            contentSource: conversationContentSource,
+            materialization: conversationMaterialization,
+            surfaceAdapter: sharedChatGptSurfaceAdapter,
+            selectionCoordinator: sharedChatGptSelectionCoordinator,
+            markdownResolver: sharedChatGptMarkdownResolver,
+            navigation: conversationNavigation,
+        })
+        : null;
+    chatGptPromptAutocomplete?.setAnnotationComposer?.((userPrompt) => (
+        chatGptPageAnnotation?.composeCurrentAnnotations(userPrompt) ?? ''
+    ));
     const messageToolbars = new MessageToolbarOrchestrator(adapter, {
         readerPanel,
         sendController,
@@ -354,6 +402,12 @@ if (adapter) {
         ? cachedSettings?.platforms?.[platformKey] ?? true
         : false;
     let atomicSelectionEnabled = false;
+    let pageAnnotationEnabled = false;
+    const syncPageSelectionCoordinator = () => {
+        if (!sharedChatGptSelectionCoordinator) return;
+        if (atomicSelectionEnabled || pageAnnotationEnabled) sharedChatGptSelectionCoordinator.init();
+        else sharedChatGptSelectionCoordinator.dispose();
+    };
     const setAtomicSelectionEnabled = (enabled: boolean) => {
         if (enabled === atomicSelectionEnabled) return;
         atomicSelectionEnabled = enabled;
@@ -362,6 +416,7 @@ if (adapter) {
         } else {
             chatGptAtomicSelection?.dispose();
         }
+        syncPageSelectionCoordinator();
     };
     const initialAppearance = createAppearanceSnapshot(
         document.documentElement.getAttribute('data-aimd-theme') === 'dark' ? 'dark' : 'light',
@@ -547,6 +602,9 @@ if (adapter) {
         chatGptPromptAutocomplete?.setEnabled(Boolean(next.promptAutocomplete));
         chatGptMessageStepper?.setKeyboardEnabled(Boolean(next.enableArrowKeyMessageNavigation));
         chatGptPageWidth?.setScale(next.pageWidthScale);
+        pageAnnotationEnabled = runtimeEnabled && Boolean(next.pageAnnotationsEnabled);
+        chatGptPageAnnotation?.setEnabled(pageAnnotationEnabled);
+        syncPageSelectionCoordinator();
     };
 
     const applyAppearance = (nextSnapshot: AppearanceSnapshot) => {
@@ -566,6 +624,7 @@ if (adapter) {
         chatGptPromptAutocomplete?.setAppearance(nextSnapshot);
         chatGptComposerEditing?.setAppearance(nextSnapshot);
         chatGptMessageStepper?.setAppearance(nextSnapshot);
+        chatGptPageAnnotation?.setAppearance(nextSnapshot);
     };
 
     const syncAppearanceOverrides = (settings: typeof DEFAULT_SETTINGS | null | undefined) => {
@@ -598,7 +657,10 @@ if (adapter) {
         chatGptPromptAutocomplete?.dispose();
         chatGptMessageStepper?.dispose();
         chatGptPageWidth?.dispose();
+        chatGptPageAnnotation?.dispose();
+        pageAnnotationEnabled = false;
         setAtomicSelectionEnabled(false);
+        syncPageSelectionCoordinator();
         contentAdapter.dispose?.();
     };
 
@@ -608,6 +670,7 @@ if (adapter) {
     applyAppearance(initialAppearance);
     if (cachedSettings?.reader) {
         readerPanel.setReaderSettings(cachedSettings.reader);
+        chatGptPageAnnotation?.setReaderSettings(cachedSettings.reader);
     }
     const initialReaderSettings = cachedSettings?.reader ?? DEFAULT_SETTINGS.reader;
     let confirmedReaderSettings = cachedSettings?.reader ?? null;
@@ -673,6 +736,7 @@ if (adapter) {
         syncFormulaSettings(snap.settings.formula);
         confirmedReaderSettings = snap.settings.reader;
         readerPanel.setReaderSettings(snap.settings.reader);
+        chatGptPageAnnotation?.setReaderSettings(snap.settings.reader);
         saveMessagesDialog.setExportSettings(snap.settings.export ?? DEFAULT_SETTINGS.export);
         messageToolbars.setExportSettings(snap.settings.export ?? DEFAULT_SETTINGS.export);
         syncAppearanceOverrides(snap.settings);

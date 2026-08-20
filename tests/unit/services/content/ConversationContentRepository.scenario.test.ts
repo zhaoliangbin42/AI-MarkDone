@@ -93,6 +93,46 @@ function completeCandidate(
     };
 }
 
+function graphCandidate(
+    ref: ConversationDocumentRefV1,
+    answers: readonly string[],
+    sourceRevision: number,
+): ConversationContentCandidateV1 {
+    return {
+        ...completeCandidate(ref, answers),
+        branchKey: `assistant-${answers.length}`,
+        captureId: `graph-${sourceRevision}`,
+        sourceRevision,
+        origin: 'source',
+    };
+}
+
+function graphCandidateForIndexes(
+    ref: ConversationDocumentRefV1,
+    indexes: readonly number[],
+    sourceRevision: number,
+): ConversationContentCandidateV1 {
+    return {
+        document: ref,
+        coverage: 'complete',
+        branchKey: `assistant-${indexes.at(-1) ?? 'none'}`,
+        captureId: `graph-${sourceRevision}`,
+        sourceRevision,
+        origin: 'source',
+        turns: indexes.map((index, ordinal) => ({
+            key: `turn-${index}:assistant-${index}`,
+            ordinal: ordinal + 1,
+            identity: {
+                turnId: `turn-${index}`,
+                userMessageId: `user-${index}`,
+                assistantMessageId: `assistant-${index}`,
+            },
+            userText: `Question ${index}`,
+            assistantMarkdown: `Graph answer ${index}`,
+        })),
+    };
+}
+
 function hostTurn(index: number, answer: string): ConversationTurnV1 {
     return {
         key: `turn-${index}:assistant-${index}`,
@@ -162,7 +202,7 @@ describe('ConversationContentRepository', () => {
         expect(readBaseline).toHaveBeenCalledTimes(1);
     });
 
-    it('publishes syncing then one immutable baseline and ignores later signals after the gate closes', async () => {
+    it('publishes one immutable baseline and coalesces later signals into an upgrade read', async () => {
         let current: ConversationDocumentRefV1 | null = document('conversation-1');
         const pending = deferred<ConversationContentCandidateV1 | null>();
         const readBaseline = vi.fn(() => pending.promise);
@@ -191,11 +231,11 @@ describe('ConversationContentRepository', () => {
         repository.notifyBaselineCaptured();
         repository.notifyBaselineCaptured();
         await vi.advanceTimersByTimeAsync(150);
-        expect(readBaseline).toHaveBeenCalledTimes(1);
+        expect(readBaseline).toHaveBeenCalledTimes(2);
         expect(states[0]).toBe('idle');
     });
 
-    it('drops a pending bridge signal when the in-flight baseline closes the gate', async () => {
+    it('coalesces a pending bridge signal when the in-flight baseline closes the gate', async () => {
         const ref = document('conversation-pending');
         const first = deferred<ConversationContentCandidateV1 | null>();
         const readBaseline = vi.fn()
@@ -219,11 +259,11 @@ describe('ConversationContentRepository', () => {
         await Promise.resolve();
         await Promise.resolve();
 
-        expect(readBaseline).toHaveBeenCalledTimes(1);
+        expect(readBaseline).toHaveBeenCalledTimes(2);
         const state = repository.read();
         expect(state.kind).toBe('ready');
         if (state.kind !== 'ready') throw new Error('expected ready state');
-        expect(state.snapshot.turns.map((turn) => turn.assistantMarkdown)).toEqual(['Answer 1']);
+        expect(state.snapshot.turns.map((turn) => turn.assistantMarkdown)).toEqual(['Answer 1', 'Answer 2']);
     });
 
     it('does not replay a closed baseline from a same-document refresh', async () => {
@@ -521,6 +561,170 @@ describe('ConversationContentRepository', () => {
         expect(readBaseline).toHaveBeenCalledTimes(2);
     });
 
+    it('merges the complete Graph envelope after a DOM-first pool', async () => {
+        const ref = document('conversation-dom-first-full-envelope');
+        const readBaseline = vi.fn(async () => graphCandidate(
+            ref,
+            Array.from({ length: 16 }, (_, index) => `Graph answer ${index + 1}`),
+            1,
+        ));
+        const repository = new ConversationContentRepository({
+            resolveDocument: () => ref,
+            readBaseline,
+        });
+
+        repository.ingestHostBatch([
+            {
+                turn: hostTurn(1, 'Host answer 1'),
+                semanticDigest: 'host-1',
+                captureId: 'host-1',
+                revision: 1,
+                predecessorAssistantMessageId: null,
+            },
+            {
+                turn: hostTurn(2, 'Host answer 2'),
+                semanticDigest: 'host-2',
+                captureId: 'host-2',
+                revision: 1,
+                predecessorAssistantMessageId: 'assistant-1',
+            },
+        ]);
+
+        const merged = await repository.enterCurrentEpoch();
+
+        expect(merged.kind).toBe('ready');
+        if (merged.kind !== 'ready') throw new Error('expected full Graph envelope');
+        expect(merged.snapshot.turns).toHaveLength(16);
+        expect(merged.snapshot.turns.slice(0, 2).map((turn) => turn.assistantMarkdown)).toEqual([
+            'Host answer 1',
+            'Host answer 2',
+        ]);
+        expect(merged.snapshot.turns.slice(2).map((turn) => turn.assistantMarkdown)).toEqual(
+            Array.from({ length: 14 }, (_, index) => `Graph answer ${index + 3}`),
+        );
+        expect(merged.snapshot.proof).toEqual({ basis: 'hybrid' });
+        expect(merged.snapshot.turns.map((turn) => turn.ordinal)).toEqual(
+            Array.from({ length: 16 }, (_, index) => index + 1),
+        );
+        expect(readBaseline).toHaveBeenCalledTimes(1);
+    });
+
+    it('upgrades a closed Graph baseline when a later capture exposes a larger envelope', async () => {
+        const ref = document('conversation-closed-graph-upgrade');
+        let current = graphCandidate(ref, ['Answer 1', 'Answer 2'], 1);
+        const full = graphCandidate(
+            ref,
+            Array.from({ length: 16 }, (_, index) => `Answer ${index + 1}`),
+            2,
+        );
+        const readBaseline = vi.fn(async () => current);
+        const repository = new ConversationContentRepository({
+            resolveDocument: () => ref,
+            readBaseline,
+        });
+
+        const initial = await repository.enterCurrentEpoch();
+        expect(initial.kind).toBe('ready');
+        if (initial.kind !== 'ready') throw new Error('expected initial Graph baseline');
+        const initialToken = initial.snapshot.contentToken;
+
+        current = full;
+        repository.notifyBaselineCaptured();
+        await vi.advanceTimersByTimeAsync(150);
+
+        const upgraded = repository.read();
+        expect(upgraded.kind).toBe('ready');
+        if (upgraded.kind !== 'ready') throw new Error('expected upgraded Graph baseline');
+        expect(upgraded.snapshot.turns).toHaveLength(16);
+        expect(upgraded.snapshot.contentToken).not.toBe(initialToken);
+        expect(readBaseline).toHaveBeenCalledTimes(2);
+    });
+
+    it('accepts hidden prefix, middle, and tail turns when maintained order is preserved', async () => {
+        const ref = document('conversation-graph-envelope-insertion');
+        let current = graphCandidateForIndexes(ref, [1, 3], 1);
+        const expanded = graphCandidateForIndexes(ref, [0, 1, 2, 3, 4], 2);
+        const readBaseline = vi.fn(async () => current);
+        const repository = new ConversationContentRepository({
+            resolveDocument: () => ref,
+            readBaseline,
+        });
+
+        const initial = await repository.enterCurrentEpoch();
+        expect(initial.kind).toBe('ready');
+        if (initial.kind !== 'ready') throw new Error('expected sparse Graph baseline');
+
+        current = expanded;
+        repository.notifyBaselineCaptured();
+        await vi.advanceTimersByTimeAsync(150);
+
+        const upgraded = repository.read();
+        expect(upgraded.kind).toBe('ready');
+        if (upgraded.kind !== 'ready') throw new Error('expected expanded Graph baseline');
+        expect(upgraded.snapshot.turns.map((turn) => turn.identity.turnId)).toEqual([
+            'turn-0',
+            'turn-1',
+            'turn-2',
+            'turn-3',
+            'turn-4',
+        ]);
+        expect(upgraded.snapshot.turns.map((turn) => turn.ordinal)).toEqual([1, 2, 3, 4, 5]);
+    });
+
+    it('rejects a reordered or truncated Graph without mutating the maintained pool', async () => {
+        const ref = document('conversation-graph-order-conflict');
+        let current = graphCandidateForIndexes(ref, [0, 1, 2], 1);
+        const readBaseline = vi.fn(async () => current);
+        const repository = new ConversationContentRepository({
+            resolveDocument: () => ref,
+            readBaseline,
+        });
+
+        const initial = await repository.enterCurrentEpoch();
+        expect(initial.kind).toBe('ready');
+        if (initial.kind !== 'ready') throw new Error('expected Graph baseline');
+        const initialToken = initial.snapshot.contentToken;
+
+        current = graphCandidateForIndexes(ref, [0, 2, 1, 3], 2);
+        repository.notifyBaselineCaptured();
+        await vi.advanceTimersByTimeAsync(150);
+        expect(repository.read().snapshot?.contentToken).toBe(initialToken);
+        expect(repository.read().snapshot?.turns).toHaveLength(3);
+
+        current = graphCandidateForIndexes(ref, [0, 1], 3);
+        repository.notifyBaselineCaptured();
+        await vi.advanceTimersByTimeAsync(150);
+        expect(repository.read().snapshot?.contentToken).toBe(initialToken);
+        expect(repository.read().snapshot?.turns).toHaveLength(3);
+        expect(readBaseline).toHaveBeenCalledTimes(3);
+    });
+
+    it('does not publish when a newer Graph revision has the same semantic content', async () => {
+        const ref = document('conversation-graph-duplicate-revision');
+        let current = graphCandidate(ref, ['Answer 1', 'Answer 2'], 1);
+        const readBaseline = vi.fn(async () => current);
+        const repository = new ConversationContentRepository({
+            resolveDocument: () => ref,
+            readBaseline,
+        });
+        const readyTokens: string[] = [];
+        repository.subscribe((state) => {
+            if (state.kind === 'ready') readyTokens.push(state.snapshot.contentToken);
+        });
+
+        const initial = await repository.enterCurrentEpoch();
+        expect(initial.kind).toBe('ready');
+        if (initial.kind !== 'ready') throw new Error('expected Graph baseline');
+
+        current = graphCandidate(ref, ['Answer 1', 'Answer 2'], 2);
+        repository.notifyBaselineCaptured();
+        await vi.advanceTimersByTimeAsync(150);
+
+        expect(repository.read().snapshot?.contentToken).toBe(initial.snapshot.contentToken);
+        expect(readyTokens).toEqual([initial.snapshot.contentToken]);
+        expect(readBaseline).toHaveBeenCalledTimes(2);
+    });
+
     it('rejects a late Graph whose overlapping assistant ID has conflicting typed identity', async () => {
         const ref = document('conversation-late-identity-conflict');
         const source = completeCandidate(ref, ['Source answer 1', 'Source answer 2']);
@@ -623,7 +827,7 @@ describe('ConversationContentRepository', () => {
         expect(complete.snapshot.turns).toHaveLength(2);
     });
 
-    it('does not reread the source after the baseline gate closes', async () => {
+    it('keeps consumer refresh local while a capture may reread a closed baseline', async () => {
         const ref = document('conversation-baseline-window');
         const readBaseline = vi.fn(async () => completeCandidate(ref, ['Answer 1', 'Answer 2']));
         const repository = new ConversationContentRepository({
@@ -643,7 +847,7 @@ describe('ConversationContentRepository', () => {
             'Answer 1',
             'Answer 2',
         ]);
-        expect(readBaseline).toHaveBeenCalledTimes(1);
+        expect(readBaseline).toHaveBeenCalledTimes(2);
     });
 
     it('retries an unavailable baseline only after a real lifecycle signal', async () => {
@@ -690,7 +894,7 @@ describe('ConversationContentRepository', () => {
         expect(repository.read().snapshot).toBeNull();
     });
 
-    it('keeps the published baseline complete after later capture signals', async () => {
+    it('keeps the published baseline stable after a duplicate later capture signal', async () => {
         const ref = document('conversation-complete-coverage');
         const readBaseline = vi.fn(async () => candidate(ref));
         const repository = new ConversationContentRepository({
@@ -707,7 +911,7 @@ describe('ConversationContentRepository', () => {
         expect(unchanged.kind).toBe('ready');
         if (unchanged.kind !== 'ready') throw new Error('expected ready state');
         expect(unchanged.snapshot.coverage).toBe('complete');
-        expect(readBaseline).toHaveBeenCalledTimes(1);
+        expect(readBaseline).toHaveBeenCalledTimes(2);
     });
 
     it('keeps the first sealed body when a later host observation conflicts', async () => {
@@ -1083,7 +1287,7 @@ describe('ConversationContentRepository', () => {
         });
     });
 
-    it('re-arms a failed baseline peek on demand but never a closed gate', async () => {
+    it('re-arms a failed baseline peek and permits one closed-gate upgrade peek', async () => {
         const ref = document('conversation-gate-reopen');
         let attempts = 0;
         const readBaseline = vi.fn(async () => {
@@ -1104,11 +1308,11 @@ describe('ConversationContentRepository', () => {
         expect(second.kind).toBe('ready');
         expect(readBaseline).toHaveBeenCalledTimes(2);
 
-        // An accepted Graph closes the gate; re-arming is a no-op and the
-        // accepted baseline stays authoritative for the epoch.
+        // An accepted Graph keeps the gate closed, but an explicit retry may
+        // perform one passive-memory upgrade comparison.
         repository.reopenBaselineGate();
         const third = await repository.enterCurrentEpoch();
-        expect(readBaseline).toHaveBeenCalledTimes(2);
+        expect(readBaseline).toHaveBeenCalledTimes(3);
         expect(third.kind).toBe('ready');
     });
 

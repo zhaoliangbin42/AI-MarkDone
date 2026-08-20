@@ -352,12 +352,28 @@ export class TooltipDelegate {
 }
 
 let documentTooltipDelegate: TooltipDelegate | null = null;
+let documentTooltipDelegateRefs = 0;
 
 export function getDocumentTooltipDelegate(): TooltipDelegate {
     if (!documentTooltipDelegate) {
         documentTooltipDelegate = new TooltipDelegate(document);
     }
     return documentTooltipDelegate;
+}
+
+/** Acquire the shared document delegate with an explicit lifecycle release. */
+export function retainDocumentTooltipDelegate(): () => void {
+    getDocumentTooltipDelegate();
+    documentTooltipDelegateRefs += 1;
+    let released = false;
+    return () => {
+        if (released) return;
+        released = true;
+        documentTooltipDelegateRefs = Math.max(0, documentTooltipDelegateRefs - 1);
+        if (documentTooltipDelegateRefs !== 0) return;
+        documentTooltipDelegate?.disconnect();
+        documentTooltipDelegate = null;
+    };
 }
 
 export function showEphemeralTooltip(params: {

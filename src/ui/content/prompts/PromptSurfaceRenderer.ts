@@ -150,6 +150,15 @@ export class PromptSurfaceRenderer {
             onSelect: (index) => this.options.onAction({ type: 'select', index }),
         });
         list.classList.add('prompt-list');
+        const hint = document.createElement('p');
+        hint.className = 'prompt-autocomplete-hint';
+        hint.dataset.role = 'prompt-autocomplete-hint';
+        const hintKey = 'promptAutocompleteKeyboardHint';
+        const localizedHint = t(hintKey);
+        hint.textContent = localizedHint === hintKey
+            ? String.raw`Type \ + a trigger; ↑ ↓ select, Enter/Tab insert, → insert Prompt + current annotations when available, Esc close.`
+            : localizedHint;
+        this.root.appendChild(hint);
     }
 
     private renderManager(view: PromptSurfaceView): void {

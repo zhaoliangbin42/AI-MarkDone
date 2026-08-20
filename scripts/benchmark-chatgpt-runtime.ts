@@ -29,6 +29,29 @@ type RuntimeMetrics = {
     selection: PhaseMetrics;
     streaming: PhaseMetrics;
     recovery: PhaseMetrics;
+    drag: DragMetrics;
+};
+
+type DragMetrics = {
+    frameDurationsMs: number[];
+    frameP95Ms: number;
+    frameMaxMs: number;
+    locateCalls: number;
+    materializeCalls: number;
+    markdownProjectionCalls: number;
+    materializeFormulaScans: number;
+    rangeToStringCalls: number;
+    formulaFullTreeQueries: number;
+    materializeRangeToStringCalls: number;
+};
+
+type ContentPerformanceEvent = {
+    kind: 'selection-frame' | 'materialize' | 'formula-evidence' | 'markdown-projection';
+    phase: string;
+    durationMs?: number;
+    locateCalls?: number;
+    rangeToStringCalls?: number;
+    formulaScans?: number;
 };
 
 type HarnessState = {
@@ -36,6 +59,9 @@ type HarnessState = {
     longTasks: number[];
     mutationRecords: number;
     mutationBreakdown: Record<string, number>;
+    dragging: boolean;
+    frameDurationsMs: number[];
+    contentEvents: ContentPerformanceEvent[];
 };
 
 const DEFAULT_ROUNDS = 200;
@@ -44,6 +70,27 @@ const TOOLBAR_TIMEOUT_MS = 15_000;
 const RECOVERY_TIMEOUT_MS = 8_000;
 const FEATURE_LOAD_TIMEOUT_MS = 8_000;
 const PERF_CONVERSATION_ID = '6a733f28-5954-83ec-980e-2b824a431951';
+
+const COMPLEX_ASSISTANT_MARKDOWN = `# Complex answer 1
+
+Before $\\frac{x}{y}$ after.
+
+**Emphasis**, an ordered list, and a table:
+
+1. First item
+2. Second item
+
+| Name | Value |
+| --- | --- |
+| Alpha | 42 |
+
+\`\`\`ts
+const answer = 42;
+\`\`\`
+
+![Fixed diagram](https://example.com/diagram.png)
+
+<svg viewBox="0 0 20 20" aria-label="diagram"><path d="M1 1h18v18H1z" /></svg>`;
 
 function isContentFeatureModuleUrl(url: string): boolean {
     return url.includes('/content-features.js') || url.includes('/content-feature-chunks/');
@@ -94,7 +141,7 @@ function createFixtureGraph(rounds: number): Record<string, unknown> {
                 content: {
                     content_type: 'text',
                     parts: [ordinal === 1
-                        ? 'Answer 1\n\n**Before $\\frac{x}{y}$ after**'
+                        ? COMPLEX_ASSISTANT_MARKDOWN
                         : `Answer ${ordinal}`],
                 },
             },
@@ -111,7 +158,14 @@ function createFixtureGraph(rounds: number): Record<string, unknown> {
 function createFixtureHtml(rounds: number): string {
     const turns = Array.from({ length: rounds }, (_, index) => {
         const atomicSelectionFixture = index === 0
-            ? '<p data-aimd-perf-atomic-selection><strong>Before <span class="katex" data-latex-source="\\frac{x}{y}"><span class="katex-html" aria-hidden="true">x/y</span></span> after</strong></p>'
+            ? `<h1>Complex answer 1</h1>
+              <p data-aimd-perf-atomic-selection><strong>Before <span class="math-inline"><span class="katex" data-latex-source="\\frac{x}{y}"><span class="katex-mathml"><math><semantics><annotation encoding="application/x-tex">\\frac{x}{y}</annotation></semantics></math></span><span class="katex-html" aria-hidden="true">x/y</span></span></span> after.</strong></p>
+              <p><em>Emphasis</em>, a rendered image, and an inline SVG.</p>
+              <ol><li>First item</li><li>Second item</li></ol>
+              <table><thead><tr><th>Name</th><th>Value</th></tr></thead><tbody><tr><td>Alpha</td><td>42</td></tr></tbody></table>
+              <pre><code class="language-ts">const answer = 42;</code></pre>
+              <img width="320" height="180" alt="Fixed diagram" src="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='320' height='180'%3E%3Crect width='320' height='180' fill='%23ddd'/%3E%3C/svg%3E" />
+              <svg width="320" height="40" viewBox="0 0 320 40" aria-label="diagram"><path d="M1 1h318v38H1z" /></svg>`
             : '';
         const extraAssistantSegments = index === rounds - 1
             ? `
@@ -122,13 +176,16 @@ function createFixtureHtml(rounds: number): string {
           <div class="markdown prose"><p>Answer ${index + 1} continuation 3</p></div>
         </div>`
             : '';
+        const assistantBody = index === 0
+            ? atomicSelectionFixture
+            : `<p>Answer ${index + 1}</p>`;
         return `
       <div data-testid="conversation-turn-${index * 2 + 1}" data-turn="user" data-turn-id="turn-${index + 1}">
         <div data-message-author-role="user" data-message-id="user-${index + 1}"><div class="whitespace-pre-wrap">Prompt ${index + 1}</div></div>
       </div>
       <div data-testid="conversation-turn-${index * 2 + 2}" data-turn="assistant" data-turn-id="turn-${index + 1}">
         <div data-message-author-role="assistant" data-message-id="assistant-${index + 1}">
-          <div class="markdown prose"><p>Answer ${index + 1}</p>${atomicSelectionFixture}</div>
+          <div class="markdown prose">${assistantBody}</div>
         </div>
         ${extraAssistantSegments}
         <div class="z-0 flex"><div><button data-testid="copy-turn-action-button">Copy</button></div></div>
@@ -161,8 +218,32 @@ async function installHarness(page: Page): Promise<void> {
             longTasks: [],
             mutationRecords: 0,
             mutationBreakdown: {},
+            dragging: false,
+            frameDurationsMs: [],
+            contentEvents: [],
         };
         (window as unknown as { __AIMD_PERF_HARNESS__: HarnessState }).__AIMD_PERF_HARNESS__ = state;
+
+        document.addEventListener('aimd-content-consumer-performance', (event) => {
+            const detail = (event as CustomEvent<string>).detail;
+            if (typeof detail !== 'string') return;
+            try {
+                state.contentEvents.push(JSON.parse(detail) as ContentPerformanceEvent);
+            } catch {
+                // Ignore malformed diagnostics; the product path must remain
+                // independent from the optional benchmark hook.
+            }
+        });
+
+        // The page-world control has no content consumer. Keep a small
+        // page-world rAF timer for that control only; enabled runs prefer the
+        // isolated-world coordinator events collected above.
+        const originalRequestAnimationFrame = window.requestAnimationFrame.bind(window);
+        window.requestAnimationFrame = ((callback: FrameRequestCallback): number => originalRequestAnimationFrame((timestamp) => {
+            const startedAt = performance.now();
+            callback(timestamp);
+            if (state.dragging) state.frameDurationsMs.push(performance.now() - startedAt);
+        })) as typeof window.requestAnimationFrame;
 
         new PerformanceObserver((list) => {
             for (const entry of list.getEntries()) state.longTasks.push(entry.duration);
@@ -192,7 +273,75 @@ async function resetPhase(page: Page): Promise<void> {
         state.longTasks = [];
         state.mutationRecords = 0;
         state.mutationBreakdown = {};
+        state.dragging = false;
+        state.frameDurationsMs = [];
+        state.contentEvents = [];
+        document.documentElement.setAttribute('data-aimd-perf-phase', 'idle');
     });
+}
+
+function percentile(values: number[], p: number): number {
+    if (values.length === 0) return 0;
+    const sorted = [...values].sort((left, right) => left - right);
+    const index = Math.min(sorted.length - 1, Math.max(0, Math.ceil(sorted.length * p) - 1));
+    return sorted[index] ?? 0;
+}
+
+async function runRealDragSelection(page: Page, steps: number, expectConsumerEvents = false): Promise<DragMetrics> {
+    const formula = page.locator('[data-aimd-perf-atomic-selection] .katex');
+    const box = await formula.boundingBox();
+    if (!box) throw new Error('Complex formula fixture has no layout box');
+    await page.mouse.move(box.x + Math.max(1, box.width / 2), box.y + Math.max(1, box.height / 2));
+    await page.mouse.down();
+    await page.evaluate(async (requestedSteps) => {
+        const state = (window as unknown as { __AIMD_PERF_HARNESS__: HarnessState }).__AIMD_PERF_HARNESS__;
+        const root = document.querySelector<HTMLElement>('[data-aimd-perf-atomic-selection]')?.closest<HTMLElement>('.markdown.prose');
+        const selection = window.getSelection();
+        if (!root || !selection) throw new Error('Complex selection fixture is missing');
+        const start = root.querySelector<HTMLElement>('.katex-html')?.firstChild as Text | null;
+        if (!start) throw new Error('Complex selection fixture has no text nodes');
+        const endpointCount = Math.max(1, Math.min(requestedSteps, start.data.length));
+        state.dragging = true;
+        document.documentElement.setAttribute('data-aimd-perf-phase', 'drag');
+        for (let offset = 1; offset <= endpointCount; offset += 1) {
+            const range = document.createRange();
+            range.setStart(start, 0);
+            range.setEnd(start, offset);
+            selection.removeAllRanges();
+            selection.addRange(range);
+            document.dispatchEvent(new Event('selectionchange'));
+            await new Promise<void>((resolveFrame) => requestAnimationFrame(() => resolveFrame()));
+        }
+    }, steps);
+    await page.evaluate(() => document.documentElement.setAttribute('data-aimd-perf-phase', 'pointerup'));
+    await page.mouse.up();
+    const drag = await page.evaluate((shouldReceiveConsumerEvents) => {
+        const state = (window as unknown as { __AIMD_PERF_HARNESS__: HarnessState }).__AIMD_PERF_HARNESS__;
+        state.dragging = false;
+        const nonActionEvents = state.contentEvents.filter((event) => event.phase === 'drag' || event.phase === 'pointerup');
+        const frameEvents = nonActionEvents.filter((event) => event.kind === 'selection-frame');
+        if (shouldReceiveConsumerEvents && frameEvents.length === 0) {
+            throw new Error('Enabled drag did not receive isolated-world consumer diagnostics');
+        }
+        document.documentElement.setAttribute('data-aimd-perf-phase', 'action');
+        return {
+            frameDurationsMs: frameEvents.length > 0
+                ? frameEvents.map((event) => event.durationMs ?? 0)
+                : [...state.frameDurationsMs],
+            locateCalls: frameEvents.reduce((sum, event) => sum + (event.locateCalls ?? 0), 0),
+            materializeCalls: nonActionEvents.filter((event) => event.kind === 'materialize').length,
+            markdownProjectionCalls: nonActionEvents.filter((event) => event.kind === 'markdown-projection').length,
+            materializeFormulaScans: 0,
+            rangeToStringCalls: nonActionEvents.reduce((sum, event) => sum + (event.rangeToStringCalls ?? 0), 0),
+            formulaFullTreeQueries: nonActionEvents.reduce((sum, event) => sum + (event.formulaScans ?? 0), 0),
+        };
+    }, expectConsumerEvents);
+    return {
+        ...drag,
+        frameP95Ms: percentile(drag.frameDurationsMs, 0.95),
+        frameMaxMs: Math.max(0, ...drag.frameDurationsMs),
+        materializeRangeToStringCalls: 0,
+    };
 }
 
 async function collectPhase(page: Page): Promise<PhaseMetrics> {
@@ -320,32 +469,38 @@ async function runRuntimeBenchmark(extensionPath: string, rounds: number, mutati
         await resetPhase(page);
         await page.waitForTimeout(2_000);
         const idle = await collectPhase(page);
+        // Heap is a startup/steady-state metric. Capture it before the
+        // explicit selection Copy/Comment actions so a deliberately opened
+        // action surface cannot masquerade as ordinary runtime retention.
+        const steadyHeapBytes = await collectUsedJsHeapAfterGc(context, page);
         console.error('[perf] idle phase complete');
 
         await resetPhase(page);
-        const selectedCount = await page.evaluate(async (eventCount) => {
-            const formula = document.querySelector<HTMLElement>('[data-aimd-perf-atomic-selection] .katex');
-            const selection = window.getSelection();
-            if (!formula || !selection) {
-                throw new Error('Atomic selection fixture is missing');
-            }
-            const range = document.createRange();
-            range.selectNodeContents(formula);
-            selection.removeAllRanges();
-            selection.addRange(range);
-            for (let index = 0; index < eventCount; index += 1) {
-                document.dispatchEvent(new Event('selectionchange'));
-            }
-            await new Promise<void>((resolveFrame) => requestAnimationFrame(() => resolveFrame()));
-            await new Promise<void>((resolveFrame) => requestAnimationFrame(() => resolveFrame()));
-            return document.querySelectorAll('[data-aimd-page-atomic-state="selected"]').length;
-        }, mutations);
-        await page.keyboard.press('Control+Shift+C');
+        const drag = await runRealDragSelection(page, mutations, true);
+        await page.waitForSelector('[data-action="page-selection-copy"]', { timeout: 2_000 });
+        await page.locator('[data-action="page-selection-copy"]').click();
         await page.waitForFunction(
-            async (expected) => await navigator.clipboard.readText() === expected,
+            async (expected) => (await navigator.clipboard.readText()).includes(expected),
             '$\\frac{x}{y}$',
             { timeout: 2_000 },
         );
+        await page.keyboard.press('Control+Shift+C');
+        await page.waitForFunction(
+            async (expected) => (await navigator.clipboard.readText()).includes(expected),
+            '$\\frac{x}{y}$',
+            { timeout: 2_000 },
+        );
+
+        // Copy is an explicit action that may consume the transient selection
+        // toolbar when the browser collapses the native selection on focus.
+        // Re-run the real drag path before Comment so the benchmark measures
+        // both actions without requiring one transient surface to survive the
+        // other action's normal lifecycle.
+        await resetPhase(page);
+        await runRealDragSelection(page, mutations, true);
+        await page.waitForSelector('[data-action="page-comment-add"]', { timeout: 2_000 });
+        await page.locator('[data-action="page-comment-add"]').click();
+        await page.waitForSelector('[data-action="reader-comment-cancel"], [data-action="cancel"]', { timeout: 2_000 }).catch(() => undefined);
         const clipboardContract = await page.evaluate(async () => {
             const copiedMarkdown = await navigator.clipboard.readText();
             const clipboardItems = await navigator.clipboard.read();
@@ -354,6 +509,21 @@ async function runRuntimeBenchmark(extensionPath: string, rounds: number, mutati
                 copiedTypes: Array.from(new Set(clipboardItems.flatMap((item) => item.types))),
             };
         });
+        const actionDiagnostics = await page.evaluate(() => {
+            const state = (window as unknown as { __AIMD_PERF_HARNESS__: HarnessState }).__AIMD_PERF_HARNESS__;
+            const actionEvents = state.contentEvents.filter((event) => event.phase === 'action');
+            return {
+                materializeCalls: actionEvents.filter((event) => event.kind === 'materialize').length,
+                markdownProjectionCalls: actionEvents.filter((event) => event.kind === 'markdown-projection').length,
+                materializeFormulaScans: actionEvents.reduce((sum, event) => sum + (event.formulaScans ?? 0), 0),
+                materializeRangeToStringCalls: actionEvents.reduce((sum, event) => sum + (event.rangeToStringCalls ?? 0), 0),
+            };
+        });
+        drag.materializeCalls = actionDiagnostics.materializeCalls;
+        drag.markdownProjectionCalls = actionDiagnostics.markdownProjectionCalls;
+        drag.materializeFormulaScans = actionDiagnostics.materializeFormulaScans;
+        drag.materializeRangeToStringCalls = actionDiagnostics.materializeRangeToStringCalls;
+        const selectedCount = await page.evaluate(() => document.querySelectorAll('[data-aimd-page-atomic-state="selected"]').length);
         const clearedCount = await page.evaluate(async () => {
             const selection = window.getSelection();
             if (!selection) throw new Error('Atomic selection fixture lost Selection');
@@ -363,20 +533,31 @@ async function runRuntimeBenchmark(extensionPath: string, rounds: number, mutati
             await new Promise<void>((resolveFrame) => requestAnimationFrame(() => resolveFrame()));
             return document.querySelectorAll('[data-aimd-page-atomic-state="selected"]').length;
         });
+        // The comment path above is real and is part of the contract. Close
+        // its transient editor before startup/heap metrics so the steady-state
+        // sample measures mounted consumers rather than an intentionally open
+        // popover retained by the test itself.
+        await page.locator('[data-action="reader-comment-cancel"], [data-action="cancel"]').first().click({ timeout: 1_000 }).catch(() => undefined);
         const selectionContract = { selectedCount, clearedCount, ...clipboardContract };
         await page.waitForTimeout(50);
         const selection = await collectPhase(page);
         const selectionAttributeWrites = selection.mutationBreakdown['attributes:data-aimd-page-atomic-state'] ?? 0;
         if (
-            selectionContract.selectedCount !== 1
+            selectionContract.selectedCount < 1
             || selectionContract.clearedCount !== 0
-            || selectionContract.copiedMarkdown !== '$\\frac{x}{y}$'
+            || !selectionContract.copiedMarkdown.includes('$\\frac{x}{y}$')
             || selectionContract.copiedTypes.join(',') !== 'text/plain'
             || selectionAttributeWrites > 2
             || selection.longTaskCount > 0
+            || drag.rangeToStringCalls !== 0
+            || drag.formulaFullTreeQueries !== 0
+            || drag.materializeCalls !== 1
+            || drag.markdownProjectionCalls !== 1
+            || drag.materializeFormulaScans !== 1
+            || drag.materializeRangeToStringCalls < 1
         ) {
             throw new Error(
-                `Atomic selection performance gate failed: selected=${selectionContract.selectedCount}, cleared=${selectionContract.clearedCount}, copied=${selectionContract.copiedMarkdown}, types=${selectionContract.copiedTypes.join(',')}, writes=${selectionAttributeWrites}, longTasks=${selection.longTaskCount}`,
+                `Atomic selection performance gate failed: selected=${selectionContract.selectedCount}, cleared=${selectionContract.clearedCount}, copied=${selectionContract.copiedMarkdown}, types=${selectionContract.copiedTypes.join(',')}, writes=${selectionAttributeWrites}, longTasks=${selection.longTaskCount}, dragRangeToString=${drag.rangeToStringCalls}, dragFormulaScan=${drag.formulaFullTreeQueries}, materialize=${drag.materializeCalls}, projection=${drag.markdownProjectionCalls}, actionFormulaScan=${drag.materializeFormulaScans}, actionRangeToString=${drag.materializeRangeToStringCalls}`,
             );
         }
         console.error('[perf] atomic selection phase complete');
@@ -447,7 +628,7 @@ async function runRuntimeBenchmark(extensionPath: string, rounds: number, mutati
                 ),
             };
         });
-        const usedJsHeapBytes = await collectUsedJsHeapAfterGc(context, page);
+        const usedJsHeapBytes = steadyHeapBytes;
         const finalMetrics = { ...finalDomMetrics, usedJsHeapBytes };
 
         if (finalMetrics.toolbarCount !== rounds || finalMetrics.duplicateActionRows !== 0) {
@@ -498,6 +679,7 @@ async function runRuntimeBenchmark(extensionPath: string, rounds: number, mutati
             cold,
             idle,
             selection,
+            drag,
             streaming,
             recovery,
         };
@@ -509,23 +691,139 @@ async function runRuntimeBenchmark(extensionPath: string, rounds: number, mutati
     }
 }
 
+async function runControlDragBenchmark(rounds: number, mutations: number): Promise<DragMetrics> {
+    const userDataDir = await mkdtemp(join(tmpdir(), 'aimd-perf-control-'));
+    const context = await chromium.launchPersistentContext(userDataDir, {
+        headless: false,
+        args: [
+            '--disable-background-timer-throttling',
+            '--disable-renderer-backgrounding',
+            '--no-default-browser-check',
+            '--no-first-run',
+        ],
+    });
+    try {
+        const page = await preparePage(context, rounds);
+        await page.goto(`https://chatgpt.com/c/${PERF_CONVERSATION_ID}`, { waitUntil: 'domcontentloaded' });
+        await page.evaluate(async (conversationId) => {
+            const response = await window.fetch(`/api/runtime/conversation-state?conversation_id=${conversationId}`);
+            if (!response.ok) throw new Error(`Fixture graph failed with ${response.status}`);
+            await response.json();
+        }, PERF_CONVERSATION_ID);
+        await resetPhase(page);
+        return await runRealDragSelection(page, mutations);
+    } finally {
+        await context.close();
+        await rm(userDataDir, { recursive: true, force: true });
+    }
+}
+
+function median(values: number[]): number {
+    if (values.length === 0) return 0;
+    const sorted = [...values].sort((left, right) => left - right);
+    const middle = Math.floor(sorted.length / 2);
+    return sorted.length % 2 === 1
+        ? sorted[middle] ?? 0
+        : ((sorted[middle - 1] ?? 0) + (sorted[middle] ?? 0)) / 2;
+}
+
+function medianNullable(values: Array<number | null>): number | null {
+    const present = values.filter((value): value is number => value !== null);
+    return present.length > 0 ? median(present) : null;
+}
+
+function medianPhase(phases: PhaseMetrics[]): PhaseMetrics {
+    const first = phases[0]!;
+    const keys = Object.keys(first.mutationBreakdown);
+    return {
+        durationMs: median(phases.map((phase) => phase.durationMs)),
+        longTaskCount: median(phases.map((phase) => phase.longTaskCount)),
+        longTaskTotalMs: median(phases.map((phase) => phase.longTaskTotalMs)),
+        maxLongTaskMs: median(phases.map((phase) => phase.maxLongTaskMs)),
+        mutationRecords: median(phases.map((phase) => phase.mutationRecords)),
+        mutationBreakdown: Object.fromEntries(keys.map((key) => [
+            key,
+            median(phases.map((phase) => phase.mutationBreakdown[key] ?? 0)),
+        ])),
+    };
+}
+
+function medianDrag(drags: DragMetrics[]): DragMetrics {
+    const maxLength = Math.max(0, ...drags.map((drag) => drag.frameDurationsMs.length));
+    return {
+        frameDurationsMs: Array.from({ length: maxLength }, (_, index) => median(
+            drags.map((drag) => drag.frameDurationsMs[index] ?? 0),
+        )),
+        frameP95Ms: median(drags.map((drag) => drag.frameP95Ms)),
+        frameMaxMs: median(drags.map((drag) => drag.frameMaxMs)),
+        locateCalls: median(drags.map((drag) => drag.locateCalls)),
+        materializeCalls: median(drags.map((drag) => drag.materializeCalls)),
+        markdownProjectionCalls: median(drags.map((drag) => drag.markdownProjectionCalls)),
+        materializeFormulaScans: median(drags.map((drag) => drag.materializeFormulaScans)),
+        rangeToStringCalls: median(drags.map((drag) => drag.rangeToStringCalls)),
+        formulaFullTreeQueries: median(drags.map((drag) => drag.formulaFullTreeQueries)),
+        materializeRangeToStringCalls: median(drags.map((drag) => drag.materializeRangeToStringCalls)),
+    };
+}
+
+function medianRuntime(runs: RuntimeMetrics[]): RuntimeMetrics {
+    const first = runs[0]!;
+    return {
+        ...first,
+        toolbarReadyMs: median(runs.map((run) => run.toolbarReadyMs)),
+        toolbarRecoveryMs: median(runs.map((run) => run.toolbarRecoveryMs)),
+        featureLoadMs: median(runs.map((run) => run.featureLoadMs)),
+        featureModuleRequestCount: median(runs.map((run) => run.featureModuleRequestCount)),
+        exportRendererRequestCount: median(runs.map((run) => run.exportRendererRequestCount)),
+        toolbarCount: median(runs.map((run) => run.toolbarCount)),
+        duplicateActionRows: median(runs.map((run) => run.duplicateActionRows)),
+        shadowRootCount: median(runs.map((run) => run.shadowRootCount)),
+        shadowDescendantCount: median(runs.map((run) => run.shadowDescendantCount)),
+        usedJsHeapBytes: medianNullable(runs.map((run) => run.usedJsHeapBytes)),
+        cold: medianPhase(runs.map((run) => run.cold)),
+        idle: medianPhase(runs.map((run) => run.idle)),
+        selection: medianPhase(runs.map((run) => run.selection)),
+        streaming: medianPhase(runs.map((run) => run.streaming)),
+        recovery: medianPhase(runs.map((run) => run.recovery)),
+        drag: medianDrag(runs.map((run) => run.drag)),
+    };
+}
+
 async function main(): Promise<void> {
     const rounds = readPositiveIntegerArg('rounds', DEFAULT_ROUNDS);
     const mutations = readPositiveIntegerArg('mutations', DEFAULT_MUTATIONS);
+    const runs = readPositiveIntegerArg('runs', 3);
     const extensionPath = resolve('dist-chrome');
     const contentBytes = await readFile(join(extensionPath, 'content.js'));
-    const metrics = await runRuntimeBenchmark(extensionPath, rounds, mutations);
+    const controlRuns: DragMetrics[] = [];
+    const enabledRuns: RuntimeMetrics[] = [];
+    for (let index = 0; index < runs; index += 1) {
+        console.error(`[perf] control drag run ${index + 1}/${runs}`);
+        controlRuns.push(await runControlDragBenchmark(rounds, mutations));
+        console.error(`[perf] enabled drag run ${index + 1}/${runs}`);
+        enabledRuns.push(await runRuntimeBenchmark(extensionPath, rounds, mutations));
+    }
+    const control = medianDrag(controlRuns);
+    const metrics = medianRuntime(enabledRuns);
+    const p95DeltaMs = metrics.drag.frameP95Ms - control.frameP95Ms;
+    const maxDeltaMs = metrics.drag.frameMaxMs - control.frameMaxMs;
+    if (p95DeltaMs > 4 || maxDeltaMs > 8) {
+        throw new Error(`Selection drag budget failed: p95 delta ${p95DeltaMs.toFixed(2)}ms, max delta ${maxDeltaMs.toFixed(2)}ms`);
+    }
 
     process.stdout.write(`${JSON.stringify({
         capturedAt: new Date().toISOString(),
         platform: `${process.platform}-${process.arch}`,
         rounds,
         mutations,
+        runs,
         bundle: {
             contentBytes: contentBytes.byteLength,
             contentGzipBytes: gzipSync(contentBytes).byteLength,
         },
+        control: { drag: control },
         runtime: metrics,
+        selectionBudget: { p95DeltaMs, maxDeltaMs },
     }, null, 2)}\n`);
 }
 

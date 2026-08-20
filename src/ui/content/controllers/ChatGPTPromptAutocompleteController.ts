@@ -34,11 +34,12 @@ import {
     type PromptSurfaceView,
 } from '../prompts/PromptSurfaceRenderer';
 import { getPromptSurfaceCss } from '../prompts/promptSurfaceCss';
+import { ChatGPTComposerBindingSource, type ChatGPTComposerInput } from './ChatGPTComposerBindingSource';
 
-type ComposerInput = HTMLElement | HTMLTextAreaElement | HTMLInputElement;
+type ComposerInput = ChatGPTComposerInput;
+type AnnotationComposer = (userPrompt: string) => string;
 
 const HOST_ID = 'aimd-chatgpt-prompt-popover-host';
-const REBIND_DELAY_MS = 200;
 const RESPONSIVE_PROFILE: ResponsiveProfile = {
     viewportGutterPx: 16,
     maxWidthCss: '520px',
@@ -62,8 +63,8 @@ export class ChatGPTPromptAutocompleteController {
     private initialized = false;
     private composer: ComposerInput | null = null;
     private composerOverride: ComposerInput | null = null;
-    private observer: MutationObserver | null = null;
-    private rebindTimer: number | null = null;
+    private readonly bindingSource: ChatGPTComposerBindingSource;
+    private unsubscribeBinding: (() => void) | null = null;
     private composing = false;
     private host: HTMLElement | null = null;
     private shadow: ShadowRoot | null = null;
@@ -79,13 +80,17 @@ export class ChatGPTPromptAutocompleteController {
     private formulaAuthoringEnabled = false;
     private readonly workflow: PromptWorkflow;
     private readonly geometry: PromptGeometryAdapter;
+    private annotationComposer: AnnotationComposer | null = null;
 
     constructor(
         private readonly adapter: SiteAdapter,
         client: PromptLibraryClient,
+        bindingSource?: ChatGPTComposerBindingSource,
     ) {
         this.workflow = new PromptWorkflow(client);
         this.geometry = new PromptGeometryAdapter(() => this.getComposerInput());
+        this.bindingSource = bindingSource
+            ?? new ChatGPTComposerBindingSource(() => this.adapter.getComposerInputElement?.() ?? null);
     }
 
     init(): void {
@@ -94,7 +99,7 @@ export class ChatGPTPromptAutocompleteController {
         this.ensureLocaleSubscription();
         this.bindGlobalKeydown();
         if (this.enabled) this.bindComposer();
-        this.observeComposerReplacements();
+        if (this.enabled) this.unsubscribeBinding = this.bindingSource.subscribe(() => this.bindComposer());
     }
 
     attachExternalComposer(input: ComposerInput): () => void {
@@ -103,7 +108,7 @@ export class ChatGPTPromptAutocompleteController {
             this.initialized = true;
             this.ensureLocaleSubscription();
             this.bindGlobalKeydown();
-            this.observeComposerReplacements();
+            if (this.enabled) this.unsubscribeBinding = this.bindingSource.subscribe(() => this.bindComposer());
         }
         if (this.enabled) this.bindComposer();
         return () => {
@@ -120,14 +125,23 @@ export class ChatGPTPromptAutocompleteController {
         if (!enabled) {
             if (this.workflow.state.mode === 'autocomplete') this.close();
             this.detachComposer();
+            this.unsubscribeBinding?.();
+            this.unsubscribeBinding = null;
             return;
         }
-        if (this.initialized) this.bindComposer();
+        if (this.initialized) {
+            this.unsubscribeBinding = this.bindingSource.subscribe(() => this.bindComposer());
+            this.bindComposer();
+        }
     }
 
     setFormulaAuthoringEnabled(enabled: boolean): void {
         this.formulaAuthoringEnabled = enabled;
         if (enabled && this.workflow.state.mode === 'autocomplete') void this.refreshAutocomplete();
+    }
+
+    setAnnotationComposer(composer: AnnotationComposer | null): void {
+        this.annotationComposer = composer;
     }
 
     dispose(): void {
@@ -136,12 +150,9 @@ export class ChatGPTPromptAutocompleteController {
         this.composerOverride = null;
         this.detachGlobalKeydown();
         this.detachComposer();
-        this.observer?.disconnect();
-        this.observer = null;
-        if (this.rebindTimer != null) {
-            window.clearTimeout(this.rebindTimer);
-            this.rebindTimer = null;
-        }
+        this.unsubscribeBinding?.();
+        this.unsubscribeBinding = null;
+        this.annotationComposer = null;
         this.close();
         this.unsubscribeLocale?.();
         this.unsubscribeLocale = null;
@@ -194,11 +205,6 @@ export class ChatGPTPromptAutocompleteController {
         this.composer = null;
     }
 
-    private observeComposerReplacements(): void {
-        if (this.observer || typeof MutationObserver !== 'function') return;
-        this.observer = new MutationObserver(() => this.scheduleRebind());
-        this.observer.observe(document.body || document.documentElement, { childList: true, subtree: true });
-    }
 
     private bindGlobalKeydown(): void {
         window.addEventListener('keydown', this.onGlobalKeyDownCapture, true);
@@ -206,14 +212,6 @@ export class ChatGPTPromptAutocompleteController {
 
     private detachGlobalKeydown(): void {
         window.removeEventListener('keydown', this.onGlobalKeyDownCapture, true);
-    }
-
-    private scheduleRebind(): void {
-        if (!this.initialized || !this.enabled || this.rebindTimer != null) return;
-        this.rebindTimer = window.setTimeout(() => {
-            this.rebindTimer = null;
-            this.bindComposer();
-        }, REBIND_DELAY_MS);
     }
 
     private getComposerInput(): ComposerInput | null {
@@ -305,6 +303,22 @@ export class ChatGPTPromptAutocompleteController {
             event.stopPropagation();
             this.workflow.moveSelection(event.key === 'ArrowDown' ? 1 : -1);
             this.render();
+            return;
+        }
+        if (event.key === 'ArrowRight' && !event.altKey && !event.ctrlKey && !event.metaKey && !event.shiftKey) {
+            const prompt = state.suggestions[state.selectedIndex];
+            const token = state.activeToken;
+            if (!prompt || !token || !this.annotationComposer) return;
+            let composed = '';
+            try {
+                composed = this.annotationComposer(prompt.content);
+            } catch {
+                return;
+            }
+            if (!composed.trim()) return;
+            event.preventDefault();
+            event.stopPropagation();
+            void this.insertPromptContent(prompt, composed, token);
             return;
         }
         if (event.key !== 'Enter' && event.key !== 'Tab') return;
@@ -566,9 +580,17 @@ export class ChatGPTPromptAutocompleteController {
     }
 
     private async insertPrompt(prompt: PromptRecord, token: PromptTriggerToken | null): Promise<void> {
+        await this.insertPromptContent(prompt, prompt.content, token);
+    }
+
+    private async insertPromptContent(
+        prompt: PromptRecord,
+        content: string,
+        token: PromptTriggerToken | null,
+    ): Promise<void> {
         const read = readComposer(this.getActiveComposerAdapter());
         if (!read.ok) return;
-        const range = this.createReplacementRange(read.text, prompt.content, token);
+        const range = this.createReplacementRange(read.text, content, token);
         const result = await replaceComposerTextRange(this.getActiveComposerAdapter(), range, { focus: true });
         if (!result.ok) return;
         this.workflow.recordUse(prompt.id);

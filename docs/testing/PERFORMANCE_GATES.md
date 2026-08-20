@@ -262,6 +262,106 @@ The automated counts, bundle sizes, and performance medians above were produced 
   assertions passed. The built content bundle measured 825,215 raw bytes and
   217,119 gzip bytes, and `npm run perf:chatgpt` is green for this worktree.
 
+### Consumer-path rendering and selection governance — 2026-08-15
+
+This gate freezes discovery and measures the work added above the existing
+Bridge → PageIndex → HostMonitor → Repository → ConversationSurface chain. The
+fixture is intentionally rendered rather than plain text: each run contains
+headings, emphasis, lists, tables, fenced code, a fixed-size image, SVG, and a
+deep KaTeX inline formula in the same assistant message. Page Annotation is
+enabled by default in the enabled run; an extension-off Chromium control uses
+the same fixture and the same browser pacing.
+
+- Each action path changes a real Range endpoint once per animation frame,
+  waits for that frame, then completes with real `pointerup`. Page Copy,
+  keyboard Copy, and Comment are measured as explicit actions. Because the
+  selection toolbar is transient and Copy may consume it, the benchmark may
+  perform a fresh real selection before Comment; it must not dispatch many
+  unchanged selection events in one task or use a synthetic bare `copy` event.
+- Every drag frame may perform at most one `locateSelection()` and must perform
+  zero `materializeSelection()`, `Range.toString()`, formula `querySelectorAll('*')`
+  scans, canonical Markdown projection, or `SemanticContent.compile()`. Explicit
+  Copy/Comment may perform at most one evidence capture and one projection per
+  selection revision; a second action on that revision reuses the resolver cache.
+- Three runs use the median. Enabled minus control selection-frame p95 must be
+  ≤4 ms, and no individual selection frame may add >8 ms. No run may produce a
+  ≥50 ms long task during drag/selection. Heap, bundle, and accepted runtime
+  medians remain within the existing 10% boundary.
+- The run must preserve the fail-open contract for collapsed, cross-message,
+  streaming/pending, stale-token and disconnected-root selections. Native
+  `mod-c`, `mod-shift-c`, `none`, and `text/plain` clipboard behavior remain
+  unchanged. Discovery snapshots, projection/content tokens, historyStatus,
+  identities/order, host compile counts, repository ingestion, and Bridge
+  requests are compared before and after the complete drag→pointerup→action
+  sequence and must be unchanged.
+- Reader selection frames may update only transient visual state; persistent
+  anchor resolver calls stay at zero during drag and marker node identity stays
+  stable. Toolbar reconcile is O(N) with zero second stats/bookmark pass for an
+  unchanged frame. Directory/Stepper share one geometry pass per frame, and
+  formula/composer lifecycle tests prove zero formula observer/per-node listener
+  and zero duplicate composer observer.
+
+The executable contract is `scripts/benchmark-chatgpt-runtime.ts` and its
+governance test. A failed consumer gate keeps page annotations enabled only in
+the development build; it must not be released as a default-on production
+change until the gate is green on rebuilt Chrome and Firefox artifacts.
+
+Observed on the rebuilt Chrome artifact on 2026-08-15: three runs retained
+200/200 toolbars and zero duplicates; selection-frame p95 delta was 0.5 ms,
+maximum delta 0.5 ms, with no selection long task. Drag/pointerup emitted four
+lightweight locate passes (three drag frames plus the final pointerup), zero
+materialization/projection/evidence work, and the explicit actions emitted one
+materialization, one projection, one formula evidence pass, and three range
+stringifications. The steady post-GC heap median was 9.20 MB and the content
+bundle was 913.79 kB raw / 237.88 kB gzip. Those heap/bundle values are recorded
+for this worktree but are not declared comparable to the older 2026-07-30
+10%-gate baseline because the current dirty tree includes the newly default-on
+Page Annotation feature; the historical 10% gate therefore remains open for a
+separate baseline refresh rather than being silently waived.
+
+### Consumer derivation locality follow-up — 2026-08-18
+
+The follow-up keeps the same discovery freeze. It adds no Content Port,
+PageIndex, Host Monitor, Repository, Bridge, or DOM admission work. The
+consumer-only changes are:
+
+- page selection caches visual atomic candidates by Range common ancestor, so a
+  plain paragraph does not query every formula/code/table/image descendant;
+- the shared composer binding observer ignores mutations outside the current
+  composer scope while still waking for input replacement and hydration-shell
+  removal;
+- delegated formula handling checks enabled-container ownership before asking a
+  parser Adapter to classify the global event path;
+- Reader content rendering no longer performs a second persistent annotation
+  anchor pass, page annotation roots are cached per mounted message, and stable
+  ChatGPT toolbar bookmark/word-count derivations are skipped until their
+  canonical turn, pending state, bookmark context, or word-count setting
+  changes.
+
+Focused regression coverage and `npm run test:core` remain green. On the same
+complex rendered Chromium fixture, the three-run median retained 200/200
+toolbars, zero duplicate action rows, four lightweight locate passes, zero
+drag/pointerup materialization/projection/evidence work, and a 0.5 ms selection
+p95 delta versus control. The post-GC heap was 9.26 MB and the content bundle
+was 918.14 kB raw / 239.14 kB gzip. Cold fixture long tasks were 165 ms total
+and 93 ms maximum in this run; neither occurred during selection. Installed
+live ChatGPT and Firefox acceptance remain separate release gates.
+
+### Consumer simplification replay — 2026-08-20
+
+After the page-annotation consumer simplification, the rebuilt Chrome artifact
+passed the same 200-round × 3-run benchmark. It retained 200/200 toolbars with
+zero duplicate action rows. The real drag path emitted four lightweight locate
+passes, one explicit materialization, one Markdown projection, one formula
+evidence scan, and three action-time range stringifications; no drag frame ran
+full-tree formula queries. Selection p95 delta versus the extension-off control
+was 0.6 ms, maximum delta 0.6 ms, and selection produced no long task. The
+steady heap reading was 9.26 MB; cold fixture work had 171 ms of long tasks in
+total with a 94 ms maximum, while idle, streaming, recovery, and selection had
+no long tasks. The built content bundle measured 921.13 kB raw / 239.83 kB
+gzip. This is replay evidence for the current dirty worktree, not a replacement
+for the separately required installed Chrome and Firefox acceptance checks.
+
 ## Scope protections
 
 - Do not use viewport-lazy toolbars; users must retain immediate actions on every hydrated official action row.

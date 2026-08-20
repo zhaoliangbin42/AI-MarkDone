@@ -4,7 +4,6 @@ import type { ChatGPTConversationRound } from '../../../drivers/content/chatgpt/
 import type { ChatGPTDirectoryMode, ChatGPTDirectoryPromptLabelMode } from '../../../core/settings/types';
 import { ChatGPTDirectoryRail } from '../chatgptDirectory/ChatGPTDirectoryRail';
 import {
-    resolveChatGPTActivePosition,
     type ChatGPTRoundPosition,
 } from '../chatgptDirectory/navigation';
 import {
@@ -19,6 +18,7 @@ import type {
     ConversationSurfaceFrameV1,
     ConversationSurfacePortV1,
 } from '../../../contracts/conversationSurface';
+import { ChatGPTActivePositionTracker } from './ChatGPTActivePositionTracker';
 
 type DirectoryBookmarksState = {
     refreshPositionsForUrl?: (url: string) => Promise<void>;
@@ -33,6 +33,7 @@ type DirectoryBookmarksState = {
 type ChatGPTDirectoryContentOptions = {
     surface: ConversationSurfacePortV1;
     navigation?: ConversationNavigationPortV1 | null;
+    activePositionTracker?: ChatGPTActivePositionTracker;
 };
 
 function writeDebugState(patch: Record<string, string | boolean | number | null | undefined>): void {
@@ -53,10 +54,8 @@ export class ChatGPTDirectoryController {
     private enabled = true;
     private displayMode: ChatGPTDirectoryMode = 'preview';
     private promptLabelMode: ChatGPTDirectoryPromptLabelMode = 'head';
-    private scrollRoot: HTMLElement | null = null;
     private roundPositions: ChatGPTRoundPosition[] = [];
     private activePosition = 0;
-    private rafId: number | null = null;
     private rebuildTimer: number | null = null;
     private rebuildTimerKind: 'idle' | 'timeout' | null = null;
     private pendingRebuildReasons = new Set<string>();
@@ -64,10 +63,10 @@ export class ChatGPTDirectoryController {
     private unsubscribeSurface: (() => void) | null = null;
     private unsubscribeLocale: (() => void) | null = null;
     private initialized = false;
-    private globalScrollFallbacksBound = false;
     private viewportResizeSuspendBound = false;
     private activeLocateAbortController: AbortController | null = null;
-    private activeIntersectionObserver: IntersectionObserver | null = null;
+    private readonly activePositionTracker: ChatGPTActivePositionTracker;
+    private unsubscribeActivePosition: (() => void) | null = null;
 
     constructor(
         adapter: SiteAdapter,
@@ -78,6 +77,8 @@ export class ChatGPTDirectoryController {
         this.bookmarksState = bookmarksState;
         this.surface = contentOptions.surface;
         this.navigation = contentOptions.navigation ?? null;
+        this.activePositionTracker = contentOptions.activePositionTracker
+            ?? new ChatGPTActivePositionTracker(this.surface);
     }
 
     private readonly surface: ConversationSurfacePortV1;
@@ -94,8 +95,11 @@ export class ChatGPTDirectoryController {
             return;
         }
         this.initialized = true;
+        this.subscribeActivePositionTracker();
+        this.bindGlobalScrollFallbacks();
         writeDebugState({ DirectoryInit: 'start' });
         this.unsubscribeSurface = this.surface.subscribeFrame((frame) => {
+            this.activePositionTracker.invalidate();
             this.scheduleFrameReconcile(`surface:${frame.frameToken}`);
         });
         this.unsubscribeBookmarks = this.bookmarksState?.subscribe?.(() => {
@@ -107,10 +111,6 @@ export class ChatGPTDirectoryController {
 
     dispose(): void {
         this.cancelActiveLocate();
-        if (this.rafId !== null) {
-            window.cancelAnimationFrame(this.rafId);
-            this.rafId = null;
-        }
         if (this.rebuildTimer !== null) {
             if (this.rebuildTimerKind === 'idle' && typeof window.cancelIdleCallback === 'function') {
                 window.cancelIdleCallback(this.rebuildTimer);
@@ -125,13 +125,11 @@ export class ChatGPTDirectoryController {
         this.unsubscribeBookmarks = null;
         this.unsubscribeSurface?.();
         this.unsubscribeSurface = null;
-        this.activeIntersectionObserver?.disconnect();
-        this.activeIntersectionObserver = null;
+        this.unsubscribeActivePosition?.();
+        this.unsubscribeActivePosition = null;
+        this.unbindGlobalScrollFallbacks();
         this.unsubscribeLocale?.();
         this.unsubscribeLocale = null;
-        this.scrollRoot?.removeEventListener('scroll', this.handleScroll, { capture: true } as EventListenerOptions);
-        this.scrollRoot = null;
-        this.unbindGlobalScrollFallbacks();
         this.unbindViewportResizeSuspend();
         this.rail?.dispose();
         this.rail = null;
@@ -147,8 +145,14 @@ export class ChatGPTDirectoryController {
     setEnabled(enabled: boolean): void {
         this.enabled = enabled;
         if (!this.initialized) return;
-        if (enabled) void this.refresh();
-        else this.reconcile();
+        if (enabled) {
+            this.subscribeActivePositionTracker();
+            void this.refresh();
+        } else {
+            this.unsubscribeActivePosition?.();
+            this.unsubscribeActivePosition = null;
+            this.reconcile();
+        }
     }
 
     setDisplayMode(mode: ChatGPTDirectoryMode): void {
@@ -219,16 +223,13 @@ export class ChatGPTDirectoryController {
         if (!this.enabled || !hasObtainedContent) {
             this.roundPositions = [];
             this.rail.setRounds([]);
-            this.bindActiveIntersectionObserver();
             writeDebugState({ DirectoryVisible: false, DirectoryReason: 'no-content' });
             return false;
         }
 
-        this.rebindScrollRoot();
         this.refreshRoundPositionsFromFrame(frame);
         const rounds = this.buildDirectoryRoundsFromFrame(frame);
         this.rail.setRounds(rounds);
-        this.bindActiveIntersectionObserver();
         this.syncBookmarkedPositions(rounds);
         this.updateActivePosition();
         writeDebugState({
@@ -277,57 +278,30 @@ export class ChatGPTDirectoryController {
         this.rail.setBookmarkedPositions(positions);
     }
 
-    private handleScroll = () => {
-        if (this.isViewportResizeSuspended()) return;
-        if (this.rafId !== null) return;
-        this.rafId = window.requestAnimationFrame(() => {
-            this.rafId = null;
-            this.updateActivePosition();
-        });
-    };
-
     private handleViewportResizeIdle = () => {
         if (this.isViewportResizeSuspended()) return;
-        if (this.rafId !== null) {
-            window.cancelAnimationFrame(this.rafId);
-            this.rafId = null;
-        }
         this.updateActivePosition({ followRail: false });
     };
 
-    private rebindScrollRoot(): void {
-        const nextScrollRoot = this.adapter.getConversationScrollRoot?.() ?? document.scrollingElement ?? null;
-        if (this.scrollRoot !== nextScrollRoot) {
-            this.scrollRoot?.removeEventListener('scroll', this.handleScroll, { capture: true } as EventListenerOptions);
-            this.scrollRoot = nextScrollRoot instanceof HTMLElement ? nextScrollRoot : null;
-            this.scrollRoot?.addEventListener('scroll', this.handleScroll, { capture: true, passive: true } as AddEventListenerOptions);
-            this.bindActiveIntersectionObserver();
-        }
-        this.bindGlobalScrollFallbacks();
+    private subscribeActivePositionTracker(): void {
+        if (!this.enabled || this.unsubscribeActivePosition) return;
+        this.unsubscribeActivePosition = this.activePositionTracker.subscribe((state) => {
+            if (!this.enabled || !this.rail) return;
+            this.activePosition = state.activePosition;
+            this.rail.setActivePosition(state.activePosition, { follow: false });
+        });
     }
 
-    /**
-     * Scroll events are not guaranteed to be emitted by the virtualized host
-     * that owns the conversation. IntersectionObserver supplies the same
-     * viewport fact without a second observer or a polling loop, and is
-     * rebound only when materialization changes or the scroll root changes.
-     */
-    private bindActiveIntersectionObserver(): void {
-        this.activeIntersectionObserver?.disconnect();
-        this.activeIntersectionObserver = null;
-        if (typeof IntersectionObserver !== 'function' || this.roundPositions.length === 0) return;
-        const anchors = new Set<HTMLElement>();
-        for (const round of this.roundPositions) {
-            for (const element of round.groupEls) {
-                if (element.isConnected) anchors.add(element);
-            }
-        }
-        if (anchors.size === 0) return;
-        this.activeIntersectionObserver = new IntersectionObserver(
-            () => this.handleScroll(),
-            { root: this.scrollRoot?.isConnected ? this.scrollRoot : null, threshold: [0, 0.01, 0.5, 1] },
-        );
-        anchors.forEach((anchor) => this.activeIntersectionObserver?.observe(anchor));
+    // Compatibility hooks retained for existing lifecycle tests. The shared
+    // tracker owns the actual scroll listeners; binding this path merely
+    // ensures a consumer subscription when invoked directly.
+    private bindGlobalScrollFallbacks(): void {
+        this.subscribeActivePositionTracker();
+    }
+
+    private unbindGlobalScrollFallbacks(): void {
+        this.unsubscribeActivePosition?.();
+        this.unsubscribeActivePosition = null;
     }
 
     private scheduleFrameReconcile(reason: string): void {
@@ -347,20 +321,6 @@ export class ChatGPTDirectoryController {
             this.rebuildTimer = window.setTimeout(run, 120);
             this.rebuildTimerKind = 'timeout';
         }
-    }
-
-    private bindGlobalScrollFallbacks(): void {
-        if (this.globalScrollFallbacksBound) return;
-        window.addEventListener('scroll', this.handleScroll, { capture: true, passive: true });
-        document.addEventListener('scroll', this.handleScroll, { capture: true, passive: true });
-        this.globalScrollFallbacksBound = true;
-    }
-
-    private unbindGlobalScrollFallbacks(): void {
-        if (!this.globalScrollFallbacksBound) return;
-        window.removeEventListener('scroll', this.handleScroll, { capture: true });
-        document.removeEventListener('scroll', this.handleScroll, { capture: true });
-        this.globalScrollFallbacksBound = false;
     }
 
     private bindViewportResizeSuspend(): void {
@@ -421,12 +381,9 @@ export class ChatGPTDirectoryController {
             return;
         }
 
-        const referenceY = Math.round(window.innerHeight * 0.35);
-        const active = resolveChatGPTActivePosition(
-            this.roundPositions,
-            referenceY,
-            this.activePosition || this.roundPositions[0]?.position || 0,
-        );
+        const tracked = this.activePositionTracker.refreshNow();
+        const active = tracked.activePosition || this.roundPositions[0]?.position || 0;
+        if (active === this.activePosition && options?.followRail === undefined) return;
         this.activePosition = active;
         this.rail.setActivePosition(active, { follow: options?.followRail });
     }

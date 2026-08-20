@@ -250,6 +250,20 @@ const atomicSelectionCtor = vi.fn(function () {
         setMarkdownCopyShortcut: atomicSelectionSetMarkdownCopyShortcut,
     };
 });
+const pageAnnotationInit = vi.fn();
+const pageAnnotationDispose = vi.fn();
+const pageAnnotationSetAppearance = vi.fn();
+const pageAnnotationSetReaderSettings = vi.fn();
+const pageAnnotationSetEnabled = vi.fn();
+const pageAnnotationCtor = vi.fn(function () {
+    return {
+        init: pageAnnotationInit,
+        dispose: pageAnnotationDispose,
+        setAppearance: pageAnnotationSetAppearance,
+        setReaderSettings: pageAnnotationSetReaderSettings,
+        setEnabled: pageAnnotationSetEnabled,
+    };
+});
 const contentRuntimeInit = vi.fn();
 const contentRuntimeDispose = vi.fn();
 const contentRuntimeSource = {
@@ -497,6 +511,10 @@ vi.mock('@/ui/content/controllers/ChatGPTPageWidthController', () => ({
 
 vi.mock('@/ui/content/controllers/ChatGPTAtomicSelectionController', () => ({
     ChatGPTAtomicSelectionController: atomicSelectionCtor,
+}));
+
+vi.mock('@/ui/content/controllers/ChatGPTPageAnnotationController', () => ({
+    ChatGPTPageAnnotationController: pageAnnotationCtor,
 }));
 
 vi.mock('@/runtimes/content/ChatGPTConversationContentRuntime', () => ({
@@ -1107,6 +1125,7 @@ describe('content runtime entry', () => {
                 deletePrompt: expect.any(Function),
                 restoreDefaults: expect.any(Function),
             }),
+            expect.anything(),
         );
         expect(promptAutocompleteInit).toHaveBeenCalledTimes(1);
         expect(sendControllerCtor.mock.results[0]?.value.setPromptAutocompleteController).toHaveBeenCalledWith(

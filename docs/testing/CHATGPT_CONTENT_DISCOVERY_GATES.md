@@ -13,7 +13,8 @@ The production lifecycle is defined by
 - `ChatGPTConversationContentRuntime` is the only lifecycle owner. It handles
   initial synchronization, PageIndex facts, page/canonical identity, valid
   Graph captures, History `pushState`/`replaceState`, `popstate`, `hashchange`,
-  and `pageshow`; the content chain has no polling route watcher.
+  `pageshow`, and document `resume`; the content chain has no polling route
+  watcher. `pageshow` and `resume` share one 50 ms wake reconciliation.
 - `ChatGPTPageIndex` is the only content-related DOM observer. It emits typed
   rounds, current URL, surface epoch, completion/materialization facts, and
   assistant-only remounts.
@@ -64,17 +65,21 @@ The production lifecycle is defined by
 ## Pool admission rules
 
 - Graph first: one valid Graph establishes a `source/complete` pool and closes
-  the epoch gate. Later Graph captures and `refresh()` cannot change it.
+  speculative baseline acquisition. A later valid Graph may extend the pool
+  when it contains every maintained typed turn in the same relative order;
+  `refresh()` never starts or arms acquisition.
 - DOM first: one stable, compiler-verified batch atomically establishes a
   `host/complete` pool while the baseline gate remains open.
-- Graph after DOM: the first trustworthy Graph may add only unseen turns before
-  the first host turn when typed identity and order overlap exactly. Existing
-  Markdown, digest, and assistant identity are never overwritten. One accepted
-  prefix produces one snapshot and one content-token change, then closes the
-  gate.
-- A Graph with no overlap, conflicting identity, conflicting order, or arrival
-  after gate closure does not mutate the pool. Baseline failure never demotes a
-  host-ready pool.
+- Graph after DOM: every trustworthy Graph must contain the maintained typed
+  turns in the same relative order, then its complete envelope is merged. It
+  may add hidden prefix, middle, or tail turns; existing strong Markdown and
+  digests are preserved, while only ADR-0019 weak-sealed bodies may upgrade.
+  A semantic change produces one snapshot and one content-token change.
+- A Graph with a missing maintained turn, conflicting identity/order, branch
+  replacement, or incomplete proof does not mutate the pool. A real capture may
+  compare a closed baseline once; `pageshow`/Settings can arm one bounded
+  upgrade peek, while consumer `refresh()` performs zero peeks. Baseline failure
+  never demotes a host-ready pool.
 - The same assistant identity is idempotent. A new assistant identity appends
   at the tail; uncertain ordering or one compiler failure defers only that
   identity and leaves obtained messages available.
@@ -98,18 +103,19 @@ The production lifecycle is defined by
 | DOM-first canonical conversation | With no Graph, one stable typed batch immediately yields `host/complete`; toolbar word count, Reader, copy, formula, bookmark and export consume it when canonical identity is present |
 | First turn without identity | One stable round immediately yields `host/complete`; toolbar numeric word count, Directory, Stepper, Reader, copy, formula and export work while bookmark save/remove is never called |
 | Identity promotion | A later formal ID preserves bodies, projection ID and content token, then re-enables the existing bookmark path without changing its data/protocol |
-| DOM first, Graph later | Only a verified historical prefix is prepended; strong existing bodies are byte-for-byte preserved and weak-sealed bodies are upgraded by their overlapping Graph turns (ADR-0019); exactly one token update |
+| DOM first, Graph later | A verified Graph [2, 16] may merge its complete envelope after a DOM-first [1, 2] pool; hidden prefix, middle, and tail additions are accepted only with maintained identity/order containment, strong existing bodies remain byte-for-byte preserved, weak-sealed bodies may upgrade (ADR-0019), and equal semantic revisions do not churn the token |
 | Invalid or failed baseline | No overlap, order/identity conflict, or baseline failure leaves the host-ready pool unchanged and still consumable |
 | Late-bound / payload-declared Graph | A same-origin JSON GET whose URL never carried the id still contributes the Graph when the payload declares the current conversation id; a graph-shaped payload declaring another conversation is counted rejected and never remembered; a non-canonical page parses nothing |
-| Gate re-arm | `pageshow` and the Settings retry action re-peek bridge memory only while the gate is open; an accepted Graph closes the gate and no later signal re-opens it; consumer `refresh()` never re-arms |
+| Gate re-arm | `pageshow`, document `resume`, and the Settings retry action may arm one bounded passive upgrade peek after a closed Graph baseline; `pageshow` + `resume` in one lifecycle burst perform one reconciliation; a real capture may trigger one coalesced comparison; the baseline gate never reopens and consumer `refresh()` never re-arms |
 | History status honesty | `historyStatus` is `unknown` for page-identity pools, `partial` for canonical DOM-only pools, `complete` after an accepted Graph; promotion preserves the content token while narrowing `unknown` to `partial`; Reader projections pass the status through and the Settings diagnostics row shows it |
 | Existing Graph-backed conversation | Baseline provides virtualized history; second/third/fourth completed DOM turns append once and every consumer count agrees |
 | Streaming pressure | 1,000 mutations compile zero times before completion/quiet and at most once after stability; no bridge replay and no content-only Surface topology scan |
 | Split hydration and completion | Persistent user/assistant slots may hydrate across separate mutation batches; action anchor, generation end, or a later typed round is a strong completion signal, while an otherwise complete turn uses one bounded 2-second quiet confirmation |
+| Mixed DOM hydration / official action fallback | Wrapper-shaped history plus a role-shaped generated tail is merged without dropping or duplicating turns; a late official copy action row wakes the same bounded discovery pass and may prove completion, while body text still comes only from compiler-verified assistant DOM |
 | Tail order ambiguity | A unique mounted pool tail anchors append order; a generated candidate before it or beyond an unresolved round is deferred, while a generated tail can anchor to the cached tail when only older history is mounted |
 | Consumer host replacement | Removing a marked Directory rail, Stepper or message toolbar emits one Surface-only fact and reattaches the consumer with the same obtained content; official controls remain untouched |
 | URL-independent lifecycle | Stable DOM content continues to append when the URL is unchanged; URL/hash text alone neither resets the pool nor cancels navigation, while a changed Surface projection does |
-| Epoch fencing | `pushState`, `replaceState`, `popstate`, `hashchange`, A→B→A, hard refresh, BFCache/pageshow, root replacement and stale compiler completion never mix pools |
+| Epoch fencing | `pushState`, `replaceState`, `popstate`, `hashchange`, A→B→A, hard refresh, BFCache/pageshow/resume, root replacement and stale compiler completion never mix pools |
 | Same-URL id-less reset | Explicit old-turn clear plus a later first-round generation start atomically replaces the projection only after compilation; virtualization and root replacement alone preserve it |
 | Virtualization | Unmount/remount preserves content token and ordinal; assistant-only remount produces one toolbar and a numeric word count |
 | Complex content | Formula, code and table use canonical host Markdown through toolbar, Reader, local selection, bookmark and export entrypoints |
@@ -133,6 +139,10 @@ The production lifecycle is defined by
   official action anchor, and a non-streaming assistant are required for the
   obtained toolbar; the action anchor is not required for prior content-pool
   admission. Official action and send state remain owned by ChatGPT.
+- An official action row is lifecycle/completion evidence only. It may wake the
+  existing PageIndex/Host Monitor pass or satisfy the bounded completion gate,
+  but it is never parsed as message content and never creates a second DOM
+  observer or content repository.
 - `proof.basis` is diagnostic only: `source | hybrid | host`. `complete`
   describes obtained messages, not hidden history that neither a trustworthy
   Graph nor the DOM exposed.

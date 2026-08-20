@@ -310,6 +310,7 @@ describe('ReaderPanel persistent ChatGPT annotations', () => {
         );
         const getSelectionSpy = vi.spyOn(window, 'getSelection').mockReturnValue(createSelection(range));
         document.dispatchEvent(new Event('selectionchange'));
+        document.dispatchEvent(new Event('pointerup'));
         await Promise.resolve();
 
         const addButton = shadow?.querySelector<HTMLButtonElement>('[data-action="reader-comment-add"]');

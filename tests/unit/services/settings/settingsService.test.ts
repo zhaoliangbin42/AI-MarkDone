@@ -224,6 +224,7 @@ describe('settingsService', () => {
             promptAutocomplete: false,
             enableArrowKeyMessageNavigation: false,
             pageWidthScale: 145,
+            pageAnnotationsEnabled: true,
         });
         expect(next).not.toHaveProperty('chatgpt');
 
@@ -257,6 +258,7 @@ describe('settingsService', () => {
             promptAutocomplete: true,
             enableArrowKeyMessageNavigation: true,
             pageWidthScale: 100,
+            pageAnnotationsEnabled: true,
         });
         expect(clamped.chatgptBehavior.pageWidthScale).toBe(200);
     });

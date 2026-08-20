@@ -22,6 +22,7 @@ export type ChatGPTConversationContentRuntimeOptions = Readonly<{
     hostSettleDelayMs?: number;
 }>;
 
+const PAGE_LIFECYCLE_WAKE_COALESCE_MS = 50;
 let pageEpochSequence = 0;
 
 /**
@@ -51,18 +52,16 @@ export class ChatGPTConversationContentRuntime {
     private lastDocumentKey: string | null | undefined;
     private initialized = false;
     private disposed = false;
+    private wakeReconcileTimer: ReturnType<typeof window.setTimeout> | null = null;
     private originalPushState: History['pushState'] | null = null;
     private originalReplaceState: History['replaceState'] | null = null;
     private wrappedPushState: History['pushState'] | null = null;
     private wrappedReplaceState: History['replaceState'] | null = null;
     private readonly handlePageShow = () => {
-        this.hostMonitor.notifyPageShow();
-        // BFCache restores keep the page bridge and its memory alive. A
-        // baseline peek that missed the capture before the restore gets one
-        // bounded re-arm; an accepted Graph stays untouched.
-        this.repository.reopenBaselineGate();
-        this.synchronizeCurrentEpoch(true);
-        this.surface.refreshSurface();
+        this.scheduleWakeReconciliation();
+    };
+    private readonly handlePageResume = () => {
+        this.scheduleWakeReconciliation();
     };
     private readonly handlePopState = () => {
         this.synchronizeCurrentEpoch(true);
@@ -147,6 +146,7 @@ export class ChatGPTConversationContentRuntime {
             this.refreshBridgeDiagnostics();
         });
         window.addEventListener('pageshow', this.handlePageShow);
+        document.addEventListener('resume', this.handlePageResume);
         window.addEventListener('popstate', this.handlePopState);
         window.addEventListener('hashchange', this.handleHashChange);
         this.installHistoryHooks();
@@ -158,7 +158,12 @@ export class ChatGPTConversationContentRuntime {
         if (this.disposed) return;
         this.disposed = true;
         this.initialized = false;
+        if (this.wakeReconcileTimer !== null) {
+            window.clearTimeout(this.wakeReconcileTimer);
+            this.wakeReconcileTimer = null;
+        }
         window.removeEventListener('pageshow', this.handlePageShow);
+        document.removeEventListener('resume', this.handlePageResume);
         window.removeEventListener('popstate', this.handlePopState);
         window.removeEventListener('hashchange', this.handleHashChange);
         this.restoreHistoryHooks();
@@ -172,6 +177,22 @@ export class ChatGPTConversationContentRuntime {
         this.repository.dispose();
         this.graphAdapter.dispose();
         this.lastDocumentKey = undefined;
+    }
+
+    private scheduleWakeReconciliation(): void {
+        if (this.disposed || this.wakeReconcileTimer !== null) return;
+        this.wakeReconcileTimer = window.setTimeout(() => {
+            this.wakeReconcileTimer = null;
+            if (this.disposed) return;
+
+            this.hostMonitor.notifyPageShow();
+            // BFCache restores and frozen-page resumes keep the page bridge
+            // and its memory alive. A baseline peek that missed the capture
+            // gets one bounded re-arm; an accepted Graph stays untouched.
+            this.repository.reopenBaselineGate();
+            this.synchronizeCurrentEpoch(true);
+            this.surface.refreshSurface();
+        }, PAGE_LIFECYCLE_WAKE_COALESCE_MS);
     }
 
     private synchronizeCurrentEpoch(force: boolean, pageUrl = window.location.href): void {

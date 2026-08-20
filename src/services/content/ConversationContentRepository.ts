@@ -66,9 +66,9 @@ type StoredHostObservation = Readonly<{
  * Page-scoped content session and the single semantic SSOT.
  *
  * A website-owned Graph or one stable typed host batch may establish the same
- * monotonic pool. The first later overlapping Graph may prepend only verified
- * history; obtained bodies are never replaced. Public refreshes never reopen
- * the gate or replay Graph capture.
+ * monotonic pool. Every accepted Graph must contain the maintained typed order
+ * and may add its complete proven envelope; obtained strong bodies are never
+ * replaced. Public refreshes never acquire or replay Graph capture.
  */
 export class ConversationContentRepository implements ConversationContentSourceV1, ConversationTurnReadPortV1 {
     private state: ConversationContentStateV1 = Object.freeze({
@@ -84,6 +84,8 @@ export class ConversationContentRepository implements ConversationContentSourceV
     private flight: Flight | null = null;
     private baselineGate: BaselineGate = 'open';
     private baselineAttempted = false;
+    private upgradeProbeArmed = false;
+    private acceptedSourceRevision: number | null = null;
     private baselineSource: 'graph' | 'dom' | null = null;
     private basis: ConversationSnapshotProofV1['basis'] | null = null;
     private turns: readonly ConversationTurnV1[] = Object.freeze([]);
@@ -106,9 +108,9 @@ export class ConversationContentRepository implements ConversationContentSourceV
         return () => this.listeners.delete(listener);
     }
 
-    /** Admit a newly captured passive baseline signal only while this epoch's gate is open. */
+    /** Admit a newly captured passive baseline or upgrade signal. */
     notifyBaselineCaptured(): void {
-        if (this.disposed || this.baselineGate === 'closed') return;
+        if (this.disposed) return;
         if (this.flight?.epoch === this.epoch) {
             this.flight.pendingSignal = true;
             return;
@@ -117,7 +119,6 @@ export class ConversationContentRepository implements ConversationContentSourceV
         const delay = Math.max(0, this.options.baselineSignalDelayMs ?? 150);
         this.scheduledTimer = setTimeout(() => {
             this.scheduledTimer = null;
-            if (this.baselineGate === 'closed') return;
             if (this.flight?.epoch === this.epoch) {
                 this.flight.pendingSignal = true;
                 return;
@@ -139,14 +140,21 @@ export class ConversationContentRepository implements ConversationContentSourceV
         if (document.identityKind === 'page' || document.conversationId === null) {
             return Promise.resolve(this.state);
         }
-        if (this.baselineGate === 'closed') return Promise.resolve(this.state);
+        const upgradeProbe = this.baselineGate === 'closed';
+        if (upgradeProbe && !this.upgradeProbeArmed) {
+            return Promise.resolve(this.state);
+        }
         if (this.flight?.epoch === this.epoch) return this.flight.promise;
-        if (this.baselineAttempted) return Promise.resolve(this.state);
-        return this.consumeBaseline(false);
+        if (upgradeProbe) this.upgradeProbeArmed = false;
+        if (this.baselineAttempted && !upgradeProbe) return Promise.resolve(this.state);
+        return this.consumeBaseline(upgradeProbe);
     }
 
     private consumeBaseline(forceFromCaptureSignal: boolean): Promise<ConversationContentStateV1> {
-        if (this.disposed || !this.currentDocument || this.baselineGate === 'closed') {
+        if (this.disposed || !this.currentDocument) {
+            return Promise.resolve(this.state);
+        }
+        if (this.baselineGate === 'closed' && !forceFromCaptureSignal) {
             return Promise.resolve(this.state);
         }
         if (this.flight?.epoch === this.epoch) {
@@ -157,6 +165,7 @@ export class ConversationContentRepository implements ConversationContentSourceV
 
         const epoch = this.epoch;
         const controller = new AbortController();
+        const graphWasEstablished = this.baselineSource === 'graph';
         this.baselineGate = 'inflight';
         this.baselineAttempted = true;
         if (!this.basis || this.turns.length === 0) {
@@ -180,14 +189,14 @@ export class ConversationContentRepository implements ConversationContentSourceV
                     throw new ConversationContentAcquisitionError('source-unavailable', { retryable: true });
                 }
                 const accepted = this.acceptBaseline(candidate, this.currentDocument!);
-                this.baselineGate = accepted ? 'closed' : 'open';
+                this.baselineGate = graphWasEstablished || accepted ? 'closed' : 'open';
                 this.flushPendingHost();
                 this.publishProjection();
                 return this.state;
             })
             .catch((error: unknown) => {
                 if (this.isObsolete(epoch, controller)) return this.state;
-                this.baselineGate = 'open';
+                this.baselineGate = graphWasEstablished ? 'closed' : 'open';
                 const normalized = normalizeAcquisitionError(error);
                 if (this.basis && this.turns.length > 0) {
                     this.publishProjection();
@@ -204,7 +213,11 @@ export class ConversationContentRepository implements ConversationContentSourceV
                 if (this.flight?.promise !== promise) return;
                 const pendingSignal = this.flight.pendingSignal;
                 this.flight = null;
-                if (pendingSignal && !this.disposed && this.baselineGate === 'open') {
+                if (
+                    pendingSignal
+                    && !this.disposed
+                    && (this.baselineGate === 'open' || this.baselineSource === 'graph')
+                ) {
                     void this.consumeBaseline(true);
                 }
             });
@@ -253,15 +266,18 @@ export class ConversationContentRepository implements ConversationContentSourceV
     }
 
     /**
-     * Re-arm one bounded baseline peek after a failed attempt. Only an OPEN
-     * gate (no accepted Graph) can be re-armed; an accepted Graph stays
-     * authoritative for the epoch. The re-armed read still only peeks passive
-     * bridge memory and never issues a request. Driver-side lifecycle signals
+     * Re-arm one bounded passive-memory peek after a failed attempt, or arm a
+     * monotonic upgrade comparison after a Graph baseline. The gate itself is
+     * never reopened and no request is issued. Driver-side lifecycle signals
      * (pageshow) and explicit user actions use this seam; the consumer-facing
      * refresh() contract does not.
      */
     reopenBaselineGate(): void {
-        if (this.disposed || this.baselineGate === 'closed') return;
+        if (this.disposed) return;
+        if (this.baselineGate === 'closed') {
+            this.upgradeProbeArmed = true;
+            return;
+        }
         this.baselineAttempted = false;
     }
 
@@ -318,6 +334,8 @@ export class ConversationContentRepository implements ConversationContentSourceV
         this.currentDocument = freezeDocument(document);
         this.baselineGate = 'open';
         this.baselineAttempted = false;
+        this.upgradeProbeArmed = false;
+        this.acceptedSourceRevision = null;
         this.basis = null;
         this.baselineSource = null;
         this.turns = Object.freeze([]);
@@ -425,6 +443,8 @@ export class ConversationContentRepository implements ConversationContentSourceV
         this.epoch += 1;
         this.flight?.controller.abort();
         this.flight = null;
+        this.upgradeProbeArmed = false;
+        this.acceptedSourceRevision = null;
         this.listeners.clear();
     }
 
@@ -442,56 +462,63 @@ export class ConversationContentRepository implements ConversationContentSourceV
         if (new Set(turns.map((turn) => turn.identity.assistantMessageId)).size !== turns.length) {
             throw new ConversationContentAcquisitionError('identity-conflict', { retryable: false });
         }
-        if (this.basis === 'host' && this.turns.length > 0) {
+        const candidateRevision = normalizeSourceRevision(candidate.sourceRevision);
+        if (
+            this.baselineSource === 'graph'
+            && candidateRevision !== null
+            && this.acceptedSourceRevision !== null
+            && candidateRevision <= this.acceptedSourceRevision
+        ) {
+            return false;
+        }
+
+        if (this.turns.length > 0) {
             const sourceIndexes = new Map(
                 turns.map((turn, index) => [turn.identity.assistantMessageId, index] as const),
             );
-            const firstHostId = this.turns[0]!.identity.assistantMessageId;
-            const firstHostIndex = sourceIndexes.get(firstHostId);
-            if (firstHostIndex === undefined) return false;
-            if (!sameTurnIdentity(this.turns[0]!, turns[firstHostIndex]!)) return false;
-
-            let previousSourceIndex = firstHostIndex - 1;
-            for (const hostTurn of this.turns) {
-                const sourceIndex = sourceIndexes.get(hostTurn.identity.assistantMessageId);
-                if (sourceIndex === undefined) continue;
-                if (!sameTurnIdentity(hostTurn, turns[sourceIndex]!)) return false;
-                if (sourceIndex <= previousSourceIndex) return false;
+            let previousSourceIndex = -1;
+            for (const maintainedTurn of this.turns) {
+                const sourceIndex = sourceIndexes.get(maintainedTurn.identity.assistantMessageId);
+                if (
+                    sourceIndex === undefined
+                    || sourceIndex <= previousSourceIndex
+                    || !sameTurnIdentity(maintainedTurn, turns[sourceIndex]!)
+                ) {
+                    return false;
+                }
                 previousSourceIndex = sourceIndex;
             }
 
-            const maintainedIds = new Set(this.turns.map((turn) => turn.identity.assistantMessageId));
-            const prefix = turns
-                .slice(0, firstHostIndex)
-                .filter((turn) => !maintainedIds.has(turn.identity.assistantMessageId));
-            // The Graph is stronger authority than bounded-quiet DOM evidence:
-            // upgrade weak-sealed maintained bodies from overlapping source
-            // turns in place (identity, order and ordinals stay unchanged).
-            const upgradedMaintained = this.turns.map((hostTurn) => {
-                const sourceIndex = sourceIndexes.get(hostTurn.identity.assistantMessageId);
-                if (sourceIndex === undefined || !this.weakSealedIds.has(hostTurn.identity.assistantMessageId)) {
-                    return hostTurn;
+            const maintainedByAssistantId = new Map(
+                this.turns.map((turn) => [turn.identity.assistantMessageId, turn] as const),
+            );
+            const nextTurns = turns.map((sourceTurn, index) => {
+                const maintainedTurn = maintainedByAssistantId.get(sourceTurn.identity.assistantMessageId);
+                if (!maintainedTurn || this.weakSealedIds.has(sourceTurn.identity.assistantMessageId)) {
+                    return { ...sourceTurn, ordinal: index + 1 };
                 }
-                const sourceTurn = turns[sourceIndex]!;
-                const next = { ...sourceTurn, ordinal: hostTurn.ordinal };
-                this.turnDigests.set(hostTurn.identity.assistantMessageId, digestTurnContent(next));
-                this.weakSealedIds.delete(hostTurn.identity.assistantMessageId);
-                return next;
+                return { ...maintainedTurn, ordinal: index + 1 };
             });
-            this.turns = freezeTurns([...prefix, ...upgradedMaintained]);
-            for (const turn of prefix) {
+            const frozenTurns = freezeTurns(nextTurns);
+            this.turns = frozenTurns;
+            this.turnDigests.clear();
+            for (const turn of frozenTurns) {
                 this.turnDigests.set(turn.identity.assistantMessageId, digestTurnContent(turn));
             }
-            this.basis = 'hybrid';
+            this.weakSealedIds.clear();
+            this.basis = this.basis === 'host' ? 'hybrid' : this.basis ?? 'source';
             this.baselineSource = 'graph';
+            if (candidateRevision !== null) this.acceptedSourceRevision = candidateRevision;
             return true;
         }
-        this.turns = Object.freeze(turns);
+
+        this.turns = freezeTurns(turns);
         this.turnDigests.clear();
         this.weakSealedIds.clear();
         for (const turn of turns) this.turnDigests.set(turn.identity.assistantMessageId, digestTurnContent(turn));
         this.basis = 'source';
         this.baselineSource = 'graph';
+        if (candidateRevision !== null) this.acceptedSourceRevision = candidateRevision;
         this.startProjection();
         return true;
     }
@@ -646,6 +673,8 @@ export class ConversationContentRepository implements ConversationContentSourceV
             this.projectionDocumentKeys.add(this.currentDocument.key);
             this.baselineGate = 'open';
             this.baselineAttempted = false;
+            this.upgradeProbeArmed = false;
+            this.acceptedSourceRevision = null;
             if (this.turns.length > 0) {
                 this.publishProjection();
             } else {
@@ -667,6 +696,8 @@ export class ConversationContentRepository implements ConversationContentSourceV
         this.currentDocument = freezeDocument(document);
         this.baselineGate = 'open';
         this.baselineAttempted = false;
+        this.upgradeProbeArmed = false;
+        this.acceptedSourceRevision = null;
         this.basis = null;
         this.baselineSource = null;
         this.turns = Object.freeze([]);
@@ -699,6 +730,8 @@ export class ConversationContentRepository implements ConversationContentSourceV
         this.currentDocument = null;
         this.baselineGate = 'open';
         this.baselineAttempted = false;
+        this.upgradeProbeArmed = false;
+        this.acceptedSourceRevision = null;
         this.basis = null;
         this.baselineSource = null;
         this.turns = Object.freeze([]);
@@ -773,6 +806,10 @@ function sameTurnIdentity(left: ConversationTurnV1, right: ConversationTurnV1): 
     return left.identity.turnId === right.identity.turnId
         && left.identity.userMessageId === right.identity.userMessageId
         && left.identity.assistantMessageId === right.identity.assistantMessageId;
+}
+
+function normalizeSourceRevision(value: number | undefined): number | null {
+    return value !== undefined && Number.isFinite(value) && value >= 0 ? value : null;
 }
 
 function normalizeAcquisitionError(error: unknown): {
