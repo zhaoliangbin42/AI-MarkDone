@@ -39,92 +39,7 @@ function candidate(document: ConversationDocumentRefV1, count: number): Conversa
     };
 }
 
-function graphSnapshot(conversationId: string, count: number) {
-    return {
-        conversationId,
-        capturedAt: count,
-        branchKey: `assistant-${count}`,
-        coverage: 'complete' as const,
-        rounds: Array.from({ length: count }, (_, index) => ({
-            id: `turn-${index + 1}`,
-            position: index + 1,
-            userPrompt: `Question ${index + 1}`,
-            assistantContent: `Answer ${index + 1}`,
-            preview: `Question ${index + 1}`,
-            messageId: `assistant-${index + 1}`,
-            userMessageId: `user-${index + 1}`,
-            assistantMessageId: `assistant-${index + 1}`,
-        })),
-    };
-}
-
-function graphSnapshotForLifecycleTest(conversationId: string) {
-    return {
-        conversationId,
-        capturedAt: 1,
-        branchKey: 'assistant-1',
-        coverage: 'complete' as const,
-        rounds: [{
-            id: 'turn-1',
-            position: 1,
-            userPrompt: 'Question 1',
-            assistantContent: 'Answer 1',
-            preview: 'Question 1',
-            messageId: 'assistant-1',
-            userMessageId: 'user-1',
-            assistantMessageId: 'assistant-1',
-        }],
-    };
-}
-
 describe('ChatGPT content discovery lifecycle', () => {
-    it('upgrades a closed Graph pool through the real capture signal', async () => {
-        const conversationId = '6a733f28-5954-83ec-980e-2b824a431953';
-        history.replaceState({}, '', `/c/${conversationId}`);
-        document.documentElement.innerHTML = '<head></head><body><main></main></body>';
-        let snapshot = graphSnapshot(conversationId, 2);
-        let bridgeRequests = 0;
-        const responder = ((event: Event) => {
-            const request = (event as CustomEvent<any>).detail;
-            if (request?.type !== 'peek') return;
-            bridgeRequests += 1;
-            window.dispatchEvent(new CustomEvent('aimd:chatgpt-conversation-bridge:response', {
-                detail: {
-                    requestId: request.requestId,
-                    ok: true,
-                    snapshot,
-                },
-            }));
-        }) as EventListener;
-        window.addEventListener('aimd:chatgpt-conversation-bridge:request', responder);
-
-        const runtime = new ChatGPTConversationContentRuntime(new ChatGPTAdapter());
-        try {
-            runtime.init();
-            const initial = await runtime.source.refresh();
-            expect(initial.kind).toBe('ready');
-            if (initial.kind !== 'ready') throw new Error('expected initial Graph state');
-            expect(initial.snapshot.turns).toHaveLength(2);
-            expect(bridgeRequests).toBe(1);
-
-            snapshot = graphSnapshot(conversationId, 16);
-            window.dispatchEvent(new CustomEvent('aimd:chatgpt-conversation-bridge:capture', {
-                detail: { kind: 'graph', conversationId },
-            }));
-            await new Promise((resolve) => window.setTimeout(resolve, 220));
-
-            const upgraded = runtime.source.read();
-            expect(upgraded.kind).toBe('ready');
-            if (upgraded.kind !== 'ready') throw new Error('expected upgraded Graph state');
-            expect(upgraded.snapshot.turns).toHaveLength(16);
-            expect(bridgeRequests).toBe(2);
-            expect(buildChatGPTReaderContent(upgraded.snapshot).items).toHaveLength(16);
-        } finally {
-            window.removeEventListener('aimd:chatgpt-conversation-bridge:request', responder);
-            runtime.dispose();
-        }
-    });
-
     it('uses the passive graph prompt when the conversation DOM contains only empty slots', async () => {
         const conversationId = '6a733f28-5954-83ec-980e-2b824a431951';
         history.replaceState({}, '', `/c/${conversationId}`);
@@ -312,9 +227,7 @@ describe('ChatGPT content discovery lifecycle', () => {
                 detail: { kind: 'graph', conversationId },
             }));
             await new Promise((resolve) => window.setTimeout(resolve, 220));
-            // A real capture may compare bridge memory after the baseline is
-            // closed; an equal revision is a semantic no-op.
-            expect(bridgeRequests).toBe(2);
+            expect(bridgeRequests).toBe(1);
             expect(runtime.source.read().snapshot?.contentToken).toBe(hybrid.snapshot.contentToken);
 
             document.querySelector('main')?.insertAdjacentHTML('beforeend', `
@@ -406,7 +319,7 @@ describe('ChatGPT content discovery lifecycle', () => {
         }
     });
 
-    it('keeps consumer refresh local while a new page runtime opens a fresh gate', async () => {
+    it('keeps a closed baseline immutable and opens a fresh gate only for a new page runtime', async () => {
         let current = ref('conversation-1');
         let available: ConversationContentCandidateV1 | null = candidate(current, 1);
         const repository = new ConversationContentRepository({
@@ -882,11 +795,9 @@ describe('ChatGPT content discovery lifecycle', () => {
 
         try {
             runtime.init();
-            await vi.waitFor(() => {
-                const first = runtime.source.read();
-                expect(first.kind).toBe('ready');
-            }, { timeout: 2000 });
+            await new Promise((resolve) => window.setTimeout(resolve, 25));
             const first = runtime.source.read();
+            expect(first.kind).toBe('ready');
             if (first.kind !== 'ready') throw new Error('expected first page projection');
             const firstProjection = first.snapshot.projectionId;
 
@@ -912,13 +823,10 @@ describe('ChatGPT content discovery lifecycle', () => {
                 'data-testid',
                 'copy-turn-action-button',
             );
+            await new Promise((resolve) => window.setTimeout(resolve, 25));
 
-            await vi.waitFor(() => {
-                const second = runtime.source.read();
-                expect(second.kind).toBe('ready');
-                expect(second.snapshot?.projectionId).not.toBe(firstProjection);
-            }, { timeout: 2000 });
             const second = runtime.source.read();
+            expect(second.kind).toBe('ready');
             if (second.kind !== 'ready') throw new Error('expected second page projection');
             expect(second.snapshot.projectionId).not.toBe(firstProjection);
             expect(second.snapshot.turns.map((turn) => turn.identity.assistantMessageId)).toEqual([
@@ -1053,7 +961,6 @@ describe('ChatGPT content discovery lifecycle', () => {
         let bridgeRequests = 0;
         const responder = ((event: Event) => {
             const request = (event as CustomEvent<any>).detail;
-            if (request?.type !== 'peek') return;
             bridgeRequests += 1;
             window.dispatchEvent(new CustomEvent('aimd:chatgpt-conversation-bridge:response', {
                 detail: {
@@ -1228,276 +1135,6 @@ describe('ChatGPT content discovery lifecycle', () => {
         } finally {
             directory.dispose();
             runtime.dispose();
-            adapter.dispose();
-        }
-    });
-
-    it('aggregates discovery diagnostics across repository, host monitor and bridge', async () => {
-        document.documentElement.innerHTML = '<head></head><body><main></main></body>';
-        history.replaceState({}, '', '/c/695499b7-464c-8323-a998-119f661ac953');
-        const adapter = new ChatGPTAdapter();
-        const runtime = new ChatGPTConversationContentRuntime(adapter);
-        const conversationId = '695499b7-464c-8323-a998-119f661ac953';
-        const graphSnapshot = {
-            conversationId,
-            branchKey: 'assistant-1',
-            coverage: 'complete' as const,
-            rounds: [{
-                id: 'turn-1',
-                position: 1,
-                userPrompt: 'Question 1',
-                assistantContent: 'Answer 1',
-                preview: 'Question 1',
-                messageId: 'assistant-1',
-                userMessageId: 'user-1',
-                assistantMessageId: 'assistant-1',
-            }],
-        };
-        const bridgeDiagnostics = {
-            version: 6,
-            observedEligibleGets: 2,
-            graphsAccepted: 1,
-            graphsRejected: 0,
-            capturesPublished: 1,
-            evictions: 0,
-            bytesSkipped: 0,
-            parseFailures: 0,
-            graphCount: 1,
-        };
-        const responder = ((event: Event) => {
-            const request = (event as CustomEvent<any>).detail;
-            if (request?.type === 'peek') {
-                window.dispatchEvent(new CustomEvent('aimd:chatgpt-conversation-bridge:response', {
-                    detail: { requestId: request.requestId, ok: true, snapshot: graphSnapshot },
-                }));
-                return;
-            }
-            if (request?.type === 'diagnostics') {
-                window.dispatchEvent(new CustomEvent('aimd:chatgpt-conversation-bridge:response', {
-                    detail: { requestId: request.requestId, ok: true, diagnostics: bridgeDiagnostics },
-                }));
-            }
-        }) as EventListener;
-        window.addEventListener('aimd:chatgpt-conversation-bridge:request', responder);
-
-        try {
-            runtime.init();
-            const state = await runtime.source.refresh();
-            expect(state.kind).toBe('ready');
-            // Let the throttled background diagnostics pull settle.
-            await new Promise((resolve) => window.setTimeout(resolve, 0));
-
-            const snapshot = runtime.readDiscoveryDiagnostics();
-            expect(snapshot.basis).toBe('source');
-            expect(snapshot.historyStatus).toBe('complete');
-            expect(snapshot.repository).toMatchObject({
-                documentKind: 'canonical',
-                baselineGate: 'closed',
-                turnCount: 1,
-            });
-            expect(snapshot.bridge).toMatchObject({
-                version: 6,
-                graphsAccepted: 1,
-            });
-            expect(snapshot.bridgeUnavailable).toBe(false);
-            expect(snapshot.captureSignalCount).toBe(0);
-        } finally {
-            window.removeEventListener('aimd:chatgpt-conversation-bridge:request', responder);
-            runtime.dispose();
-            adapter.dispose();
-        }
-    });
-
-    it('re-peeks passive bridge memory on pageshow after a missed capture', async () => {
-        document.documentElement.innerHTML = '<head></head><body><main></main></body>';
-        history.replaceState({}, '', '/c/695499b7-464c-8323-a998-119f661ac953');
-        const adapter = new ChatGPTAdapter();
-        const runtime = new ChatGPTConversationContentRuntime(adapter);
-        const conversationId = '695499b7-464c-8323-a998-119f661ac953';
-        const graphSnapshot = {
-            conversationId,
-            branchKey: 'assistant-1',
-            coverage: 'complete' as const,
-            rounds: [{
-                id: 'turn-1',
-                position: 1,
-                userPrompt: 'Question 1',
-                assistantContent: 'Answer 1',
-                preview: 'Question 1',
-                messageId: 'assistant-1',
-                userMessageId: 'user-1',
-                assistantMessageId: 'assistant-1',
-            }],
-        };
-        let peeks = 0;
-        const responder = ((event: Event) => {
-            const request = (event as CustomEvent<any>).detail;
-            if (request?.type !== 'peek') return;
-            peeks += 1;
-            window.dispatchEvent(new CustomEvent('aimd:chatgpt-conversation-bridge:response', {
-                detail: peeks === 1
-                    ? { requestId: request.requestId, ok: false, error: { code: 'BRIDGE_UNAVAILABLE', retryable: true } }
-                    : { requestId: request.requestId, ok: true, snapshot: graphSnapshot },
-            }));
-        }) as EventListener;
-        window.addEventListener('aimd:chatgpt-conversation-bridge:request', responder);
-
-        try {
-            runtime.init();
-            await runtime.source.refresh();
-            expect(runtime.source.read().kind).toBe('unavailable');
-            expect(peeks).toBe(1);
-
-            window.dispatchEvent(new Event('pageshow'));
-            await vi.waitFor(() => expect(peeks).toBe(2));
-            const state = runtime.source.read();
-            expect(state.kind).toBe('ready');
-            if (state.kind !== 'ready') throw new Error('expected re-peeked ready state');
-            expect(state.snapshot.turns).toHaveLength(1);
-            expect(peeks).toBe(2);
-        } finally {
-            window.removeEventListener('aimd:chatgpt-conversation-bridge:request', responder);
-            runtime.dispose();
-            adapter.dispose();
-        }
-    });
-
-    it('re-peeks passive bridge memory on document resume after a missed capture', async () => {
-        document.documentElement.innerHTML = '<head></head><body><main></main></body>';
-        history.replaceState({}, '', '/c/695499b7-464c-8323-a998-119f661ac953');
-        const adapter = new ChatGPTAdapter();
-        const runtime = new ChatGPTConversationContentRuntime(adapter);
-        const conversationId = '695499b7-464c-8323-a998-119f661ac953';
-        const graphSnapshot = graphSnapshotForLifecycleTest(conversationId);
-        let peeks = 0;
-        const responder = ((event: Event) => {
-            const request = (event as CustomEvent<any>).detail;
-            if (request?.type !== 'peek') return;
-            peeks += 1;
-            window.dispatchEvent(new CustomEvent('aimd:chatgpt-conversation-bridge:response', {
-                detail: peeks === 1
-                    ? { requestId: request.requestId, ok: false, error: { code: 'BRIDGE_UNAVAILABLE', retryable: true } }
-                    : { requestId: request.requestId, ok: true, snapshot: graphSnapshot },
-            }));
-        }) as EventListener;
-        window.addEventListener('aimd:chatgpt-conversation-bridge:request', responder);
-
-        try {
-            runtime.init();
-            await runtime.source.refresh();
-            expect(runtime.source.read().kind).toBe('unavailable');
-            expect(peeks).toBe(1);
-
-            document.dispatchEvent(new Event('resume'));
-            await vi.waitFor(() => expect(peeks).toBe(2));
-
-            const state = runtime.source.read();
-            expect(state.kind).toBe('ready');
-            if (state.kind !== 'ready') throw new Error('expected resumed ready state');
-            expect(state.snapshot.turns).toHaveLength(1);
-        } finally {
-            window.removeEventListener('aimd:chatgpt-conversation-bridge:request', responder);
-            runtime.dispose();
-            adapter.dispose();
-        }
-    });
-
-    it('coalesces resume and pageshow into one bounded wake and cancels it on dispose', async () => {
-        document.documentElement.innerHTML = '<head></head><body><main></main></body>';
-        history.replaceState({}, '', '/c/695499b7-464c-8323-a998-119f661ac953');
-        const adapter = new ChatGPTAdapter();
-        const runtime = new ChatGPTConversationContentRuntime(adapter);
-        const conversationId = '695499b7-464c-8323-a998-119f661ac953';
-        let snapshot = graphSnapshot(conversationId, 1);
-        let peeks = 0;
-        const responder = ((event: Event) => {
-            const request = (event as CustomEvent<any>).detail;
-            if (request?.type !== 'peek') return;
-            peeks += 1;
-            window.dispatchEvent(new CustomEvent('aimd:chatgpt-conversation-bridge:response', {
-                detail: { requestId: request.requestId, ok: true, snapshot },
-            }));
-        }) as EventListener;
-        window.addEventListener('aimd:chatgpt-conversation-bridge:request', responder);
-
-        try {
-            runtime.init();
-            await runtime.source.refresh();
-            expect(peeks).toBe(1);
-
-            snapshot = graphSnapshot(conversationId, 16);
-            document.dispatchEvent(new Event('resume'));
-            window.dispatchEvent(new Event('pageshow'));
-            await vi.waitFor(() => expect(peeks).toBe(2));
-            await new Promise((resolve) => window.setTimeout(resolve, 80));
-            expect(peeks).toBe(2);
-            const upgraded = runtime.source.read();
-            expect(upgraded.kind).toBe('ready');
-            if (upgraded.kind !== 'ready') throw new Error('expected coalesced upgrade state');
-            expect(upgraded.snapshot.turns).toHaveLength(16);
-
-            runtime.dispose();
-            document.dispatchEvent(new Event('resume'));
-            window.dispatchEvent(new Event('pageshow'));
-            await new Promise((resolve) => window.setTimeout(resolve, 80));
-            expect(peeks).toBe(2);
-        } finally {
-            window.removeEventListener('aimd:chatgpt-conversation-bridge:request', responder);
-            runtime.dispose();
-            adapter.dispose();
-        }
-    });
-
-    it('re-peeks on explicit retry only while the baseline gate is open', async () => {
-        document.documentElement.innerHTML = '<head></head><body><main></main></body>';
-        history.replaceState({}, '', '/c/695499b7-464c-8323-a998-119f661ac953');
-        const adapter = new ChatGPTAdapter();
-        const conversationId = '695499b7-464c-8323-a998-119f661ac953';
-        const graphSnapshot = {
-            conversationId,
-            branchKey: 'assistant-1',
-            coverage: 'complete' as const,
-            rounds: [{
-                id: 'turn-1',
-                position: 1,
-                userPrompt: 'Question 1',
-                assistantContent: 'Answer 1',
-                preview: 'Question 1',
-                messageId: 'assistant-1',
-                userMessageId: 'user-1',
-                assistantMessageId: 'assistant-1',
-            }],
-        };
-        let peeks = 0;
-        const responder = ((event: Event) => {
-            const request = (event as CustomEvent<any>).detail;
-            if (request?.type !== 'peek') return;
-            peeks += 1;
-            window.dispatchEvent(new CustomEvent('aimd:chatgpt-conversation-bridge:response', {
-                detail: peeks === 1
-                    ? { requestId: request.requestId, ok: false, error: { code: 'BRIDGE_UNAVAILABLE', retryable: true } }
-                    : { requestId: request.requestId, ok: true, snapshot: graphSnapshot },
-            }));
-        }) as EventListener;
-        window.addEventListener('aimd:chatgpt-conversation-bridge:request', responder);
-
-        try {
-            const runtime = new ChatGPTConversationContentRuntime(adapter);
-            runtime.init();
-            await runtime.source.refresh();
-            expect(runtime.source.read().kind).toBe('unavailable');
-            expect(peeks).toBe(1);
-
-            const retried = await runtime.retryBaselineDiscovery();
-            expect(retried.kind).toBe('ready');
-            expect(peeks).toBe(2);
-            // The accepted Graph keeps the gate closed, but an explicit retry
-            // may perform one passive-memory upgrade comparison.
-            await runtime.retryBaselineDiscovery();
-            expect(peeks).toBe(3);
-            runtime.dispose();
-        } finally {
-            window.removeEventListener('aimd:chatgpt-conversation-bridge:request', responder);
             adapter.dispose();
         }
     });

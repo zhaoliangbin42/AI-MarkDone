@@ -19,7 +19,7 @@ export type ReaderCommentRect = {
 
 export type ReaderCommentResolvedAnchor = {
     range: Range | null;
-    units: readonly { element: HTMLElement }[];
+    units: SelectedAtomicUnit[];
     rects: ReaderCommentRect[];
     unionRect: ReaderCommentRect | null;
 };
@@ -385,7 +385,7 @@ function resolveTextQuoteRange(root: HTMLElement, selector: ReaderCommentTextQuo
 export function resolveSelectionLayout(params: {
     root: HTMLElement;
     range: Range | null;
-    selectedUnits: readonly { element: HTMLElement }[];
+    selectedUnits: SelectedAtomicUnit[];
 }): ReaderCommentResolvedAnchor {
     const { root, range, selectedUnits } = params;
     const containerRect = root.getBoundingClientRect();
@@ -457,54 +457,6 @@ export function createReaderCommentRecord(params: {
         itemId: params.itemId,
         quoteText: quoteText || sourceMarkdown,
         sourceMarkdown,
-        comment: params.comment,
-        selectors,
-        createdAt: now,
-        updatedAt: now,
-    };
-}
-
-/**
- * Capture re-anchor selectors for a page (ChatGPT host DOM) selection. The
- * page does not carry Reader `data-aimd-unit-*` annotations, so `atomicRefs`
- * is empty and re-anchoring relies on textQuote/textPosition/domRange.
- */
-export function capturePageCommentSelectors(params: {
-    range: Range;
-    root: HTMLElement;
-}): ReaderCommentSelectors {
-    const quoteText = params.range.toString();
-    const textPosition = buildTextPosition(params.root, params.range);
-    return {
-        textQuote: buildTextQuote(params.root, quoteText, textPosition.start),
-        textPosition,
-        domRange: createDomRange(params.root, params.range),
-        atomicRefs: [],
-    };
-}
-
-/**
- * Create a page-annotation record whose `sourceMarkdown` is the canonical
- * Markdown projected from the same SurfaceProjection path used by local
- * Markdown copy. This keeps page annotations strictly same-source with copy
- * and never falls back to DOM reconstruction.
- */
-export function createPageCommentRecord(params: {
-    id: string;
-    itemId: string;
-    comment: string;
-    range: Range;
-    root: HTMLElement;
-    sourceMarkdown: string;
-}): ReaderCommentRecord {
-    const now = Date.now();
-    const selectors = capturePageCommentSelectors({ range: params.range, root: params.root });
-    const quoteText = params.range.toString().trim();
-    return {
-        id: params.id,
-        itemId: params.itemId,
-        quoteText: quoteText || params.sourceMarkdown,
-        sourceMarkdown: params.sourceMarkdown,
         comment: params.comment,
         selectors,
         createdAt: now,

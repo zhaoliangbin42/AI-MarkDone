@@ -65,33 +65,6 @@ describe('readerContentSource', () => {
         expect(result.sourceRevision?.contentToken).toBe('1');
     });
 
-    it('passes the authoritative historyStatus through to consumers', () => {
-        const snapshot = toConversationSnapshotV1({
-            conversationId: 'conv-1',
-            rounds: [{
-                id: 'round-1',
-                position: 1,
-                userPrompt: 'Prompt 1',
-                assistantContent: 'Answer 1',
-                messageId: 'assistant-1',
-                assistantMessageId: 'assistant-1',
-                userMessageId: 'user-1',
-            }],
-        });
-        const partialSnapshot = { ...snapshot, historyStatus: 'partial' as const };
-        const source = createConversationContentSource({
-            kind: 'ready',
-            document: partialSnapshot.document,
-            snapshot: partialSnapshot,
-        });
-        const result = readCurrentReaderContent(chatgptAdapter(), null, {
-            conversationContentSource: source,
-            pageUrl: 'https://chatgpt.com/c/conv-1',
-        });
-
-        expect(result.historyStatus).toBe('partial');
-    });
-
     it('resolves an explicit Reader start through materialization identity', () => {
         const source = buildSource(2);
         const messageElement = document.createElement('article');

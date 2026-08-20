@@ -3,17 +3,14 @@
 本文定义 AI-MarkDone 的目标架构蓝图，用于指导当前主线代码的持续演进。蓝图的目标不是复刻旧实现，而是把边界做成可执行的契约，并让模块能并行演进、互不干扰，且更符合 MV3 的可审计/可恢复要求。
 
 > **Active ChatGPT production seam:** a structurally and identity-verified
-> website-owned same-origin GET may establish or monotonically extend one
-> content pool per conversation epoch; a stable typed DOM batch may establish
-> the pool first or append later identities. Every accepted Graph must contain
-> the maintained pool in the same typed order, then may add its complete
-> proven envelope. Existing strong bodies are never replaced; weak-sealed
-> bodies may be upgraded by stronger Graph evidence. A turn in the pool is
-> consumable; streaming, debounce and compilation are internal timing.
-> `ConversationContentSourceV1` remains the only consumer content port.
-> `ChatGPTConversationSurface` is the only production join between that pool
-> and the current PageIndex anchors. See
-> [ADR-0021](../adr/ADR-0021-monotonic-passive-graph-upgrades.md).
+> website-owned same-origin GET may establish one baseline per conversation
+> epoch; a stable typed DOM batch may establish the pool first or append later
+> identities. A later Graph can add only a reliable historical prefix and can
+> never replace an obtained body. A turn in the pool is consumable; streaming,
+> debounce and compilation are internal timing. `ConversationContentSourceV1`
+> remains the only consumer content port. `ChatGPTConversationSurface` is the
+> only production join between that pool and the current PageIndex anchors. See
+> [ADR-0018](../adr/ADR-0018-chatgpt-identity-proven-single-content-pool.md).
 
 > **Virtualized surface projection:** a mounted assistant response may outlive
 > its user prompt in the DOM window. The shared Page Monitor keeps that fact as
@@ -107,7 +104,7 @@ content port and one atomic page Surface:
 flowchart LR
     GET["Website-owned conversation GET"]
     Bridge["document_start passive bridge"]
-    Gate["Baseline gate + bounded Graph upgrades"]
+    Gate["Once-only baseline gate"]
     DOM["ChatGPT DOM"]
     PageIndex["One ChatGPTPageIndex observer<br/>typed facts + current anchors"]
     Monitor["Host Monitor<br/>stable completed batches"]
@@ -174,22 +171,15 @@ remains `dom-only` compatibility evidence.
 The active lifecycle is signal-driven and owned by
 `ChatGPTConversationContentRuntime`: initial synchronization, PageIndex facts,
 validated Graph captures, History `pushState`/`replaceState`, `popstate`,
-`hashchange`, `pageshow`, and document `resume`. A page identity exists immediately, so stable host
+`hashchange`, and `pageshow`. A page identity exists immediately, so stable host
 rounds can publish without a URL ID. A canonical identity opens one baseline
-gate and promotes the existing page projection when it arrives. The first and
-later Graph candidates use the same monotonic merge: every maintained turn
-must remain in typed order, then all candidate-only Graph turns may be added.
-Baseline failure cannot demote host-ready content. A closed gate blocks
-speculative acquisition but still permits one bounded comparison for a real
-Graph capture or an explicitly armed lifecycle/Settings probe. `pageshow` and
-`resume` share one short wake reconciliation so a lifecycle burst performs one
-Host Monitor invalidation, one passive upgrade comparison, and one Surface
-refresh. `refresh()` only
-waits for already observed local work and cannot issue a request. There is no
-extension conversation GET/POST, POST observation, bridge replay loop, second
-content observer, or content RouteWatcher. Full rationale is recorded in
-`docs/adr/ADR-0021-monotonic-passive-graph-upgrades.md` and
-`docs/adr/ADR-0022-page-lifecycle-wake-reconciliation.md`.
+gate and promotes the existing page projection when it arrives; the first later
+Graph may add only a typed-identity-verified historical prefix. Baseline failure
+cannot demote host-ready content. `refresh()` only waits for already observed
+local work and cannot reopen the gate or issue a request. There is no extension
+conversation GET/POST, POST observation, bridge replay loop, second content
+observer, or content RouteWatcher. Full rationale is recorded in
+`docs/adr/ADR-0018-chatgpt-identity-proven-single-content-pool.md`.
 
 ### 2.3.1 扩展启动闭环（Boot）
 
@@ -199,7 +189,7 @@ content observer, or content RouteWatcher. Full rationale is recorded in
 
 ### 2.3.2 Reader 闭环（预览/复制/发送）
 
-1. Driver（Source/Host Adapter）把 provider Graph baseline 或稳定渲染消息适配成 typed evidence；`ConversationContentRepository` 按 `page identity → optional canonical promotion → monotonic Graph containment merge → projection → typed identity` 归并并发布 V1 snapshot；`readerContentSource` 是唯一 `ReaderItem[]` 投影。Graph 可建立完整 envelope 并在后续 revision 中增长；host 可在无 ID 时建立池并继续追加，不能覆盖已封存内容或把未观察历史伪装成已获得；`readTurn()` 支持按目标身份直接读取，消费者不能拥有第二套恢复链路
+1. Driver（Source/Host Adapter）把 provider Graph baseline 或稳定渲染消息适配成 typed evidence；`ConversationContentRepository` 按 `page identity → optional canonical promotion → projection → typed identity` 归并并发布 V1 snapshot；`readerContentSource` 是唯一 `ReaderItem[]` 投影。Graph 可建立完整历史前缀；host 可在无 ID 时建立池并继续追加，不能覆盖已封存内容或把未观察历史伪装成已获得；`readTurn()` 支持按目标身份直接读取，消费者不能拥有第二套恢复链路
 2. Service 通过 Semantic Content Module 编译稳定语义、source spans 与 Reader structure；HTML/KaTeX/highlight/sanitize 属于独立 Render Module。预览、复制、书签、导出只能选择 projection/policy，不能各自重新解释宿主 DOM
 3. UI 只负责呈现与交互（分页/复制/打开浮层/触发发送）
 4. 副作用（写书签、写设置、网络等）通过 Background 执行并返回结果
@@ -291,7 +281,6 @@ v1 的正式领域契约、排除项和失败语义见 `docs/adr/ADR-0006-reader
 - `coverage` 与 source quality 必须分离。`host-rendered/normalized` 不冒充 provider 原始源码，但 compiler 校验并封存后属于可消费的 canonical Markdown：可以进入 Reader、整条 Copy、Bookmark、PNG/PDF/Markdown export、词数，以及由当前 typed surface 唯一证明的局部 Markdown 复制。`reconstructed` 仍只能用于明确标记的降级展示，不得进入这些 canonical output 或持久 annotation source success path
 
 - 页面级入口必须由 AI-MarkDone 自有 surface 承载，不得为入口修改宿主页面 header 的内部 DOM；若未来新增宿主锚点，相关 DOM 差异仍必须收敛在 adapter 契约内
-- 页面注释入口只在 UI controller 内编排选区工具条、Reader 注释 builder、Prompt autocomplete seam 与页面管理器；selection frame 由 `ChatGPTPageSelectionCoordinator` 唯一提供，拖选期间不做语义水合。普通注释插入传空 `userPrompt`，Prompt 右方向键才把候选 Prompt 交给 Reader `buildCommentsExport`；页面管理器不重复实现 Reader 的批量复制/删除。
 - ChatGPT conversation group discovery、turn root、conversation root、streaming 判定同样属于 adapter/driver 契约的一部分；UI/controller 只能消费已经抽象好的 structural refs，不得在 UI 层按 ChatGPT selector 重新推导轮次、正文或 identity
 - `ConversationContentRepository` / `ConversationContentSourceV1` 是 ChatGPT semantic SSOT；`readerContentSource` 是唯一 `ReaderItem[]` 正文投影，分别提供无副作用的当前读取和只等待/返回已观察工作、不能启动 baseline 的显式 `refresh()`。Repository 从页面启动即持有 page identity；稳定 DOM 消息无 ID 也可入池，canonical identity 后到只 promotion，不重建 projection、正文或 content token。每个 canonical epoch 只允许一次被动 baseline admission；Repository 维护一个 immutable cache，并把稳定 DOM 新消息批量追加到末尾。`resolveChatGPTReaderStartIndex()` 是唯一语义起始位置规则。工具栏词数与 Reader binding 只被动读取；Copy/PNG/Reader open/Save Messages 只读取当前 snapshot。书签命令只有在当前 canonical ID 和 URL 完整时沿用既有链路；无 ID 时不准备、不保存、不构造不完整记录。任何 UI/controller 都不得调用 baseline lifecycle、重开 gate 或构造 ChatGPT Reader items
 - 官网 conversation Reader 只由 `ChatGPTConversationReaderBinding` 订阅 source state；cache 新增消息时追加，已有 typed identity 保持权威，没有 snapshot 时关闭 Reader。Save Messages 以 projection/content token 失效；延迟书签事务继续使用既有 canonical conversation identity 与 content token，且 token 不进入持久 schema

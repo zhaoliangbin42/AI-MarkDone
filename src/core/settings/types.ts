@@ -63,7 +63,6 @@ export type ChatGPTBehaviorSettings = {
     promptAutocomplete: boolean;
     enableArrowKeyMessageNavigation: boolean;
     pageWidthScale: number;
-    pageAnnotationsEnabled: boolean;
 };
 
 export const DEFAULT_CHATGPT_INPUT_ENHANCEMENT_SETTINGS: ChatGPTInputEnhancementSettings = {
@@ -200,7 +199,6 @@ export const DEFAULT_SETTINGS: AppSettings = {
         promptAutocomplete: true,
         enableArrowKeyMessageNavigation: true,
         pageWidthScale: DEFAULT_CHATGPT_PAGE_WIDTH_SCALE,
-        pageAnnotationsEnabled: true,
     },
     appearance: { fontSizePx: DEFAULT_GLOBAL_FONT_SIZE_PX, accentColor: null },
     bookmarks: { sortMode: 'alpha-asc' },

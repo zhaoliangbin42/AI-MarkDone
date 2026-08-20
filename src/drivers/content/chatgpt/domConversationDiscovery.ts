@@ -467,7 +467,13 @@ function collectLegacyContainerRoundRefs(adapter: SiteAdapter, root: ParentNode)
     return rounds;
 }
 
-function collectRoleRoundRefs(adapter: SiteAdapter, root: ParentNode): ChatGPTDomRoundRef[] {
+function discoverChatGPTDomRoundRefs(adapter: SiteAdapter): ChatGPTDomRoundRef[] {
+    const root = getDiscoveryRoot(adapter);
+    const turnWrapperRounds = collectTurnWrapperRoundRefs(adapter, root);
+    if (turnWrapperRounds.length > 0) return turnWrapperRounds;
+    const legacyContainerRounds = collectLegacyContainerRoundRefs(adapter, root);
+    if (legacyContainerRounds.length > 0) return legacyContainerRounds;
+
     const roleNodes = listRoleNodes(root);
     const seenRoleRoots = new Set<HTMLElement>();
     const rounds: ChatGPTDomRoundRef[] = [];
@@ -544,91 +550,6 @@ function collectRoleRoundRefs(adapter: SiteAdapter, root: ParentNode): ChatGPTDo
     }
 
     return rounds;
-}
-
-function roundCandidateScore(round: ChatGPTDomRoundRef): number {
-    const sourceScore = round.source === 'turn-wrapper'
-        ? 30
-        : round.source === 'legacy-container'
-            ? 20
-            : round.source === 'role-scan'
-                ? 10
-                : 0;
-    // Complete typed identity outranks a preferred structural strategy. A
-    // wrapper-shaped assistant-only projection must not win over a role scan
-    // that can pair the same mounted assistant with its user message.
-    return sourceScore
-        + (round.identity.userMessageId ? 100 : 0)
-        + (round.identity.roundId || round.identity.assistantTurnId ? 10 : 0)
-        + (round.assistantContentRootEl ? 2 : 0);
-}
-
-function sameMountedRound(left: ChatGPTDomRoundRef, right: ChatGPTDomRoundRef): boolean {
-    return left.assistantMessageEl === right.assistantMessageEl
-        || left.assistantRootEl === right.assistantRootEl;
-}
-
-function compareRoundDocumentOrder(left: ChatGPTDomRoundRef, right: ChatGPTDomRoundRef): number {
-    if (left.assistantRootEl === right.assistantRootEl) return 0;
-    const relation = left.assistantRootEl.compareDocumentPosition(right.assistantRootEl);
-    if (relation & Node.DOCUMENT_POSITION_FOLLOWING) return -1;
-    if (relation & Node.DOCUMENT_POSITION_PRECEDING) return 1;
-    return 0;
-}
-
-/**
- * ChatGPT can hydrate older turns through a structural wrapper while a newly
- * generated turn is temporarily exposed only as adjacent role nodes. Keep all
- * discovery strategies as evidence inputs and merge equivalent mounted nodes;
- * selecting one strategy for the whole page silently drops the new tail.
- */
-function mergeChatGPTDomRoundRefs(candidates: readonly ChatGPTDomRoundRef[]): ChatGPTDomRoundRef[] {
-    const merged: ChatGPTDomRoundRef[] = [];
-    for (const candidate of candidates) {
-        const existingIndex = merged.findIndex((round) => sameMountedRound(round, candidate));
-        if (existingIndex < 0) {
-            merged.push(candidate);
-            continue;
-        }
-        const existing = merged[existingIndex]!;
-        if (roundCandidateScore(candidate) > roundCandidateScore(existing)) {
-            merged[existingIndex] = candidate;
-        }
-    }
-    return merged
-        .sort(compareRoundDocumentOrder)
-        .map((round, index) => ({ ...round, assistantIndex: index }));
-}
-
-function hasUncoveredAssistantSurface(
-    adapter: SiteAdapter,
-    root: ParentNode,
-    rounds: readonly ChatGPTDomRoundRef[],
-): boolean {
-    const covered = new Set(rounds.map((round) => round.assistantMessageEl));
-    try {
-        return Array.from(root.querySelectorAll(adapter.getMessageSelector())).some((node) => (
-            node instanceof HTMLElement && !covered.has(node)
-        ));
-    } catch {
-        return false;
-    }
-}
-
-function discoverChatGPTDomRoundRefs(adapter: SiteAdapter): ChatGPTDomRoundRef[] {
-    const root = getDiscoveryRoot(adapter);
-    const turnWrapperRounds = collectTurnWrapperRoundRefs(adapter, root);
-    if (!hasUncoveredAssistantSurface(adapter, root, turnWrapperRounds)) return turnWrapperRounds;
-
-    // A changed ChatGPT subtree can mix a stable historical wrapper with a
-    // newly generated role-shaped turn. Only pay for the compatibility
-    // strategies when the primary wrapper pass proves that it missed a real
-    // assistant surface.
-    return mergeChatGPTDomRoundRefs([
-        ...turnWrapperRounds,
-        ...collectLegacyContainerRoundRefs(adapter, root),
-        ...collectRoleRoundRefs(adapter, root),
-    ]);
 }
 
 const pageIndexByAdapter = new WeakMap<SiteAdapter, ChatGPTPageIndex>();

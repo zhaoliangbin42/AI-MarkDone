@@ -60,7 +60,6 @@ function selectParagraph(shadow: ShadowRoot): () => void {
     installSelectionLayout(range, markdownRoot, Array.from(markdownRoot.querySelectorAll<HTMLElement>('[data-aimd-unit-id]')));
     const getSelectionSpy = vi.spyOn(window, 'getSelection').mockReturnValue(createSelection(range));
     document.dispatchEvent(new Event('selectionchange'));
-    document.dispatchEvent(new Event('pointerup'));
     return () => getSelectionSpy.mockRestore();
 }
 

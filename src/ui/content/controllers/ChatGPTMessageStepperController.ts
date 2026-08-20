@@ -9,10 +9,11 @@ import { AppearanceScope } from '../../../style/appearanceScope';
 import type { Theme } from '../../../core/types/theme';
 import { subscribeLocaleChange, t } from '../components/i18n';
 import {
+    collectChatGPTRoundPositions,
     navigateChatGPTDirectoryTarget,
+    resolveChatGPTActivePosition,
     type ChatGPTRoundPosition,
 } from '../chatgptDirectory/navigation';
-import { ChatGPTActivePositionTracker } from './ChatGPTActivePositionTracker';
 import { showEphemeralTooltip } from '../../../utils/tooltip';
 import type { ConversationNavigationPortV1 } from '../../../contracts/conversationNavigation';
 import {
@@ -85,8 +86,6 @@ export class ChatGPTMessageStepperController {
     private activePosition = 0;
     private unsubscribeSurface: (() => void) | null = null;
     private unsubscribeLocale: (() => void) | null = null;
-    private readonly activePositionTracker: ChatGPTActivePositionTracker;
-    private unsubscribeActivePosition: (() => void) | null = null;
     private refreshAnimationFrame: number | null = null;
     private navigationLockUntil = 0;
     private navigationRequestId = 0;
@@ -101,12 +100,8 @@ export class ChatGPTMessageStepperController {
             onRefreshPageBookmarkState?: (url: string) => Promise<PageBookmarkStatusResult> | PageBookmarkStatusResult;
             surface: ConversationSurfacePortV1;
             navigation?: ConversationNavigationPortV1 | null;
-            activePositionTracker?: ChatGPTActivePositionTracker;
         },
-    ) {
-        this.activePositionTracker = options.activePositionTracker
-            ?? new ChatGPTActivePositionTracker(options.surface);
-    }
+    ) {}
 
     private get surface(): ConversationSurfacePortV1 {
         return this.options.surface;
@@ -117,25 +112,19 @@ export class ChatGPTMessageStepperController {
         this.initialized = true;
         this.ensureHost();
         this.unsubscribeLocale = subscribeLocaleChange(() => this.syncControlLabels());
-        this.unsubscribeActivePosition = this.activePositionTracker.subscribe((state) => {
-            this.rounds = state.rounds;
-            if (Date.now() >= this.navigationLockUntil) this.activePosition = state.activePosition;
-            this.syncButtons();
-        });
         this.refreshState();
         document.addEventListener('keydown', this.onKeyDownCapture, { capture: true });
-        this.unsubscribeSurface = this.surface.subscribeFrame(() => {
-            this.activePositionTracker.invalidate();
-            this.scheduleRefreshState();
-        });
+        window.addEventListener('scroll', this.onScroll, { capture: true, passive: true });
+        document.addEventListener('scroll', this.onScroll, { capture: true, passive: true });
+        this.unsubscribeSurface = this.surface.subscribeFrame(() => this.scheduleRefreshState());
     }
 
     dispose(): void {
         if (!this.initialized) return;
         this.initialized = false;
         document.removeEventListener('keydown', this.onKeyDownCapture, { capture: true } as any);
-        this.unsubscribeActivePosition?.();
-        this.unsubscribeActivePosition = null;
+        window.removeEventListener('scroll', this.onScroll, { capture: true } as any);
+        document.removeEventListener('scroll', this.onScroll, { capture: true } as any);
         this.unsubscribeSurface?.();
         this.unsubscribeSurface = null;
         this.unsubscribeLocale?.();
@@ -380,6 +369,10 @@ export class ChatGPTMessageStepperController {
 `;
     }
 
+    private onScroll = (): void => {
+        this.scheduleRefreshState();
+    };
+
     private scheduleRefreshState(): void {
         if (!this.initialized || this.refreshAnimationFrame !== null) return;
         this.refreshAnimationFrame = window.requestAnimationFrame(() => {
@@ -456,8 +449,7 @@ export class ChatGPTMessageStepperController {
     private refreshState(options: { preserveLogicalPosition?: boolean } = {}): void {
         if (!this.initialized) return;
         this.ensureHost();
-        const tracked = this.activePositionTracker.refreshNow();
-        this.rounds = tracked.rounds;
+        this.rounds = collectChatGPTRoundPositions(this.surface);
         const visible = this.adapter.getPlatformId() === 'chatgpt' && Boolean(this.bookmarksPanelButton);
         if (this.host) {
             this.host.dataset.visible = visible ? '1' : '0';
@@ -476,8 +468,13 @@ export class ChatGPTMessageStepperController {
             this.syncButtons();
             return;
         }
-        this.activePosition = tracked.activePosition;
+        this.activePosition = this.resolveActivePosition();
         this.syncButtons();
+    }
+
+    private resolveActivePosition(): number {
+        const referenceY = Math.round(window.innerHeight * 0.35);
+        return resolveChatGPTActivePosition(this.rounds, referenceY);
     }
 
     private syncButtons(): void {

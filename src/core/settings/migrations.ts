@@ -180,7 +180,6 @@ export function normalizeChatGPTBehaviorSettings(value: unknown): AppSettings['c
         promptAutocomplete: Boolean((record as any).promptAutocomplete ?? DEFAULT_SETTINGS.chatgptBehavior.promptAutocomplete),
         enableArrowKeyMessageNavigation: Boolean((record as any).enableArrowKeyMessageNavigation ?? DEFAULT_SETTINGS.chatgptBehavior.enableArrowKeyMessageNavigation),
         pageWidthScale: normalizeChatGPTPageWidthScale((record as any).pageWidthScale),
-        pageAnnotationsEnabled: Boolean((record as any).pageAnnotationsEnabled ?? DEFAULT_SETTINGS.chatgptBehavior.pageAnnotationsEnabled),
     };
 }
 

@@ -399,94 +399,28 @@
         "message": "文本位置",
         "description": "Label for annotation text position"
     },
-    "readerCommentCurrentConversation": {
-        "message": "当前会话",
-        "description": "Reader annotation manager current conversation tab"
-    },
-    "readerCommentAllAnnotations": {
-        "message": "全部注释",
-        "description": "Reader annotation manager all annotations tab"
-    },
-    "readerCommentSearch": {
-        "message": "搜索注释",
-        "description": "Reader annotation manager search"
-    },
-    "readerCommentGroupByConversation": {
-        "message": "按会话",
-        "description": "Reader annotation manager conversation grouping"
-    },
-    "readerCommentTimeline": {
-        "message": "时间线",
-        "description": "Reader annotation manager timeline view"
-    },
-    "readerCommentBulkEdit": {
-        "message": "批量编辑",
-        "description": "Reader annotation manager bulk edit action"
-    },
-    "readerCommentBulkCancel": {
-        "message": "退出批量编辑",
-        "description": "Reader annotation manager exit bulk edit action"
-    },
-    "readerCommentSelectAll": {
-        "message": "全选",
-        "description": "Reader annotation manager select all"
-    },
-    "readerCommentDeleteSelected": {
-        "message": "删除已选",
-        "description": "Reader annotation manager delete selected action"
-    },
-    "readerCommentListLoading": {
-        "message": "正在加载注释…",
-        "description": "Reader annotation manager loading state"
-    },
-    "readerCommentListError": {
-        "message": "注释加载失败。",
-        "description": "Reader annotation manager error state"
-    },
-    "readerCommentUpdatedAt": {
-        "message": "更新时间",
-        "description": "Reader annotation manager update time"
-    },
-    "readerCommentReply": {
-        "message": "回复",
-        "description": "Reader annotation manager reply position"
-    },
-    "readerCommentUnanchored": {
-        "message": "未定位",
-        "description": "Reader annotation manager unanchored state"
-    },
-    "readerCommentPersistenceUnavailable": {
-        "message": "注释暂时无法加载。",
-        "description": "Reader annotation persistence error"
-    },
-    "readerCommentDeleteTitle": {
-        "message": "删除注释？",
-        "description": "Reader annotation delete confirmation title"
-    },
-    "readerCommentDeleteMessage": {
-        "message": "此注释将从当前浏览器扩展配置中删除。",
-        "description": "Reader annotation delete confirmation message"
-    },
-    "readerCommentOpenOtherConversation": {
-        "message": "正在打开会话…",
-        "description": "Reader annotation cross conversation navigation"
-    },
-    "readerCommentSourceUnavailable": {
-        "message": "当前 Reader 中找不到该回复。",
-        "description": "Reader annotation source unavailable"
-    },
-    "readerAnnotationPersistenceLabel": {
-        "message": "持久化注释",
-        "description": "Reader annotation persistence setting"
-    },
-    "readerAnnotationPersistenceDesc": {
-        "message": "开启后，新注释会保存到本地；已保存的注释始终显示。",
-        "description": "Reader annotation persistence setting description"
-    },
-    "readerAnnotationPersistenceTooltip": {
-        "message": "开启后，新注释会持久化保存，关闭浏览器也不会消失，但建议定期清理。",
-        "description": "Reader annotation persistence tooltip"
-    },
+    "readerCommentCurrentConversation": { "message": "当前会话", "description": "Reader annotation manager current conversation tab" },
+    "readerCommentAllAnnotations": { "message": "全部注释", "description": "Reader annotation manager all annotations tab" },
+    "readerCommentSearch": { "message": "搜索注释", "description": "Reader annotation manager search" },
+    "readerCommentGroupByConversation": { "message": "按会话", "description": "Reader annotation manager conversation grouping" },
+    "readerCommentTimeline": { "message": "时间线", "description": "Reader annotation manager timeline view" },
+    "readerCommentBulkEdit": { "message": "批量编辑", "description": "Reader annotation manager bulk edit action" },
+    "readerCommentBulkCancel": { "message": "退出批量编辑", "description": "Reader annotation manager exit bulk edit action" },
+    "readerCommentSelectAll": { "message": "全选", "description": "Reader annotation manager select all" },
+    "readerCommentDeleteSelected": { "message": "删除已选", "description": "Reader annotation manager delete selected action" },
+    "readerCommentListLoading": { "message": "正在加载注释…", "description": "Reader annotation manager loading state" },
+    "readerCommentListError": { "message": "注释加载失败。", "description": "Reader annotation manager error state" },
+    "readerCommentUpdatedAt": { "message": "更新时间", "description": "Reader annotation manager update time" },
+    "readerCommentReply": { "message": "回复", "description": "Reader annotation manager reply position" },
+    "readerCommentUnanchored": { "message": "未定位", "description": "Reader annotation manager unanchored state" },
+    "readerCommentPersistenceUnavailable": { "message": "注释暂时无法加载。", "description": "Reader annotation persistence error" },
+    "readerCommentDeleteTitle": { "message": "删除注释？", "description": "Reader annotation delete confirmation title" },
+    "readerCommentDeleteMessage": { "message": "此注释将从当前浏览器扩展配置中删除。", "description": "Reader annotation delete confirmation message" },
+    "readerCommentOpenOtherConversation": { "message": "正在打开会话…", "description": "Reader annotation cross conversation navigation" },
+    "readerCommentSourceUnavailable": { "message": "当前 Reader 中找不到该回复。", "description": "Reader annotation source unavailable" },
+    "readerAnnotationPersistenceLabel": { "message": "持久化注释", "description": "Reader annotation persistence setting" },
+    "readerAnnotationPersistenceDesc": { "message": "开启后，新注释会保存到本地；已保存的注释始终显示。", "description": "Reader annotation persistence setting description" },
+    "readerAnnotationPersistenceTooltip": { "message": "开启后，新注释会持久化保存，关闭浏览器也不会消失，但建议定期清理。", "description": "Reader annotation persistence tooltip" },
     "readerCommentCopyEmpty": {
         "message": "当前还没有可复制的注释。",
         "description": "Message for readerCommentCopyEmpty"
@@ -1351,14 +1285,6 @@
         "message": "在 $...$ 或 $$...$$ 中开始输入 LaTeX 命令并显示匹配片段。",
         "description": "公式联想触发行为"
     },
-    "chatgptInputEnhancementGuidePromptTrigger": {
-        "message": "输入反斜杠和 Prompt 触发词（例如 \\rewrite）打开 Prompt 联想；公式中的反斜杠仍用于 LaTeX 联想。",
-        "description": "Prompt 联想触发行为"
-    },
-    "promptAutocompleteKeyboardHint": {
-        "message": "输入 \\ + 触发词；↑ ↓ 选择，Enter/Tab 插入 Prompt，→ 插入 Prompt + 当前会话注释（有注释时），Esc 关闭。",
-        "description": "Prompt 联想下方显示的触发方式和键盘提示"
-    },
     "chatgptFormulaPreviewTitle": {
         "message": "公式预览",
         "description": "Title of the lightweight formula preview"
@@ -1738,30 +1664,6 @@
     "settingsLanguageDesc": {
         "message": "选择你的首选语言",
         "description": "Message for settingsLanguageDesc"
-    },
-    "settingsDiscoveryDiagnosticsLabel": {
-        "message": "内容发现状态",
-        "description": "Message for settingsDiscoveryDiagnosticsLabel"
-    },
-    "settingsDiscoveryDiagnosticsDesc": {
-        "message": "当前生效的发现路径与待处理工作",
-        "description": "Message for settingsDiscoveryDiagnosticsDesc"
-    },
-    "settingsDiscoveryDiagnosticsCopy": {
-        "message": "复制诊断",
-        "description": "Message for settingsDiscoveryDiagnosticsCopy"
-    },
-    "settingsDiscoveryDiagnosticsRetry": {
-        "message": "重新获取内容",
-        "description": "Message for settingsDiscoveryDiagnosticsRetry"
-    },
-    "settingsDiscoveryDiagnosticsCopied": {
-        "message": "已复制",
-        "description": "Message for settingsDiscoveryDiagnosticsCopied"
-    },
-    "settingsDiscoveryDiagnosticsUnavailable": {
-        "message": "当前页面无内容发现诊断信息",
-        "description": "Message for settingsDiscoveryDiagnosticsUnavailable"
     },
     "languageAuto": {
         "message": "自动（浏览器语言）",
@@ -3214,141 +3116,5 @@
     "detachedReaderClosed": {
         "message": "独立阅读器已关闭。",
         "description": "Message for detachedReaderClosed"
-    },
-    "pageAnnotationChip": {
-        "message": "注释",
-        "description": "Label for the page annotation count chip beside the ChatGPT input box"
-    },
-    "pageAnnotationManagerTitle": {
-        "message": "注释",
-        "description": "Title of the page annotation manager modal"
-    },
-    "pageAnnotationManagerCurrent": {
-        "message": "当前会话",
-        "description": "Tab label for current-conversation annotations"
-    },
-    "pageAnnotationManagerAll": {
-        "message": "全部",
-        "description": "Tab label for all annotations"
-    },
-    "pageAnnotationManagerAllHint": {
-        "message": "“全部”仅用于查找和管理；如需插入，请切换到“当前会话”。",
-        "description": "说明全部注释不能直接插入的提示"
-    },
-    "pageAnnotationManagerSearch": {
-        "message": "搜索注释",
-        "description": "Search placeholder in the annotation manager"
-    },
-    "pageAnnotationManagerLoading": {
-        "message": "正在加载注释…",
-        "description": "Loading state in the annotation manager"
-    },
-    "pageAnnotationManagerEmpty": {
-        "message": "暂无注释。",
-        "description": "Empty state in the annotation manager"
-    },
-    "pageAnnotationManagerLoadFailed": {
-        "message": "无法加载全部注释。",
-        "description": "全部注释加载失败时的错误状态"
-    },
-    "pageAnnotationManagerRetry": {
-        "message": "重试",
-        "description": "全部注释加载失败时的重试操作"
-    },
-    "pageAnnotationManagerReply": {
-        "message": "回复",
-        "description": "Reply position label in the annotation manager"
-    },
-    "pageAnnotationManagerUpdated": {
-        "message": "更新时间",
-        "description": "Updated timestamp label in the annotation manager"
-    },
-    "pageAnnotationManagerConversation": {
-        "message": "会话",
-        "description": "全部注释管理器中的会话归属标签"
-    },
-    "pageAnnotationManagerUnanchored": {
-        "message": "未定位",
-        "description": "Label for annotations whose source could not be located"
-    },
-    "pageAnnotationCopyAll": {
-        "message": "复制所有注释",
-        "description": "Button to copy all annotations"
-    },
-    "pageAnnotationDeleteAll": {
-        "message": "删除所有注释",
-        "description": "Button to delete all annotations"
-    },
-    "pageAnnotationCopyAndDelete": {
-        "message": "复制并删除",
-        "description": "Button to copy and then delete all annotations"
-    },
-    "pageAnnotationDeleteAllConfirmTitle": {
-        "message": "删除所有注释？",
-        "description": "First confirmation title for deleting all annotations"
-    },
-    "pageAnnotationDeleteAllConfirmMessage": {
-        "message": "将删除 $1 条注释。",
-        "description": "First confirmation message for deleting all annotations"
-    },
-    "pageAnnotationDeleteAllFinalTitle": {
-        "message": "此操作无法撤销",
-        "description": "Final confirmation title for deleting all annotations"
-    },
-    "pageAnnotationDeleteAllFinalMessage": {
-        "message": "这些注释将从当前浏览器配置文件中永久删除。",
-        "description": "Final confirmation message for deleting all annotations"
-    },
-    "pageAnnotationCopied": {
-        "message": "已复制！",
-        "description": "Toast when annotations are copied"
-    },
-    "pageAnnotationCopyFailed": {
-        "message": "复制失败",
-        "description": "Toast when copying annotations fails"
-    },
-    "pageAnnotationSourceUnavailable": {
-        "message": "当前页面无法定位该注释对应的回复。",
-        "description": "Toast when an annotation's source message cannot be located"
-    },
-    "pageAnnotationDeletePartial": {
-        "message": "部分注释删除失败。",
-        "description": "Toast when some annotations fail to delete"
-    },
-    "readerCommentSelectedSource": {
-        "message": "选中内容",
-        "description": "Label for the selected source excerpt in the comment popover"
-    },
-    "chatgptPageAnnotationsLabel": {
-        "message": "页面注释",
-        "description": "Toggle for the ChatGPT page annotation feature"
-    },
-    "chatgptPageAnnotationsDesc": {
-        "message": "在页面上直接为选中的回复添加注释。",
-        "description": "Description for the ChatGPT page annotation toggle"
-    },
-    "pageAnnotationInsert": {
-        "message": "插入到输入框",
-        "description": "Button to insert annotations into the input box"
-    },
-    "pageAnnotationInserted": {
-        "message": "注释已插入",
-        "description": "Toast when annotations are inserted into the input box"
-    },
-    "pageAnnotationInsertFailed": {
-        "message": "插入注释失败",
-        "description": "Toast when inserting annotations into the input box fails"
-    },
-    "pageAnnotationSelectionUnavailable": {
-        "message": "当前选中内容已失效，请重新选择后再试。",
-        "description": "选中内容无法恢复时的提示"
-    },
-    "pageAnnotationOpen": {
-        "message": "打开注释",
-        "description": "打开已有页面注释的无障碍标签"
-    },
-    "pageAnnotationChipAction": {
-        "message": "打开当前会话注释",
-        "description": "从输入框打开当前会话注释管理器的无障碍标签"
     }
 }

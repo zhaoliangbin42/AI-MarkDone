@@ -28,10 +28,6 @@ const SPONSOR_THANKS = [
     '煦（非常感谢）',
     'Austin（希望能一直更新下去），回：好的，没问题，一定会继续更新',
     '匿名（感谢您制作如此宜人的插件！）',
-    '匿名',
-    'Core（念即观）',
-    'WhEaT',
-    'wu（太感谢了，插件越来越好用了）',
 ];
 
 export class SponsorTabView {

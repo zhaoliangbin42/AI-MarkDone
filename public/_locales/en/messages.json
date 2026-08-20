@@ -399,94 +399,28 @@
         "message": "Position",
         "description": "Label for annotation text position"
     },
-    "readerCommentCurrentConversation": {
-        "message": "Current conversation",
-        "description": "Reader annotation manager current conversation tab"
-    },
-    "readerCommentAllAnnotations": {
-        "message": "All annotations",
-        "description": "Reader annotation manager all annotations tab"
-    },
-    "readerCommentSearch": {
-        "message": "Search annotations",
-        "description": "Reader annotation manager search"
-    },
-    "readerCommentGroupByConversation": {
-        "message": "By conversation",
-        "description": "Reader annotation manager conversation grouping"
-    },
-    "readerCommentTimeline": {
-        "message": "Timeline",
-        "description": "Reader annotation manager timeline view"
-    },
-    "readerCommentBulkEdit": {
-        "message": "Bulk edit",
-        "description": "Reader annotation manager bulk edit action"
-    },
-    "readerCommentBulkCancel": {
-        "message": "Cancel bulk edit",
-        "description": "Reader annotation manager exit bulk edit action"
-    },
-    "readerCommentSelectAll": {
-        "message": "Select all",
-        "description": "Reader annotation manager select all"
-    },
-    "readerCommentDeleteSelected": {
-        "message": "Delete selected",
-        "description": "Reader annotation manager delete selected action"
-    },
-    "readerCommentListLoading": {
-        "message": "Loading annotations…",
-        "description": "Reader annotation manager loading state"
-    },
-    "readerCommentListError": {
-        "message": "Could not load annotations.",
-        "description": "Reader annotation manager error state"
-    },
-    "readerCommentUpdatedAt": {
-        "message": "Updated",
-        "description": "Reader annotation manager update time"
-    },
-    "readerCommentReply": {
-        "message": "Reply",
-        "description": "Reader annotation manager reply position"
-    },
-    "readerCommentUnanchored": {
-        "message": "Not located",
-        "description": "Reader annotation manager unanchored state"
-    },
-    "readerCommentPersistenceUnavailable": {
-        "message": "Annotations could not be loaded.",
-        "description": "Reader annotation persistence error"
-    },
-    "readerCommentDeleteTitle": {
-        "message": "Delete annotation?",
-        "description": "Reader annotation delete confirmation title"
-    },
-    "readerCommentDeleteMessage": {
-        "message": "This annotation will be deleted from this browser profile.",
-        "description": "Reader annotation delete confirmation message"
-    },
-    "readerCommentOpenOtherConversation": {
-        "message": "Opening the conversation…",
-        "description": "Reader annotation cross conversation navigation"
-    },
-    "readerCommentSourceUnavailable": {
-        "message": "The source reply is not available in this Reader.",
-        "description": "Reader annotation source unavailable"
-    },
-    "readerAnnotationPersistenceLabel": {
-        "message": "Persist annotations",
-        "description": "Reader annotation persistence setting"
-    },
-    "readerAnnotationPersistenceDesc": {
-        "message": "When enabled, new annotations are saved locally; existing annotations always remain visible.",
-        "description": "Reader annotation persistence setting description"
-    },
-    "readerAnnotationPersistenceTooltip": {
-        "message": "When enabled, new annotations are saved locally and remain after you close the browser, but consider cleaning them up regularly.",
-        "description": "Reader annotation persistence tooltip"
-    },
+    "readerCommentCurrentConversation": { "message": "Current conversation", "description": "Reader annotation manager current conversation tab" },
+    "readerCommentAllAnnotations": { "message": "All annotations", "description": "Reader annotation manager all annotations tab" },
+    "readerCommentSearch": { "message": "Search annotations", "description": "Reader annotation manager search" },
+    "readerCommentGroupByConversation": { "message": "By conversation", "description": "Reader annotation manager conversation grouping" },
+    "readerCommentTimeline": { "message": "Timeline", "description": "Reader annotation manager timeline view" },
+    "readerCommentBulkEdit": { "message": "Bulk edit", "description": "Reader annotation manager bulk edit action" },
+    "readerCommentBulkCancel": { "message": "Cancel bulk edit", "description": "Reader annotation manager exit bulk edit action" },
+    "readerCommentSelectAll": { "message": "Select all", "description": "Reader annotation manager select all" },
+    "readerCommentDeleteSelected": { "message": "Delete selected", "description": "Reader annotation manager delete selected action" },
+    "readerCommentListLoading": { "message": "Loading annotations…", "description": "Reader annotation manager loading state" },
+    "readerCommentListError": { "message": "Could not load annotations.", "description": "Reader annotation manager error state" },
+    "readerCommentUpdatedAt": { "message": "Updated", "description": "Reader annotation manager update time" },
+    "readerCommentReply": { "message": "Reply", "description": "Reader annotation manager reply position" },
+    "readerCommentUnanchored": { "message": "Not located", "description": "Reader annotation manager unanchored state" },
+    "readerCommentPersistenceUnavailable": { "message": "Annotations could not be loaded.", "description": "Reader annotation persistence error" },
+    "readerCommentDeleteTitle": { "message": "Delete annotation?", "description": "Reader annotation delete confirmation title" },
+    "readerCommentDeleteMessage": { "message": "This annotation will be deleted from this browser profile.", "description": "Reader annotation delete confirmation message" },
+    "readerCommentOpenOtherConversation": { "message": "Opening the conversation…", "description": "Reader annotation cross conversation navigation" },
+    "readerCommentSourceUnavailable": { "message": "The source reply is not available in this Reader.", "description": "Reader annotation source unavailable" },
+    "readerAnnotationPersistenceLabel": { "message": "Persist annotations", "description": "Reader annotation persistence setting" },
+    "readerAnnotationPersistenceDesc": { "message": "When enabled, new annotations are saved locally; existing annotations always remain visible.", "description": "Reader annotation persistence setting description" },
+    "readerAnnotationPersistenceTooltip": { "message": "When enabled, new annotations are saved locally and remain after you close the browser, but consider cleaning them up regularly.", "description": "Reader annotation persistence tooltip" },
     "readerCommentCopyEmpty": {
         "message": "No annotations to copy yet.",
         "description": "Message for readerCommentCopyEmpty"
@@ -1351,14 +1285,6 @@
         "message": "Inside $...$ or $$...$$, start a LaTeX command and show matching snippets.",
         "description": "Formula suggestion trigger behavior"
     },
-    "chatgptInputEnhancementGuidePromptTrigger": {
-        "message": "Type a backslash plus a Prompt trigger (for example, \\rewrite) to open Prompt suggestions; a backslash inside formulas remains a LaTeX trigger.",
-        "description": "Prompt suggestion trigger behavior"
-    },
-    "promptAutocompleteKeyboardHint": {
-        "message": "Type \\ + a trigger; ↑ ↓ select, Enter/Tab insert the Prompt, → insert the Prompt + current annotations when available, Esc close.",
-        "description": "Keyboard and trigger hint shown below Prompt autocomplete suggestions"
-    },
     "chatgptFormulaPreviewTitle": {
         "message": "Formula preview",
         "description": "Title of the lightweight formula preview"
@@ -1738,30 +1664,6 @@
     "settingsLanguageDesc": {
         "message": "Choose your preferred language",
         "description": "Message for settingsLanguageDesc"
-    },
-    "settingsDiscoveryDiagnosticsLabel": {
-        "message": "Content Discovery Status",
-        "description": "Message for settingsDiscoveryDiagnosticsLabel"
-    },
-    "settingsDiscoveryDiagnosticsDesc": {
-        "message": "Active discovery path and pending work",
-        "description": "Message for settingsDiscoveryDiagnosticsDesc"
-    },
-    "settingsDiscoveryDiagnosticsCopy": {
-        "message": "Copy diagnostics",
-        "description": "Message for settingsDiscoveryDiagnosticsCopy"
-    },
-    "settingsDiscoveryDiagnosticsRetry": {
-        "message": "Retry discovery",
-        "description": "Message for settingsDiscoveryDiagnosticsRetry"
-    },
-    "settingsDiscoveryDiagnosticsCopied": {
-        "message": "Copied",
-        "description": "Message for settingsDiscoveryDiagnosticsCopied"
-    },
-    "settingsDiscoveryDiagnosticsUnavailable": {
-        "message": "Discovery diagnostics are unavailable on this page",
-        "description": "Message for settingsDiscoveryDiagnosticsUnavailable"
     },
     "languageAuto": {
         "message": "Auto (Browser Language)",
@@ -3214,141 +3116,5 @@
     "detachedReaderClosed": {
         "message": "Detached Reader closed.",
         "description": "Message for detachedReaderClosed"
-    },
-    "pageAnnotationChip": {
-        "message": "Annotations",
-        "description": "Label for the page annotation count chip beside the ChatGPT input box"
-    },
-    "pageAnnotationManagerTitle": {
-        "message": "Annotations",
-        "description": "Title of the page annotation manager modal"
-    },
-    "pageAnnotationManagerCurrent": {
-        "message": "Current conversation",
-        "description": "Tab label for current-conversation annotations"
-    },
-    "pageAnnotationManagerAll": {
-        "message": "All",
-        "description": "Tab label for all annotations"
-    },
-    "pageAnnotationManagerAllHint": {
-        "message": "The All view is for review and management. Switch to Current conversation to insert.",
-        "description": "Hint explaining that all-conversation annotations cannot be inserted directly"
-    },
-    "pageAnnotationManagerSearch": {
-        "message": "Search annotations",
-        "description": "Search placeholder in the annotation manager"
-    },
-    "pageAnnotationManagerLoading": {
-        "message": "Loading annotations…",
-        "description": "Loading state in the annotation manager"
-    },
-    "pageAnnotationManagerEmpty": {
-        "message": "No annotations yet.",
-        "description": "Empty state in the annotation manager"
-    },
-    "pageAnnotationManagerLoadFailed": {
-        "message": "Could not load all annotations.",
-        "description": "Error state when all annotations cannot be loaded"
-    },
-    "pageAnnotationManagerRetry": {
-        "message": "Retry",
-        "description": "Retry action for loading all annotations"
-    },
-    "pageAnnotationManagerReply": {
-        "message": "Reply",
-        "description": "Reply position label in the annotation manager"
-    },
-    "pageAnnotationManagerUpdated": {
-        "message": "Updated",
-        "description": "Updated timestamp label in the annotation manager"
-    },
-    "pageAnnotationManagerConversation": {
-        "message": "Conversation",
-        "description": "Conversation identity label in the all-annotations manager"
-    },
-    "pageAnnotationManagerUnanchored": {
-        "message": "Not located",
-        "description": "Label for annotations whose source could not be located"
-    },
-    "pageAnnotationCopyAll": {
-        "message": "Copy all",
-        "description": "Button to copy all annotations"
-    },
-    "pageAnnotationDeleteAll": {
-        "message": "Delete all",
-        "description": "Button to delete all annotations"
-    },
-    "pageAnnotationCopyAndDelete": {
-        "message": "Copy & delete",
-        "description": "Button to copy and then delete all annotations"
-    },
-    "pageAnnotationDeleteAllConfirmTitle": {
-        "message": "Delete all annotations?",
-        "description": "First confirmation title for deleting all annotations"
-    },
-    "pageAnnotationDeleteAllConfirmMessage": {
-        "message": "This will delete $1 annotation(s).",
-        "description": "First confirmation message for deleting all annotations"
-    },
-    "pageAnnotationDeleteAllFinalTitle": {
-        "message": "This cannot be undone",
-        "description": "Final confirmation title for deleting all annotations"
-    },
-    "pageAnnotationDeleteAllFinalMessage": {
-        "message": "These annotations will be permanently removed from this browser profile.",
-        "description": "Final confirmation message for deleting all annotations"
-    },
-    "pageAnnotationCopied": {
-        "message": "Copied!",
-        "description": "Toast when annotations are copied"
-    },
-    "pageAnnotationCopyFailed": {
-        "message": "Copy failed",
-        "description": "Toast when copying annotations fails"
-    },
-    "pageAnnotationSourceUnavailable": {
-        "message": "The source reply is not available on this page.",
-        "description": "Toast when an annotation's source message cannot be located"
-    },
-    "pageAnnotationDeletePartial": {
-        "message": "Some annotations could not be deleted.",
-        "description": "Toast when some annotations fail to delete"
-    },
-    "readerCommentSelectedSource": {
-        "message": "Selected content",
-        "description": "Label for the selected source excerpt in the comment popover"
-    },
-    "chatgptPageAnnotationsLabel": {
-        "message": "Page annotations",
-        "description": "Toggle for the ChatGPT page annotation feature"
-    },
-    "chatgptPageAnnotationsDesc": {
-        "message": "Annotate selected replies directly on the page.",
-        "description": "Description for the ChatGPT page annotation toggle"
-    },
-    "pageAnnotationInsert": {
-        "message": "Insert to input",
-        "description": "Button to insert annotations into the input box"
-    },
-    "pageAnnotationInserted": {
-        "message": "Annotations inserted",
-        "description": "Toast when annotations are inserted into the input box"
-    },
-    "pageAnnotationInsertFailed": {
-        "message": "Could not insert annotations",
-        "description": "Toast when inserting annotations into the input box fails"
-    },
-    "pageAnnotationSelectionUnavailable": {
-        "message": "This selection is no longer available. Select text again and try.",
-        "description": "Toast when a selection action cannot recover the selected content"
-    },
-    "pageAnnotationOpen": {
-        "message": "Open annotation",
-        "description": "Accessible label for opening an existing page annotation"
-    },
-    "pageAnnotationChipAction": {
-        "message": "Open current-conversation annotations",
-        "description": "Accessible label for opening current-conversation annotations from the composer"
     }
 }

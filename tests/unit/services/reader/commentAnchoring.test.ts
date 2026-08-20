@@ -1,7 +1,5 @@
 import { describe, expect, it } from 'vitest';
 import {
-    capturePageCommentSelectors,
-    createPageCommentRecord,
     createReaderCommentRecord,
     resolveReaderCommentAnchor,
     resolveSelectionLayout,
@@ -252,46 +250,5 @@ describe('commentAnchoring', () => {
         const resolved = resolveSelectionLayout({ root, range, selectedUnits });
         expect(resolved.rects).toHaveLength(1);
         expect(resolved.rects[0]).toMatchObject({ left: 10, top: 10, width: 114, height: 16 });
-    });
-});
-
-describe('commentAnchoring page helpers', () => {
-    it('capturePageCommentSelectors captures textQuote/textPosition/domRange with empty atomicRefs', () => {
-        document.body.innerHTML = `<div id="root"><p>Hello <strong>world</strong> again</p></div>`;
-        const root = document.querySelector<HTMLElement>('#root')!;
-        const text = root.querySelector('strong')!.firstChild as Text;
-        const range = document.createRange();
-        range.setStart(text, 1);
-        range.setEnd(text, 4);
-
-        const selectors = capturePageCommentSelectors({ range, root });
-
-        expect(selectors.atomicRefs).toEqual([]);
-        expect(selectors.textQuote.exact).toBe('orl');
-        expect(selectors.textPosition.start).not.toBeNull();
-        expect(selectors.textPosition.end).not.toBeNull();
-        expect(selectors.domRange).not.toBeNull();
-    });
-
-    it('createPageCommentRecord uses the provided canonical sourceMarkdown instead of DOM reconstruction', () => {
-        document.body.innerHTML = `<div id="root"><p>Some **markdown** here</p></div>`;
-        const root = document.querySelector<HTMLElement>('#root')!;
-        const text = root.querySelector('p')!.firstChild as Text;
-        const range = document.createRange();
-        range.setStart(text, 0);
-        range.setEnd(text, 5);
-
-        const record = createPageCommentRecord({
-            id: 'c1',
-            itemId: 'chatgpt-assistant-1',
-            comment: 'note',
-            range,
-            root,
-            sourceMarkdown: '**canonical** projection',
-        });
-
-        expect(record.sourceMarkdown).toBe('**canonical** projection');
-        expect(record.quoteText).toBe('Some');
-        expect(record.selectors.atomicRefs).toEqual([]);
     });
 });

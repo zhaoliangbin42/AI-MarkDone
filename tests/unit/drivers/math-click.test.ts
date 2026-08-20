@@ -112,7 +112,7 @@ describe('MathClickHandler', () => {
         }
     });
 
-    it('does not scan the container when enabling delegated formula handling', () => {
+    it('does not rescan a container that is already enabled', () => {
         const container = document.createElement('div');
         container.innerHTML = '<span class="katex"><annotation encoding="application/x-tex">x</annotation></span>';
         document.body.appendChild(container);
@@ -124,34 +124,12 @@ describe('MathClickHandler', () => {
             const firstScanQueries = querySelectorAll.mock.calls.length;
             handler.enable(container);
 
-            expect(firstScanQueries).toBe(0);
+            expect(firstScanQueries).toBeGreaterThan(0);
             expect(querySelectorAll.mock.calls.length).toBe(firstScanQueries);
         } finally {
             handler.disable();
             querySelectorAll.mockRestore();
             container.remove();
-        }
-    });
-
-    it('does not ask the parser about page events outside enabled containers', () => {
-        const container = document.createElement('div');
-        const outside = document.createElement('article');
-        document.body.append(container, outside);
-        const parserAdapter = {
-            isMathNode: vi.fn(() => false),
-            extractLatex: vi.fn(() => null),
-            isBlockMath: vi.fn(() => false),
-        };
-        const handler = new MathClickHandler({ parserAdapter });
-
-        try {
-            handler.enable(container);
-            outside.dispatchEvent(new MouseEvent('mouseover', { bubbles: true }));
-            expect(parserAdapter.isMathNode).not.toHaveBeenCalled();
-        } finally {
-            handler.disable();
-            container.remove();
-            outside.remove();
         }
     });
 
@@ -290,11 +268,12 @@ describe('MathClickHandler', () => {
 
         const target = container.querySelector('.katex') as HTMLElement;
         expect(target).toBeTruthy();
-        target.dispatchEvent(new MouseEvent('mouseenter', { bubbles: true }));
-
         expect(target.style.transition).toBe(
             'background-color var(--aimd-duration-fast) var(--aimd-ease-in-out)',
         );
+
+        target.dispatchEvent(new MouseEvent('mouseenter', { bubbles: true }));
+
         expect(target.style.backgroundColor).toBe('rgba(37, 99, 235, 0.12)');
 
         handler.disable();
@@ -579,7 +558,7 @@ describe('MathClickHandler', () => {
         container.remove();
     });
 
-    it('handles dynamically inserted math without a formula observer or scan', async () => {
+    it('observes streaming DOM updates and attaches to new math nodes', async () => {
         vi.useFakeTimers();
         const { writeText } = setClipboardMock();
 
@@ -594,8 +573,11 @@ describe('MathClickHandler', () => {
         newNode.textContent = '\\alpha_1';
         container.appendChild(newNode);
 
-        // Delegation resolves the new formula directly from the event path.
+        // Allow MutationObserver to run and schedule flush.
         await Promise.resolve();
+
+        // Flush queued processing (fallback timer path).
+        await vi.advanceTimersByTimeAsync(20);
 
         newNode.dispatchEvent(new MouseEvent('click', { bubbles: true, cancelable: true }));
         await Promise.resolve();
@@ -607,7 +589,7 @@ describe('MathClickHandler', () => {
         vi.useRealTimers();
     });
 
-    it('does not schedule idle work for dynamically inserted formulas', async () => {
+    it('calls requestIdleCallback and cancelIdleCallback with window binding for Firefox', async () => {
         vi.useFakeTimers();
         const originalRequestIdleCallback = (window as any).requestIdleCallback;
         const originalCancelIdleCallback = (window as any).cancelIdleCallback;
@@ -644,9 +626,9 @@ describe('MathClickHandler', () => {
 
             await Promise.resolve();
 
-            expect(requestIdleCallback).not.toHaveBeenCalled();
+            expect(requestIdleCallback).toHaveBeenCalledTimes(1);
             handler.disable();
-            expect(cancelIdleCallback).not.toHaveBeenCalled();
+            expect(cancelIdleCallback).toHaveBeenCalledWith(1);
         } finally {
             handler.disable();
             container.remove();

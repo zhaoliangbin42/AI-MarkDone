@@ -1,20 +1,5 @@
 # Release Notes
 
-## v5.3.0 (2026-08-20)
-
-ChatGPT's recent website updates made the page more incremental in some
-conditions, especially on slower connections. This release strengthens the
-content-discovery path so the directory can recover more of the conversation
-instead of relying only on content already mounted on the page.
-
-### Added
-- Added Reader reading-position memory for the current page lifecycle; refreshing the page resets it.
-- Added persistent annotations directly on ChatGPT pages.
-
-### Fixed
-- Fixed incomplete directory entries.
-- Fixed several known issues across the updated ChatGPT page flows.
-
 ## v5.2.1 (2026-08-11)
 
 This patch continues the ChatGPT content-discovery improvements from 5.2.0 and focuses on the remaining directory and settings reliability issues.

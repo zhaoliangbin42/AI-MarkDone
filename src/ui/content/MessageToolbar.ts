@@ -64,7 +64,6 @@ export class MessageToolbar {
     private taskProgressPanel: TaskProgressPanel | null = null;
     private tooltipDelegate: TooltipDelegate;
     private activeTaskAbort: AbortController | null = null;
-    private lastStatsKey: string | null = null;
 
     constructor(theme: Theme, actions: MessageToolbarAction[], opts?: { showStats?: boolean; themeOverrides?: UserThemeOverrides }) {
         this.appearance = createAppearanceSnapshot(theme, opts?.themeOverrides ?? {});
@@ -135,9 +134,6 @@ export class MessageToolbar {
         if (!box) return;
         const statsSeparator = this.shadow.querySelector<HTMLElement>('[data-role="stats-separator"]');
         const visibleLines = lines.filter((x) => x.trim().length > 0);
-        const nextKey = visibleLines.join('\u0000');
-        if (nextKey === this.lastStatsKey) return;
-        this.lastStatsKey = nextKey;
         box.replaceChildren();
         box.dataset.empty = visibleLines.length === 0 ? '1' : '0';
         if (statsSeparator) statsSeparator.hidden = visibleLines.length === 0;
@@ -151,9 +147,7 @@ export class MessageToolbar {
     setActionActive(actionId: string, active: boolean): void {
         const btn = this.actionButtons.get(actionId);
         if (!btn) return;
-        const next = active ? '1' : '0';
-        if (btn.dataset.active === next) return;
-        btn.dataset.active = next;
+        btn.dataset.active = active ? '1' : '0';
         // Only bookmark uses "primary when active" (legacy behavior).
         if (actionId === 'bookmark_toggle') {
             btn.classList.toggle('primary', active);
@@ -161,15 +155,12 @@ export class MessageToolbar {
     }
 
     setActionDisabled(actionId: string, disabled: boolean): void {
-        const wasDisabled = this.explicitlyDisabledActions.has(actionId);
         if (disabled) this.explicitlyDisabledActions.add(actionId);
         else this.explicitlyDisabledActions.delete(actionId);
         const button = this.actionButtons.get(actionId);
         if (!button) return;
         const action = this.actions.find((candidate) => candidate.id === actionId);
-        const nextDisabled = disabled || Boolean(this.pending && action?.disabledWhenPending);
-        if (wasDisabled === disabled && button.disabled === nextDisabled) return;
-        button.disabled = nextDisabled;
+        button.disabled = disabled || Boolean(this.pending && action?.disabledWhenPending);
     }
 
     private mount(): void {

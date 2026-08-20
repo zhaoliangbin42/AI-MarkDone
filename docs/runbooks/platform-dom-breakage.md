@@ -26,7 +26,7 @@
    - 检查 page bridge graph parser 与 content-world DTO validator；缺节点、环、route/ID/branch/identity 不一致必须 fail closed
    - 不要用 React props、内部 store 或消费者侧 DOM fallback 补齐正文；生成中的 assistant 不进入基线，稳定、可编译的新 DOM 消息才追加到唯一缓存
    - 缓存中的消息默认可消费；不再把消息标记为 `partial` 或把整条会话置为 `stale`。单条 DOM 编译失败只保留该 assistant identity 的 dirty 状态，等待下一次真实 host signal 重试
-   - canonical conversation 没有 Graph 时，完整且稳定的 DOM rounds 应原子建立 `host` pool；后到的可信 Graph 必须包含当前池全部 typed identity 并保持相对顺序，才能按完整 envelope 汇合隐藏 prefix/middle/tail，保留已有 strong 正文，仅允许 ADR-0019 weak-sealed 正文升级。无 canonical identity 时同一批 rounds 也应直接以 page identity 发布；仅书签与跨页能力等待正式 ID
+   - canonical conversation 没有 Graph 时，完整且稳定的 DOM rounds 应原子建立 `host` pool；后到 Graph 只能在 typed identity 可靠重合时补入历史前缀，不能覆盖已有正文。无 canonical identity 时同一批 rounds 也应直接以 page identity 发布；仅书签与跨页能力等待正式 ID
 2. 比较 `ChatGPTConversationSurface.readFrame()` 的全部 obtained turns 与 `ChatGPTPageIndex` 的当前 connected anchors
    - DOM hydration window 变小只应减少 anchors，不能减少目录/stepper count 或已缓存消息
    - typed `roundId` / `userMessageId` / `assistantMessageId` 无法唯一连接时，应修复 adapter/driver identity，不得使用 prompt 或 DOM-local position 猜测

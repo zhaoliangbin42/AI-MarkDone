@@ -32,7 +32,6 @@ export class ChatGPTSendPositionRestoreController {
     private enabled = false;
     private enterKeyNewlineEnabled = false;
     private initialized = false;
-    private eventsBound = false;
     private session: RestoreSession | null = null;
 
     constructor(private readonly adapter: SiteAdapter) {}
@@ -41,33 +40,6 @@ export class ChatGPTSendPositionRestoreController {
         if (this.initialized) return;
         this.initialized = true;
         this.ensureStyle();
-        if (this.enabled) this.bindEvents();
-    }
-
-    dispose(): void {
-        if (!this.initialized) return;
-        this.release();
-        this.initialized = false;
-        this.unbindEvents();
-    }
-
-    setEnabled(enabled: boolean): void {
-        if (this.enabled === enabled) return;
-        this.enabled = enabled;
-        if (enabled) this.bindEvents();
-        else {
-            this.unbindEvents();
-            this.release();
-        }
-    }
-
-    setEnterKeyNewlineEnabled(enabled: boolean): void {
-        this.enterKeyNewlineEnabled = enabled;
-    }
-
-    private bindEvents(): void {
-        if (this.eventsBound) return;
-        this.eventsBound = true;
         window.addEventListener(CHATGPT_SEND_POSITION_RESTORE_ARM_EVENT, this.onArm);
         window.addEventListener(CHATGPT_SEND_POSITION_RESTORE_RELEASE_EVENT, this.onRelease);
         document.addEventListener('keydown', this.onKeyDownCapture, { capture: true });
@@ -78,9 +50,10 @@ export class ChatGPTSendPositionRestoreController {
         document.addEventListener('pointerdown', this.onUserAbort, { capture: true });
     }
 
-    private unbindEvents(): void {
-        if (!this.eventsBound) return;
-        this.eventsBound = false;
+    dispose(): void {
+        if (!this.initialized) return;
+        this.release();
+        this.initialized = false;
         window.removeEventListener(CHATGPT_SEND_POSITION_RESTORE_ARM_EVENT, this.onArm);
         window.removeEventListener(CHATGPT_SEND_POSITION_RESTORE_RELEASE_EVENT, this.onRelease);
         document.removeEventListener('keydown', this.onKeyDownCapture, { capture: true } as any);
@@ -91,9 +64,13 @@ export class ChatGPTSendPositionRestoreController {
         document.removeEventListener('pointerdown', this.onUserAbort, { capture: true } as any);
     }
 
-    private setActiveAttribute(value: 'true' | 'false'): void {
-        if (document.documentElement.getAttribute(ACTIVE_ATTR) === value) return;
-        document.documentElement.setAttribute(ACTIVE_ATTR, value);
+    setEnabled(enabled: boolean): void {
+        this.enabled = enabled;
+        if (!enabled) this.release();
+    }
+
+    setEnterKeyNewlineEnabled(enabled: boolean): void {
+        this.enterKeyNewlineEnabled = enabled;
     }
 
     private onArm = (): void => this.arm();
@@ -137,7 +114,7 @@ export class ChatGPTSendPositionRestoreController {
             restoreCount: 0,
             scrollTarget,
         };
-        this.setActiveAttribute('true');
+        document.documentElement.setAttribute(ACTIVE_ATTR, 'true');
         scrollTarget.addEventListener('scroll', this.scheduleRestore, { passive: true });
         this.observeRoot(root);
     }
@@ -145,7 +122,7 @@ export class ChatGPTSendPositionRestoreController {
     private release(): void {
         const session = this.session;
         if (!session) {
-            this.setActiveAttribute('false');
+            document.documentElement.setAttribute(ACTIVE_ATTR, 'false');
             return;
         }
         session.observer?.disconnect();
@@ -153,7 +130,7 @@ export class ChatGPTSendPositionRestoreController {
         if (session.timeoutId != null) window.clearTimeout(session.timeoutId);
         session.scrollTarget.removeEventListener('scroll', this.scheduleRestore as any);
         this.session = null;
-        this.setActiveAttribute('false');
+        document.documentElement.setAttribute(ACTIVE_ATTR, 'false');
     }
 
     private observeRoot(root: HTMLElement): void {

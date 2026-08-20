@@ -93,46 +93,6 @@ function completeCandidate(
     };
 }
 
-function graphCandidate(
-    ref: ConversationDocumentRefV1,
-    answers: readonly string[],
-    sourceRevision: number,
-): ConversationContentCandidateV1 {
-    return {
-        ...completeCandidate(ref, answers),
-        branchKey: `assistant-${answers.length}`,
-        captureId: `graph-${sourceRevision}`,
-        sourceRevision,
-        origin: 'source',
-    };
-}
-
-function graphCandidateForIndexes(
-    ref: ConversationDocumentRefV1,
-    indexes: readonly number[],
-    sourceRevision: number,
-): ConversationContentCandidateV1 {
-    return {
-        document: ref,
-        coverage: 'complete',
-        branchKey: `assistant-${indexes.at(-1) ?? 'none'}`,
-        captureId: `graph-${sourceRevision}`,
-        sourceRevision,
-        origin: 'source',
-        turns: indexes.map((index, ordinal) => ({
-            key: `turn-${index}:assistant-${index}`,
-            ordinal: ordinal + 1,
-            identity: {
-                turnId: `turn-${index}`,
-                userMessageId: `user-${index}`,
-                assistantMessageId: `assistant-${index}`,
-            },
-            userText: `Question ${index}`,
-            assistantMarkdown: `Graph answer ${index}`,
-        })),
-    };
-}
-
 function hostTurn(index: number, answer: string): ConversationTurnV1 {
     return {
         key: `turn-${index}:assistant-${index}`,
@@ -202,7 +162,7 @@ describe('ConversationContentRepository', () => {
         expect(readBaseline).toHaveBeenCalledTimes(1);
     });
 
-    it('publishes one immutable baseline and coalesces later signals into an upgrade read', async () => {
+    it('publishes syncing then one immutable baseline and ignores later signals after the gate closes', async () => {
         let current: ConversationDocumentRefV1 | null = document('conversation-1');
         const pending = deferred<ConversationContentCandidateV1 | null>();
         const readBaseline = vi.fn(() => pending.promise);
@@ -231,11 +191,11 @@ describe('ConversationContentRepository', () => {
         repository.notifyBaselineCaptured();
         repository.notifyBaselineCaptured();
         await vi.advanceTimersByTimeAsync(150);
-        expect(readBaseline).toHaveBeenCalledTimes(2);
+        expect(readBaseline).toHaveBeenCalledTimes(1);
         expect(states[0]).toBe('idle');
     });
 
-    it('coalesces a pending bridge signal when the in-flight baseline closes the gate', async () => {
+    it('drops a pending bridge signal when the in-flight baseline closes the gate', async () => {
         const ref = document('conversation-pending');
         const first = deferred<ConversationContentCandidateV1 | null>();
         const readBaseline = vi.fn()
@@ -259,11 +219,11 @@ describe('ConversationContentRepository', () => {
         await Promise.resolve();
         await Promise.resolve();
 
-        expect(readBaseline).toHaveBeenCalledTimes(2);
+        expect(readBaseline).toHaveBeenCalledTimes(1);
         const state = repository.read();
         expect(state.kind).toBe('ready');
         if (state.kind !== 'ready') throw new Error('expected ready state');
-        expect(state.snapshot.turns.map((turn) => turn.assistantMarkdown)).toEqual(['Answer 1', 'Answer 2']);
+        expect(state.snapshot.turns.map((turn) => turn.assistantMarkdown)).toEqual(['Answer 1']);
     });
 
     it('does not replay a closed baseline from a same-document refresh', async () => {
@@ -561,170 +521,6 @@ describe('ConversationContentRepository', () => {
         expect(readBaseline).toHaveBeenCalledTimes(2);
     });
 
-    it('merges the complete Graph envelope after a DOM-first pool', async () => {
-        const ref = document('conversation-dom-first-full-envelope');
-        const readBaseline = vi.fn(async () => graphCandidate(
-            ref,
-            Array.from({ length: 16 }, (_, index) => `Graph answer ${index + 1}`),
-            1,
-        ));
-        const repository = new ConversationContentRepository({
-            resolveDocument: () => ref,
-            readBaseline,
-        });
-
-        repository.ingestHostBatch([
-            {
-                turn: hostTurn(1, 'Host answer 1'),
-                semanticDigest: 'host-1',
-                captureId: 'host-1',
-                revision: 1,
-                predecessorAssistantMessageId: null,
-            },
-            {
-                turn: hostTurn(2, 'Host answer 2'),
-                semanticDigest: 'host-2',
-                captureId: 'host-2',
-                revision: 1,
-                predecessorAssistantMessageId: 'assistant-1',
-            },
-        ]);
-
-        const merged = await repository.enterCurrentEpoch();
-
-        expect(merged.kind).toBe('ready');
-        if (merged.kind !== 'ready') throw new Error('expected full Graph envelope');
-        expect(merged.snapshot.turns).toHaveLength(16);
-        expect(merged.snapshot.turns.slice(0, 2).map((turn) => turn.assistantMarkdown)).toEqual([
-            'Host answer 1',
-            'Host answer 2',
-        ]);
-        expect(merged.snapshot.turns.slice(2).map((turn) => turn.assistantMarkdown)).toEqual(
-            Array.from({ length: 14 }, (_, index) => `Graph answer ${index + 3}`),
-        );
-        expect(merged.snapshot.proof).toEqual({ basis: 'hybrid' });
-        expect(merged.snapshot.turns.map((turn) => turn.ordinal)).toEqual(
-            Array.from({ length: 16 }, (_, index) => index + 1),
-        );
-        expect(readBaseline).toHaveBeenCalledTimes(1);
-    });
-
-    it('upgrades a closed Graph baseline when a later capture exposes a larger envelope', async () => {
-        const ref = document('conversation-closed-graph-upgrade');
-        let current = graphCandidate(ref, ['Answer 1', 'Answer 2'], 1);
-        const full = graphCandidate(
-            ref,
-            Array.from({ length: 16 }, (_, index) => `Answer ${index + 1}`),
-            2,
-        );
-        const readBaseline = vi.fn(async () => current);
-        const repository = new ConversationContentRepository({
-            resolveDocument: () => ref,
-            readBaseline,
-        });
-
-        const initial = await repository.enterCurrentEpoch();
-        expect(initial.kind).toBe('ready');
-        if (initial.kind !== 'ready') throw new Error('expected initial Graph baseline');
-        const initialToken = initial.snapshot.contentToken;
-
-        current = full;
-        repository.notifyBaselineCaptured();
-        await vi.advanceTimersByTimeAsync(150);
-
-        const upgraded = repository.read();
-        expect(upgraded.kind).toBe('ready');
-        if (upgraded.kind !== 'ready') throw new Error('expected upgraded Graph baseline');
-        expect(upgraded.snapshot.turns).toHaveLength(16);
-        expect(upgraded.snapshot.contentToken).not.toBe(initialToken);
-        expect(readBaseline).toHaveBeenCalledTimes(2);
-    });
-
-    it('accepts hidden prefix, middle, and tail turns when maintained order is preserved', async () => {
-        const ref = document('conversation-graph-envelope-insertion');
-        let current = graphCandidateForIndexes(ref, [1, 3], 1);
-        const expanded = graphCandidateForIndexes(ref, [0, 1, 2, 3, 4], 2);
-        const readBaseline = vi.fn(async () => current);
-        const repository = new ConversationContentRepository({
-            resolveDocument: () => ref,
-            readBaseline,
-        });
-
-        const initial = await repository.enterCurrentEpoch();
-        expect(initial.kind).toBe('ready');
-        if (initial.kind !== 'ready') throw new Error('expected sparse Graph baseline');
-
-        current = expanded;
-        repository.notifyBaselineCaptured();
-        await vi.advanceTimersByTimeAsync(150);
-
-        const upgraded = repository.read();
-        expect(upgraded.kind).toBe('ready');
-        if (upgraded.kind !== 'ready') throw new Error('expected expanded Graph baseline');
-        expect(upgraded.snapshot.turns.map((turn) => turn.identity.turnId)).toEqual([
-            'turn-0',
-            'turn-1',
-            'turn-2',
-            'turn-3',
-            'turn-4',
-        ]);
-        expect(upgraded.snapshot.turns.map((turn) => turn.ordinal)).toEqual([1, 2, 3, 4, 5]);
-    });
-
-    it('rejects a reordered or truncated Graph without mutating the maintained pool', async () => {
-        const ref = document('conversation-graph-order-conflict');
-        let current = graphCandidateForIndexes(ref, [0, 1, 2], 1);
-        const readBaseline = vi.fn(async () => current);
-        const repository = new ConversationContentRepository({
-            resolveDocument: () => ref,
-            readBaseline,
-        });
-
-        const initial = await repository.enterCurrentEpoch();
-        expect(initial.kind).toBe('ready');
-        if (initial.kind !== 'ready') throw new Error('expected Graph baseline');
-        const initialToken = initial.snapshot.contentToken;
-
-        current = graphCandidateForIndexes(ref, [0, 2, 1, 3], 2);
-        repository.notifyBaselineCaptured();
-        await vi.advanceTimersByTimeAsync(150);
-        expect(repository.read().snapshot?.contentToken).toBe(initialToken);
-        expect(repository.read().snapshot?.turns).toHaveLength(3);
-
-        current = graphCandidateForIndexes(ref, [0, 1], 3);
-        repository.notifyBaselineCaptured();
-        await vi.advanceTimersByTimeAsync(150);
-        expect(repository.read().snapshot?.contentToken).toBe(initialToken);
-        expect(repository.read().snapshot?.turns).toHaveLength(3);
-        expect(readBaseline).toHaveBeenCalledTimes(3);
-    });
-
-    it('does not publish when a newer Graph revision has the same semantic content', async () => {
-        const ref = document('conversation-graph-duplicate-revision');
-        let current = graphCandidate(ref, ['Answer 1', 'Answer 2'], 1);
-        const readBaseline = vi.fn(async () => current);
-        const repository = new ConversationContentRepository({
-            resolveDocument: () => ref,
-            readBaseline,
-        });
-        const readyTokens: string[] = [];
-        repository.subscribe((state) => {
-            if (state.kind === 'ready') readyTokens.push(state.snapshot.contentToken);
-        });
-
-        const initial = await repository.enterCurrentEpoch();
-        expect(initial.kind).toBe('ready');
-        if (initial.kind !== 'ready') throw new Error('expected Graph baseline');
-
-        current = graphCandidate(ref, ['Answer 1', 'Answer 2'], 2);
-        repository.notifyBaselineCaptured();
-        await vi.advanceTimersByTimeAsync(150);
-
-        expect(repository.read().snapshot?.contentToken).toBe(initial.snapshot.contentToken);
-        expect(readyTokens).toEqual([initial.snapshot.contentToken]);
-        expect(readBaseline).toHaveBeenCalledTimes(2);
-    });
-
     it('rejects a late Graph whose overlapping assistant ID has conflicting typed identity', async () => {
         const ref = document('conversation-late-identity-conflict');
         const source = completeCandidate(ref, ['Source answer 1', 'Source answer 2']);
@@ -827,7 +623,7 @@ describe('ConversationContentRepository', () => {
         expect(complete.snapshot.turns).toHaveLength(2);
     });
 
-    it('keeps consumer refresh local while a capture may reread a closed baseline', async () => {
+    it('does not reread the source after the baseline gate closes', async () => {
         const ref = document('conversation-baseline-window');
         const readBaseline = vi.fn(async () => completeCandidate(ref, ['Answer 1', 'Answer 2']));
         const repository = new ConversationContentRepository({
@@ -847,7 +643,7 @@ describe('ConversationContentRepository', () => {
             'Answer 1',
             'Answer 2',
         ]);
-        expect(readBaseline).toHaveBeenCalledTimes(2);
+        expect(readBaseline).toHaveBeenCalledTimes(1);
     });
 
     it('retries an unavailable baseline only after a real lifecycle signal', async () => {
@@ -894,7 +690,7 @@ describe('ConversationContentRepository', () => {
         expect(repository.read().snapshot).toBeNull();
     });
 
-    it('keeps the published baseline stable after a duplicate later capture signal', async () => {
+    it('keeps the published baseline complete after later capture signals', async () => {
         const ref = document('conversation-complete-coverage');
         const readBaseline = vi.fn(async () => candidate(ref));
         const repository = new ConversationContentRepository({
@@ -911,7 +707,7 @@ describe('ConversationContentRepository', () => {
         expect(unchanged.kind).toBe('ready');
         if (unchanged.kind !== 'ready') throw new Error('expected ready state');
         expect(unchanged.snapshot.coverage).toBe('complete');
-        expect(readBaseline).toHaveBeenCalledTimes(2);
+        expect(readBaseline).toHaveBeenCalledTimes(1);
     });
 
     it('keeps the first sealed body when a later host observation conflicts', async () => {
@@ -1120,288 +916,5 @@ describe('ConversationContentRepository', () => {
             'assistant-1',
             'assistant-2',
         ]);
-    });
-
-    it('publishes discovery diagnostics facts: basis, gate, turn and deferred counts', async () => {
-        const ref = document('conversation-diagnostics-facts');
-        const repository = new ConversationContentRepository({
-            resolveDocument: () => ref,
-            readBaseline: async () => null,
-        });
-
-        expect(repository.readDiagnosticsFacts()).toMatchObject({
-            stateKind: 'idle',
-            documentKind: null,
-            basis: null,
-            baselineGate: 'open',
-            baselineAttempted: false,
-            turnCount: 0,
-            deferredHostCount: 0,
-            weakSealedCount: 0,
-        });
-
-        await repository.enterCurrentEpoch();
-        expect(repository.readDiagnosticsFacts()).toMatchObject({
-            documentKind: 'canonical',
-            baselineGate: 'open',
-            baselineAttempted: true,
-        });
-
-        const first = repository.ingestHostTurn({
-            turn: hostTurn(1, 'Answer 1'),
-            semanticDigest: 'diagnostics-host-1',
-            captureId: 'diagnostics-host-1',
-            revision: 1,
-            predecessorAssistantMessageId: null,
-        });
-        expect(first.kind).toBe('ready');
-        // A candidate pointing into an older window is held, not guessed.
-        const deferred = repository.ingestHostTurn({
-            turn: hostTurn(3, 'Answer 3'),
-            semanticDigest: 'diagnostics-host-3',
-            captureId: 'diagnostics-host-3',
-            revision: 2,
-            predecessorAssistantMessageId: 'assistant-2',
-        });
-        expect(deferred.kind).toBe('ready');
-
-        expect(repository.readDiagnosticsFacts()).toMatchObject({
-            stateKind: 'ready',
-            basis: 'host',
-            turnCount: 1,
-            deferredHostCount: 1,
-        });
-    });
-
-    it('upgrades a weak-sealed host turn when a strong completion observation arrives', async () => {
-        const ref = document('conversation-weak-upgrade');
-        const repository = new ConversationContentRepository({
-            resolveDocument: () => ref,
-            readBaseline: async () => null,
-        });
-        const weak = repository.ingestHostTurn({
-            turn: hostTurn(1, 'Partial'),
-            semanticDigest: 'weak-upgrade-partial',
-            captureId: 'weak-upgrade-partial',
-            revision: 1,
-            predecessorAssistantMessageId: null,
-            completionEvidence: 'bounded-quiet',
-        });
-        expect(weak.kind).toBe('ready');
-        if (weak.kind !== 'ready') throw new Error('expected weak-sealed ready state');
-        expect(repository.readDiagnosticsFacts().weakSealedCount).toBe(1);
-        const weakToken = weak.snapshot.contentToken;
-
-        const upgraded = repository.ingestHostTurn({
-            turn: hostTurn(1, 'Complete answer'),
-            semanticDigest: 'weak-upgrade-complete',
-            captureId: 'weak-upgrade-complete',
-            revision: 2,
-            predecessorAssistantMessageId: null,
-            completionEvidence: 'strong',
-        });
-        expect(upgraded.kind).toBe('ready');
-        if (upgraded.kind !== 'ready') throw new Error('expected upgraded ready state');
-        expect(upgraded.snapshot.turns[0]?.assistantMarkdown).toBe('Complete answer');
-        expect(upgraded.snapshot.contentToken).not.toBe(weakToken);
-        expect(repository.readDiagnosticsFacts().weakSealedCount).toBe(0);
-    });
-
-    it('never lets an equal-evidence DOM copy rewrite a sealed body', async () => {
-        const ref = document('conversation-weak-no-downgrade');
-        const repository = new ConversationContentRepository({
-            resolveDocument: () => ref,
-            readBaseline: async () => null,
-        });
-        const weak = repository.ingestHostTurn({
-            turn: hostTurn(1, 'Partial'),
-            semanticDigest: 'weak-no-downgrade-partial',
-            captureId: 'weak-no-downgrade-partial',
-            revision: 1,
-            predecessorAssistantMessageId: null,
-            completionEvidence: 'bounded-quiet',
-        });
-        if (weak.kind !== 'ready') throw new Error('expected weak-sealed ready state');
-        const weakToken = weak.snapshot.contentToken;
-
-        const rewrapped = repository.ingestHostTurn({
-            turn: hostTurn(1, 'Different partial'),
-            semanticDigest: 'weak-no-downgrade-other',
-            captureId: 'weak-no-downgrade-other',
-            revision: 2,
-            predecessorAssistantMessageId: null,
-            completionEvidence: 'bounded-quiet',
-        });
-        expect(rewrapped.kind).toBe('ready');
-        if (rewrapped.kind !== 'ready') throw new Error('expected ready state');
-        expect(rewrapped.snapshot.turns[0]?.assistantMarkdown).toBe('Partial');
-        expect(rewrapped.snapshot.contentToken).toBe(weakToken);
-        expect(repository.readDiagnosticsFacts().weakSealedCount).toBe(1);
-    });
-
-    it('replaces weak-sealed maintained bodies with overlapping Graph bodies during baseline merge', async () => {
-        const ref = document('conversation-graph-upgrade');
-        const repository = new ConversationContentRepository({
-            resolveDocument: () => ref,
-            readBaseline: async () => ({
-                document: ref,
-                coverage: 'complete',
-                turns: [
-                    { ...hostTurn(0, 'Full answer 0'), key: 'turn-0:assistant-0' },
-                    { ...hostTurn(1, 'Full answer 1'), key: 'turn-1:assistant-1' },
-                    { ...hostTurn(2, 'Answer 2'), key: 'turn-2:assistant-2' },
-                ],
-            }),
-        });
-        // DOM-first pool: turn 1 weak-sealed, turn 2 strong.
-        repository.ingestHostTurn({
-            turn: hostTurn(1, 'Partial answer 1'),
-            semanticDigest: 'graph-upgrade-partial-1',
-            captureId: 'graph-upgrade-partial-1',
-            revision: 1,
-            predecessorAssistantMessageId: null,
-            completionEvidence: 'bounded-quiet',
-        });
-        repository.ingestHostTurn({
-            turn: hostTurn(2, 'Answer 2'),
-            semanticDigest: 'graph-upgrade-2',
-            captureId: 'graph-upgrade-2',
-            revision: 2,
-            predecessorAssistantMessageId: 'assistant-1',
-            completionEvidence: 'strong',
-        });
-        expect(repository.readDiagnosticsFacts().weakSealedCount).toBe(1);
-
-        const merged = await repository.enterCurrentEpoch();
-        expect(merged.kind).toBe('ready');
-        if (merged.kind !== 'ready') throw new Error('expected merged ready state');
-        expect(merged.snapshot.turns.map((turn) => turn.assistantMarkdown)).toEqual([
-            'Full answer 0',
-            'Full answer 1',
-            'Answer 2',
-        ]);
-        expect(repository.readDiagnosticsFacts()).toMatchObject({
-            basis: 'hybrid',
-            weakSealedCount: 0,
-            turnCount: 3,
-        });
-    });
-
-    it('re-arms a failed baseline peek and permits one closed-gate upgrade peek', async () => {
-        const ref = document('conversation-gate-reopen');
-        let attempts = 0;
-        const readBaseline = vi.fn(async () => {
-            attempts += 1;
-            return attempts >= 2 ? candidate(ref, 'Answer after retry') : null;
-        });
-        const repository = new ConversationContentRepository({
-            resolveDocument: () => ref,
-            readBaseline,
-        });
-
-        const first = await repository.enterCurrentEpoch();
-        expect(first.kind).toBe('unavailable');
-        expect(readBaseline).toHaveBeenCalledTimes(1);
-
-        repository.reopenBaselineGate();
-        const second = await repository.enterCurrentEpoch();
-        expect(second.kind).toBe('ready');
-        expect(readBaseline).toHaveBeenCalledTimes(2);
-
-        // An accepted Graph keeps the gate closed, but an explicit retry may
-        // perform one passive-memory upgrade comparison.
-        repository.reopenBaselineGate();
-        const third = await repository.enterCurrentEpoch();
-        expect(readBaseline).toHaveBeenCalledTimes(3);
-        expect(third.kind).toBe('ready');
-    });
-
-    it('tracks historyStatus from unknown to partial to complete', async () => {
-        let current: ConversationDocumentRefV1 | null = pageDocument('history-status-page');
-        const canonical = document('conversation-history-status');
-        let baselineAttempts = 0;
-        const repository = new ConversationContentRepository({
-            resolveDocument: () => current,
-            readBaseline: async () => {
-                baselineAttempts += 1;
-                return baselineAttempts >= 2
-                    ? completeCandidate(canonical, ['Full answer 0', 'Answer 1'])
-                    : null;
-            },
-        });
-
-        const host = repository.ingestHostTurn({
-            turn: hostTurn(1, 'Answer 1'),
-            semanticDigest: 'history-status-host-1',
-            captureId: 'history-status-host-1',
-            revision: 1,
-            predecessorAssistantMessageId: null,
-            completionEvidence: 'strong',
-        });
-        expect(host.kind).toBe('ready');
-        if (host.kind !== 'ready') throw new Error('expected page host pool');
-        expect(host.snapshot.historyStatus).toBe('unknown');
-        expect(repository.readDiagnosticsFacts().historyStatus).toBe('unknown');
-        const pageToken = host.snapshot.contentToken;
-
-        // Identity promotion preserves the content token while the knowledge
-        // status narrows to partial: a canonical DOM-only pool with no Graph
-        // baseline yet.
-        current = canonical;
-        const promoted = await repository.enterCurrentEpoch();
-        expect(promoted.kind).toBe('ready');
-        if (promoted.kind !== 'ready') throw new Error('expected promoted pool');
-        expect(promoted.snapshot.historyStatus).toBe('partial');
-        expect(promoted.snapshot.contentToken).toBe(pageToken);
-
-        // The accepted Graph baseline proves the whole branch.
-        repository.reopenBaselineGate();
-        const complete = await repository.enterCurrentEpoch();
-        expect(complete.kind).toBe('ready');
-        if (complete.kind !== 'ready') throw new Error('expected graph-complete pool');
-        expect(complete.snapshot.historyStatus).toBe('complete');
-        expect(repository.readDiagnosticsFacts().historyStatus).toBe('complete');
-    });
-
-    it('re-evaluates deferred host observations on demand and reports the remaining count', async () => {
-        const ref = document('conversation-deferred-reevaluation');
-        const repository = new ConversationContentRepository({
-            resolveDocument: () => ref,
-            readBaseline: async () => null,
-        });
-        repository.ingestHostTurn({
-            turn: hostTurn(1, 'Answer 1'),
-            semanticDigest: 'deferred-reevaluation-1',
-            captureId: 'deferred-reevaluation-1',
-            revision: 1,
-            predecessorAssistantMessageId: null,
-            completionEvidence: 'strong',
-        });
-        repository.ingestHostTurn({
-            turn: hostTurn(3, 'Answer 3'),
-            semanticDigest: 'deferred-reevaluation-3',
-            captureId: 'deferred-reevaluation-3',
-            revision: 2,
-            predecessorAssistantMessageId: 'assistant-2',
-            completionEvidence: 'strong',
-        });
-        expect(repository.readDiagnosticsFacts().deferredHostCount).toBe(1);
-        // Without new evidence the re-evaluation changes nothing.
-        expect(repository.reevaluateDeferredHost()).toBe(1);
-
-        repository.ingestHostTurn({
-            turn: hostTurn(2, 'Answer 2'),
-            semanticDigest: 'deferred-reevaluation-2',
-            captureId: 'deferred-reevaluation-2',
-            revision: 3,
-            predecessorAssistantMessageId: 'assistant-1',
-            completionEvidence: 'strong',
-        });
-        expect(repository.read().snapshot?.turns.map((turn) => turn.identity.assistantMessageId)).toEqual([
-            'assistant-1',
-            'assistant-2',
-            'assistant-3',
-        ]);
-        expect(repository.reevaluateDeferredHost()).toBe(0);
     });
 });

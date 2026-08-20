@@ -1,4 +1,4 @@
-import { afterEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, describe, expect, it } from 'vitest';
 
 import type { ConversationMaterializationPortV1 } from '@/contracts/conversationMaterialization';
 import { DOMContentSurfaceAdapter } from '@/drivers/content/adapters/ContentSurfaceAdapter';
@@ -55,29 +55,6 @@ afterEach(() => {
 });
 
 describe('DOMContentSurfaceAdapter', () => {
-    it('keeps selection location cheap and defers quote/formula evidence', () => {
-        const message = mountMessage(
-            '<p>Result <span class="katex" data-math-source="\\frac{x}{y}"><span class="katex-html">x y</span></span>.</p>',
-        );
-        const adapter = new DOMContentSurfaceAdapter(new ChatGPTAdapter(), createMaterialization(message));
-        const range = document.createRange();
-        const text = message.querySelector('.katex-html')!.firstChild as Text;
-        range.selectNodeContents(text);
-        const selection = window.getSelection()!;
-        selection.removeAllRanges();
-        selection.addRange(range);
-        const toStringSpy = vi.spyOn(Range.prototype, 'toString');
-        const querySelectorAllSpy = vi.spyOn(message, 'querySelectorAll');
-
-        const location = adapter.locateSelection(selection);
-
-        expect(location).not.toBeNull();
-        expect(toStringSpy).not.toHaveBeenCalled();
-        expect(querySelectorAllSpy).not.toHaveBeenCalled();
-        expect(adapter.materializeSelection(location!)?.evidence?.atomicFragments).toHaveLength(1);
-        expect(toStringSpy).toHaveBeenCalled();
-    });
-
     it('emits the same platform-neutral quote when non-semantic wrappers change', () => {
         const message = mountMessage('<p>Before <strong><span>clean Markdown</span></strong> after.</p>');
         const adapter = new DOMContentSurfaceAdapter(new ChatGPTAdapter(), createMaterialization(message));
@@ -137,21 +114,6 @@ describe('DOMContentSurfaceAdapter', () => {
         expect(evidence?.atomicFragments).toEqual([{
             kind: 'formula',
             renderedText: 'x y',
-            latex: '\\frac{x}{y}',
-            isBlock: false,
-        }]);
-    });
-
-    it('uses the visible KaTeX carrier when MathML duplicates the formula text', () => {
-        const message = mountMessage(
-            '<p>Result <span class="katex" data-latex-source="\\frac{x}{y}"><span class="katex-mathml"><math><semantics><annotation encoding="application/x-tex">\\frac{x}{y}</annotation></semantics></math></span><span class="katex-html">x/y</span></span>.</p>',
-        );
-        const adapter = new DOMContentSurfaceAdapter(new ChatGPTAdapter(), createMaterialization(message));
-        const evidence = adapter.captureSelection(selectText(message.querySelector('.katex-html')!.firstChild as Text))?.evidence;
-
-        expect(evidence?.atomicFragments).toEqual([{
-            kind: 'formula',
-            renderedText: 'x/y',
             latex: '\\frac{x}{y}',
             isBlock: false,
         }]);

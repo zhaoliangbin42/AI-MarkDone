@@ -618,11 +618,6 @@ export class BookmarksPanel {
                     modal: this.modalHost,
                     actions: this.createSettingsActions(),
                     onOpenPromptManager: this.options.onOpenPromptManager,
-                    readDiscoveryDiagnostics: () => this.controller.getDiscoveryDiagnostics?.() ?? null,
-                    retryBaselineDiscovery: () => {
-                        const retry = this.controller.getRetryBaselineDiscovery?.();
-                        return retry ? retry() : Promise.resolve(null);
-                    },
                 });
             } catch (error) {
                 logger.warn('[AI-MarkDone][BookmarksPanel] Failed to create settings tab view; keeping the shell open.', {

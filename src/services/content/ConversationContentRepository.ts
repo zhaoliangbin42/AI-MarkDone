@@ -16,7 +16,6 @@ import type {
     ConversationTurnReadPortV1,
     ConversationTurnReadResultV1,
 } from '../../contracts/conversationDiscovery';
-import type { DiscoveryHistoryStatusV1, DiscoveryRepositoryFactsV1 } from '../../contracts/conversationDiscoveryDiagnostics';
 import type { ConversationTargetV1 } from '../../contracts/conversationMaterialization';
 
 export type { ConversationContentCandidateV1 } from '../../contracts/conversationContent';
@@ -29,14 +28,6 @@ export type ConversationHostTurnObservationV1 = Readonly<{
     revision: number;
     /** The typed assistant immediately before this turn in the observed host projection. */
     predecessorAssistantMessageId: string | null;
-    /**
-     * 'bounded-quiet' marks a turn admitted through the bounded quiet
-     * confirmation without a strong completion signal; its body may be
-     * upgraded later by stronger evidence. Absent in legacy producers and
-     * treated as 'strong' at this seam, preserving the historical
-     * never-rewrite behavior for them.
-     */
-    completionEvidence?: 'strong' | 'bounded-quiet';
 }>;
 
 export type ConversationContentRepositoryOptionsV1 = Readonly<{
@@ -66,9 +57,9 @@ type StoredHostObservation = Readonly<{
  * Page-scoped content session and the single semantic SSOT.
  *
  * A website-owned Graph or one stable typed host batch may establish the same
- * monotonic pool. Every accepted Graph must contain the maintained typed order
- * and may add its complete proven envelope; obtained strong bodies are never
- * replaced. Public refreshes never acquire or replay Graph capture.
+ * monotonic pool. The first later overlapping Graph may prepend only verified
+ * history; obtained bodies are never replaced. Public refreshes never reopen
+ * the gate or replay Graph capture.
  */
 export class ConversationContentRepository implements ConversationContentSourceV1, ConversationTurnReadPortV1 {
     private state: ConversationContentStateV1 = Object.freeze({
@@ -84,13 +75,9 @@ export class ConversationContentRepository implements ConversationContentSourceV
     private flight: Flight | null = null;
     private baselineGate: BaselineGate = 'open';
     private baselineAttempted = false;
-    private upgradeProbeArmed = false;
-    private acceptedSourceRevision: number | null = null;
-    private baselineSource: 'graph' | 'dom' | null = null;
     private basis: ConversationSnapshotProofV1['basis'] | null = null;
     private turns: readonly ConversationTurnV1[] = Object.freeze([]);
     private readonly turnDigests = new Map<string, string>();
-    private readonly weakSealedIds = new Set<string>();
     private readonly projectionDocumentKeys = new Set<string>();
     private readonly pendingHost = new Map<string, StoredHostObservation>();
     private scheduledTimer: ReturnType<typeof setTimeout> | null = null;
@@ -108,9 +95,9 @@ export class ConversationContentRepository implements ConversationContentSourceV
         return () => this.listeners.delete(listener);
     }
 
-    /** Admit a newly captured passive baseline or upgrade signal. */
+    /** Admit a newly captured passive baseline signal only while this epoch's gate is open. */
     notifyBaselineCaptured(): void {
-        if (this.disposed) return;
+        if (this.disposed || this.baselineGate === 'closed') return;
         if (this.flight?.epoch === this.epoch) {
             this.flight.pendingSignal = true;
             return;
@@ -119,6 +106,7 @@ export class ConversationContentRepository implements ConversationContentSourceV
         const delay = Math.max(0, this.options.baselineSignalDelayMs ?? 150);
         this.scheduledTimer = setTimeout(() => {
             this.scheduledTimer = null;
+            if (this.baselineGate === 'closed') return;
             if (this.flight?.epoch === this.epoch) {
                 this.flight.pendingSignal = true;
                 return;
@@ -140,21 +128,14 @@ export class ConversationContentRepository implements ConversationContentSourceV
         if (document.identityKind === 'page' || document.conversationId === null) {
             return Promise.resolve(this.state);
         }
-        const upgradeProbe = this.baselineGate === 'closed';
-        if (upgradeProbe && !this.upgradeProbeArmed) {
-            return Promise.resolve(this.state);
-        }
+        if (this.baselineGate === 'closed') return Promise.resolve(this.state);
         if (this.flight?.epoch === this.epoch) return this.flight.promise;
-        if (upgradeProbe) this.upgradeProbeArmed = false;
-        if (this.baselineAttempted && !upgradeProbe) return Promise.resolve(this.state);
-        return this.consumeBaseline(upgradeProbe);
+        if (this.baselineAttempted) return Promise.resolve(this.state);
+        return this.consumeBaseline(false);
     }
 
     private consumeBaseline(forceFromCaptureSignal: boolean): Promise<ConversationContentStateV1> {
-        if (this.disposed || !this.currentDocument) {
-            return Promise.resolve(this.state);
-        }
-        if (this.baselineGate === 'closed' && !forceFromCaptureSignal) {
+        if (this.disposed || !this.currentDocument || this.baselineGate === 'closed') {
             return Promise.resolve(this.state);
         }
         if (this.flight?.epoch === this.epoch) {
@@ -165,7 +146,6 @@ export class ConversationContentRepository implements ConversationContentSourceV
 
         const epoch = this.epoch;
         const controller = new AbortController();
-        const graphWasEstablished = this.baselineSource === 'graph';
         this.baselineGate = 'inflight';
         this.baselineAttempted = true;
         if (!this.basis || this.turns.length === 0) {
@@ -189,14 +169,14 @@ export class ConversationContentRepository implements ConversationContentSourceV
                     throw new ConversationContentAcquisitionError('source-unavailable', { retryable: true });
                 }
                 const accepted = this.acceptBaseline(candidate, this.currentDocument!);
-                this.baselineGate = graphWasEstablished || accepted ? 'closed' : 'open';
+                this.baselineGate = accepted ? 'closed' : 'open';
                 this.flushPendingHost();
                 this.publishProjection();
                 return this.state;
             })
             .catch((error: unknown) => {
                 if (this.isObsolete(epoch, controller)) return this.state;
-                this.baselineGate = graphWasEstablished ? 'closed' : 'open';
+                this.baselineGate = 'open';
                 const normalized = normalizeAcquisitionError(error);
                 if (this.basis && this.turns.length > 0) {
                     this.publishProjection();
@@ -213,11 +193,7 @@ export class ConversationContentRepository implements ConversationContentSourceV
                 if (this.flight?.promise !== promise) return;
                 const pendingSignal = this.flight.pendingSignal;
                 this.flight = null;
-                if (
-                    pendingSignal
-                    && !this.disposed
-                    && (this.baselineGate === 'open' || this.baselineSource === 'graph')
-                ) {
+                if (pendingSignal && !this.disposed && this.baselineGate === 'open') {
                     void this.consumeBaseline(true);
                 }
             });
@@ -226,35 +202,13 @@ export class ConversationContentRepository implements ConversationContentSourceV
         return promise;
     }
 
-    /** Flush already-observed local work only. It may await an in-flight
+    /**
+     * Flush already-observed local work only. It may await an in-flight
      * baseline admission but never starts or retries one.
      */
     refresh(): Promise<ConversationContentStateV1> {
         if (this.flight?.epoch === this.epoch) return this.flight.promise;
         return Promise.resolve(this.state);
-    }
-
-    /** Read-only diagnostics facts for the discovery diagnostics snapshot. */
-    readDiagnosticsFacts(): DiscoveryRepositoryFactsV1 {
-        return {
-            stateKind: this.state.kind,
-            // The contract defaults an absent identityKind to 'canonical';
-            // mirror that normalization here so facts never report null for
-            // a bound canonical document.
-            documentKind: this.currentDocument
-                ? (this.currentDocument.identityKind ?? 'canonical')
-                : null,
-            basis: this.basis ?? null,
-            baselineGate: this.baselineGate,
-            baselineAttempted: this.baselineAttempted,
-            epoch: this.epoch,
-            turnCount: this.turns.length,
-            deferredHostCount: this.pendingHost.size,
-            weakSealedCount: this.weakSealedIds.size,
-            historyStatus: this.currentDocument
-                ? deriveHistoryStatus(this.baselineSource, this.currentDocument)
-                : 'unknown',
-        };
     }
 
     /** Bind a canonical route without forcing a second passive read. */
@@ -263,22 +217,6 @@ export class ConversationContentRepository implements ConversationContentSourceV
         const document = this.options.resolveDocument();
         if (!document) return;
         this.switchDocument(document);
-    }
-
-    /**
-     * Re-arm one bounded passive-memory peek after a failed attempt, or arm a
-     * monotonic upgrade comparison after a Graph baseline. The gate itself is
-     * never reopened and no request is issued. Driver-side lifecycle signals
-     * (pageshow) and explicit user actions use this seam; the consumer-facing
-     * refresh() contract does not.
-     */
-    reopenBaselineGate(): void {
-        if (this.disposed) return;
-        if (this.baselineGate === 'closed') {
-            this.upgradeProbeArmed = true;
-            return;
-        }
-        this.baselineAttempted = false;
     }
 
     /** Start another id-less conversation inside the same page runtime. */
@@ -334,13 +272,9 @@ export class ConversationContentRepository implements ConversationContentSourceV
         this.currentDocument = freezeDocument(document);
         this.baselineGate = 'open';
         this.baselineAttempted = false;
-        this.upgradeProbeArmed = false;
-        this.acceptedSourceRevision = null;
         this.basis = null;
-        this.baselineSource = null;
         this.turns = Object.freeze([]);
         this.turnDigests.clear();
-        this.weakSealedIds.clear();
         this.pendingHost.clear();
         this.projectionDocumentKeys.clear();
         this.projectionDocumentKeys.add(this.currentDocument.key);
@@ -360,21 +294,6 @@ export class ConversationContentRepository implements ConversationContentSourceV
         return this.ingestHostBatch([observation]);
     }
 
-    /**
-     * Re-run the pending-host flush on demand. New host evidence normally
-     * drives the retry; this bounded re-evaluation covers quiet periods after
-     * a capture left deferred work behind. Returns the remaining deferred
-     * count so callers can decide whether another attempt is worthwhile.
-     */
-    reevaluateDeferredHost(): number {
-        if (this.disposed) return this.pendingHost.size;
-        const progressed = this.flushPendingHost();
-        // Only a flush that actually changed the pool is a semantic change;
-        // an unchanged pool must not recompute/publish a new projection.
-        if (progressed && this.turns.length > 0 && this.currentDocument) this.publishProjection();
-        return this.pendingHost.size;
-    }
-
     /** Admit one stable host window and publish at most one immutable projection. */
     ingestHostBatch(observations: readonly ConversationHostTurnObservationV1[]): ConversationContentStateV1 {
         if (this.disposed) return this.state;
@@ -392,7 +311,6 @@ export class ConversationContentRepository implements ConversationContentSourceV
 
         if (!this.basis) {
             this.basis = 'host';
-            this.baselineSource = 'dom';
             this.startProjection();
         }
 
@@ -443,8 +361,6 @@ export class ConversationContentRepository implements ConversationContentSourceV
         this.epoch += 1;
         this.flight?.controller.abort();
         this.flight = null;
-        this.upgradeProbeArmed = false;
-        this.acceptedSourceRevision = null;
         this.listeners.clear();
     }
 
@@ -462,82 +378,55 @@ export class ConversationContentRepository implements ConversationContentSourceV
         if (new Set(turns.map((turn) => turn.identity.assistantMessageId)).size !== turns.length) {
             throw new ConversationContentAcquisitionError('identity-conflict', { retryable: false });
         }
-        const candidateRevision = normalizeSourceRevision(candidate.sourceRevision);
-        if (
-            this.baselineSource === 'graph'
-            && candidateRevision !== null
-            && this.acceptedSourceRevision !== null
-            && candidateRevision <= this.acceptedSourceRevision
-        ) {
-            return false;
-        }
-
-        if (this.turns.length > 0) {
+        if (this.basis === 'host' && this.turns.length > 0) {
             const sourceIndexes = new Map(
                 turns.map((turn, index) => [turn.identity.assistantMessageId, index] as const),
             );
-            let previousSourceIndex = -1;
-            for (const maintainedTurn of this.turns) {
-                const sourceIndex = sourceIndexes.get(maintainedTurn.identity.assistantMessageId);
-                if (
-                    sourceIndex === undefined
-                    || sourceIndex <= previousSourceIndex
-                    || !sameTurnIdentity(maintainedTurn, turns[sourceIndex]!)
-                ) {
-                    return false;
-                }
+            const firstHostId = this.turns[0]!.identity.assistantMessageId;
+            const firstHostIndex = sourceIndexes.get(firstHostId);
+            if (firstHostIndex === undefined) return false;
+            if (!sameTurnIdentity(this.turns[0]!, turns[firstHostIndex]!)) return false;
+
+            let previousSourceIndex = firstHostIndex - 1;
+            for (const hostTurn of this.turns) {
+                const sourceIndex = sourceIndexes.get(hostTurn.identity.assistantMessageId);
+                if (sourceIndex === undefined) continue;
+                if (!sameTurnIdentity(hostTurn, turns[sourceIndex]!)) return false;
+                if (sourceIndex <= previousSourceIndex) return false;
                 previousSourceIndex = sourceIndex;
             }
 
-            const maintainedByAssistantId = new Map(
-                this.turns.map((turn) => [turn.identity.assistantMessageId, turn] as const),
-            );
-            const nextTurns = turns.map((sourceTurn, index) => {
-                const maintainedTurn = maintainedByAssistantId.get(sourceTurn.identity.assistantMessageId);
-                if (!maintainedTurn || this.weakSealedIds.has(sourceTurn.identity.assistantMessageId)) {
-                    return { ...sourceTurn, ordinal: index + 1 };
-                }
-                return { ...maintainedTurn, ordinal: index + 1 };
-            });
-            const frozenTurns = freezeTurns(nextTurns);
-            this.turns = frozenTurns;
-            this.turnDigests.clear();
-            for (const turn of frozenTurns) {
+            const maintainedIds = new Set(this.turns.map((turn) => turn.identity.assistantMessageId));
+            const prefix = turns
+                .slice(0, firstHostIndex)
+                .filter((turn) => !maintainedIds.has(turn.identity.assistantMessageId));
+            this.turns = freezeTurns([...prefix, ...this.turns]);
+            for (const turn of prefix) {
                 this.turnDigests.set(turn.identity.assistantMessageId, digestTurnContent(turn));
             }
-            this.weakSealedIds.clear();
-            this.basis = this.basis === 'host' ? 'hybrid' : this.basis ?? 'source';
-            this.baselineSource = 'graph';
-            if (candidateRevision !== null) this.acceptedSourceRevision = candidateRevision;
+            this.basis = 'hybrid';
             return true;
         }
-
-        this.turns = freezeTurns(turns);
+        this.turns = Object.freeze(turns);
         this.turnDigests.clear();
-        this.weakSealedIds.clear();
         for (const turn of turns) this.turnDigests.set(turn.identity.assistantMessageId, digestTurnContent(turn));
         this.basis = 'source';
-        this.baselineSource = 'graph';
-        if (candidateRevision !== null) this.acceptedSourceRevision = candidateRevision;
         this.startProjection();
         return true;
     }
 
-    private flushPendingHost(): boolean {
-        if (!this.basis || !this.currentDocument) return false;
-        let progressed = false;
-        while (true) {
-            let changedThisPass = false;
+    private flushPendingHost(): void {
+        if (!this.basis || !this.currentDocument) return;
+        let progressed = true;
+        while (progressed) {
+            progressed = false;
             for (const [assistantMessageId, stored] of Array.from(this.pendingHost.entries())) {
                 const result = this.applyHostObservation(stored.observation, stored.digest);
                 if (result === 'deferred') continue;
                 this.pendingHost.delete(assistantMessageId);
-                changedThisPass = result === 'changed' || changedThisPass;
+                progressed = result === 'changed' || progressed;
             }
-            if (!changedThisPass) break;
-            progressed = true;
         }
-        return progressed;
     }
 
     private applyHostObservation(
@@ -550,27 +439,10 @@ export class ConversationContentRepository implements ConversationContentSourceV
         } catch {
             return 'rejected';
         }
-        const evidence = observation.completionEvidence ?? 'strong';
         const incomingId = incoming.identity.assistantMessageId;
         const existingIndex = this.turns.findIndex((turn) => turn.identity.assistantMessageId === incomingId);
         if (existingIndex >= 0) {
-            if (this.weakSealedIds.has(incomingId) && evidence === 'strong') {
-                // A weak-sealed body was admitted without a strong completion
-                // signal. Stronger evidence for the same typed identity may
-                // upgrade it in place; equal evidence never rewrites.
-                const existing = this.turns[existingIndex]!;
-                if (this.turnDigests.get(incomingId) === digest) {
-                    this.weakSealedIds.delete(incomingId);
-                    return 'duplicate';
-                }
-                const next = this.turns.map((turn, index) => (
-                    index === existingIndex ? { ...incoming, ordinal: existing.ordinal } : turn
-                ));
-                this.turns = freezeTurns(next);
-                this.turnDigests.set(incomingId, digest);
-                this.weakSealedIds.delete(incomingId);
-                return 'changed';
-            }
+            if (this.turnDigests.get(incomingId) === digest) return 'duplicate';
             // Once a message has entered the maintained cache, it is the
             // current authority. A later DOM copy with the same typed identity
             // is a remount or a host rewrite, not a reason to invalidate the
@@ -580,7 +452,7 @@ export class ConversationContentRepository implements ConversationContentSourceV
 
         if (this.turns.length === 0) {
             if (this.basis !== 'host' || observation.predecessorAssistantMessageId !== null) return 'deferred';
-            this.appendHostTurn(incoming, digest, evidence);
+            this.appendHostTurn(incoming, digest);
             return 'changed';
         }
 
@@ -590,7 +462,7 @@ export class ConversationContentRepository implements ConversationContentSourceV
         if (predecessorIndex < 0) return 'deferred';
 
         if (predecessorIndex === this.turns.length - 1) {
-            this.appendHostTurn(incoming, digest, evidence);
+            this.appendHostTurn(incoming, digest);
             return 'changed';
         }
 
@@ -600,11 +472,10 @@ export class ConversationContentRepository implements ConversationContentSourceV
         return 'deferred';
     }
 
-    private appendHostTurn(turn: ConversationTurnV1, digest: string, evidence: 'strong' | 'bounded-quiet'): void {
+    private appendHostTurn(turn: ConversationTurnV1, digest: string): void {
         const next = [...this.turns, { ...turn, ordinal: this.turns.length + 1 }];
         this.turns = freezeTurns(next);
         this.turnDigests.set(turn.identity.assistantMessageId, digest);
-        if (evidence === 'bounded-quiet') this.weakSealedIds.add(turn.identity.assistantMessageId);
         if (this.basis === 'source') this.basis = 'hybrid';
     }
 
@@ -621,13 +492,11 @@ export class ConversationContentRepository implements ConversationContentSourceV
     private buildProjectionSnapshot(): ConversationSnapshotV1 | null {
         if (!this.currentDocument || !this.basis || this.turns.length === 0) return null;
         const proof: ConversationSnapshotProofV1 = Object.freeze({ basis: this.basis });
-        const historyStatus = deriveHistoryStatus(this.baselineSource, this.currentDocument);
         const snapshotWithoutToken = {
             schemaVersion: 1 as const,
             document: this.currentDocument,
             projectionId: this.projectionId,
             coverage: 'complete' as const,
-            historyStatus,
             turns: this.turns,
             proof,
         };
@@ -673,8 +542,6 @@ export class ConversationContentRepository implements ConversationContentSourceV
             this.projectionDocumentKeys.add(this.currentDocument.key);
             this.baselineGate = 'open';
             this.baselineAttempted = false;
-            this.upgradeProbeArmed = false;
-            this.acceptedSourceRevision = null;
             if (this.turns.length > 0) {
                 this.publishProjection();
             } else {
@@ -696,13 +563,9 @@ export class ConversationContentRepository implements ConversationContentSourceV
         this.currentDocument = freezeDocument(document);
         this.baselineGate = 'open';
         this.baselineAttempted = false;
-        this.upgradeProbeArmed = false;
-        this.acceptedSourceRevision = null;
         this.basis = null;
-        this.baselineSource = null;
         this.turns = Object.freeze([]);
         this.turnDigests.clear();
-        this.weakSealedIds.clear();
         this.projectionDocumentKeys.clear();
         this.projectionDocumentKeys.add(this.currentDocument.key);
         if (!preserveUnboundHostBuffer) this.pendingHost.clear();
@@ -714,7 +577,6 @@ export class ConversationContentRepository implements ConversationContentSourceV
         });
         if (preserveUnboundHostBuffer && this.pendingHost.size > 0) {
             this.basis = 'host';
-            this.baselineSource = 'dom';
             this.flushPendingHost();
             if (this.turns.length > 0) this.publishProjection();
         }
@@ -730,13 +592,9 @@ export class ConversationContentRepository implements ConversationContentSourceV
         this.currentDocument = null;
         this.baselineGate = 'open';
         this.baselineAttempted = false;
-        this.upgradeProbeArmed = false;
-        this.acceptedSourceRevision = null;
         this.basis = null;
-        this.baselineSource = null;
         this.turns = Object.freeze([]);
         this.turnDigests.clear();
-        this.weakSealedIds.clear();
         this.projectionDocumentKeys.clear();
         this.pendingHost.clear();
     }
@@ -808,10 +666,6 @@ function sameTurnIdentity(left: ConversationTurnV1, right: ConversationTurnV1): 
         && left.identity.assistantMessageId === right.identity.assistantMessageId;
 }
 
-function normalizeSourceRevision(value: number | undefined): number | null {
-    return value !== undefined && Number.isFinite(value) && value >= 0 ? value : null;
-}
-
 function normalizeAcquisitionError(error: unknown): {
     reason: ConversationContentAcquisitionReasonV1;
     retryable: boolean;
@@ -824,22 +678,6 @@ function normalizeAcquisitionError(error: unknown): {
 
 function toUnavailableReason(reason: ConversationContentAcquisitionReasonV1): ConversationUnavailableReasonV1 {
     return reason === 'source-timeout' ? 'source-unavailable' : reason;
-}
-
-/**
- * Whole-conversation knowledge status. An accepted Graph baseline proves the
- * full branch at capture time; a DOM-only pool on a canonical document only
- * knows the mounted window; a page-identity document cannot be judged.
- */
-function deriveHistoryStatus(
-    baselineSource: 'graph' | 'dom' | null,
-    document: ConversationDocumentRefV1,
-): DiscoveryHistoryStatusV1 {
-    if (baselineSource === 'graph') return 'complete';
-    if (baselineSource === 'dom') {
-        return (document.identityKind ?? 'canonical') === 'canonical' ? 'partial' : 'unknown';
-    }
-    return 'unknown';
 }
 
 function sameDisplayDocument(left: ConversationDocumentRefV1, right: ConversationDocumentRefV1): boolean {
@@ -901,7 +739,6 @@ function sameState(left: ConversationContentStateV1, right: ConversationContentS
     if (left.kind !== right.kind) return false;
     if (left.document?.key !== right.document?.key) return false;
     if (left.snapshot?.contentToken !== right.snapshot?.contentToken) return false;
-    if ((left.snapshot?.historyStatus ?? 'unknown') !== (right.snapshot?.historyStatus ?? 'unknown')) return false;
     if (JSON.stringify(left.snapshot?.proof) !== JSON.stringify(right.snapshot?.proof)) return false;
     if (left.kind === 'unavailable' && right.kind === 'unavailable') {
         return left.reason === right.reason && left.retryable === right.retryable;

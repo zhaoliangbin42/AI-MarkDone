@@ -32,7 +32,7 @@ import {
     applyRenderedAtomicSelection,
     clearRenderedAtomicSelection,
     resolveReaderSelectionRange,
-    resolveSelectedAtomicUnitsFromRendered,
+    resolveSelectedAtomicUnits,
     type SelectedAtomicUnit,
 } from '../../../services/reader/atomicSelection';
 import { buildAtomicSelectionExport } from '../../../services/reader/atomicExport';
@@ -92,11 +92,6 @@ import type {
 import { ReaderWorkflow } from './ReaderWorkflow';
 import { createReaderPanelViewModel } from './ReaderViewModel';
 import {
-    getReaderScrollPositionKey,
-    readReaderScrollProgress,
-    restoreReaderScrollProgress,
-} from './readerScrollPosition';
-import {
     createEmptyReaderRenderResult,
     ensureReaderStylesheetLink,
     getReaderSurfaceCss,
@@ -155,7 +150,6 @@ type ReaderCommentSelectionSnapshot = {
     selectedUnits: SelectedAtomicUnit[];
     selectedText: string;
     sourceMarkdown: string;
-    hasSelection: boolean;
 };
 
 const READER_COMMENT_SCOPE_ID = 'reader-panel-comments-v1';
@@ -190,7 +184,6 @@ export class ReaderPanel {
     private motionNeedsOpen = false;
     private onSelectionChange: (() => void) | null = null;
     private onPointerUp: (() => void) | null = null;
-    private selectionRafId: number | null = null;
     private onSurfacePointerDown: ((event: PointerEvent) => void) | null = null;
     private onSurfaceDragStart: ((event: DragEvent) => void) | null = null;
     private onSurfaceDragOver: ((event: DragEvent) => void) | null = null;
@@ -200,13 +193,8 @@ export class ReaderPanel {
     private readerBodyEl: HTMLElement | null = null;
     private onReaderBodyScroll: (() => void) | null = null;
     private outlineScrollFrame: number | null = null;
-    private readerScrollRestoreFrame: number | null = null;
-    private restoringReaderScrollPosition = false;
-    private readonly readerScrollProgress = new Map<string, number>();
     private renderedAtomicElements: SelectedAtomicUnit[] = [];
     private commentSelectionSnapshot: ReaderCommentSelectionSnapshot | null = null;
-    private commentPersistentLayer: HTMLElement | null = null;
-    private commentTransientLayer: HTMLElement | null = null;
     private activeCommentId: string | null = null;
     private stickyDragBlockId: string | null = null;
     private stickyResizeCleanup: (() => void) | null = null;
@@ -274,11 +262,9 @@ export class ReaderPanel {
         ));
         if (itemIndex < 0) return false;
         if (itemIndex !== this.workflow.index) {
-            this.saveCurrentReaderScrollPosition();
             this.workflow.jump(itemIndex);
-            await this.renderCurrentContent({ restoreScrollPosition: false });
+            await this.renderCurrentContent();
         }
-        this.cancelPendingReaderScrollRestore();
         const record = this.getCurrentComments('created').find((candidate) => candidate.id === annotationId);
         if (!record) return false;
         const panel = this.overlaySession?.surfaceRoot.querySelector<HTMLElement>('.panel-window--reader');
@@ -381,8 +367,6 @@ export class ReaderPanel {
     }
 
     async show(items: ReaderItem[], startIndex: number, theme: Theme, options?: ReaderPanelShowOptions): Promise<void> {
-        if (!this.closing) this.saveCurrentReaderScrollPosition();
-        this.cancelPendingReaderScrollRestore();
         this.focusLifecycle.capture();
         if (this.overlaySession && this.closing && !this.overlaySession.cancelSurfaceClose()) {
             this.unmount();
@@ -458,21 +442,7 @@ export class ReaderPanel {
 
     async replaceItems(items: ReaderItem[], options?: ReaderPanelReplaceItemsOptions): Promise<void> {
         if (!this.isShowingConversationReader()) return;
-        const previousItem = this.workflow.currentItem;
-        const previousKey = previousItem
-            ? getReaderScrollPositionKey(previousItem, this.workflow.options.profile)
-            : null;
-        this.saveCurrentReaderScrollPosition();
-        const previousProgress = previousKey ? this.readerScrollProgress.get(previousKey) : undefined;
         this.workflow.replaceItems(items, options);
-        const nextItem = this.workflow.currentItem;
-        if (options?.preserveCurrentIdentity && previousProgress !== undefined && nextItem) {
-            const nextKey = getReaderScrollPositionKey(nextItem, this.workflow.options.profile);
-            if (nextKey !== previousKey && !this.readerScrollProgress.has(nextKey)) {
-                this.readerScrollProgress.set(nextKey, previousProgress);
-            }
-        }
-        this.cancelPendingReaderScrollRestore();
         this.state.renderedHtml = '';
         this.state.renderedMarkdownSource = '';
         this.state.renderedAtomicUnits = [];
@@ -489,8 +459,6 @@ export class ReaderPanel {
 
     hide(): void {
         if (this.closing) return;
-        this.saveCurrentReaderScrollPosition();
-        this.cancelPendingReaderScrollRestore();
         this.state.visible = false;
         const panel = this.overlaySession?.surfaceRoot.querySelector<HTMLElement>('.panel-window');
         const backdrop = this.overlaySession?.backdropRoot.querySelector<HTMLElement>('.panel-stage__overlay');
@@ -580,14 +548,8 @@ export class ReaderPanel {
         };
         session.host.addEventListener('keydown', this.onKeyDown);
 
-        this.onSelectionChange = () => this.scheduleAtomicSelectionSync();
-        this.onPointerUp = () => {
-            if (this.selectionRafId !== null) {
-                this.host.window.cancelAnimationFrame(this.selectionRafId);
-                this.selectionRafId = null;
-            }
-            this.syncAtomicSelection(false);
-        };
+        this.onSelectionChange = () => this.syncAtomicSelection();
+        this.onPointerUp = () => this.syncAtomicSelection();
         this.onShadowCopy = (event: Event) => this.handleAtomicCopy(event as ClipboardEvent);
         this.host.document.addEventListener('selectionchange', this.onSelectionChange);
         this.host.document.addEventListener('pointerup', this.onPointerUp);
@@ -636,10 +598,6 @@ export class ReaderPanel {
         this.stickyDragCleanup?.();
         this.stickyDragCleanup = null;
         this.stickyDragBlockId = null;
-        if (this.selectionRafId !== null) {
-            this.host.window.cancelAnimationFrame(this.selectionRafId);
-            this.selectionRafId = null;
-        }
         if (this.onSelectionChange) this.host.document.removeEventListener('selectionchange', this.onSelectionChange);
         if (this.onPointerUp) this.host.document.removeEventListener('pointerup', this.onPointerUp);
         if (this.overlaySession?.shadow && this.onShadowCopy) {
@@ -648,12 +606,9 @@ export class ReaderPanel {
         this.onSelectionChange = null;
         this.onPointerUp = null;
         this.onShadowCopy = null;
-        this.cancelPendingReaderScrollRestore();
         this.clearReaderBodyScrollListener();
         this.renderedAtomicElements = [];
         this.commentSelectionSnapshot = null;
-        this.commentPersistentLayer = null;
-        this.commentTransientLayer = null;
         this.activeCommentId = null;
         if (this.overlaySession?.shadow) {
             this.commentPopover.destroy();
@@ -930,8 +885,6 @@ export class ReaderPanel {
     }
 
     private async go(delta: number): Promise<void> {
-        this.saveCurrentReaderScrollPosition();
-        this.cancelPendingReaderScrollRestore();
         if (!this.workflow.move(delta)) return;
         this.state.renderedHtml = '';
         this.state.outlineItems = [];
@@ -941,8 +894,6 @@ export class ReaderPanel {
     }
 
     private jumpTo(index: number): void {
-        this.saveCurrentReaderScrollPosition();
-        this.cancelPendingReaderScrollRestore();
         if (!this.workflow.jump(index)) return;
         this.state.renderedHtml = '';
         this.state.outlineItems = [];
@@ -951,7 +902,7 @@ export class ReaderPanel {
         void this.renderCurrentContent();
     }
 
-    private async renderCurrentContent(options: { restoreScrollPosition?: boolean } = {}): Promise<void> {
+    private async renderCurrentContent(): Promise<void> {
         const item = this.workflow.currentItem;
         if (!item) {
             const empty = createEmptyReaderRenderResult();
@@ -966,7 +917,6 @@ export class ReaderPanel {
             this.commentSelectionSnapshot = null;
             this.state.userPromptDisplay = empty.userPromptDisplay;
             this.render(false);
-            this.cancelPendingReaderScrollRestore();
             return;
         }
 
@@ -989,13 +939,11 @@ export class ReaderPanel {
         this.state.userPromptDisplay = rendered.userPromptDisplay;
         this.render(false);
         void this.ensureKatexStylesForHtml(this.state.renderedHtml, token);
-        this.syncAtomicSelection(false);
+        this.syncAtomicSelection();
+        this.syncCommentUi();
 
-        if (options.restoreScrollPosition === false) {
-            this.cancelPendingReaderScrollRestore();
-        } else {
-            this.restoreCurrentReaderScrollPosition(item, token);
-        }
+        const body = this.overlaySession?.surfaceRoot.querySelector<HTMLElement>('.reader-body');
+        if (body) body.scrollTop = 0;
         this.syncOutlineActiveState();
     }
 
@@ -1560,63 +1508,13 @@ export class ReaderPanel {
         return this.overlaySession?.surfaceRoot.querySelector<HTMLElement>('.reader-body') ?? null;
     }
 
-    private saveCurrentReaderScrollPosition(): void {
-        this.saveReaderBodyScrollPosition(this.getReaderBody(), this.workflow.currentItem);
-    }
-
-    private saveReaderBodyScrollPosition(body: HTMLElement | null, item: ReaderItem | null): void {
-        if (!body || !item) return;
-        const key = getReaderScrollPositionKey(item, this.workflow.options.profile);
-        this.readerScrollProgress.set(key, readReaderScrollProgress(body));
-    }
-
-    private restoreCurrentReaderScrollPosition(item: ReaderItem, renderToken: number): void {
-        this.cancelPendingReaderScrollRestore();
-        const body = this.getReaderBody();
-        if (!body) return;
-
-        const key = getReaderScrollPositionKey(item, this.workflow.options.profile);
-        const progress = this.readerScrollProgress.get(key) ?? 0;
-        const apply = (): void => {
-            if (
-                renderToken !== this.contentRenderToken
-                || !this.state.visible
-                || this.workflow.currentItem !== item
-                || this.getReaderBody() !== body
-            ) return;
-
-            this.restoringReaderScrollPosition = true;
-            const hasLayout = restoreReaderScrollProgress(body, progress);
-            this.restoringReaderScrollPosition = false;
-            if (!hasLayout) return;
-            this.syncOutlineActiveState();
-        };
-
-        apply();
-        if (progress <= 0) return;
-        this.readerScrollRestoreFrame = this.host.window.requestAnimationFrame(() => {
-            this.readerScrollRestoreFrame = null;
-            apply();
-        });
-    }
-
-    private cancelPendingReaderScrollRestore(): void {
-        if (this.readerScrollRestoreFrame === null) return;
-        this.host.window.cancelAnimationFrame(this.readerScrollRestoreFrame);
-        this.readerScrollRestoreFrame = null;
-    }
-
     private syncReaderBodyScrollListener(nextBody: HTMLElement | null): void {
         if (this.readerBodyEl === nextBody) return;
         this.clearReaderBodyScrollListener();
         if (!nextBody) return;
 
         this.readerBodyEl = nextBody;
-        this.onReaderBodyScroll = () => {
-            if (!this.restoringReaderScrollPosition) this.cancelPendingReaderScrollRestore();
-            this.saveReaderBodyScrollPosition(nextBody, this.workflow.currentItem);
-            this.scheduleOutlineActiveSync();
-        };
+        this.onReaderBodyScroll = () => this.scheduleOutlineActiveSync();
         nextBody.addEventListener('scroll', this.onReaderBodyScroll, { passive: true });
     }
 
@@ -1851,13 +1749,6 @@ export class ReaderPanel {
         const markdownRoot = this.getMarkdownRoot();
         if (!overlayRoot || !markdownRoot) return;
         overlayRoot.replaceChildren();
-        const persistentLayer = this.host.document.createElement('div');
-        persistentLayer.className = 'reader-comment-persistent-layer';
-        const transientLayer = this.host.document.createElement('div');
-        transientLayer.className = 'reader-comment-transient-layer';
-        overlayRoot.append(persistentLayer, transientLayer);
-        this.commentPersistentLayer = persistentLayer;
-        this.commentTransientLayer = transientLayer;
 
         const comments = this.getCurrentComments();
         const occupiedAnchorTops: number[] = [];
@@ -1865,42 +1756,16 @@ export class ReaderPanel {
             const resolved = resolveReaderCommentAnchor(markdownRoot, record);
             this.markAnchorState(record, resolved.unionRect ? 'anchored' : 'unanchored');
             const active = record.id === this.activeCommentId;
-            resolved.rects.forEach((rect) => persistentLayer.appendChild(this.createCommentHighlight(rect, active)));
+            resolved.rects.forEach((rect) => overlayRoot.appendChild(this.createCommentHighlight(rect, active)));
             if (resolved.unionRect) {
-                persistentLayer.appendChild(this.createCommentAnchor(record, resolved.unionRect, resolved.rects, occupiedAnchorTops));
+                overlayRoot.appendChild(this.createCommentAnchor(record, resolved.unionRect, resolved.rects, occupiedAnchorTops));
             }
         }
-
-        this.syncTransientCommentUi();
-    }
-
-    /** Update only the transient selection action; persistent anchors remain keyed in place. */
-    private syncTransientCommentUi(): void {
-        const overlayRoot = this.getCommentOverlay();
-        const markdownRoot = this.getMarkdownRoot();
-        if (!overlayRoot || !markdownRoot) return;
-        // `isConnected` is false for a shadow-root descendant while the panel
-        // is still being assembled in jsdom (and in some detached-reader
-        // lifecycles). The layer was just created by syncCommentUi, so only a
-        // missing reference means that the persistent pass has not happened.
-        if (!this.commentPersistentLayer) {
-            this.syncCommentUi();
-            return;
-        }
-        const transientLayer = this.commentTransientLayer
-            ?? (() => {
-                const layer = this.host.document.createElement('div');
-                layer.className = 'reader-comment-transient-layer';
-                overlayRoot.appendChild(layer);
-                this.commentTransientLayer = layer;
-                return layer;
-            })();
-        transientLayer.replaceChildren();
 
         if (this.commentPopover.isOpen() || this.commentExportPopover.isOpen() || this.commentPromptPicker.isOpen()) return;
         const selection = this.commentSelectionSnapshot;
         if (!selection) return;
-        if (!selection.hasSelection && selection.selectedUnits.length < 1) return;
+        if (!selection.selectedText.trim() && selection.selectedUnits.length < 1) return;
 
         const resolved = resolveSelectionLayout({
             root: markdownRoot,
@@ -1908,7 +1773,7 @@ export class ReaderPanel {
             selectedUnits: selection.selectedUnits,
         });
         if (resolved.unionRect) {
-            transientLayer.appendChild(this.createCommentAction(resolved.unionRect, selection));
+            overlayRoot.appendChild(this.createCommentAction(resolved.unionRect, selection));
         }
     }
 
@@ -1953,9 +1818,8 @@ export class ReaderPanel {
         copyButton.setAttribute('title', this.getLabel('btnCopyText', 'Copy markdown'));
         copyButton.innerHTML = createIcon(copyIcon).outerHTML;
         copyButton.addEventListener('click', async () => {
-            const sourceMarkdown = this.materializeSelectionExport(selection);
-            if (!sourceMarkdown.trim()) return;
-            const ok = await copyCanonicalMarkdownToClipboard(sourceMarkdown);
+            if (!selection.sourceMarkdown.trim()) return;
+            const ok = await copyCanonicalMarkdownToClipboard(selection.sourceMarkdown);
             showEphemeralTooltip({
                 root: this.overlaySession?.shadow ?? this.host.document,
                 anchor: copyButton,
@@ -1971,8 +1835,6 @@ export class ReaderPanel {
         commentButton.setAttribute('title', this.getLabel('readerCommentAction', 'Comment'));
         commentButton.innerHTML = createIcon(messageSquareTextIcon).outerHTML;
         commentButton.addEventListener('click', () => {
-            const sourceMarkdown = this.materializeSelectionExport(selection);
-            if (!sourceMarkdown.trim()) return;
             const markdownRoot = this.getMarkdownRoot();
             const shell = this.overlaySession?.surfaceRoot.querySelector<HTMLElement>('.panel-window--reader');
             if (!markdownRoot || !shell || !this.overlaySession) return;
@@ -1980,14 +1842,13 @@ export class ReaderPanel {
                 range: selection.range.cloneRange(),
                 selectedUnits: [...selection.selectedUnits],
                 selectedText: selection.selectedText,
-                sourceMarkdown,
-                hasSelection: selection.hasSelection,
+                sourceMarkdown: selection.sourceMarkdown,
             };
             this.openCommentPopover({
                 mode: 'create',
                 anchorRect: commentButton.getBoundingClientRect(),
                 initialText: '',
-                selectedSource: sourceMarkdown,
+                selectedSource: frozenSelection.sourceMarkdown,
                 onSave: (value) => {
                     const item = this.getCurrentItem();
                     if (!item) return;
@@ -2026,7 +1887,7 @@ export class ReaderPanel {
             stickButton.setAttribute('title', this.getLabel('readerStickyAction', 'Stick'));
             stickButton.innerHTML = createIcon(pinIcon).outerHTML;
             stickButton.addEventListener('click', () => {
-                this.addStickyBlock(this.materializeSelectionExport(selection));
+                this.addStickyBlock(selection.sourceMarkdown);
             });
             group.append(copyButton, commentButton, stickButton);
             return group;
@@ -2539,15 +2400,7 @@ export class ReaderPanel {
         applyRenderedAtomicSelection(markdownRoot, this.state.selectedAtomicUnitIds);
     }
 
-    private scheduleAtomicSelectionSync(): void {
-        if (this.selectionRafId !== null) return;
-        this.selectionRafId = this.host.window.requestAnimationFrame(() => {
-            this.selectionRafId = null;
-            this.syncAtomicSelection(false);
-        });
-    }
-
-    private syncAtomicSelection(materializeExport = false): void {
+    private syncAtomicSelection(): void {
         const markdownRoot = this.getMarkdownRoot();
         if (!markdownRoot || !this.overlaySession) return;
 
@@ -2559,89 +2412,52 @@ export class ReaderPanel {
             this.state.selectedAtomicUnitIds = [];
             this.commentSelectionSnapshot = null;
             clearRenderedAtomicSelection(markdownRoot);
-            this.syncTransientCommentUi();
+            this.syncCommentUi();
             this.syncCommentControls();
             return;
         }
 
-        const selectedText = materializeExport ? range.toString().trim() : '';
-        const selectedUnits = resolveSelectedAtomicUnitsFromRendered(range, this.renderedAtomicElements).map((selected) => {
+        const selectedText = range.toString().trim();
+        const selectedUnits = resolveSelectedAtomicUnits(range, markdownRoot).map((selected) => {
             const rendered = this.renderedAtomicElements.find((unit) => unit.id === selected.id);
             return rendered ?? selected;
         });
 
         this.state.selectionSourceText = selectedText;
-        const selectedUnitIds = selectedUnits.map((unit) => unit.id);
-        if (materializeExport) {
-            this.state.selectionExport = buildAtomicSelectionExport({
-                range,
-                root: markdownRoot,
-                selectedUnits,
-            });
-        } else {
-            this.state.selectionExport = '';
-        }
+        this.state.selectedAtomicUnitIds = selectedUnits.map((unit) => unit.id);
+        this.state.selectionExport = buildAtomicSelectionExport({
+            range,
+            root: markdownRoot,
+            selectedUnits,
+        });
         this.commentSelectionSnapshot = {
             range: range.cloneRange(),
             selectedUnits: [...selectedUnits],
             selectedText,
             sourceMarkdown: this.state.selectionExport,
-            hasSelection: !range.collapsed,
         };
-        this.applyAtomicSelectionDiff(selectedUnitIds);
-        this.syncTransientCommentUi();
+        applyRenderedAtomicSelection(markdownRoot, this.state.selectedAtomicUnitIds);
+        this.syncCommentUi();
         this.syncCommentControls();
-    }
-
-    private materializeSelectionExport(selection: ReaderCommentSelectionSnapshot): string {
-        if (selection.sourceMarkdown) return selection.sourceMarkdown;
-        const markdownRoot = this.getMarkdownRoot();
-        if (!markdownRoot) return '';
-        const sourceMarkdown = buildAtomicSelectionExport({
-            range: selection.range,
-            root: markdownRoot,
-            selectedUnits: selection.selectedUnits,
-        });
-        if (!selection.selectedText) selection.selectedText = selection.range.toString().trim();
-        selection.sourceMarkdown = sourceMarkdown;
-        this.state.selectionExport = sourceMarkdown;
-        return sourceMarkdown;
-    }
-
-    private applyAtomicSelectionDiff(nextIds: string[]): void {
-        const previous = new Set(this.state.selectedAtomicUnitIds);
-        const next = new Set(nextIds);
-        for (const unit of this.renderedAtomicElements) {
-            if (previous.has(unit.id) && !next.has(unit.id)) {
-                unit.element.removeAttribute('data-aimd-unit-state');
-            }
-            if (next.has(unit.id) && !previous.has(unit.id)) {
-                unit.element.setAttribute('data-aimd-unit-state', 'selected');
-            }
-        }
-        this.state.selectedAtomicUnitIds = nextIds;
     }
 
     private handleAtomicCopy(event: ClipboardEvent): void {
         const markdownRoot = this.getMarkdownRoot();
         if (!markdownRoot || !this.overlaySession) return;
 
-        this.syncAtomicSelection(false);
+        this.syncAtomicSelection();
         const selection = this.host.window.getSelection();
         const range = resolveReaderSelectionRange(selection, this.overlaySession.shadow, markdownRoot);
-        const snapshot = this.commentSelectionSnapshot;
-        if (!range || !snapshot) return;
-        const selectionExport = this.materializeSelectionExport(snapshot);
-        if (!selectionExport) return;
+        if (!range || !this.state.selectionExport) return;
 
-        const hasSelection = snapshot.hasSelection || this.state.selectedAtomicUnitIds.length > 0;
+        const hasSelection = Boolean(range.toString().trim()) || this.state.selectedAtomicUnitIds.length > 0;
         if (!hasSelection) return;
 
         event.preventDefault();
         event.stopPropagation();
         event.clipboardData?.setData(
             'text/plain',
-            formatCanonicalMarkdownForCopy(selectionExport),
+            formatCanonicalMarkdownForCopy(this.state.selectionExport),
         );
 
         const anchor = this.overlaySession.surfaceRoot.querySelector<HTMLElement>('[data-action="reader-copy"]') ?? markdownRoot;

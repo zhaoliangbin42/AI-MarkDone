@@ -5,12 +5,9 @@ import type { ConversationNavigationPortV1 } from '../../contracts/conversationN
 import type { ConversationSurfacePortV1 } from '../../contracts/conversationSurface';
 import {
     createConversationPageDocumentKeyV1,
-    type ConversationContentStateV1,
     type ConversationDocumentRefV1,
 } from '../../contracts/conversationContent';
-import type { DiscoveryDiagnosticsSnapshotV1 } from '../../contracts/conversationDiscoveryDiagnostics';
 import { ConversationContentRepository } from '../../services/content/ConversationContentRepository';
-import { DiscoveryDiagnostics } from '../../services/content/DiscoveryDiagnostics';
 import { ChatGPTConversationDiscoveryAdapter } from '../../drivers/content/chatgpt/ChatGPTConversationDiscoveryAdapter';
 import { ChatGPTConversationSurface } from '../../drivers/content/chatgpt/ChatGPTConversationSurface';
 import { ChatGPTConversationHostMonitor } from '../../drivers/content/chatgpt/ChatGPTConversationHostMonitor';
@@ -22,7 +19,6 @@ export type ChatGPTConversationContentRuntimeOptions = Readonly<{
     hostSettleDelayMs?: number;
 }>;
 
-const PAGE_LIFECYCLE_WAKE_COALESCE_MS = 50;
 let pageEpochSequence = 0;
 
 /**
@@ -45,23 +41,19 @@ export class ChatGPTConversationContentRuntime {
     private readonly hostMonitor: ChatGPTConversationHostMonitor;
     private readonly pageIndex: ChatGPTPageIndex;
     private readonly pageDocument: ConversationDocumentRefV1;
-    private readonly diagnostics = new DiscoveryDiagnostics();
-    private lastBridgeDiagnosticsPullAt = 0;
     private unsubscribeGraph: (() => void) | null = null;
     private unsubscribePage: (() => void) | null = null;
     private lastDocumentKey: string | null | undefined;
     private initialized = false;
     private disposed = false;
-    private wakeReconcileTimer: ReturnType<typeof window.setTimeout> | null = null;
     private originalPushState: History['pushState'] | null = null;
     private originalReplaceState: History['replaceState'] | null = null;
     private wrappedPushState: History['pushState'] | null = null;
     private wrappedReplaceState: History['replaceState'] | null = null;
     private readonly handlePageShow = () => {
-        this.scheduleWakeReconciliation();
-    };
-    private readonly handlePageResume = () => {
-        this.scheduleWakeReconciliation();
+        this.hostMonitor.notifyPageShow();
+        this.synchronizeCurrentEpoch(true);
+        this.surface.refreshSurface();
     };
     private readonly handlePopState = () => {
         this.synchronizeCurrentEpoch(true);
@@ -115,16 +107,6 @@ export class ChatGPTConversationContentRuntime {
         return this.source;
     }
 
-    /**
-     * Explicit user-triggered retry of the passive baseline peek. Re-arms a
-     * failed (open) gate and reads bridge memory again; never issues a
-     * request and never reopens a gate that already accepted a Graph.
-     */
-    retryBaselineDiscovery(): Promise<ConversationContentStateV1> {
-        this.repository.reopenBaselineGate();
-        return this.repository.enterCurrentEpoch();
-    }
-
     setNavigationPort(navigation: ConversationNavigationPortV1 | null): void {
         this.surface.setNavigationPort(navigation);
     }
@@ -143,27 +125,19 @@ export class ChatGPTConversationContentRuntime {
             // synchronized first so the evidence reaches the correct gate.
             this.synchronizeCurrentEpoch(false);
             this.repository.notifyBaselineCaptured();
-            this.refreshBridgeDiagnostics();
         });
         window.addEventListener('pageshow', this.handlePageShow);
-        document.addEventListener('resume', this.handlePageResume);
         window.addEventListener('popstate', this.handlePopState);
         window.addEventListener('hashchange', this.handleHashChange);
         this.installHistoryHooks();
         this.synchronizeCurrentEpoch(true);
-        this.refreshBridgeDiagnostics();
     }
 
     dispose(): void {
         if (this.disposed) return;
         this.disposed = true;
         this.initialized = false;
-        if (this.wakeReconcileTimer !== null) {
-            window.clearTimeout(this.wakeReconcileTimer);
-            this.wakeReconcileTimer = null;
-        }
         window.removeEventListener('pageshow', this.handlePageShow);
-        document.removeEventListener('resume', this.handlePageResume);
         window.removeEventListener('popstate', this.handlePopState);
         window.removeEventListener('hashchange', this.handleHashChange);
         this.restoreHistoryHooks();
@@ -177,22 +151,6 @@ export class ChatGPTConversationContentRuntime {
         this.repository.dispose();
         this.graphAdapter.dispose();
         this.lastDocumentKey = undefined;
-    }
-
-    private scheduleWakeReconciliation(): void {
-        if (this.disposed || this.wakeReconcileTimer !== null) return;
-        this.wakeReconcileTimer = window.setTimeout(() => {
-            this.wakeReconcileTimer = null;
-            if (this.disposed) return;
-
-            this.hostMonitor.notifyPageShow();
-            // BFCache restores and frozen-page resumes keep the page bridge
-            // and its memory alive. A baseline peek that missed the capture
-            // gets one bounded re-arm; an accepted Graph stays untouched.
-            this.repository.reopenBaselineGate();
-            this.synchronizeCurrentEpoch(true);
-            this.surface.refreshSurface();
-        }, PAGE_LIFECYCLE_WAKE_COALESCE_MS);
     }
 
     private synchronizeCurrentEpoch(force: boolean, pageUrl = window.location.href): void {
@@ -215,41 +173,6 @@ export class ChatGPTConversationContentRuntime {
         await this.repository.refresh();
         await this.hostMonitor.flushObserved();
         return this.repository.read();
-    }
-
-    /**
-     * Assemble the read-only discovery diagnostics snapshot. Producers push
-     * facts; this is a pure read and never changes discovery behavior.
-     */
-    readDiscoveryDiagnostics(): DiscoveryDiagnosticsSnapshotV1 {
-        this.diagnostics.setRepositoryFacts(this.repository.readDiagnosticsFacts());
-        this.diagnostics.setHostMonitorFacts(this.hostMonitor.readDiagnosticsFacts());
-        this.diagnostics.setBridgeDiagnostics(this.graphAdapter.getCachedBridgeDiagnostics());
-        this.diagnostics.setBridgeUnavailable(this.graphAdapter.isBridgeUnavailable());
-        this.diagnostics.setCaptureSignalCount(this.graphAdapter.getCaptureSignalCount());
-        return this.diagnostics.snapshot();
-    }
-
-    /**
-     * Pull the page bridge's own counters in the background. Throttled because
-     * capture signals can arrive in bursts and each pull is a same-window
-     * event round-trip; failure keeps the previous snapshot intact. A
-     * page-identity document has no eligible conversation GETs, so no bridge
-     * request is issued before a canonical identity exists.
-     */
-    private refreshBridgeDiagnostics(): void {
-        const document = this.resolveCurrentDocument();
-        if (!document || document.conversationId === null) return;
-        const now = Date.now();
-        if (now - this.lastBridgeDiagnosticsPullAt < 500) return;
-        this.lastBridgeDiagnosticsPullAt = now;
-        void this.graphAdapter.readBridgeDiagnostics().then((next) => {
-            if (this.disposed) return;
-            this.diagnostics.setBridgeDiagnostics(next);
-        }).catch(() => {
-            // Bridge counters are best-effort diagnostics; the snapshot keeps
-            // whatever the last successful pull produced.
-        });
     }
 
     private installHistoryHooks(): void {

@@ -9,7 +9,6 @@ import {
 import type { SiteAdapter } from '../../../drivers/content/adapters/base';
 import type { ConversationNavigationPortV1 } from '../../../contracts/conversationNavigation';
 import type { ConversationContentSourceV1 } from '../../../contracts/conversationContent';
-import type { DiscoveryDiagnosticsSnapshotV1 } from '../../../contracts/conversationDiscoveryDiagnostics';
 import { PathUtils } from '../../../core/bookmarks/path';
 import { bookmarksClient } from '../../../drivers/shared/clients/bookmarksClient';
 import type { BookmarksBulkItem } from '../../../contracts/protocol';
@@ -142,28 +141,14 @@ export class BookmarksPanelController {
     constructor(adapter: SiteAdapter, options: Readonly<{
         navigation?: ConversationNavigationPortV1 | null;
         conversationContentSource?: ConversationContentSourceV1 | null;
-        readDiscoveryDiagnostics?: () => DiscoveryDiagnosticsSnapshotV1 | null;
-        retryBaselineDiscovery?: () => Promise<unknown> | void;
     }> = {}) {
         this.adapter = adapter;
         this.navigation = options.navigation ?? null;
         this.conversationContentSource = options.conversationContentSource ?? null;
-        this.readDiscoveryDiagnostics = options.readDiscoveryDiagnostics ?? null;
-        this.retryBaselineDiscovery = options.retryBaselineDiscovery ?? null;
     }
 
     private readonly navigation: ConversationNavigationPortV1 | null;
     private readonly conversationContentSource: ConversationContentSourceV1 | null;
-    private readonly readDiscoveryDiagnostics: (() => DiscoveryDiagnosticsSnapshotV1 | null) | null;
-    private readonly retryBaselineDiscovery: (() => Promise<unknown> | void) | null;
-
-    getDiscoveryDiagnostics(): DiscoveryDiagnosticsSnapshotV1 | null {
-        return this.readDiscoveryDiagnostics?.() ?? null;
-    }
-
-    getRetryBaselineDiscovery(): (() => Promise<unknown> | void) | null {
-        return this.retryBaselineDiscovery;
-    }
 
     private async ensureConversationBookmarksForResolution(): Promise<void> {
         if (this.adapter.getPlatformId?.() !== 'chatgpt' || !this.conversationContentSource) return;

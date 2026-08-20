@@ -286,7 +286,6 @@ describe('settings migrations', () => {
             promptAutocomplete: true,
             enableArrowKeyMessageNavigation: true,
             pageWidthScale: 100,
-            pageAnnotationsEnabled: true,
         });
         expect(disabled.chatgptBehavior).toEqual({
             restorePositionAfterSend: false,
@@ -307,7 +306,6 @@ describe('settings migrations', () => {
             promptAutocomplete: false,
             enableArrowKeyMessageNavigation: false,
             pageWidthScale: 145,
-            pageAnnotationsEnabled: true,
         });
         expect(clamped.chatgptBehavior.pageWidthScale).toBe(200);
     });

@@ -222,32 +222,6 @@ export function resolveSelectedAtomicUnits(range: Range, root: HTMLElement): Sel
         .sort((left, right) => left.start - right.start);
 }
 
-/**
- * Resolve a Reader selection against the already materialized unit index.
- * Selection frames can call this without querying every annotated element in
- * the Markdown tree again.
- */
-export function resolveSelectedAtomicUnitsFromRendered(
-    range: Range,
-    units: readonly SelectedAtomicUnit[],
-): SelectedAtomicUnit[] {
-    const selected = units
-        .filter((unit) => {
-            if (!range.intersectsNode(unit.element)) return false;
-            if (unit.mode === 'structural' || isTextSelectableAtomicUnitKind(unit.kind)) {
-                return rangeCoversElementText(range, unit.element);
-            }
-            return true;
-        });
-    return selected
-        .filter((unit) => !selected.some((candidate) => (
-            candidate !== unit
-            && candidate.mode === 'structural'
-            && candidate.element.contains(unit.element)
-        )))
-        .sort((left, right) => left.start - right.start);
-}
-
 export function resolveStrictRenderedAtomicUnits(range: Range, root: HTMLElement): RenderedAtomicUnit[] {
     const selection = resolveStrictRenderedAtomicSelection(range, root);
     return selection.isValid ? selection.units : [];
@@ -261,38 +235,7 @@ export function resolveStrictRenderedAtomicUnits(range: Range, root: HTMLElement
 export function resolveSelectedRenderedAtomicUnits(range: Range, root: HTMLElement): RenderedAtomicUnit[] {
     if (!root.contains(range.startContainer) || !root.contains(range.endContainer)) return [];
 
-    return resolveSelectedRenderedAtomicUnitsFromCandidates(
-        range,
-        root,
-        collectStrictCandidateElements(range, root),
-    );
-}
-
-/**
- * Resolve a page selection against a candidate index built for a content
- * root. The index is intentionally only a visual consumer cache; it never
- * carries canonical Markdown or identity. Endpoint ancestors are added on
- * every frame so newly mounted units at the selection edge still work without
- * rescanning the entire response subtree.
- */
-export function resolveSelectedRenderedAtomicUnitsFromCandidates(
-    range: Range,
-    root: HTMLElement,
-    indexedCandidates: readonly HTMLElement[],
-): RenderedAtomicUnit[] {
-    if (!root.contains(range.startContainer) || !root.contains(range.endContainer)) return [];
-
-    const candidates = new Set(indexedCandidates.filter((element) => root.contains(element)));
-    for (const endpoint of [range.startContainer, range.endContainer]) {
-        let current = getElementForNode(endpoint);
-        while (current && root.contains(current)) {
-            if (current.matches(RENDERED_ATOMIC_UNIT_SELECTOR)) candidates.add(current);
-            if (current === root) break;
-            current = current.parentElement;
-        }
-    }
-
-    const selected = Array.from(candidates)
+    const selected = collectStrictCandidateElements(range, root)
         .map((element) => {
             const kind = resolveRenderedAtomicUnitKind(element);
             if (!kind) return null;
@@ -318,24 +261,6 @@ export function resolveSelectedRenderedAtomicUnitsFromCandidates(
             && candidate.element.contains(unit.element)
         )))
         .sort((left, right) => compareDocumentOrder(left.element, right.element));
-}
-
-export function collectRenderedAtomicUnitCandidates(root: HTMLElement): HTMLElement[] {
-    return collectStrictCandidateElementsForRoot(root);
-}
-
-/**
- * Collect only the visual-unit candidates that can intersect one selection.
- * The common ancestor is the natural DOM locality for ordinary paragraph
- * selections; callers can cache this result by ancestor without scanning the
- * entire rendered response on the first drag frame.
- */
-export function collectRenderedAtomicUnitCandidatesForRange(
-    range: Range,
-    root: HTMLElement,
-): HTMLElement[] {
-    if (!root.contains(range.startContainer) || !root.contains(range.endContainer)) return [];
-    return collectStrictCandidateElements(range, root);
 }
 
 export function resolveStrictRenderedAtomicSelection(range: Range, root: HTMLElement): StrictRenderedAtomicSelection {
@@ -396,18 +321,6 @@ function collectStrictCandidateElements(range: Range, root: HTMLElement): HTMLEl
         }
     }
     return Array.from(candidates).sort(compareDocumentOrder);
-}
-
-function collectStrictCandidateElementsForRoot(root: HTMLElement): HTMLElement[] {
-    const candidates = [
-        ...(root.matches(RENDERED_ATOMIC_UNIT_SELECTOR) ? [root] : []),
-        ...Array.from(root.querySelectorAll<HTMLElement>(RENDERED_ATOMIC_UNIT_SELECTOR)),
-    ];
-    return candidates.filter((element) => {
-        if (element.matches('.katex') && element.closest('.katex-display')) return false;
-        if (element.matches('code') && element.closest('pre')) return false;
-        return true;
-    }).sort(compareDocumentOrder);
 }
 
 function getElementForNode(node: Node): HTMLElement | null {

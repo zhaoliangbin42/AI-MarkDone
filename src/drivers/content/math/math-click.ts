@@ -5,7 +5,7 @@ import {
 } from '../../../core/latex/extractLatexSource';
 import type { FormulaSource } from '../../../core/math/formulaAssetTypes';
 import { copyTextToClipboard } from '../clipboard/clipboard';
-import { retainDocumentTooltipDelegate, showEphemeralTooltip } from '../../../utils/tooltip';
+import { getDocumentTooltipDelegate, showEphemeralTooltip } from '../../../utils/tooltip';
 import type { MarkdownParserAdapter } from '../adapters/parser/MarkdownParserAdapter';
 import {
     DEFAULT_FORMULA_SOURCE_FORMAT,
@@ -13,6 +13,15 @@ import {
     normalizeFormulaSourceFormat,
     type FormulaSourceFormat,
 } from '../../../core/math/formulaSourceFormat';
+
+type ListenerRecord = {
+    target: HTMLElement;
+    mouseenter: EventListener;
+    mouseleave: EventListener;
+    focusin: EventListener;
+    focusout: EventListener;
+    click: EventListener;
+};
 
 export type MathFormulaHoverContext = {
     element: Element;
@@ -48,16 +57,19 @@ export type MathClickHandlerOptions = {
  *
  * Behavior:
  * - Enable per message container
- * - Delegate hover + click handling from the document
+ * - Observe streaming DOM updates via MutationObserver
+ * - Attach hover + click handlers to math-like nodes
  * - Copy LaTeX source using multi-strategy extractor
  * - Cleanup listeners + observers on disable
  */
 export class MathClickHandler {
+    private activeElements = new Set<Element>();
     private containers = new Set<HTMLElement>();
     private containerDiscovery = new Map<HTMLElement, string>();
-    private delegated = false;
-    private hoveredFormula: { element: Element; anchor: HTMLElement } | null = null;
-    private releaseTooltipDelegate: (() => void) | null = null;
+    private observer: MutationObserver | null = null;
+    private elementListeners = new Map<Element, ListenerRecord>();
+    private pendingNodes = new Set<Element>();
+    private idleTimer: number | ReturnType<typeof setTimeout> | null = null;
 
     constructor(private readonly options: MathClickHandlerOptions = {}) {}
 
@@ -75,15 +87,16 @@ export class MathClickHandler {
 
     enable(container: HTMLElement): void {
         if (this.containers.has(container)) return;
-        this.ensureTooltipDelegate();
+        getDocumentTooltipDelegate();
         this.containers.add(container);
-        this.ensureDelegatedListeners();
+        this.processContainer(container);
+        this.ensureObserver();
     }
 
     observeContainers(root: HTMLElement, selector: string): void {
-        this.ensureTooltipDelegate();
         this.containerDiscovery.set(root, selector);
-        this.ensureDelegatedListeners();
+        this.discoverContainers(root, selector);
+        this.ensureObserver();
     }
 
     /**
@@ -95,52 +108,136 @@ export class MathClickHandler {
         this.enable(root);
     }
 
-    private ensureDelegatedListeners(): void {
-        if (this.delegated) return;
-        this.delegated = true;
-        document.addEventListener('click', this.handleDelegatedClick, true);
-        document.addEventListener('mouseover', this.handleDelegatedMouseOver, true);
-        document.addEventListener('mouseout', this.handleDelegatedMouseOut, true);
-        document.addEventListener('mouseenter', this.handleDelegatedMouseEnter, true);
-        document.addEventListener('mouseleave', this.handleDelegatedMouseLeave, true);
-        document.addEventListener('focusin', this.handleDelegatedFocusIn, true);
-        document.addEventListener('focusout', this.handleDelegatedFocusOut, true);
-    }
-
-    private ensureTooltipDelegate(): void {
-        this.releaseTooltipDelegate ??= retainDocumentTooltipDelegate();
+    private ensureObserver(): void {
+        if (this.observer || typeof MutationObserver !== 'function') return;
+        const root = document.body ?? document.documentElement;
+        this.observer = new MutationObserver((mutations) => this.handleMutations(mutations));
+        this.observer.observe(root, { childList: true, subtree: true });
     }
 
     disable(): void {
-        if (this.delegated) {
-            document.removeEventListener('click', this.handleDelegatedClick, true);
-            document.removeEventListener('mouseover', this.handleDelegatedMouseOver, true);
-            document.removeEventListener('mouseout', this.handleDelegatedMouseOut, true);
-            document.removeEventListener('mouseenter', this.handleDelegatedMouseEnter, true);
-            document.removeEventListener('mouseleave', this.handleDelegatedMouseLeave, true);
-            document.removeEventListener('focusin', this.handleDelegatedFocusIn, true);
-            document.removeEventListener('focusout', this.handleDelegatedFocusOut, true);
-            this.delegated = false;
-        }
+        this.observer?.disconnect();
+        this.observer = null;
         this.containers.clear();
         this.containerDiscovery.clear();
-        this.hoveredFormula = null;
-        this.releaseTooltipDelegate?.();
-        this.releaseTooltipDelegate = null;
+        for (const element of Array.from(this.elementListeners.keys())) this.detachHandlers(element);
+        this.activeElements.clear();
+        this.pendingNodes.clear();
+        this.clearIdleTimer();
         this.options.onFormulaDisable?.();
+    }
+
+    private handleMutations(mutations: MutationRecord[]): void {
+        let queued = false;
+        for (const mutation of mutations) {
+            for (const node of Array.from(mutation.removedNodes)) {
+                if (this.handleRemovedNode(node)) queued = true;
+            }
+            for (const node of Array.from(mutation.addedNodes)) {
+                if (node.nodeType !== 1) continue;
+                const element = node as Element;
+                this.discoverContainersFromAddedNode(element);
+                if (!this.getEnabledContainer(element)) continue;
+                queued = true;
+                this.queueNodeForProcessing(element);
+            }
+        }
+
+        if (this.containers.size === 0 && this.containerDiscovery.size === 0) {
+            this.observer?.disconnect();
+            this.observer = null;
+        }
+        if (queued) logger.debug('[AI-MarkDone][MathClick] Queued new nodes for math extraction');
+    }
+
+    private handleRemovedNode(node: Node): boolean {
+        const removedElement = node.nodeType === 1 ? node as Element : null;
+        if (!removedElement) return false;
+
+        for (const root of Array.from(this.containerDiscovery.keys())) {
+            if (!root.isConnected && (root === removedElement || removedElement.contains(root))) {
+                this.containerDiscovery.delete(root);
+            }
+        }
+
+        for (const container of Array.from(this.containers)) {
+            if (!container.isConnected && (container === removedElement || removedElement.contains(container))) {
+                this.containers.delete(container);
+            }
+        }
+
+        let queued = false;
+        for (const [element, listeners] of Array.from(this.elementListeners.entries())) {
+            const formulaRemoved = removedElement.contains(element);
+            const targetRemoved = removedElement.contains(listeners.target);
+            if (!formulaRemoved && !targetRemoved) continue;
+
+            this.detachHandlers(element);
+            if (element.isConnected && this.getEnabledContainer(element)) {
+                this.queueNodeForProcessing(element);
+                queued = true;
+            }
+        }
+        return queued;
+    }
+
+    private discoverContainers(scope: ParentNode, selector: string): void {
+        if (scope instanceof HTMLElement && scope.matches(selector)) this.enable(scope);
+        scope.querySelectorAll(selector).forEach((element) => {
+            if (element instanceof HTMLElement) this.enable(element);
+        });
+    }
+
+    private discoverContainersFromAddedNode(node: Element): void {
+        for (const [root, selector] of this.containerDiscovery) {
+            if (node !== root && !root.contains(node)) continue;
+            this.discoverContainers(node, selector);
+        }
     }
 
     private getEnabledContainer(node: Node): HTMLElement | null {
         let cursor = node instanceof HTMLElement ? node : node.parentElement;
         while (cursor) {
             if (this.containers.has(cursor)) return cursor;
-            for (const [root, selector] of this.containerDiscovery) {
-                if (!root.isConnected || (cursor !== root && !root.contains(cursor))) continue;
-                if (cursor.matches(selector)) return cursor;
-            }
             cursor = cursor.parentElement;
         }
         return null;
+    }
+
+    private processContainer(container: HTMLElement): void {
+        const mathElements = this.collectMathElements(container);
+        mathElements.forEach((element) => {
+            if (this.activeElements.has(element)) return;
+            this.attachHandlers(element);
+            this.activeElements.add(element);
+        });
+    }
+
+    private collectMathElements(container: HTMLElement): Element[] {
+        const elements: Element[] = [];
+        const seen = new Set<Element>();
+        const addUnique = (el: Element) => {
+            if (seen.has(el)) return;
+            seen.add(el);
+            elements.push(el);
+        };
+
+        const addCandidate = (el: Element) => {
+            if (!this.isFormulaElement(el)) return;
+            addUnique(el);
+        };
+
+        const nodes = [container, ...Array.from(container.querySelectorAll('*'))];
+        nodes.forEach((element) => {
+            if (!this.isFormulaElement(element)) return;
+            if (elements.some((parent) => parent.contains(element))) return;
+            // Parser capability adapters identify the semantic math owner;
+            // nested generated descendants are ignored by the adapter rather
+            // than by a platform-specific selector list here.
+            addCandidate(element);
+        });
+
+        return elements;
     }
 
     private isFormulaElement(element: Element): boolean {
@@ -153,98 +250,127 @@ export class MathClickHandler {
         }
     }
 
-    private readonly handleDelegatedClick = (event: Event): void => {
-        if (!(event instanceof MouseEvent) || event.button !== 0) return;
-        if (this.options.clickCopyMarkdown === false) return;
-        if (!this.getEnabledContainerForEvent(event)) return;
-        const formula = this.resolveFormulaElement(event);
-        if (!formula || !this.getEnabledContainer(formula)) return;
-        const selection = typeof window !== 'undefined' ? window.getSelection?.() : null;
-        if (selection && !selection.isCollapsed && selection.toString().trim().length > 0) return;
-        event.preventDefault();
-        event.stopPropagation();
-        void this.handleClick(formula);
-    };
+    private queueNodeForProcessing(node: Element): void {
+        this.pendingNodes.add(node);
 
-    private readonly handleDelegatedMouseOver = (event: MouseEvent): void => this.handleDelegatedHover(event, true);
-    private readonly handleDelegatedMouseEnter = (event: MouseEvent): void => this.handleDelegatedHover(event, true);
-    private readonly handleDelegatedMouseOut = (event: MouseEvent): void => this.handleDelegatedHover(event, false);
-    private readonly handleDelegatedMouseLeave = (event: MouseEvent): void => this.handleDelegatedHover(event, false);
-    private readonly handleDelegatedFocusIn = (event: FocusEvent): void => this.handleDelegatedHover(event, true);
-    private readonly handleDelegatedFocusOut = (event: FocusEvent): void => this.handleDelegatedHover(event, false);
-
-    private handleDelegatedHover(event: Event, entering: boolean): void {
-        if (!this.getEnabledContainerForEvent(event)) {
-            if (!entering) this.clearHoveredFormula();
+        if (this.idleTimer !== null) {
             return;
         }
-        const formula = this.resolveFormulaElement(event);
-        if (!formula || !this.getEnabledContainer(formula)) {
-            if (!entering) this.clearHoveredFormula();
-            return;
-        }
-        if (entering) {
-            if (this.hoveredFormula?.element === formula) return;
-            this.clearHoveredFormula();
-            const anchor = this.resolveInteractionTarget(formula);
-            anchor.style.cursor = 'pointer';
-            anchor.style.transition = 'background-color var(--aimd-duration-fast) var(--aimd-ease-in-out)';
-            anchor.style.backgroundColor = this.getHoverBackground(formula, anchor);
-            this.hoveredFormula = { element: formula, anchor };
-            this.notifyFormulaHoverEnter(formula, anchor);
-        } else if (this.hoveredFormula?.element === formula) {
-            this.clearHoveredFormula();
+
+        const flush = () => {
+            this.idleTimer = null;
+            const nodes = Array.from(this.pendingNodes);
+            this.pendingNodes.clear();
+            this.processPendingNodes(nodes);
+        };
+
+        const globalScope = (typeof window !== 'undefined' ? window : globalThis) as typeof globalThis & Window;
+
+        if (typeof (globalScope as any).requestIdleCallback === 'function') {
+            this.idleTimer = (globalScope as any).requestIdleCallback.call(globalScope, flush, { timeout: 200 });
+        } else {
+            this.idleTimer = globalScope.setTimeout(flush, 16);
         }
     }
 
-    private clearHoveredFormula(): void {
-        const current = this.hoveredFormula;
-        if (!current) return;
-        current.anchor.style.backgroundColor = '';
-        current.anchor.style.cursor = '';
-        current.anchor.style.transition = '';
-        this.hoveredFormula = null;
-        this.options.onFormulaHoverLeave?.();
+    private processPendingNodes(nodes: Element[]): void {
+        nodes.forEach((node) => {
+            if (!(node instanceof HTMLElement)) return;
+            if (!node.isConnected || !this.getEnabledContainer(node)) return;
+            this.collectMathElements(node).forEach((element) => {
+                if (this.activeElements.has(element)) return;
+                this.attachHandlers(element);
+                this.activeElements.add(element);
+            });
+        });
     }
 
-    private resolveFormulaElement(event: Event): Element | null {
-        const path = typeof event.composedPath === 'function' ? event.composedPath() : [];
-        let formula: Element | null = null;
-        for (const node of path) {
-            if (node instanceof Element && this.isFormulaElement(node)) formula = node;
+    private clearIdleTimer(): void {
+        if (this.idleTimer === null) return;
+
+        const globalScope = (typeof window !== 'undefined' ? window : globalThis) as typeof globalThis & Window;
+        if (typeof (globalScope as any).cancelIdleCallback === 'function') {
+            (globalScope as any).cancelIdleCallback.call(globalScope, this.idleTimer as number);
+        } else {
+            globalScope.clearTimeout(this.idleTimer);
         }
-        let cursor = event.target instanceof Element ? event.target : null;
-        while (cursor) {
-            if (this.isFormulaElement(cursor)) formula = cursor;
-            cursor = cursor.parentElement;
-        }
-        return formula;
+        this.idleTimer = null;
     }
 
-    /**
-     * Check ownership before asking the platform parser to classify every
-     * node in a global mouse/focus event path.  This keeps delegated formula
-     * handling page-wide without making ordinary page movement a parser hot
-     * path.
-     */
-    private getEnabledContainerForEvent(event: Event): HTMLElement | null {
-        const path = typeof event.composedPath === 'function' ? event.composedPath() : [];
-        for (const node of path) {
-            if (!(node instanceof Node)) continue;
-            const container = this.getEnabledContainer(node);
-            if (container) return container;
-        }
-        return event.target instanceof Node ? this.getEnabledContainer(event.target) : null;
+    private detachHandlers(element: Element): void {
+        const listeners = this.elementListeners.get(element);
+        if (!listeners) return;
+        const { target, mouseenter, mouseleave, focusin, focusout, click } = listeners;
+        target.style.backgroundColor = '';
+        target.style.cursor = '';
+        target.style.transition = '';
+        target.removeEventListener('mouseenter', mouseenter);
+        target.removeEventListener('mouseleave', mouseleave);
+        target.removeEventListener('focusin', focusin);
+        target.removeEventListener('focusout', focusout);
+        target.removeEventListener('click', click);
+        this.elementListeners.delete(element);
+        this.activeElements.delete(element);
+    }
+
+    private attachHandlers(element: Element): void {
+        const targetEl = this.resolveInteractionTarget(element);
+        const hoverBackground = this.getHoverBackground(element, targetEl);
+
+        targetEl.style.cursor = 'pointer';
+        targetEl.style.transition = 'background-color var(--aimd-duration-fast) var(--aimd-ease-in-out)';
+
+        const mouseenterHandler = () => {
+            targetEl.style.backgroundColor = hoverBackground;
+            this.notifyFormulaHoverEnter(element, targetEl);
+        };
+
+        const mouseleaveHandler = () => {
+            targetEl.style.backgroundColor = '';
+            this.options.onFormulaHoverLeave?.();
+        };
+
+        const clickHandler = async (e: Event) => {
+            if (!(e instanceof MouseEvent)) return;
+            if (e.button !== 0) return;
+            if (this.options.clickCopyMarkdown === false) return;
+
+            // Why: when click-to-copy is enabled by default, we must avoid breaking user text selection/copy flows.
+            // If the user has an active selection, do not intercept the click and let the page handle it normally.
+            const sel = typeof window !== 'undefined' ? window.getSelection?.() : null;
+            if (sel && !sel.isCollapsed && sel.toString().trim().length > 0) return;
+
+            e.preventDefault();
+            e.stopPropagation();
+            await this.handleClick(element);
+        };
+
+        targetEl.addEventListener('mouseenter', mouseenterHandler);
+        targetEl.addEventListener('mouseleave', mouseleaveHandler);
+        targetEl.addEventListener('focusin', mouseenterHandler);
+        targetEl.addEventListener('focusout', mouseleaveHandler);
+        targetEl.addEventListener('click', clickHandler);
+
+        this.elementListeners.set(element, {
+            target: targetEl,
+            mouseenter: mouseenterHandler,
+            mouseleave: mouseleaveHandler,
+            focusin: mouseenterHandler,
+            focusout: mouseleaveHandler,
+            click: clickHandler,
+        });
     }
 
     private resolveInteractionTarget(element: Element): HTMLElement {
         if (
-            element.matches('.katex, .katex-display, .math-block, mjx-container[display="true"], mjx-container[display="block"]')
+            (this.options.parserAdapter ? this.isFormulaElement(element) : false)
+            || element.matches('.katex-display, .math-block, mjx-container[display="true"], mjx-container[display="block"]')
         ) {
             return element as HTMLElement;
         }
-        const nested = element.querySelector<HTMLElement>('.katex, .katex-display, .math-block, .math-inline, mjx-container');
-        return nested ?? element as HTMLElement;
+        const nested = Array.from(element.querySelectorAll('*'))
+            .find((candidate) => this.isFormulaElement(candidate));
+        return nested?.nodeType === 1 ? nested as HTMLElement : element as HTMLElement;
     }
 
     private getHoverBackground(element: Element, targetEl?: HTMLElement): string {
@@ -342,7 +468,7 @@ export class MathClickHandler {
     }
 
     private showCopyFeedback(element: HTMLElement): void {
-        const targetEl = this.resolveInteractionTarget(element);
+        const targetEl = this.elementListeners.get(element)?.target ?? element;
         const computed = getComputedStyle(document.documentElement);
         const flash = computed.getPropertyValue('--aimd-interactive-flash').trim() || 'rgba(37, 99, 235, 0.24)';
 

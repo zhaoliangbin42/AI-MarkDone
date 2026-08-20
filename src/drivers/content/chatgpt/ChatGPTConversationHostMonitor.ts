@@ -16,7 +16,6 @@ import {
 } from './domConversationDiscovery';
 import type { ChatGPTHostObservationBatch, ChatGPTPageIndex } from './ChatGPTPageIndex';
 import type { RenderedContentCompilerV2 as RenderedContentCompilerPortV2 } from '../../../contracts/conversationDiscoveryV2';
-import type { DiscoveryHostMonitorFactsV1 } from '../../../contracts/conversationDiscoveryDiagnostics';
 
 export type ChatGPTConversationHostMonitorOptions = Readonly<{
     adapter: SiteAdapter;
@@ -29,13 +28,6 @@ export type ChatGPTConversationHostMonitorOptions = Readonly<{
 
 const DEFAULT_SETTLE_DELAY_MS = 400;
 const COMPATIBILITY_SETTLE_DELAY_MS = 1_600;
-/**
- * Bounded re-capture attempts for dirty/deferred work after the host DOM goes
- * quiet. Every attempt re-runs the standard stable capture (same evidence
- * rules, no order guessing). Any new host observation resets the budget.
- */
-const DEFERRED_SWEEP_MAX_ATTEMPTS = 3;
-const DEFERRED_SWEEP_BACKOFF_MS = [1_200, 3_000, 8_000] as const;
 
 /**
  * ChatGPT host port backed by the shared PageIndex observer.
@@ -61,10 +53,6 @@ export class ChatGPTConversationHostMonitor {
     private documentFence = 0;
     private elementSequence = 0;
     private captureSequence = 0;
-    private stableCaptureCount = 0;
-    private weakCompletionAdmissions = 0;
-    private sweepAttempts = 0;
-    private readonly compileRejectionCounts = new Map<string, number>();
     private globalDirty = false;
     private initialized = false;
     private disposed = false;
@@ -109,7 +97,6 @@ export class ChatGPTConversationHostMonitor {
             this.documentFence += 1;
             this.activeCaptureRunId = null;
             this.captureRequested = false;
-            this.sweepAttempts = 0;
             this.dirtyAssistantIds.clear();
             this.generationAssistantIds.clear();
             this.tailReplacementAssistantIds.clear();
@@ -130,7 +117,6 @@ export class ChatGPTConversationHostMonitor {
     notifyPageShow(): void {
         if (this.disposed) return;
         this.options.index.invalidate();
-        this.sweepAttempts = 0;
         this.globalDirty = true;
         this.scheduleStableCapture();
     }
@@ -174,9 +160,6 @@ export class ChatGPTConversationHostMonitor {
     private observe(batch: ChatGPTHostObservationBatch): void {
         if (this.disposed) return;
         if (batch.kinds.every((kind) => kind === 'surface')) return;
-        // New host evidence re-arms the normal signal-driven path; any
-        // outstanding bounded re-sweep budget starts over.
-        this.sweepAttempts = 0;
         if (batch.surfaceRebased) {
             this.documentFence += 1;
             this.generationAssistantIds.clear();
@@ -255,34 +238,10 @@ export class ChatGPTConversationHostMonitor {
             return this.capturePromise;
         }
         const promise = this.captureStableTail().finally(() => {
-            if (this.capturePromise === promise) {
-                this.capturePromise = null;
-                this.scheduleDeferredSweep();
-            }
+            if (this.capturePromise === promise) this.capturePromise = null;
         });
         this.capturePromise = promise;
         return promise;
-    }
-
-    /**
-     * Bounded re-capture for leftover dirty/deferred work when the host DOM
-     * has gone quiet. It only re-runs the standard capture; a candidate whose
-     * evidence has not changed stays dirty/deferred, and the budget expires so
-     * a permanently quiet page never polls forever.
-     */
-    private scheduleDeferredSweep(): void {
-        if (this.disposed || this.settleTimer !== null) return;
-        // Fast path: when no dirty or deferred work remains, skip repository
-        // interaction entirely so the per-capture cost stays near zero.
-        let deferredRemaining = this.options.repository.readDiagnosticsFacts().deferredHostCount;
-        if (deferredRemaining > 0) deferredRemaining = this.options.repository.reevaluateDeferredHost();
-        const hasDirtyWork = this.dirtyAssistantIds.size > 0;
-        if (!deferredRemaining && !hasDirtyWork) return;
-        if (this.sweepAttempts >= DEFERRED_SWEEP_MAX_ATTEMPTS) return;
-        const delay = DEFERRED_SWEEP_BACKOFF_MS[this.sweepAttempts]
-            ?? DEFERRED_SWEEP_BACKOFF_MS[DEFERRED_SWEEP_BACKOFF_MS.length - 1]!;
-        this.sweepAttempts += 1;
-        this.scheduleStableCapture(delay);
     }
 
     private async captureStableTail(): Promise<void> {
@@ -294,7 +253,6 @@ export class ChatGPTConversationHostMonitor {
         const runId = ++this.captureRunSequence;
         const captureFence = this.documentFence;
         this.activeCaptureRunId = runId;
-        this.stableCaptureCount += 1;
         try {
             const captureRevision = this.options.index.getObservationRevision();
             const rounds = this.options.index.getSnapshot();
@@ -421,12 +379,10 @@ export class ChatGPTConversationHostMonitor {
                     }
                 }
                 this.weakCompletionReadyAt.delete(assistantMessageId);
-                const completionEvidence = hasStrongCompletion ? 'strong' : 'bounded-quiet';
                 const observation = await this.compileRound(
                     round,
                     plannedPredecessorAssistantMessageId,
                     captureRevision,
-                    completionEvidence,
                 );
                 if (this.documentFence !== captureFence || this.disposed) {
                     captureInvalidated = true;
@@ -473,7 +429,6 @@ export class ChatGPTConversationHostMonitor {
                     if (this.options.repository.read().snapshot?.turns.some((turn) => (
                         turn.identity.assistantMessageId === assistantMessageId
                     ))) {
-                        if (observation.completionEvidence === 'bounded-quiet') this.weakCompletionAdmissions += 1;
                         this.dirtyAssistantIds.delete(assistantMessageId);
                         this.generationAssistantIds.delete(assistantMessageId);
                         this.tailReplacementAssistantIds.delete(assistantMessageId);
@@ -504,7 +459,6 @@ export class ChatGPTConversationHostMonitor {
         round: ChatGPTDomRoundRef,
         predecessorAssistantMessageId: string | null,
         captureRevision: number,
-        completionEvidence: 'strong' | 'bounded-quiet',
     ): Promise<ConversationHostTurnObservationV1 | null> {
         if (round.isStreaming) return null;
         const identityParts = resolveChatGPTDomRoundIdentity(round);
@@ -527,11 +481,7 @@ export class ChatGPTConversationHostMonitor {
             parser: this.parserCapability!,
             policy: DEFAULT_RENDERED_CONTENT_POLICY_V2,
         });
-        if (result.kind !== 'ready') {
-            const reason = result.reason;
-            this.compileRejectionCounts.set(reason, (this.compileRejectionCounts.get(reason) ?? 0) + 1);
-            return null;
-        }
+        if (result.kind !== 'ready') return null;
 
         const turn: ConversationTurnV1 = Object.freeze({
             key: `${turnId}:${assistantMessageId}`,
@@ -551,7 +501,6 @@ export class ChatGPTConversationHostMonitor {
             captureId: `chatgpt-host:${assistantMessageId}:${++this.captureSequence}`,
             revision: captureRevision,
             predecessorAssistantMessageId,
-            completionEvidence,
         });
     }
 
@@ -562,16 +511,6 @@ export class ChatGPTConversationHostMonitor {
             this.elementTokens.set(root, token);
         }
         return `${token}:revision:${revision}`;
-    }
-
-    /** Read-only diagnostics facts for the discovery diagnostics snapshot. */
-    readDiagnosticsFacts(): DiscoveryHostMonitorFactsV1 {
-        return {
-            stableCaptureCount: this.stableCaptureCount,
-            dirtyAssistantCount: this.dirtyAssistantIds.size,
-            weakCompletionAdmissions: this.weakCompletionAdmissions,
-            compileRejections: Object.freeze(Object.fromEntries(this.compileRejectionCounts)),
-        };
     }
 }
 
