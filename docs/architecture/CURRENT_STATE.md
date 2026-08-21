@@ -2,59 +2,52 @@
 
 本文描述 AI-MarkDone 当前仓库已经落地的结构事实，用于帮助开发者和 Codex 理解“现在是什么”。它不描述目标蓝图，也不描述未来计划。
 
-> **ChatGPT discovery current boundary (2026-08-11)**
+> **ChatGPT discovery current boundary (2026-08-21)**
 >
-> Production has one signal-driven lifecycle: passive website Graph evidence and
-> stable typed DOM rounds enter one `ConversationContentRepository`; the
-> Repository and the single `ChatGPTPageIndex` are joined once by
+> Production has one DOM-only, signal-driven lifecycle. The official ChatGPT
+> action row marks a completed assistant message; the Host Monitor clones its
+> mounted body once, converts it through the existing Markdown Adapter, and
+> writes it to `ConversationContentRepository`. The Repository and the single `ChatGPTPageIndex` are joined once by
 > `ChatGPTConversationSurface`. Directory, Toolbar and Stepper subscribe to that
 > atomic frame. Reader, word count, whole-message copy, formula and export read
-> the same Content Port. A complete turn is either absent or obtained and
-> consumable; streaming, compilation and mounted state never become a weaker
-> public message state. See
-> [ADR-0018](../adr/ADR-0018-chatgpt-identity-proven-single-content-pool.md).
+> the same Content Port. Formula click/copy/export resolves directly from the
+> mounted formula DOM and parser Adapter, independently of pool admission. See
+> [ADR-0024](../adr/ADR-0024-chatgpt-dom-authoritative-content-pool.md).
 >
 > Every Runtime begins with a page-scoped identity. Therefore a stable first
 > message is published even when no canonical URL ever appears. A later
 > canonical identity promotes the same projection without changing turns,
 > bodies, projection ID or content token. Only canonical A→B creates a new
-> projection. The bridge remains passive: it observes eligible website-owned
-> same-origin GET responses, never POST, and never issues a conversation
-> request or reads cookies/storage/tokens/auth headers.
+> projection. Canonical A→B switches the active tab-local pool; returning to A
+> restores its previously loaded turns. A full page reload destroys all pools.
+> The Graph bridge, transport and network-response observation path are absent
+> from production, and the extension issues no conversation GET or POST.
 >
 > `pending-surface` is UI geometry only. It can represent an assistant DOM node
 > before content admission, but it never enters Reader, Directory count, copy,
 > formula or export. Obtained but unmounted turns remain in the pool and remain
 > available to content consumers.
 
-> **Page lifecycle wake boundary (2026-08-17)**
+> **Page lifecycle wake boundary (2026-08-21)**
 >
 > `ChatGPTConversationContentRuntime` also listens for document `resume`.
-> `resume` and `pageshow` share one private 50 ms wake reconciliation, so a
-> frozen-page/BFCache lifecycle burst performs one Host Monitor invalidation,
-> one existing bounded passive upgrade comparison, and one Surface refresh.
+> `resume`, `pageshow`, and transition to visible share one private 50 ms wake
+> reconciliation, so a frozen-page/BFCache lifecycle burst performs one Host
+> Monitor DOM rescan and one Surface refresh.
 > The timer is cleared on dispose; there is no heartbeat, polling, active
 > conversation request, or new public protocol. A discarded page follows the
-> normal document reload and initial bridge synchronization path. See
-> [ADR-0022](../adr/ADR-0022-page-lifecycle-wake-reconciliation.md).
+> normal document reload and initial DOM scan path.
 
 > **Discovery diagnostics boundary (2026-08-13)**
 >
 > `DiscoveryDiagnostics` aggregates read-only facts from the Repository
-> (basis, baseline gate state, turn/deferred counts), the Host Monitor (stable
-> captures, weak-completion admissions, compiler rejection counts) and the page
-> bridge (observed GETs, accepted/rejected graphs, published captures, LRU
-> evictions, byte-cap skips, parse failures, held graph count). It publishes
+> (basis and turn count) and the Host Monitor (stable captures, pending IDs and
+> compiler rejection counts). It publishes
 > one `DiscoveryDiagnosticsSnapshotV1` and never carries message bodies,
 > prompts, tokens, or personal content. The Settings panel shows a compact
 > status line with a copy-diagnostics action, and
 > `window.__AIMD_DISCOVERY_DIAGNOSTICS__` exposes the same snapshot for
-> troubleshooting. The page bridge serves its counters through a `diagnostics`
-> request type, skips eligible responses whose declared Content-Length exceeds
-> 8 MB (counted as `bytesSkipped`), keeps its fetch wrapper
-> `toString`-transparent, and the bootstrap dispatches a failure event when
-> the bridge script cannot load. Bridge diagnostics pulls are throttled and
-> are never issued before a canonical conversation identity exists.
+> troubleshooting. There is no Graph retry button or bridge diagnostics state.
 
 > **Bookmark boundary (unchanged storage and protocol)**
 >
@@ -167,17 +160,17 @@
 
 - 当前生产完整页面 adapter 为 `src/drivers/content/adapters/sites/chatgpt.ts`
 - Gemini、Claude、DeepSeek 当前保留公式复制 runtime，用于单公式 LaTeX 点击复制与用户启用的公式 PNG/SVG/MathML copy/save；旧书签中的平台字符串仍作为用户历史数据保留。formula runtime 可以构造/打开全局书签管理面板以支持扩展图标入口和设置入口，但不得恢复这些平台的 Reader、消息 toolbar、发送、整条消息复制/导出、定位或完整 adapter 链路。
-- ChatGPT 内容发现采用 **Runtime page identity + 身份/结构证明的被动 Graph + 稳定 DOM 批次 + 单一内容池 + 原子 Surface**。`ChatGPTConversationContentRuntime` 统一处理初始化、PageIndex 事实、会话身份、Graph capture、`pushState`、`replaceState`、`popstate`、`hashchange` 与 `pageshow`。每个 Runtime 先拥有不可持久化的 page identity，因此无 canonical ID 的稳定 DOM 消息也能直接入池；后到 ID 只提升 identity，不重建内容。每个 canonical epoch 的 baseline gate 只限制无依据的初次获取；已接受 Graph 后，真实 capture 或一次有界的 pageshow/Settings upgrade probe 仍可比较更大的 Graph，但不重开 baseline。`ChatGPTConversationHostMonitor` 订阅唯一 `ChatGPTPageIndex` observer：跨 mutation batch 累积 typed identity，逐字符只标 dirty，在退出 streaming、正文非空、DOM 至少安静 400 ms、完成信号成立且通过 `RenderedContentCompilerV2` 校验后，将有序尾部批次原子提交给 Repository。官方 action anchor、generation end 或后续完整 round 都是强完成信号；三者都缺失时使用总计 2 秒的有界安静确认，action anchor 不再是正文入池硬条件。扩展主动 conversation GET/POST 恒为零，也不提供内容 RouteWatcher 或 timer-based 网络恢复。
-  - V1 的 `ConversationContentSourceV1` 只发布不可变 `idle/syncing/ready/unavailable` 状态、`projectionId` 和 `contentToken`；`idle` 只表示当前没有绑定 page document，不再存在 URL/route unsupported 的内容失败语义。ChatGPT Runtime 在 canonical ID 之前即绑定 page identity，所以缺少 route ID 本身不会进入 unavailable。proof 只保留诊断性的 `basis: source | hybrid | host`。`complete` 表示已入池正文完整且数组稠密，不承诺从未观察到的隐藏历史已经获得。每条 assistant Markdown 带 `{ authority, fidelity, producer }` provenance；DOM 消息固定为 `host-rendered / normalized / rendered-content-v2`。`ChatGPTConversationSurface` 是 Content snapshot 与当前 PageIndex DOM 的唯一生产 join；它原子发布 `obtained`、`pending-surface` 与 unmounted 状态，并从同一 Frame 兼容投影 `ConversationMaterializationPortV1`。Reader、Copy、Save Messages、Formula 与 Export 从 V1 pool 投影；Directory/Toolbar/Stepper 只订阅 Surface；官网局部 Markdown 复制通过语义 `SurfaceProjection` 将当前 Range 映射到同一份 canonical 正文；非 ChatGPT 继续 legacy DOM path。
-  - 消息缓存只发布 `coverage: complete` 的 dense snapshot：coverage 只承诺「已入池每条 turn 正文稠密完整」。ADR-0019/0021 起快照额外携带诚实的 `historyStatus: unknown | partial | complete`——`complete` 表示最新已接受 Graph revision 证明了其 active branch，不表示 Graph 永久冻结；更大的、保持既有 typed identity/order 的 revision 仍可扩展池。canonical 会话只有 DOM 证据时为 `partial`（隐藏历史可能存在）；未绑定 document 与 page-identity 池为 `unknown`。旧快照缺省视为 `unknown`（`getConversationHistoryStatusV1`），不声称无法证明的知识。流式、400 ms 防抖、编译中和 deferred 都是内部过程：消息尚未进入缓存时消费者显示 pending/不可用，进入缓存后直接按 ready 消费。相同 `assistantMessageId` 幂等忽略（ADR-0019 weak-sealed 升级例外），新消息只追加到当前缓存末尾，无法确认顺序的单条消息暂缓，不使已有缓存失效。`host-rendered/normalized` 是经 compiler 校验的 canonical Markdown，可用于 whole-turn Reader、Copy、word count、formula、export 与有独立 SurfaceProjection 证明的官网局部 Markdown 复制；只有 canonical ID/URL 完整后才可进入既有 Bookmark 准备链路。
+- ChatGPT 内容发现采用 **官方 action row 触发 + DOM 唯一正文权威 + 标签页内多会话池 + 原子 Surface**。`ChatGPTConversationContentRuntime` 统一处理初始化、PageIndex 事实、会话身份、History 事件、`pageshow`、`resume` 与 visible 恢复。Graph bridge、bootstrap、transport、decoder、baseline gate、upgrade probe 和 Settings Retry 已从生产删除；扩展主动 conversation GET/POST 恒为零。
+  - `ChatGPTConversationHostMonitor` 只订阅唯一 `ChatGPTPageIndex` observer。启动扫描已有 action row；mutation 只标记 assistant ID；页面级 400 ms 防抖后，消息需具备非空 assistant DOM、`data-message-id`、已连接的官方复制 action row，并且不在生成状态。缺少 action row 时不轮询、不设失败窗口，等待下一次真实 DOM 或页面生命周期信号。
+  - 每条消息只 clone 当前 user/assistant 根一次，经既有 Adapter 规范化并各转换一次 Markdown。user prompt 是 best-effort，可为空或未挂载；assistant ID 与非空正文是最低准入条件。公式/代码不做预扫描，编译器不做第二次全文语义签名比对，只保留基础节点、输入、输出和执行时间预算。
+  - Repository 按 `assistantMessageId` 维护纯数据：同 ID 同 Markdown 不发布；同 ID 正文变化以最新 DOM 覆盖并更新 `contentToken`；新 ID 按当前 DOM predecessor 插入；DOM 虚拟化移除不删池。内部 `Map<conversationKey, ConversationPool>` 支持 SPA A→B→A 恢复，刷新页面后 Runtime 重建并清空。所有当前快照的 `historyStatus` 为 `partial`，目录完整历史不属于本阶段承诺。
+  - `ConversationContentSourceV1`、Reader、whole-message Copy、Save Messages、Export、Bookmark 与 `ChatGPTConversationSurface` 公共接口保持不变。公式点击复制及 PNG/SVG/MathML 动作直接使用挂载公式 DOM 与 parser Adapter，不依赖 Repository 是否已识别所在消息。
   - `src/contracts/semanticContent.ts` + `src/services/semantic-content/SemanticContent.ts` 是 provider-neutral Semantic Content Module：输入 canonical Markdown、revision、coverage 与 provenance，输出 AI-MarkDone 自有不可变节点、UTF-16 半开 source spans、plain text、Reader units/outline 与 canonical/fragment projections。unified/remark 只属于实现；DOM、Range、browser global、platform id、host selector、clipboard 与 UI 不进入该 Module。
   - `ContentSurfaceAdapter` 把同一非流式 assistant message 内的原生 Range 收敛成 typed target、`contentToken`、`materializationToken`、`surfaceToken` 与 W3C-style TextQuote；DOM handle 留在 driver。`SurfaceProjection` 是唯一允许把 surface evidence 与 canonical content/materialization 合并的 service seam，并校验 content/materialization revision；交互 controller 在复用 snapshot 前重新采样并比对 surface token、Range 与 TextQuote。任一 revision 陈旧、identity 歧义、重复文本无法消歧、decoded source offset 不可证明或正文为 reconstructed 时 fail open，不估算 Markdown offset。
-  - page bridge 通过 manifest `document_start` 在页面主执行环境安装，只被动旁路观察 ChatGPT 页面自身成功的 same-origin GET；快路径要求请求 URL 的已解码 path/query token 精确包含当前 canonical conversation ID，ADR-0020 增加 payload-declared 路径——页面位于 canonical conversation 时，同源 JSON GET 在 8 MB 字节上限与最多 4 层、256 个普通对象的有界遍历内解析，Graph 形态 payload 只有**声明当前 canonical ID** 才被记忆，声明其它会话的 payload 计数为 rejected、永不记忆。响应必须为 JSON，并在 `mapping + current_node`、active branch、parent 链、角色、消息身份和完整 round 校验通过后才捕获。它不依赖固定 endpoint，不观察 POST/PerformanceObserver，不读取请求体、生成正文、Cookie、Token 或认证 header，不 clone SSE，也不构造认证信息。若可信 Graph 缺失，稳定 DOM 消息仍可进入当前池；未被 Graph 或 DOM 暴露的历史保持“未获得”。
-  - `ChatGPTPageIndex` 是唯一 Page Monitor observer，监听 conversation/message 结构、identity attributes、语言无关 `data-testid`，以及限定在 typed assistant message 内的 `characterData`/child-list 生命周期变化；扩展自有节点、无关 child-list churn 和本地化 `aria-label` 被忽略。逐字变化只输出 dirty assistant ID。wrapper 发现是常态快路径；当页面同时暴露未覆盖的 assistant role surface 时，PageIndex 才合并 legacy-container/role-scan 证据，并按挂载 assistant identity/root 去重、按文档顺序重排。`ChatGPTConversationHostMonitor` 在安静窗口后做一次 typed tail scan/clone/compile，并将验证成功的正文提交给 Repository；官方 action row 只作为唤醒/完成证据，不作为正文来源。它不读取 bridge、不轮询、不创建第二 observer。旧 DOM fact source 不再属于生产链路。
-  - Graph 先到时建立 source pool，后续 DOM 只追加经过 host 顺序证明的新 assistant identity；DOM 先到时先发布 `host` pool，后续每个 Graph 都必须包含当前池的全部 typed identity 且保持相对顺序，通过后按 Graph 的完整顺序汇合，补入隐藏 prefix、middle 与 tail，已有 strong 正文与 digest 保留，只有 ADR-0019 的 weak-sealed 正文可由更强 Graph 证据升级。无重合、缺失既有 turn、倒序、身份冲突或分支替换的 Graph 整体被忽略而不破坏池；相同语义的新 revision 只更新私有水位，不发布新快照。虚拟化缩窗只移除 materialization anchor，池中消息与 ordinal 保留；重挂只更新 materialization token，不重新编译或重复挂载工具栏。
-  - bridge request/response 在 Chrome 使用 object detail、Firefox 使用 JSON string detail；Graph capture event 在两种浏览器都使用 JSON string detail。差异只存在于 transport encode/decode 层；Reader、Bookmark、Copy、Save Messages 与 ChatGPT 消息词数通过 `ConversationContentSourceV1` / `readerContentSource` 消费同一个 V1 snapshot，不得新增浏览器分支或消费者自有 DOM fallback。
-  - 完成态 `Deep Research` 报告继续属于同一 snapshot SSOT：page bridge 只识别已验证的 Deep Research resource 标识，并从其 `widget_state.report_message` 读取完整 assistant Markdown；未完成、空白、未知或损坏的 widget 必须 fail closed，上传文件正文、工具调用参数与其他 tool 输出不得进入报告。DOM 入口侧只把位于 `data-conversation-screenshot-content` 内的精确 `iframe[title="internal://deep-research"]` 视为已验证消息表面，并把既有消息工具栏挂到报告内容栈底部；iframe 延迟 hydration 复用唯一 PageIndex lifecycle 与共享 Conversation Surface，未知或无报告根的 iframe 不注入。iframe 只提供身份与锚点，报告正文仍复用既有 `normalizeChatGPTReaderMarkdown()` 与 `ReaderItem[]` 链路，不新增 iframe 正文采集、host permission、runtime protocol 或 Deep Research 专属 Reader/导出分支。
-  - `ChatGPTPageIndex` 只缓存当前 materialized DOM window 的 connected anchors、typed identity、removal、跨批 generation start/end、同一稳定 owner 的 assistant identity replacement 与结构信号；它不拥有完整轮次数、绝对顺序或正文，也不依赖“一次 mutation 内出生完整 turn”。`ChatGPTConversationSurface` 原子读取该窗口和 Repository snapshot，以 `assistantMessageId` 连接获得的 turn。虚拟化可能只保留 assistant root、卸载 user root；assistant-only projection 只能回接已缓存消息。已获得但未挂载的 turn 仍保留在 Frame，Directory/Stepper 总数不会随 DOM 窗口缩小。Host Monitor 以唯一可见的缓存尾部为首选顺序锚点；尾部未挂载时，仅由真实 generation start 或缓存尾部的同 owner identity replacement 回接。候选位于可见尾部之前、存在未解析 round gap 或顺序歧义时只暂缓当前尾部，不污染已有池。缺少直接消息身份或出现歧义时 fail closed；Prompt 文本与 DOM-local position 永远不是 identity。PageIndex 过滤 AI-MarkDone 自有 mutation，观察稳定 `documentElement` 以覆盖 body/main replacement；root replacement 会 fence 旧编译、清除瞬态 generation/replacement evidence 并重建 Surface，在 Runtime dispose 时释放。Directory active-position geometry 使用 Surface 中完整 user/assistant `groupElements`，只有 assistant-only projection 时才使用该 assistant root。兼容 Materialization 的 toolbar anchor 只是定位锚点，不代表正文或整轮范围。
+  - Manifest 不再注入 ChatGPT MAIN-world page bridge，也不暴露 bridge web-accessible resource。内容链路不包装 `fetch`、不读取响应、Cookie、Token、Storage 或认证 header，不观察 POST/SSE，也不构造任何 conversation 请求。
+  - `ChatGPTPageIndex` 是唯一 Page Monitor observer，监听消息结构、identity、官方 action/stop 生命周期和 assistant 内容变化；扩展自有 mutation 被忽略。Host Monitor 只在页面级短防抖后扫描当前挂载窗口，官方 action row 只作为就绪触发，不作为正文来源。
+  - Deep Research 等特殊消息只有在其当前挂载 DOM 能提供非空 assistant 正文和官方完成锚点时才进入池；不再从网络 payload 或内部 widget state 提取未渲染正文。
+  - `ChatGPTConversationSurface` 仍以 `assistantMessageId` 连接池和当前挂载窗口。已加载后虚拟化卸载的消息保留在池；assistant-only DOM 也可直接建立正文 turn，user prompt 缺失时保存空字符串。
   - ChatGPT Message toolbar 不再维护 mounted-surface inventory、MutationObserver、route watcher、scan scheduler 或 recovery timer。它只订阅共享 Surface：`pending-surface` 可保留内部 pending 状态，但不会向官方 action row 插入节点；对应 turn 已进入池后，同一次 reconcile 挂载工具栏、显示数值词数并启用正文操作。它不移动、删除或替换官方工具栏、停止按钮或其父节点。虚拟化卸载/重挂只改变 Surface，不改变 content token，也不会重复挂载。对已存在且 canonical turn、pending 状态、bookmark context 与 word-count 设置均未变化的 record，reconcile 不重复派生书签状态或词数；显式书签状态刷新仍直接更新按钮。非 ChatGPT adapter 暂时保留旧 DOM-local toolbar lifecycle。
   - `ChatGPTConversationNavigation` 的 off-screen 主路径使用 ChatGPT 持久化的 sibling turn slots，而不是按总高度推算目标像素：它只用当前已挂载且 identity 唯一的 user/assistant anchors 校准 canonical sequence 与宿主 slot sequence 的单一 offset，不读取 React/Fiber、私有 virtualizer 状态或 `conversation-turn-N` 数字。宿主可能在外层持久 slot 与内层 `section[data-turn]` 上重复 `data-turn-id-container`；PageIndex 的相邻性必须先归一到有同类 sibling 的外层 slot，不能把最近的重复 marker 当作列表项。一次导航只扫描一次 slot group并复用同一 target slot；校准成功后在总 timeout/attempt budget 内重复 `scrollIntoView()` 该节点，绝不降级为全局比例、像素 probing 或插值估算。无法建立可信 slot topology 时直接 fail closed。精确 anchor 的最终滚动必须在 bounded alignment window 内连续两次保持 tolerance；anchor 断开或持续漂移要 fail closed，用户主动滚动则立即停止自动纠偏。普通导航不新增全页 `MutationObserver`、`ResizeObserver` 或常驻 timer，诊断 observer 仅在显式 debug 模式短暂启用。
   - ChatGPT conversation route 识别只由共享 route helper 定义；内容发现的路由生命周期只由 `ChatGPTConversationContentRuntime` 持有。Directory、Toolbar、Stepper 与 Conversation Surface 信任 Runtime 已绑定的 page/canonical document，不再各自重解析 URL 来判断内容是否可用；内容链路没有 500 ms RouteWatcher。其它非内容功能若仍使用共享 RouteWatcher，不构成正文发现输入。
@@ -195,7 +188,7 @@
   - `ChatGPTDirectoryRail` 的滚动与展开样式归组件 Shadow DOM 持有；长目录仍由 rail 内部列表滚动，但原生滚动条必须视觉隐藏，不保留额外滚动槽。expanded 条目必须用明确的 grid 列分配编号、可收缩文案和右侧短线，避免 hover/active 状态被裁切。expanded label 的可见宽度应优先由 CSS intrinsic sizing 与字符宽度预算表达，而不是固定像素宽度、一次性宽度 token 或 JS 测量补偿。
   - `ChatGPTConversationNavigation` 是 ChatGPT 同页定位的 driver interface：Reader locate、Bookmark Go、跨页 pending navigation、directory 与 stepper 都提交 typed identity。已挂载目标直接使用 Conversation Surface anchor；未挂载目标只允许有界、可取消、projection-safe 的 materialization seek，并在精确 identity 命中后成功。URL 文本本身不决定取消边界；Surface projection 变化才 fence 旧任务。无 ID 时 Directory/Stepper 仍可进行本页已获得消息导航，但 Bookmark Go/跨页定位仍要求既有 canonical identity。`src/ui/content/chatgptDirectory/navigation.ts` 只负责命中后的视觉对齐；用户主动滚动、触摸、指针或键盘导航会中止短生命周期 re-align。
   - `ChatGPTSendPositionRestoreController` 是 ChatGPT-only page-behavior 层能力，由 `chatgptBehavior.restorePositionAfterSend` 默认开启地控制。它只负责发送后的阅读位置恢复，不进入正文发现链路；仅在用户主动发送前记录主滚动容器、scrollTop 与顶部附近 turn anchor，发送后用短生命周期 MutationObserver / scroll listener / rAF 合并做 instant restore。关闭时没有 observer/rAF/额外 scroll listener；开启但未发送时只有少量 capture 事件监听；armed 后会在用户 wheel/touch/pointer/keyboard、官方滚到底部、Reader locate、Bookmark Go、90 秒超时或恢复次数上限时释放。
-  - Reader、Save Messages 导出、当前消息 Copy Markdown / Copy PNG、书签准备与词数通过 `readerContentSource` 共享唯一 `ReaderItem[]` 正文投影。普通消费统一读取当前已发布 pool；`collectFreshReaderContent()` 保留为兼容名称，只委托无副作用的当前读取。显式 Reader Refresh 只等待或返回已观察到的本地工作，不能启动 baseline admission；`ConversationContentSourceV1` 不暴露 acquire/reconcile/coordinator API。初始同步、PageIndex、History 事件与 Graph capture 只进入或重绑页面纪元、提交已观察本地批次或唤醒 gate；真实 capture 可比较 closed Graph 的更大 revision，但任何信号都不能主动 GET。ADR-0021 之后：`pageshow`（BFCache 恢复保留桥内存）与设置页显式“重新获取内容”动作可对 closed gate 武装一次有界 upgrade re-peek，`reopenBaselineGate()` 不重开 baseline gate；仍只读被动桥内存、零请求；消费者 `refresh()` 契约不变。ChatGPT provider dialect 在 discovery source Adapter 边界先规范化后再发布，Reader 投影不重复标准化；projection/content/surface tokens 用于本页异步失效，书签事务继续额外要求 canonical conversation ID。ChatGPT 不使用消费者自有 DOM 正文 fallback，导出、复制、PNG 和书签不得各自选择正文发现或提取路径。
+  - Reader、Save Messages 导出、当前消息 Copy Markdown / Copy PNG、书签准备与词数通过 `readerContentSource` 共享唯一 `ReaderItem[]` 正文投影。普通消费统一读取当前已发布 pool；`collectFreshReaderContent()` 保留为兼容名称，只委托无副作用的当前读取。显式 Reader Refresh 只冲刷已观察的本地 DOM 工作，不发起网络请求，也不重新扫描隐藏历史。`pageshow`、`resume` 和 visible 恢复只触发一次当前 DOM 重扫。projection/content/surface tokens 用于本页异步失效，书签事务继续额外要求 canonical conversation ID。
   - 当前消息 Copy Markdown 与 Copy PNG 可以在同一 content token 内共享一个 in-flight/resolved Reader item promise；该 identity 只用于异步事务校验，不进入书签、导出或存储 schema。Token 变化或 route/document replacement 必须清空整页正文 promise；DOM mutation 只能使当前元素映射失效，不能绕过 cache 创造第二正文来源。普通入口不主动 refresh；Route/dispose 同样清空，禁止跨 token 返回旧正文。
   - 官网 conversation Reader 由 `ChatGPTConversationReaderBinding` 订阅 Source state：cache 新增尾项时追加，缓存中已有 typed identity 时保持其内容，内容不变不更新；没有 snapshot 时关闭当前 Reader。Message toolbar 不再扫描 DOM 正文、维护第二内容缓存或触发消费者 flush。Detached Reader 继续采用不可变快照与手动 Refresh；Refresh snapshot 构造完成后必须再次校验 content token，annotation focus 在 Reader show 与 focus 两个异步提交点后也必须复核，迟到结果关闭旧 Reader 并 fail closed。
   - Save Messages 打开期间任何 ChatGPT source revision 变化都会关闭弹窗；书签保存弹窗返回后必须再次校验点击时的 source revision，不一致则拒绝写入。Copy/PNG 以点击时确认的 snapshot 为原子输入，不在执行中途切换正文。`source-backed`、`host-rendered` 与两者构成的 hybrid snapshot 只要已进入 cache 都可进入 whole-turn 输出；SurfaceProjection 的 `stale-content` / `stale-surface` 仍只表示一次选择操作或异步结果失效，不是消息缓存状态。
@@ -211,32 +204,30 @@ ChatGPT 内容发现与页面交互必须保持一个内容池、一个 PageInde
 
 ```mermaid
 flowchart TD
-    Graph["Eligible same-origin GET<br/>identity + mapping/current_node"]
-    Bridge["Passive bridge<br/>bounded parser + validator"]
-    Adapter["ChatGPT Content Source Adapter<br/>dialect normalization + provenance"]
-    HostMonitor["Host Monitor<br/>stable typed batch + compiler"]
-    Repository["ConversationContentRepository<br/>single monotonic pool"]
+    Action["Official ChatGPT action row<br/>completion signal"]
+    HostMonitor["Host Monitor<br/>debounce + clone + Markdown Adapter"]
+    Repository["ConversationContentRepository<br/>tab-local conversation pools"]
     DOM["Current materialized DOM window"]
     PageIndex["ChatGPTPageIndex<br/>connected anchors / surface projections"]
     ConversationSurface["ChatGPTConversationSurface<br/>obtained + pending + unmounted"]
     SurfaceConsumers["Directory / Toolbar / Stepper / Navigation"]
     ReaderSource["readerContentSource"]
-    BodyConsumers["Reader / Whole-message Copy<br/>Formula / Export / Word count"]
+    BodyConsumers["Reader / Whole-message Copy<br/>Export / Word count"]
+    FormulaConsumers["Formula Copy / PNG / SVG / MathML"]
     SurfaceAdapter["Content Surface Adapter<br/>Range -> neutral evidence"]
     SurfaceProjection["Semantic SurfaceProjection<br/>Range + canonical Markdown proof"]
     SelectionConsumers["Local Markdown selection"]
     Bookmark["Existing bookmark chain<br/>canonical ID required"]
 
-    Graph --> Bridge
-    Bridge --> Adapter
-    Adapter --> Repository
     DOM --> PageIndex
+    Action --> PageIndex
     PageIndex --> HostMonitor
     HostMonitor --> Repository
     Repository --> ConversationSurface
     PageIndex --> ConversationSurface
     ConversationSurface --> SurfaceConsumers
     Repository --> ReaderSource --> BodyConsumers
+    DOM --> FormulaConsumers
     DOM --> SurfaceAdapter
     SurfaceAdapter --> SurfaceProjection
     Repository --> SurfaceProjection
@@ -246,11 +237,11 @@ flowchart TD
 ```
 
 - Reader、工具栏 Copy/Copy PNG、Save Messages 导出与书签保存正文必须只通过当前 snapshot 的 `readerContentSource` 获取正文，并消费同一份 `ReaderItem[]` 语义；Reader structure/outline 由 Semantic Content projection 提供。显式 Reader Refresh 只冲刷本地已观察工作；普通点击不得等待 refresh。页面局部 Markdown 复制必须走 `ContentSurfaceAdapter -> SurfaceProjection`，并可消费 source-backed 或已封存的 `host-rendered` canonical Markdown；DOM 只提供 typed target、Range/TextQuote 和 revision 证明。陈旧、歧义、跨消息、流式或 reconstructed 正文必须 fail open，不能退回 `Range.toString()` 或 DOM→Markdown。
-- ChatGPT 已获得正文、当前顺序与 typed message identity 只由 `ConversationContentRepository` 的 V1 snapshot 负责；React props、内部 store 与消费者侧 DOM Markdown 不得恢复成第二套 semantic fallback。Source Adapter 可提交一次可信 Graph 历史，Host Monitor 可先建立或继续追加经过稳定编译的 DOM 批次，后到 Graph 仅补可靠历史前缀。已有长对话缺少 Graph 时，当前已观察 DOM 消息仍可消费，但系统不得把未挂载、未捕获的隐藏历史伪称为已获得。
+- ChatGPT 已获得正文、当前顺序与 typed message identity 只由 `ConversationContentRepository` 的 V1 snapshot 负责；React props、内部 store 与消费者侧独立缓存不得恢复成第二套正文池。当前已观察 DOM 消息可消费，未挂载、未加载的隐藏历史不属于当前池，也不得被伪称为已获得。
 - ChatGPT snapshot 可能包含官方页面渲染层已经消化掉的内部 annotation token，例如 entity metadata 或 GenUI math widget；这些 token 必须在 snapshot Markdown normalizer 层转换/清理，而不是依赖 Reader renderer 或 DOM fallback 后处理。
 - Directory、Toolbar、Stepper 与同页 Navigation 只消费 `ChatGPTConversationSurface`；Frame 已经把冻结的 V1 order 与当前 connected anchors/assistant-only projections 按 typed identity 原子连接。Reader locate、Bookmark Go 与 pending navigation 复用由同一 Frame 投影的 Materialization/Navigation ports。旧 `ChatGPTConversationIndex`、独立 `ChatGPTConversationMaterialization` 与 Discovery Coordinator 已删除；任何消费者都不得重新 join Content 与 PageIndex。Prompt 文本、URL 文本和 DOM-local position 永远不是消息 identity。
 - Directory、Stepper 与消息工具栏 host 使用统一 Surface consumer marker。ChatGPT hydration 若移除这些扩展自有节点，唯一 `ChatGPTPageIndex` observer 只发布一次 surface lifecycle fact，由消费者从当前 Frame 重建；不得为自愈增加消费者 Observer、重新读取正文或改变 content token。逐字符 content mutation 只进入 Host Monitor dirty 合并，不触发 Surface 重建或 PageIndex topology 重扫。
-- ChatGPT Reader 打开后的内容页集不得通过 DOM 正文补齐或以 DOM message ID 过滤。DOM 变化只触发 canonical 对账；verified snapshot 中未挂载的完整轮次仍属于 Reader。稳定 canonical prefix 增长时允许追加 tail；branch 或既有 identity 变化时必须原子替换完整 items，并按唯一 typed identity 保留当前位置。异步 tail 结果写入前必须校验 route token 与 snapshot conversation ID；显式 clicked element 无法映射到 canonical round 时 fail closed。
+- ChatGPT Reader 打开后的内容页集来自当前 Repository snapshot。已经进入池但后来未挂载的轮次仍属于 Reader；新加载或同 ID 更新的 DOM 正文通过同一池发布。异步结果写入前仍校验 route token、projection 与 content token。
 - 四个职责固定：V1 Repository/Source 回答“当前已获得内容是什么”；`ChatGPTConversationSurface` 回答“这些内容当前如何挂载以及有哪些 pending UI surfaces”；Semantic Content Module 回答“这份 Markdown 的稳定语义与 source span 是什么”；语义 `SurfaceProjection` 回答“这次 Range 是否唯一对应当前 canonical Markdown”。PageIndex 只是 host facts 输入，不是第三个内容源。
 - ChatGPT send position restore 与上述内容/定位 SSOT 平行：它只消费发送事件与页面滚动位置，不读取正文、不刷新 snapshot、不改变 Reader/Save Messages/Copy/Bookmark 内容语义。
   - 该链路的变更边界必须局限在 ChatGPT 内容发现、Reader/Save Messages 正文供给、目录/定位投影及其测试/SSOT；不得改变书签存储 schema、导出 formatter、Reader 渲染主题、平台开关或发送链路。
@@ -265,7 +256,7 @@ flowchart TD
 - 书签树渲染与 virtualization 已收口到 `BookmarksTreeViewport`
 - `src/ui/content/overlay/OverlaySession.ts` 现在是通用 overlay session wrapper，负责组合 overlay host、keyboard scope、input boundary 与 modal slot
 - `BookmarksPanel`、`BookmarkSaveDialog` 与 `SaveMessagesDialog` 已直接复用通用 `OverlaySession`；Bookmarks family 不再保留独立 overlay wrapper
-- `Deep Research` 的完成态报告已纳入 ChatGPT snapshot 正文范围；适配只存在于既有 page bridge 的消息序列化层，不恢复独立 compatibility hook 或第二套 Reader source
+- `Deep Research` 仅在当前完成态 DOM 能提供可读 assistant 正文和官方 action row 时进入 ChatGPT snapshot；不读取网络 payload 或内部 widget state
 - `src/ui/content/components/transientUi.ts` 现在是共享 outside-click / transient-root contract；Bookmarks family 只保留对它的 family-level 组合，而不再拥有私有实现
 - Bookmarks family 内部的 inline select / number-stepper 目前仍保持为 family-scoped primitive，并通过统一 transient-ui contract 与 panel shell 协作
 - `ModalHost` 现在只承担 dialog render、topmost modal ownership 与 focus restore；shared host boundary 与 keyboard scope 由 `OverlaySession` 负责
@@ -292,7 +283,7 @@ flowchart TD
 - content driver 负责 DOM 采集、剪贴板、导出、发送桥接
 - UI 层负责 DOM / Shadow DOM 呈现；仓库当前不以 React 作为 UI runtime
 - `ReaderPanel` 当前通过 surface-owned named profiles 收口多入口差异；消息工具栏与书签预览不再直接传 low-level chrome flags，而是分别选择 `conversation-reader` 与 `bookmark-preview`
-- `readerContentSource` 是 Reader 正文供给的共享 service 入口；Reader、Save Messages 导出、当前消息 Copy Markdown / Copy PNG 与书签保存正文均消费同一份 snapshot-backed `ReaderItem[]` 语义。普通入口直接读取当前投影；同一 immutable snapshot 与规范化页面 URL 命中 projection cache，不重新解析 Markdown；Reader header Refresh 只执行一次本地 flush 后重读当前投影，不能发起 Graph 获取。detached Reader 通过 `readerSession:refresh` 回源页执行同一 local-flush/read，并按 canonical typed identity 的唯一匹配保留当前页，仅对完全缺少 identity 的 legacy snapshot 使用唯一 position fallback。Reader Copy、Reader 选区源码复制、工具栏 Copy Markdown、消息书签 Markdown copy 与 ChatGPT 官网直选共同进入 `canonicalMarkdownCopy`；只在写入剪贴板前按 `formula.markdownCopyFormulaFormat` 重写公式 wrapper，默认 Markdown-dollar 不重复解析已经 canonical 的 Markdown。Reader 选区 action 与 Shadow DOM 原生 copy handler 不得各自决定公式格式。导出只将 `ReaderItem.content` resolve 为 `ChatTurn[]` 后交给既有 Markdown/PDF/PNG formatter，其中只有 Markdown formatter 会在写出文件前应用同一个 formula source format model；已经进入 pool 的 source/hybrid/host 投影可导出，reconstructed canonical output 仍 fail closed。
+- `readerContentSource` 是 Reader 正文供给的共享 service 入口；Reader、Save Messages 导出、当前消息 Copy Markdown / Copy PNG 与书签保存正文均消费同一份 snapshot-backed `ReaderItem[]` 语义。普通入口直接读取当前投影；同一 immutable snapshot 与规范化页面 URL 命中 projection cache，不重新解析 Markdown；Reader header Refresh 只执行一次本地 DOM flush 后重读当前投影。detached Reader 通过 `readerSession:refresh` 回源页执行同一 local-flush/read，并按 canonical typed identity 的唯一匹配保留当前页，仅对完全缺少 identity 的 legacy snapshot 使用唯一 position fallback。Reader Copy、Reader 选区源码复制、工具栏 Copy Markdown、消息书签 Markdown copy 与 ChatGPT 官网直选共同进入 `canonicalMarkdownCopy`；只在写入剪贴板前按 `formula.markdownCopyFormulaFormat` 重写公式 wrapper，默认 Markdown-dollar 不重复解析已经 canonical 的 Markdown。Reader 选区 action 与 Shadow DOM 原生 copy handler 不得各自决定公式格式。导出只将 `ReaderItem.content` resolve 为 `ChatTurn[]` 后交给既有 Markdown/PDF/PNG formatter，其中只有 Markdown formatter会在写出文件前应用同一个 formula source format model；已经进入 DOM pool 的 host 投影可导出，reconstructed canonical output 仍 fail closed。
 - ChatGPT 官网正文直选是一条严格限定的 selection exit，不是新的消息正文来源：只要 ChatGPT platform runtime 开启，唯一的 `ChatGPTAtomicSelectionController` 就保持一个 document `selectionchange` listener、一个 window `keydown/keyup` listener 和一个 window bubbling `copy` listener；`chatgptBehavior.atomicMarkdownCopyShortcut` 只选择 `none`、`mod-c` 或 `mod-shift-c`。controller 只接受同一条非流式 assistant `.markdown.prose` 内的单 Range，并用 `requestAnimationFrame` 合并 selection churn；视觉 atomic candidate 只按当前 Range 的公共祖先收集并按祖先缓存，普通段落不会为远处公式、代码、表格或图片扫描整条回复；`ContentSurfaceAdapter` 把它收敛成 typed target、content/materialization/surface token、TextQuote 与可靠 formula atoms，`SurfaceProjection` 再从 Repository 当前封存的 source-backed 或 `host-rendered` Markdown 中解析唯一 canonical span。DOM 不生成正文，也不负责 Markdown 序列化；官网的视觉原子选区复用 Reader 的已定义 unit 范围、完整覆盖规则与选中效果，普通段落/inline wrapper 不被额外扩展为原子。controller 在快捷键出口重新采样 Range 与 surface evidence；token 陈旧、选区变化、重复文本无法唯一消歧、跨消息、流式、reconstructed、正文空白或 unsupported atom 时 fail open，不得恢复 DOM→Markdown。`mod-c` 只在真实 `keydown → copy` 意图下清空宿主 clipboard types 并写入 canonical `text/plain`；`mod-shift-c` 在合法用户手势中直接写入；`none` 完全交还宿主。公式 wrapper 只在最终剪贴板出口经共享 `canonicalMarkdownCopy` 应用。该入口不创建选区按钮、HTML/MathML/Office payload、第二个 observer、逐消息 listener 或持久缓存，也不加载 Reader/export renderer。旧的 strict rendered-unit DOM converter 仅保留给缺少 canonical content/materialization ports 的非 ChatGPT legacy composition，不得被生产 ChatGPT 的投影失败重新启用。
 - Detached Reader 是独立扩展页入口，不新增 ChatGPT 正文发现模型：当前 v1 由右下角 message stepper 左侧的 Split View 全局按钮触发，首次打开前显示复用现有 modal/notice family 的实验性提示；确认后通过同一条 `readerContentSource` 创建 fresh snapshot，再由 background 建立 `sessionId + sourceTabId + readerTabId` 绑定。独立页复用 ReaderPanel 渲染、Reader 内部 bookmark、copy/comment/Sticky/prompt/settings 能力，以及 conversation Reader action service；refresh/draft/beforeSend/send/locate 都经 `readerSession:*` protocol 回到源 ChatGPT content runtime 执行既有 fresh content、composer draft read/write、sending 与 navigation helper；locate 与 send 会激活源 ChatGPT tab，但不关闭 detached Reader tab。发送按钮复用同一个 tokenized `SendPopover`，由完整 `SendPort` contract 把官网内 content adapter 发送与 detached session 发送分开；detached 页打开发送弹框时读取源 ChatGPT composer 当前草稿，关闭/取消发送弹框时把未发送草稿写回源 ChatGPT composer，点击发送时先通过 `readerSession:beforeSend` 在源页 arm 同一条发送后位置恢复，再通过 `readerSession:send` 激活源 ChatGPT tab 并调用 `sendText(adapter, text)`。v1 不做实时双向同步或强保活；源 ChatGPT tab 关闭时 background 会 best-effort 关闭对应 Reader tab，Reader tab 关闭时只清理 session。Detached Reader 的安全审查结论是：当前实现不新增外部传输、不新增 host permission、不持久化对话快照；协议 payload 更严格 schema 校验和 source URL 复核属于后续防御深度增强，不是当前合并阻断项。
 - `saveMessagesFacade` 只保留 `exportTurnsMarkdown` / `exportTurnsPdf` / `exportTurnsPng` 这组格式化与副作用入口；它不再从 adapter 收集 turns，也不再拥有 ChatGPT snapshot refresh fallback

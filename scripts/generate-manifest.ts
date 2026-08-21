@@ -106,11 +106,6 @@ export function buildManifest(target: ExtensionTarget, options: BuildManifestOpt
     manifest.content_scripts = [
         {
             matches: [...SUPPORTED_HOST_PATTERNS],
-            js: [extensionAssets.chatgptConversationBootstrap],
-            run_at: 'document_start',
-        },
-        {
-            matches: [...SUPPORTED_HOST_PATTERNS],
             js: [extensionAssets.contentEntry],
             run_at: 'document_idle',
         },

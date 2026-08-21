@@ -1,4 +1,6 @@
 import type { ConversationDocumentRefV1, ConversationTurnV1 } from '../../../contracts/conversationContent';
+import type { DiscoveryHostMonitorFactsV1 } from '../../../contracts/conversationDiscoveryDiagnostics';
+import type { RenderedContentCompilerV2 as RenderedContentCompilerPortV2 } from '../../../contracts/conversationDiscoveryV2';
 import type { SiteAdapter } from '../adapters/base';
 import type {
     ConversationContentRepository,
@@ -11,12 +13,10 @@ import {
     createRenderedParserCapabilityV2,
 } from '../../../services/content/RenderedContentCompilerV2';
 import {
-    resolveChatGPTDomRoundIdentity,
+    resolveChatGPTDomRoundProjectionIdentity,
     type ChatGPTDomRoundRef,
 } from './domConversationDiscovery';
 import type { ChatGPTHostObservationBatch, ChatGPTPageIndex } from './ChatGPTPageIndex';
-import type { RenderedContentCompilerV2 as RenderedContentCompilerPortV2 } from '../../../contracts/conversationDiscoveryV2';
-import type { DiscoveryHostMonitorFactsV1 } from '../../../contracts/conversationDiscoveryDiagnostics';
 
 export type ChatGPTConversationHostMonitorOptions = Readonly<{
     adapter: SiteAdapter;
@@ -28,48 +28,32 @@ export type ChatGPTConversationHostMonitorOptions = Readonly<{
 }>;
 
 const DEFAULT_SETTLE_DELAY_MS = 400;
-const COMPATIBILITY_SETTLE_DELAY_MS = 1_600;
-/**
- * Bounded re-capture attempts for dirty/deferred work after the host DOM goes
- * quiet. Every attempt re-runs the standard stable capture (same evidence
- * rules, no order guessing). Any new host observation resets the budget.
- */
-const DEFERRED_SWEEP_MAX_ATTEMPTS = 3;
-const DEFERRED_SWEEP_BACKOFF_MS = [1_200, 3_000, 8_000] as const;
 
 /**
- * ChatGPT host port backed by the shared PageIndex observer.
+ * Lightweight DOM capture coordinator backed by the shared ChatGPTPageIndex.
  *
- * Mutation batches only dirty identities. Markdown compilation happens once
- * after the whole page has been quiet and only for typed, completed turns.
+ * The official action row is the readiness signal. Mutations only dirty IDs;
+ * one page-level debounce scans the mounted rounds and compiles each eligible
+ * body once. Missing readiness remains pending until another real host signal
+ * or an explicit page-lifecycle scan arrives.
  */
 export class ChatGPTConversationHostMonitor {
     private readonly compiler: RenderedContentCompilerPortV2 | null;
     private readonly parserCapability;
     private readonly elementTokens = new WeakMap<HTMLElement, string>();
     private readonly dirtyAssistantIds = new Set<string>();
-    private readonly generationAssistantIds = new Set<string>();
-    private readonly tailReplacementAssistantIds = new Set<string>();
-    private readonly completedGenerationAssistantIds = new Set<string>();
-    private readonly weakCompletionReadyAt = new Map<string, number>();
+    private readonly compileRejectionCounts = new Map<string, number>();
     private unsubscribe: (() => void) | null = null;
     private settleTimer: ReturnType<typeof setTimeout> | null = null;
     private capturePromise: Promise<void> | null = null;
-    private activeCaptureRunId: number | null = null;
     private captureRequested = false;
-    private captureRunSequence = 0;
     private documentFence = 0;
     private elementSequence = 0;
-    private captureSequence = 0;
     private stableCaptureCount = 0;
-    private weakCompletionAdmissions = 0;
-    private sweepAttempts = 0;
-    private readonly compileRejectionCounts = new Map<string, number>();
     private globalDirty = false;
     private initialized = false;
     private disposed = false;
     private lastDocument: ConversationDocumentRefV1 | null = null;
-    private pageSurfaceCleared = false;
 
     constructor(private readonly options: ChatGPTConversationHostMonitorOptions) {
         const parserAdapter = options.adapter.getMarkdownParserAdapter();
@@ -88,71 +72,47 @@ export class ChatGPTConversationHostMonitor {
     init(): void {
         if (this.initialized || this.disposed || this.options.adapter.getPlatformId() !== 'chatgpt') return;
         this.initialized = true;
-        const rounds = this.options.index.getSnapshot();
-        const document = this.options.resolveDocument();
-        this.lastDocument = document;
-        if (rounds.length > 0) {
-            this.globalDirty = true;
-        }
+        this.lastDocument = this.options.resolveDocument();
         this.unsubscribe = this.options.index.subscribeObservations((batch) => this.observe(batch));
+        if (this.options.index.getSnapshot().length > 0) {
+            this.globalDirty = true;
+            this.scheduleCapture();
+        }
     }
 
     notifyRouteChanged(captureCurrentSurface = false): void {
         if (this.disposed) return;
         const nextDocument = this.options.resolveDocument();
-        const changed = nextDocument?.key !== this.lastDocument?.key;
-        const promotesPageIdentity = this.lastDocument?.identityKind === 'page'
-            && nextDocument?.identityKind !== 'page'
-            && nextDocument?.conversationId !== null;
-        const bindsStagedPage = this.lastDocument === null && nextDocument !== null;
-        if (changed && !bindsStagedPage && !promotesPageIdentity) {
+        if (nextDocument?.key !== this.lastDocument?.key) {
             this.documentFence += 1;
-            this.activeCaptureRunId = null;
-            this.captureRequested = false;
-            this.sweepAttempts = 0;
             this.dirtyAssistantIds.clear();
-            this.generationAssistantIds.clear();
-            this.tailReplacementAssistantIds.clear();
-            this.completedGenerationAssistantIds.clear();
-            this.weakCompletionReadyAt.clear();
-            this.globalDirty = false;
-            this.pageSurfaceCleared = false;
+            this.globalDirty = captureCurrentSurface;
             if (this.settleTimer !== null) clearTimeout(this.settleTimer);
             this.settleTimer = null;
+        } else if (captureCurrentSurface) {
+            this.globalDirty = true;
         }
-        if (captureCurrentSurface) this.globalDirty = true;
         this.lastDocument = nextDocument;
-        if (nextDocument?.identityKind !== 'page') this.pageSurfaceCleared = false;
         this.options.repository.bindCurrentDocument();
-        if (this.dirtyAssistantIds.size > 0 || this.globalDirty) this.scheduleStableCapture();
+        if (this.globalDirty || this.dirtyAssistantIds.size > 0) this.scheduleCapture();
     }
 
     notifyPageShow(): void {
         if (this.disposed) return;
         this.options.index.invalidate();
-        this.sweepAttempts = 0;
+        this.options.repository.bindCurrentDocument();
         this.globalDirty = true;
-        this.scheduleStableCapture();
+        this.scheduleCapture();
     }
 
-    /**
-     * Flush only host work that PageIndex has already observed. This never
-     * scans for a new baseline or retries a website response. One failed turn
-     * remains dirty for the next related host signal instead of making refresh
-     * spin until it succeeds.
-     */
     async flushObserved(): Promise<void> {
         if (this.disposed) return;
-        // Give a queued MutationObserver delivery a chance to publish its
-        // typed batch before checking the local dirty set.
         await Promise.resolve();
-        const activeCapture = this.capturePromise;
-        if (activeCapture) await activeCapture;
-        // A refresh is a local drain, not a completion signal. In particular,
-        // it must not shorten the quiet window or compile a streaming DOM.
+        if (this.capturePromise) await this.capturePromise;
     }
 
     dispose(): void {
+        if (this.disposed) return;
         this.disposed = true;
         this.initialized = false;
         this.unsubscribe?.();
@@ -160,376 +120,137 @@ export class ChatGPTConversationHostMonitor {
         if (this.settleTimer !== null) clearTimeout(this.settleTimer);
         this.settleTimer = null;
         this.documentFence += 1;
-        this.activeCaptureRunId = null;
         this.captureRequested = false;
         this.dirtyAssistantIds.clear();
-        this.generationAssistantIds.clear();
-        this.tailReplacementAssistantIds.clear();
-        this.completedGenerationAssistantIds.clear();
-        this.weakCompletionReadyAt.clear();
+        this.globalDirty = false;
         this.lastDocument = null;
-        this.pageSurfaceCleared = false;
     }
 
     private observe(batch: ChatGPTHostObservationBatch): void {
-        if (this.disposed) return;
-        if (batch.kinds.every((kind) => kind === 'surface')) return;
-        // New host evidence re-arms the normal signal-driven path; any
-        // outstanding bounded re-sweep budget starts over.
-        this.sweepAttempts = 0;
-        if (batch.surfaceRebased) {
-            this.documentFence += 1;
-            this.generationAssistantIds.clear();
-            this.tailReplacementAssistantIds.clear();
-            this.completedGenerationAssistantIds.clear();
-            this.weakCompletionReadyAt.clear();
-            this.pageSurfaceCleared = false;
-            this.globalDirty = true;
-        }
-        // A typed host mutation may be the first signal after a canonical
-        // conversation identity appears. Bind it before stable compilation so
-        // Materialization and Content remain in the same page epoch.
+        if (this.disposed || batch.kinds.every((kind) => kind === 'surface')) return;
         this.options.repository.bindCurrentDocument();
-        const document = this.options.resolveDocument();
-        const maintained = this.options.repository.read().snapshot?.turns ?? [];
-        const topologyChanged = batch.kinds.some((kind) => kind !== 'content' && kind !== 'surface');
-        if (topologyChanged) {
-            const mountedIds = new Set(
-                this.options.index.getSnapshot()
-                    .map((round) => round.identity.assistantMessageId?.trim() ?? '')
-                    .filter(Boolean),
-            );
-            if (
-                !batch.surfaceRebased
-                && document?.identityKind === 'page'
-                && maintained.length > 0
-                && mountedIds.size === 0
-            ) {
-                this.pageSurfaceCleared = true;
-            }
+        if (batch.surfaceRebased || batch.assistantMessageIds.length === 0) this.globalDirty = true;
+        for (const assistantMessageId of batch.assistantMessageIds) {
+            const normalized = assistantMessageId.trim();
+            if (normalized) this.dirtyAssistantIds.add(normalized);
         }
-        if (batch.assistantMessageIds.length === 0) this.globalDirty = true;
-        for (const id of batch.assistantMessageIds) {
-            const normalized = id.trim();
-            if (normalized) {
-                this.dirtyAssistantIds.add(normalized);
-                this.weakCompletionReadyAt.delete(normalized);
-            }
-        }
-        for (const id of batch.generationStartedAssistantMessageIds ?? []) {
-            const normalized = id.trim();
-            if (normalized) this.generationAssistantIds.add(normalized);
-        }
-        for (const id of batch.generationCompletedAssistantMessageIds ?? []) {
-            const normalized = id.trim();
-            if (normalized) this.completedGenerationAssistantIds.add(normalized);
-        }
-        const maintainedTailId = maintained[maintained.length - 1]?.identity.assistantMessageId ?? null;
-        for (const replacement of batch.assistantIdentityReplacements ?? []) {
-            if (replacement.previousAssistantMessageId === maintainedTailId) {
-                this.tailReplacementAssistantIds.add(replacement.nextAssistantMessageId);
-            }
-        }
-        for (const id of batch.removedAssistantMessageIds ?? []) {
-            const normalized = id.trim();
-            if (normalized) this.weakCompletionReadyAt.delete(normalized);
-        }
-        this.scheduleStableCapture();
+        this.scheduleCapture();
     }
 
-    private scheduleStableCapture(delayOverrideMs?: number): void {
+    private scheduleCapture(): void {
         if (this.settleTimer !== null) clearTimeout(this.settleTimer);
-        const delay = Math.max(
-            0,
-            delayOverrideMs ?? this.options.settleDelayMs ?? DEFAULT_SETTLE_DELAY_MS,
-        );
+        const delay = Math.max(0, this.options.settleDelayMs ?? DEFAULT_SETTLE_DELAY_MS);
         this.settleTimer = setTimeout(() => {
             this.settleTimer = null;
-            void this.startStableCapture();
+            void this.startCapture();
         }, delay);
     }
 
-    private startStableCapture(): Promise<void> {
+    private startCapture(): Promise<void> {
         if (this.capturePromise) {
             this.captureRequested = true;
             return this.capturePromise;
         }
-        const promise = this.captureStableTail().finally(() => {
-            if (this.capturePromise === promise) {
-                this.capturePromise = null;
-                this.scheduleDeferredSweep();
+        const promise = this.captureMountedRounds().finally(() => {
+            if (this.capturePromise === promise) this.capturePromise = null;
+            if (this.captureRequested && !this.disposed) {
+                this.captureRequested = false;
+                this.scheduleCapture();
             }
         });
         this.capturePromise = promise;
         return promise;
     }
 
-    /**
-     * Bounded re-capture for leftover dirty/deferred work when the host DOM
-     * has gone quiet. It only re-runs the standard capture; a candidate whose
-     * evidence has not changed stays dirty/deferred, and the budget expires so
-     * a permanently quiet page never polls forever.
-     */
-    private scheduleDeferredSweep(): void {
-        if (this.disposed || this.settleTimer !== null) return;
-        // Fast path: when no dirty or deferred work remains, skip repository
-        // interaction entirely so the per-capture cost stays near zero.
-        let deferredRemaining = this.options.repository.readDiagnosticsFacts().deferredHostCount;
-        if (deferredRemaining > 0) deferredRemaining = this.options.repository.reevaluateDeferredHost();
-        const hasDirtyWork = this.dirtyAssistantIds.size > 0;
-        if (!deferredRemaining && !hasDirtyWork) return;
-        if (this.sweepAttempts >= DEFERRED_SWEEP_MAX_ATTEMPTS) return;
-        const delay = DEFERRED_SWEEP_BACKOFF_MS[this.sweepAttempts]
-            ?? DEFERRED_SWEEP_BACKOFF_MS[DEFERRED_SWEEP_BACKOFF_MS.length - 1]!;
-        this.sweepAttempts += 1;
-        this.scheduleStableCapture(delay);
-    }
-
-    private async captureStableTail(): Promise<void> {
+    private async captureMountedRounds(): Promise<void> {
         if (this.disposed || !this.compiler || !this.parserCapability) return;
-        if (this.activeCaptureRunId !== null) {
-            this.captureRequested = true;
-            return;
-        }
-        const runId = ++this.captureRunSequence;
-        const captureFence = this.documentFence;
-        this.activeCaptureRunId = runId;
         this.stableCaptureCount += 1;
-        try {
-            const captureRevision = this.options.index.getObservationRevision();
-            const rounds = this.options.index.getSnapshot();
-            const captureContentToken = this.options.repository.read().snapshot?.contentToken ?? null;
-            const documentAtCapture = this.options.resolveDocument();
-            const dirtyIds = new Set(this.dirtyAssistantIds);
-            const captureAll = this.globalDirty;
-            const maintainedTurnsAtCapture = this.options.repository.read().snapshot?.turns ?? [];
-            const maintainedTailId = maintainedTurnsAtCapture[maintainedTurnsAtCapture.length - 1]
-                ?.identity.assistantMessageId ?? null;
-            const maintainedTailIndexes = maintainedTailId
-                ? rounds.flatMap((round, index) => (
-                    round.identity.assistantMessageId?.trim() === maintainedTailId ? [index] : []
-                ))
-                : [];
-            const mountedMaintainedTailIndex = maintainedTailIndexes.length === 1
-                ? maintainedTailIndexes[0]!
-                : -1;
-            const observations: ConversationHostTurnObservationV1[] = [];
-            let plannedPredecessorAssistantMessageId: string | null = maintainedTailId;
-            let replaceCurrentPageConversation = false;
-            let captureInvalidated = false;
-            let compatibilityRetryDelay: number | null = null;
-            this.dirtyAssistantIds.clear();
-            this.globalDirty = false;
+        const fence = this.documentFence;
+        const revision = this.options.index.getObservationRevision();
+        const documentKey = this.options.resolveDocument()?.key ?? null;
+        const captureAll = this.globalDirty;
+        const dirtyIds = new Set(this.dirtyAssistantIds);
+        const rounds = this.options.index.getSnapshot();
+        const observations: ConversationHostTurnObservationV1[] = [];
+        const successfulIds = new Set<string>();
+        this.globalDirty = false;
 
-            for (let index = 0; index < rounds.length; index += 1) {
-                const round = rounds[index]!;
-                const assistantMessageId = round.identity.assistantMessageId?.trim() ?? '';
-                if (!assistantMessageId) continue;
-                const knownTurn = this.options.repository.read().snapshot?.turns.some((turn) => (
-                    turn.identity.assistantMessageId === assistantMessageId
-                ));
-                if (knownTurn) {
-                    // Baseline-cache bodies are already authoritative. A
-                    // mounted copy only changes materialization, never content.
-                    this.dirtyAssistantIds.delete(assistantMessageId);
-                    this.generationAssistantIds.delete(assistantMessageId);
-                    this.tailReplacementAssistantIds.delete(assistantMessageId);
-                    this.completedGenerationAssistantIds.delete(assistantMessageId);
-                    this.weakCompletionReadyAt.delete(assistantMessageId);
-                    continue;
-                }
-                if (
-                    mountedMaintainedTailIndex >= 0
-                    && index > mountedMaintainedTailIndex
-                    && resolveChatGPTDomRoundIdentity(round) === null
-                ) {
-                    for (let pendingIndex = index; pendingIndex < rounds.length; pendingIndex += 1) {
-                        const pendingId = rounds[pendingIndex]?.identity.assistantMessageId?.trim();
-                        if (pendingId) this.dirtyAssistantIds.add(pendingId);
-                    }
-                    break;
-                }
-                if (!captureAll && !dirtyIds.has(assistantMessageId)) continue;
-                const maintainedTurns = this.options.repository.read().snapshot?.turns ?? [];
-                const hasTailAdmissionEvidence = this.generationAssistantIds.has(assistantMessageId)
-                    || this.tailReplacementAssistantIds.has(assistantMessageId);
-                if (
-                    maintainedTurns.length > 0
-                    && mountedMaintainedTailIndex >= 0
-                    && index < mountedMaintainedTailIndex
-                    && hasTailAdmissionEvidence
-                ) {
-                    // A uniquely mounted pool tail is the strongest local
-                    // ordering fact. Generation evidence proves that this is
-                    // live content, but cannot prove that a candidate rendered
-                    // before the tail belongs after it. Preserve the dirty
-                    // fact and wait for the host order to settle.
-                    this.dirtyAssistantIds.add(assistantMessageId);
-                    break;
-                }
-                const beginsNewPageProjection = Boolean(
-                    this.pageSurfaceCleared
-                    && documentAtCapture?.identityKind === 'page'
-                    && this.generationAssistantIds.has(assistantMessageId),
-                );
-                if (beginsNewPageProjection && observations.length === 0) {
-                    plannedPredecessorAssistantMessageId = null;
-                    replaceCurrentPageConversation = true;
-                }
-                const followsMountedMaintainedTail = mountedMaintainedTailIndex >= 0
-                    && index > mountedMaintainedTailIndex;
-                if (
-                    maintainedTurns.length > 0
-                    && !hasTailAdmissionEvidence
-                    && !followsMountedMaintainedTail
-                ) {
-                    // Unknown content hydrated into an existing virtual slot
-                    // is not evidence of a new tail message.
-                    this.dirtyAssistantIds.delete(assistantMessageId);
-                    continue;
-                }
-                const hasOfficialCompletionAnchor = Boolean(
-                    this.options.adapter.getToolbarAnchorElement(round.assistantMessageEl)?.isConnected,
-                );
-                const hasLaterTypedRound = rounds.slice(index + 1).some((candidate) => (
-                    resolveChatGPTDomRoundIdentity(candidate) !== null
-                ));
-                const hasStrongCompletion = hasOfficialCompletionAnchor
-                    || this.completedGenerationAssistantIds.has(assistantMessageId)
-                    || hasLaterTypedRound;
-                if (!hasStrongCompletion) {
-                    const now = Date.now();
-                    const readyAt = this.weakCompletionReadyAt.get(assistantMessageId);
-                    if (readyAt === undefined) {
-                        this.weakCompletionReadyAt.set(
-                            assistantMessageId,
-                            now + COMPATIBILITY_SETTLE_DELAY_MS,
-                        );
-                        compatibilityRetryDelay = COMPATIBILITY_SETTLE_DELAY_MS;
-                    } else if (readyAt > now) {
-                        compatibilityRetryDelay = Math.min(
-                            compatibilityRetryDelay ?? Number.POSITIVE_INFINITY,
-                            readyAt - now,
-                        );
-                    }
-                    if (readyAt === undefined || readyAt > now) {
-                        for (let pendingIndex = index; pendingIndex < rounds.length; pendingIndex += 1) {
-                            const pendingId = rounds[pendingIndex]?.identity.assistantMessageId?.trim();
-                            if (pendingId) this.dirtyAssistantIds.add(pendingId);
-                        }
-                        break;
-                    }
-                }
-                this.weakCompletionReadyAt.delete(assistantMessageId);
-                const completionEvidence = hasStrongCompletion ? 'strong' : 'bounded-quiet';
-                const observation = await this.compileRound(
-                    round,
-                    plannedPredecessorAssistantMessageId,
-                    captureRevision,
-                    completionEvidence,
-                );
-                if (this.documentFence !== captureFence || this.disposed) {
-                    captureInvalidated = true;
-                    break;
-                }
-                if ((this.options.repository.read().snapshot?.contentToken ?? null) !== captureContentToken) {
-                    for (let pendingIndex = index; pendingIndex < rounds.length; pendingIndex += 1) {
-                        const pendingId = rounds[pendingIndex]?.identity.assistantMessageId?.trim();
-                        if (pendingId) this.dirtyAssistantIds.add(pendingId);
-                    }
-                    captureInvalidated = true;
-                    this.scheduleStableCapture();
-                    break;
-                }
-                if (!observation) {
-                    // A transient host shell, streaming turn, or compiler
-                    // rejection is local to this message. Keep it dirty so a
-                    // later structure/completion signal can retry it. Do not
-                    // cross the unresolved gap and compile a later round.
-                    for (let pendingIndex = index; pendingIndex < rounds.length; pendingIndex += 1) {
-                        const pendingId = rounds[pendingIndex]?.identity.assistantMessageId?.trim();
-                        if (pendingId) this.dirtyAssistantIds.add(pendingId);
-                    }
-                    break;
-                }
-                if (this.options.index.getObservationRevision() !== captureRevision) {
-                    this.dirtyAssistantIds.add(assistantMessageId);
-                    captureInvalidated = true;
-                    this.scheduleStableCapture();
-                    break;
-                }
-                observations.push(observation);
-                plannedPredecessorAssistantMessageId = assistantMessageId;
+        let previousAssistantMessageId: string | null = null;
+        for (const round of rounds) {
+            const identity = resolveChatGPTDomRoundProjectionIdentity(round);
+            if (!identity) continue;
+            const assistantMessageId = identity.assistantMessageId;
+            const shouldCapture = captureAll || dirtyIds.has(assistantMessageId);
+            const predecessorAssistantMessageId = previousAssistantMessageId;
+            previousAssistantMessageId = assistantMessageId;
+            if (!shouldCapture) continue;
+
+            const officialActionRow = this.options.adapter.getToolbarAnchorElement(round.assistantMessageEl);
+            if (
+                round.isStreaming
+                || !officialActionRow?.isConnected
+                || !round.assistantContentRootEl?.isConnected
+                || !round.assistantContentRootEl.textContent?.trim()
+            ) {
+                this.dirtyAssistantIds.add(assistantMessageId);
+                continue;
             }
 
-            if (!captureInvalidated && this.documentFence === captureFence && observations.length > 0) {
-                if (replaceCurrentPageConversation) {
-                    this.options.repository.replaceCurrentPageConversationHostBatch(observations);
-                } else {
-                    this.options.repository.ingestHostBatch(observations);
-                }
-                for (const observation of observations) {
-                    const assistantMessageId = observation.turn.identity.assistantMessageId;
-                    if (this.options.repository.read().snapshot?.turns.some((turn) => (
-                        turn.identity.assistantMessageId === assistantMessageId
-                    ))) {
-                        if (observation.completionEvidence === 'bounded-quiet') this.weakCompletionAdmissions += 1;
-                        this.dirtyAssistantIds.delete(assistantMessageId);
-                        this.generationAssistantIds.delete(assistantMessageId);
-                        this.tailReplacementAssistantIds.delete(assistantMessageId);
-                        this.completedGenerationAssistantIds.delete(assistantMessageId);
-                        this.weakCompletionReadyAt.delete(assistantMessageId);
-                        if (replaceCurrentPageConversation) this.pageSurfaceCleared = false;
-                    } else {
-                        // Keep a deferred observation alive. A later virtualization
-                        // or structure signal can make its predecessor available.
-                        this.dirtyAssistantIds.add(assistantMessageId);
-                    }
-                }
+            const observation = await this.compileRound(
+                round,
+                predecessorAssistantMessageId,
+                revision,
+            );
+            if (
+                this.disposed
+                || fence !== this.documentFence
+                || documentKey !== (this.options.resolveDocument()?.key ?? null)
+                || revision !== this.options.index.getObservationRevision()
+            ) {
+                this.globalDirty = true;
+                this.scheduleCapture();
+                return;
             }
-            if (compatibilityRetryDelay !== null && !this.disposed) {
-                this.scheduleStableCapture(compatibilityRetryDelay);
+            if (!observation) {
+                this.dirtyAssistantIds.add(assistantMessageId);
+                continue;
             }
-        } finally {
-            if (this.activeCaptureRunId !== runId) return;
-            this.activeCaptureRunId = null;
-            if (this.captureRequested && !this.disposed) {
-                this.captureRequested = false;
-                this.scheduleStableCapture();
-            }
+            observations.push(observation);
+            successfulIds.add(assistantMessageId);
         }
+
+        if (observations.length > 0) this.options.repository.ingestHostBatch(observations);
+        for (const assistantMessageId of successfulIds) this.dirtyAssistantIds.delete(assistantMessageId);
     }
 
     private async compileRound(
         round: ChatGPTDomRoundRef,
         predecessorAssistantMessageId: string | null,
         captureRevision: number,
-        completionEvidence: 'strong' | 'bounded-quiet',
     ): Promise<ConversationHostTurnObservationV1 | null> {
-        if (round.isStreaming) return null;
-        const identityParts = resolveChatGPTDomRoundIdentity(round);
-        if (!identityParts) return null;
+        const identityParts = resolveChatGPTDomRoundProjectionIdentity(round);
+        const assistantRoot = round.assistantContentRootEl;
+        if (!identityParts || !assistantRoot?.isConnected) return null;
         const { turnId, userMessageId, assistantMessageId } = identityParts;
-        if (!round.userMessageEl.isConnected || !round.assistantMessageEl.isConnected) return null;
-        if (!round.assistantContentRootEl?.isConnected) return null;
 
         const userContentRoot = resolveUserContentRoot(round);
-        const identity = createIdentityV2(turnId, userMessageId, assistantMessageId);
+        const compilerUserId = userMessageId ?? `chatgpt-user:${assistantMessageId}`;
+        const identity = createIdentityV2(turnId, compilerUserId, assistantMessageId);
         if (!identity) return null;
-        const userSurfaceToken = this.surfaceToken(userContentRoot, 'user', captureRevision);
-        const assistantSurfaceToken = this.surfaceToken(round.assistantContentRootEl, 'assistant', captureRevision);
         const result = await this.compiler!.compile({
             identity,
             userRootClone: userContentRoot.cloneNode(true) as HTMLElement,
-            assistantRootClone: round.assistantContentRootEl.cloneNode(true) as HTMLElement,
-            userSurfaceToken,
-            assistantSurfaceToken,
+            assistantRootClone: assistantRoot.cloneNode(true) as HTMLElement,
+            userSurfaceToken: this.surfaceToken(userContentRoot, 'user', captureRevision),
+            assistantSurfaceToken: this.surfaceToken(assistantRoot, 'assistant', captureRevision),
             parser: this.parserCapability!,
             policy: DEFAULT_RENDERED_CONTENT_POLICY_V2,
         });
         if (result.kind !== 'ready') {
-            const reason = result.reason;
-            this.compileRejectionCounts.set(reason, (this.compileRejectionCounts.get(reason) ?? 0) + 1);
+            this.compileRejectionCounts.set(
+                result.reason,
+                (this.compileRejectionCounts.get(result.reason) ?? 0) + 1,
+            );
             return null;
         }
 
@@ -547,11 +268,7 @@ export class ChatGPTConversationHostMonitor {
         });
         return Object.freeze({
             turn,
-            semanticDigest: result.semanticDigest,
-            captureId: `chatgpt-host:${assistantMessageId}:${++this.captureSequence}`,
-            revision: captureRevision,
             predecessorAssistantMessageId,
-            completionEvidence,
         });
     }
 
@@ -564,18 +281,19 @@ export class ChatGPTConversationHostMonitor {
         return `${token}:revision:${revision}`;
     }
 
-    /** Read-only diagnostics facts for the discovery diagnostics snapshot. */
     readDiagnosticsFacts(): DiscoveryHostMonitorFactsV1 {
         return {
             stableCaptureCount: this.stableCaptureCount,
             dirtyAssistantCount: this.dirtyAssistantIds.size,
-            weakCompletionAdmissions: this.weakCompletionAdmissions,
             compileRejections: Object.freeze(Object.fromEntries(this.compileRejectionCounts)),
         };
     }
 }
 
 function resolveUserContentRoot(round: ChatGPTDomRoundRef): HTMLElement {
+    if (round.source === 'assistant-only' || !round.userMessageEl.isConnected) {
+        return document.createElement('div');
+    }
     const prompt = round.userMessageEl.querySelector('.whitespace-pre-wrap');
     return prompt instanceof HTMLElement ? prompt : round.userMessageEl;
 }

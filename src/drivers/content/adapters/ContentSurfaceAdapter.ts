@@ -278,12 +278,20 @@ function captureFormulaFragments(
     latex: string;
     isBlock: boolean;
 }> {
-    emitContentPerformanceEvent({ kind: 'formula-evidence', formulaScans: 1 });
     const parser = site.getMarkdownParserAdapter();
-    if (!parser) return [];
+    if (!parser) {
+        emitContentPerformanceEvent({ kind: 'formula-evidence', formulaScans: 1, formulaCount: 0 });
+        return [];
+    }
 
     const fragments: Array<{
         kind: 'formula';
+        renderedText: string;
+        latex: string;
+        isBlock: boolean;
+    }> = [];
+    const acceptedCandidates: Array<{
+        element: HTMLElement;
         renderedText: string;
         latex: string;
         isBlock: boolean;
@@ -308,13 +316,34 @@ function captureFormulaFragments(
         );
         const latex = extracted?.latex.trim() ?? '';
         if (!latex || !renderedText || !isFullySelectedFormula(range, candidate, renderedText)) continue;
+        const isBlock = extracted?.isBlock ?? parser.isBlockMath(candidate);
+        const nestedDuplicate = acceptedCandidates.some((accepted) => (
+            accepted.latex === latex
+            && accepted.renderedText === renderedText
+            && accepted.isBlock === isBlock
+            && (accepted.element.contains(candidate) || candidate.contains(accepted.element))
+        ));
+        if (nestedDuplicate) continue;
+        acceptedCandidates.push({
+            element: candidate,
+            renderedText,
+            latex,
+            isBlock,
+        });
         fragments.push(Object.freeze({
             kind: 'formula' as const,
             renderedText,
             latex,
-            isBlock: extracted?.isBlock ?? parser.isBlockMath(candidate),
+            isBlock,
         }));
     }
+    emitContentPerformanceEvent({
+        kind: 'formula-evidence',
+        formulaScans: 1,
+        formulaCount: fragments.length,
+        exactFormulaMatch: fragments.length === 1
+            && normalizeSurfaceText(range.toString()) === fragments[0]?.renderedText,
+    });
     return fragments;
 }
 

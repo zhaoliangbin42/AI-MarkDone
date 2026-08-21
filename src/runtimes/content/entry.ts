@@ -44,9 +44,6 @@ import {
     isReaderContentSourceRevisionCurrent,
 } from '../../services/reader/readerContentSource';
 import { setCanonicalMarkdownCopyFormulaFormat } from '../../services/copy/canonicalMarkdownCopy';
-import {
-    createCanonicalFormulaResolver,
-} from '../../services/semantic-content/canonicalFormula';
 import { buildReaderSessionSnapshot } from '../../services/reader/readerSessionSnapshot';
 import { sendText } from '../../services/sending/sendService';
 import { readComposer, writeComposer } from '../../drivers/content/sending/composerPort';
@@ -175,8 +172,6 @@ if (adapter) {
         navigation: conversationNavigation,
         conversationContentSource,
         readDiscoveryDiagnostics: () => chatGptConversationContentRuntime?.readDiscoveryDiagnostics() ?? null,
-        retryBaselineDiscovery: () => chatGptConversationContentRuntime?.retryBaselineDiscovery()
-            ?? Promise.resolve(null),
     });
     if (chatGptConversationContentRuntime && !('__AIMD_DISCOVERY_DIAGNOSTICS__' in window)) {
         // Advanced-troubleshooting seam. The snapshot contains only counts and
@@ -186,20 +181,9 @@ if (adapter) {
             configurable: true,
         });
     }
-    if (conversationContentSource && conversationMaterialization) {
-        const parser = contentAdapter.getMarkdownParserAdapter();
-        if (parser) {
-            mathClick.setCanonicalFormulaResolver?.(createCanonicalFormulaResolver(
-                conversationContentSource,
-                conversationMaterialization,
-                parser,
-            ));
-        }
-    }
-    // The directory is a host surface, not a consequence of baseline
-    // admission. Create and mount it even while the semantic source is
-    // still unavailable so a transient discovery failure cannot remove the
-    // visible navigation affordance.
+    // Formula actions resolve directly from their mounted DOM nodes and parser
+    // adapter; they do not wait for conversation content admission.
+    // The directory is a host surface and mounts while the pool is empty.
     const chatGptActivePositionTracker = adapter.getPlatformId() === 'chatgpt'
         ? new ChatGPTActivePositionTracker(chatGptConversationContentRuntime!.surface)
         : null;

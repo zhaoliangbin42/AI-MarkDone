@@ -14,14 +14,13 @@ function setClipboardMock() {
 }
 
 describe('MathClickHandler', () => {
-    it('copies only the canonical formula source when a resolver is provided', async () => {
+    it('copies a mounted formula directly through the parser adapter', async () => {
         const { writeText } = setClipboardMock();
         const container = document.createElement('div');
         container.innerHTML = '<span class="katex"><annotation encoding="application/x-tex">x + y</annotation></span>';
         document.body.appendChild(container);
         const handler = new MathClickHandler({
             parserAdapter: chatgptMarkdownParserAdapter,
-            canonicalFormulaResolver: () => ({ latex: 'x+y', isBlock: false }),
         });
 
         try {
@@ -31,21 +30,20 @@ describe('MathClickHandler', () => {
                 cancelable: true,
             }));
             await Promise.resolve();
-            expect(writeText).toHaveBeenCalledWith('$x+y$');
+            expect(writeText).toHaveBeenCalledWith('$x + y$');
         } finally {
             handler.disable();
             container.remove();
         }
     });
 
-    it('fails closed when the canonical formula resolver cannot resolve a turn', async () => {
+    it('fails closed when the mounted formula has no readable source', async () => {
         const { writeText } = setClipboardMock();
         const container = document.createElement('div');
-        container.innerHTML = '<span class="katex"><annotation encoding="application/x-tex">x + y</annotation></span>';
+        container.innerHTML = '<span class="katex">rendered glyphs only</span>';
         document.body.appendChild(container);
         const handler = new MathClickHandler({
             parserAdapter: chatgptMarkdownParserAdapter,
-            canonicalFormulaResolver: () => null,
         });
 
         try {

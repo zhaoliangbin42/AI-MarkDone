@@ -27,11 +27,6 @@ type ResolvedFormula = {
     displayMode: boolean;
 };
 
-type CanonicalFormulaResolver = (element: Element) => {
-    latex: string;
-    isBlock: boolean;
-} | null;
-
 export type MathClickHandlerOptions = {
     onFormulaHoverEnter?: (context: MathFormulaHoverContext) => void;
     onFormulaHoverLeave?: () => void;
@@ -39,8 +34,6 @@ export type MathClickHandlerOptions = {
     clickCopyMarkdown?: boolean;
     clickCopyFormulaFormat?: FormulaSourceFormat;
     parserAdapter?: Pick<MarkdownParserAdapter, 'isMathNode' | 'extractLatex' | 'isBlockMath'>;
-    /** When provided, ChatGPT formulas fail closed unless canonical content resolves them. */
-    canonicalFormulaResolver?: CanonicalFormulaResolver;
 };
 
 /**
@@ -67,10 +60,6 @@ export class MathClickHandler {
 
     setClickCopyFormulaFormat(format: FormulaSourceFormat): void {
         this.options.clickCopyFormulaFormat = normalizeFormulaSourceFormat(format);
-    }
-
-    setCanonicalFormulaResolver(resolver: CanonicalFormulaResolver | undefined): void {
-        this.options.canonicalFormulaResolver = resolver;
     }
 
     enable(container: HTMLElement): void {
@@ -297,15 +286,6 @@ export class MathClickHandler {
     }
 
     private resolveFormula(element: Element): ResolvedFormula | null {
-        if (this.options.canonicalFormulaResolver) {
-            const canonical = this.options.canonicalFormulaResolver(element);
-            if (!canonical?.latex.trim()) return null;
-            return {
-                texSource: canonical.latex.trim(),
-                assetSource: { kind: 'tex', value: canonical.latex.trim(), confidence: 'authoritative' },
-                displayMode: canonical.isBlock,
-            };
-        }
         const adapter = this.options.parserAdapter;
         if (adapter && element instanceof HTMLElement) {
             try {

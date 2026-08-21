@@ -7,12 +7,17 @@
  * runtime protocol or a discovery signal.
  */
 export type ContentPerformanceEvent = Readonly<{
-    kind: 'selection-frame' | 'materialize' | 'formula-evidence' | 'markdown-projection';
+    kind: 'selection-frame' | 'materialize' | 'formula-evidence' | 'markdown-projection' | 'markdown-projection-rejection';
     phase: string;
     durationMs?: number;
     locateCalls?: number;
     rangeToStringCalls?: number;
     formulaScans?: number;
+    formulaCount?: number;
+    exactFormulaMatch?: boolean;
+    status?: 'ready' | 'unavailable' | 'no-evidence';
+    reason?: string;
+    stage?: string;
 }>;
 
 const PERFORMANCE_EVENT = 'aimd-content-consumer-performance';

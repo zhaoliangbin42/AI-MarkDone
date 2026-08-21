@@ -50,7 +50,7 @@ describe('RenderedContentCompilerV2', () => {
         expect(result.manifest.nodeCount).toBeGreaterThan(0);
     });
 
-    it('uses the formula source carrier and never accepts a formula without source', async () => {
+    it('uses formula source when available without rejecting the whole message when it is absent', async () => {
         const ready = await createCompiler().compile(request(
             '<p>Question</p>',
             '<p>Value <span class="katex" data-math-source="x^2">x²</span></p>',
@@ -58,14 +58,27 @@ describe('RenderedContentCompilerV2', () => {
         expect(ready.kind).toBe('ready');
         if (ready.kind === 'ready') {
             expect(ready.assistant.markdown).toContain('x^2');
-            expect(ready.manifest.formulaCount).toBe(1);
         }
 
-        const rejected = await createCompiler().compile(request(
+        const bestEffort = await createCompiler().compile(request(
             '<p>Question</p>',
             '<p><span class="katex">x²</span></p>',
         ));
-        expect(rejected).toEqual({ kind: 'rejected', reason: 'unsupported-formula' });
+        expect(bestEffort.kind).toBe('ready');
+    });
+
+    it('ignores formatting-only whitespace between rendered block nodes', async () => {
+        const result = await createCompiler().compile(request(
+            '<p>Question</p>',
+            `
+                <h1>Answer</h1>
+                <p><strong>Before <span class="katex" data-math-source="\\frac{x}{y}">x/y</span> after.</strong></p>
+            `,
+        ));
+
+        expect(result.kind).toBe('ready');
+        if (result.kind !== 'ready') return;
+        expect(result.assistant.markdown).toBe('# Answer\n\n**Before $\\frac{x}{y}$ after.**');
     });
 
     it('rejects oversized input before publishing any Markdown', async () => {
@@ -83,7 +96,7 @@ describe('RenderedContentCompilerV2', () => {
         expect(result).toEqual({ kind: 'rejected', reason: 'budget-exceeded' });
     });
 
-    it('rejects a parser result whose semantic text no longer matches the rendered roots', async () => {
+    it('does not add a second full-body semantic comparison after adapter conversion', async () => {
         const compiler = new RenderedContentCompilerV2({
             markdownParserAdapter: chatgptMarkdownParserAdapter,
             cleanMarkdown: () => 'unrelated output',
@@ -92,6 +105,15 @@ describe('RenderedContentCompilerV2', () => {
             '<p>Question with a stable identity</p>',
             '<p>Answer with a stable body</p>',
         ));
-        expect(result).toEqual({ kind: 'rejected', reason: 'semantic-mismatch' });
+        expect(result.kind).toBe('ready');
+    });
+
+    it('accepts an assistant body when the previous user prompt is not mounted', async () => {
+        const result = await createCompiler().compile(request('', '<p>Answer</p>'));
+
+        expect(result.kind).toBe('ready');
+        if (result.kind !== 'ready') return;
+        expect(result.user).toEqual({ markdown: '', text: '' });
+        expect(result.assistant.markdown).toBe('Answer');
     });
 });

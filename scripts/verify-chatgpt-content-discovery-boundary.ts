@@ -9,19 +9,21 @@ if (!['chrome', 'firefox'].includes(target)) {
 const activeSources = [
     'src/runtimes/content/ChatGPTConversationContentRuntime.ts',
     'src/runtimes/content/entry.ts',
-    'src/drivers/content/chatgpt/ChatGPTConversationDiscoveryAdapter.ts',
     'src/drivers/content/chatgpt/ChatGPTConversationHostMonitor.ts',
     'src/drivers/content/chatgpt/ChatGPTPageIndex.ts',
     'src/drivers/content/chatgpt/ChatGPTConversationSurface.ts',
     'src/drivers/content/chatgpt/chatgptRoute.ts',
     'src/drivers/content/chatgpt/ChatGPTConversationNavigation.ts',
     'src/services/content/ConversationContentRepository.ts',
-    'public/page-bridges/chatgpt-conversation-bridge.js',
 ];
 const retiredSources = [
+    'src/drivers/content/chatgpt/ChatGPTConversationDiscoveryAdapter.ts',
+    'src/drivers/content/chatgpt/bridgeTransport.ts',
     'src/drivers/content/chatgpt/ChatGPTConversationDiscoveryCoordinator.ts',
     'src/drivers/content/chatgpt/ChatGPTConversationIndex.ts',
     'src/drivers/content/chatgpt/ChatGPTConversationMaterialization.ts',
+    'public/page-bridges/chatgpt-conversation-bootstrap.js',
+    'public/page-bridges/chatgpt-conversation-bridge.js',
 ];
 const forbidden = [
     'document.cookie',
@@ -30,6 +32,7 @@ const forbidden = [
     'XMLHttpRequest',
     'EventSource',
     'WebSocket',
+    'fetch(',
     'PerformanceObserver',
     "'POST'",
     '"POST"',
@@ -118,11 +121,13 @@ for (const relativePath of [
     const path = resolve(relativePath);
     if (!existsSync(path)) continue;
     const source = readFileSync(path, 'utf8');
-    if (!source.includes('page-bridges/chatgpt-conversation-bootstrap.js')) {
-        throw new Error(`Shipped manifest is missing the document_start ChatGPT bootstrap: ${relativePath}`);
-    }
-    if (!source.includes('page-bridges/chatgpt-conversation-bridge.js')) {
-        throw new Error(`Shipped manifest is missing the passive ChatGPT bridge resource: ${relativePath}`);
+    for (const retiredBridge of [
+        'page-bridges/chatgpt-conversation-bootstrap.js',
+        'page-bridges/chatgpt-conversation-bridge.js',
+    ]) {
+        if (source.includes(retiredBridge)) {
+            throw new Error(`Shipped manifest still includes retired Graph bridge ${retiredBridge}: ${relativePath}`);
+        }
     }
 }
 

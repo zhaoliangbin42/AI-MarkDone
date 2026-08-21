@@ -23,16 +23,16 @@ describe('ChatGPT performance benchmark contract', () => {
         expect(source).toContain('featureLoadMs');
     });
 
-    it('uses canonical route and typed host identities required by shared materialization', () => {
+    it('uses canonical route, typed host identities and official DOM completion anchors', () => {
         const source = readFileSync(resolve('scripts/benchmark-chatgpt-runtime.ts'), 'utf8');
 
         expect(source).toContain('PERF_CONVERSATION_ID');
-        expect(source).toContain('createFixtureGraph(rounds)');
-        expect(source).toContain('window.fetch(`/api/runtime/conversation-state?conversation_id=${conversationId}`)');
-        expect(source).toContain('The extension never initiates it.');
         expect(source).toContain('data-message-id="user-${index + 1}"');
         expect(source).toContain('data-message-id="assistant-${index + 1}"');
         expect(source).toContain('data-turn-id="turn-${index + 1}"');
+        expect(source).toContain('data-testid="copy-turn-action-button"');
+        expect(source).not.toContain('createFixtureGraph');
+        expect(source).not.toContain('/api/runtime/conversation-state');
         expect(source).not.toContain('/c/aimd-performance-fixture');
     });
 

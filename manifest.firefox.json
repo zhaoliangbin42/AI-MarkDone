@@ -27,19 +27,6 @@
                 "https://chat.deepseek.com/*"
             ],
             "js": [
-                "page-bridges/chatgpt-conversation-bootstrap.js"
-            ],
-            "run_at": "document_start"
-        },
-        {
-            "matches": [
-                "https://chatgpt.com/*",
-                "https://chat.openai.com/*",
-                "https://gemini.google.com/*",
-                "https://claude.ai/*",
-                "https://chat.deepseek.com/*"
-            ],
-            "js": [
                 "content.js"
             ],
             "run_at": "document_idle"
@@ -71,8 +58,7 @@
         "vendor/latex-workshop/formula-snippets.json",
         "export-renderer.html",
         "content-features.js",
-        "content-feature-chunks/*.js",
-        "page-bridges/chatgpt-conversation-bridge.js"
+        "content-feature-chunks/*.js"
     ],
     "browser_specific_settings": {
         "gecko": {

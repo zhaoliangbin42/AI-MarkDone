@@ -73,6 +73,8 @@ describe('Semantic Content architecture', () => {
             'src/ui/content/export/SaveMessagesDialog.ts',
         ].map(read);
         const retiredFiles = [
+            'src/drivers/content/chatgpt/ChatGPTConversationDiscoveryAdapter.ts',
+            'src/drivers/content/chatgpt/bridgeTransport.ts',
             'src/drivers/content/chatgpt/ChatGPTConversationDiscoveryCoordinator.ts',
             'src/drivers/content/chatgpt/ChatGPTConversationIndex.ts',
             'src/drivers/content/chatgpt/ChatGPTConversationMaterialization.ts',
@@ -86,10 +88,12 @@ describe('Semantic Content architecture', () => {
         expect(runtime).toContain('ConversationContentRepository');
         expect(runtime).toContain('ChatGPTConversationHostMonitor');
         expect(runtime).toContain('new ChatGPTConversationSurface');
-        expect(runtime).toContain('subscribeSignals');
         expect(runtime).toContain('subscribeObservations');
         expect(runtime).toContain("'pageshow'");
+        expect(runtime).toContain("'visibilitychange'");
         expect(runtime).toContain("'popstate'");
+        expect(runtime).not.toContain('ChatGPTConversationDiscoveryAdapter');
+        expect(runtime).not.toContain('notifyBaselineCaptured');
         expect(runtime).not.toContain('ChatGPTConversationDiscoveryCoordinator');
         expect(runtime).not.toContain('RouteWatcher');
         expect(runtime).not.toMatch(/setInterval\s*\(/);

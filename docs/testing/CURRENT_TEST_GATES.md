@@ -20,30 +20,21 @@ For message PNG and formula asset export, see `docs/testing/IMAGE_EXPORT_GATES.m
 - `IMAGE_EXPORT_GATES.md`
   - executable image-export correctness, visual, budget, performance, bundle, and three-browser contract
 
-### ChatGPT content and directory current override (2026-08-10)
+### ChatGPT DOM content pool current override (2026-08-21)
 
-The active gate follows
-[ADR-0021](../adr/ADR-0021-monotonic-passive-graph-upgrades.md), together with
-the identity and completion rules in ADR-0018/0019/0020, plus the lifecycle
-reconciliation rule in ADR-0022. The document-start
-bridge observes only eligible website-owned same-origin `GET` responses and
-the Repository admits only identity-, structure-, and order-verified Graph
-candidates; `peek()` never performs network I/O. A stable typed DOM batch may
-establish the same Repository under a Runtime page identity before a canonical
-ID exists. A later Graph must contain every maintained typed turn in the same
-relative order before its complete envelope can be merged. A closed baseline
-gate blocks speculative acquisition but a real capture, or one explicitly
-armed `pageshow`/`resume`/Settings upgrade probe, may compare a larger Graph;
-`pageshow` and `resume` in one 50 ms lifecycle burst are one probe; consumer
-`refresh()` remains local-only. `ChatGPTConversationSurface` is the single
-atomic join between Repository order/content and PageIndex anchors; Directory,
-Toolbar and Stepper subscribe only to it. A virtualized assistant-only DOM
-surface may restore toolbar/navigation/active-range for an assistant already in
-the pool but cannot append semantic content. Tests reject POST observation,
-fixed endpoint assumptions, extension conversation requests, synthetic
-discovery scrolling, second observers, second repositories/joins, and polling
-route discovery. Without canonical identity, all local content consumers work
-while bookmark actions are unavailable and send no persistence request.
+The active gate follows [ADR-0024](../adr/ADR-0024-chatgpt-dom-authoritative-content-pool.md).
+Tests must prove the official action row is the readiness trigger, DOM is the
+only assistant body authority, and one PageIndex observer plus one page-level
+debounce drives the pool. Startup-existing and arbitrarily delayed action rows,
+generation end, assistant-only first messages, append/update/idempotency,
+virtualized unmount retention, SPA A→B→A pool restoration, and coalesced
+`pageshow`/`resume`/visible recovery are mandatory. Formula click/copy and
+PNG/SVG/MathML actions must work directly from mounted formula DOM even when
+the containing message has not entered the Repository. Static/runtime gates
+must reject a page bridge, Graph adapter/transport, conversation network
+requests, polling, retry ladders, per-message timers, second observers, and a
+Settings discovery retry action. Directory completeness beyond actually loaded
+DOM is explicitly not an acceptance target.
 
 ---
 
@@ -113,7 +104,7 @@ For ChatGPT content discovery, directory, or bookmark-position changes, targeted
 
 If those entrypoints intentionally share a ChatGPT-only helper, include one targeted test for each caller instead of only testing the helper in isolation. For ChatGPT bookmark-position or directory-navigation work, the focused set should cover `tests/unit/ui/content/chatgptDirectory.navigation.test.ts`, `tests/unit/ui/content/messageToolbarOrchestrator.fold-action.test.ts`, `tests/unit/ui/bookmarks/bookmarksPanelController.test.ts`, and `tests/unit/runtimes/content/entry.test.ts`. If the work changes the lower-right ChatGPT message stepper, its Settings visibility toggle, or arrow-key navigation, also cover `tests/unit/ui/content/controllers/ChatGPTMessageStepperController.test.ts`, `tests/unit/services/settings/settingsService.test.ts`, and `tests/unit/ui/bookmarks/settingsTabView.test.ts`. If the work changes the directory rail settings surface, also cover `tests/unit/services/settings/settingsService.test.ts` and `tests/unit/ui/bookmarks/settingsTabView.test.ts`; if it changes official ChatGPT navigation hiding, also cover `tests/unit/ui/content/controllers/ChatGPTOfficialNavigationVisibilityController.test.ts`.
 
-For ChatGPT content-discovery or conversation-root replacement changes, the real trigger path must prove typed facts observed before a canonical ID publish one stable `host/complete` turn through the shared toolbar entrypoint. Word count, Directory, Stepper, Reader, copy, formula and export must work immediately; bookmark remains disabled and makes no save/remove call. A later formal ID must promote the same projection without changing bodies, projection ID or content token, then restore the unchanged bookmark chain. A canonical conversation without a Graph must accept a stable DOM batch immediately; an existing Graph-backed conversation must preserve hidden history and append later stable turns. A DOM-first pool followed by a Graph must accept the complete Graph envelope only when every maintained typed turn is present in the same relative order, preserve existing strong Markdown/digests, permit only ADR-0019 weak-sealed upgrades, and change the token only for a semantic pool change; hidden prefix, middle and tail additions must all be covered. Missing turn, order/identity conflict, branch replacement and failed baseline must leave the ready pool unchanged. A closed Graph baseline must accept one later larger real capture, while `pageshow`/Settings can arm one bounded upgrade peek and consumer refresh performs zero peeks. Coverage must prove generic semantic-segment routes, arbitrary eligible GET paths/query locations, bounded Graph traversal, `source/hybrid/host` diagnostic basis, dense `complete` entries, honest `historyStatus` (`unknown` for page-identity pools, `partial` for canonical DOM-only pools, `complete` once the latest accepted Graph revision proves its active branch; later larger valid revisions may extend it), duplicate/equal-revision idempotency, page→canonical promotion, same-URL clear-plus-generation reset, History event ordering, A→B epoch fencing, BFCache/root replacement, and virtualized remount without content-token churn. The single PageIndex observer must carry generation start/end and same-owner identity replacement across split persistent-slot hydration, turn per-character updates into dirty assistant IDs, compile zero times before the initial 400 ms quiet boundary and at most once after a strong completion signal or the bounded 2-second compatibility confirmation. A unique mounted pool tail must outrank generation evidence; candidates before it, beyond unresolved rounds, or from a replaced root are deferred/fenced. One Conversation Surface must atomically drive Directory visibility/items/geometry and Toolbar/Stepper state. Content admission cannot require an official action row, but toolbar injection still requires exact `readTurn()`, a connected official action anchor and non-streaming state; it mounts once with numeric word count while preserving official action/send state. Reader, formula, whole-message copy, export and uniquely proven local Markdown selection consume the same pool; bookmark consumes it only with canonical identity. Static/runtime coverage must prove zero extension conversation GET/POST, no POST observation, request bodies, credentials, cloned SSE, fixed endpoint cascades, consumer retry polling, content RouteWatcher, discovery Coordinator, second observer/repository/join, consumer `setSnapshot`, UI acquisition, duplicate Reader source or independent toolbar DOM discovery.
+For ChatGPT content-discovery or conversation-root replacement changes, the real trigger path must prove: no compile before an official action row or while stop/generation state is active; one compile after readiness; first and assistant-only messages enter the pool; same ID same Markdown causes no publication; same ID changed Markdown updates once; new messages retain old loaded turns; virtualized unmount never deletes content; page→canonical promotion preserves token; SPA A→B→A restores separate pools; wake signals coalesce to one rescan; and dispose/full reload clears runtime memory. One Conversation Surface must continue to drive Directory, Toolbar and Stepper. Reader, whole-message copy, export, bookmark and local Markdown selection consume the same DOM-derived pool; formula actions consume mounted formula DOM directly. Static/runtime coverage must prove zero extension conversation GET/POST, no page bridge/Graph modules/resources, no polling/retry ladder/per-message timers, no second observer/repository/join, and no Settings Retry.
 
 For Semantic Content, surface selection, or source-quality changes, run `tests/unit/services/semantic-content/SemanticContent.test.ts`, `tests/unit/services/semantic-content/SurfaceProjection.test.ts`, `tests/unit/drivers/content/adapters/ContentSurfaceAdapter.test.ts`, `tests/unit/services/reader/conversationContentReaderProjection.test.ts`, `tests/unit/services/reader/readerMarkdownCopy.test.ts`, `tests/unit/governance/semanticContentArchitecture.test.ts`, and the affected real consumer trigger tests, then `npm run test:chatgpt-discovery`, `npm run test:core`, `npm run test:smoke`, `npm run test:acceptance`, and `npm run build`. Coverage must prove immutable project-owned nodes, UTF-16 half-open source spans, complete provenance/coverage cache isolation, context-based duplicate disambiguation, rejection of unproven decoded offsets, wrapper-insensitive TextQuote evidence, content/materialization invalidation in `SurfaceProjection`, surface-token/Range invalidation at the interaction trigger, and one canonical projection shared by ordinary and structured selections. Governance must reject DOM/browser/platform imports in the Semantic Module, DOM handles in surface evidence, parser-library AST leakage, and any second source/surface join.
 
@@ -129,13 +120,11 @@ Input Enhancement lifecycle coverage must replace the entire observed hydration 
 
 For Google Drive backup changes, focused verification must include `tests/unit/contracts/protocol.test.ts`, `tests/unit/governance/manifest-generation.test.ts`, `tests/unit/core/cloudBackup/snapshot.test.ts`, `tests/unit/core/cloudBackup/restorePlan.test.ts`, `tests/unit/runtimes/background/cloudBackup-handler.test.ts`, `tests/unit/drivers/background/googleDriveProvider.test.ts`, `tests/unit/ui/bookmarks/settingsTabView.test.ts`, and Google Drive lifecycle UI coverage in `tests/unit/ui/bookmarks/bookmarksPanel.test.ts`, then `npm run test:smoke`, `npm run test:acceptance`, and `npm run build`. UI changes must prove Settings exposes Data Management with Google Drive Backup (Experimental) and Local Backup cards without exposing unfinished providers or sync wording. OAuth changes must cover manifest `oauth2` SSOT for Google Chrome `getAuthToken`, WebAuth-compatible browser fallback, Firefox/WebAuth fallback, sanitized diagnostics, invalid OAuth request mapping, exact `identity.getRedirectURL()` usage, access-token expiry caching, Firefox allizom-to-loopback redirect handling, connected account display/clear behavior, and connect-before-OAuth confirmation.
 
-For Save Messages source changes, verification must prove the dialog enters through the fresh `readerContentSource`, does not call legacy adapter-based export collection, and does not choose its own ChatGPT body source. ChatGPT source changes must also prove Reader / Save Messages / toolbar copy item counts stay aligned with the complete verified graph rounds through the shared fresh `ReaderItem[]` source, even when assistant DOM is not currently mounted. Keep at least one real `SaveMessagesDialog` trigger-path test plus service-level coverage for `ReaderItem[]` to `ChatTurn[]` conversion. If the source change touches formulas, also prove the Markdown branch applies `formula.markdownCopyFormulaFormat` only at clipboard or Markdown-file exits, while PDF/PNG rendering and Reader canonical content stay untouched.
+For Save Messages source changes, verification must prove the dialog enters through the fresh `readerContentSource`, does not call legacy adapter-based export collection, and does not choose its own ChatGPT body source. ChatGPT source changes must also prove Reader / Save Messages / toolbar copy item counts stay aligned with the shared DOM-derived `ReaderItem[]` source for all messages already in the tab-local pool, even when their assistant DOM is no longer mounted. Keep at least one real `SaveMessagesDialog` trigger-path test plus service-level coverage for `ReaderItem[]` to `ChatTurn[]` conversion. If the source change touches formulas, also prove the Markdown branch applies `formula.markdownCopyFormulaFormat` only at clipboard or Markdown-file exits, while PDF/PNG rendering and Reader canonical content stay untouched.
 
 For ChatGPT direct semantic-selection changes, focused verification must cover ordinary paragraph text plus every supported structured unit. The primary path must capture one same-message, non-streaming Range as typed target + content/materialization/surface tokens + TextQuote, resolve exactly one canonical Markdown span from either source-backed or sealed `host-rendered` content, preserve Markdown wrappers when a whole semantic node is selected, and share one canonical Markdown snapshot across the configured keyboard exits. Repeated quotes need context disambiguation; stale content/materialization tokens, remounted surface roots, changed Range endpoints, reconstructed source, decoded offsets without a proven source map, cross-message selection, streaming content, and unsupported input must fail open. The strict rendered-unit DOM converter remains a bounded compatibility path only for legacy composition roots without canonical content/materialization ports: its existing partial/full, nested-unit, KaTeX, ordered-list, noise-removal, parser-budget, and clone-cleanup tests stay required, but a production semantic rejection must never revive it or publish back into content source/persistence. Formula coverage must prove a sealed host-rendered turn can recover canonical formula Markdown through injected surface atoms and the real shortcut path, while visual glyph text is never promoted to authoritative TeX. The real shortcut path must cover document `selectionchange` → evidence/snapshot → configured `keydown`, `mod-c` finalization, `mod-shift-c` direct clipboard, host handlers before and after the extension phase, runtime settings delivery, repeated init/dispose, editable-target guards, and invalidation when tokens or Range change. `none` leaves host copy untouched; successful exits write only canonical `text/plain` and never load the Reader/export renderer graph. Run the Semantic Content focused gate above plus `tests/unit/core/latex/extractLatexSource.test.ts`, `tests/unit/drivers/math-click.test.ts`, `tests/unit/services/copy/atomicSelectionMarkdown.test.ts`, `tests/unit/ui/content/controllers/ChatGPTAtomicSelectionController.test.ts`, `tests/unit/ui/content/FormulaAssetHoverController.test.ts`, `tests/unit/runtimes/content/entry.test.ts`, and affected settings/performance governance tests, then the repository-wide gates required for a broad behavior change.
 
 The legacy direct-selection compact-fragment compatibility gate applies only to composition roots without canonical content/materialization ports. It must prove that only Range-intersecting content is cloned, formatting ancestors are re-closed, ordered-list numbering is retained, and large KaTeX visual trees are replaced with authoritative TeX atoms before entering the shared DOM normalization, noise removal, rendered-whitespace normalization, parser, and cleaner path. Include a host-like copy-event case where visual formula text is written first and a formula larger than the former 5000-node ancestor budget still finishes as canonical Markdown-only `text/plain`. Parser aborts must escape local error boundaries and be rejected before cleaner output; inline and display formula delimiters must remain balanced across mixed selections. This gate does not describe the production ChatGPT path, which must use `SurfaceProjection` over sealed Repository content.
-
-If the change affects ChatGPT snapshot bridge transport, focused coverage must prove Chrome/Chromium object request/response detail, Firefox JSON-string request/response detail, and JSON-string Graph capture on both browsers. It must also prove POST and SSE are not observed. Reader, Bookmark, Copy, and Save Messages tests should continue to exercise the shared snapshot source without adding browser-specific branches at those upper layers.
 
 If the change affects Detached Reader, `readerSession:*` protocol, Reader extension page entry, or cross-tab session routing, focused coverage must include `tests/unit/contracts/protocol.test.ts`, `tests/unit/runtimes/background/readerSession-handler.test.ts`, `tests/unit/runtimes/content/entry.test.ts`, `tests/unit/runtimes/reader/entry.test.ts`, `tests/unit/services/reader/readerSessionSnapshot.test.ts`, `tests/unit/ui/content/controllers/ChatGPTMessageStepperController.test.ts`, and `tests/unit/ui/reader/readerPanel.presentation.test.ts`, then `npm run test:smoke` and `npm run build`. The tests must prove `sessionId + sourceTabId + readerTabId` isolation, reader/source tab close cleanup, session-storage-only snapshots, source-unavailable errors, first-use notice acknowledgement only after successful session creation, Split View remaining available when Previous/Next buttons are hidden, detached bookmark parity through the shared bookmark save dialog and bookmarks protocol, detached SendPopover parity through the full SendPort draft/write/submit contract, and detached locate activating the source ChatGPT tab without closing the detached Reader tab. If the change affects KaTeX rendering in Reader, also prove the detached page has local KaTeX stylesheet/font coverage without relying on ChatGPT page-global styles.
 
@@ -318,36 +307,36 @@ Verification is complete only when:
 - any required manual regression is called out
 - remaining edge cases and recommended follow-up tests are made explicit
 
-For a missed ChatGPT baseline capture, the selected gate must prove a stable DOM
-batch can establish a host-ready pool and every obtained message remains
-consumable. A late runtime may consume the Bridge's latest in-memory Graph or
-wait for one real future capture; after a Graph baseline, a strict identity/order
-extension may still be compared through that same signal. Runtime/PageIndex/
-popstate/refresh signals may bind identity or flush observed local work, but
-cannot initiate an active read. Under ADR-0021, `pageshow` and the Settings
-"Retry discovery" action may arm one bounded passive upgrade peek even after a
-Graph baseline; the baseline gate itself never reopens. Bridge capture
-additionally accepts a payload-declared current conversation id on a
-same-origin JSON GET whose URL did not carry it, while graph-shaped payloads
-declaring another conversation are counted as rejected and never remembered.
-An unfinished assistant is omitted until the matching stable DOM turn enters
-the pool.
+For ChatGPT discovery, the selected gate must prove that a completed mounted
+assistant enters the tab-local pool only after its official action row exists.
+An unfinished assistant is omitted. A delayed row may arrive at any later time
+and wake the single debounced scan; there is no retry deadline. Existing pool
+content remains consumable after DOM virtualization and SPA navigation.
 
-# Current ChatGPT discovery gate (identity-proven single pool)
+# Current ChatGPT discovery gate (DOM-authoritative tab-local pools)
 
-The active production contract is the single-pool lifecycle in ADR-0021, with
-the identity/completion constraints retained from ADR-0018/0019/0020:
+The active production contract is ADR-0024:
 
-- `ChatGPTConversationDiscoveryAdapter` and the page bridge validate and retain eligible identity- and structure-verified passive Graph evidence with Chrome/Firefox transport parity; the Repository is the layer that admits monotonic candidates and zero extension network requests or POST observation remain required. Since ADR-0020 the bridge also accepts a payload-declared current conversation id when the same-origin GET URL did not carry it; declared-other-id payloads are counted as rejected and never remembered.
-- The route contract reads a safe token after semantic `c` or `conversation` at any path depth. `/c/<id>`, `/conversation/<id>` and `/g/.../c/<id>` share the same rule; `/g/<id>`, `/share/<id>` and query-only identity are not canonical Conversation Documents. URL-stable pages instead use a Runtime page identity for local content.
-- `ChatGPTConversationContentRuntime` owns page/canonical identity, History/navigation signal ordering and epoch fencing; the production content chain contains no Coordinator or polling RouteWatcher.
-- `ChatGPTPageIndex` is the only Page Monitor; `ChatGPTConversationHostMonitor` carries split-hydration identity and generation facts, applies pool-tail order, quiet/completion, compiler-budget and surface-revision fences, and atomically admits a stable DOM batch without requiring the toolbar action row.
-- Virtualized windows may expose an assistant root without its user root. PageIndex/Conversation Surface must retain that assistant-only surface by `assistantMessageId` for an already-cached turn; toolbar mounting and active-range geometry must recover without a Bridge replay, content append, content-token change, duplicate toolbar, or DOM-local history inference. When the user root remounts, the same semantic turn must rebind idempotently.
-- `ConversationContentRepository` is the only production content session. Graph or DOM may establish the pool, including DOM under a page identity before canonical ID; promotion preserves projection/content tokens. Every accepted Graph must contain the maintained typed turns in the same relative order, then merges its complete proven envelope, including hidden prefix, middle and tail additions. Existing strong bodies never change except the ADR-0019 weak-sealed upgrade — strictly stronger completion evidence for the same typed identity may replace a `bounded-quiet`-sealed body in place, equal evidence never rewrites — while equal semantic revisions do not publish or churn the token. Baseline failure never demotes host-ready content, and diagnostic basis is `source/hybrid/host`. Rejected or deferred candidates are retried only through the existing bounded signal coalescing; no polling or consumer acquisition is added.
-- `RenderedContentCompilerV2` is the production normalized host-body compiler, not a second repository. Slot/topology modules remain navigation/materialization evidence only.
-- Reader, word count, formula, whole copy and export consume the Content Port; Directory, Toolbar and Stepper consume the atomic Conversation Surface. Directory geometry prefers the complete user/assistant group and accepts an assistant-only current range only when it joins an already-cached assistant. Precise local selection and annotation require independent source-span proof. Bookmark Preparation additionally requires canonical ID/URL and otherwise sends no persistence request.
-- The real toolbar trigger must prove no-ID first-message mounting and numeric word count, disabled bookmark with zero request, promotion-time bookmark recovery, later-message identity updates, no duplicate toolbar after remount, and no ChatGPT-local observer/route lifecycle.
-- URL-stable id-less discovery is in scope. Tests must cover page-session isolation, clear-plus-generation same-URL reset, virtualized preservation, local consumer availability, and exclusion from bookmark persistence/cross-page navigation.
+- `ChatGPTPageIndex` is the only Page Monitor; no second observer is allowed.
+- `ChatGPTConversationHostMonitor` requires assistant ID, non-empty body,
+  connected official action row and non-generating state, then clones and
+  compiles the body once through the existing Markdown Adapter.
+- One page-level debounce coalesces initialization, relevant mutation,
+  `pageshow`, `resume` and visible wakes. There are no per-message timers,
+  polling or retry ladders.
+- `ConversationContentRepository` maintains one in-memory pool per conversation
+  key. Equal bodies are idempotent, changed bodies replace in place, DOM removal
+  does not delete, and SPA A→B→A restores each pool.
+- `historyStatus` is always `partial`; Directory completeness beyond messages
+  loaded during this page lifecycle is not required.
+- Formula click/copy and PNG/SVG/MathML actions parse mounted formula DOM
+  directly and do not wait for Repository admission.
+- Reader, whole-message copy, export, bookmark and word count keep the Content
+  Port; Directory, Toolbar and Stepper keep the atomic Conversation Surface.
+- The production path has no page bridge, Graph adapter/decoder, Settings retry,
+  active conversation request, React-private-state access or synthetic scroll.
+- Chrome MV3 and Firefox MV2 manifests contain no bridge resource or added
+  permission. Extension conversation GET/POST remains zero.
 
 The focused command is `npm run test:chatgpt-discovery`. It must be followed by
 the repository test ladder, `npm run type-check`, `npm run perf:chatgpt`,

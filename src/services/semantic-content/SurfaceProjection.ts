@@ -15,6 +15,7 @@ import type { ConversationMaterializationPortV1 } from '../../contracts/conversa
 import type { SemanticContentModuleV1 } from '../../contracts/semanticContent';
 import type { ConversationDiscoveryPortV2 } from '../../contracts/conversationDiscoveryV2';
 import { semanticContent } from './SemanticContent';
+import { emitContentPerformanceEvent } from '../../drivers/content/performanceDiagnostics';
 
 export type SurfaceMarkdownProjectionResult =
     | Readonly<{
@@ -91,7 +92,7 @@ export function projectSurfaceSelectionToMarkdown(options: Readonly<{
         getConversationTurnSourceQualityV1(turn) === 'reconstructed'
         || !turn.assistantMarkdown.trim()
     ) {
-        return unavailable('source-insufficient');
+        return unavailable('source-insufficient', 'turn-source');
     }
 
     const projected = projectCanonicalSelection({
@@ -108,7 +109,7 @@ export function projectSurfaceSelectionToMarkdown(options: Readonly<{
         atomicFragments: options.evidence.atomicFragments,
         semanticModule: options.semanticModule,
     });
-    if (projected.status !== 'ready') return unavailable(projected.reason);
+    if (projected.status !== 'ready') return unavailable(projected.reason, projected.stage);
 
     return Object.freeze({
         status: 'ready',
@@ -199,7 +200,11 @@ function projectCanonicalSelection(options: Readonly<{
     semanticModule?: SemanticContentModuleV1;
 }>):
     | Readonly<{ status: 'ready'; markdown: string; semanticRevision: string }>
-    | Readonly<{ status: 'unavailable'; reason: Exclude<SurfaceMarkdownProjectionResult, { status: 'ready' }>['reason'] }> {
+    | Readonly<{
+        status: 'unavailable';
+        reason: Exclude<SurfaceMarkdownProjectionResult, { status: 'ready' }>['reason'];
+        stage: string;
+    }> {
     const module = options.semanticModule ?? semanticContent;
     const compiled = module.compile({
         key: options.key,
@@ -210,23 +215,51 @@ function projectCanonicalSelection(options: Readonly<{
         coverage: options.coverage,
         provenance: options.provenance,
     });
-    if (compiled.status !== 'ready') return { status: 'unavailable', reason: 'source-unavailable' };
+    if (compiled.status !== 'ready') return { status: 'unavailable', reason: 'source-unavailable', stage: 'compile' };
     const resolved = resolveSurfaceSelection(module, compiled.document, options.selector, options.atomicFragments);
     if (resolved.status !== 'ready') {
-        return { status: 'unavailable', reason: resolved.status === 'ambiguous' ? 'ambiguous-mapping' : 'source-insufficient' };
+        const diagnosticCode = resolved.diagnostics[0]?.code ?? 'unknown';
+        return {
+            status: 'unavailable',
+            reason: resolved.status === 'ambiguous' ? 'ambiguous-mapping' : 'source-insufficient',
+            stage: `resolve:${resolved.status}:${diagnosticCode}`,
+        };
     }
     const projected = module.project(compiled.document, {
         kind: 'markdown-fragment',
         selection: resolved.selection,
     });
     if (projected.status !== 'ready' || projected.kind !== 'markdown-fragment' || !projected.markdown) {
-        return { status: 'unavailable', reason: 'source-insufficient' };
+        return { status: 'unavailable', reason: 'source-insufficient', stage: 'project' };
     }
     return Object.freeze({
         status: 'ready',
-        markdown: projected.markdown,
+        markdown: preserveExactFormulaEnvelope(
+            projected.markdown,
+            options.selector,
+            options.atomicFragments,
+        ),
         semanticRevision: compiled.document.revision,
     });
+}
+
+function preserveExactFormulaEnvelope(
+    markdown: string,
+    selector: Parameters<SemanticContentModuleV1['resolve']>[1],
+    fragments: readonly ContentSurfaceAtomicFragmentV1[] | undefined,
+): string {
+    if (fragments?.length !== 1) return markdown;
+    const fragment = fragments[0];
+    if (fragment?.kind !== 'formula') return markdown;
+    const renderedText = fragment.renderedText.trim();
+    const latex = fragment.latex.trim();
+    if (
+        !renderedText
+        || !latex
+        || selector.exact.trim() !== renderedText
+        || markdown.trim() !== latex
+    ) return markdown;
+    return fragment.isBlock ? `$$\n${latex}\n$$` : `$${latex}$`;
 }
 
 function resolveSurfaceSelection(
@@ -273,7 +306,16 @@ function getTurnReadPort(source: ConversationContentSourceV1): ConversationTurnR
     return source as unknown as ConversationTurnReadPortV1;
 }
 
-function unavailable(reason: Exclude<SurfaceMarkdownProjectionResult, { status: 'ready' }>['reason']): SurfaceMarkdownProjectionResult {
+function unavailable(
+    reason: Exclude<SurfaceMarkdownProjectionResult, { status: 'ready' }>['reason'],
+    stage?: string,
+): SurfaceMarkdownProjectionResult {
+    emitContentPerformanceEvent({
+        kind: 'markdown-projection-rejection',
+        status: 'unavailable',
+        reason,
+        ...(stage ? { stage } : {}),
+    });
     return Object.freeze({ status: 'unavailable', reason });
 }
 

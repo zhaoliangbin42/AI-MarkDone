@@ -71,7 +71,10 @@ export class PageMarkdownSelectionResolver {
             context,
             units: frame.renderedAtomicUnits,
         });
-        emitContentPerformanceEvent({ kind: 'markdown-projection' });
+        emitContentPerformanceEvent({
+            kind: 'markdown-projection',
+            status: snapshot ? 'ready' : (context.evidence ? 'unavailable' : 'no-evidence'),
+        });
         this.cachedSnapshotRevision = frame.revision;
         this.cachedSnapshot = snapshot;
         return snapshot;

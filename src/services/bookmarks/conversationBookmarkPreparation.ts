@@ -64,8 +64,8 @@ export async function prepareChatGPTBookmark(
     messageElement: HTMLElement,
 ): Promise<PreparedConversationBookmarkV1 | null> {
     // Bookmark preparation is a consumer read. The content session owns
-    // baseline/host lifecycle events; a click uses the last published snapshot
-    // and never waits for passive baseline admission.
+    // DOM/session lifecycle events; a click uses the last published snapshot
+    // and never starts content acquisition.
     const state = source.read();
     const snapshot = state.snapshot;
     if (!state.document?.conversationId) return null;

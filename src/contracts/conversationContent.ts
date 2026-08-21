@@ -22,7 +22,7 @@ export type ConversationContentCandidateV1 = Readonly<{
     /** Every candidate admitted to the maintained message cache is complete. */
     coverage: 'complete';
     turns: readonly ConversationTurnV1[];
-    /** Additive evidence metadata; legacy producers may omit it. */
+    /** Compatibility metadata retained for older producers and snapshots. */
     branchKey?: string;
     captureId?: string;
     sourceRevision?: number;
@@ -43,7 +43,7 @@ export class ConversationContentAcquisitionError extends Error {
         reason: ConversationContentAcquisitionReasonV1,
         options?: { retryable?: boolean },
     ) {
-        super(`Conversation baseline admission failed: ${reason}`);
+        super(`Conversation content admission failed: ${reason}`);
         this.name = 'ConversationContentAcquisitionError';
         this.reason = reason;
         this.retryable = options?.retryable ?? (
@@ -100,10 +100,10 @@ export type ConversationSnapshotV1 = Readonly<{
     /** Bodies of every admitted turn are dense and complete. */
     coverage: 'complete';
     /**
-     * Whether the pool is known to cover the whole conversation:
-     * 'complete' once a validated Graph baseline was accepted, 'partial'
-     * when a canonical conversation runs from stable DOM evidence only, and
-     * 'unknown' before a document identity binds or on a page-identity pool.
+     * Whether the pool is known to cover the whole conversation. The current
+     * DOM-authoritative ChatGPT producer always publishes 'partial' because it
+     * records only messages loaded during this tab lifecycle. 'complete' and
+     * 'unknown' remain accepted for schema compatibility with other producers.
      * Additive honesty field; snapshots that omit it are treated as
      * 'unknown' by {@link getConversationHistoryStatusV1}.
      */
@@ -114,7 +114,7 @@ export type ConversationSnapshotV1 = Readonly<{
 }>;
 
 export type ConversationSnapshotProofV1 = Readonly<{
-    /** How the active projection was established. */
+    /** Compatibility description of how the active projection was established. */
     basis?: 'source' | 'hybrid' | 'host';
 }>;
 

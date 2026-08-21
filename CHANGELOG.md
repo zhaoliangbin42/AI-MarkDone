@@ -5,6 +5,12 @@ All notable changes to AI-MarkDone will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Changed
+- ChatGPT: Simplified content capture to use completed message DOM as the only body source. Official action rows trigger one debounced scan, loaded messages remain in a tab-local conversation pool across DOM virtualization and SPA navigation, and formulas now use their own DOM parser path without waiting for conversation discovery.
+- ChatGPT: Removed the passive Graph bridge, discovery retry controls, active conversation requests, polling, and per-message retry timers. The directory now intentionally represents only content loaded during the current page lifecycle.
+
 ## [5.3.0] - 2026-08-20
 
 ChatGPT's recent website updates made the page more incremental in some

@@ -46,12 +46,17 @@ type DragMetrics = {
 };
 
 type ContentPerformanceEvent = {
-    kind: 'selection-frame' | 'materialize' | 'formula-evidence' | 'markdown-projection';
+    kind: 'selection-frame' | 'materialize' | 'formula-evidence' | 'markdown-projection' | 'markdown-projection-rejection';
     phase: string;
     durationMs?: number;
     locateCalls?: number;
     rangeToStringCalls?: number;
     formulaScans?: number;
+    formulaCount?: number;
+    exactFormulaMatch?: boolean;
+    status?: 'ready' | 'unavailable' | 'no-evidence';
+    reason?: string;
+    stage?: string;
 };
 
 type HarnessState = {
@@ -70,27 +75,6 @@ const TOOLBAR_TIMEOUT_MS = 15_000;
 const RECOVERY_TIMEOUT_MS = 8_000;
 const FEATURE_LOAD_TIMEOUT_MS = 8_000;
 const PERF_CONVERSATION_ID = '6a733f28-5954-83ec-980e-2b824a431951';
-
-const COMPLEX_ASSISTANT_MARKDOWN = `# Complex answer 1
-
-Before $\\frac{x}{y}$ after.
-
-**Emphasis**, an ordered list, and a table:
-
-1. First item
-2. Second item
-
-| Name | Value |
-| --- | --- |
-| Alpha | 42 |
-
-\`\`\`ts
-const answer = 42;
-\`\`\`
-
-![Fixed diagram](https://example.com/diagram.png)
-
-<svg viewBox="0 0 20 20" aria-label="diagram"><path d="M1 1h18v18H1z" /></svg>`;
 
 function isContentFeatureModuleUrl(url: string): boolean {
     return url.includes('/content-features.js') || url.includes('/content-feature-chunks/');
@@ -112,47 +96,6 @@ function readPositiveIntegerArg(name: string, fallback: number): number {
         throw new Error(`Invalid --${name} value: ${raw}`);
     }
     return value;
-}
-
-function createFixtureGraph(rounds: number): Record<string, unknown> {
-    const mapping: Record<string, unknown> = {
-        root: { id: 'root', parent: null, message: null },
-    };
-    let parent = 'root';
-    for (let index = 0; index < rounds; index += 1) {
-        const ordinal = index + 1;
-        const userNode = `user-node-${ordinal}`;
-        const assistantNode = `assistant-node-${ordinal}`;
-        mapping[userNode] = {
-            id: `turn-${ordinal}`,
-            parent,
-            message: {
-                id: `user-${ordinal}`,
-                author: { role: 'user' },
-                content: { content_type: 'text', parts: [`Prompt ${ordinal}`] },
-            },
-        };
-        mapping[assistantNode] = {
-            id: assistantNode,
-            parent: userNode,
-            message: {
-                id: `assistant-${ordinal}`,
-                author: { role: 'assistant' },
-                content: {
-                    content_type: 'text',
-                    parts: [ordinal === 1
-                        ? COMPLEX_ASSISTANT_MARKDOWN
-                        : `Answer ${ordinal}`],
-                },
-            },
-        };
-        parent = assistantNode;
-    }
-    return {
-        conversation_id: PERF_CONVERSATION_ID,
-        current_node: parent,
-        mapping,
-    };
 }
 
 function createFixtureHtml(rounds: number): string {
@@ -280,6 +223,24 @@ async function resetPhase(page: Page): Promise<void> {
     });
 }
 
+async function waitForClipboardText(page: Page, expected: string, timeoutMs = 2_000): Promise<void> {
+    await page.evaluate(async ({ expectedText, timeout }) => {
+        const startedAt = performance.now();
+        while (performance.now() - startedAt < timeout) {
+            const current = await navigator.clipboard.readText();
+            if (current.includes(expectedText)) return;
+            await new Promise<void>((resolveTick) => window.setTimeout(resolveTick, 25));
+        }
+        const current = await navigator.clipboard.readText();
+        const toast = document.querySelector<HTMLElement>('#aimd-toast-viewport')?.textContent?.trim() ?? '';
+        const events = (window as unknown as { __AIMD_PERF_HARNESS__: HarnessState })
+            .__AIMD_PERF_HARNESS__.contentEvents;
+        throw new Error(
+            `Clipboard did not contain expected text within ${timeout}ms; current=${current}; toast=${toast}; events=${JSON.stringify(events)}`,
+        );
+    }, { expectedText: expected, timeout: timeoutMs });
+}
+
 function percentile(values: number[], p: number): number {
     if (values.length === 0) return 0;
     const sorted = [...values].sort((left, right) => left - right);
@@ -363,17 +324,6 @@ async function preparePage(context: BrowserContext, rounds: number): Promise<Pag
     await installHarness(page);
     await page.route('https://chatgpt.com/**', async (route) => {
         const url = new URL(route.request().url());
-        if (
-            url.pathname === '/api/runtime/conversation-state'
-            && url.searchParams.get('conversation_id') === PERF_CONVERSATION_ID
-        ) {
-            await route.fulfill({
-                status: 200,
-                contentType: 'application/json',
-                body: JSON.stringify(createFixtureGraph(rounds)),
-            });
-            return;
-        }
         await route.fulfill({
             status: 200,
             contentType: 'text/html',
@@ -394,6 +344,22 @@ async function collectUsedJsHeapAfterGc(context: BrowserContext, page: Page): Pr
     } finally {
         await session.detach();
     }
+}
+
+async function readDiscoveryDiagnosticsFromIsolatedWorld(
+    session: CDPSession,
+    contextIds: ReadonlySet<number>,
+): Promise<unknown | null> {
+    for (const contextId of contextIds) {
+        const result = await session.send('Runtime.evaluate', {
+            contextId,
+            expression: 'typeof window.__AIMD_DISCOVERY_DIAGNOSTICS__ === "function" ? window.__AIMD_DISCOVERY_DIAGNOSTICS__() : null',
+            returnByValue: true,
+        }).catch(() => null);
+        const value = result?.result?.value;
+        if (value) return value;
+    }
+    return null;
 }
 
 async function runRuntimeBenchmark(extensionPath: string, rounds: number, mutations: number): Promise<RuntimeMetrics> {
@@ -420,23 +386,29 @@ async function runRuntimeBenchmark(extensionPath: string, rounds: number, mutati
         const page = await preparePage(context, rounds);
         const featureModuleRequests = new Set<string>();
         const exportRendererRequests = new Set<string>();
+        const isolatedContextIds = new Set<number>();
         featureNetworkSession = await context.newCDPSession(page);
+        featureNetworkSession.on('Runtime.executionContextCreated', (event) => {
+            if (event.context.auxData?.type === 'isolated') isolatedContextIds.add(event.context.id);
+        });
+        featureNetworkSession.on('Runtime.executionContextDestroyed', (event) => {
+            isolatedContextIds.delete(event.executionContextId);
+        });
         featureNetworkSession.on('Network.requestWillBeSent', (event) => {
             const url = event.request.url;
             if (isContentFeatureModuleUrl(url)) featureModuleRequests.add(url);
             if (isExportRendererUrl(url)) exportRendererRequests.add(url);
         });
+        await featureNetworkSession.send('Runtime.enable');
         await featureNetworkSession.send('Network.enable');
         page.on('pageerror', (error) => console.error(`[perf:pageerror] ${error.stack ?? error.message}`));
+        page.on('console', (message) => {
+            if (message.type() === 'warning' || message.type() === 'error') {
+                console.error(`[perf:console:${message.type()}] ${message.text()}`);
+            }
+        });
         console.error('[perf] loading fixture');
         await page.goto(`https://chatgpt.com/c/${PERF_CONVERSATION_ID}`, { waitUntil: 'domcontentloaded' });
-        // Exercise the production contract: this is a website-owned GET that
-        // the page bridge observes passively. The extension never initiates it.
-        await page.evaluate(async (conversationId) => {
-            const response = await window.fetch(`/api/runtime/conversation-state?conversation_id=${conversationId}`);
-            if (!response.ok) throw new Error(`Fixture graph failed with ${response.status}`);
-            await response.json();
-        }, PERF_CONVERSATION_ID);
         console.error('[perf] waiting for toolbars');
         await page.waitForFunction(
             (expected) => document.querySelectorAll('[data-aimd-role="message-toolbar"]').length === expected,
@@ -473,23 +445,45 @@ async function runRuntimeBenchmark(extensionPath: string, rounds: number, mutati
         // explicit selection Copy/Comment actions so a deliberately opened
         // action surface cannot masquerade as ordinary runtime retention.
         const steadyHeapBytes = await collectUsedJsHeapAfterGc(context, page);
+        console.error(`[perf] discovery diagnostics ${JSON.stringify(
+            await readDiscoveryDiagnosticsFromIsolatedWorld(featureNetworkSession, isolatedContextIds),
+        )}`);
+        const firstToolbar = page.locator('[data-aimd-role="message-toolbar"]').first();
+        const firstToolbarState = await firstToolbar.evaluate((host) => ({
+            pending: host.getAttribute('data-aimd-pending'),
+            actions: Array.from(host.shadowRoot?.querySelectorAll<HTMLButtonElement>('[data-action]') ?? [])
+                .map((button) => ({ action: button.dataset.action, disabled: button.disabled })),
+        }));
+        console.error(`[perf] first toolbar ${JSON.stringify(firstToolbarState)}`);
+        await firstToolbar.locator('[data-action="copy_markdown"]').click();
+        await waitForClipboardText(page, 'Complex answer 1');
+        const wholeMessageMarkdown = await page.evaluate(() => navigator.clipboard.readText());
+        const formulaIndex = wholeMessageMarkdown.indexOf('\\' + 'frac{x}{y}');
+        console.error(`[perf] first copy formulaContext=${JSON.stringify(
+            formulaIndex >= 0 ? wholeMessageMarkdown.slice(Math.max(0, formulaIndex - 24), formulaIndex + 36) : 'missing',
+        )}`);
         console.error('[perf] idle phase complete');
 
         await resetPhase(page);
         const drag = await runRealDragSelection(page, mutations, true);
         await page.waitForSelector('[data-action="page-selection-copy"]', { timeout: 2_000 });
+        await page.evaluate(() => navigator.clipboard.writeText('aimd-perf-floating-copy-sentinel'));
         await page.locator('[data-action="page-selection-copy"]').click();
-        await page.waitForFunction(
-            async (expected) => (await navigator.clipboard.readText()).includes(expected),
-            '$\\frac{x}{y}$',
-            { timeout: 2_000 },
-        );
+        await waitForClipboardText(page, '$\\frac{x}{y}$');
+
+        await resetPhase(page);
+        await runRealDragSelection(page, mutations, true);
+        await page.evaluate(() => navigator.clipboard.writeText('aimd-perf-shortcut-sentinel'));
         await page.keyboard.press('Control+Shift+C');
-        await page.waitForFunction(
-            async (expected) => (await navigator.clipboard.readText()).includes(expected),
-            '$\\frac{x}{y}$',
-            { timeout: 2_000 },
-        );
+        await waitForClipboardText(page, '$\\frac{x}{y}$');
+        const clipboardContract = await page.evaluate(async () => {
+            const copiedMarkdown = await navigator.clipboard.readText();
+            const clipboardItems = await navigator.clipboard.read();
+            return {
+                copiedMarkdown,
+                copiedTypes: Array.from(new Set(clipboardItems.flatMap((item) => item.types))),
+            };
+        });
 
         // Copy is an explicit action that may consume the transient selection
         // toolbar when the browser collapses the native selection on focus.
@@ -501,14 +495,6 @@ async function runRuntimeBenchmark(extensionPath: string, rounds: number, mutati
         await page.waitForSelector('[data-action="page-comment-add"]', { timeout: 2_000 });
         await page.locator('[data-action="page-comment-add"]').click();
         await page.waitForSelector('[data-action="reader-comment-cancel"], [data-action="cancel"]', { timeout: 2_000 }).catch(() => undefined);
-        const clipboardContract = await page.evaluate(async () => {
-            const copiedMarkdown = await navigator.clipboard.readText();
-            const clipboardItems = await navigator.clipboard.read();
-            return {
-                copiedMarkdown,
-                copiedTypes: Array.from(new Set(clipboardItems.flatMap((item) => item.types))),
-            };
-        });
         const actionDiagnostics = await page.evaluate(() => {
             const state = (window as unknown as { __AIMD_PERF_HARNESS__: HarnessState }).__AIMD_PERF_HARNESS__;
             const actionEvents = state.contentEvents.filter((event) => event.phase === 'action');
@@ -705,11 +691,6 @@ async function runControlDragBenchmark(rounds: number, mutations: number): Promi
     try {
         const page = await preparePage(context, rounds);
         await page.goto(`https://chatgpt.com/c/${PERF_CONVERSATION_ID}`, { waitUntil: 'domcontentloaded' });
-        await page.evaluate(async (conversationId) => {
-            const response = await window.fetch(`/api/runtime/conversation-state?conversation_id=${conversationId}`);
-            if (!response.ok) throw new Error(`Fixture graph failed with ${response.status}`);
-            await response.json();
-        }, PERF_CONVERSATION_ID);
         await resetPhase(page);
         return await runRealDragSelection(page, mutations);
     } finally {

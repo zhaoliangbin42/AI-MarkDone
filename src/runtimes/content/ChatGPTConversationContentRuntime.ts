@@ -4,18 +4,18 @@ import type { ConversationDiscoveryContentPortV1 } from '../../contracts/convers
 import type { ConversationNavigationPortV1 } from '../../contracts/conversationNavigation';
 import type { ConversationSurfacePortV1 } from '../../contracts/conversationSurface';
 import {
+    createConversationDocumentKeyV1,
     createConversationPageDocumentKeyV1,
-    type ConversationContentStateV1,
     type ConversationDocumentRefV1,
 } from '../../contracts/conversationContent';
 import type { DiscoveryDiagnosticsSnapshotV1 } from '../../contracts/conversationDiscoveryDiagnostics';
 import { ConversationContentRepository } from '../../services/content/ConversationContentRepository';
 import { DiscoveryDiagnostics } from '../../services/content/DiscoveryDiagnostics';
-import { ChatGPTConversationDiscoveryAdapter } from '../../drivers/content/chatgpt/ChatGPTConversationDiscoveryAdapter';
 import { ChatGPTConversationSurface } from '../../drivers/content/chatgpt/ChatGPTConversationSurface';
 import { ChatGPTConversationHostMonitor } from '../../drivers/content/chatgpt/ChatGPTConversationHostMonitor';
 import { getChatGPTPageIndex } from '../../drivers/content/chatgpt/domConversationDiscovery';
 import type { ChatGPTPageIndex } from '../../drivers/content/chatgpt/ChatGPTPageIndex';
+import { getChatGPTConversationId } from '../../drivers/content/chatgpt/chatgptRoute';
 
 export type ChatGPTConversationContentRuntimeOptions = Readonly<{
     /** Test seam; production uses the 400ms stable-host quiet window. */
@@ -27,27 +27,22 @@ let pageEpochSequence = 0;
 
 /**
  * ChatGPT composition root. The published content/materialization ports are
- * backed by one identity-proven Graph/stable-host Repository and one shared
- * DOM materialization adapter. Either input may establish the same monotonic
- * pool. No consumer may introduce another content observer, repository, or
- * extraction path.
+ * backed by one DOM-authoritative Repository and one shared DOM
+ * materialization adapter. No consumer may introduce another content
+ * observer, repository, or extraction path.
  *
  * The `source` and `materialization` fields are read-only projections.
- * The graph adapter only peeks at evidence captured from the website's own
- * conversation response. It never issues a conversation request.
+ * The runtime never issues or observes conversation network requests.
  */
 export class ChatGPTConversationContentRuntime {
     readonly source: ConversationDiscoveryContentPortV1;
     readonly surface: ConversationSurfacePortV1 & ChatGPTConversationSurface;
     readonly materialization: ConversationMaterializationPortV1 & { dispose(): void };
-    private readonly graphAdapter: ChatGPTConversationDiscoveryAdapter;
     private readonly repository: ConversationContentRepository;
     private readonly hostMonitor: ChatGPTConversationHostMonitor;
     private readonly pageIndex: ChatGPTPageIndex;
     private readonly pageDocument: ConversationDocumentRefV1;
     private readonly diagnostics = new DiscoveryDiagnostics();
-    private lastBridgeDiagnosticsPullAt = 0;
-    private unsubscribeGraph: (() => void) | null = null;
     private unsubscribePage: (() => void) | null = null;
     private lastDocumentKey: string | null | undefined;
     private initialized = false;
@@ -62,6 +57,9 @@ export class ChatGPTConversationContentRuntime {
     };
     private readonly handlePageResume = () => {
         this.scheduleWakeReconciliation();
+    };
+    private readonly handleVisibilityChange = () => {
+        if (document.visibilityState === 'visible') this.scheduleWakeReconciliation();
     };
     private readonly handlePopState = () => {
         this.synchronizeCurrentEpoch(true);
@@ -82,10 +80,8 @@ export class ChatGPTConversationContentRuntime {
             conversationId: null,
             canonicalUrl: window.location.href,
         });
-        this.graphAdapter = new ChatGPTConversationDiscoveryAdapter();
         this.repository = new ConversationContentRepository({
             resolveDocument: () => this.resolveCurrentDocument(),
-            readBaseline: (_document, signal) => this.graphAdapter.readBaseline(signal),
         });
         this.pageIndex = getChatGPTPageIndex(adapter);
         this.hostMonitor = new ChatGPTConversationHostMonitor({
@@ -115,16 +111,6 @@ export class ChatGPTConversationContentRuntime {
         return this.source;
     }
 
-    /**
-     * Explicit user-triggered retry of the passive baseline peek. Re-arms a
-     * failed (open) gate and reads bridge memory again; never issues a
-     * request and never reopens a gate that already accepted a Graph.
-     */
-    retryBaselineDiscovery(): Promise<ConversationContentStateV1> {
-        this.repository.reopenBaselineGate();
-        return this.repository.enterCurrentEpoch();
-    }
-
     setNavigationPort(navigation: ConversationNavigationPortV1 | null): void {
         this.surface.setNavigationPort(navigation);
     }
@@ -138,20 +124,13 @@ export class ChatGPTConversationContentRuntime {
             this.synchronizeCurrentEpoch(false, batch.pageUrl);
         });
         this.hostMonitor.init();
-        this.unsubscribeGraph = this.graphAdapter.subscribeSignals(() => {
-            // A capture can race a pushState/replaceState commit. Identity is
-            // synchronized first so the evidence reaches the correct gate.
-            this.synchronizeCurrentEpoch(false);
-            this.repository.notifyBaselineCaptured();
-            this.refreshBridgeDiagnostics();
-        });
         window.addEventListener('pageshow', this.handlePageShow);
         document.addEventListener('resume', this.handlePageResume);
+        document.addEventListener('visibilitychange', this.handleVisibilityChange);
         window.addEventListener('popstate', this.handlePopState);
         window.addEventListener('hashchange', this.handleHashChange);
         this.installHistoryHooks();
         this.synchronizeCurrentEpoch(true);
-        this.refreshBridgeDiagnostics();
     }
 
     dispose(): void {
@@ -164,18 +143,16 @@ export class ChatGPTConversationContentRuntime {
         }
         window.removeEventListener('pageshow', this.handlePageShow);
         document.removeEventListener('resume', this.handlePageResume);
+        document.removeEventListener('visibilitychange', this.handleVisibilityChange);
         window.removeEventListener('popstate', this.handlePopState);
         window.removeEventListener('hashchange', this.handleHashChange);
         this.restoreHistoryHooks();
         this.unsubscribePage?.();
         this.unsubscribePage = null;
-        this.unsubscribeGraph?.();
-        this.unsubscribeGraph = null;
         this.surface.dispose();
         this.hostMonitor.dispose();
         this.pageIndex.dispose();
         this.repository.dispose();
-        this.graphAdapter.dispose();
         this.lastDocumentKey = undefined;
     }
 
@@ -186,10 +163,6 @@ export class ChatGPTConversationContentRuntime {
             if (this.disposed) return;
 
             this.hostMonitor.notifyPageShow();
-            // BFCache restores and frozen-page resumes keep the page bridge
-            // and its memory alive. A baseline peek that missed the capture
-            // gets one bounded re-arm; an accepted Graph stays untouched.
-            this.repository.reopenBaselineGate();
             this.synchronizeCurrentEpoch(true);
             this.surface.refreshSurface();
         }, PAGE_LIFECYCLE_WAKE_COALESCE_MS);
@@ -201,11 +174,20 @@ export class ChatGPTConversationContentRuntime {
         const isInitialSynchronization = this.lastDocumentKey === undefined;
         if (changed) this.hostMonitor.notifyRouteChanged(isInitialSynchronization);
         this.lastDocumentKey = nextDocumentKey;
-        if (changed || force) void this.repository.enterCurrentEpoch();
+        if (changed || force) this.repository.bindCurrentDocument();
     }
 
     private resolveCurrentDocument(pageUrl = window.location.href): ConversationDocumentRefV1 {
-        return this.graphAdapter.resolveDocument(pageUrl) ?? Object.freeze({
+        const conversationId = getChatGPTConversationId(pageUrl);
+        if (conversationId) {
+            return Object.freeze({
+                key: createConversationDocumentKeyV1('chatgpt', conversationId),
+                platformId: 'chatgpt',
+                conversationId,
+                canonicalUrl: pageUrl,
+            });
+        }
+        return Object.freeze({
             ...this.pageDocument,
             canonicalUrl: pageUrl,
         });
@@ -224,32 +206,7 @@ export class ChatGPTConversationContentRuntime {
     readDiscoveryDiagnostics(): DiscoveryDiagnosticsSnapshotV1 {
         this.diagnostics.setRepositoryFacts(this.repository.readDiagnosticsFacts());
         this.diagnostics.setHostMonitorFacts(this.hostMonitor.readDiagnosticsFacts());
-        this.diagnostics.setBridgeDiagnostics(this.graphAdapter.getCachedBridgeDiagnostics());
-        this.diagnostics.setBridgeUnavailable(this.graphAdapter.isBridgeUnavailable());
-        this.diagnostics.setCaptureSignalCount(this.graphAdapter.getCaptureSignalCount());
         return this.diagnostics.snapshot();
-    }
-
-    /**
-     * Pull the page bridge's own counters in the background. Throttled because
-     * capture signals can arrive in bursts and each pull is a same-window
-     * event round-trip; failure keeps the previous snapshot intact. A
-     * page-identity document has no eligible conversation GETs, so no bridge
-     * request is issued before a canonical identity exists.
-     */
-    private refreshBridgeDiagnostics(): void {
-        const document = this.resolveCurrentDocument();
-        if (!document || document.conversationId === null) return;
-        const now = Date.now();
-        if (now - this.lastBridgeDiagnosticsPullAt < 500) return;
-        this.lastBridgeDiagnosticsPullAt = now;
-        void this.graphAdapter.readBridgeDiagnostics().then((next) => {
-            if (this.disposed) return;
-            this.diagnostics.setBridgeDiagnostics(next);
-        }).catch(() => {
-            // Bridge counters are best-effort diagnostics; the snapshot keeps
-            // whatever the last successful pull produced.
-        });
     }
 
     private installHistoryHooks(): void {

@@ -19,14 +19,14 @@
 
 ### ChatGPT-specific checks
 
-当问题只发生在 ChatGPT，不要只盯 DOM selector。先区分 canonical semantic snapshot 与当前 materialized anchors：
+当问题只发生在 ChatGPT，先区分当前内容池与当前 materialized anchors：
 
-1. `ConversationContentRepository` 是否已由可信 Graph 或稳定 DOM 批次建立当前 conversation ID 的唯一消息池
-   - bridge 必须在 `document_start` 只被动观察 ChatGPT 页面自身成功的 same-origin `GET`；候选 URL 精确携带当前 ID，JSON payload 在 4 层/256 对象预算内具备合法 Graph。不得固定 endpoint、观察 POST、读取认证信息或主动重放 session/conversation 请求
-   - 检查 page bridge graph parser 与 content-world DTO validator；缺节点、环、route/ID/branch/identity 不一致必须 fail closed
-   - 不要用 React props、内部 store 或消费者侧 DOM fallback 补齐正文；生成中的 assistant 不进入基线，稳定、可编译的新 DOM 消息才追加到唯一缓存
-   - 缓存中的消息默认可消费；不再把消息标记为 `partial` 或把整条会话置为 `stale`。单条 DOM 编译失败只保留该 assistant identity 的 dirty 状态，等待下一次真实 host signal 重试
-   - canonical conversation 没有 Graph 时，完整且稳定的 DOM rounds 应原子建立 `host` pool；后到的可信 Graph 必须包含当前池全部 typed identity 并保持相对顺序，才能按完整 envelope 汇合隐藏 prefix/middle/tail，保留已有 strong 正文，仅允许 ADR-0019 weak-sealed 正文升级。无 canonical identity 时同一批 rounds 也应直接以 page identity 发布；仅书签与跨页能力等待正式 ID
+1. `ConversationContentRepository` 是否已从完成消息 DOM 建立当前 conversation key 的标签页内消息池
+   - 检查对应 assistant 是否有稳定 `data-message-id`、非空正文、已连接的官方操作栏，且当前不在生成中
+   - 检查唯一 `ChatGPTPageIndex` 是否在初始化、相关 mutation 或页面恢复时发布事实；不得增加第二个 observer、轮询或主动 conversation 请求
+   - 正文只从 assistant DOM clone 后经 Markdown Adapter 获取；不读取 React props、内部 store 或网络响应
+   - 相同 assistant ID 正文变化时应覆盖，相同正文应幂等忽略；DOM 虚拟化移除不得删除已入池内容
+   - 未加载历史不属于内容池，`historyStatus` 应保持 `partial`
 2. 比较 `ChatGPTConversationSurface.readFrame()` 的全部 obtained turns 与 `ChatGPTPageIndex` 的当前 connected anchors
    - DOM hydration window 变小只应减少 anchors，不能减少目录/stepper count 或已缓存消息
    - typed `roundId` / `userMessageId` / `assistantMessageId` 无法唯一连接时，应修复 adapter/driver identity，不得使用 prompt 或 DOM-local position 猜测
