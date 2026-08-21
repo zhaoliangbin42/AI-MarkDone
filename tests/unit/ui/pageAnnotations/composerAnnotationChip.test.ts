@@ -62,4 +62,28 @@ describe('ComposerAnnotationChip', () => {
         expect(actions.onOpenManager).toHaveBeenCalledTimes(1);
         chip.dispose();
     });
+
+    it('does not move an already positioned chip during an identical render', async () => {
+        const { container, anchor } = mountComposer();
+        const enhancementHost = document.createElement('span');
+        enhancementHost.dataset.aimdRole = 'input-enhancement-button';
+        container.appendChild(enhancementHost);
+
+        const chip = new ComposerAnnotationChip(createAppearanceSnapshot('light'));
+        chip.render({ container, anchor }, 2, handlers());
+        await Promise.resolve();
+
+        const host = container.querySelector<HTMLElement>('[data-aimd-role="page-annotation-composer-chip"]')!;
+        const observer = new MutationObserver(vi.fn());
+        observer.observe(container, { childList: true });
+
+        chip.render({ container, anchor }, 2, handlers());
+        const records = observer.takeRecords();
+
+        expect(records).toHaveLength(0);
+        expect(container.querySelector('[data-aimd-role="page-annotation-composer-chip"]')).toBe(host);
+        expect(host.previousElementSibling).toBe(enhancementHost);
+        observer.disconnect();
+        chip.dispose();
+    });
 });

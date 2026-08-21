@@ -87,6 +87,38 @@ function createMaterialization(message: HTMLElement): ConversationMaterializatio
     };
 }
 
+function createSignallingMaterialization(message: HTMLElement): ConversationMaterializationPortV1 & {
+    emit(token: string): void;
+} {
+    const target = {
+        documentKey: 'chatgpt:conversation:test',
+        turnId: 'turn-1',
+        userMessageId: 'user-1',
+        assistantMessageId: message.dataset.messageId ?? 'assistant-1',
+    } as const;
+    const listeners = new Set<Parameters<ConversationMaterializationPortV1['subscribe']>[0]>();
+    let token = 'materialization-1';
+    const read = () => ({
+        materializationToken: token,
+        contentToken: 'content-token-1',
+        entries: [{ target, anchorElement: message, messageElement: message }],
+    } as const);
+    return {
+        read,
+        subscribe: (listener) => {
+            listeners.add(listener);
+            listener(read());
+            return () => listeners.delete(listener);
+        },
+        resolveElement: () => target,
+        locate: async () => 'located',
+        emit: (nextToken) => {
+            token = nextToken;
+            listeners.forEach((listener) => listener(read()));
+        },
+    };
+}
+
 function createContentSource(): ConversationContentSourceV1 {
     const document = {
         key: 'chatgpt:conversation:test',
@@ -537,6 +569,36 @@ describe('ChatGPTPageAnnotationController', () => {
         controller.dispose();
         if (rangeRects) Object.defineProperty(Range.prototype, 'getClientRects', { configurable: true, value: rangeRects });
         else delete (Range.prototype as any).getClientRects;
+    });
+
+    it('keeps a pointer toolbar visible when the selected DOM remains connected across a materialization signal', async () => {
+        const message = mountMessage('<p>before <code>inline code</code> after</p>');
+        const root = message.querySelector('.markdown.prose') as HTMLElement;
+        const codeElement = message.querySelector('code') as HTMLElement;
+        const codeText = codeElement.firstChild as Text;
+        const range = document.createRange();
+        range.setStart(codeText, 0);
+        range.setEnd(codeText, codeText.data.length);
+        selectRange(range);
+        mockGeometry(root, codeElement, range);
+        const materialization = createSignallingMaterialization(message);
+        const controller = new ChatGPTPageAnnotationController(new ChatGPTAdapter(), {
+            contentSource: createContentSource(),
+            materialization,
+            surfaceAdapter: createEvidenceSurfaceAdapter(message),
+        });
+        controller.init();
+
+        dispatchPointerUp(320, 240);
+        const shadow = controller['overlay'].getShadow();
+        expect(shadow.querySelector('[data-action="page-comment-add"]')).toBeTruthy();
+
+        materialization.emit('materialization-2');
+        await flushSelectionFrame();
+
+        expect(shadow.querySelector('[data-action="page-selection-copy"]')).toBeTruthy();
+        expect(shadow.querySelector('[data-action="page-comment-add"]')).toBeTruthy();
+        controller.dispose();
     });
 
     it('reuses marker layout when only the active annotation changes', async () => {

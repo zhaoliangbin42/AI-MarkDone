@@ -119,11 +119,12 @@ export class ComposerAnnotationChip {
         // Always place the chip right after the Markdown enhancement button
         // (when present) so the two stay side by side in the composer row.
         const enhancementHost = mount.container.querySelector<HTMLElement>('[data-aimd-role="input-enhancement-button"]');
-        const refNode = enhancementHost?.nextSibling ?? mount.anchor.nextSibling;
-        if (this.host!.parentElement !== mount.container) {
-            mount.container.insertBefore(this.host!, refNode);
-        } else if (this.host!.nextSibling !== refNode) {
-            mount.container.insertBefore(this.host!, refNode);
+        const preferredAnchor = enhancementHost ?? mount.anchor;
+        if (
+            this.host!.parentElement !== mount.container
+            || this.host!.previousSibling !== preferredAnchor
+        ) {
+            mount.container.insertBefore(this.host!, preferredAnchor.nextSibling);
         }
         if (this.countEl) this.countEl.textContent = String(count);
     }

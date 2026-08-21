@@ -101,10 +101,13 @@ export class ChatGPTPageSelectionCoordinator {
     };
 
     private readonly handleMaterializationChanged = (): void => {
-        // A materialization/content token transition invalidates all DOM
-        // references held by the transient frame. Do not carry a stale Range
-        // into a copy/comment action after a host remount.
-        if (this.frame) this.clearFrame();
+        // Keep a live browser selection independent from unrelated content-pool
+        // notifications. A remount invalidates the frame only when its actual
+        // DOM owners have disconnected; actions refresh the Selection again.
+        const location = this.frame?.location;
+        if (location && (!location.root.isConnected || !location.messageElement.isConnected)) {
+            this.clearFrame();
+        }
         this.renderedUnitCandidates = new WeakMap<HTMLElement, WeakMap<Node, HTMLElement[]>>();
     };
 
