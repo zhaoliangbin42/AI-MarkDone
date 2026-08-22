@@ -874,3 +874,4 @@ AI-MarkDone 当前没有任何联网功能，代码也全部公开在 GitHub 上
 
 - Rebuilt ChatGPT content discovery around V2 slot topology and one-shot hydration capture. Directory/Stepper now use the complete public shell topology, while Reader, bookmarks, local Markdown selection, formula copy, word count, and export consume the same verified sealed turn records.
 - ChatGPT no longer uses the conversation backend GET, page bridge, DOM-window position fallback, or rendered glyph text as canonical Markdown/TeX. Ambiguous topology, unstable/unsupported content, stale selection evidence, and incomplete turns fail closed.
+- ChatGPT: Historical messages that load later now fill their stable page slots instead of being appended to the end of Reader and multi-message export order; empty slots add no Markdown conversion or content-token churn.
