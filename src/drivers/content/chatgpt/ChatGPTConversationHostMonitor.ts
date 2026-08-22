@@ -13,7 +13,9 @@ import {
     createRenderedParserCapabilityV2,
 } from '../../../services/content/RenderedContentCompilerV2';
 import {
+    collectChatGPTDomHostSlots,
     resolveChatGPTDomRoundProjectionIdentity,
+    resolveChatGPTDomRoundHostSlotId,
     type ChatGPTDomRoundRef,
 } from './domConversationDiscovery';
 import type { ChatGPTHostObservationBatch, ChatGPTPageIndex } from './ChatGPTPageIndex';
@@ -42,6 +44,7 @@ export class ChatGPTConversationHostMonitor {
     private readonly parserCapability;
     private readonly elementTokens = new WeakMap<HTMLElement, string>();
     private readonly dirtyAssistantIds = new Set<string>();
+    private readonly capturedAssistantIdsByDocumentKey = new Map<string, Set<string>>();
     private readonly compileRejectionCounts = new Map<string, number>();
     private unsubscribe: (() => void) | null = null;
     private settleTimer: ReturnType<typeof setTimeout> | null = null;
@@ -122,6 +125,7 @@ export class ChatGPTConversationHostMonitor {
         this.documentFence += 1;
         this.captureRequested = false;
         this.dirtyAssistantIds.clear();
+        this.capturedAssistantIdsByDocumentKey.clear();
         this.globalDirty = false;
         this.lastDocument = null;
     }
@@ -130,9 +134,22 @@ export class ChatGPTConversationHostMonitor {
         if (this.disposed || batch.kinds.every((kind) => kind === 'surface')) return;
         this.options.repository.bindCurrentDocument();
         if (batch.surfaceRebased || batch.assistantMessageIds.length === 0) this.globalDirty = true;
+        const forceKnownCapture = batch.kinds.includes('content')
+            || batch.kinds.includes('identity')
+            || (batch.kinds.includes('lifecycle') && !batch.kinds.includes('structure'));
+        const completedIds = new Set(batch.generationCompletedAssistantMessageIds);
         for (const assistantMessageId of batch.assistantMessageIds) {
             const normalized = assistantMessageId.trim();
-            if (normalized) this.dirtyAssistantIds.add(normalized);
+            if (
+                normalized
+                && (
+                    forceKnownCapture
+                    || completedIds.has(normalized)
+                    || !this.wasCapturedForCurrentDocument(normalized)
+                )
+            ) {
+                this.dirtyAssistantIds.add(normalized);
+            }
         }
         this.scheduleCapture();
     }
@@ -170,19 +187,20 @@ export class ChatGPTConversationHostMonitor {
         const documentKey = this.options.resolveDocument()?.key ?? null;
         const captureAll = this.globalDirty;
         const dirtyIds = new Set(this.dirtyAssistantIds);
+        const hostSlots = collectChatGPTDomHostSlots(this.options.adapter);
+        const observedHostSlotOrder = hostSlots.map((slot) => slot.id);
         const rounds = this.options.index.getSnapshot();
         const observations: ConversationHostTurnObservationV1[] = [];
         const successfulIds = new Set<string>();
         this.globalDirty = false;
 
-        let previousAssistantMessageId: string | null = null;
         for (const round of rounds) {
             const identity = resolveChatGPTDomRoundProjectionIdentity(round);
             if (!identity) continue;
             const assistantMessageId = identity.assistantMessageId;
+            const hostSlotId = resolveChatGPTDomRoundHostSlotId(round, hostSlots);
+            if (!hostSlotId) continue;
             const shouldCapture = captureAll || dirtyIds.has(assistantMessageId);
-            const predecessorAssistantMessageId = previousAssistantMessageId;
-            previousAssistantMessageId = assistantMessageId;
             if (!shouldCapture) continue;
 
             const officialActionRow = this.options.adapter.getToolbarAnchorElement(round.assistantMessageEl);
@@ -198,7 +216,7 @@ export class ChatGPTConversationHostMonitor {
 
             const observation = await this.compileRound(
                 round,
-                predecessorAssistantMessageId,
+                hostSlotId,
                 revision,
             );
             if (
@@ -217,15 +235,37 @@ export class ChatGPTConversationHostMonitor {
             }
             observations.push(observation);
             successfulIds.add(assistantMessageId);
+            // An assistant-only capture can later regain its virtualized user
+            // prompt, so only complete turn pairs are safe to skip on remount.
+            if (observation.turn.identity.userMessageId) {
+                this.rememberCaptured(documentKey, assistantMessageId);
+            }
         }
 
-        if (observations.length > 0) this.options.repository.ingestHostBatch(observations);
+        if (observedHostSlotOrder.length > 0) {
+            this.options.repository.ingestHostBatch(observations, observedHostSlotOrder);
+        }
         for (const assistantMessageId of successfulIds) this.dirtyAssistantIds.delete(assistantMessageId);
+    }
+
+    private wasCapturedForCurrentDocument(assistantMessageId: string): boolean {
+        const documentKey = this.options.resolveDocument()?.key;
+        return Boolean(documentKey && this.capturedAssistantIdsByDocumentKey.get(documentKey)?.has(assistantMessageId));
+    }
+
+    private rememberCaptured(documentKey: string | null, assistantMessageId: string): void {
+        if (!documentKey) return;
+        let capturedIds = this.capturedAssistantIdsByDocumentKey.get(documentKey);
+        if (!capturedIds) {
+            capturedIds = new Set<string>();
+            this.capturedAssistantIdsByDocumentKey.set(documentKey, capturedIds);
+        }
+        capturedIds.add(assistantMessageId);
     }
 
     private async compileRound(
         round: ChatGPTDomRoundRef,
-        predecessorAssistantMessageId: string | null,
+        hostSlotId: string,
         captureRevision: number,
     ): Promise<ConversationHostTurnObservationV1 | null> {
         const identityParts = resolveChatGPTDomRoundProjectionIdentity(round);
@@ -268,7 +308,7 @@ export class ChatGPTConversationHostMonitor {
         });
         return Object.freeze({
             turn,
-            predecessorAssistantMessageId,
+            hostSlotId,
         });
     }
 

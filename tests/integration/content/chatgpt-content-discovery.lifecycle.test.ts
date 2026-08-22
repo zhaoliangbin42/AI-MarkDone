@@ -10,20 +10,24 @@ function roundHtml(index: number, answer: string, options: { action?: boolean; u
     const user = options.user ?? true;
     return `
         ${user ? `
-            <section data-turn="user" data-turn-id="turn-${index}">
-                <div data-message-author-role="user" data-message-id="user-${index}">
-                    <div class="whitespace-pre-wrap">Question ${index}</div>
-                </div>
-            </section>
-        ` : ''}
-        <section data-turn="assistant" data-turn-id="turn-${index}">
-            <div data-message-author-role="assistant" data-message-id="assistant-${index}">
-                <div class="markdown prose">${answer}</div>
+            <div data-turn-id-container="user-slot-${index}">
+                <section data-turn="user" data-turn-id="user-slot-${index}" data-turn-id-container="user-slot-${index}">
+                    <div data-message-author-role="user" data-message-id="user-${index}">
+                        <div class="whitespace-pre-wrap">Question ${index}</div>
+                    </div>
+                </section>
             </div>
-            ${action
-                ? '<div class="z-0 flex"><button data-testid="copy-turn-action-button">Copy</button></div>'
-                : ''}
-        </section>
+        ` : ''}
+        <div data-turn-id-container="assistant-slot-${index}">
+            <section data-turn="assistant" data-turn-id="assistant-slot-${index}" data-turn-id-container="assistant-slot-${index}">
+                <div data-message-author-role="assistant" data-message-id="assistant-${index}">
+                    <div class="markdown prose">${answer}</div>
+                </div>
+                ${action
+                    ? '<div class="z-0 flex"><button data-testid="copy-turn-action-button">Copy</button></div>'
+                    : ''}
+            </section>
+        </div>
     `;
 }
 
