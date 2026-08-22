@@ -296,9 +296,12 @@ export class MessageToolbarOrchestrator {
         }
         for (const entry of frame.pendingSurfaces) {
             const message = entry.materialization.messageElement;
-            // A pending Surface is enough to track toolbar lifecycle, but the
-            // official action row remains host-owned until the turn is sealed.
-            append(message, 0, true, null);
+            const anchor = this.getAnchorForMessage(message);
+            const pending = !anchor || this.adapter.isStreamingMessage(message);
+            // Toolbar placement is a live host-surface capability. Once the
+            // official row exists and generation has ended, pool admission is
+            // not an additional gate.
+            append(message, 0, pending, pending ? null : anchor);
         }
 
         this.messageOrder = this.sortMessagesByDocumentOrder(mountedMessages);
@@ -317,6 +320,39 @@ export class MessageToolbarOrchestrator {
     }
 
     private async resolveCurrentReaderItemForElement(messageElement: HTMLElement): Promise<FreshReaderItemResult | null> {
+        if (this.adapter.getPlatformId() === 'chatgpt') {
+            const turn = this.getTurnRefForElement(messageElement);
+            const markdown = turn
+                ? copyMarkdownFromTurn(this.adapter, turn.messageEls)
+                : copyMarkdownFromMessage(this.adapter, messageElement);
+            if (!markdown.ok || !markdown.markdown.trim()) return null;
+
+            const canonicalTurn = this.readChatGptTurnForElement(messageElement);
+            const assistantMessageId = this.adapter.getMessageId(messageElement)?.trim()
+                || canonicalTurn?.identity.assistantMessageId
+                || null;
+            const item: ReaderItem = {
+                id: `chatgpt-${assistantMessageId ?? this.getReaderItemCacheKey(messageElement)}`,
+                userPrompt: turn?.userPrompt ?? this.adapter.extractUserPrompt(messageElement) ?? '',
+                content: markdown.markdown,
+                meta: {
+                    platformId: 'chatgpt',
+                    messageId: assistantMessageId,
+                    assistantMessageId,
+                    userMessageId: canonicalTurn?.identity.userMessageId ?? null,
+                    roundId: canonicalTurn?.identity.turnId ?? null,
+                    position: canonicalTurn?.ordinal ?? 0,
+                    url: this.getBookmarkPageUrl(),
+                    bookmarkable: Boolean(canonicalTurn && this.getAvailableBookmarkUrl()),
+                    bookmarked: false,
+                    sourceQuality: 'host-rendered',
+                },
+            };
+            return {
+                item,
+                sourceRevision: canonicalTurn ? this.captureCurrentSourceRevision() : undefined,
+            };
+        }
         return collectFreshCurrentReaderItem(this.adapter, messageElement, {
             conversationContentSource: this.conversationContentSource,
             conversationMaterialization: this.conversationMaterialization,
@@ -1033,9 +1069,17 @@ export class MessageToolbarOrchestrator {
                     conversationMaterialization: this.conversationMaterialization,
                     pageUrl: this.getBookmarkPageUrl(),
                 });
-                const { items, startIndex } = itemsResult;
+                let { items, startIndex } = itemsResult;
+                let usedLocalItem = false;
+                if (items.length === 0) {
+                    const localItem = await this.prepareCurrentReaderItemForElement(messageElement);
+                    if (!localItem) return { ok: false, message: t('contentNotFound') };
+                    items = [localItem];
+                    startIndex = 0;
+                    usedLocalItem = true;
+                }
                 const shouldValidateSourceRevision = itemsResult.status === undefined
-                    || itemsResult.status === 'ready';
+                    || (itemsResult.status === 'ready' && !usedLocalItem);
                 if (shouldValidateSourceRevision && !this.isSourceRevisionCurrent(itemsResult.sourceRevision)) {
                     return { ok: false, message: t('contentNotFound') };
                 }
@@ -1059,10 +1103,13 @@ export class MessageToolbarOrchestrator {
                 onClick: async () => {
                     const guard = this.guardMessageReady(messageElement);
                     if (guard) return guard;
+                    const currentReaderItem = await this.prepareCurrentReaderItemForElement(messageElement);
+                    if (!currentReaderItem) return { ok: false, message: t('contentNotFound') };
                     const opened = await this.saveMessagesDialog!.open(this.adapter, this.appearance.theme, {
                         conversationContentSource: this.conversationContentSource,
                         conversationMaterialization: this.conversationMaterialization,
                         startMessageElement: messageElement,
+                        currentReaderItem,
                     });
                     if (opened === false) {
                         return { ok: false, message: t('contentNotFound') };
@@ -1438,11 +1485,13 @@ export class MessageToolbarOrchestrator {
 
         if (this.adapter.getPlatformId() === 'chatgpt') {
             const turn = this.readChatGptTurnForElement(messageElement);
-            if (!turn) {
-                toolbar.setStats(['—']);
+            if (turn) {
+                this.applyWordCount(toolbar, turn.assistantMarkdown);
                 return;
             }
-            this.applyWordCount(toolbar, turn.assistantMarkdown);
+            const markdown = copyMarkdownFromMessage(this.adapter, messageElement);
+            if (markdown.ok && markdown.markdown.trim()) this.applyWordCount(toolbar, markdown.markdown);
+            else toolbar.setStats(['—']);
             return;
         }
 

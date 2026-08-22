@@ -1439,6 +1439,30 @@
         "message": "Normal",
         "description": "Message for chatgptPageWidthScaleNormal"
     },
+    "chatgptAutoTopTimeoutLabel": {
+        "message": "Go-to-top timeout",
+        "description": "Message for chatgptAutoTopTimeoutLabel"
+    },
+    "chatgptAutoTopTimeoutDesc": {
+        "message": "Go to top simulates page scrolling to trigger history loading step by step, so it takes time. Set the longest time you are willing to wait. After you click Go to top, it will keep trying within this time. Long conversations may require multiple runs if the time is too short.",
+        "description": "Message for chatgptAutoTopTimeoutDesc"
+    },
+    "chatgptNavigationSeekStepLabel": {
+        "message": "Directory navigation speed",
+        "description": "Message for chatgptNavigationSeekStepLabel"
+    },
+    "chatgptNavigationSeekStepDesc": {
+        "message": "The Directory helps you reach a message by simulating page scrolling. A larger step scrolls faster and reduces the time needed to reach the target.",
+        "description": "Message for chatgptNavigationSeekStepDesc"
+    },
+    "chatgptScrollToTop": {
+        "message": "Go to conversation top",
+        "description": "Message for chatgptScrollToTop"
+    },
+    "chatgptStopScrollToTop": {
+        "message": "Stop going to conversation top",
+        "description": "Message for chatgptStopScrollToTop"
+    },
     "chatgptDirectoryEnabledLabel": {
         "message": "Show directory rail",
         "description": "Message for chatgptDirectoryEnabledLabel"

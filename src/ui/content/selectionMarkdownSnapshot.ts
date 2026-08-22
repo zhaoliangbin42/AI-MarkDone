@@ -114,25 +114,21 @@ export function buildPageMarkdownSelectionSnapshot(
     params: BuildPageMarkdownSelectionSnapshotParams,
 ): PageMarkdownSelectionSnapshot | null {
     const { adapter, contentSource, materialization, context, units } = params;
-
-    if (contentSource && materialization) {
-        if (!context.evidence) return null;
+    if (contentSource && materialization && context.evidence) {
         const semantic = projectSurfaceSelectionToMarkdown({
             source: contentSource,
             materialization,
             evidence: context.evidence,
         });
-        // Once canonical source ports are present, an unresolved or degraded
-        // projection must fail open. Reviving DOM reconstruction here would
-        // turn ambiguity into apparently canonical output.
-        if (semantic.status !== 'ready') return null;
-        return {
-            range: context.range.cloneRange(),
-            root: context.root,
-            units,
-            canonicalMarkdown: semantic.markdown,
-            evidence: context.evidence,
-        };
+        if (semantic.status === 'ready') {
+            return {
+                range: context.range.cloneRange(),
+                root: context.root,
+                units,
+                canonicalMarkdown: semantic.markdown,
+                evidence: context.evidence,
+            };
+        }
     }
 
     const canonicalMarkdown = buildPageAtomicSelectionSnapshot({
@@ -146,6 +142,16 @@ export function buildPageMarkdownSelectionSnapshot(
         root: context.root,
         units,
         canonicalMarkdown,
-        evidence: null,
+        // Identity evidence remains useful for durable annotation targeting,
+        // but live DOM copy/comment eligibility does not depend on pool tokens.
+        evidence: context.evidence,
     };
+}
+
+export function isPageMarkdownSelectionSnapshotCurrent(snapshot: PageMarkdownSelectionSnapshot): boolean {
+    return snapshot.root.isConnected
+        && snapshot.range.startContainer.isConnected
+        && snapshot.range.endContainer.isConnected
+        && snapshot.root.contains(snapshot.range.startContainer)
+        && snapshot.root.contains(snapshot.range.endContainer);
 }

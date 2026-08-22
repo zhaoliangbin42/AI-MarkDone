@@ -329,6 +329,37 @@ describe('ChatGPTPageAnnotationController', () => {
         controller.dispose();
     });
 
+    it('opens annotation editing from live DOM when Repository evidence is stale', async () => {
+        const message = mountMessage('<p>before <code>live annotation</code> after</p>');
+        const root = message.querySelector('.markdown.prose') as HTMLElement;
+        const codeElement = message.querySelector('code') as HTMLElement;
+        const range = document.createRange();
+        range.selectNodeContents(codeElement);
+        selectRange(range);
+        mockGeometry(root, codeElement, range);
+        const source = createContentSource();
+        vi.spyOn(source, 'isCurrent').mockReturnValue(false);
+        const controller = new ChatGPTPageAnnotationController(new ChatGPTAdapter(), {
+            contentSource: source,
+            materialization: createMaterialization(message),
+            surfaceAdapter: createEvidenceSurfaceAdapter(message),
+        });
+        try {
+            controller.init();
+            dispatchPointerUp(320, 240);
+            await flushSelectionFrame();
+            const shadow = controller['overlay'].getShadow();
+            shadow.querySelector<HTMLButtonElement>('[data-action="page-comment-add"]')?.click();
+            await Promise.resolve();
+
+            expect(controller['mode']).toBe('editing');
+            expect(shadow.textContent).toContain('live annotation');
+            expect(document.querySelector<HTMLElement>('.aimd-toast')?.textContent ?? '').not.toContain('Selection unavailable');
+        } finally {
+            controller.dispose();
+        }
+    });
+
     it('keeps the selected content available when clicking comment collapses native selection first', async () => {
         const message = mountMessage('<p>before <code>inline code</code> after</p>');
         const root = message.querySelector('.markdown.prose') as HTMLElement;

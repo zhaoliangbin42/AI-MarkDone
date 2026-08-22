@@ -1,6 +1,10 @@
 import {
     CHATGPT_DIRECTORY_RIGHT_INSET_STEP_PX,
+    CHATGPT_AUTO_TOP_TIMEOUT_STEP_MS,
+    CHATGPT_NAVIGATION_SEEK_STEP_PX_STEP,
+    DEFAULT_CHATGPT_AUTO_TOP_TIMEOUT_MS,
     DEFAULT_CHATGPT_DIRECTORY_RIGHT_INSET_PX,
+    DEFAULT_CHATGPT_NAVIGATION_SEEK_STEP_PX,
     CHATGPT_PAGE_WIDTH_SCALE_STEP,
     DEFAULT_GLOBAL_FONT_SIZE_PX,
     DEFAULT_CHATGPT_PAGE_WIDTH_SCALE,
@@ -10,14 +14,18 @@ import {
     DEFAULT_READER_PANEL_SIZE_RATIO,
     GLOBAL_FONT_SIZE_STEP_PX,
     MAX_CHATGPT_DIRECTORY_RIGHT_INSET_PX,
+    MAX_CHATGPT_AUTO_TOP_TIMEOUT_MS,
     MAX_CHATGPT_PAGE_WIDTH_SCALE,
+    MAX_CHATGPT_NAVIGATION_SEEK_STEP_PX,
     MAX_GLOBAL_FONT_SIZE_PX,
     MAX_READER_BODY_FONT_SIZE_PX,
     MAX_READER_CONTENT_MAX_WIDTH_PX,
     MAX_READER_PANEL_HEIGHT_RATIO,
     MAX_READER_PANEL_WIDTH_RATIO,
     MIN_CHATGPT_DIRECTORY_RIGHT_INSET_PX,
+    MIN_CHATGPT_AUTO_TOP_TIMEOUT_MS,
     MIN_CHATGPT_PAGE_WIDTH_SCALE,
+    MIN_CHATGPT_NAVIGATION_SEEK_STEP_PX,
     MIN_READER_BODY_FONT_SIZE_PX,
     MIN_GLOBAL_FONT_SIZE_PX,
     MIN_READER_CONTENT_MAX_WIDTH_PX,
@@ -181,6 +189,8 @@ export function normalizeChatGPTBehaviorSettings(value: unknown): AppSettings['c
         enableArrowKeyMessageNavigation: Boolean((record as any).enableArrowKeyMessageNavigation ?? DEFAULT_SETTINGS.chatgptBehavior.enableArrowKeyMessageNavigation),
         pageWidthScale: normalizeChatGPTPageWidthScale((record as any).pageWidthScale),
         pageAnnotationsEnabled: Boolean((record as any).pageAnnotationsEnabled ?? DEFAULT_SETTINGS.chatgptBehavior.pageAnnotationsEnabled),
+        autoTopTimeoutMs: normalizeChatGPTAutoTopTimeoutMs((record as any).autoTopTimeoutMs),
+        navigationSeekStepPx: normalizeChatGPTNavigationSeekStepPx((record as any).navigationSeekStepPx),
     };
 }
 
@@ -199,6 +209,26 @@ export function normalizeChatGPTPageWidthScale(value: unknown): number {
     if (!Number.isFinite(numeric)) return DEFAULT_CHATGPT_PAGE_WIDTH_SCALE;
     const clamped = Math.min(MAX_CHATGPT_PAGE_WIDTH_SCALE, Math.max(MIN_CHATGPT_PAGE_WIDTH_SCALE, numeric));
     return Math.round(clamped / CHATGPT_PAGE_WIDTH_SCALE_STEP) * CHATGPT_PAGE_WIDTH_SCALE_STEP;
+}
+
+export function normalizeChatGPTAutoTopTimeoutMs(value: unknown): number {
+    const numeric = typeof value === 'number' ? value : Number.parseInt(String(value ?? ''), 10);
+    if (!Number.isFinite(numeric)) return DEFAULT_CHATGPT_AUTO_TOP_TIMEOUT_MS;
+    const clamped = Math.min(MAX_CHATGPT_AUTO_TOP_TIMEOUT_MS, Math.max(MIN_CHATGPT_AUTO_TOP_TIMEOUT_MS, numeric));
+    const stepped = Math.round((clamped - MIN_CHATGPT_AUTO_TOP_TIMEOUT_MS) / CHATGPT_AUTO_TOP_TIMEOUT_STEP_MS)
+        * CHATGPT_AUTO_TOP_TIMEOUT_STEP_MS
+        + MIN_CHATGPT_AUTO_TOP_TIMEOUT_MS;
+    return Math.min(MAX_CHATGPT_AUTO_TOP_TIMEOUT_MS, Math.max(MIN_CHATGPT_AUTO_TOP_TIMEOUT_MS, stepped));
+}
+
+export function normalizeChatGPTNavigationSeekStepPx(value: unknown): number {
+    const numeric = typeof value === 'number' ? value : Number.parseInt(String(value ?? ''), 10);
+    if (!Number.isFinite(numeric)) return DEFAULT_CHATGPT_NAVIGATION_SEEK_STEP_PX;
+    const clamped = Math.min(MAX_CHATGPT_NAVIGATION_SEEK_STEP_PX, Math.max(MIN_CHATGPT_NAVIGATION_SEEK_STEP_PX, numeric));
+    const stepped = Math.round((clamped - MIN_CHATGPT_NAVIGATION_SEEK_STEP_PX) / CHATGPT_NAVIGATION_SEEK_STEP_PX_STEP)
+        * CHATGPT_NAVIGATION_SEEK_STEP_PX_STEP
+        + MIN_CHATGPT_NAVIGATION_SEEK_STEP_PX;
+    return Math.min(MAX_CHATGPT_NAVIGATION_SEEK_STEP_PX, Math.max(MIN_CHATGPT_NAVIGATION_SEEK_STEP_PX, stepped));
 }
 
 export function normalizeReaderContentMaxWidthPx(value: unknown): number {

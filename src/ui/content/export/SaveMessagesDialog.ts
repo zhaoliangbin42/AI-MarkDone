@@ -25,6 +25,7 @@ import {
     collectFreshReaderContent,
     readerItemsToChatTurns,
 } from '../../../services/reader/readerContentSource';
+import type { ReaderItem } from '../../../services/reader/types';
 import { getSaveMessagesDialogCss } from './saveMessagesDialogCss';
 import { xIcon, fileCodeIcon, fileTextIcon, imageIcon } from '../../../assets/icons';
 import { OverlaySession } from '../overlay/OverlaySession';
@@ -111,6 +112,7 @@ export class SaveMessagesDialog {
             conversationContentSource?: ConversationContentSourceV1 | null;
             conversationMaterialization?: ConversationMaterializationPortV1 | null;
             startMessageElement?: HTMLElement | null;
+            currentReaderItem?: ReaderItem | null;
         }
     ): Promise<boolean> {
         this.focusLifecycle.capture();
@@ -129,10 +131,13 @@ export class SaveMessagesDialog {
             options?.startMessageElement ?? null,
             readerOptions,
         );
-        const { items, startIndex } = content;
+        const items = content.items.length > 0
+            ? content.items
+            : options?.currentReaderItem
+                ? [options.currentReaderItem]
+                : [];
+        const startIndex = content.items.length > 0 ? content.startIndex : 0;
         if (adapter.getPlatformId() === 'chatgpt' && options?.conversationContentSource && items.length === 0) {
-            // The consumer can only export what discovery has already
-            // published.  It must not wait for or manufacture missing turns.
             this.adapter = null;
             this.focusLifecycle.restore(document);
             return false;

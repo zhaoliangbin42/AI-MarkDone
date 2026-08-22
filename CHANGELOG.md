@@ -5,11 +5,18 @@ All notable changes to AI-MarkDone will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [Unreleased]
+## [5.4.0] - 2026-08-22
 
 ### Changed
-- ChatGPT: Simplified content capture to use completed message DOM as the only body source. Official action rows trigger one debounced scan, loaded messages remain in a tab-local conversation pool across DOM virtualization and SPA navigation, and formulas now use their own DOM parser path without waiting for conversation discovery.
+- ChatGPT: User prompts that hydrate after their message shell mounts are now picked up without waiting for another history load.
+- ChatGPT: Historical messages that load later now fill their stable page slots instead of being appended to the end of Reader and multi-message export order; empty slots add no Markdown conversion or content-token churn.
+- ChatGPT: Message toolbars and current-message Copy, Reader, Export, selection copy, and annotations now use the mounted message DOM directly instead of waiting for content-pool admission. The accumulated pool uses stable message IDs plus the page's outer slot order, so host `conversation-turn-N` renumbering cannot scramble already loaded messages.
+- ChatGPT: Simplified content capture to use completed message DOM as the only body source. Official action rows trigger one debounced scan, loaded messages remain in a tab-local conversation pool across DOM virtualization and SPA navigation, unchanged completed messages no longer repeat Markdown conversion when remounted, and formulas use their own DOM parser path without waiting for conversation discovery.
 - ChatGPT: Removed the passive Graph bridge, discovery retry controls, active conversation requests, polling, and per-message retry timers. The directory now intentionally represents only content loaded during the current page lifecycle.
+- ChatGPT: Added a lower-right one-click top control that jumps instantly and keeps boundedly handling delayed history loading; the default timeout is 20 seconds, and wheel, click, keyboard input, or a second click stops it while mouse movement remains allowed.
+- ChatGPT: Added a Settings slider for long-distance Directory/Bookmark/Reader/Stepper navigation, from 1000 to 5000px in 400px steps, while preserving adaptive correction and cancellation.
+
+## [Unreleased]
 
 ## [5.3.0] - 2026-08-20
 
@@ -874,4 +881,3 @@ AI-MarkDone 当前没有任何联网功能，代码也全部公开在 GitHub 上
 
 - Rebuilt ChatGPT content discovery around V2 slot topology and one-shot hydration capture. Directory/Stepper now use the complete public shell topology, while Reader, bookmarks, local Markdown selection, formula copy, word count, and export consume the same verified sealed turn records.
 - ChatGPT no longer uses the conversation backend GET, page bridge, DOM-window position fallback, or rendered glyph text as canonical Markdown/TeX. Ambiguous topology, unstable/unsupported content, stale selection evidence, and incomplete turns fail closed.
-- ChatGPT: Historical messages that load later now fill their stable page slots instead of being appended to the end of Reader and multi-message export order; empty slots add no Markdown conversion or content-token churn.

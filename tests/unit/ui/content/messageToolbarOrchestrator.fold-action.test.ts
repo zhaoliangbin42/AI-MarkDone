@@ -408,7 +408,7 @@ describe('MessageToolbarOrchestrator ChatGPT reader path', () => {
         }
     });
 
-    it('keeps the Reader surface mountable when the fresh ChatGPT source is unavailable', async () => {
+    it('opens the mounted ChatGPT message when the accumulated source is unavailable', async () => {
         document.body.innerHTML = `
           <div id="thread">
             <article data-turn="user">
@@ -438,12 +438,15 @@ describe('MessageToolbarOrchestrator ChatGPT reader path', () => {
 
         await readerAction.onClick();
 
-        expect(readerPanel.show).toHaveBeenCalledWith(
-            [],
-            0,
-            expect.any(String),
-            expect.objectContaining({ profile: 'conversation-reader' }),
-        );
+        const [items, startIndex, , options] = readerPanel.show.mock.calls[0];
+        expect(items).toMatchObject([{
+            id: 'chatgpt-a1',
+            userPrompt: 'Hello from user',
+            content: 'Hi',
+            meta: { assistantMessageId: 'a1', position: 0, sourceQuality: 'host-rendered' },
+        }]);
+        expect(startIndex).toBe(0);
+        expect(options).toEqual(expect.objectContaining({ profile: 'conversation-reader' }));
     });
 
     it('opens a Deep Research report through the shared Reader source and cleans citation tokens', async () => {
@@ -1077,7 +1080,7 @@ describe('MessageToolbarOrchestrator ChatGPT reader path', () => {
         expect(shownItems[0].content).toBe('Original tail');
     });
 
-    it('fails closed when a clicked ChatGPT Reader element only has a non-canonical local id', async () => {
+    it('opens a clicked mounted ChatGPT Reader element even before canonical pool admission', async () => {
         document.body.innerHTML = `
           <div id="thread">
             <article data-turn="user">
@@ -1107,12 +1110,15 @@ describe('MessageToolbarOrchestrator ChatGPT reader path', () => {
 
         await readerAction.onClick();
 
-        expect(readerPanel.show).toHaveBeenCalledWith(
-            [],
-            0,
-            expect.any(String),
-            expect.objectContaining({ profile: 'conversation-reader' }),
-        );
+        const [items, startIndex, , options] = readerPanel.show.mock.calls[0];
+        expect(items).toMatchObject([{
+            id: 'chatgpt-dom-wrapper-id',
+            userPrompt: 'Question 50',
+            content: 'Visible answer',
+            meta: { assistantMessageId: 'dom-wrapper-id', position: 0, sourceQuality: 'host-rendered' },
+        }]);
+        expect(startIndex).toBe(0);
+        expect(options).toEqual(expect.objectContaining({ profile: 'conversation-reader' }));
         expect(conversationContentSource.refresh).not.toHaveBeenCalled();
     });
 

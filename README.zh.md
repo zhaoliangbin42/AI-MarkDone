@@ -8,7 +8,7 @@
     <a href="./LICENSE">
       <img src="https://img.shields.io/github/license/zhaoliangbin42/AI-MarkDone?label=License" alt="License">
     </a>
-    <img src="https://img.shields.io/badge/Version-5.3.0-10A37F" alt="Version 5.3.0">
+    <img src="https://img.shields.io/badge/Version-5.4.0-10A37F" alt="Version 5.4.0">
     </br>
     <img src="https://img.shields.io/badge/Browsers-Chrome%20%7C%20Firefox-10A37F" alt="Browsers">
     <img src="https://img.shields.io/badge/Primary%20Platform-ChatGPT-10A37F" alt="Primary Platform">
@@ -199,11 +199,11 @@ npm run build
 
 ## 📅 最新更新
 
-### 5.3.0
-- 强化 ChatGPT 内容发现链路，应对网络较慢或页面增量加载更明显的情况，让目录条不再只依赖当前页面已经加载出来的内容。
-- 增加阅读器阅读位置记忆功能，记录当前页面生命周期内的阅读位置；刷新页面后会重置。
-- 新增 ChatGPT 页面内直接注释功能，并支持持久化保存。
-- 修复目录条不完整以及一些已知问题。
+### 5.4.0
+- 适配 ChatGPT 全新的增量加载方式，让消息操作和内容加载更符合当前网页行为。
+- 将字数统计、公式复制、局部复制和注释功能与目录发现链路解耦。
+- 增加有界的一键回到顶部功能，并支持配置远距离跳转参数。
+- 目录条、阅读器和导出功能会随着消息加载逐步更新。
 
 [完整更新日志](./CHANGELOG.md)
 [版本说明](./RELEASE_NOTES.md)

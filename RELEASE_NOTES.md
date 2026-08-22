@@ -1,5 +1,21 @@
 # Release Notes
 
+## v5.4.0 (2026-08-22)
+
+ChatGPT has substantially changed how it loads long conversations. This release adapts AI-MarkDone to the new DOM-driven, incremental loading model while keeping message actions independent from the conversation directory.
+
+### Changed
+- ChatGPT message actions such as word count, formula copy, partial selection copy, and annotations now work directly from rendered message DOM instead of depending on the conversation discovery path.
+- The directory, Reader, and export now reflect messages loaded during the current page lifecycle. As you browse, newly loaded messages are added in order.
+- Long-distance directory navigation uses bounded simulated scrolling and adaptive correction rather than assuming that the entire conversation has a fixed page height.
+
+### Added
+- Added a lower-right Go to top control that repeatedly triggers ChatGPT's history loading until the top is reached or the configured timeout expires.
+- Added a configurable timeout for Go to top and a configurable step size for long-distance navigation.
+
+### Known limitation
+- Because ChatGPT now loads older messages from the network only when the page reaches the relevant region, a fast Go to top run may not mount every intermediate message. The directory, Reader, and export can therefore remain partial until those messages are browsed into view.
+
 ## v5.3.0 (2026-08-20)
 
 ChatGPT's recent website updates made the page more incremental in some

@@ -8,7 +8,7 @@
     <a href="./LICENSE">
       <img src="https://img.shields.io/github/license/zhaoliangbin42/AI-MarkDone?label=License" alt="License">
     </a>
-    <img src="https://img.shields.io/badge/Version-5.3.0-10A37F" alt="Version 5.3.0">
+    <img src="https://img.shields.io/badge/Version-5.4.0-10A37F" alt="Version 5.4.0">
     </br>
     <img src="https://img.shields.io/badge/Browsers-Chrome%20%7C%20Firefox-10A37F" alt="Browsers">
     <img src="https://img.shields.io/badge/Primary%20Platform-ChatGPT-10A37F" alt="Primary Platform">
@@ -200,11 +200,11 @@ npm run build
 
 ## 📅 Changelog (Latest)
 
-### 5.3.0
-- Strengthened ChatGPT content discovery for slower or more incremental page loading, so the directory can recover more than the content currently mounted on the page.
-- Added Reader reading-position memory for the current page lifecycle; refreshing the page resets it.
-- Added persistent annotations directly on ChatGPT pages.
-- Fixed incomplete directory entries and several known issues.
+### 5.4.0
+- Adapted ChatGPT message actions and content loading to the website's new incremental DOM model.
+- Kept word count, formula copy, partial selection copy, and annotations independent from directory discovery.
+- Added bounded Go to top and configurable long-distance navigation controls.
+- Directory, Reader, and export now grow as messages are loaded during browsing.
 
 [Full Changelog](./CHANGELOG.md)
 [Release Notes](./RELEASE_NOTES.md)

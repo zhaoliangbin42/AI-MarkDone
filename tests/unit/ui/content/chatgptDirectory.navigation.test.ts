@@ -305,11 +305,43 @@ function attachTestScrollRoot(adapter: ChatGPTNavigationTestAdapter): HTMLElemen
         scrollHeight: { configurable: true, value: 5000 },
         scrollTop: { configurable: true, writable: true, value: 0 },
     });
+    scrollRoot.getBoundingClientRect = vi.fn(() => ({
+        x: 0,
+        y: 0,
+        top: 0,
+        left: 0,
+        right: 1000,
+        bottom: 500,
+        width: 1000,
+        height: 500,
+        toJSON: () => ({}),
+    }));
     scrollRoot.scrollTo = vi.fn((options: ScrollToOptions) => {
         scrollRoot.scrollTop = Number(options.top ?? 0);
     });
     adapter.getConversationScrollRoot = () => scrollRoot;
     return scrollRoot;
+}
+
+function setSyntheticRoundGeometry(positions: number[], currentPosition: number): void {
+    for (const position of positions) {
+        const top = position === currentPosition ? 180 : 1200 + position * 80;
+        const rect = () => ({
+            x: 0,
+            y: top,
+            top,
+            left: 0,
+            right: 800,
+            bottom: top + 160,
+            width: 800,
+            height: 160,
+            toJSON: () => ({}),
+        });
+        const user = document.getElementById(`user-${position}`);
+        const assistant = document.getElementById(`assistant-${position}`);
+        if (user) user.getBoundingClientRect = vi.fn(rect);
+        if (assistant) assistant.getBoundingClientRect = vi.fn(rect);
+    }
 }
 
 describe('ChatGPT directory navigation', () => {
@@ -705,7 +737,203 @@ describe('ChatGPT directory navigation', () => {
         expect(scrollRoot.scrollTo).not.toHaveBeenCalled();
     });
 
-    it('keeps 200-round host-slot discovery single-pass and avoids pixel scrolling', async () => {
+    it('uses the ordered surface cursor to seek down when the target has no host slot', async () => {
+        const { navigateChatGPTDirectoryTarget } = await import('@/ui/content/chatgptDirectory/navigation');
+        const adapter = new ChatGPTNavigationTestAdapter();
+        mountRoleWindow([1]);
+        setCanonicalSnapshot(adapter, buildCanonicalSnapshot(8));
+        const surface = getSurface(adapter);
+        const scrollRoot = attachTestScrollRoot(adapter);
+        setSyntheticRoundGeometry([1], 1);
+        const scrollTo = vi.spyOn(scrollRoot, 'scrollTo').mockImplementation((options: ScrollToOptions) => {
+            scrollRoot.scrollTop = Number(options.top ?? 0);
+            mountRoleWindow([1, 5]);
+            setSyntheticRoundGeometry([1, 5], 5);
+            const anchor = document.getElementById('user-5');
+            if (anchor) anchor.scrollIntoView = vi.fn();
+            invalidateChatGPTDomRoundSnapshot(adapter);
+            surface.refreshSurface();
+        });
+
+        const resultPromise = navigateChatGPTDirectoryTarget(adapter, { position: 5 }, {
+            surface,
+            timeoutMs: 300,
+            alignmentTimeoutMs: 0,
+        });
+        await vi.advanceTimersByTimeAsync(360);
+        const result = await resultPromise;
+
+        expect(result).toEqual({ ok: true });
+        expect(scrollTo).toHaveBeenCalled();
+        expect(scrollTo.mock.calls[0]?.[0]).toMatchObject({ top: expect.any(Number) });
+        expect(Number(scrollTo.mock.calls[0]?.[0].top)).toBeGreaterThan(0);
+    });
+
+    it('uses the configured initial seek stride before adaptive correction', async () => {
+        const { navigateChatGPTDirectoryTarget } = await import('@/ui/content/chatgptDirectory/navigation');
+        const adapter = new ChatGPTNavigationTestAdapter();
+        mountRoleWindow([1]);
+        setCanonicalSnapshot(adapter, buildCanonicalSnapshot(8));
+        const surface = getSurface(adapter);
+        const scrollRoot = attachTestScrollRoot(adapter);
+        Object.defineProperty(scrollRoot, 'scrollHeight', { configurable: true, value: 10_000 });
+        setSyntheticRoundGeometry([1], 1);
+        const scrollTo = vi.spyOn(scrollRoot, 'scrollTo').mockImplementation((options: ScrollToOptions) => {
+            scrollRoot.scrollTop = Number(options.top ?? 0);
+            mountRoleWindow([1, 5]);
+            setSyntheticRoundGeometry([1, 5], 5);
+            const anchor = document.getElementById('user-5');
+            if (anchor) anchor.scrollIntoView = vi.fn();
+            invalidateChatGPTDomRoundSnapshot(adapter);
+            surface.refreshSurface();
+        });
+
+        const resultPromise = navigateChatGPTDirectoryTarget(adapter, { position: 5 }, {
+            surface,
+            timeoutMs: 300,
+            alignmentTimeoutMs: 0,
+            seekStepPx: 4_600,
+        } as any);
+        await vi.advanceTimersByTimeAsync(360);
+        const result = await resultPromise;
+
+        expect(result).toEqual({ ok: true });
+        expect(scrollTo).toHaveBeenCalled();
+        expect(Number(scrollTo.mock.calls[0]?.[0].top)).toBe(4_600);
+    });
+
+    it('uses the ordered surface cursor to seek up when the target has no host slot', async () => {
+        const { navigateChatGPTDirectoryTarget } = await import('@/ui/content/chatgptDirectory/navigation');
+        const adapter = new ChatGPTNavigationTestAdapter();
+        mountRoleWindow([5]);
+        setCanonicalSnapshot(adapter, buildCanonicalSnapshot(8));
+        const surface = getSurface(adapter);
+        const scrollRoot = attachTestScrollRoot(adapter);
+        scrollRoot.scrollTop = 2000;
+        setSyntheticRoundGeometry([5], 5);
+        const scrollTo = vi.spyOn(scrollRoot, 'scrollTo').mockImplementation((options: ScrollToOptions) => {
+            scrollRoot.scrollTop = Number(options.top ?? 0);
+            mountRoleWindow([2, 5]);
+            setSyntheticRoundGeometry([2, 5], 2);
+            const anchor = document.getElementById('user-2');
+            if (anchor) anchor.scrollIntoView = vi.fn();
+            invalidateChatGPTDomRoundSnapshot(adapter);
+            surface.refreshSurface();
+        });
+
+        const resultPromise = navigateChatGPTDirectoryTarget(adapter, { position: 2 }, {
+            surface,
+            timeoutMs: 300,
+            alignmentTimeoutMs: 0,
+        });
+        await vi.advanceTimersByTimeAsync(360);
+        const result = await resultPromise;
+
+        expect(result).toEqual({ ok: true });
+        expect(scrollTo).toHaveBeenCalled();
+        expect(Number(scrollTo.mock.calls[0]?.[0].top)).toBeLessThan(2000);
+    });
+
+    it('reverses and reduces the seek step after the cursor crosses the target', async () => {
+        const { navigateChatGPTDirectoryTarget } = await import('@/ui/content/chatgptDirectory/navigation');
+        const adapter = new ChatGPTNavigationTestAdapter();
+        mountRoleWindow([1]);
+        setCanonicalSnapshot(adapter, buildCanonicalSnapshot(8));
+        const surface = getSurface(adapter);
+        const scrollRoot = attachTestScrollRoot(adapter);
+        setSyntheticRoundGeometry([1], 1);
+        const scrollTo = vi.spyOn(scrollRoot, 'scrollTo').mockImplementation((options: ScrollToOptions) => {
+            scrollRoot.scrollTop = Number(options.top ?? 0);
+            const callCount = scrollTo.mock.calls.length;
+            if (callCount === 1) {
+                mountRoleWindow([1, 7]);
+                setSyntheticRoundGeometry([1, 7], 7);
+            } else {
+                mountRoleWindow([1, 5, 7]);
+                setSyntheticRoundGeometry([1, 5, 7], 5);
+                const anchor = document.getElementById('user-5');
+                if (anchor) anchor.scrollIntoView = vi.fn();
+            }
+            invalidateChatGPTDomRoundSnapshot(adapter);
+            surface.refreshSurface();
+        });
+
+        const resultPromise = navigateChatGPTDirectoryTarget(adapter, { position: 5 }, {
+            surface,
+            timeoutMs: 600,
+            alignmentTimeoutMs: 0,
+        });
+        await vi.advanceTimersByTimeAsync(660);
+        const result = await resultPromise;
+
+        expect(result).toEqual({ ok: true });
+        expect(scrollTo).toHaveBeenCalledTimes(2);
+        const firstTop = Number(scrollTo.mock.calls[0]?.[0].top);
+        const secondTop = Number(scrollTo.mock.calls[1]?.[0].top);
+        expect(secondTop).toBeLessThan(firstTop);
+        expect(firstTop - secondTop).toBeLessThanOrEqual(firstTop / 2 + 1);
+    });
+
+    it('stops a no-progress seeker within its bounded budget', async () => {
+        const { navigateChatGPTDirectoryTarget } = await import('@/ui/content/chatgptDirectory/navigation');
+        const adapter = new ChatGPTNavigationTestAdapter();
+        mountRoleWindow([1]);
+        setCanonicalSnapshot(adapter, buildCanonicalSnapshot(8));
+        const surface = getSurface(adapter);
+        const scrollRoot = attachTestScrollRoot(adapter);
+        setSyntheticRoundGeometry([1], 1);
+        const scrollTo = vi.spyOn(scrollRoot, 'scrollTo');
+
+        const resultPromise = navigateChatGPTDirectoryTarget(adapter, { position: 5 }, {
+            surface,
+            timeoutMs: 220,
+            alignmentTimeoutMs: 0,
+        });
+        await vi.advanceTimersByTimeAsync(260);
+        const result = await resultPromise;
+
+        expect(result).toEqual({ ok: false, message: expect.stringMatching(/timeout|boundary|budget/i) });
+        expect(scrollTo.mock.calls.length).toBeLessThanOrEqual(8);
+    });
+
+    it('keeps seeking beyond the legacy 20-step cap when the page advances only partially per scroll', async () => {
+        const { navigateChatGPTDirectoryTarget } = await import('@/ui/content/chatgptDirectory/navigation');
+        const adapter = new ChatGPTNavigationTestAdapter();
+        mountRoleWindow([1]);
+        setCanonicalSnapshot(adapter, buildCanonicalSnapshot(8));
+        const surface = getSurface(adapter);
+        const scrollRoot = attachTestScrollRoot(adapter);
+        setSyntheticRoundGeometry([1], 1);
+        const requiredSteps = 21;
+        const scrollTo = vi.spyOn(scrollRoot, 'scrollTo').mockImplementation(() => {
+            const callCount = scrollTo.mock.calls.length;
+            scrollRoot.scrollTop = Math.min(
+                scrollRoot.scrollHeight - scrollRoot.clientHeight,
+                scrollRoot.scrollTop + 100,
+            );
+            if (callCount === requiredSteps) {
+                mountRoleWindow([1, 5]);
+                setSyntheticRoundGeometry([1, 5], 5);
+                const anchor = document.getElementById('user-5');
+                if (anchor) anchor.scrollIntoView = vi.fn();
+                invalidateChatGPTDomRoundSnapshot(adapter);
+                surface.refreshSurface();
+            }
+        });
+
+        const resultPromise = navigateChatGPTDirectoryTarget(adapter, { position: 5 }, {
+            surface,
+            timeoutMs: 4_000,
+            alignmentTimeoutMs: 0,
+        });
+        await vi.advanceTimersByTimeAsync(2_200);
+        const result = await resultPromise;
+
+        expect(result).toEqual({ ok: true });
+        expect(scrollTo).toHaveBeenCalledTimes(requiredSteps);
+    });
+
+    it('keeps 200-round host-slot discovery single-pass and avoids pixel scrolling', { timeout: 15_000 }, async () => {
         const { navigateChatGPTDirectoryTarget } = await import('@/ui/content/chatgptDirectory/navigation');
         const adapter = new ChatGPTNavigationTestAdapter();
         const slots = mountVirtualizedTurnSlots(200, [1, 199, 200]);

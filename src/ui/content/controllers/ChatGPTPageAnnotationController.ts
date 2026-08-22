@@ -26,6 +26,7 @@ import type { ReaderCommentRecord } from '../../../services/reader/commentSessio
 import { PageAnnotationStore } from '../../../services/reader/pageAnnotationStore';
 import {
     PageMarkdownSelectionResolver,
+    isPageMarkdownSelectionSnapshotCurrent,
     type PageMarkdownSelectionSnapshot,
 } from '../selectionMarkdownSnapshot';
 import {
@@ -423,12 +424,7 @@ export class ChatGPTPageAnnotationController {
     }
 
     private isSnapshotCurrent(snapshot: PageMarkdownSelectionSnapshot): boolean {
-        if (!snapshot.evidence) return true;
-        if (!this.contentSource || !this.materialization) return false;
-        const current = this.materialization.read();
-        return current.materializationToken === snapshot.evidence.materializationToken
-            && current.contentToken === snapshot.evidence.contentToken
-            && this.contentSource.isCurrent(snapshot.evidence.contentToken);
+        return isPageMarkdownSelectionSnapshotCurrent(snapshot);
     }
 
     private openCreateCommentFromCurrentSelection(): void {

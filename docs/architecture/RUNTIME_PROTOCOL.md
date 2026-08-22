@@ -119,9 +119,9 @@ ChatGPT 内容获取不再使用 MAIN-world page bridge，也不新增 content �
 
 assistant message ID、非空正文、已连接的官方操作栏和非生成状态同时满足后，Monitor clone 正文一次并通过现有 Markdown Adapter 转换一次，再按 assistant message ID 写入 `ConversationContentRepository`。官方操作栏只是完成和挂载触发信号，不是正文来源。相同正文幂等忽略，变化正文覆盖；DOM 被虚拟化移除不删除已入池内容。
 
-Repository 在当前标签页内维护 `Map<conversationKey, ConversationPool>`，SPA 切换只切换 active pool，返回旧会话时恢复旧池并用当前 DOM 更新。页面刷新或 content Runtime 重建后池自然清空。当前 DOM 顺序直接作为已加载消息顺序，`historyStatus` 固定为 `partial`。内容链路没有 Graph transport、主动 conversation 请求、轮询、逐消息计时器、baseline gate 或 Settings retry。
+Repository 在当前标签页内维护 `Map<conversationKey, ConversationPool>`，SPA 切换只切换 active pool，返回旧会话时恢复旧池并用当前 DOM 更新。页面刷新或 content Runtime 重建后池自然清空。内容以稳定 `assistantMessageId` 为键；PageIndex 提供的 mounted stable-ID 序列只通过非冲突重叠插入前缀、中段或尾部，不按 UUID 或会动态重编号的 `conversation-turn-N` 排序。完全无重叠的窗口先按 ID 暂存，出现重叠证据后才并入有序 snapshot。`historyStatus` 固定为 `partial`。内容链路没有 Graph transport、主动 conversation 请求、轮询、逐消息计时器、baseline gate 或 Settings retry。
 
-公式点击复制与 PNG/SVG/MathML 动作直接从被操作的公式 DOM 经 math parser Adapter 解析，不依赖 Repository 是否已收录所属消息。Reader、Copy、Export、Bookmark、Toolbar、Directory 与 Surface 的公开协议保持不变。
+公式点击复制与 PNG/SVG/MathML 动作直接从被操作的公式 DOM 经 math parser Adapter 解析，不依赖 Repository 是否已收录所属消息。Toolbar 及当前消息 Copy/Reader/Export/词数可直接从仍挂载的对应消息 DOM 工作；跨消息 Reader/Export、Directory 与 Stepper 使用 Repository/Surface，书签保存继续要求 canonical identity 与 pool-proven position。公开协议保持不变。
 
 ## 6. Current Request Families
 

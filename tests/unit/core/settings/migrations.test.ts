@@ -7,6 +7,33 @@ describe('settings migrations', () => {
         expect(loadAndNormalize(null).chatgptBehavior.atomicMarkdownCopyShortcut).toBe('mod-shift-c');
     });
 
+    it('normalizes ChatGPT fast-top timeout and monotonic seek stride settings', () => {
+        const defaults = loadAndNormalize(null);
+        expect(defaults.chatgptBehavior.autoTopTimeoutMs).toBe(20_000);
+        expect(defaults.chatgptBehavior.navigationSeekStepPx).toBe(3_000);
+
+        const next = loadAndNormalize({
+            version: 4,
+            chatgptBehavior: {
+                autoTopTimeoutMs: 9_000,
+                navigationSeekStepPx: 1_299,
+            },
+        } as any);
+
+        expect(next.chatgptBehavior.autoTopTimeoutMs).toBe(10_000);
+        expect(next.chatgptBehavior.navigationSeekStepPx).toBe(1_400);
+        expect(loadAndNormalize({
+            version: 4,
+            chatgptBehavior: {
+                autoTopTimeoutMs: 70_000,
+                navigationSeekStepPx: 700,
+            },
+        } as any).chatgptBehavior).toMatchObject({
+            autoTopTimeoutMs: 60_000,
+            navigationSeekStepPx: 1_000,
+        });
+    });
+
     it('migrates the legacy ChatGPT atomic Markdown copy toggle', () => {
         expect(loadAndNormalize({
             ...DEFAULT_SETTINGS,
@@ -241,6 +268,11 @@ describe('settings migrations', () => {
         });
     });
 
+    it('defaults the ChatGPT directory to off without overriding an explicit preference', () => {
+        expect(loadAndNormalize({}).chatgptDirectory.enabled).toBe(false);
+        expect(loadAndNormalize({ version: 4, chatgptDirectory: { enabled: true } } as any).chatgptDirectory.enabled).toBe(true);
+    });
+
     it('normalizes ChatGPT message navigation behavior with default-on controls', () => {
         const defaulted = loadAndNormalize({
             version: 4,
@@ -287,6 +319,8 @@ describe('settings migrations', () => {
             enableArrowKeyMessageNavigation: true,
             pageWidthScale: 100,
             pageAnnotationsEnabled: true,
+            autoTopTimeoutMs: 20_000,
+            navigationSeekStepPx: 3_000,
         });
         expect(disabled.chatgptBehavior).toEqual({
             restorePositionAfterSend: false,
@@ -308,6 +342,8 @@ describe('settings migrations', () => {
             enableArrowKeyMessageNavigation: false,
             pageWidthScale: 145,
             pageAnnotationsEnabled: true,
+            autoTopTimeoutMs: 20_000,
+            navigationSeekStepPx: 3_000,
         });
         expect(clamped.chatgptBehavior.pageWidthScale).toBe(200);
     });

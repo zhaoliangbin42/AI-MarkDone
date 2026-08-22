@@ -22,6 +22,7 @@ import { ChatGPTDirectoryController } from '../../ui/content/controllers/ChatGPT
 import { ChatGPTSendPositionRestoreController } from '../../ui/content/controllers/ChatGPTSendPositionRestoreController';
 import { ChatGPTComposerEditingController } from '../../ui/content/controllers/ChatGPTComposerEditingController';
 import { ChatGPTMessageStepperController } from '../../ui/content/controllers/ChatGPTMessageStepperController';
+import { ChatGPTTopScrollController } from '../../ui/content/controllers/ChatGPTTopScrollController';
 import { ChatGPTPromptAutocompleteController } from '../../ui/content/controllers/ChatGPTPromptAutocompleteController';
 import { ChatGPTOfficialNavigationVisibilityController } from '../../ui/content/controllers/ChatGPTOfficialNavigationVisibilityController';
 import { ChatGPTPageWidthController } from '../../ui/content/controllers/ChatGPTPageWidthController';
@@ -51,6 +52,8 @@ import { armChatGPTSendPositionRestore } from '../../drivers/content/chatgpt/sen
 import { DEFAULT_GLOBAL_FONT_SIZE_PX } from '../../core/settings/types';
 import {
     normalizeChatGPTInputEnhancementSettings,
+    normalizeChatGPTAutoTopTimeoutMs,
+    normalizeChatGPTNavigationSeekStepPx,
     normalizeGlobalFontSizePx,
     normalizeThemeAccentColor,
     loadAndNormalize,
@@ -148,12 +151,14 @@ if (adapter) {
     const conversationMaterialization = adapter.getPlatformId() === 'chatgpt'
         ? chatGptConversationContentRuntime?.materialization ?? null
         : null;
+    let chatGptNavigationSeekStepPx = DEFAULT_SETTINGS.chatgptBehavior.navigationSeekStepPx;
     const conversationNavigation = adapter.getPlatformId() === 'chatgpt' && conversationContentSource
         ? new ConversationNavigationCoordinator({
             source: conversationContentSource,
             execute: (target, options) => navigateChatGPTDirectoryTarget(adapter, target, {
                 timeoutMs: options.timeoutMs,
                 signal: options.signal,
+                seekStepPx: chatGptNavigationSeekStepPx,
                 alignmentTimeoutMs: Math.min(options.timeoutMs ?? 15000, 1500),
                 surface: chatGptConversationContentRuntime!.surface,
             }),
@@ -232,6 +237,9 @@ if (adapter) {
     const bookmarksPanel = createLazyBookmarksPanel(bookmarksController, readerPanel, {
         onOpenPromptManager: (anchor) => chatGptPromptAutocomplete?.openManager(anchor),
     });
+    const chatGptTopScroll = adapter.getPlatformId() === 'chatgpt'
+        ? new ChatGPTTopScrollController(adapter)
+        : null;
     const chatGptMessageStepper = adapter.getPlatformId() === 'chatgpt'
         ? new ChatGPTMessageStepperController(adapter, {
             surface: chatGptConversationContentRuntime!.surface,
@@ -240,6 +248,7 @@ if (adapter) {
             onOpenBookmarksPanel: () => bookmarksPanel.toggle(),
             onOpenDetachedReader: () => openDetachedReaderFromStepper(),
             onOpenPrompts: (anchor) => chatGptPromptAutocomplete?.openManager(anchor),
+            onTopScrollButton: (button) => chatGptTopScroll?.bindButton(button),
             onTogglePageBookmark: async (url) => {
                 const status = await bookmarksController.readPageBookmarkStatus(url);
                 if (!status.ok) {
@@ -529,6 +538,10 @@ if (adapter) {
 
     const initChatGptIfNeeded = () => {
         if (adapter.getPlatformId() !== 'chatgpt') return;
+        // The fast-top control is a DOM/lifecycle control, not a content-pool
+        // consumer. It must remain available even while discovery is empty or
+        // temporarily unavailable.
+        chatGptTopScroll?.init();
         if (conversationContentSource) {
             chatGptConversationReaderBinding?.init();
             viewportResizeSuspend?.init();
@@ -571,6 +584,8 @@ if (adapter) {
             settings,
         );
         const effectiveInputEnhancement = resolveChatGPTInputEnhancement(inputEnhancement);
+        chatGptNavigationSeekStepPx = normalizeChatGPTNavigationSeekStepPx(next.navigationSeekStepPx);
+        chatGptTopScroll?.setTimeoutMs(normalizeChatGPTAutoTopTimeoutMs(next.autoTopTimeoutMs));
         chatGptAtomicSelection?.setMarkdownCopyShortcut(next.atomicMarkdownCopyShortcut);
         setAtomicSelectionEnabled(Boolean(runtimeEnabled));
         chatGptSendPositionRestore?.setEnabled(Boolean(next.restorePositionAfterSend));
@@ -608,6 +623,7 @@ if (adapter) {
         chatGptPromptAutocomplete?.setAppearance(nextSnapshot);
         chatGptComposerEditing?.setAppearance(nextSnapshot);
         chatGptMessageStepper?.setAppearance(nextSnapshot);
+        chatGptTopScroll?.setAppearance(nextSnapshot);
         chatGptPageAnnotation?.setAppearance(nextSnapshot);
     };
 
@@ -640,6 +656,7 @@ if (adapter) {
         chatGptComposerEditing?.dispose();
         chatGptPromptAutocomplete?.dispose();
         chatGptMessageStepper?.dispose();
+        chatGptTopScroll?.dispose();
         chatGptPageWidth?.dispose();
         chatGptPageAnnotation?.dispose();
         pageAnnotationEnabled = false;
@@ -649,7 +666,7 @@ if (adapter) {
     };
 
     // Apply initial UI locale immediately (otherwise switching to a non-auto locale won't take effect until a change event).
-    void setLocale(lastLocale);
+    void Promise.resolve(setLocale(lastLocale)).then(() => chatGptTopScroll?.refreshLabels());
     setLazyContentFeatureLocale(lastLocale);
     applyAppearance(initialAppearance);
     if (cachedSettings?.reader) {
@@ -707,7 +724,7 @@ if (adapter) {
     settingsClient.subscribe((snap) => {
         if (snap.settings.language !== lastLocale) {
             lastLocale = snap.settings.language;
-            void setLocale(lastLocale);
+            void Promise.resolve(setLocale(lastLocale)).then(() => chatGptTopScroll?.refreshLabels());
             setLazyContentFeatureLocale(lastLocale);
         }
         const nextRuntimeEnabled = adapter.getPlatformId() === 'chatgpt'

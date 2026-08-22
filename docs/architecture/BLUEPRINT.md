@@ -8,10 +8,16 @@
 > Pools are keyed by conversation so SPA navigation can switch and restore
 > them until a full page reload. A turn in the pool is consumable; streaming,
 > short coalescing and compilation are internal timing.
-> `ConversationContentSourceV1` remains the only consumer content port.
-> `ChatGPTConversationSurface` is the only production join between that pool
-> and the current PageIndex anchors. See
-> [ADR-0024](../adr/ADR-0024-chatgpt-dom-authoritative-content-pool.md).
+> `ConversationContentSourceV1` remains the accumulated-content port. Mounted
+> message actions use a DOM-local message snapshot keyed by stable
+> `data-message-id`; they do not wait for pool admission. The Repository keeps
+> the observed outer `data-turn-id-container` sequence as a private persistent
+> slot skeleton and projects obtained bodies through it; the mutable
+> `conversation-turn-N` test id is never a permanent ordinal. See
+> [ADR-0024](../adr/ADR-0024-chatgpt-dom-authoritative-content-pool.md) and
+> [ADR-0025](../adr/ADR-0025-chatgpt-stable-message-identity-and-local-actions.md),
+> refined by
+> [ADR-0026](../adr/ADR-0026-chatgpt-persistent-host-slot-order.md).
 
 > **Virtualized surface projection:** a mounted assistant response may outlive
 > its user prompt in the DOM window. The shared Page Monitor keeps that fact as
@@ -104,15 +110,17 @@ content port and one atomic page Surface:
 flowchart LR
     DOM["ChatGPT DOM"]
     PageIndex["One ChatGPTPageIndex observer<br/>typed facts + current anchors"]
-    Monitor["Host Monitor<br/>official-action readiness + one DOM compile"]
-    Session["ConversationContentRepository<br/>tab-scoped conversation pools"]
+    LocalMessage["DOM-local message snapshot<br/>current message actions"]
+    Monitor["Host Monitor<br/>outer slot batch + one DOM compile"]
+    Session["ConversationContentRepository<br/>private slot skeleton + obtained bodies"]
     ContentPort["ConversationContentSourceV1<br/>obtained snapshot + content token"]
     ConversationSurface["ChatGPTConversationSurface<br/>obtained / pending-surface / unmounted"]
     Semantic["Semantic Content Module<br/>compile / resolve / project"]
     ReaderSource["readerContentSource"]
     ReaderItems["ReaderItem[]"]
-    Body["Reader / Whole-message Copy<br/>Formula / Export / Word count"]
-    SurfaceConsumers["Directory / Toolbar / Stepper / Navigation"]
+    Body["Reader / multi-message export"]
+    LocalActions["Toolbar / current Copy / current Reader<br/>current Export / Selection / Annotation"]
+    SurfaceConsumers["Directory / Stepper / Navigation"]
     Bookmark["Existing bookmark chain<br/>canonical ID required"]
     Structure["Reader structure / outline"]
     Render["Reader HTML / PDF / PNG render"]
@@ -122,7 +130,8 @@ flowchart LR
     ParserAdapter["Parser Capability Adapter<br/>formula/code source hints"]
     Formula["formula click / assets"]
     Selection["local selection / annotation anchor"]
-    DOM --> PageIndex --> Monitor --> Session
+    DOM --> PageIndex --> LocalMessage --> LocalActions
+    PageIndex --> Monitor --> Session
     Session --> ContentPort
     Session --> ConversationSurface
     PageIndex --> ConversationSurface
@@ -143,14 +152,33 @@ flowchart LR
 Adapter owns generic route-token identity. The Host Adapter owns selectors,
 official-action readiness, streaming state and rendered semantic carriers.
 `ConversationContentRepository` is the single production owner of tab-local
-conversation pools, projection tokens and snapshots. Consumers neither read
-ChatGPT payloads nor compile their own DOM body source.
+conversation pools, projection tokens and snapshots. `assistantMessageId` is
+the stable body key; the outer `data-turn-id-container` is the stable position
+key. Each Host Monitor capture reads the complete observed outer slot sequence
+once before compiling eligible bodies. Repository accepts only whole-sequence
+contiguous extension, retains a larger sequence when the current DOM is merely
+a subwindow, fills later-mounted bodies at their owning slots, and regenerates
+dense public ordinals from obtained slots. User and assistant body evidence is
+staged: a known empty slot is retained privately and a later non-empty body
+updates that slot in place. Empty topology alone does not change the content
+token. Host `conversation-turn-N` values are mutable diagnostics, never
+canonical order. Consumers neither read ChatGPT payloads nor create a second
+accumulated pool.
 
-`SemanticContentModuleV1` is provider-neutral and browser-independent. It accepts canonical Markdown and emits one immutable AI-MarkDone model, UTF-16 half-open source spans, Reader structure, plain text, and canonical Markdown projections. Parser libraries remain implementation details. `ContentSurfaceAdapter` keeps DOM/Range/selector knowledge in the driver and emits only typed target, content/materialization/surface tokens, and TextQuote evidence. `SurfaceProjection` is the only source/surface join. Source-backed and compiler-verified `host-rendered` Markdown already in the cache may produce a local canonical selection; ambiguous, stale, reconstructed, cross-message, streaming, or unproven mappings fail open instead of estimating offsets or reconstructing Markdown from DOM.
+The current-message seam is intentionally parallel to the pool. PageIndex and
+the Host Adapter identify one mounted assistant and its official action row;
+one DOM-local snapshot can serve Toolbar, current-message Copy/Reader/Export,
+Selection and Annotation. Repository ingestion may reuse
+the same normalized result, but pool ordering or publication never gates those
+live actions.
+
+`SemanticContentModuleV1` is provider-neutral and browser-independent. It accepts canonical Markdown and emits one immutable AI-MarkDone model, UTF-16 half-open source spans, Reader structure, plain text, and canonical Markdown projections. Parser libraries remain implementation details. `ContentSurfaceAdapter` keeps DOM/Range/selector knowledge in the driver and emits typed target and TextQuote evidence. `SurfaceProjection` remains the only source/pool join when a matching cached turn exists. For a current mounted selection, an unavailable or stale pool projection falls back to compiling that owning message DOM; cross-message, detached or streaming selections still fail closed instead of estimating offsets.
 
 `ChatGPTConversationSurface` atomically joins the immutable pool with the
-current PageIndex facts. Directory, Toolbar and Stepper subscribe only to this
-Frame. Its compatibility `ConversationMaterializationPortV1` projection answers
+current PageIndex facts for accumulated-content consumers. Directory and
+Stepper subscribe to this Frame; Toolbar placement and current-message actions
+consume PageIndex's typed mounted-message seam directly. Its compatibility
+`ConversationMaterializationPortV1` projection answers
 where a typed turn is currently mounted without maintaining another state
 store. The same PageIndex observer classifies removal of a marked
 extension-owned Directory, Stepper, or Toolbar host as a Surface-only lifecycle
@@ -172,7 +200,8 @@ Repository pool; it does not delete other pools in the same tab. `refresh()`
 only waits for already observed local work. There is no extension conversation
 GET/POST, response bridge, polling, retry ladder, second content observer, or
 content RouteWatcher. Full rationale is recorded in
-`docs/adr/ADR-0024-chatgpt-dom-authoritative-content-pool.md`.
+`docs/adr/ADR-0024-chatgpt-dom-authoritative-content-pool.md` and
+`docs/adr/ADR-0025-chatgpt-stable-message-identity-and-local-actions.md`.
 
 ### 2.3.1 扩展启动闭环（Boot）
 
@@ -276,15 +305,15 @@ v1 的正式领域契约、排除项和失败语义见 `docs/adr/ADR-0006-reader
 - 页面级入口必须由 AI-MarkDone 自有 surface 承载，不得为入口修改宿主页面 header 的内部 DOM；若未来新增宿主锚点，相关 DOM 差异仍必须收敛在 adapter 契约内
 - 页面注释入口只在 UI controller 内编排选区工具条、Reader 注释 builder、Prompt autocomplete seam 与页面管理器；selection frame 由 `ChatGPTPageSelectionCoordinator` 唯一提供，拖选期间不做语义水合。普通注释插入传空 `userPrompt`，Prompt 右方向键才把候选 Prompt 交给 Reader `buildCommentsExport`；页面管理器不重复实现 Reader 的批量复制/删除。
 - ChatGPT conversation group discovery、turn root、conversation root、streaming 判定同样属于 adapter/driver 契约的一部分；UI/controller 只能消费已经抽象好的 structural refs，不得在 UI 层按 ChatGPT selector 重新推导轮次、正文或 identity
-- `ConversationContentRepository` / `ConversationContentSourceV1` 是 ChatGPT semantic SSOT；`readerContentSource` 是唯一 `ReaderItem[]` 正文投影，分别提供无副作用的当前读取和只等待/返回已观察 DOM 工作的显式 `refresh()`。Repository 从页面启动即持有 page identity，并在当前标签页内按 conversation key 保存多个纯内存池；官方 action row 出现且 assistant DOM 非空、非生成中时，Host Monitor 按消息 ID 写入。canonical identity 后到只 promotion，不重建 projection、正文或 content token；SPA 切换只切换 active pool，虚拟化移除不删池，页面刷新自然清空。`resolveChatGPTReaderStartIndex()` 是唯一语义起始位置规则。工具栏词数与 Reader binding 只被动读取；Copy/Reader open/Save Messages 只读取当前 snapshot，公式动作直接读取公式 DOM。书签命令只有在当前 canonical ID 和 URL 完整时沿用既有链路；无 ID 时不准备、不保存、不构造不完整记录。任何 UI/controller 都不得启动内容获取或构造 ChatGPT Reader items
+- `ConversationContentRepository` / `ConversationContentSourceV1` 是 ChatGPT 累积内容 SSOT；`readerContentSource` 是唯一多消息 `ReaderItem[]` 投影。Repository 从页面启动即持有 page identity，并在当前标签页内按 conversation key 保存多个纯内存池；`assistantMessageId` 是稳定正文键，最外层 `data-turn-id-container` 是位置键。Repository 私有保存完整槽位骨架，只接受旧序列的连续扩展或当前子窗口，先登记拓扑、再按 `hostSlotId` 原位填充后续到达的正文；公共 V1 只发布已获得正文的稠密 turns，空槽不改变 `contentToken`。用户正文的后续 character/child-list hydrate 是 Host Monitor 的有效唤醒信号，不能等下一次无关历史加载。`conversation-turn-N` 不得作为持久 ordinal。canonical identity 后到只 promotion；SPA 切换只切 active pool，虚拟化移除不删池，页面刷新自然清空。工具栏挂载与当前消息 Copy/Reader/Export 直接消费对应消息的 DOM-local snapshot，不等待 pool；公式动作直接读取公式 DOM。跨消息 Reader、Save Messages 与导出消费 pool；书签提交仍要求 canonical identity 与 pool-proven position。任何 UI/controller 都不得建立第二个累积池
 - 官网 conversation Reader 只由 `ChatGPTConversationReaderBinding` 订阅 source state；cache 新增消息时追加，已有 typed identity 保持权威，没有 snapshot 时关闭 Reader。Save Messages 以 projection/content token 失效；延迟书签事务继续使用既有 canonical conversation identity 与 content token，且 token 不进入持久 schema
-- `ChatGPTPageIndex` 只按宿主 DOM revision 缓存当前 connected anchors 和 typed host facts；虚拟化只挂载 assistant response 时保留 assistant-only surface projection，并以 `assistantMessageId` 回接既有 obtained turn，不把它当成新的正文或轮次。`ChatGPTConversationSurface` 以 V1 snapshot 的完整顺序为事实，并以 typed identity 原子连接 complete group、assistant-only surface 与 pending host anchor；它是 Directory、Toolbar、Stepper 和同页 Navigation 的唯一生产页面投影。兼容 `ConversationMaterializationPortV1` 从同一 Frame 派生，不维护第二份状态。已挂载 assistant message element 的唯一 `data-message-id` 直接对应 `assistantMessageId`，不得因 wrapper/turn ID 漂移而失配；无直接身份时才使用 materialized containment，歧义必须 fail closed。DOM window replacement 不得改变 obtained count；PageIndex 必须忽略 AI-MarkDone 自有节点和 `data-aimd-*` bookkeeping。Directory active geometry 优先使用完整 user/assistant group；只有已缓存 assistant 的 assistant-only projection 时才使用 assistant root 的真实范围。pending toolbar anchor 只服务 UI 状态，不能伪造正文
+- `ChatGPTPageIndex` 只按宿主 DOM revision 缓存当前 connected anchors 和 typed host facts；虚拟化只挂载 assistant response 时保留 assistant-only surface projection，并以 `assistantMessageId` 回接既有 obtained turn，不把它当成新的正文或轮次。`ChatGPTConversationSurface` 以 V1 snapshot 的完整顺序为事实，并以 typed identity 原子连接 complete group、assistant-only surface 与 pending host anchor；它是 Directory、Stepper 和同页 Navigation 的唯一累积内容页面投影。Toolbar 只复用其中的 PageIndex mounted facts，不把 Frame 的 `obtained` 状态当准入条件。兼容 `ConversationMaterializationPortV1` 从同一 Frame 派生，不维护第二份状态。已挂载 assistant message element 的唯一 `data-message-id` 直接对应 `assistantMessageId`，不得因 wrapper/turn ID 漂移而失配。DOM window replacement 不得改变 obtained count；PageIndex 必须忽略 AI-MarkDone 自有节点和 `data-aimd-*` bookkeeping。Directory active geometry 维持现状，本阶段不新增完整性或导航语义
 - 旧 `ChatGPTConversationDiscoveryCoordinator`、`ChatGPTConversationIndex` 与独立 `ChatGPTConversationMaterialization` 不属于兼容层，而是已删除的重复所有权。长期结构不得以测试 helper、UI fallback 或导航适配为名恢复它们；Runtime、Repository、PageIndex、Conversation Surface 四个 owner 足以覆盖 lifecycle、content、host facts 与唯一 join
-- Off-screen navigation 应以经过 typed-anchor 校准的宿主持久 turn slot 为主路径，不得把 canonical position 直接换算为全局 scroll ratio，也不得依赖 React/Fiber、私有 virtualizer 或宿主数字 test id。校准成功后必须在 bounded budget 内复用同一 target slot，直到 exact identity anchor materialize；不得中途退回像素探测。只有没有可信 slot topology 时才可运行 compatibility seeker，且 exact connected identity 与稳定 alignment 仍是唯一成功条件。正常点击不得因此新增全页 observer、常驻 timer 或重复 slot scan
+- Off-screen navigation 应以经过 typed-anchor 校准的宿主持久 turn slot 为主路径，不得把 canonical position 直接换算为全局 scroll ratio，也不得依赖 React/Fiber、私有 virtualizer 或宿主数字 test id。校准成功后必须在 bounded budget 内复用同一 target slot，直到 exact identity anchor materialize。没有可信 slot topology 时，允许在用户主动 Directory/Stepper/Reader locate/Bookmark Go/pending action 内运行 compatibility seeker：以 Surface 的稳定 ID 顺序选取当前可见 turn，按目标 ordinal 与当前 cursor 的符号决定滚动方向；符号翻转即判定越界、反向并缩小步长。初始寻迹步长由 ChatGPT 设置提供，取值为 1000–5000 CSS px、步进 400 px；步长只是初始上限，方向翻转仍按既有规则减半。每步必须重新读取 identity、Surface/DOM 进度并受 deadline、步数、停滞和边界限制；exact connected identity 与稳定 alignment 仍是唯一成功条件。不得进行全局比例、像素探测、全页 observer、常驻 timer 或重复 slot scan。另有独立的显式一键到顶动作：对 adapter-owned conversation scroll root 直接 `scrollTo(top: 0, behavior: auto)`，在短生命周期内以 geometry quiet window 处理异步回跳，默认 deadline 20 秒；二次点击、wheel 或 keyboard 接管即停止，鼠标移动、pointer press 与 touchstart 不停止，不得成为常驻自动滚动
 - ChatGPT 稳定态性能优化所需的重子树结构提示（如 KaTeX / code-heavy subtree refs）同样属于 adapter/driver 契约；UI/controller 只能消费 adapter 返回的结构化 hints，不得自行扩张宿主 selector 集合
 - runtime 只允许持有平台无关的生命周期编排器（如 toolbar orchestrator），不得在入口层写平台选择器
-- ChatGPT 工具栏不得持有自己的 `MutationObserver` 或独立 route reset；它只订阅共享 `ChatGPTConversationSurface`。`pending-surface` 只能呈现不改动官方 action row 的等待状态；`obtained` 以精确 assistant identity 挂载，并通过 `readTurn()` 取得数值词数和正文操作。无 canonical ID 时仅禁用书签 action，其他正文动作照常可用；identity promotion 后同一 reconcile 原位恢复书签。非 ChatGPT 平台暂时保留原 DOM-local toolbar lifecycle
-- `ChatGPTPageIndex` 是 ChatGPT 唯一 Page Monitor。逐字符 mutation 只标记 dirty assistant identity；结构、身份、generation start/end、同 owner assistant identity replacement、action anchor、conversation root replacement 或 BFCache 信号触发必要的 snapshot/materialization 工作。Host Monitor 必须跨分批 hydration 累积这些事实，以唯一挂载的缓存尾部作为首选顺序证明；尾部未挂载时只接受 generation start 或缓存尾部同 owner replacement 的锚定。位于可见尾部之前、跨未解析 round 或顺序歧义的候选必须暂缓。正文 admission 在 400 ms 安静窗口后接受 action anchor、generation end 或后续 typed round 任一强完成信号；三者缺失时使用总计 2 秒的有界安静确认。官方 anchor 仍约束工具栏挂载，但不是内容入池硬条件。root replacement 必须 fence 旧编译并清除瞬态 generation/replacement evidence。扩展自有节点与无关 churn 必须过滤，稳定编译前不得全量重扫或读取 Bridge
+- ChatGPT 工具栏不得持有自己的 `MutationObserver` 或独立 route reset；它消费共享 PageIndex 的 typed mounted-message/action-row seam。官方 action row 出现即可按直接 `assistantMessageId` 挂载，正文动作在触发时读取该消息的 DOM-local snapshot，不以 Repository `obtained`、content token 或全局排序作为前置条件。无 canonical conversation ID 时仅禁用真正需要持久会话身份的书签提交，其他当前消息动作照常可用。非 ChatGPT 平台暂时保留原 DOM-local toolbar lifecycle
+- `ChatGPTPageIndex` 是 ChatGPT 唯一 Page Monitor。初始化、相关 mutation、generation end、root replacement、BFCache 与重新可见只触发一个页面级短合并。Host Monitor 每次 capture 线性读取一次最外层槽位序列，对官方 action row 已出现、正文非空且非生成中的首次或真实变化消息 clone/convert，并附上所属 `hostSlotId`；空槽不 clone、不转换。用户消息内部的正文 character/child-list hydrate 也会进入同一页面级短合并，触发已完成 assistant 对的原位重读。完整 user/assistant pair 成功编译后，同一稳定 ID 的纯结构重挂只提交槽位骨架，不重复编译。content/identity mutation、generation end、页面生命周期重扫及可能后补 prompt 的 assistant-only capture 仍重读。Repository 只接受整段连续扩展或当前子窗口，冲突与无关序列不猜全局位置；相同正文不发布，变化正文原位覆盖。不得恢复逐消息 timer、多轮 retry、Graph 或 Bridge
 - 同一 content runtime 内的 route-aware controllers 必须共享底层 URL poll/event hub，不得各自创建长期 timer；formula interaction 必须共享 document observer、按 enabled container 过滤 mutation，并让相同 gate 的 settings update 保持幂等
 - 当前消息 Reader item cache 只允许在同一消息 revision 内服务多个用户动作；可归属 mutation 精确失效该消息，消息集合/顺序、route 或 dispose 失效整个 cache
 - manifest content entry 必须保持轻量 classic startup graph；Reader、Bookmarks、Save/Bookmark dialogs 与 Copy PNG 通过 typed ports 延迟到真实用户动作。动态模块地址只能由 `browser.runtime.getURL()` 从固定 asset contract 生成，功能 facade 必须继续按 surface 分段加载，并与 detached Reader 共用构建图，避免把重型 renderer 重复打包或重新带回页面启动路径

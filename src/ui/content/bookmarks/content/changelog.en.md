@@ -1,5 +1,27 @@
 # Changelog
 
+# 5.4.0
+2026-08-22
+
+Hi everyone. ChatGPT released a major website update last Friday, August 21. Many of you have probably noticed that not only the AI-MarkDone directory rail stopped working properly—the official directory is now only partially available as well. The root cause is another substantial change to ChatGPT's page structure and message-loading behavior. Here is what I observed.
+
+From May through last Friday, ChatGPT used an incremental-loading model based on virtual nodes. In practical terms, the conversation was already available in the browser's background state when you opened a page, but ChatGPT only rendered the two or three messages near the current viewport. Virtual nodes reserved the space for the rest. When you moved near a message, ChatGPT rendered it from data that was already available locally in the browser. That is why previously loaded history could still appear after you went offline. AI-MarkDone's directory could use the reserved heights to jump directly to a message and let ChatGPT render it in place.
+
+Since last Friday, ChatGPT has changed that model. It no longer reserves the height of the entire conversation with virtual nodes. When you open a conversation, it fetches only the latest two or three messages; older messages are neither preloaded in the browser nor represented by height placeholders. In other words, the page no longer has a stable total height. You may also have noticed that reaching the top triggers another load. That load requires the network, so if you go offline after opening the conversation, scrolling to the top cannot retrieve history that has not been loaded yet. This is why the plugin can no longer build the complete directory as soon as the page opens.
+
+The good news is that ChatGPT still provides an official directory. It only appears after you reach the very top and ChatGPT has loaded the available history.
+
+This release is a larger update, so here are the main points to keep in mind:
+
+1. Word count, formula copy, partial selection copy, and related message actions are now independent of the old content-discovery path. A future website update to directory discovery should no longer take these actions down with it.
+2. The directory can only grow as you browse and ChatGPT loads more messages. It cannot retrieve the entire conversation in one pass. Directory navigation now uses simulated page scrolling to bring messages into view and locate them, so long-distance jumps are progressive and may take some time.
+3. Export and Reader follow the same incremental content path as the directory. They can only process messages that have been loaded during the current page lifecycle. If you want to include more of a conversation, browse to those messages and let ChatGPT load them; the directory, Reader, and export will recognize the new content as it appears.
+4. I still recommend using ChatGPT's official directory when possible. The official directory requires the page to reach the top before it becomes available, so this release adds a small but useful Go to top control. It repeatedly moves toward the top, waits for ChatGPT to load more history, and tries again until it reaches the top of the conversation or the configured maximum wait time is reached.
+
+Because the control moves quickly, it may skip over some intermediate messages instead of mounting every one of them. As a result, the directory, Reader, or export may still be incomplete after Go to top finishes. This limitation is worth keeping in mind.
+
+Overall, the features outside the directory's progressive loading path should continue to work normally. Please give the update a try, and keep sending feedback and suggestions.
+
 # 5.3.0
 2026-08-20
 

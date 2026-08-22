@@ -132,6 +132,22 @@ describe('MessageToolbarOrchestrator Surface-driven official toolbar lifecycle',
         expect(document.querySelectorAll('[data-testid="copy-turn-action-button"]')).toHaveLength(1);
     });
 
+    it('injects for a completed mounted message before Repository publication', async () => {
+        renderTurn();
+        const documentRef = readyConversationState(SNAPSHOT).document;
+        const harness = createHarness({
+            kind: 'syncing',
+            document: documentRef,
+            snapshot: null,
+        });
+        harness.adapter.setStreaming(false);
+
+        harness.orchestrator.init();
+
+        await vi.waitFor(() => expect(toolbarHosts()).toHaveLength(1));
+        expect(document.querySelector('[data-testid="copy-turn-action-button"]')).toBeTruthy();
+    });
+
     it('removes only extension UI when the toolbar feature is disabled', async () => {
         renderTurn();
         const { orchestrator } = createHarness();

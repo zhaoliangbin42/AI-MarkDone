@@ -4,41 +4,35 @@
 
 ## 0. Active ChatGPT content boundary
 
-ChatGPT production content has one composition root, one semantic pool, and one
-atomic page projection:
+ChatGPT production content has one composition root, one accumulated pool, and
+one PageIndex-owned mounted-message seam:
 
 ```text
-Official action row + ChatGPT DOM -> one PageIndex -> Host Monitor
-                         |                              |
-                         |                              v
-                         +----------------> ConversationContentRepository
-                         |                         |
-                         |                         +-> Content Port
-                         |                              -> Reader / Copy /
-                         |                                 Export /
-                         |                                 Word count
-                         v                         |
-                 ChatGPTConversationSurface <-----+
+Official action row + ChatGPT DOM -> one PageIndex -> DOM-local current actions
                          |
-                         +-> Directory / Toolbar / Stepper / Navigation
-                         +-> compatibility Materialization Port
+                         +-> Host Monitor -> ConversationContentRepository
+                                                  |
+                                                  +-> Content Port
+                                                  +-> Conversation Surface
+                                                        -> Directory / Stepper /
+                                                           Navigation / multi-message Reader
 
 Canonical identity + existing bookmark contract -> bookmark availability
 Mounted formula DOM + parser Adapter -> Formula Copy / PNG / SVG / MathML
 ```
 
-- `ConversationContentRepository` is the only active ChatGPT semantic content owner. It stores tab-local, plain-data pools keyed by conversation document identity. DOM is the only body authority: same assistant ID and same body is a no-op; a changed body updates in place; a newly loaded message is inserted using current mounted predecessor order; unmount never deletes a turn.
-- `ChatGPTConversationSurface` is the only production join between Repository snapshots and current PageIndex facts. It atomically publishes obtained, pending-surface, and unmounted entries. Directory, Toolbar and Stepper subscribe only to this Frame. Its compatibility `ConversationMaterializationPortV1` projection returns current typed targets/anchors from the same Frame and cannot produce prompts, Markdown or a fallback snapshot.
-- `readerContentSource` is the sole ReaderItem projection. Reader, word count, whole-message copy, local selection, and Save Messages export must receive the same V1 source instance from the composition root. Formula actions instead resolve directly from the mounted formula DOM and parser Adapter. Bookmark preparation may consume the content source only after the existing canonical conversation identity and URL requirements are satisfied.
+- `ConversationContentRepository` is the only accumulated ChatGPT content owner. It stores tab-local bodies keyed by stable `assistantMessageId` and a private ordered skeleton keyed by outer `data-turn-id-container`. A complete observed slot sequence may only retain or contiguously extend the skeleton; subwindows cannot shrink it and conflicts cannot reorder it. Bodies bind to their containing `hostSlotId`; empty slots are not public V1 turns and do not change `contentToken`. UUIDs and mutable `conversation-turn-N` values are never sorted as ordinals. Equal bodies are no-ops, changed bodies update in place, and unmount never deletes accepted slots or content.
+- `ChatGPTConversationSurface` is the accumulated pool↔PageIndex join for Directory, Stepper, navigation and multi-message consumers. Toolbar placement and current-message actions may consume its PageIndex-derived mounted facts, but Repository `obtained` is not an admission gate. No consumer may create a second observer or accumulated pool.
+- Current-message word count, whole-message copy, Reader/export fallback, local selection and annotation read only the owning mounted DOM on explicit action. `readerContentSource` remains the sole multi-message Reader projection. Formula actions resolve directly from formula DOM and parser Adapter. Bookmark submission still requires canonical conversation identity and a proven pool position.
 - Ordinary consumer actions read the current published cache through that projection. `refresh()` is a local DOM flush compatibility seam; it cannot issue a request or discover unloaded history. `pageshow`, `resume`, and visible restoration may request one coalesced current-DOM rescan. There is no baseline API, upgrade probe, Settings Retry, polling loop, or hidden network acquisition.
 - The former `ChatGPTConversationDiscoveryCoordinator`, `ChatGPTConversationIndex`, and standalone `ChatGPTConversationMaterialization` modules are retired and deleted. Runtime owns lifecycle ordering, Repository owns obtained content/order, PageIndex owns host facts, and Conversation Surface owns the sole Content↔DOM join. A compatibility `ConversationMaterializationPortV1` may only be projected from that same Frame; no consumer may recreate one of the deleted layers.
 - `RenderedContentCompilerV2` is used only behind `ChatGPTConversationHostMonitor`. It performs one clone-normalize-convert pass per eligible root and retains basic size/time budgets; it must not pre-scan formula/code trees or run a second whole-body semantic comparison.
-- ChatGPT discovery must not read Cookie/Storage/Token/Authorization data, inspect network responses, construct conversation requests, use React internals, synthesize scroll, or poll content. Only the user-facing bounded `locate()` operation may scroll.
+- ChatGPT discovery must not read Cookie/Storage/Token/Authorization data, inspect network responses, construct conversation requests, use React internals, synthesize scroll, or poll content. The user-facing bounded `locate()` operation and the independent explicit fast-top action may use the adapter-owned scroll root only during their short, user-triggered lifetimes; fast-top has a 20-second default deadline and must not become a permanent auto-scroll.
 
 Consumer-path performance rules:
 
 - `ChatGPTPageSelectionCoordinator` is the only ordinary ChatGPT page selection owner. Atomic Selection and Page Annotation must consume its frame and must not register another `document.selectionchange` listener, selection rAF, settle timer, or direct `captureSelection()` path. Reader is a separate Reader-document surface and may own its own visual rAF; it must not cause page annotations or persistent anchors to re-resolve.
-- `ContentSurfaceAdapter.locateSelection()` is the drag-time operation. It may validate an existing Range and typed message/root identity only; it must not stringify ranges, scan formula descendants, compile Markdown, or create a DOM-to-canonical fallback. `materializeSelection()` is an explicit-action operation and must remain behind `PageMarkdownSelectionResolver`/`SurfaceProjection`; the resolver may cache one result per selection revision but is not a new source of content.
+- `ContentSurfaceAdapter.locateSelection()` is the drag-time operation. It may validate an existing Range and typed message/root identity only; it must not stringify ranges, scan formula descendants or compile Markdown. `materializeSelection()` is an explicit-action operation behind `PageMarkdownSelectionResolver`; the resolver may prefer canonical `SurfaceProjection` and otherwise compile only the still-connected owning message DOM. It may cache one result per selection revision but cannot discover or retain multiple messages.
 - `ChatGptToolbarFrameIndex` and `ChatGPTActivePositionTracker` are frame-local derived indexes. They may memoize typed turn/position/geometry references and publish only changed navigation state, but they must not become an SSOT, issue discovery work, read message bodies, or call `resolveElement`/`readTurn` once per record after a frame has already supplied the mapping.
 - Reader rendering must keep persistent annotation anchors/highlights separate from transient selection actions. A selection visual pass may diff atomic IDs and action state, but it must not rebuild persistent markers, re-anchor existing records, compile Markdown, or recursively export content. Page annotation markers must read geometry before writing and patch only changed root-local keyed records.
 - Formula and composer consumers must use bounded event delegation/shared binding sources. No consumer may add a formula subtree scan, per-formula listener, formula MutationObserver, duplicate composer observer, polling timer, or new content observer to compensate for a rendering update. Lifecycle disable/dispose must release listeners, rAFs, overlays, tooltip delegates, and detached DOM/Range references.
@@ -150,7 +144,7 @@ Conversation content-discovery rules:
 - `src/contracts/conversationContent.ts` exposes only read/subscribe/local-refresh/current-token consumer semantics. Public contracts and UI consumers must not expose or call generic acquisition/reconcile APIs.
 - `ChatGPTConversationHostMonitor` owns the official-action readiness check and one page-level debounce. It may require only assistant message ID, nonempty assistant body, connected official action row, and non-streaming state. User prompt lookup is best-effort; missing prompt and assistant-only mounting are admissible.
 - Every Runtime begins with a non-persisted page identity. Page→canonical promotion preserves pool, projection and token. Canonical A→B selects a distinct pool; A→B→A restores A. Full page reload/dispose destroys every pool. Virtualized unmounts affect only Surface and never delete obtained content.
-- `ConversationSnapshotV1.coverage` remains `complete` for admitted bodies; current DOM-only snapshots report `historyStatus: partial` and `proof.basis: host`. Unloaded history is outside the current contract. Surface selection still requires `SurfaceProjection` token/identity/TextQuote proof. Consumers needing one message use `readTurn()` instead of rebuilding independent Markdown.
+- `ConversationSnapshotV1.coverage` remains `complete` for admitted bodies; current DOM-only snapshots report `historyStatus: partial` and `proof.basis: host`. Unloaded history is outside the current contract. Current-message and selection actions may compile only their mounted owning DOM; multi-message consumers must use the Repository snapshot and cannot rebuild an independent pool.
 - Content, materialization, and surface revisions must remain separate. No consumer may add a second content observer/cache. Formula actions are the explicit exception to Repository sourcing: they read the clicked/hovered formula DOM directly through the parser Adapter.
 - ChatGPT message-bookmark highlighting and toolbar state must use the read-only `conversationBookmarkResolver` over canonical turn identities. Without a canonical conversation ID and URL, bookmark preparation is unavailable and no save/remove request or incomplete record may be created; all other content consumers remain available from the page-scoped pool. Identity promotion re-enables the existing path without changing bookmark types, protocol, storage fields, migrations, old records or import/export payloads. Persisted assistant `messageId` remains authoritative; stored `position` is validated and is only a compatibility fallback when identity is absent from the canonical source. Identity/position conflicts fail closed.
 - The same resolver owns ChatGPT bookmark state in the Directory, message toolbar and Reader footer. When a ChatGPT `ConversationContentSourceV1` is injected, a missing source snapshot or an unloaded message-bookmark projection must return no active position; `isPositionBookmarked()` is not a fallback for that production path. Position-only compatibility is permitted only when the canonical ChatGPT source seam is absent (legacy/non-ChatGPT composition), never alongside an injected source.

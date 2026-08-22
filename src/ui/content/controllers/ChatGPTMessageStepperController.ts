@@ -1,5 +1,5 @@
 import type { SiteAdapter } from '../../../drivers/content/adapters/base';
-import { bookmarkCheckIcon, bookmarkIcon, chevronRightIcon, Icons, messageSquareTextIcon, splitViewIcon } from '../../../assets/icons';
+import { bookmarkCheckIcon, bookmarkIcon, chevronRightIcon, chevronUpIcon, Icons, messageSquareTextIcon, splitViewIcon } from '../../../assets/icons';
 import {
     areAppearanceSnapshotsEqual,
     createAppearanceSnapshot,
@@ -79,6 +79,7 @@ export class ChatGPTMessageStepperController {
     private pageBookmarkButton: HTMLButtonElement | null = null;
     private detachedReaderButton: HTMLButtonElement | null = null;
     private promptsButton: HTMLButtonElement | null = null;
+    private topScrollButton: HTMLButtonElement | null = null;
     private previousButton: HTMLButtonElement | null = null;
     private nextButton: HTMLButtonElement | null = null;
     private rounds: ChatGPTRoundPosition[] = [];
@@ -97,6 +98,7 @@ export class ChatGPTMessageStepperController {
             onOpenBookmarksPanel?: () => Promise<void> | void;
             onOpenDetachedReader?: () => Promise<void> | void;
             onOpenPrompts?: (anchor: HTMLElement) => Promise<void> | void;
+            onTopScrollButton?: (button: HTMLButtonElement | null) => void;
             onTogglePageBookmark?: (url: string) => Promise<PageBookmarkMutationResult> | PageBookmarkMutationResult;
             onRefreshPageBookmarkState?: (url: string) => Promise<PageBookmarkStatusResult> | PageBookmarkStatusResult;
             surface: ConversationSurfacePortV1;
@@ -152,6 +154,8 @@ export class ChatGPTMessageStepperController {
         this.pageBookmarkButton = null;
         this.detachedReaderButton = null;
         this.promptsButton = null;
+        this.options.onTopScrollButton?.(null);
+        this.topScrollButton = null;
         this.previousButton = null;
         this.nextButton = null;
         this.rounds = [];
@@ -245,9 +249,13 @@ export class ChatGPTMessageStepperController {
             if (prompts.hidden || prompts.disabled) return;
             void this.options.onOpenPrompts?.(prompts);
         }, messageSquareTextIcon);
+        const topScroll = this.createButton('chatgpt-scroll-to-top', this.getLabel('chatgptScrollToTop', 'Go to top'), () => {
+            // The runtime-owned top-scroll controller binds the behavior to
+            // this slot; the stepper only owns the shared button layout.
+        }, chevronUpIcon);
         previous.querySelector<HTMLElement>('.aimd-chatgpt-message-stepper__icon')!.dataset.direction = 'left';
         next.querySelector<HTMLElement>('.aimd-chatgpt-message-stepper__icon')!.dataset.direction = 'right';
-        host.append(bookmarksPanel, pageBookmark, detachedReader, prompts, previous, next);
+        host.append(bookmarksPanel, pageBookmark, detachedReader, prompts, topScroll, previous, next);
         document.body.appendChild(host);
         this.host = host;
         this.appearanceScope = AppearanceScope.forLightDomPortal(host, {
@@ -259,8 +267,10 @@ export class ChatGPTMessageStepperController {
         this.pageBookmarkButton = pageBookmark;
         this.detachedReaderButton = detachedReader;
         this.promptsButton = prompts;
+        this.topScrollButton = topScroll;
         this.previousButton = previous;
         this.nextButton = next;
+        this.options.onTopScrollButton?.(topScroll);
         this.syncNavigationVisibility();
         this.syncPageBookmarkButton();
         this.syncAuxiliaryButtonVisibility();
@@ -276,6 +286,7 @@ export class ChatGPTMessageStepperController {
             [this.bookmarksPanelButton, this.getLabel('bookmarks', 'Bookmarks')],
             [this.detachedReaderButton, this.getLabel('chatgptPageControlSplitView', 'Open Reader in split view')],
             [this.promptsButton, this.getLabel('chatgptPageControlPrompts', 'Prompts')],
+            [this.topScrollButton, this.getLabel('chatgptScrollToTop', 'Go to top')],
             [this.previousButton, this.getLabel('previousMessage', 'Previous message')],
             [this.nextButton, this.getLabel('nextMessage', 'Next message')],
         ];
@@ -364,6 +375,10 @@ export class ChatGPTMessageStepperController {
 }
 .aimd-chatgpt-message-stepper__button[data-active="1"] {
   color: var(--aimd-interactive-primary);
+}
+.aimd-chatgpt-message-stepper__button[data-running="1"] {
+  color: var(--aimd-interactive-primary);
+  background: var(--aimd-button-icon-hover);
 }
 .aimd-chatgpt-message-stepper__button[hidden] {
   display: none;

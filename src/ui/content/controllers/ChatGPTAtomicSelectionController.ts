@@ -8,6 +8,7 @@ import {
 import type { ChatGPTAtomicMarkdownCopyShortcut } from '../../../core/settings/types';
 import {
     PageMarkdownSelectionResolver,
+    isPageMarkdownSelectionSnapshotCurrent,
     type PageMarkdownSelectionSnapshot,
 } from '../selectionMarkdownSnapshot';
 import {
@@ -226,17 +227,11 @@ export class ChatGPTAtomicSelectionController {
             && left.startContainer === right.startContainer
             && left.startOffset === right.startOffset
             && left.endContainer === right.endContainer
-            && left.endOffset === right.endOffset
-            && snapshot.evidence === this.markdownResolver.resolve(frame)?.evidence;
+            && left.endOffset === right.endOffset;
     }
 
     private isSnapshotCurrent(snapshot: PageMarkdownSelectionSnapshot): boolean {
-        if (!snapshot.evidence) return true;
-        if (!this.contentSource || !this.materialization) return false;
-        const current = this.materialization.read();
-        return current.materializationToken === snapshot.evidence.materializationToken
-            && current.contentToken === snapshot.evidence.contentToken
-            && this.contentSource.isCurrent(snapshot.evidence.contentToken);
+        return isPageMarkdownSelectionSnapshotCurrent(snapshot);
     }
 
     private applySelectedElements(units: RenderedAtomicUnit[]): void {

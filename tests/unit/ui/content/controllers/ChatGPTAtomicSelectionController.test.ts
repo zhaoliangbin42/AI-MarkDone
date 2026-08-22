@@ -201,6 +201,30 @@ describe('ChatGPTAtomicSelectionController', () => {
         controller.dispose();
     });
 
+    it('copies the current rendered selection when Repository evidence is stale', async () => {
+        const message = mountMessage('<p><code>live answer</code></p>');
+        const range = document.createRange();
+        range.selectNodeContents(message.querySelector('code')!);
+        selectRange(range);
+        const controller = createCanonicalSelectionController(message);
+        const source = controller['contentSource']!;
+        vi.spyOn(source, 'isCurrent').mockReturnValue(false);
+        try {
+            controller.setMarkdownCopyShortcut('mod-c');
+            controller.init();
+            document.dispatchEvent(new Event('selectionchange'));
+            await flushSelectionFrame();
+
+            dispatchKeyboardCopy();
+            const copy = dispatchCopy();
+
+            expect(copy.event.defaultPrevented).toBe(true);
+            expect(copy.readText()).toBe('`live answer`');
+        } finally {
+            controller.dispose();
+        }
+    });
+
     it('projects an ordinary host text selection from canonical Markdown instead of cloning DOM', async () => {
         const message = mountMessage('<p>Before <strong><span>clean Markdown</span></strong> after.</p>');
         const selectedText = message.querySelector('strong span')!.firstChild as Text;
@@ -335,7 +359,7 @@ describe('ChatGPTAtomicSelectionController', () => {
         controller.dispose();
     });
 
-    it('does not revive the DOM compatibility converter when canonical source quality is rejected', async () => {
+    it('falls back to the current DOM when cached canonical source quality is rejected', async () => {
         const message = mountMessage('<p><code>answer</code></p>');
         const range = document.createRange();
         range.selectNodeContents(message.querySelector('code')!);
@@ -355,7 +379,7 @@ describe('ChatGPTAtomicSelectionController', () => {
             const copy = dispatchCopy();
 
             expect(copy.event.defaultPrevented).toBe(true);
-            expect(copy.setData).not.toHaveBeenCalled();
+            expect(copy.readText()).toBe('`answer`');
             expect(message.querySelector('code')?.getAttribute('data-aimd-page-atomic-state')).toBe('selected');
         } finally {
             controller.dispose();

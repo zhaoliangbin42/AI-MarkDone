@@ -29,6 +29,14 @@ export const DEFAULT_CHATGPT_PAGE_WIDTH_SCALE = 100;
 export const MIN_CHATGPT_PAGE_WIDTH_SCALE = 100;
 export const MAX_CHATGPT_PAGE_WIDTH_SCALE = 200;
 export const CHATGPT_PAGE_WIDTH_SCALE_STEP = 5;
+export const DEFAULT_CHATGPT_AUTO_TOP_TIMEOUT_MS = 20_000;
+export const MIN_CHATGPT_AUTO_TOP_TIMEOUT_MS = 5_000;
+export const MAX_CHATGPT_AUTO_TOP_TIMEOUT_MS = 60_000;
+export const CHATGPT_AUTO_TOP_TIMEOUT_STEP_MS = 5_000;
+export const DEFAULT_CHATGPT_NAVIGATION_SEEK_STEP_PX = 3_000;
+export const MIN_CHATGPT_NAVIGATION_SEEK_STEP_PX = 1_000;
+export const MAX_CHATGPT_NAVIGATION_SEEK_STEP_PX = 5_000;
+export const CHATGPT_NAVIGATION_SEEK_STEP_PX_STEP = 400;
 
 export type ChatGPTDirectorySettings = {
     enabled: boolean;
@@ -64,6 +72,8 @@ export type ChatGPTBehaviorSettings = {
     enableArrowKeyMessageNavigation: boolean;
     pageWidthScale: number;
     pageAnnotationsEnabled: boolean;
+    autoTopTimeoutMs: number;
+    navigationSeekStepPx: number;
 };
 
 export const DEFAULT_CHATGPT_INPUT_ENHANCEMENT_SETTINGS: ChatGPTInputEnhancementSettings = {
@@ -180,7 +190,7 @@ export const DEFAULT_SETTINGS: AppSettings = {
     formula: DEFAULT_FORMULA_SETTINGS,
     export: DEFAULT_EXPORT_SETTINGS,
     chatgptDirectory: {
-        enabled: true,
+        enabled: false,
         mode: 'preview',
         promptLabelMode: 'head',
         hideOfficialNavigation: true,
@@ -201,6 +211,8 @@ export const DEFAULT_SETTINGS: AppSettings = {
         enableArrowKeyMessageNavigation: true,
         pageWidthScale: DEFAULT_CHATGPT_PAGE_WIDTH_SCALE,
         pageAnnotationsEnabled: true,
+        autoTopTimeoutMs: DEFAULT_CHATGPT_AUTO_TOP_TIMEOUT_MS,
+        navigationSeekStepPx: DEFAULT_CHATGPT_NAVIGATION_SEEK_STEP_PX,
     },
     appearance: { fontSizePx: DEFAULT_GLOBAL_FONT_SIZE_PX, accentColor: null },
     bookmarks: { sortMode: 'alpha-asc' },
