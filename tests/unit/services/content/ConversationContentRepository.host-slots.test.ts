@@ -115,6 +115,31 @@ describe('ConversationContentRepository persistent host slots', () => {
         expect(ids(repository)).toEqual(['assistant-1', 'assistant-2', 'assistant-3']);
     });
 
+    it('keeps sparse topology order while bodies arrive out of order', () => {
+        const repository = new ConversationContentRepository({ resolveDocument: () => documentRef('sparse-hydration') });
+        const slots = [
+            'assistant-slot-1',
+            'assistant-slot-2',
+            'assistant-slot-3',
+            'assistant-slot-4',
+            'assistant-slot-5',
+            'assistant-slot-6',
+        ];
+
+        repository.ingestHostBatch([observation(1), observation(6)], slots);
+        repository.ingestHostBatch([observation(4), observation(2)], slots);
+        repository.ingestHostBatch([observation(5), observation(3)], slots);
+
+        expect(ids(repository)).toEqual([
+            'assistant-1',
+            'assistant-2',
+            'assistant-3',
+            'assistant-4',
+            'assistant-5',
+            'assistant-6',
+        ]);
+    });
+
     it('retains the larger topology for a mounted subwindow and rejects conflicting order', () => {
         const repository = new ConversationContentRepository({ resolveDocument: () => documentRef('subwindow') });
         const full = ['assistant-slot-1', 'assistant-slot-2', 'assistant-slot-3', 'assistant-slot-4'];

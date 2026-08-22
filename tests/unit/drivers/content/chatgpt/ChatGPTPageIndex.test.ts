@@ -391,6 +391,21 @@ describe('ChatGPTPageIndex', () => {
         unsubscribe();
     });
 
+    it('notifies content-discovery subscribers when an existing user body is filled later', async () => {
+        const prompt = document.querySelector<HTMLElement>('.whitespace-pre-wrap');
+        if (!prompt) throw new Error('fixture prompt is missing');
+        prompt.textContent = '';
+
+        const listener = vi.fn();
+        const unsubscribe = getChatGPTPageIndex(adapter).subscribeMutations(listener);
+
+        prompt.textContent = 'Prompt loaded after the user node mounted';
+        await deliverMutations();
+
+        expect(listener).toHaveBeenCalledTimes(1);
+        unsubscribe();
+    });
+
     it('notifies content-discovery subscribers when the official completion action row mounts', async () => {
         document.querySelector('.z-0.flex')?.remove();
         const listener = vi.fn();

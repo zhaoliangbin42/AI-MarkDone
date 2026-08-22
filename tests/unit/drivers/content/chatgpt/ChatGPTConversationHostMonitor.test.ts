@@ -273,6 +273,31 @@ describe('ChatGPTConversationHostMonitor DOM readiness', () => {
         }
     });
 
+    it('recompiles a complete pair when its mounted user message hydrates later', async () => {
+        const main = document.querySelector('main')!;
+        main.innerHTML = roundHtml(1, 'Answer 1');
+        const prompt = main.querySelector<HTMLElement>('[data-message-author-role="user"]');
+        if (!prompt) throw new Error('fixture prompt is missing');
+        prompt.textContent = '';
+        const harness = createHarness('late-prompt-hydration');
+
+        try {
+            harness.monitor.init();
+            await settle();
+            expect(harness.repository.read().snapshot?.turns[0]?.userText).toBe('');
+
+            prompt.textContent = 'Question 1 loaded after the pair mounted';
+            await settle();
+
+            expect(harness.renderedCompiler.compile).toHaveBeenCalledTimes(2);
+            expect(harness.repository.read().snapshot?.turns[0]?.userText).toBe(
+                'Question 1 loaded after the pair mounted',
+            );
+        } finally {
+            harness.dispose();
+        }
+    });
+
     it('keeps stable message order when historical loading renumbers host turn test ids', async () => {
         const main = document.querySelector('main')!;
         main.innerHTML = roundHtml(3, 'Answer 3') + roundHtml(4, 'Answer 4');

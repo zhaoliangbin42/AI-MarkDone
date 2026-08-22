@@ -76,12 +76,19 @@ function isAssistantContentNode(node: Node): boolean {
     return Boolean(element?.closest('[data-message-author-role="assistant"]'));
 }
 
+function isUserContentNode(node: Node): boolean {
+    if (isExtensionOwnedNode(node)) return false;
+    const element = getElementForOwnershipCheck(node);
+    return Boolean(element?.closest('[data-message-author-role="user"]'));
+}
+
 function mutationAffectsHostPage(mutation: MutationRecord): boolean {
     if (mutation.type === 'characterData') {
         // React frequently updates an existing text node in place while a
-        // long answer is streaming. Keep the single PageIndex observer, but
-        // only accept text changes inside typed assistant content.
-        return isAssistantContentNode(mutation.target);
+        // long answer is streaming, and it may hydrate a user prompt after
+        // the typed user node is already mounted. Keep the single PageIndex
+        // observer, but only accept text changes inside typed message content.
+        return isAssistantContentNode(mutation.target) || isUserContentNode(mutation.target);
     }
     if (mutation.type === 'attributes') {
         if (mutation.attributeName?.startsWith('data-aimd-')) return false;
@@ -105,7 +112,7 @@ function mutationAffectsHostPage(mutation: MutationRecord): boolean {
 
     if (mutationRemovesConversationSurfaceConsumer(mutation)) return true;
     const changedNodes = [...mutation.addedNodes, ...mutation.removedNodes];
-    if (isAssistantContentNode(mutation.target)) return true;
+    if (isAssistantContentNode(mutation.target) || isUserContentNode(mutation.target)) return true;
     return changedNodes.some((node) => (
         !isExtensionOwnedNode(node) && nodeMayContainContentLifecycle(node)
     ));
