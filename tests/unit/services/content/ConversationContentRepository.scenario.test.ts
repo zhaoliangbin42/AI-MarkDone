@@ -51,12 +51,12 @@ function turn(index: number, assistantMarkdown: string, userText = `Question ${i
 
 function observation(
     item: ConversationTurnV1,
-    predecessorAssistantMessageId: string | null,
+    _predecessorAssistantMessageId: string | null,
     revision = item.ordinal,
 ): ConversationHostTurnObservationV1 {
     return {
         turn: item,
-        predecessorAssistantMessageId,
+        hostSlotId: item.identity.assistantMessageId,
     };
 }
 
@@ -100,12 +100,113 @@ describe('ConversationContentRepository DOM pool', () => {
         const repository = new ConversationContentRepository({ resolveDocument: () => ref });
 
         repository.ingestHostTurn(observation(turn(1, 'Answer 1'), null, 1));
-        repository.ingestHostTurn(observation(turn(2, 'Answer 2'), 'assistant-1', 2));
+        repository.ingestHostBatch(
+            [observation(turn(2, 'Answer 2'), 'assistant-1', 2)],
+            ['assistant-1', 'assistant-2'],
+        );
 
         expect(repository.read().snapshot?.turns.map((item) => item.assistantMarkdown)).toEqual([
             'Answer 1',
             'Answer 2',
         ]);
+    });
+
+    it('merges a newly mounted historical prefix around stable assistant IDs', () => {
+        const ref = documentRef('historical-prefix');
+        const repository = new ConversationContentRepository({ resolveDocument: () => ref });
+
+        repository.ingestHostBatch([
+            observation(turn(3, 'Answer 3'), null),
+            observation(turn(4, 'Answer 4'), 'assistant-3'),
+        ]);
+        repository.ingestHostBatch([
+            observation(turn(1, 'Answer 1'), null),
+            observation(turn(2, 'Answer 2'), 'assistant-1'),
+            observation(turn(3, 'Answer 3'), 'assistant-2'),
+            observation(turn(4, 'Answer 4'), 'assistant-3'),
+        ]);
+
+        expect(repository.read().snapshot?.turns.map((item) => item.identity.assistantMessageId)).toEqual([
+            'assistant-1',
+            'assistant-2',
+            'assistant-3',
+            'assistant-4',
+        ]);
+        expect(repository.read().snapshot?.turns.map((item) => item.ordinal)).toEqual([1, 2, 3, 4]);
+    });
+
+    it('merges authoritative prefix and tail extensions without reordering accepted IDs', () => {
+        const ref = documentRef('prefix-tail');
+        const repository = new ConversationContentRepository({ resolveDocument: () => ref });
+
+        repository.ingestHostBatch([
+            observation(turn(3, 'Answer 3'), null),
+            observation(turn(4, 'Answer 4'), 'assistant-3'),
+        ]);
+        repository.ingestHostBatch([
+            observation(turn(1, 'Answer 1'), null),
+            observation(turn(2, 'Answer 2'), 'assistant-1'),
+        ], ['assistant-1', 'assistant-2', 'assistant-3', 'assistant-4']);
+        repository.ingestHostBatch([
+            observation(turn(5, 'Answer 5'), 'assistant-4'),
+            observation(turn(6, 'Answer 6'), 'assistant-5'),
+        ], ['assistant-1', 'assistant-2', 'assistant-3', 'assistant-4', 'assistant-5', 'assistant-6']);
+
+        expect(repository.read().snapshot?.turns.map((item) => item.identity.assistantMessageId)).toEqual([
+            'assistant-1',
+            'assistant-2',
+            'assistant-3',
+            'assistant-4',
+            'assistant-5',
+            'assistant-6',
+        ]);
+    });
+
+    it('does not let an unrelated host-slot sequence rewrite established order', () => {
+        const ref = documentRef('disconnected-window');
+        const repository = new ConversationContentRepository({ resolveDocument: () => ref });
+        repository.ingestHostBatch([
+            observation(turn(1, 'Answer 1'), null),
+            observation(turn(2, 'Answer 2'), 'assistant-1'),
+        ]);
+        const stableToken = repository.read().snapshot?.contentToken;
+
+        repository.ingestHostBatch([
+            observation(turn(7, 'Answer 7'), null),
+            observation(turn(8, 'Answer 8'), 'assistant-7'),
+        ], ['assistant-7', 'assistant-8']);
+
+        expect(repository.read().snapshot?.turns.map((item) => item.identity.assistantMessageId)).toEqual([
+            'assistant-1',
+            'assistant-2',
+        ]);
+        expect(repository.read().snapshot?.contentToken).toBe(stableToken);
+
+        expect(repository.read().snapshot?.turns.map((item) => item.identity.assistantMessageId)).toEqual([
+            'assistant-1',
+            'assistant-2',
+        ]);
+        expect(repository.read().snapshot?.contentToken).toBe(stableToken);
+    });
+
+    it('ignores a mounted sequence that reverses accepted stable IDs', () => {
+        const ref = documentRef('order-conflict');
+        const repository = new ConversationContentRepository({ resolveDocument: () => ref });
+        repository.ingestHostBatch([
+            observation(turn(1, 'Answer 1'), null),
+            observation(turn(2, 'Answer 2'), 'assistant-1'),
+            observation(turn(3, 'Answer 3'), 'assistant-2'),
+        ]);
+        const stableToken = repository.read().snapshot?.contentToken;
+
+        repository.ingestHostBatch([], ['assistant-2', 'assistant-1', 'assistant-3']);
+
+        expect(repository.read().snapshot?.turns.map((item) => item.identity.assistantMessageId)).toEqual([
+            'assistant-1',
+            'assistant-2',
+            'assistant-3',
+        ]);
+        expect(repository.read().snapshot?.contentToken).toBe(stableToken);
     });
 
     it('does not remove cached content when its DOM is virtualized away', async () => {

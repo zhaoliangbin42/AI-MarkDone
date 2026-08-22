@@ -16,8 +16,8 @@ import type { ConversationTargetV1 } from '../../contracts/conversationMateriali
 
 export type ConversationHostTurnObservationV1 = Readonly<{
     turn: ConversationTurnV1;
-    /** Previous mounted assistant in the current DOM order, when available. */
-    predecessorAssistantMessageId: string | null;
+    /** Stable outer host position containing this rendered assistant body. */
+    hostSlotId: string;
 }>;
 
 export type ConversationContentRepositoryOptionsV1 = Readonly<{
@@ -27,6 +27,10 @@ export type ConversationContentRepositoryOptionsV1 = Readonly<{
 type ConversationPool = {
     projectionId: string;
     turns: readonly ConversationTurnV1[];
+    slotOrder: readonly string[];
+    turnsByAssistantId: Map<string, ConversationTurnV1>;
+    slotIdByAssistantId: Map<string, string>;
+    assistantIdBySlotId: Map<string, string>;
     digests: Map<string, string>;
     documentKeys: Set<string>;
 };
@@ -83,50 +87,56 @@ export class ConversationContentRepository implements ConversationContentSourceV
     }
 
     ingestHostTurn(observation: ConversationHostTurnObservationV1): ConversationContentStateV1 {
-        return this.ingestHostBatch([observation]);
+        return this.ingestHostBatch([observation], [observation.hostSlotId]);
     }
 
     /**
-     * Merge one DOM-ordered batch. Existing IDs update in place; new IDs are
-     * inserted after their mounted predecessor when known and otherwise append.
+     * Merge one complete observed host-slot sequence and fill mounted bodies
+     * into their owning positions. Empty slots remain private pool state.
      */
-    ingestHostBatch(observations: readonly ConversationHostTurnObservationV1[]): ConversationContentStateV1 {
-        if (this.disposed || observations.length === 0) return this.state;
+    ingestHostBatch(
+        observations: readonly ConversationHostTurnObservationV1[],
+        observedHostSlotOrder: readonly string[] = observations.map(
+            (observation) => observation.hostSlotId,
+        ),
+    ): ConversationContentStateV1 {
+        if (this.disposed || (observations.length === 0 && observedHostSlotOrder.length === 0)) return this.state;
         this.bindCurrentDocument();
         const pool = this.activePool;
         if (!pool || !this.currentDocument) return this.state;
 
-        const nextTurns = [...pool.turns];
-        let changed = false;
+        pool.slotOrder = reconcileHostSlotOrder(pool.slotOrder, observedHostSlotOrder);
+        const knownSlots = new Set(pool.slotOrder);
         for (const observation of observations) {
             const incoming = normalizeTurn(observation.turn, 1);
-            if (!incoming) continue;
+            const hostSlotId = observation.hostSlotId.trim();
+            if (!incoming || !hostSlotId || !knownSlots.has(hostSlotId)) continue;
 
             const assistantMessageId = incoming.identity.assistantMessageId;
-            const digest = digestTurnContent(incoming);
-            const existingIndex = nextTurns.findIndex((turn) => (
-                turn.identity.assistantMessageId === assistantMessageId
-            ));
-            if (existingIndex >= 0) {
-                if (pool.digests.get(assistantMessageId) === digest) continue;
-                nextTurns[existingIndex] = { ...incoming, ordinal: existingIndex + 1 };
-                pool.digests.set(assistantMessageId, digest);
-                changed = true;
+            const existingSlotId = pool.slotIdByAssistantId.get(assistantMessageId);
+            const existingAssistantId = pool.assistantIdBySlotId.get(hostSlotId);
+            if (
+                (existingSlotId && existingSlotId !== hostSlotId)
+                || (existingAssistantId && existingAssistantId !== assistantMessageId)
+            ) {
                 continue;
             }
-
-            const predecessorId = observation.predecessorAssistantMessageId?.trim() || null;
-            const predecessorIndex = predecessorId
-                ? nextTurns.findIndex((turn) => turn.identity.assistantMessageId === predecessorId)
-                : -1;
-            const insertionIndex = predecessorIndex >= 0 ? predecessorIndex + 1 : nextTurns.length;
-            nextTurns.splice(insertionIndex, 0, incoming);
+            const digest = digestTurnContent(incoming);
+            if (pool.digests.get(assistantMessageId) === digest) continue;
+            pool.slotIdByAssistantId.set(assistantMessageId, hostSlotId);
+            pool.assistantIdBySlotId.set(hostSlotId, assistantMessageId);
+            pool.turnsByAssistantId.set(assistantMessageId, incoming);
             pool.digests.set(assistantMessageId, digest);
-            changed = true;
         }
 
-        if (!changed) return this.state;
-        pool.turns = freezeTurns(nextTurns);
+        const nextTurns = freezeTurns(pool.slotOrder.flatMap((hostSlotId) => {
+            const assistantMessageId = pool.assistantIdBySlotId.get(hostSlotId);
+            const turn = assistantMessageId ? pool.turnsByAssistantId.get(assistantMessageId) : null;
+            return turn ? [turn] : [];
+        }));
+        if (sameTurnProjection(pool.turns, nextTurns)) return this.state;
+
+        pool.turns = nextTurns;
         this.publishProjection();
         return this.state;
     }
@@ -226,6 +236,10 @@ export class ConversationContentRepository implements ConversationContentSourceV
         return {
             projectionId: `conversation-projection:${++this.projectionSequence}`,
             turns: Object.freeze([]),
+            slotOrder: Object.freeze([]),
+            turnsByAssistantId: new Map(),
+            slotIdByAssistantId: new Map(),
+            assistantIdBySlotId: new Map(),
             digests: new Map(),
             documentKeys: new Set([documentKey]),
         };
@@ -291,6 +305,55 @@ function freezeTurns(turns: readonly ConversationTurnV1[]): readonly Conversatio
         if (normalized) frozen.push(normalized);
     }
     return Object.freeze(frozen);
+}
+
+function normalizeSlotOrder(order: readonly string[]): readonly string[] {
+    const normalized: string[] = [];
+    const seen = new Set<string>();
+    for (const rawId of order) {
+        const id = rawId.trim();
+        if (!id || id === 'client-created-root' || seen.has(id)) continue;
+        seen.add(id);
+        normalized.push(id);
+    }
+    return Object.freeze(normalized);
+}
+
+function reconcileHostSlotOrder(
+    existingOrder: readonly string[],
+    observedOrder: readonly string[],
+): readonly string[] {
+    const observed = normalizeSlotOrder(observedOrder);
+    if (observed.length === 0 || sameStringSequence(existingOrder, observed)) return existingOrder;
+    if (existingOrder.length === 0) return observed;
+    if (containsContiguousSequence(observed, existingOrder)) return observed;
+    if (containsContiguousSequence(existingOrder, observed)) return existingOrder;
+    return existingOrder;
+}
+
+function containsContiguousSequence(haystack: readonly string[], needle: readonly string[]): boolean {
+    if (needle.length === 0) return true;
+    if (needle.length > haystack.length) return false;
+    const lastStart = haystack.length - needle.length;
+    for (let start = 0; start <= lastStart; start += 1) {
+        if (needle.every((value, offset) => haystack[start + offset] === value)) return true;
+    }
+    return false;
+}
+
+function sameTurnProjection(left: readonly ConversationTurnV1[], right: readonly ConversationTurnV1[]): boolean {
+    return left.length === right.length && left.every((turn, index) => {
+        const candidate = right[index];
+        return Boolean(
+            candidate
+            && turn.identity.assistantMessageId === candidate.identity.assistantMessageId
+            && digestTurnContent(turn) === digestTurnContent(candidate),
+        );
+    });
+}
+
+function sameStringSequence(left: readonly string[], right: readonly string[]): boolean {
+    return left.length === right.length && left.every((value, index) => value === right[index]);
 }
 
 function digestTurnContent(turn: ConversationTurnV1): string {
