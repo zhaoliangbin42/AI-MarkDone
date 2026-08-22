@@ -30,6 +30,11 @@ export type ChatGPTResolvedDomTurnIdentity = Readonly<{
     assistantMessageId: string;
 }>;
 
+export type ChatGPTDomHostSlotRef = Readonly<{
+    id: string;
+    element: HTMLElement;
+}>;
+
 /** Resolve the one typed identity shared by host capture and materialization. */
 export function resolveChatGPTDomRoundIdentity(
     round: ChatGPTDomRoundRef,
@@ -147,6 +152,34 @@ export function collectChatGPTDomTurnSlots(adapter: SiteAdapter): HTMLElement[] 
         else groups.set(parent, [container]);
     }
     return Array.from(groups.values()).sort((left, right) => right.length - left.length)[0] ?? [];
+}
+
+/** Read the host's outer display-slot topology without retaining DOM state. */
+export function collectChatGPTDomHostSlots(adapter: SiteAdapter): readonly ChatGPTDomHostSlotRef[] {
+    const seen = new Set<string>();
+    const slots: ChatGPTDomHostSlotRef[] = [];
+    for (const element of collectChatGPTDomTurnSlots(adapter)) {
+        const id = readElementId(element, 'data-turn-id-container');
+        if (!id || id === 'client-created-root' || seen.has(id)) continue;
+        seen.add(id);
+        slots.push(Object.freeze({ id, element }));
+    }
+    return Object.freeze(slots);
+}
+
+/** Bind one mounted round to the exact outer slot that currently contains it. */
+export function resolveChatGPTDomRoundHostSlotId(
+    round: ChatGPTDomRoundRef,
+    slots: readonly ChatGPTDomHostSlotRef[],
+): string | null {
+    const idsByElement = new Map(slots.map((slot) => [slot.element, slot.id]));
+    let current: HTMLElement | null = round.assistantRootEl;
+    while (current) {
+        const id = idsByElement.get(current);
+        if (id) return id;
+        current = current.parentElement;
+    }
+    return null;
 }
 
 function rootContains(root: ParentNode, node: Node): boolean {
