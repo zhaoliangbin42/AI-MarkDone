@@ -5,6 +5,17 @@ All notable changes to AI-MarkDone will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [5.4.1] - 2026-08-26
+
+### Added
+- ChatGPT now has an on-demand full-message loading action in the lower-right corner of the page. Click it after entering a conversation to load the available conversation messages into the shared content pool.
+
+### Changed
+- The directory, Reader, and export flows now use the same complete message collection after full-message loading is triggered.
+
+### Fixed
+- Fixed incomplete multi-message exports. Thanks to Xiaohongshu users @Elina and @忧郁的鳖老仔.
+
 ## [5.4.0] - 2026-08-22
 
 ### Changed

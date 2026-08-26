@@ -1,5 +1,18 @@
 # Changelog
 
+# 5.4.1
+2026-08-26
+
+This release adds an on-demand entry point that can load all available messages in a ChatGPT conversation, avoiding the frustrating limits of incremental loading.
+
+To keep the page stable, it does not run automatically when you enter a conversation. After opening a conversation, click “Refresh message navigation” in the lower-right corner. ChatGPT will then load the conversation messages, and the directory, Reader, and export will use the same complete content pool.
+
+Updates:
+
+1. Added full-message loading from the lower-right page action.
+2. The directory, Reader, and export can use the complete message collection after loading finishes.
+3. Fixed incomplete exports. Thanks to Xiaohongshu users @Elina and @忧郁的鳖老仔.
+
 # 5.4.0
 2026-08-22
 

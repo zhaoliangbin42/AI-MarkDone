@@ -8,7 +8,7 @@
     <a href="./LICENSE">
       <img src="https://img.shields.io/github/license/zhaoliangbin42/AI-MarkDone?label=License" alt="License">
     </a>
-    <img src="https://img.shields.io/badge/Version-5.4.0-10A37F" alt="Version 5.4.0">
+    <img src="https://img.shields.io/badge/Version-5.4.1-10A37F" alt="Version 5.4.1">
     </br>
     <img src="https://img.shields.io/badge/Browsers-Chrome%20%7C%20Firefox-10A37F" alt="Browsers">
     <img src="https://img.shields.io/badge/Primary%20Platform-ChatGPT-10A37F" alt="Primary Platform">
@@ -86,7 +86,7 @@ AI-MarkDone 是一个开源 ChatGPT 浏览器扩展，面向长对话阅读、�
 
 ### 📚 阅读模式（Focus View）
 - **稳定上下文**：独立阅读面板完整渲染 Markdown。
-- **ChatGPT 全量识别恢复**：针对 ChatGPT 增量加载重新设计内容发现能力，阅读器可以重新识别完整对话。
+- **按需全量加载**：点击 ChatGPT 页面右下角的“刷新消息导航”，即可将完整消息加载到共享的目录条、阅读器和导出内容源中。
 - **快速导航**：支持 `Left` / `Right` 键切换消息，也支持 `Up` / `Down` 键滚动当前阅读器消息。
 - **按源码复制闭合内容**：公式、代码块、表格、图片等内容可以直接在阅读器里按源码复制。
 - **局部源码选中**：只选中需要的部分即可复制；阅读器会把公式、代码块、表格、图片等闭合内容映射回原始 Markdown 边界，再按选区顺序重新拼接。
@@ -199,11 +199,10 @@ npm run build
 
 ## 📅 最新更新
 
-### 5.4.0
-- 适配 ChatGPT 全新的增量加载方式，让消息操作和内容加载更符合当前网页行为。
-- 将字数统计、公式复制、局部复制和注释功能与目录发现链路解耦。
-- 增加有界的一键回到顶部功能，并支持配置远距离跳转参数。
-- 目录条、阅读器和导出功能会随着消息加载逐步更新。
+### 5.4.1
+- 增加 ChatGPT 页面右下角的消息全量加载功能。
+- 全量加载后，目录条、阅读器和导出功能共享同一份完整消息内容。
+- 修复导出消息不完整的问题（感谢小红书用户 @Elina 和 @忧郁的鳖老仔）。
 
 [完整更新日志](./CHANGELOG.md)
 [版本说明](./RELEASE_NOTES.md)

@@ -8,7 +8,7 @@
     <a href="./LICENSE">
       <img src="https://img.shields.io/github/license/zhaoliangbin42/AI-MarkDone?label=License" alt="License">
     </a>
-    <img src="https://img.shields.io/badge/Version-5.4.0-10A37F" alt="Version 5.4.0">
+    <img src="https://img.shields.io/badge/Version-5.4.1-10A37F" alt="Version 5.4.1">
     </br>
     <img src="https://img.shields.io/badge/Browsers-Chrome%20%7C%20Firefox-10A37F" alt="Browsers">
     <img src="https://img.shields.io/badge/Primary%20Platform-ChatGPT-10A37F" alt="Primary Platform">
@@ -87,7 +87,7 @@ If any of these sound familiar, **AI-MarkDone** is built exactly for you.
 
 ### 📚 Reading Mode (Focus View)
 - **Stable context**: A dedicated reader that renders full Markdown syntax.
-- **Full-thread recovery on ChatGPT**: Reader can discover the whole conversation again under ChatGPT's incremental loading model.
+- **Full-thread loading on demand**: Click the lower-right Refresh message navigation action to load the conversation into the shared directory, Reader, and export source.
 - **Fast navigation**: Use `Left` / `Right` arrow keys to jump between messages, and `Up` / `Down` to scroll the current Reader message.
 - **Source-aware copy**: Copy formulas, code blocks, tables, images, and other closed Markdown units as source directly inside Reader.
 - **Partial source selection**: Select only the part you need; Reader maps closed units back to their original Markdown boundaries and rebuilds the copied result in selection order.
@@ -200,11 +200,10 @@ npm run build
 
 ## 📅 Changelog (Latest)
 
-### 5.4.0
-- Adapted ChatGPT message actions and content loading to the website's new incremental DOM model.
-- Kept word count, formula copy, partial selection copy, and annotations independent from directory discovery.
-- Added bounded Go to top and configurable long-distance navigation controls.
-- Directory, Reader, and export now grow as messages are loaded during browsing.
+### 5.4.1
+- Added an on-demand full-message loading action in the lower-right corner of ChatGPT pages.
+- Directory, Reader, and export now share the same complete message pool after loading is triggered.
+- Fixed incomplete multi-message exports. Thanks to Xiaohongshu users @Elina and @忧郁的鳖老仔.
 
 [Full Changelog](./CHANGELOG.md)
 [Release Notes](./RELEASE_NOTES.md)

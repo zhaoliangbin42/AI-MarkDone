@@ -1,5 +1,16 @@
 # Release Notes
 
+## v5.4.1 (2026-08-26)
+
+This release adds an on-demand way to load all messages in a ChatGPT conversation. Click the action in the lower-right corner of the page after entering a conversation; the resulting message pool is shared by the directory, Reader, and export flows.
+
+### Added
+- Added a lower-right full-message loading action for ChatGPT conversations.
+
+### Fixed
+- Fixed incomplete message lists and exports by keeping the directory, Reader, and export flows on the same loaded conversation content.
+- Fixed incomplete exports. Thanks to Xiaohongshu users @Elina and @忧郁的鳖老仔.
+
 ## v5.4.0 (2026-08-22)
 
 ChatGPT has substantially changed how it loads long conversations. This release adapts AI-MarkDone to the new DOM-driven, incremental loading model while keeping message actions independent from the conversation directory.
