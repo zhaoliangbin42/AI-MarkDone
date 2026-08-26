@@ -79,7 +79,7 @@ export class ChatGPTMessageStepperController {
     private pageBookmarkButton: HTMLButtonElement | null = null;
     private detachedReaderButton: HTMLButtonElement | null = null;
     private promptsButton: HTMLButtonElement | null = null;
-    private fullHistoryButton: HTMLButtonElement | null = null;
+    private messageNavigationButton: HTMLButtonElement | null = null;
     private previousButton: HTMLButtonElement | null = null;
     private nextButton: HTMLButtonElement | null = null;
     private rounds: ChatGPTRoundPosition[] = [];
@@ -98,7 +98,7 @@ export class ChatGPTMessageStepperController {
             onOpenBookmarksPanel?: () => Promise<void> | void;
             onOpenDetachedReader?: () => Promise<void> | void;
             onOpenPrompts?: (anchor: HTMLElement) => Promise<void> | void;
-            onLoadFullHistory?: () => Promise<void> | void;
+            onRefreshMessageNavigation?: () => Promise<void> | void;
             onTogglePageBookmark?: (url: string) => Promise<PageBookmarkMutationResult> | PageBookmarkMutationResult;
             onRefreshPageBookmarkState?: (url: string) => Promise<PageBookmarkStatusResult> | PageBookmarkStatusResult;
             surface: ConversationSurfacePortV1;
@@ -154,7 +154,7 @@ export class ChatGPTMessageStepperController {
         this.pageBookmarkButton = null;
         this.detachedReaderButton = null;
         this.promptsButton = null;
-        this.fullHistoryButton = null;
+        this.messageNavigationButton = null;
         this.previousButton = null;
         this.nextButton = null;
         this.rounds = [];
@@ -248,17 +248,17 @@ export class ChatGPTMessageStepperController {
             if (prompts.hidden || prompts.disabled) return;
             void this.options.onOpenPrompts?.(prompts);
         }, messageSquareTextIcon);
-        const loadFullHistory = this.createButton(
-            'chatgpt-load-full-history',
-            this.getLabel('chatgptLoadFullHistory', 'Load all messages'),
+        const refreshMessageNavigation = this.createButton(
+            'chatgpt-refresh-message-navigation',
+            this.getLabel('chatgptRefreshMessageNavigation', 'Refresh message navigation'),
             () => {
-                void this.options.onLoadFullHistory?.();
+                void this.options.onRefreshMessageNavigation?.();
             },
             refreshCwIcon,
         );
         previous.querySelector<HTMLElement>('.aimd-chatgpt-message-stepper__icon')!.dataset.direction = 'left';
         next.querySelector<HTMLElement>('.aimd-chatgpt-message-stepper__icon')!.dataset.direction = 'right';
-        host.append(bookmarksPanel, pageBookmark, detachedReader, prompts, loadFullHistory, previous, next);
+        host.append(bookmarksPanel, pageBookmark, detachedReader, prompts, refreshMessageNavigation, previous, next);
         document.body.appendChild(host);
         this.host = host;
         this.appearanceScope = AppearanceScope.forLightDomPortal(host, {
@@ -270,7 +270,7 @@ export class ChatGPTMessageStepperController {
         this.pageBookmarkButton = pageBookmark;
         this.detachedReaderButton = detachedReader;
         this.promptsButton = prompts;
-        this.fullHistoryButton = loadFullHistory;
+        this.messageNavigationButton = refreshMessageNavigation;
         this.previousButton = previous;
         this.nextButton = next;
         this.syncNavigationVisibility();
@@ -288,7 +288,7 @@ export class ChatGPTMessageStepperController {
             [this.bookmarksPanelButton, this.getLabel('bookmarks', 'Bookmarks')],
             [this.detachedReaderButton, this.getLabel('chatgptPageControlSplitView', 'Open Reader in split view')],
             [this.promptsButton, this.getLabel('chatgptPageControlPrompts', 'Prompts')],
-            [this.fullHistoryButton, this.getLabel('chatgptLoadFullHistory', 'Load all messages')],
+            [this.messageNavigationButton, this.getLabel('chatgptRefreshMessageNavigation', 'Refresh message navigation')],
             [this.previousButton, this.getLabel('previousMessage', 'Previous message')],
             [this.nextButton, this.getLabel('nextMessage', 'Next message')],
         ];

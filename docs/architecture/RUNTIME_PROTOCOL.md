@@ -115,11 +115,11 @@ UI 状态规则：
 
 ## 5. ChatGPT DOM content seam (page ↔ content runtime)
 
-ChatGPT 内容获取不再使用 MAIN-world page bridge，也不新增 content ↔ background runtime message。唯一 `ChatGPTPageIndex` observer 提供当前页面的 message identity、assistant root、official action row 与 generation 状态；`ChatGPTConversationHostMonitor` 在 Runtime 初始化、相关 DOM mutation 以及 `pageshow`、`resume`、重新 visible 时，通过一个页面级短防抖扫描。
+ChatGPT 内容获取使用 Chrome/Firefox document-start 的 5.3-compatible page bridge 作为初始 source seed，但不新增 content ↔ background runtime message。Bridge 只观察宿主自身的 same-origin JSON conversation GET，并通过事件/bridge memory 暴露 `peek/readBaseline`；扩展不主动发起 conversation GET/POST。唯一 `ChatGPTPageIndex` observer 继续提供当前页面的 message identity、assistant root、official action row 与 generation 状态；`ChatGPTConversationHostMonitor` 在 Runtime 初始化、相关 DOM mutation 以及 `pageshow`、`resume`、重新 visible 时，通过一个页面级短防抖扫描。
 
 assistant message ID、非空正文、已连接的官方操作栏和非生成状态同时满足后，Monitor clone 正文一次并通过现有 Markdown Adapter 转换一次，再按 assistant message ID 写入 `ConversationContentRepository`。官方操作栏只是完成和挂载触发信号，不是正文来源。相同正文幂等忽略，变化正文覆盖；DOM 被虚拟化移除不删除已入池内容。
 
-Repository 在当前标签页内维护 `Map<conversationKey, ConversationPool>`，SPA 切换只切换 active pool，返回旧会话时恢复旧池并用当前 DOM 更新。页面刷新或 content Runtime 重建后池自然清空。内容以稳定 `assistantMessageId` 为键；PageIndex 提供的 mounted stable-ID 序列只通过非冲突重叠插入前缀、中段或尾部，不按 UUID 或会动态重编号的 `conversation-turn-N` 排序。完全无重叠的窗口先按 ID 暂存，出现重叠证据后才并入有序 snapshot。普通 DOM capture 的 `historyStatus` 为 `partial`；空 `?message=` 触发的有界 sweep 在官方导航数量和全部 assistant 正文验证后才升级为 `complete`，新增槽位会降回 `partial`。内容链路没有 Graph transport、主动 conversation 请求、轮询、逐消息计时器、baseline gate 或 Settings retry。
+Repository 在当前标签页内维护 `Map<conversationKey, ConversationPool>`，SPA 切换只切换 active pool，返回旧会话时恢复旧池并用当前 DOM 更新。页面刷新或 content Runtime 重建后池自然清空。内容以稳定 `assistantMessageId` 为键；GET `mapping/current_node` 顺序是 provisional source order，DOM 提供的外层 stable-ID slot sequence 在 identity overlap 后成为最终顺序，不按 UUID 或会动态重编号的 `conversation-turn-N` 排序。完全无重叠的窗口先按 ID 暂存，出现冲突证据后拒绝该批次。普通 DOM capture 的 `historyStatus` 为 `partial`，GET seed 为 `get`；空 `?message=` 只创建官方导航骨架，不触发逐 slot sweep，新增槽位会降回 `get` 或 `partial`。内容链路没有主动 conversation 请求、轮询、逐消息计时器、Settings retry 或第二 Repository。
 
 公式点击复制与 PNG/SVG/MathML 动作直接从被操作的公式 DOM 经 math parser Adapter 解析，不依赖 Repository 是否已收录所属消息。Toolbar 及当前消息 Copy/Reader/Export/词数可直接从仍挂载的对应消息 DOM 工作；跨消息 Reader/Export、Directory 与 Stepper 使用 Repository/Surface，书签保存继续要求 canonical identity 与 pool-proven position。公开协议保持不变。
 

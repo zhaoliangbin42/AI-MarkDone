@@ -1439,9 +1439,9 @@
         "message": "Normal",
         "description": "Message for chatgptPageWidthScaleNormal"
     },
-    "chatgptLoadFullHistory": {
-        "message": "Load all messages",
-        "description": "Message for chatgptLoadFullHistory"
+    "chatgptRefreshMessageNavigation": {
+        "message": "Refresh message navigation",
+        "description": "Message for chatgptRefreshMessageNavigation"
     },
     "chatgptNavigationSeekStepLabel": {
         "message": "Directory navigation speed",

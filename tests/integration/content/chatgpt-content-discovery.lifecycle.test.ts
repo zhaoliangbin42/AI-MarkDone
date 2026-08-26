@@ -47,8 +47,8 @@ function officialNavigationHtml(count: number): string {
     `;
 }
 
-function createRuntime(id = 'conversation-a', fullHistory = false) {
-    history.replaceState({}, '', `/c/${id}${fullHistory ? '?message=' : ''}`);
+function createRuntime(id = 'conversation-a', messageNavigation = false) {
+    history.replaceState({}, '', `/c/${id}${messageNavigation ? '?message=' : ''}`);
     const adapter = new ChatGPTAdapter();
     const runtime = new ChatGPTConversationContentRuntime(adapter, { hostSettleDelayMs: 20 });
     return {
@@ -95,34 +95,92 @@ describe('ChatGPT DOM content discovery lifecycle', () => {
         }
     });
 
-    it('materializes the full DOM sweep and publishes complete history when the trigger is present', async () => {
-        document.querySelector('main')!.innerHTML = officialNavigationHtml(2)
-            + roundHtml(1, 'Answer 1')
-            + roundHtml(2, 'Answer 2');
-        const harness = createRuntime('full-history-conversation', true);
+    it('publishes usable get content from the 5.3 bridge seed before DOM materialization', async () => {
+        const bridgeRequest = vi.fn((event: Event) => {
+            const detail = (event as CustomEvent<any>).detail;
+            const request = typeof detail === 'string' ? JSON.parse(detail) : detail;
+            const response = {
+                requestId: request.requestId,
+                ok: true,
+                snapshot: {
+                    conversationId: 'get-seed-conversation',
+                    branchKey: 'assistant-node',
+                    capturedAt: 100,
+                    captureSequence: 1,
+                    rounds: [{
+                        key: 'user-node:assistant-message',
+                        ordinal: 1,
+                        identity: {
+                            turnId: 'user-node',
+                            userMessageId: 'user-message',
+                            assistantMessageId: 'assistant-message',
+                        },
+                        userText: 'GET question',
+                        assistantMarkdown: 'GET answer',
+                        assistantProvenance: {
+                            authority: 'verified-derived',
+                            fidelity: 'normalized',
+                            producer: 'chatgpt-markdown-source-adapter',
+                        },
+                    }],
+                },
+            };
+            window.dispatchEvent(new CustomEvent('aimd:chatgpt-conversation-bridge:response', {
+                detail: typeof detail === 'string' ? JSON.stringify(response) : response,
+            }));
+        });
+        window.addEventListener('aimd:chatgpt-conversation-bridge:request', bridgeRequest);
+        const harness = createRuntime('get-seed-conversation');
 
         try {
             harness.runtime.init();
-            await vi.advanceTimersByTimeAsync(500);
-            await Promise.resolve();
-            await Promise.resolve();
+            await settle();
+
+            expect(bridgeRequest).toHaveBeenCalledTimes(1);
+            expect(harness.runtime.source.read()).toMatchObject({
+                kind: 'ready',
+                snapshot: {
+                    historyStatus: 'get',
+                    turns: [{ assistantMarkdown: 'GET answer' }],
+                },
+            });
+        } finally {
+            window.removeEventListener('aimd:chatgpt-conversation-bridge:request', bridgeRequest);
+            harness.dispose();
+        }
+    });
+
+    it('does not start a full DOM scroll sweep when the navigation trigger is present', async () => {
+        document.querySelector('main')!.innerHTML = officialNavigationHtml(2)
+            + roundHtml(1, 'Answer 1')
+            + roundHtml(2, 'Answer 2');
+        const slots = Array.from(document.querySelectorAll<HTMLElement>('[data-turn-id-container]'));
+        slots.forEach((slot) => {
+            slot.scrollIntoView = vi.fn();
+        });
+        const harness = createRuntime('message-navigation-conversation', true);
+
+        try {
+            harness.runtime.init();
+            await settle(500);
 
             expect(harness.runtime.source.read()).toMatchObject({
                 kind: 'ready',
                 snapshot: {
-                    historyStatus: 'complete',
+                    historyStatus: 'partial',
                     turns: [
                         { assistantMarkdown: 'Answer 1' },
                         { assistantMarkdown: 'Answer 2' },
                     ],
                 },
             });
+            expect(slots.every((slot) => !(slot.scrollIntoView as ReturnType<typeof vi.fn>).mock.calls.length)).toBe(true);
         } finally {
             harness.dispose();
         }
     });
 
-    it('hydrates an empty mounted body while the bounded sweep visits its slot', async () => {
+    it('leaves an empty mounted body pending without scrolling to hydrate it', async () => {
         const main = document.querySelector('main')!;
         main.innerHTML = officialNavigationHtml(2)
             + roundHtml(1, 'Answer 1')
@@ -130,24 +188,18 @@ describe('ChatGPT DOM content discovery lifecycle', () => {
         const emptyAssistantSlot = main.querySelector<HTMLElement>('[data-turn-id-container="assistant-slot-2"]');
         const emptyBody = emptyAssistantSlot?.querySelector<HTMLElement>('.markdown');
         if (!emptyAssistantSlot || !emptyBody) throw new Error('empty assistant fixture is missing');
-        emptyAssistantSlot.scrollIntoView = vi.fn(() => {
-            emptyBody.textContent = 'Answer 2';
-        });
-        const harness = createRuntime('full-history-hydration', true);
+        emptyAssistantSlot.scrollIntoView = vi.fn();
+        const harness = createRuntime('message-navigation-hydration', true);
 
         try {
             harness.runtime.init();
-            await vi.advanceTimersByTimeAsync(500);
-            await Promise.resolve();
-            await Promise.resolve();
+            await settle(500);
 
-            expect(emptyAssistantSlot.scrollIntoView).toHaveBeenCalled();
+            expect(emptyAssistantSlot.scrollIntoView).not.toHaveBeenCalled();
+            expect(emptyBody.textContent).toBe('');
             expect(harness.runtime.source.read().snapshot).toMatchObject({
-                historyStatus: 'complete',
-                turns: [
-                    { assistantMarkdown: 'Answer 1' },
-                    { assistantMarkdown: 'Answer 2' },
-                ],
+                historyStatus: 'partial',
+                turns: [{ assistantMarkdown: 'Answer 1' }],
             });
         } finally {
             harness.dispose();
@@ -270,7 +322,7 @@ describe('ChatGPT DOM content discovery lifecycle', () => {
         }
     });
 
-    it('does not emit bridge requests or perform conversation fetches', async () => {
+    it('does not issue conversation fetches while allowing the bounded bridge peek', async () => {
         document.querySelector('main')!.innerHTML = roundHtml(1, 'Local answer');
         const bridgeRequest = vi.fn();
         window.addEventListener('aimd:chatgpt-conversation-bridge:request', bridgeRequest);
@@ -281,7 +333,7 @@ describe('ChatGPT DOM content discovery lifecycle', () => {
             harness.runtime.init();
             await settle();
 
-            expect(bridgeRequest).not.toHaveBeenCalled();
+            expect(bridgeRequest).toHaveBeenCalledTimes(1);
             expect(fetchSpy).not.toHaveBeenCalled();
             expect(harness.runtime.source.read().snapshot?.turns).toHaveLength(1);
         } finally {

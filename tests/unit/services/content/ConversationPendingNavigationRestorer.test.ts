@@ -60,7 +60,7 @@ describe('ConversationPendingNavigationRestorer', () => {
             position: 7,
             messageId: 'assistant-7',
             assistantMessageId: 'assistant-7',
-            source: 'pending-restore',
+            source: 'bookmark',
         }, { timeoutMs: 15_000, align: 'start' });
         expect(sessionStorage.getItem('aimd:bookmarkNavigate:v1')).toBeNull();
         restorer.dispose();

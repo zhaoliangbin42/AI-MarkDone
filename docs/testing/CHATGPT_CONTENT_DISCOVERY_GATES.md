@@ -7,7 +7,8 @@ request bodies, or private host state.
 ## Active contract
 
 The production lifecycle is defined by
-[ADR-0024](../adr/ADR-0024-chatgpt-dom-authoritative-content-pool.md):
+[ADR-0024](../adr/ADR-0024-chatgpt-dom-authoritative-content-pool.md) and
+[ADR-0030](../adr/ADR-0030-chatgpt-get-seed-dom-completion.md):
 
 - `ChatGPTConversationContentRuntime` owns route identity and lifecycle wakes.
 - `ChatGPTPageIndex` is the only content-related DOM observer.
@@ -17,15 +18,18 @@ The production lifecycle is defined by
   assistant body once, and invokes the existing Markdown Adapter once.
 - `ConversationContentRepository` is the only semantic pool. It keeps one
   in-memory pool per conversation key for this tab lifecycle.
+- The 5.3 source adapter may seed the same pool with `get` turns. Source order
+  is provisional; DOM slot identity and order are the final correction path.
 - `ChatGPTConversationSurface` remains the only join of pool content and current
   DOM anchors. Public consumer ports are unchanged.
 - Formula click, PNG, SVG and MathML actions parse the operated formula DOM
   directly and do not depend on repository admission.
-- The extension issues zero conversation GET/POST requests and has no page
-  bridge, Graph decoder, polling, or per-message retry timer. Explicit
-  full-history loading may use the empty `?message=` query and one bounded
-  materialization sweep over persistent host slots; it reuses the existing
-  PageIndex/Host Monitor/Surface and never creates another observer or pool.
+- The extension issues zero conversation GET/POST requests. Chrome/Firefox
+  use the bounded 5.3 document-start bridge only to observe a website-owned
+  same-origin JSON GET and expose bridge-memory `peek/readBaseline`; the bridge
+  does not observe POST/SSE or read credentials. The empty `?message=` query
+  only creates the official navigation skeleton; it does not start a whole-page
+  slot sweep or create another observer or pool.
 
 ## Pool rules
 
@@ -42,16 +46,20 @@ The production lifecycle is defined by
   and changes `contentToken` once.
 - DOM virtualization never removes obtained content.
 - SPA A→B→A switches and restores separate pools. A page reload clears them.
-- Ordinary entry remains `historyStatus=partial`. After an explicit full-history
-  trigger, the status becomes `complete` only when the official navigation
-  expected count and every assistant body are present; new topology downgrades
-  it back to partial.
+- Ordinary entry remains `historyStatus=partial` when only DOM is available.
+  An accepted 5.3 source seed publishes `historyStatus=get`; its turns are
+  usable by Directory, Reader and Export. The current runtime does not
+  manufacture `complete` through page-entry scrolling; new topology downgrades
+  an existing proven state to `get` or `partial` according to source
+  availability.
 
 ## Required scenarios
 
 | Scenario | Required evidence |
 |---|---|
 | Existing page | Runtime startup discovers completed messages whose official action rows already exist |
+| GET seed | A captured 5.3 bridge graph publishes usable `get` turns without changing the current-message DOM action path |
+| GET absence | Missing, empty, invalid or conflicting source data leaves DOM-only `partial` behavior unchanged |
 | Delayed load | An action row appearing after an arbitrary delay triggers capture without a timeout window |
 | Generation | Streaming content is not admitted; generation completion plus the action row admits it once |
 | First assistant | A message with no preceding user prompt enters with empty user text |
@@ -62,12 +70,14 @@ The production lifecycle is defined by
 | Host conflict | Reordered, unrelated, or conflicting slot/body bindings preserve the last authoritative order |
 | Virtualization | Unmount/remount does not shrink the pool or churn content tokens |
 | Same ID update | Changed DOM replaces the body once; unchanged DOM publishes nothing |
+| GET correction | Same assistant ID from GET is replaced by changed DOM Markdown/provenance without reordering |
+| Message navigation | Identity targets in `get` resolve through the shared NavigationCoordinator; position-only bookmark fallback remains rejected without proven `complete` |
 | Lifecycle wake | `pageshow`, `resume`, and visible wake coalesce and rescan current DOM |
 | SPA pools | A→B→A restores A and refreshes it from currently mounted DOM |
 | Formula independence | A formula outside the content pool still supports click copy and enabled PNG/SVG/MathML actions |
 | Pressure | 1,000 relevant mutation signals coalesce; there is one observer and no poll/retry ladder |
-| Safety | No extension conversation GET/POST, page bridge resource, extra permission or credential access |
-| Browser parity | Shared runtime tests pass and Chrome MV3 plus Firefox MV2 build manifests contain no bridge resource |
+| Safety | No extension conversation GET/POST, bounded website-owned GET observation only, no credential access |
+| Browser parity | Shared runtime tests pass; Chrome MV3 and Firefox MV2 contain the document-start bridge, Safari remains DOM-only |
 
 ## Same-page navigation contract
 
@@ -95,16 +105,13 @@ Navigation may trigger the page's ordinary scroll-driven hydration, but it must
 not issue conversation requests, create placeholders, or modify the discovery
 observer/pool contract.
 
-The full-history action must be tested through the real lower-right button: it
-constructs the empty `message` query, performs a full-page reload, and leaves
-the content pool to the bounded full-history controller. Repeated activation is
-safe, disposal leaves no listeners, and no network acquisition or second
-observer is introduced.
-
-The full-history gate must also cover official navigation detection while CSS
-hides the official rail, delayed navigation appearance, expected-count/body
-completion, DOM-wins correction, partial failure, user cancellation, route
-change, retry, and complete-state downgrade when a new message is added.
+The message-navigation action must be tested through the real lower-right
+button: it constructs the empty `message` query and performs a full-page reload
+without starting a slot-by-slot scroll task. Directory, same-page bookmark and
+post-route bookmark restoration must all reach the same NavigationCoordinator
+and single-target materialization executor. Repeated activation is safe,
+disposal leaves no listeners, and no network acquisition or second observer is
+introduced.
 
 ## Consumer invariants
 

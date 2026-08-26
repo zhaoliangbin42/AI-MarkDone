@@ -118,4 +118,8 @@ describe('Conversation Content Port V1 contract', () => {
             }],
         }))).toBe(false);
     });
+
+    it('accepts get as a usable but not complete history status', () => {
+        expect(isConversationSnapshotV1(createSnapshot({ historyStatus: 'get' }))).toBe(true);
+    });
 });

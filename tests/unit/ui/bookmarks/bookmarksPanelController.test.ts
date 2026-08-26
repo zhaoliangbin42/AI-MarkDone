@@ -187,7 +187,7 @@ describe('BookmarksPanelController', () => {
         });
     });
 
-    it('reloads ChatGPT message bookmarks through the full-history query trigger', async () => {
+    it('routes same-page ChatGPT message bookmarks through the shared navigation port', async () => {
         const { BookmarksPanelController } = await import('@/ui/content/bookmarks/BookmarksPanelController');
         const adapter = { getPlatformId: () => 'chatgpt' };
         const url = 'https://chatgpt.com/c/12345678-1234-1234-1234-123456789abc';
@@ -212,8 +212,16 @@ describe('BookmarksPanelController', () => {
                 folderPath: 'Import',
             });
 
-            expect(assign).toHaveBeenCalledWith(`${url}?message=`);
-            expect(conversationNavigationMock.navigate).not.toHaveBeenCalled();
+            expect(assign).not.toHaveBeenCalled();
+            expect(conversationNavigationMock.navigate).toHaveBeenCalledWith(
+                {
+                    position: 50,
+                    messageId: 'payload-a50',
+                    assistantMessageId: 'payload-a50',
+                    source: 'bookmark',
+                },
+                { timeoutMs: 15_000, align: 'start' },
+            );
         } finally {
             Object.defineProperty(window, 'location', { configurable: true, value: originalLocation });
         }

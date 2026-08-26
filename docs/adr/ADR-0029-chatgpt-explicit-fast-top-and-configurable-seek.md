@@ -2,8 +2,8 @@
 
 ## Status
 
-Superseded on 2026-08-26 by the `?message=` full-history trigger and bounded
-DOM materialization rules in [ADR-0024](ADR-0024-chatgpt-dom-authoritative-content-pool.md).
+Superseded on 2026-08-26 by the `?message=` official-navigation trigger and
+single-target DOM materialization rules in [ADR-0024](ADR-0024-chatgpt-dom-authoritative-content-pool.md).
 The configurable same-page seek portion remains historical context; the
 explicit fast-top control and its setting are no longer shipped.
 

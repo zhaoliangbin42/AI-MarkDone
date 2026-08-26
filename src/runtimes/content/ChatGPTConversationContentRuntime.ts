@@ -4,7 +4,6 @@ import type { ConversationDiscoveryContentPortV1 } from '../../contracts/convers
 import type { ConversationNavigationPortV1 } from '../../contracts/conversationNavigation';
 import type { ConversationSurfacePortV1 } from '../../contracts/conversationSurface';
 import {
-    createConversationDocumentKeyV1,
     createConversationPageDocumentKeyV1,
     type ConversationDocumentRefV1,
 } from '../../contracts/conversationContent';
@@ -13,11 +12,9 @@ import { ConversationContentRepository } from '../../services/content/Conversati
 import { DiscoveryDiagnostics } from '../../services/content/DiscoveryDiagnostics';
 import { ChatGPTConversationSurface } from '../../drivers/content/chatgpt/ChatGPTConversationSurface';
 import { ChatGPTConversationHostMonitor } from '../../drivers/content/chatgpt/ChatGPTConversationHostMonitor';
-import { ChatGPTFullHistoryDiscoveryController } from './ChatGPTFullHistoryDiscovery';
+import { ChatGPTConversationDiscoveryAdapter } from '../../drivers/content/chatgpt/ChatGPTConversationDiscoveryAdapter';
 import { getChatGPTPageIndex } from '../../drivers/content/chatgpt/domConversationDiscovery';
 import type { ChatGPTPageIndex } from '../../drivers/content/chatgpt/ChatGPTPageIndex';
-import { getChatGPTConversationId } from '../../drivers/content/chatgpt/chatgptRoute';
-import { hasChatGPTFullHistoryTrigger } from '../../drivers/content/chatgpt/chatgptRoute';
 
 export type ChatGPTConversationContentRuntimeOptions = Readonly<{
     /** Test seam; production uses the 400ms stable-host quiet window. */
@@ -30,23 +27,26 @@ let pageEpochSequence = 0;
 /**
  * ChatGPT composition root. The published content/materialization ports are
  * backed by one DOM-authoritative Repository and one shared DOM
- * materialization adapter. No consumer may introduce another content
- * observer, repository, or extraction path.
+ * materialization adapter. The Runtime also owns the bounded 5.3 bridge-memory
+ * source seed; no consumer may introduce another content observer, repository,
+ * or extraction path.
  *
- * The `source` and `materialization` fields are read-only projections.
- * The runtime never issues or observes conversation network requests.
+ * The `source` and `materialization` fields are read-only projections. The
+ * runtime never issues a conversation request; the document-start bridge only
+ * observes the website-owned GET seed.
  */
 export class ChatGPTConversationContentRuntime {
     readonly source: ConversationDiscoveryContentPortV1;
     readonly surface: ConversationSurfacePortV1 & ChatGPTConversationSurface;
     readonly materialization: ConversationMaterializationPortV1 & { dispose(): void };
+    private readonly graphAdapter: ChatGPTConversationDiscoveryAdapter;
     private readonly repository: ConversationContentRepository;
     private readonly hostMonitor: ChatGPTConversationHostMonitor;
-    private readonly fullHistoryDiscovery: ChatGPTFullHistoryDiscoveryController;
     private readonly pageIndex: ChatGPTPageIndex;
     private readonly pageDocument: ConversationDocumentRefV1;
     private readonly diagnostics = new DiscoveryDiagnostics();
     private unsubscribePage: (() => void) | null = null;
+    private unsubscribeGraph: (() => void) | null = null;
     private lastDocumentKey: string | null | undefined;
     private initialized = false;
     private disposed = false;
@@ -83,8 +83,10 @@ export class ChatGPTConversationContentRuntime {
             conversationId: null,
             canonicalUrl: window.location.href,
         });
+        this.graphAdapter = new ChatGPTConversationDiscoveryAdapter();
         this.repository = new ConversationContentRepository({
             resolveDocument: () => this.resolveCurrentDocument(),
+            readBaseline: (_document, signal) => this.graphAdapter.readBaseline(signal),
         });
         this.pageIndex = getChatGPTPageIndex(adapter);
         this.hostMonitor = new ChatGPTConversationHostMonitor({
@@ -98,13 +100,6 @@ export class ChatGPTConversationContentRuntime {
             adapter,
             content: this.repository,
             pageIndex: this.pageIndex,
-        });
-        this.fullHistoryDiscovery = new ChatGPTFullHistoryDiscoveryController({
-            adapter,
-            pageIndex: this.pageIndex,
-            surface: this.surface,
-            hostMonitor: this.hostMonitor,
-            repository: this.repository,
         });
         const source: ConversationDiscoveryContentPortV1 = {
             read: () => this.repository.read(),
@@ -134,6 +129,10 @@ export class ChatGPTConversationContentRuntime {
             this.synchronizeCurrentEpoch(false, batch.pageUrl);
         });
         this.hostMonitor.init();
+        this.unsubscribeGraph = this.graphAdapter.subscribeSignals(() => {
+            this.synchronizeCurrentEpoch(false);
+            this.repository.notifyBaselineCaptured();
+        });
         window.addEventListener('pageshow', this.handlePageShow);
         document.addEventListener('resume', this.handlePageResume);
         document.addEventListener('visibilitychange', this.handleVisibilityChange);
@@ -141,9 +140,6 @@ export class ChatGPTConversationContentRuntime {
         window.addEventListener('hashchange', this.handleHashChange);
         this.installHistoryHooks();
         this.synchronizeCurrentEpoch(true);
-        if (hasChatGPTFullHistoryTrigger(window.location.href)) {
-            void this.fullHistoryDiscovery.start();
-        }
     }
 
     dispose(): void {
@@ -162,11 +158,13 @@ export class ChatGPTConversationContentRuntime {
         this.restoreHistoryHooks();
         this.unsubscribePage?.();
         this.unsubscribePage = null;
-        this.fullHistoryDiscovery.dispose();
+        this.unsubscribeGraph?.();
+        this.unsubscribeGraph = null;
         this.surface.dispose();
         this.hostMonitor.dispose();
         this.pageIndex.dispose();
         this.repository.dispose();
+        this.graphAdapter.dispose();
         this.lastDocumentKey = undefined;
     }
 
@@ -177,6 +175,7 @@ export class ChatGPTConversationContentRuntime {
             if (this.disposed) return;
 
             this.hostMonitor.notifyPageShow();
+            this.repository.notifyBaselineCaptured();
             this.synchronizeCurrentEpoch(true);
             this.surface.refreshSurface();
         }, PAGE_LIFECYCLE_WAKE_COALESCE_MS);
@@ -188,25 +187,12 @@ export class ChatGPTConversationContentRuntime {
         const isInitialSynchronization = this.lastDocumentKey === undefined;
         if (changed) this.hostMonitor.notifyRouteChanged(isInitialSynchronization);
         this.lastDocumentKey = nextDocumentKey;
-        if (changed || force) this.repository.bindCurrentDocument();
-        if (changed) {
-            this.fullHistoryDiscovery.cancel();
-            if (hasChatGPTFullHistoryTrigger(pageUrl)) {
-                void this.fullHistoryDiscovery.start();
-            }
-        }
+        if (changed || force) void this.repository.enterCurrentEpoch();
     }
 
     private resolveCurrentDocument(pageUrl = window.location.href): ConversationDocumentRefV1 {
-        const conversationId = getChatGPTConversationId(pageUrl);
-        if (conversationId) {
-            return Object.freeze({
-                key: createConversationDocumentKeyV1('chatgpt', conversationId),
-                platformId: 'chatgpt',
-                conversationId,
-                canonicalUrl: pageUrl,
-            });
-        }
+        const document = this.graphAdapter.resolveDocument(pageUrl);
+        if (document) return document;
         return Object.freeze({
             ...this.pageDocument,
             canonicalUrl: pageUrl,

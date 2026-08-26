@@ -1255,7 +1255,7 @@ describe('content runtime entry', () => {
                 position: 50,
                 messageId: 'payload-a50',
                 assistantMessageId: 'payload-a50',
-                source: 'pending-restore',
+                source: 'bookmark',
             },
             { timeoutMs: 15000, align: 'start' },
         );

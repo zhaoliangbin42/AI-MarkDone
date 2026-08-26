@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { extensionIconFiles, safariExcludedIconFiles, safariExcludedLocaleMessageKeys } from '../../../config/extension/surface';
-import { SUPPORTED_HOST_PATTERNS } from '../../../config/extension/hosts';
+import { CHATGPT_HOST_PATTERNS, SUPPORTED_HOST_PATTERNS } from '../../../config/extension/hosts';
 
 type ChromeManifest = {
     host_permissions?: string[];
@@ -131,16 +131,17 @@ describe('manifest resource consistency', () => {
         expect(safariResources).not.toContain('content-early-main.js');
     });
 
-    it('ships no ChatGPT page bridge or bridge resource', () => {
+    it('ships the 5.3 GET seed bridge only for Chrome and Firefox', () => {
         const chrome = readJson<ChromeManifest>('manifest.chrome.json');
         const firefox = readJson<Mv2Manifest>('manifest.firefox.json');
         const safari = readJson<Mv2Manifest>('manifest.safari.json');
 
-        for (const manifest of [chrome, firefox, safari]) {
+        for (const manifest of [chrome, firefox]) {
             const entries = manifest.content_scripts || [];
             const scripts = entries.flatMap((item) => item.js || []);
-            expect(scripts).not.toContain('page-bridges/chatgpt-conversation-bridge.js');
-            expect(scripts).not.toContain('page-bridges/chatgpt-conversation-bootstrap.js');
+            expect(scripts).toContain('page-bridges/chatgpt-conversation-bootstrap.js');
+            const bootstrapEntry = entries.find((item) => item.js?.includes('page-bridges/chatgpt-conversation-bootstrap.js'));
+            expect(bootstrapEntry).toMatchObject({ matches: [...CHATGPT_HOST_PATTERNS], run_at: 'document_start' });
             const resources = normalized(
                 'web_accessible_resources' in manifest
                     ? Array.isArray(manifest.web_accessible_resources)
@@ -149,9 +150,13 @@ describe('manifest resource consistency', () => {
                         : []
                     : [],
             );
-            expect(resources).not.toContain('page-bridges/chatgpt-conversation-bridge.js');
-            expect(resources).not.toContain('page-bridges/*.js');
+            expect(resources).toContain('page-bridges/chatgpt-conversation-bridge.js');
         }
+
+        const safariEntries = safari.content_scripts || [];
+        const safariScripts = safariEntries.flatMap((item) => item.js || []);
+        expect(safariScripts).not.toContain('page-bridges/chatgpt-conversation-bootstrap.js');
+        expect(normalized(safari.web_accessible_resources)).not.toContain('page-bridges/chatgpt-conversation-bridge.js');
 
         for (const manifest of [chrome, firefox, safari]) {
             const idleEntry = manifest.content_scripts?.find((item) => item.js?.includes('content.js'));

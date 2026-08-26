@@ -56,7 +56,7 @@ import {
     normalizeThemeAccentColor,
     loadAndNormalize,
 } from '../../core/settings/migrations';
-import { withChatGPTFullHistoryTrigger } from '../../drivers/content/chatgpt/chatgptRoute';
+import { withChatGPTMessageNavigationTrigger } from '../../drivers/content/chatgpt/chatgptRoute';
 import type { UserThemeOverrides } from '../../style/tokens';
 import { areAppearanceSnapshotsEqual, createAppearanceSnapshot, type AppearanceSnapshot } from '../../style/appearance';
 import { getFormulaOnlyPlatformProfile, startFormulaOnlyRuntime } from './formulaOnlyRuntime';
@@ -174,6 +174,7 @@ if (adapter) {
     }
     const bookmarksController = new BookmarksPanelController(adapter, {
         conversationContentSource,
+        navigation: conversationNavigation,
         readDiscoveryDiagnostics: () => chatGptConversationContentRuntime?.readDiscoveryDiagnostics() ?? null,
     });
     if (chatGptConversationContentRuntime && !('__AIMD_DISCOVERY_DIAGNOSTICS__' in window)) {
@@ -243,8 +244,8 @@ if (adapter) {
             onOpenBookmarksPanel: () => bookmarksPanel.toggle(),
             onOpenDetachedReader: () => openDetachedReaderFromStepper(),
             onOpenPrompts: (anchor) => chatGptPromptAutocomplete?.openManager(anchor),
-            onLoadFullHistory: () => {
-                window.location.assign(withChatGPTFullHistoryTrigger(window.location.href));
+            onRefreshMessageNavigation: () => {
+                window.location.assign(withChatGPTMessageNavigationTrigger(window.location.href));
             },
             onTogglePageBookmark: async (url) => {
                 const status = await bookmarksController.readPageBookmarkStatus(url);

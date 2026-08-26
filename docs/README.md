@@ -64,10 +64,13 @@ These documents record bounded refactor execution and closeout evidence. They do
 
 - `docs/adr/README.md`
 - `docs/adr/ADR-0018-chatgpt-identity-proven-single-content-pool.md`
-  - active ChatGPT lifecycle: page identity, optional structurally verified
-    passive GET evidence, stable typed DOM batches, one monotonic pool, and one
+  - active ChatGPT lifecycle: 5.3-compatible GET seed, stable typed DOM
+    batches, one monotonic pool, `get → complete` history status, and one
     atomic Conversation Surface; the former Coordinator, Conversation Index,
     and standalone Materialization projections are retired and deleted
+- `docs/adr/ADR-0030-chatgpt-get-seed-dom-completion.md`
+  - defines GET admission, DOM precedence, provisional source order, and the
+    shared Directory/Reader/Export snapshot contract
 - `docs/adr/ADR-0011-semantic-content-and-surface-projection.md`
   - retained semantic/source-span and sole surface-to-source projection rules;
     its source-only body rule is superseded by ADR-0018

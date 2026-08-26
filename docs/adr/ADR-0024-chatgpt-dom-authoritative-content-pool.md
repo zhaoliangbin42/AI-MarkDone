@@ -6,12 +6,10 @@ Accepted
 
 ## Context
 
-ChatGPT no longer guarantees that one website response contains the complete
-conversation. The passive Graph bridge therefore adds parsing, baseline gates,
-upgrade probes and retry state without guaranteeing that Reader, copy or export
-can use every message that is already rendered on the page. Those local
-features only need trustworthy content for messages the user has actually
-loaded.
+ChatGPT no longer guarantees that the mounted DOM contains the complete
+conversation. The 5.3-compatible source bridge can provide a useful initial
+`mapping/current_node` seed, while the DOM remains the final body and slot-order
+authority for completion and correction.
 
 The host exposes two useful DOM seams: the official copy action row for an
 individual completed assistant body, and the `?message=` conversation route
@@ -21,23 +19,21 @@ the existing Markdown parser Adapter.
 
 ## Decision
 
-- Rendered ChatGPT DOM is the only production content authority. The passive
-  Graph bridge, Graph Adapter, baseline lifecycle and Graph diagnostics leave
-  the production chain.
-- `ChatGPTPageIndex` remains the only page observer. Normal page lifecycle and
-  DOM mutations use the existing short page-level reconciliation. An explicit
-  `?message=` reload may start one bounded full-history materialization sweep,
-  but that sweep reuses PageIndex, Host Monitor and Surface signals; it does
-  not create another observer, polling loop, or per-message timer.
+- Rendered ChatGPT DOM is the final production content authority. The bounded
+  5.3-compatible bridge/source path is an initial seed only; it observes the
+  website-owned same-origin GET and never issues a conversation request.
+- `ChatGPTPageIndex` remains the only page observer. Normal page lifecycle,
+  DOM mutations and the explicit `?message=` navigation skeleton use the
+  existing short page-level reconciliation; page entry never starts a whole
+  history materialization sweep or a per-slot scroll loop.
 - An ordinary assistant message is eligible when it has a direct non-empty
   `data-message-id`, non-empty rendered content, its official copy action row,
   and no active generation state. Deep Research retains its existing verified
   report anchor.
 - Each eligible message is cloned and converted through the existing Markdown
   Adapter once per changed DOM digest. The official action row is completion
-  and placement evidence, never body content. A full-history sweep is entered
-  only after the host's official navigation skeleton is present and walks the
-  persistent outer slots to materialize missing bodies.
+  and placement evidence, never body content. Missing off-screen bodies remain
+  source-backed `get` content until a user explicitly navigates to a target.
 - The Repository owns one in-memory pool per conversation key in the current
   tab. SPA navigation switches the active pool without deleting other pools;
   a full page reload naturally resets all pools. Pools retain only immutable
@@ -46,10 +42,11 @@ the existing Markdown parser Adapter.
   replaced by the latest eligible DOM body when content changes. Virtualized
   DOM removal never removes obtained content.
 - Public Content Source, Surface and consumer contracts remain unchanged.
-  `historyStatus` is `partial` until the official navigation expected count
-  and every assistant body have been observed, then becomes `complete`.
-  Full-discovery and ordinary DOM-fallback observations share the same pool;
-  a later DOM body for an existing assistant identity always wins.
+  `historyStatus` is `partial` for DOM-only content, `get` after an accepted
+  source seed. The current runtime does not force a whole-page DOM sweep to
+  manufacture `complete`; GET and ordinary DOM-fallback observations share the
+  same pool, and a later DOM body for an existing assistant identity always
+  wins.
 - Formula click and formula asset actions read authoritative TeX directly from
   the parser Adapter and do not require Repository membership.
 
@@ -57,14 +54,15 @@ the existing Markdown parser Adapter.
 
 - Reader, copy, export and toolbar availability follow content the user has
   actually loaded and no longer depend on a private response shape.
-- Slow loading has no fixed failure window for ordinary DOM capture. An
-  explicit full-history sweep is bounded and cancellable; failure preserves a
-  usable partial pool and can be retried by the same `?message=` action.
-- The runtime removes bridge injection, response cloning/parsing, Graph gates,
-  weak/strong completion tiers, deferred queues and retry sweeps.
+- Slow loading has no fixed failure window for ordinary DOM capture. A
+  single-target navigation is bounded and cancellable; failure preserves a
+  usable partial/get pool and can be retried by the same navigation action.
+- The runtime retains only the bounded source bridge needed for the initial
+  `get` seed; it does not restore Graph UI, Settings Retry, active conversation
+  requests, or a second consumer path.
 - Directory, Reader and Save Messages continue to consume the one pool. They
-  display partial content honestly before the explicit full-history action and
-  can consume the complete ordered pool after the sweep succeeds. Current
-  message copy, word count and formula actions remain mounted-DOM consumers.
+  display partial/get content honestly while single-target navigation brings a
+  requested message into the DOM. Current-message copy, word count and formula
+  actions remain mounted-DOM consumers.
 - ADR-0018 through ADR-0022 remain historical records; their Graph admission,
   Graph upgrade and bounded-resweep production rules are superseded here.

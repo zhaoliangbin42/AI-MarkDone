@@ -651,7 +651,7 @@ describe('BookmarksPanel', () => {
 
         expect(modal?.querySelector('.mock-modal__title-copy strong')?.textContent).toBe("What's new in AI-MarkDone 5.4.0");
         expect(modal?.textContent).toContain('2026-08-22');
-        expect(modal?.textContent).toContain('Load all messages');
+        expect(modal?.textContent).toContain('Refresh message navigation');
         expect(modal?.textContent).toContain('shared ordered content pool');
 
         const okButton = Array.from(modal?.querySelectorAll<HTMLButtonElement>('.mock-modal__button') ?? []).find((button) => button.textContent === 'OK');

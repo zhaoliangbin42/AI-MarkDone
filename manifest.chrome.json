@@ -31,6 +31,16 @@
         {
             "matches": [
                 "https://chatgpt.com/*",
+                "https://chat.openai.com/*"
+            ],
+            "js": [
+                "page-bridges/chatgpt-conversation-bootstrap.js"
+            ],
+            "run_at": "document_start"
+        },
+        {
+            "matches": [
+                "https://chatgpt.com/*",
                 "https://chat.openai.com/*",
                 "https://gemini.google.com/*",
                 "https://claude.ai/*",
@@ -68,7 +78,8 @@
                 "vendor/latex-workshop/formula-snippets.json",
                 "export-renderer.html",
                 "content-features.js",
-                "content-feature-chunks/*.js"
+                "content-feature-chunks/*.js",
+                "page-bridges/chatgpt-conversation-bridge.js"
             ],
             "matches": [
                 "https://chatgpt.com/*",

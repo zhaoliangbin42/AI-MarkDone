@@ -94,6 +94,16 @@ describe('readerContentSource', () => {
         source.publish({
             kind: 'ready',
             document: partialSnapshot.document,
+            snapshot: { ...partialSnapshot, historyStatus: 'get' },
+        });
+        expect(readCurrentReaderContent(chatgptAdapter(), null, {
+            conversationContentSource: source,
+            pageUrl: 'https://chatgpt.com/c/conv-1',
+        }).historyStatus).toBe('get');
+
+        source.publish({
+            kind: 'ready',
+            document: partialSnapshot.document,
             snapshot: { ...partialSnapshot, historyStatus: 'complete' },
         });
         expect(readCurrentReaderContent(chatgptAdapter(), null, {

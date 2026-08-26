@@ -3,6 +3,7 @@ import { describe, expect, it, vi } from 'vitest';
 import {
     createConversationDocumentKeyV1,
     createConversationPageDocumentKeyV1,
+    type ConversationContentCandidateV1,
     type ConversationDocumentRefV1,
     type ConversationTurnV1,
 } from '@/contracts/conversationContent';
@@ -53,12 +54,29 @@ function observation(
     item: ConversationTurnV1,
     _predecessorAssistantMessageId: string | null,
     revision = item.ordinal,
-    origin: 'full-discovery' | 'dom-fallback' = 'dom-fallback',
 ): ConversationHostTurnObservationV1 {
     return {
         turn: item,
         hostSlotId: item.identity.assistantMessageId,
-        origin,
+    };
+}
+
+function sourceCandidate(ref: ConversationDocumentRefV1, ...turns: ConversationTurnV1[]): ConversationContentCandidateV1 {
+    return {
+        document: ref,
+        coverage: 'complete',
+        turns: turns.map((item, index) => ({
+            ...item,
+            ordinal: index + 1,
+            assistantProvenance: {
+                authority: 'verified-derived',
+                fidelity: 'normalized',
+                producer: 'chatgpt-markdown-source-adapter',
+            },
+        })),
+        origin: 'source',
+        sourceRevision: 1,
+        branchKey: 'source-branch',
     };
 }
 
@@ -97,72 +115,87 @@ describe('ConversationContentRepository DOM pool', () => {
         });
     });
 
-    it('publishes a status-only transition when full discovery proves the expected turn count', () => {
-        const ref = documentRef('full-history-status');
+    it('publishes usable get content from one source candidate', () => {
+        const ref = documentRef('get-seed');
         const repository = new ConversationContentRepository({ resolveDocument: () => ref });
-        const listener = vi.fn();
-        repository.subscribe(listener);
 
-        repository.ingestHostBatch(
-            [
-                observation(turn(1, 'Answer 1'), null, 1, 'full-discovery'),
-                observation(turn(2, 'Answer 2'), 'assistant-1', 2, 'full-discovery'),
+        repository.ingestSourceCandidate(sourceCandidate(ref, turn(1, 'GET answer 1'), turn(2, 'GET answer 2')));
+
+        expect(repository.read().snapshot).toMatchObject({
+            historyStatus: 'get',
+            proof: { basis: 'source' },
+            turns: [
+                { assistantMarkdown: 'GET answer 1' },
+                { assistantMarkdown: 'GET answer 2' },
             ],
-            ['assistant-1', 'assistant-2'],
-        );
-        const partialToken = repository.read().snapshot?.contentToken;
-        const publicationCount = listener.mock.calls.length;
-
-        repository.setFullDiscoveryExpectedTurnCount(2);
-        expect(repository.markFullDiscoveryComplete()).toBe(true);
-
-        expect(repository.read().snapshot?.historyStatus).toBe('complete');
-        expect(repository.read().snapshot?.contentToken).not.toBe(partialToken);
-        expect(listener.mock.calls.length).toBeGreaterThan(publicationCount);
+        });
     });
 
-    it('lets DOM correction replace full-discovery content without reordering the pool', () => {
-        const ref = documentRef('full-history-dom-correction');
+    it('merges a late GET seed into DOM content without replacing the DOM body', () => {
+        const ref = documentRef('late-get-seed');
         const repository = new ConversationContentRepository({ resolveDocument: () => ref });
-        const fullTurn = turn(1, 'Source body');
-        const domTurn = {
-            ...turn(1, 'DOM body'),
-            assistantProvenance: {
-                authority: 'host-rendered' as const,
-                fidelity: 'normalized' as const,
-                producer: 'chatgpt-dom-fallback',
+        repository.ingestHostTurn(observation(turn(1, 'DOM answer 1'), null));
+
+        repository.ingestSourceCandidate(sourceCandidate(ref, turn(1, 'GET answer 1'), turn(2, 'GET answer 2')));
+
+        expect(repository.read().snapshot?.historyStatus).toBe('get');
+        expect(repository.read().snapshot?.turns.map((item) => item.assistantMarkdown)).toEqual([
+            'DOM answer 1',
+            'GET answer 2',
+        ]);
+    });
+
+    it('lets DOM correct a get body while preserving source-only order', () => {
+        const ref = documentRef('get-dom-correction');
+        const repository = new ConversationContentRepository({ resolveDocument: () => ref });
+        repository.ingestSourceCandidate(sourceCandidate(ref, turn(1, 'GET answer 1'), turn(2, 'GET answer 2')));
+
+        repository.ingestHostBatch([
+            {
+                turn: {
+                    ...turn(1, 'DOM answer 1'),
+                    assistantProvenance: {
+                        authority: 'host-rendered',
+                        fidelity: 'normalized',
+                        producer: 'chatgpt-dom-fallback',
+                    },
+                },
+                hostSlotId: 'slot-1',
             },
-        };
+        ], ['slot-1']);
 
-        repository.ingestHostBatch([observation(fullTurn, null, 1, 'full-discovery')], ['assistant-1']);
-        repository.setFullDiscoveryExpectedTurnCount(1);
-        expect(repository.markFullDiscoveryComplete()).toBe(true);
-
-        repository.ingestHostBatch([observation(domTurn, null, 1, 'dom-fallback')], ['assistant-1']);
-
-        expect(repository.read().snapshot?.historyStatus).toBe('complete');
-        expect(repository.read().snapshot?.turns.map((item) => item.assistantMarkdown)).toEqual(['DOM body']);
+        expect(repository.read().snapshot).toMatchObject({ historyStatus: 'get' });
+        expect(repository.read().snapshot?.turns.map((item) => item.assistantMarkdown)).toEqual([
+            'DOM answer 1',
+            'GET answer 2',
+        ]);
         expect(repository.read().snapshot?.turns[0]?.assistantProvenance?.producer).toBe('chatgpt-dom-fallback');
     });
 
-    it('downgrades a complete pool when a new message slot appears', () => {
-        const ref = documentRef('full-history-new-message');
+    it('lets a proven DOM slot order replace provisional GET order', () => {
+        const ref = documentRef('get-dom-order');
+        const repository = new ConversationContentRepository({ resolveDocument: () => ref });
+        repository.ingestSourceCandidate(sourceCandidate(ref, turn(1, 'GET answer 1'), turn(2, 'GET answer 2')));
+
+        repository.ingestHostBatch([
+            { turn: turn(2, 'DOM answer 2'), hostSlotId: 'slot-2' },
+            { turn: turn(1, 'DOM answer 1'), hostSlotId: 'slot-1' },
+        ], ['slot-2', 'slot-1']);
+
+        expect(repository.read().snapshot?.turns.map((item) => item.identity.assistantMessageId)).toEqual([
+            'assistant-2',
+            'assistant-1',
+        ]);
+        expect(repository.read().snapshot?.historyStatus).toBe('get');
+    });
+
+    it('does not publish an empty get candidate', () => {
+        const ref = documentRef('empty-get');
         const repository = new ConversationContentRepository({ resolveDocument: () => ref });
 
-        repository.ingestHostBatch([observation(turn(1, 'Answer 1'), null, 1, 'full-discovery')], ['assistant-1']);
-        repository.setFullDiscoveryExpectedTurnCount(1);
-        expect(repository.markFullDiscoveryComplete()).toBe(true);
+        repository.ingestSourceCandidate({ document: ref, coverage: 'complete', turns: [], origin: 'source' });
 
-        repository.ingestHostBatch(
-            [observation(turn(2, 'Answer 2'), 'assistant-1', 2, 'dom-fallback')],
-            ['assistant-1', 'assistant-2'],
-        );
-
-        expect(repository.read().snapshot?.historyStatus).toBe('partial');
-        expect(repository.read().snapshot?.turns.map((item) => item.identity.assistantMessageId)).toEqual([
-            'assistant-1',
-            'assistant-2',
-        ]);
+        expect(repository.read().snapshot).toBeNull();
     });
 
     it('appends new DOM messages without dropping earlier loaded content', () => {
@@ -290,7 +323,7 @@ describe('ConversationContentRepository DOM pool', () => {
 
         repository.ingestHostBatch([
             observation(turn(1, 'Changed but conflicted'), null),
-            { turn: turn(2, 'Wrong slot'), hostSlotId: 'assistant-1', origin: 'dom-fallback' },
+            { turn: turn(2, 'Wrong slot'), hostSlotId: 'assistant-1' },
         ]);
 
         expect(repository.read().snapshot?.turns.map((item) => item.assistantMarkdown)).toEqual([

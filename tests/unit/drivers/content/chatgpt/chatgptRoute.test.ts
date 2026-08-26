@@ -1,9 +1,8 @@
 import { describe, expect, it } from 'vitest';
 import {
     getChatGPTConversationId,
-    hasChatGPTFullHistoryTrigger,
     isChatGPTConversationPage,
-    withChatGPTFullHistoryTrigger,
+    withChatGPTMessageNavigationTrigger,
 } from '@/drivers/content/chatgpt/chatgptRoute';
 
 describe('ChatGPT route identity', () => {
@@ -32,15 +31,15 @@ describe('ChatGPT route identity', () => {
     });
 
     it('adds an empty message query for supported ChatGPT conversation URLs', () => {
-        expect(withChatGPTFullHistoryTrigger(
+        expect(withChatGPTMessageNavigationTrigger(
             'https://chatgpt.com/g/project/c/12345678-1234-1234-1234-123456789abc?model=auto#latest',
         )).toBe(
             'https://chatgpt.com/g/project/c/12345678-1234-1234-1234-123456789abc?model=auto&message=#latest',
         );
     });
 
-    it('replaces an existing message target with the empty full-history trigger', () => {
-        expect(withChatGPTFullHistoryTrigger(
+    it('replaces an existing message target with the empty navigation trigger', () => {
+        expect(withChatGPTMessageNavigationTrigger(
             'https://chatgpt.com/c/12345678-1234-1234-1234-123456789abc?message=1&model=auto',
         )).toBe(
             'https://chatgpt.com/c/12345678-1234-1234-1234-123456789abc?message=&model=auto',
@@ -49,13 +48,6 @@ describe('ChatGPT route identity', () => {
 
     it('leaves non-ChatGPT URLs unchanged', () => {
         const url = 'https://example.com/c/12345678?message=1';
-        expect(withChatGPTFullHistoryTrigger(url)).toBe(url);
-    });
-
-    it('recognizes only the empty message query as the full-history trigger', () => {
-        expect(hasChatGPTFullHistoryTrigger('https://chatgpt.com/c/12345678?message=')).toBe(true);
-        expect(hasChatGPTFullHistoryTrigger('https://chatgpt.com/c/12345678?message')).toBe(true);
-        expect(hasChatGPTFullHistoryTrigger('https://chatgpt.com/c/12345678?message=1')).toBe(false);
-        expect(hasChatGPTFullHistoryTrigger('https://example.com/c/12345678?message=')).toBe(false);
+        expect(withChatGPTMessageNavigationTrigger(url)).toBe(url);
     });
 });

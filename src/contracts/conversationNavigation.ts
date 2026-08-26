@@ -10,8 +10,7 @@ export type ConversationNavigationSourceV1 =
     | 'directory'
     | 'bookmark'
     | 'reader'
-    | 'stepper'
-    | 'pending-restore';
+    | 'stepper';
 
 export type ConversationNavigationInputV1 = Readonly<{
     position: number;

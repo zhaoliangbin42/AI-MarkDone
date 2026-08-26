@@ -1,6 +1,7 @@
 import {
     freezeConversationSnapshotV1,
     isConversationSnapshotV1,
+    type ConversationContentCandidateV1,
     type ConversationContentSourceV1,
     type ConversationContentStateV1,
     type ConversationDocumentRefV1,
@@ -19,34 +20,43 @@ export type ConversationHostTurnObservationV1 = Readonly<{
     turn: ConversationTurnV1;
     /** Stable outer host position containing this rendered assistant body. */
     hostSlotId: string;
-    /** Acquisition mode used for this DOM observation. */
-    origin?: 'full-discovery' | 'dom-fallback';
 }>;
 
 export type ConversationContentRepositoryOptionsV1 = Readonly<{
     resolveDocument: () => ConversationDocumentRefV1 | null;
+    readBaseline?: (
+        document: ConversationDocumentRefV1,
+        signal: AbortSignal,
+    ) => Promise<ConversationContentCandidateV1 | null>;
+    baselineSignalDelayMs?: number;
 }>;
 
 type ConversationPool = {
     projectionId: string;
     turns: readonly ConversationTurnV1[];
     historyStatus: DiscoveryHistoryStatusV1;
-    expectedTurnCount: number | null;
+    sourceOrder: readonly string[];
+    sourceRevision: number | null;
+    sourceAttempted: boolean;
+    basis: 'source' | 'hybrid' | 'host' | null;
     slotOrder: readonly string[];
     turnsByAssistantId: Map<string, ConversationTurnV1>;
     slotIdByAssistantId: Map<string, string>;
     assistantIdBySlotId: Map<string, string>;
     digests: Map<string, string>;
-    acquisitionModeByAssistantId: Map<string, 'full-discovery' | 'dom-fallback'>;
+    acquisitionModeByAssistantId: Map<string, 'get' | 'dom-fallback'>;
+    domObservedAssistantIds: Set<string>;
     documentKeys: Set<string>;
 };
 
 /**
  * Tab-local semantic content pool.
  *
- * ChatGPT DOM is the only body authority. Pools retain plain data across SPA
- * navigation and are destroyed with this page runtime; they never retain DOM
- * nodes and never acquire conversation data from the network.
+ * GET source and ChatGPT DOM share one pool. GET supplies a usable initial
+ * seed; DOM body and outer-slot observations are the final correction
+ * authority. Pools retain plain data across SPA navigation and are destroyed
+ * with this page runtime; they never retain DOM nodes or issue conversation
+ * requests.
  */
 export class ConversationContentRepository implements ConversationContentSourceV1, ConversationTurnReadPortV1 {
     private state: ConversationContentStateV1 = Object.freeze({
@@ -60,6 +70,10 @@ export class ConversationContentRepository implements ConversationContentSourceV
     private activePool: ConversationPool | null = null;
     private epoch = 0;
     private projectionSequence = 0;
+    private baselineFlight: Promise<ConversationContentStateV1> | null = null;
+    private baselineController: AbortController | null = null;
+    private baselineSignalTimer: ReturnType<typeof setTimeout> | null = null;
+    private baselinePendingSignal = false;
     private disposed = false;
 
     constructor(private readonly options: ConversationContentRepositoryOptionsV1) {}
@@ -79,11 +93,75 @@ export class ConversationContentRepository implements ConversationContentSourceV
         return this.state;
     }
 
+    /** Enter the current canonical route and perform one bounded bridge-memory peek. */
+    enterCurrentEpoch(): Promise<ConversationContentStateV1> {
+        if (this.disposed) return Promise.resolve(this.state);
+        this.bindCurrentDocument();
+        const document = this.currentDocument;
+        const pool = this.activePool;
+        if (!document || document.identityKind === 'page' || !document.conversationId || !this.options.readBaseline || !pool) {
+            return Promise.resolve(this.state);
+        }
+        if (this.baselineFlight) return this.baselineFlight;
+        if (pool.sourceAttempted) return Promise.resolve(this.state);
+        return this.readBaselineForCurrentDocument(document, pool);
+    }
+
+    /** Re-read bridge memory after the page reports a new host-owned capture. */
+    notifyBaselineCaptured(): void {
+        if (this.disposed || !this.options.readBaseline || !this.currentDocument?.conversationId) return;
+        if (this.baselineFlight) {
+            this.baselinePendingSignal = true;
+            return;
+        }
+        if (this.baselineSignalTimer !== null) return;
+        const delay = Math.max(0, Math.round(this.options.baselineSignalDelayMs ?? 150));
+        this.baselineSignalTimer = setTimeout(() => {
+            this.baselineSignalTimer = null;
+            if (this.disposed || !this.currentDocument?.conversationId || !this.activePool) return;
+            void this.readBaselineForCurrentDocument(this.currentDocument, this.activePool, true);
+        }, delay);
+    }
+
+    private readBaselineForCurrentDocument(
+        document: ConversationDocumentRefV1,
+        pool: ConversationPool,
+        force = false,
+    ): Promise<ConversationContentStateV1> {
+        if (!this.options.readBaseline || !document.conversationId) return Promise.resolve(this.state);
+        if (!force && pool.sourceAttempted) return Promise.resolve(this.state);
+        const controller = new AbortController();
+        this.baselineController = controller;
+        pool.sourceAttempted = true;
+        const promise = Promise.resolve()
+            .then(() => this.options.readBaseline!(document, controller.signal))
+            .then((candidate) => {
+                if (controller.signal.aborted || this.disposed || this.currentDocument?.key !== document.key) {
+                    return this.state;
+                }
+                if (candidate) this.ingestSourceCandidate(candidate);
+                return this.state;
+            })
+            .catch(() => this.state)
+            .finally(() => {
+                if (this.baselineFlight !== promise) return;
+                this.baselineFlight = null;
+                this.baselineController = null;
+                if (this.baselinePendingSignal && !this.disposed) {
+                    this.baselinePendingSignal = false;
+                    this.notifyBaselineCaptured();
+                }
+            });
+        this.baselineFlight = promise;
+        return promise;
+    }
+
     /** Bind the active SPA route without performing I/O. */
     bindCurrentDocument(): void {
         if (this.disposed) return;
         const document = this.options.resolveDocument();
         if (!document) {
+            this.resetBaselineState();
             this.currentDocument = null;
             this.activePool = null;
             this.publish({ kind: 'idle', document: null, snapshot: null });
@@ -92,31 +170,56 @@ export class ConversationContentRepository implements ConversationContentSourceV
         this.switchDocument(document);
     }
 
-    setFullDiscoveryExpectedTurnCount(count: number | null): void {
+    /** Merge one validated 5.3 source candidate into the shared pool. */
+    ingestSourceCandidate(candidate: ConversationContentCandidateV1): ConversationContentStateV1 {
+        if (this.disposed) return this.state;
         this.bindCurrentDocument();
         const pool = this.activePool;
-        if (!pool) return;
-        pool.expectedTurnCount = typeof count === 'number' && Number.isInteger(count) && count > 0
-            ? count
-            : null;
-    }
+        const document = this.currentDocument;
+        if (!pool || !document || candidate.document.key !== document.key || candidate.origin === 'host') return this.state;
 
-    markFullDiscoveryComplete(): boolean {
-        this.bindCurrentDocument();
-        const pool = this.activePool;
-        if (!pool || pool.expectedTurnCount === null || pool.turns.length !== pool.expectedTurnCount) return false;
-        if (pool.historyStatus === 'complete') return true;
-        pool.historyStatus = 'complete';
-        this.publishProjection();
-        return true;
-    }
+        const incomingTurns = candidate.turns.map((turn, index) => normalizeTurn(turn, index + 1));
+        if (incomingTurns.some((turn) => !turn)) return this.state;
+        const turns = incomingTurns.filter((turn): turn is ConversationTurnV1 => Boolean(turn));
+        if (turns.length === 0) return this.state;
+        const incomingOrder = turns.map((turn) => turn.identity.assistantMessageId);
+        if (new Set(incomingOrder).size !== incomingOrder.length) return this.state;
 
-    markFullDiscoveryPartial(): void {
-        this.bindCurrentDocument();
-        const pool = this.activePool;
-        if (!pool || pool.historyStatus === 'partial') return;
-        pool.historyStatus = 'partial';
+        const nextSourceOrder = mergeStableOrder(pool.sourceOrder, incomingOrder);
+        if (!nextSourceOrder || !isOrderCompatibleWithDom(pool, nextSourceOrder)) return this.state;
+
+        const previousStatus = pool.historyStatus;
+        const previousBasis = pool.basis;
+        const previousTurns = pool.turns;
+        const previousRevision = pool.sourceRevision;
+        pool.sourceOrder = nextSourceOrder;
+        pool.sourceRevision = Math.max(
+            pool.sourceRevision ?? 0,
+            Number.isInteger(candidate.sourceRevision) ? candidate.sourceRevision! : 0,
+        );
+        for (const turn of turns) {
+            const assistantMessageId = turn.identity.assistantMessageId;
+            const existingMode = pool.acquisitionModeByAssistantId.get(assistantMessageId);
+            if (existingMode === 'dom-fallback') continue;
+            pool.turnsByAssistantId.set(assistantMessageId, turn);
+            pool.digests.set(assistantMessageId, digestTurnContent(turn));
+            pool.acquisitionModeByAssistantId.set(assistantMessageId, 'get');
+        }
+        pool.basis = pool.basis === 'host' || pool.domObservedAssistantIds.size > 0 ? 'hybrid' : 'source';
+        const projectedTurns = buildProjectedTurns(pool);
+        const sourceAddedNewTurn = projectedTurns.some((turn) => (
+            !previousTurns.some((existing) => existing.identity.assistantMessageId === turn.identity.assistantMessageId)
+        ));
+        if (pool.historyStatus !== 'complete' || sourceAddedNewTurn || previousRevision !== pool.sourceRevision) {
+            pool.historyStatus = 'get';
+        }
+        const changed = !sameTurnProjection(previousTurns, projectedTurns)
+            || previousStatus !== pool.historyStatus
+            || previousBasis !== pool.basis;
+        pool.turns = projectedTurns;
+        if (!changed) return this.state;
         this.publishProjection();
+        return this.state;
     }
 
     ingestHostTurn(observation: ConversationHostTurnObservationV1): ConversationContentStateV1 {
@@ -159,7 +262,6 @@ export class ConversationContentRepository implements ConversationContentSourceV
             hostSlotId: string;
             assistantMessageId: string;
             digest: string;
-            origin?: ConversationHostTurnObservationV1['origin'];
         }> = [];
         const pendingAssistantSlotIds = new Map<string, string>();
         const pendingSlotAssistantIds = new Map<string, string>();
@@ -199,29 +301,34 @@ export class ConversationContentRepository implements ConversationContentSourceV
                 hostSlotId,
                 assistantMessageId,
                 digest,
-                origin: observation.origin,
             });
+        }
+
+        const nextAssistantBySlot = new Map(pool.assistantIdBySlotId);
+        for (const observation of pendingObservations) {
+            nextAssistantBySlot.set(observation.hostSlotId, observation.assistantMessageId);
+        }
+        const nextDomAssistantOrder = readDomAssistantOrder(pool, nextAssistantBySlot, nextSlotOrder);
+        if (!isOrderCompatibleWithDom(pool, pool.sourceOrder, nextAssistantBySlot, nextSlotOrder)) {
+            // Source order is provisional. Once DOM proves a conflicting
+            // relative order, keep the same pool but let DOM become the order
+            // authority and reinsert source-only turns around that evidence.
+            pool.sourceOrder = mergeProjectionOrder(pool.sourceOrder, nextDomAssistantOrder);
         }
 
         pool.slotOrder = nextSlotOrder;
         for (const observation of pendingObservations) {
             const { turn: incoming, hostSlotId, assistantMessageId, digest } = observation;
+            pool.domObservedAssistantIds.add(assistantMessageId);
             if (pool.digests.get(assistantMessageId) === digest) continue;
             pool.slotIdByAssistantId.set(assistantMessageId, hostSlotId);
             pool.assistantIdBySlotId.set(hostSlotId, assistantMessageId);
             pool.turnsByAssistantId.set(assistantMessageId, incoming);
             pool.digests.set(assistantMessageId, digest);
-            pool.acquisitionModeByAssistantId.set(
-                assistantMessageId,
-                observation.origin === 'full-discovery' ? 'full-discovery' : 'dom-fallback',
-            );
+            pool.acquisitionModeByAssistantId.set(assistantMessageId, 'dom-fallback');
         }
 
-        const nextTurns = freezeTurns(pool.slotOrder.flatMap((hostSlotId) => {
-            const assistantMessageId = pool.assistantIdBySlotId.get(hostSlotId);
-            const turn = assistantMessageId ? pool.turnsByAssistantId.get(assistantMessageId) : null;
-            return turn ? [turn] : [];
-        }));
+        const nextTurns = buildProjectedTurns(pool);
         const turnProjectionChanged = !sameTurnProjection(pool.turns, nextTurns);
         const newTurnDiscovered = nextTurns.some((turn) => (
             !pool.turns.some((existing) => (
@@ -229,7 +336,10 @@ export class ConversationContentRepository implements ConversationContentSourceV
             ))
         ));
         if (pool.historyStatus === 'complete' && (topologyExpanded || newTurnDiscovered)) {
-            pool.historyStatus = 'partial';
+            pool.historyStatus = pool.sourceOrder.length > 0 ? 'get' : 'partial';
+        }
+        if (pendingObservations.length > 0) {
+            pool.basis = pool.sourceOrder.length > 0 ? 'hybrid' : 'host';
         }
         const historyStatusChanged = pool.historyStatus !== previousHistoryStatus;
         if (!turnProjectionChanged && !historyStatusChanged) return this.state;
@@ -279,7 +389,7 @@ export class ConversationContentRepository implements ConversationContentSourceV
             documentKind: this.currentDocument
                 ? (this.currentDocument.identityKind ?? 'canonical')
                 : null,
-            basis: this.activePool?.turns.length ? 'host' : null,
+            basis: this.activePool?.basis ?? null,
             epoch: this.epoch,
             turnCount: this.activePool?.turns.length ?? 0,
             historyStatus: this.activePool?.historyStatus ?? (this.currentDocument ? 'partial' : 'unknown'),
@@ -289,6 +399,7 @@ export class ConversationContentRepository implements ConversationContentSourceV
     dispose(): void {
         if (this.disposed) return;
         this.disposed = true;
+        this.resetBaselineState();
         this.epoch += 1;
         this.currentDocument = null;
         this.activePool = null;
@@ -310,6 +421,7 @@ export class ConversationContentRepository implements ConversationContentSourceV
             && document.conversationId !== null
             && this.activePool !== null;
         if (promotesPageIdentity) {
+            this.resetBaselineState();
             const previousKey = this.currentDocument!.key;
             const pool = this.activePool!;
             this.pools.delete(previousKey);
@@ -323,6 +435,7 @@ export class ConversationContentRepository implements ConversationContentSourceV
         }
 
         this.epoch += 1;
+        this.resetBaselineState();
         this.currentDocument = freezeDocument(document);
         this.activePool = this.pools.get(document.key) ?? this.createPool(document.key);
         this.pools.set(document.key, this.activePool);
@@ -330,18 +443,33 @@ export class ConversationContentRepository implements ConversationContentSourceV
         else this.publish({ kind: 'syncing', document: this.currentDocument, snapshot: null });
     }
 
+    private resetBaselineState(): void {
+        if (this.baselineSignalTimer !== null) {
+            clearTimeout(this.baselineSignalTimer);
+            this.baselineSignalTimer = null;
+        }
+        this.baselineController?.abort();
+        this.baselineController = null;
+        this.baselineFlight = null;
+        this.baselinePendingSignal = false;
+    }
+
     private createPool(documentKey: string): ConversationPool {
         return {
             projectionId: `conversation-projection:${++this.projectionSequence}`,
             turns: Object.freeze([]),
             historyStatus: 'partial',
-            expectedTurnCount: null,
+            sourceOrder: Object.freeze([]),
+            sourceRevision: null,
+            sourceAttempted: false,
+            basis: null,
             slotOrder: Object.freeze([]),
             turnsByAssistantId: new Map(),
             slotIdByAssistantId: new Map(),
             assistantIdBySlotId: new Map(),
             digests: new Map(),
             acquisitionModeByAssistantId: new Map(),
+            domObservedAssistantIds: new Set(),
             documentKeys: new Set([documentKey]),
         };
     }
@@ -357,7 +485,7 @@ export class ConversationContentRepository implements ConversationContentSourceV
             coverage: 'complete' as const,
             historyStatus: pool.historyStatus,
             turns: pool.turns,
-            proof: Object.freeze({ basis: 'host' as const }),
+            proof: Object.freeze({ basis: pool.basis ?? 'host' }),
         };
         const snapshot = freezeConversationSnapshotV1({
             ...snapshotWithoutToken,
@@ -396,6 +524,77 @@ function normalizeTurn(turn: ConversationTurnV1, ordinal: number): ConversationT
         ...(turn.assistantProvenance
             ? { assistantProvenance: Object.freeze({ ...turn.assistantProvenance }) }
             : {}),
+    });
+}
+
+function buildProjectedTurns(pool: ConversationPool): readonly ConversationTurnV1[] {
+    const domOrder = pool.slotOrder.flatMap((slotId) => {
+        const assistantId = pool.assistantIdBySlotId.get(slotId);
+        return assistantId ? [assistantId] : [];
+    });
+    const orderedAssistantIds = mergeProjectionOrder(pool.sourceOrder, domOrder);
+    return freezeTurns(orderedAssistantIds.flatMap((assistantId) => {
+        const turn = pool.turnsByAssistantId.get(assistantId);
+        return turn ? [turn] : [];
+    }));
+}
+
+function mergeProjectionOrder(
+    sourceOrder: readonly string[],
+    domOrder: readonly string[],
+): readonly string[] {
+    if (sourceOrder.length === 0) return Object.freeze([...domOrder]);
+    if (domOrder.length === 0) return Object.freeze([...sourceOrder]);
+    const merged = [...domOrder];
+    for (let index = 0; index < sourceOrder.length; index += 1) {
+        const assistantId = sourceOrder[index]!;
+        if (merged.includes(assistantId)) continue;
+        const nextKnown = sourceOrder.slice(index + 1).find((id) => merged.includes(id));
+        if (nextKnown) {
+            merged.splice(merged.indexOf(nextKnown), 0, assistantId);
+            continue;
+        }
+        const previousKnown = sourceOrder.slice(0, index).reverse().find((id) => merged.includes(id));
+        if (previousKnown) {
+            merged.splice(merged.indexOf(previousKnown) + 1, 0, assistantId);
+            continue;
+        }
+        merged.push(assistantId);
+    }
+    return Object.freeze(merged);
+}
+
+function mergeStableOrder(
+    existingOrder: readonly string[],
+    incomingOrder: readonly string[],
+): readonly string[] | null {
+    const incoming = normalizeSlotOrder(incomingOrder);
+    if (incoming.length === 0) return existingOrder;
+    if (existingOrder.length === 0 || sameStringSequence(existingOrder, incoming)) return incoming;
+    if (containsSubsequence(incoming, existingOrder)) return incoming;
+    if (containsSubsequence(existingOrder, incoming)) return existingOrder;
+    return null;
+}
+
+function isOrderCompatibleWithDom(
+    pool: ConversationPool,
+    sourceOrder: readonly string[],
+    assistantBySlot: ReadonlyMap<string, string> = pool.assistantIdBySlotId,
+    slotOrder: readonly string[] = pool.slotOrder,
+): boolean {
+    if (sourceOrder.length === 0) return true;
+    const domAssistantOrder = readDomAssistantOrder(pool, assistantBySlot, slotOrder);
+    return containsSubsequence(sourceOrder, domAssistantOrder);
+}
+
+function readDomAssistantOrder(
+    pool: ConversationPool,
+    assistantBySlot: ReadonlyMap<string, string>,
+    slotOrder: readonly string[] = pool.slotOrder,
+): readonly string[] {
+    return slotOrder.flatMap((slotId) => {
+        const assistantId = assistantBySlot.get(slotId);
+        return assistantId ? [assistantId] : [];
     });
 }
 
@@ -438,6 +637,17 @@ function containsContiguousSequence(haystack: readonly string[], needle: readonl
     const lastStart = haystack.length - needle.length;
     for (let start = 0; start <= lastStart; start += 1) {
         if (needle.every((value, offset) => haystack[start + offset] === value)) return true;
+    }
+    return false;
+}
+
+function containsSubsequence(haystack: readonly string[], needle: readonly string[]): boolean {
+    if (needle.length === 0) return true;
+    let cursor = 0;
+    for (const value of haystack) {
+        if (value !== needle[cursor]) continue;
+        cursor += 1;
+        if (cursor === needle.length) return true;
     }
     return false;
 }

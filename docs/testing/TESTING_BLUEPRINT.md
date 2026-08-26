@@ -114,7 +114,7 @@ The discovery refactor has a dedicated contract and lifecycle layer in addition 
 
 - `tests/unit/contracts/conversationContent.test.ts` locks page/canonical document identity, deep immutability, contiguous typed turns, coverage, and content-token semantics.
 - Repository scenario tests cover page-scoped DOM publication, page-to-canonical identity promotion, per-conversation tab-local pool switching, direct reads, authoritative outer-slot sequence extension by prefix/tail/both, retained topology for mounted subwindows, conflict rejection, private empty-slot idempotency, virtualized-window preservation, assistant-to-slot binding conflicts, duplicate assistant identity idempotency, and latest eligible DOM body updates.
-- Runtime and governance tests prove the Graph bridge, baseline acquisition, retry ladder and Graph diagnostics are absent, and the extension issues zero conversation GET/POST requests.
+- Runtime and governance tests prove the 5.3 document-start bridge only observes website-owned same-origin JSON GETs, never issues conversation GET/POST, never observes POST/SSE or credentials, and never creates a second Repository/DOM observer. Legacy Settings Retry and Graph UI remain absent.
 - The first-turn lifecycle fixture observes assistant DOM before canonical identity and proves the official action row mounts the plugin toolbar without waiting for Repository publication. Current-message word count, copy, Reader/export preparation and selection/annotation resolve the owning DOM-local message; Repository ingestion occurs independently after eligible compilation. Formula actions use formula DOM directly; bookmark submission remains disabled and sends no save/remove request until canonical identity exists. A later `/c/:id` promotion preserves accumulated projection/content tokens and enables the existing bookmark chain.
 - Route identity tests keep `/c/<id>`, `/conversation/<id>`, nested `/g/<scope>/c/<id>`, arbitrary prefixes and mixed safe tokens distinct from negative `/g/<id>`, `/share/<id>`, query-only identity, unsafe tokens and URL-stable anonymous cases. The route parser is a shared semantic-segment identity rule, not an endpoint list or content detector.
 - The existing-conversation fixture uses realistic outer empty slots with nested hydrated message sections. An initial ten-slot sequence may jump directly to a 62-slot sequence whose old ten slots are an exact suffix; consecutive prefixes, one merged multi-page prefix, a new tail, and prefix-plus-tail extension preserve the authoritative host order. Hydrating an older empty slot inserts its body at that position rather than the snapshot tail. A mounted subwindow cannot shrink the retained topology, and a conflict cannot reorder it. Virtualized removal does not shrink the pool. Multi-message Reader/export remain aligned, while current-message actions remain usable from mounted DOM and a generating message stays absent from the pool until completion.
@@ -122,24 +122,26 @@ The discovery refactor has a dedicated contract and lifecycle layer in addition 
 - Page Monitor and Host Monitor coverage proves initialization, delayed official action-row hydration, generation end, root replacement and relevant content mutation all reach one short page-level reconciliation. Each coalesced capture reads one deduplicated outer-slot sequence excluding nested repeated markers and `client-created-root`; an aggressive mutation burst produces one final topology read. User-message body hydration from empty to non-empty is a content signal and updates the same assistant identity without waiting for an unrelated history load. Streaming content is not compiled; empty slots are not cloned or converted; an unchanged complete pair removed and structurally remounted under the same stable assistant ID is not compiled again; an assistant-only capture recompiles when its user prompt remounts; changed eligible DOM still updates the same identity. Extension-owned and unrelated mutations are ignored. Deep Research iframe hydration continues through its verified Adapter anchor.
 - Runtime composition coverage proves History navigation, `pageshow`, document `resume` and visible-page wake switch or refresh the correct tab-local conversation pool. A→B fences stale compilation, B→A restores A, and no consumer refresh, polling loop, bridge or retry ladder creates another acquisition path.
 - Surface and consumer-boundary tests prove accumulated-content consumers receive one Frame, while Toolbar and current-message actions consume the typed PageIndex message seam without a second observer, route watcher or accumulated store. DOM remounts do not change semantic tokens; an assistant-only virtualized remount rebinds without duplicating a toolbar; Directory visibility/items/geometry remain unchanged in this phase; pending local content does not rewrite React-owned nodes; and current-message DOM access cannot become a second multi-message discovery path. Governance also requires the retired Discovery Coordinator, Conversation Index, standalone Materialization implementation, and source-only V2 integration harness/tests to remain absent.
-- Same-page navigation tests enter through the shared Directory/Bookmark/Reader navigation seam and cover exact stable IDs, outer-slot deduplication, initial latest-window navigation, target-above/target-below direction, batch-load overshoot and step reduction, dynamic scroll-root geometry, configurable 1000–5000px stride values in 400px increments, bounded stalls/deadlines, user cancellation, projection changes, and exact-anchor stabilization. These tests must prove that navigation may cause ordinary page hydration only after an explicit user action and never adds a content observer, network acquisition path, placeholder count, or second pool. Full-history tests separately enter through the real lower-right action or ChatGPT message bookmark, assert empty `message` URL construction and full-page reload, then cover the bounded DOM sweep and shared-pool completion rules.
+- Same-page navigation tests enter through the shared Directory/Bookmark/Reader navigation seam and cover exact stable IDs, outer-slot deduplication, initial latest-window navigation, target-above/target-below direction, batch-load overshoot and step reduction, dynamic scroll-root geometry, configurable 1000–5000px stride values in 400px increments, bounded stalls/deadlines, user cancellation, projection changes, and exact-anchor stabilization. These tests must prove that navigation may cause ordinary page hydration only after an explicit user action and never adds a content observer, network acquisition path, placeholder count, or second pool. Message-navigation tests enter through the real lower-right action and ChatGPT bookmark path, assert empty `message` URL construction only when a route reload is necessary, and prove both paths share the same coordinator/executor without a page-entry slot sweep.
 - Installed Chrome MV3 and Firefox MV2 tests remain separate acceptance evidence; unit/integration green is not a substitute for real host verification.
 
-### 3.0 Full-history trigger and DOM correction (2026-08-26)
+### 3.0 Message navigation and DOM correction (2026-08-26)
 
-ChatGPT's explicit full-history path uses the empty `?message=` query and a
-single bounded DOM materialization sweep. Tests must prove that the official
-navigation skeleton is detected structurally, expected assistant count and
-body coverage transition the shared Repository from `partial` to `complete`,
-same-ID DOM correction wins without changing slot order, and a new slot or
-route change returns the pool to a truthful partial state. This path reuses
-PageIndex, Host Monitor and Conversation Surface; it must not add a second
-observer, network acquisition path, polling loop, or per-message timer.
+ChatGPT's content path uses the 5.3 GET seed plus the empty `?message=` query
+for the official navigation skeleton. Tests must prove that a valid bridge graph publishes
+usable `get` turns, missing source data preserves DOM `partial`, the official
+navigation skeleton is detected structurally, same-ID DOM correction wins
+without changing slot order, and a new slot or route change returns the pool
+to truthful `get`/`partial` state. This path reuses PageIndex, Host Monitor and
+Conversation Surface; it must not add a second observer, active conversation
+request, polling loop, per-message timer, or page-entry slot sweep.
 
-The lower-right full-history action and ChatGPT message bookmark Go path both
-reload through the same URL helper. The removed top-scroll controller and its
-setting have no active gate; word count, current-message copy, Copy PNG and
-formula actions remain mounted-DOM consumers.
+The lower-right message-navigation action and ChatGPT message bookmark Go path
+use the same URL helper only when a route reload is necessary. Same-page
+bookmarks enter the shared NavigationCoordinator directly. The removed
+top-scroll controller and its setting have no active gate; word count,
+current-message copy, Copy PNG and formula actions remain mounted-DOM
+consumers.
 
 ### 3.0.1 Semantic content and rendered-surface contract
 

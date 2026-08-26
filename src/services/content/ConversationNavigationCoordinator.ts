@@ -72,7 +72,7 @@ function readIdentityMatches(
 }
 
 function canUsePositionFallback(input: ConversationNavigationInputV1): boolean {
-    return input.source === 'bookmark' || input.source === 'pending-restore';
+    return input.source === 'bookmark';
 }
 
 function buildTarget(

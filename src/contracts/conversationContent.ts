@@ -101,9 +101,11 @@ export type ConversationSnapshotV1 = Readonly<{
     coverage: 'complete';
     /**
      * Whether the pool is known to cover the whole conversation. Ordinary
-     * DOM-authoritative ChatGPT capture publishes 'partial'; an explicit empty
-     * `?message=` sweep may publish 'complete' after its navigation/body proof.
-     * 'unknown' remains accepted for older producers and snapshots.
+     * DOM-authoritative ChatGPT capture publishes 'partial'; a validated 5.3
+     * source seed publishes 'get'. 'complete' remains accepted for older or
+     * independently proven snapshots, but current page entry does not create
+     * it by forcing an empty `?message=` sweep. 'unknown' remains accepted for
+     * older producers and snapshots.
      * Additive honesty field; snapshots that omit it are treated as
      * 'unknown' by {@link getConversationHistoryStatusV1}.
      */
@@ -223,6 +225,7 @@ export function isConversationSnapshotV1(value: unknown): value is ConversationS
         value.historyStatus !== undefined
         && value.historyStatus !== 'unknown'
         && value.historyStatus !== 'partial'
+        && value.historyStatus !== 'get'
         && value.historyStatus !== 'complete'
     ) return false;
     if (!Array.isArray(value.turns)) return false;

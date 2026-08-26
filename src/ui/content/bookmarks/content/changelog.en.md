@@ -13,10 +13,10 @@ The good news is that ChatGPT still provides an official directory. Refreshing a
 
 This release is a larger update, so here are the main points to keep in mind:
 
-1. Word count, formula copy, partial selection copy, and related message actions remain mounted-DOM features. They do not wait for full-history discovery or read messages outside the current message.
-2. Ordinary conversation entry remains partial. The lower-right Load all messages action refreshes with the empty `?message=` query, then performs one bounded DOM materialization sweep through the existing PageIndex, Host Monitor, and Conversation Surface.
+1. Word count, formula copy, partial selection copy, and related message actions remain mounted-DOM features. They do not wait for source discovery or read messages outside the current message.
+2. Ordinary conversation entry remains partial. The lower-right Refresh message navigation action refreshes with the empty `?message=` query to create ChatGPT's official navigation skeleton; it does not start a whole-page scroll sweep.
 3. Directory, Reader, and export consume one shared ordered content pool. It is marked complete only after the official navigation count and every expected assistant body have been verified; otherwise it stays honestly partial and can be retried.
-4. ChatGPT message bookmarks use the same full-history refresh before restoring their target. The DOM remains authoritative for later message corrections, while persistent host-slot order keeps the shared consumer list stable.
+4. ChatGPT message bookmarks use the same shared navigation coordinator for same-page and post-route target restoration. The DOM remains authoritative for later message corrections, while persistent host-slot order keeps the shared consumer list stable.
 
 Overall, the features outside the directory's progressive loading path should continue to work normally. Please give the update a try, and keep sending feedback and suggestions.
 

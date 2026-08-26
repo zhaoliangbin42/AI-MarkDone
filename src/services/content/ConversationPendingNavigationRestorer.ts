@@ -112,7 +112,7 @@ export class ConversationPendingNavigationRestorer {
                 position: pending.position,
                 messageId: pending.messageId,
                 assistantMessageId: pending.messageId,
-                source: 'pending-restore',
+                source: 'bookmark',
             }, { timeoutMs: 15_000, align: 'start' });
             if (result.ok || result.reason === 'cancelled' || result.reason === 'stale-target' || result.reason === 'identity-conflict' || result.reason === 'slot-missing') {
                 // A successful or terminal attempt consumes the target. A

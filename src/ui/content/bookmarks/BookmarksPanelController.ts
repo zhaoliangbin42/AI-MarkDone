@@ -8,6 +8,7 @@ import {
 } from '../../../drivers/shared/clients/clientResult';
 import type { SiteAdapter } from '../../../drivers/content/adapters/base';
 import type { ConversationContentSourceV1 } from '../../../contracts/conversationContent';
+import type { ConversationNavigationPortV1 } from '../../../contracts/conversationNavigation';
 import type { DiscoveryDiagnosticsSnapshotV1 } from '../../../contracts/conversationDiscoveryDiagnostics';
 import { PathUtils } from '../../../core/bookmarks/path';
 import { bookmarksClient } from '../../../drivers/shared/clients/bookmarksClient';
@@ -22,7 +23,7 @@ import {
     scrollToBookmarkTargetWithRetry,
     setPendingNavigation,
 } from '../../../drivers/content/bookmarks/navigation';
-import { withChatGPTFullHistoryTrigger } from '../../../drivers/content/chatgpt/chatgptRoute';
+import { withChatGPTMessageNavigationTrigger } from '../../../drivers/content/chatgpt/chatgptRoute';
 import {
     resolveConversationBookmarkPositions,
     type CanonicalBookmarkTurnRef,
@@ -141,14 +142,17 @@ export class BookmarksPanelController {
 
     constructor(adapter: SiteAdapter, options: Readonly<{
         conversationContentSource?: ConversationContentSourceV1 | null;
+        navigation?: ConversationNavigationPortV1 | null;
         readDiscoveryDiagnostics?: () => DiscoveryDiagnosticsSnapshotV1 | null;
     }> = {}) {
         this.adapter = adapter;
         this.conversationContentSource = options.conversationContentSource ?? null;
+        this.navigation = options.navigation ?? null;
         this.readDiscoveryDiagnostics = options.readDiscoveryDiagnostics ?? null;
     }
 
     private readonly conversationContentSource: ConversationContentSourceV1 | null;
+    private readonly navigation: ConversationNavigationPortV1 | null;
     private readonly readDiscoveryDiagnostics: (() => DiscoveryDiagnosticsSnapshotV1 | null) | null;
 
     getDiscoveryDiagnostics(): DiscoveryDiagnosticsSnapshotV1 | null {
@@ -668,12 +672,23 @@ export class BookmarksPanelController {
         }
         if (typeof bookmark.position !== 'number') return;
         if (this.adapter.getPlatformId() === 'chatgpt') {
+            if (this.navigation && isSamePageUrl(current, target)) {
+                this.setStatus('Navigating…');
+                const result = await this.navigation.navigate({
+                    position: bookmark.position,
+                    messageId: bookmark.messageId ?? null,
+                    assistantMessageId: bookmark.messageId ?? null,
+                    source: 'bookmark',
+                }, { timeoutMs: 15_000, align: 'start' });
+                if (!result.ok) this.setStatus(t('contentNotFound'));
+                return;
+            }
             setPendingNavigation({
                 url: target,
                 position: bookmark.position,
                 messageId: bookmark.messageId ?? null,
             });
-            window.location.assign(withChatGPTFullHistoryTrigger(target));
+            window.location.assign(withChatGPTMessageNavigationTrigger(target));
             return;
         }
         if (isSamePageUrl(current, target)) {

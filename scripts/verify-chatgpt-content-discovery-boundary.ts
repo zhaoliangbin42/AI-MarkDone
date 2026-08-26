@@ -13,17 +13,14 @@ const activeSources = [
     'src/drivers/content/chatgpt/ChatGPTPageIndex.ts',
     'src/drivers/content/chatgpt/ChatGPTConversationSurface.ts',
     'src/drivers/content/chatgpt/chatgptRoute.ts',
+    'src/drivers/content/chatgpt/ChatGPTConversationDiscoveryAdapter.ts',
     'src/drivers/content/chatgpt/ChatGPTConversationNavigation.ts',
     'src/services/content/ConversationContentRepository.ts',
 ];
 const retiredSources = [
-    'src/drivers/content/chatgpt/ChatGPTConversationDiscoveryAdapter.ts',
-    'src/drivers/content/chatgpt/bridgeTransport.ts',
     'src/drivers/content/chatgpt/ChatGPTConversationDiscoveryCoordinator.ts',
     'src/drivers/content/chatgpt/ChatGPTConversationIndex.ts',
     'src/drivers/content/chatgpt/ChatGPTConversationMaterialization.ts',
-    'public/page-bridges/chatgpt-conversation-bootstrap.js',
-    'public/page-bridges/chatgpt-conversation-bridge.js',
 ];
 const forbidden = [
     'document.cookie',
@@ -99,6 +96,15 @@ for (const relativePath of [
 }
 
 for (const relativePath of [
+    'public/page-bridges/chatgpt-conversation-bootstrap.js',
+    'public/page-bridges/chatgpt-conversation-bridge.js',
+]) {
+    if (!existsSync(resolve(relativePath))) {
+        throw new Error(`Missing active ChatGPT GET seed bridge source: ${relativePath}`);
+    }
+}
+
+for (const relativePath of [
     'src/runtimes/content/entry.ts',
     'src/ui/content/controllers/MessageToolbarOrchestrator.ts',
     'src/ui/content/controllers/ChatGPTDirectoryController.ts',
@@ -121,13 +127,9 @@ for (const relativePath of [
     const path = resolve(relativePath);
     if (!existsSync(path)) continue;
     const source = readFileSync(path, 'utf8');
-    for (const retiredBridge of [
-        'page-bridges/chatgpt-conversation-bootstrap.js',
-        'page-bridges/chatgpt-conversation-bridge.js',
-    ]) {
-        if (source.includes(retiredBridge)) {
-            throw new Error(`Shipped manifest still includes retired Graph bridge ${retiredBridge}: ${relativePath}`);
-        }
+    if (!source.includes('page-bridges/chatgpt-conversation-bootstrap.js')
+        || !source.includes('page-bridges/chatgpt-conversation-bridge.js')) {
+        throw new Error(`Shipped manifest is missing the 5.3 GET seed bridge: ${relativePath}`);
     }
 }
 

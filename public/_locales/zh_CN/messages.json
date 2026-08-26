@@ -1439,9 +1439,9 @@
         "message": "正常",
         "description": "Message for chatgptPageWidthScaleNormal"
     },
-    "chatgptLoadFullHistory": {
-        "message": "加载全部消息",
-        "description": "Message for chatgptLoadFullHistory"
+    "chatgptRefreshMessageNavigation": {
+        "message": "刷新消息导航",
+        "description": "Message for chatgptRefreshMessageNavigation"
     },
     "chatgptNavigationSeekStepLabel": {
         "message": "目录跳转速度",

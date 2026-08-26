@@ -18,10 +18,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Changed
-- ChatGPT: The lower-right history-loading control now refreshes with the official `?message=` trigger and rebuilds the shared ordered message pool through DOM materialization.
-- ChatGPT: Message bookmarks use the same full-history trigger before restoring a saved message target; current-message copy and word count remain DOM-local.
+- ChatGPT: Restored the 5.3 source-discovery seed for Chrome and Firefox. Its messages are immediately usable by Directory, Reader, and Export, then corrected by the authoritative mounted DOM path.
+- ChatGPT: The lower-right message-navigation control now refreshes with the official `?message=` trigger without starting a page-entry scroll sweep.
+- ChatGPT: Message bookmarks use the same canonical navigation coordinator as the Directory for same-page and post-route target restoration; current-message copy and word count remain DOM-local.
 
 ### Fixed
+- ChatGPT: Removed the automatic page-entry slot-by-slot scroll sweep; the page now remains usable while GET content and mounted DOM corrections converge.
+- ChatGPT: Same-page message bookmarks now use the same canonical navigation coordinator and target materialization path as the Directory.
+- ChatGPT: Fixed the 5.3 GET seed being discarded at the bridge-to-adapter boundary; Directory, Reader, and Export now receive the canonical source snapshot before DOM correction.
 - ChatGPT: Save Messages now shows the same shared conversation pool regardless of which message's Export button opens it.
 
 ## [5.3.0] - 2026-08-20

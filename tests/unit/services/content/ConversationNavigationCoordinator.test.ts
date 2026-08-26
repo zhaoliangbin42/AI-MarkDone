@@ -97,6 +97,26 @@ describe('ConversationNavigationCoordinator', () => {
         }
     });
 
+    it('does not use position-only fallback while a get source is still unverified', async () => {
+        vi.useFakeTimers();
+        try {
+            const snapshot = toConversationSnapshotV1({
+                conversationId: '12345678-1234-1234-1234-123456789abc',
+                rounds: [{ id: 'round-1', userPrompt: 'First', assistantContent: 'A1', userMessageId: 'user-1', assistantMessageId: 'assistant-1' }],
+            });
+            const source = createConversationContentSource({ ...snapshot, historyStatus: 'get' });
+            const execute = vi.fn(async () => ({ ok: true as const }));
+            const coordinator = new ConversationNavigationCoordinator({ source, execute });
+            const resultPromise = coordinator.navigate({ position: 1, source: 'bookmark' }, { timeoutMs: 20 });
+
+            await vi.advanceTimersByTimeAsync(25);
+            await expect(resultPromise).resolves.toEqual({ ok: false, reason: 'hydration-timeout' });
+            expect(execute).not.toHaveBeenCalled();
+        } finally {
+            vi.useRealTimers();
+        }
+    });
+
     it('uses an acquired message immediately even while the route state is syncing', async () => {
         vi.useFakeTimers();
         try {
@@ -116,6 +136,48 @@ describe('ConversationNavigationCoordinator', () => {
         } finally {
             vi.useRealTimers();
         }
+    });
+
+    it('waits for a late source identity before restoring a bookmark target', async () => {
+        const initial = toConversationSnapshotV1({
+            conversationId: '12345678-1234-1234-1234-123456789abc',
+            rounds: [{ id: 'round-1', userPrompt: 'First', assistantContent: 'A1', userMessageId: 'user-1', assistantMessageId: 'assistant-1' }],
+        });
+        const source = createConversationContentSource({ ...initial, historyStatus: 'get' });
+        const execute = vi.fn(async () => ({ ok: true as const }));
+        const coordinator = new ConversationNavigationCoordinator({ source, execute });
+        const resultPromise = coordinator.navigate({
+            position: 2,
+            messageId: 'assistant-2',
+            assistantMessageId: 'assistant-2',
+            source: 'bookmark',
+        }, { timeoutMs: 1_000 });
+
+        await Promise.resolve();
+        expect(execute).not.toHaveBeenCalled();
+
+        source.publish({
+            ...initial,
+            contentToken: 'late-source',
+            historyStatus: 'get',
+            turns: [
+                ...initial.turns,
+                {
+                    key: 'round-2:assistant-2',
+                    ordinal: 2,
+                    identity: {
+                        turnId: 'round-2',
+                        userMessageId: 'user-2',
+                        assistantMessageId: 'assistant-2',
+                    },
+                    userText: 'Second',
+                    assistantMarkdown: 'A2',
+                },
+            ],
+        });
+
+        await expect(resultPromise).resolves.toMatchObject({ ok: true, resolvedBy: 'identity' });
+        expect(execute).toHaveBeenCalledTimes(1);
     });
 
     it('does not use a position fallback for a directory target with a missing identity', async () => {

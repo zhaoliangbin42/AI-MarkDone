@@ -15,6 +15,7 @@ const defaultWebAccessibleResources = [
     'icons/*.png',
     'icons/*.svg',
     ...sharedNonIconWebAccessibleResources,
+    'page-bridges/chatgpt-conversation-bridge.js',
 ] as const;
 
 const safariWebAccessibleResources = [
@@ -24,6 +25,7 @@ const safariWebAccessibleResources = [
 ] as const;
 
 export const extensionAssets = {
+    chatgptConversationBootstrap: 'page-bridges/chatgpt-conversation-bootstrap.js',
     contentEntry: 'content.js',
     contentFeaturesEntry: 'content-features.js',
     exportRendererPath: 'export-renderer.html',
