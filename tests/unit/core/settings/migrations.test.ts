@@ -7,29 +7,25 @@ describe('settings migrations', () => {
         expect(loadAndNormalize(null).chatgptBehavior.atomicMarkdownCopyShortcut).toBe('mod-shift-c');
     });
 
-    it('normalizes ChatGPT fast-top timeout and monotonic seek stride settings', () => {
+    it('drops the retired fast-top setting and normalizes the monotonic seek stride', () => {
         const defaults = loadAndNormalize(null);
-        expect(defaults.chatgptBehavior.autoTopTimeoutMs).toBe(20_000);
         expect(defaults.chatgptBehavior.navigationSeekStepPx).toBe(3_000);
 
         const next = loadAndNormalize({
             version: 4,
             chatgptBehavior: {
-                autoTopTimeoutMs: 9_000,
                 navigationSeekStepPx: 1_299,
             },
         } as any);
 
-        expect(next.chatgptBehavior.autoTopTimeoutMs).toBe(10_000);
         expect(next.chatgptBehavior.navigationSeekStepPx).toBe(1_400);
+        expect(next.chatgptBehavior).not.toHaveProperty('autoTopTimeoutMs');
         expect(loadAndNormalize({
             version: 4,
             chatgptBehavior: {
-                autoTopTimeoutMs: 70_000,
                 navigationSeekStepPx: 700,
             },
         } as any).chatgptBehavior).toMatchObject({
-            autoTopTimeoutMs: 60_000,
             navigationSeekStepPx: 1_000,
         });
     });
@@ -138,7 +134,7 @@ describe('settings migrations', () => {
         };
 
         const next = loadAndNormalize(stored);
-        expect(next.version).toBe(4);
+        expect(next.version).toBe(5);
         expect(next.platforms).toEqual({ chatgpt: false, gemini: true, claude: false, deepseek: true });
         expect(next.chatgptDirectory).toEqual(DEFAULT_SETTINGS.chatgptDirectory);
         expect(next.chatgptBehavior.showMessageStepper).toBe(true);
@@ -319,7 +315,6 @@ describe('settings migrations', () => {
             enableArrowKeyMessageNavigation: true,
             pageWidthScale: 100,
             pageAnnotationsEnabled: true,
-            autoTopTimeoutMs: 20_000,
             navigationSeekStepPx: 3_000,
         });
         expect(disabled.chatgptBehavior).toEqual({
@@ -342,7 +337,6 @@ describe('settings migrations', () => {
             enableArrowKeyMessageNavigation: false,
             pageWidthScale: 145,
             pageAnnotationsEnabled: true,
-            autoTopTimeoutMs: 20_000,
             navigationSeekStepPx: 3_000,
         });
         expect(clamped.chatgptBehavior.pageWidthScale).toBe(200);
@@ -384,7 +378,7 @@ describe('settings migrations', () => {
         };
 
         const next = loadAndNormalize(stored);
-        expect(next.version).toBe(4);
+        expect(next.version).toBe(5);
         expect(next).not.toHaveProperty('chatgpt');
         expect(next.behavior.showMessageToolbar).toBe(false);
         expect(next.behavior.showWordCount).toBe(false);
@@ -401,7 +395,7 @@ describe('settings migrations', () => {
         };
 
         const next = loadAndNormalize(stored);
-        expect(next.version).toBe(4);
+        expect(next.version).toBe(5);
         expect(next.behavior.saveContextOnly).toBe(true);
         expect(next.behavior._contextOnlyConfirmed).toBe(true);
         expect(next.formula.clickCopyMarkdown).toBe(true);
@@ -454,7 +448,7 @@ describe('settings migrations', () => {
             },
         } as any);
 
-        expect(next.version).toBe(4);
+        expect(next.version).toBe(5);
         expect(next.formula.clickCopyMarkdown).toBe(true);
         expect(next.formula.clickCopyFormulaFormat).toBe('raw');
         expect(next.formula.markdownCopyFormulaFormat).toBe('markdown-dollar');

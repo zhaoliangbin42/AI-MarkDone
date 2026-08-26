@@ -1,8 +1,6 @@
 import {
     CHATGPT_DIRECTORY_RIGHT_INSET_STEP_PX,
-    CHATGPT_AUTO_TOP_TIMEOUT_STEP_MS,
     CHATGPT_NAVIGATION_SEEK_STEP_PX_STEP,
-    DEFAULT_CHATGPT_AUTO_TOP_TIMEOUT_MS,
     DEFAULT_CHATGPT_DIRECTORY_RIGHT_INSET_PX,
     DEFAULT_CHATGPT_NAVIGATION_SEEK_STEP_PX,
     CHATGPT_PAGE_WIDTH_SCALE_STEP,
@@ -14,7 +12,6 @@ import {
     DEFAULT_READER_PANEL_SIZE_RATIO,
     GLOBAL_FONT_SIZE_STEP_PX,
     MAX_CHATGPT_DIRECTORY_RIGHT_INSET_PX,
-    MAX_CHATGPT_AUTO_TOP_TIMEOUT_MS,
     MAX_CHATGPT_PAGE_WIDTH_SCALE,
     MAX_CHATGPT_NAVIGATION_SEEK_STEP_PX,
     MAX_GLOBAL_FONT_SIZE_PX,
@@ -23,7 +20,6 @@ import {
     MAX_READER_PANEL_HEIGHT_RATIO,
     MAX_READER_PANEL_WIDTH_RATIO,
     MIN_CHATGPT_DIRECTORY_RIGHT_INSET_PX,
-    MIN_CHATGPT_AUTO_TOP_TIMEOUT_MS,
     MIN_CHATGPT_PAGE_WIDTH_SCALE,
     MIN_CHATGPT_NAVIGATION_SEEK_STEP_PX,
     MIN_READER_BODY_FONT_SIZE_PX,
@@ -189,7 +185,6 @@ export function normalizeChatGPTBehaviorSettings(value: unknown): AppSettings['c
         enableArrowKeyMessageNavigation: Boolean((record as any).enableArrowKeyMessageNavigation ?? DEFAULT_SETTINGS.chatgptBehavior.enableArrowKeyMessageNavigation),
         pageWidthScale: normalizeChatGPTPageWidthScale((record as any).pageWidthScale),
         pageAnnotationsEnabled: Boolean((record as any).pageAnnotationsEnabled ?? DEFAULT_SETTINGS.chatgptBehavior.pageAnnotationsEnabled),
-        autoTopTimeoutMs: normalizeChatGPTAutoTopTimeoutMs((record as any).autoTopTimeoutMs),
         navigationSeekStepPx: normalizeChatGPTNavigationSeekStepPx((record as any).navigationSeekStepPx),
     };
 }
@@ -209,16 +204,6 @@ export function normalizeChatGPTPageWidthScale(value: unknown): number {
     if (!Number.isFinite(numeric)) return DEFAULT_CHATGPT_PAGE_WIDTH_SCALE;
     const clamped = Math.min(MAX_CHATGPT_PAGE_WIDTH_SCALE, Math.max(MIN_CHATGPT_PAGE_WIDTH_SCALE, numeric));
     return Math.round(clamped / CHATGPT_PAGE_WIDTH_SCALE_STEP) * CHATGPT_PAGE_WIDTH_SCALE_STEP;
-}
-
-export function normalizeChatGPTAutoTopTimeoutMs(value: unknown): number {
-    const numeric = typeof value === 'number' ? value : Number.parseInt(String(value ?? ''), 10);
-    if (!Number.isFinite(numeric)) return DEFAULT_CHATGPT_AUTO_TOP_TIMEOUT_MS;
-    const clamped = Math.min(MAX_CHATGPT_AUTO_TOP_TIMEOUT_MS, Math.max(MIN_CHATGPT_AUTO_TOP_TIMEOUT_MS, numeric));
-    const stepped = Math.round((clamped - MIN_CHATGPT_AUTO_TOP_TIMEOUT_MS) / CHATGPT_AUTO_TOP_TIMEOUT_STEP_MS)
-        * CHATGPT_AUTO_TOP_TIMEOUT_STEP_MS
-        + MIN_CHATGPT_AUTO_TOP_TIMEOUT_MS;
-    return Math.min(MAX_CHATGPT_AUTO_TOP_TIMEOUT_MS, Math.max(MIN_CHATGPT_AUTO_TOP_TIMEOUT_MS, stepped));
 }
 
 export function normalizeChatGPTNavigationSeekStepPx(value: unknown): number {
@@ -290,7 +275,7 @@ export function loadAndNormalize(stored: unknown): AppSettings {
     if (!isRecord(stored)) return { ...DEFAULT_SETTINGS };
 
     const version = (stored as any).version;
-    if (version === 4 || version === 3) return mergeWithDefaults(stored as AppSettings);
+    if (version === 5 || version === 4 || version === 3) return mergeWithDefaults(stored as AppSettings);
     if (version === 2) return migrateFromV2(stored);
     if (version === 1) return migrateFromV1(stored);
 
@@ -298,7 +283,7 @@ export function loadAndNormalize(stored: unknown): AppSettings {
 }
 
 /**
- * Merge stored settings with defaults (keeps v4 but tolerates missing new fields).
+ * Merge stored settings with defaults (keeps v5 and tolerates older fields).
  */
 export function mergeWithDefaults(stored: AppSettings): AppSettings {
     return {
@@ -331,7 +316,7 @@ export function mergeWithDefaults(stored: AppSettings): AppSettings {
 }
 
 /**
- * Migrate v1 -> v4
+ * Migrate v1 -> v5
  *
  * Legacy v1 layout:
  * - behavior.enableClickToCopy
@@ -378,7 +363,7 @@ export function migrateFromV1(v1: unknown): AppSettings {
 }
 
 /**
- * Migrate v2 -> v4
+ * Migrate v2 -> v5
  *
  * Legacy v2 layout:
  * - chatgpt folding settings under performance.chatgptFoldingMode / chatgptDefaultExpandedCount

@@ -23,9 +23,9 @@ The production lifecycle is defined by
   directly and do not depend on repository admission.
 - The extension issues zero conversation GET/POST requests and has no page
   bridge, Graph decoder, polling, or per-message retry timer. Explicit
-  same-page navigation may use a short-lived, bounded native scroll seeker;
-  that seeker is not content discovery and never runs without a user navigation
-  action.
+  full-history loading may use the empty `?message=` query and one bounded
+  materialization sweep over persistent host slots; it reuses the existing
+  PageIndex/Host Monitor/Surface and never creates another observer or pool.
 
 ## Pool rules
 
@@ -42,8 +42,10 @@ The production lifecycle is defined by
   and changes `contentToken` once.
 - DOM virtualization never removes obtained content.
 - SPA A→B→A switches and restores separate pools. A page reload clears them.
-- `historyStatus` is always `partial`; hidden or unloaded history is not
-  inferred.
+- Ordinary entry remains `historyStatus=partial`. After an explicit full-history
+  trigger, the status becomes `complete` only when the official navigation
+  expected count and every assistant body are present; new topology downgrades
+  it back to partial.
 
 ## Required scenarios
 
@@ -93,14 +95,16 @@ Navigation may trigger the page's ordinary scroll-driven hydration, but it must
 not issue conversation requests, create placeholders, or modify the discovery
 observer/pool contract.
 
-The explicit fast-top control must be tested separately from Directory: one
-click performs an immediate native top operation; a delayed height/top jump
-causes another bounded top attempt; a stable top completes within the quiet
-window; the default deadline is 20 seconds; a second click, wheel, or
-keyboard event stops the action; mouse movement, pointer press, and touchstart
-do not stop it; and dispose removes the button,
-listeners, and timer. The test must prove this path does not add a content
-observer, network acquisition, or consumer refresh.
+The full-history action must be tested through the real lower-right button: it
+constructs the empty `message` query, performs a full-page reload, and leaves
+the content pool to the bounded full-history controller. Repeated activation is
+safe, disposal leaves no listeners, and no network acquisition or second
+observer is introduced.
+
+The full-history gate must also cover official navigation detection while CSS
+hides the official rail, delayed navigation appearance, expected-count/body
+completion, DOM-wins correction, partial failure, user cancellation, route
+change, retry, and complete-state downgrade when a new message is added.
 
 ## Consumer invariants
 

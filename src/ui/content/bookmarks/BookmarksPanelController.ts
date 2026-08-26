@@ -7,7 +7,6 @@ import {
     type RuntimeClientResult,
 } from '../../../drivers/shared/clients/clientResult';
 import type { SiteAdapter } from '../../../drivers/content/adapters/base';
-import type { ConversationNavigationPortV1 } from '../../../contracts/conversationNavigation';
 import type { ConversationContentSourceV1 } from '../../../contracts/conversationContent';
 import type { DiscoveryDiagnosticsSnapshotV1 } from '../../../contracts/conversationDiscoveryDiagnostics';
 import { PathUtils } from '../../../core/bookmarks/path';
@@ -23,6 +22,7 @@ import {
     scrollToBookmarkTargetWithRetry,
     setPendingNavigation,
 } from '../../../drivers/content/bookmarks/navigation';
+import { withChatGPTFullHistoryTrigger } from '../../../drivers/content/chatgpt/chatgptRoute';
 import {
     resolveConversationBookmarkPositions,
     type CanonicalBookmarkTurnRef,
@@ -140,17 +140,14 @@ export class BookmarksPanelController {
     private listeners = new Set<(snapshot: BookmarksPanelSnapshot) => void>();
 
     constructor(adapter: SiteAdapter, options: Readonly<{
-        navigation?: ConversationNavigationPortV1 | null;
         conversationContentSource?: ConversationContentSourceV1 | null;
         readDiscoveryDiagnostics?: () => DiscoveryDiagnosticsSnapshotV1 | null;
     }> = {}) {
         this.adapter = adapter;
-        this.navigation = options.navigation ?? null;
         this.conversationContentSource = options.conversationContentSource ?? null;
         this.readDiscoveryDiagnostics = options.readDiscoveryDiagnostics ?? null;
     }
 
-    private readonly navigation: ConversationNavigationPortV1 | null;
     private readonly conversationContentSource: ConversationContentSourceV1 | null;
     private readonly readDiscoveryDiagnostics: (() => DiscoveryDiagnosticsSnapshotV1 | null) | null;
 
@@ -670,22 +667,21 @@ export class BookmarksPanelController {
             return;
         }
         if (typeof bookmark.position !== 'number') return;
+        if (this.adapter.getPlatformId() === 'chatgpt') {
+            setPendingNavigation({
+                url: target,
+                position: bookmark.position,
+                messageId: bookmark.messageId ?? null,
+            });
+            window.location.assign(withChatGPTFullHistoryTrigger(target));
+            return;
+        }
         if (isSamePageUrl(current, target)) {
             this.setStatus('Navigating…');
-            const targetRef = { position: bookmark.position, messageId: bookmark.messageId ?? null };
-            if (this.adapter.getPlatformId() === 'chatgpt') {
-                const result = this.navigation
-                    ? await this.navigation.navigate({
-                        position: targetRef.position,
-                        messageId: targetRef.messageId,
-                        assistantMessageId: targetRef.messageId,
-                        source: 'bookmark',
-                    }, { timeoutMs: 15_000, align: 'start' })
-                    : { ok: false as const, reason: 'source-unavailable' as const };
-                if (!result.ok) this.setStatus('Bookmark target unavailable');
-            } else {
-                await scrollToBookmarkTargetWithRetry(this.adapter, targetRef, { timeoutMs: 2000, intervalMs: 200 });
-            }
+            await scrollToBookmarkTargetWithRetry(this.adapter, {
+                position: bookmark.position,
+                messageId: bookmark.messageId ?? null,
+            }, { timeoutMs: 2000, intervalMs: 200 });
             return;
         }
         setPendingNavigation({ url: target, position: bookmark.position, messageId: bookmark.messageId ?? null });

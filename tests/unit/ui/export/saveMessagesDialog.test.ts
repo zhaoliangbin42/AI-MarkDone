@@ -277,6 +277,27 @@ describe('SaveMessagesDialog', () => {
         expect(document.getElementById('aimd-save-messages-dialog-host')).toBeTruthy();
     });
 
+    it('does not replace the shared ChatGPT pool with the clicked message when the pool is empty', async () => {
+        await setLocale('en');
+        const adapter = { getPlatformId: () => 'chatgpt' } as any;
+        const conversationContentSource = { read: vi.fn() } as any;
+        vi.mocked(collectFreshReaderContent).mockResolvedValueOnce({
+            items: [],
+            startIndex: 0,
+            metadataSource: 'chatgpt-content-v1',
+            status: 'target-unresolved',
+        });
+
+        const dlg = new SaveMessagesDialog();
+        await expect(dlg.open(adapter, 'light', {
+            conversationContentSource,
+            startMessageElement: document.createElement('article'),
+            currentReaderItem: { id: 'clicked-only', userPrompt: 'clicked', content: 'clicked answer' },
+        })).resolves.toBe(false);
+
+        expect(document.getElementById('aimd-save-messages-dialog-host')).toBeNull();
+    });
+
     it('uses an image icon for PNG and shows progress while PNG export is running', async () => {
         await setLocale('en');
         const adapter = { getPlatformId: () => 'chatgpt' } as any;

@@ -1439,13 +1439,9 @@
         "message": "正常",
         "description": "Message for chatgptPageWidthScaleNormal"
     },
-    "chatgptAutoTopTimeoutLabel": {
-        "message": "回到顶部超时时间",
-        "description": "Message for chatgptAutoTopTimeoutLabel"
-    },
-    "chatgptAutoTopTimeoutDesc": {
-        "message": "“回到顶部”功能会模拟页面滚动，逐步触发页面加载并最终回到顶部，因此需要花费时间。这里可以定义你所愿意等待的最长时间。点击“回到顶部”按钮之后，将会在规定时间内一直尝试回到顶部。如果时间短了，对于长消息可能需要执行多次。",
-        "description": "Message for chatgptAutoTopTimeoutDesc"
+    "chatgptLoadFullHistory": {
+        "message": "加载全部消息",
+        "description": "Message for chatgptLoadFullHistory"
     },
     "chatgptNavigationSeekStepLabel": {
         "message": "目录跳转速度",
@@ -1454,14 +1450,6 @@
     "chatgptNavigationSeekStepDesc": {
         "message": "插件的目录条是通过模拟页面滚动的方式去帮助你跳转到指定消息的。步长越大，则页面滚动速度越快，跳转到目标位置所需时间越短。",
         "description": "Message for chatgptNavigationSeekStepDesc"
-    },
-    "chatgptScrollToTop": {
-        "message": "回到对话顶部",
-        "description": "Message for chatgptScrollToTop"
-    },
-    "chatgptStopScrollToTop": {
-        "message": "停止回到对话顶部",
-        "description": "Message for chatgptStopScrollToTop"
     },
     "chatgptDirectoryEnabledLabel": {
         "message": "显示目录条",

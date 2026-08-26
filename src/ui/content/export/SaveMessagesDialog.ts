@@ -133,7 +133,7 @@ export class SaveMessagesDialog {
         );
         const items = content.items.length > 0
             ? content.items
-            : options?.currentReaderItem
+            : !options?.conversationContentSource && options?.currentReaderItem
                 ? [options.currentReaderItem]
                 : [];
         const startIndex = content.items.length > 0 ? content.startIndex : 0;

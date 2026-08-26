@@ -26,7 +26,7 @@
    - 检查唯一 `ChatGPTPageIndex` 是否在初始化、相关 mutation 或页面恢复时发布事实；不得增加第二个 observer、轮询或主动 conversation 请求
    - 正文只从 assistant DOM clone 后经 Markdown Adapter 获取；不读取 React props、内部 store 或网络响应
    - 相同 assistant ID 正文变化时应覆盖，相同正文应幂等忽略；DOM 虚拟化移除不得删除已入池内容
-   - 未加载历史不属于内容池，`historyStatus` 应保持 `partial`
+   - 普通进入时未加载历史不属于内容池，`historyStatus` 应保持 `partial`；只有空 `?message=` sweep 验证官方导航数量和全部 assistant 正文后才允许 `complete`
 2. 比较 `ChatGPTConversationSurface.readFrame()` 的全部 obtained turns 与 `ChatGPTPageIndex` 的当前 connected anchors
    - DOM hydration window 变小只应减少 anchors，不能减少目录/stepper count 或已缓存消息
    - typed `roundId` / `userMessageId` / `assistantMessageId` 无法唯一连接时，应修复 adapter/driver identity，不得使用 prompt 或 DOM-local position 猜测

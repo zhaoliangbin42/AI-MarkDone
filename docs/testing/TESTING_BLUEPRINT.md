@@ -122,8 +122,24 @@ The discovery refactor has a dedicated contract and lifecycle layer in addition 
 - Page Monitor and Host Monitor coverage proves initialization, delayed official action-row hydration, generation end, root replacement and relevant content mutation all reach one short page-level reconciliation. Each coalesced capture reads one deduplicated outer-slot sequence excluding nested repeated markers and `client-created-root`; an aggressive mutation burst produces one final topology read. User-message body hydration from empty to non-empty is a content signal and updates the same assistant identity without waiting for an unrelated history load. Streaming content is not compiled; empty slots are not cloned or converted; an unchanged complete pair removed and structurally remounted under the same stable assistant ID is not compiled again; an assistant-only capture recompiles when its user prompt remounts; changed eligible DOM still updates the same identity. Extension-owned and unrelated mutations are ignored. Deep Research iframe hydration continues through its verified Adapter anchor.
 - Runtime composition coverage proves History navigation, `pageshow`, document `resume` and visible-page wake switch or refresh the correct tab-local conversation pool. A→B fences stale compilation, B→A restores A, and no consumer refresh, polling loop, bridge or retry ladder creates another acquisition path.
 - Surface and consumer-boundary tests prove accumulated-content consumers receive one Frame, while Toolbar and current-message actions consume the typed PageIndex message seam without a second observer, route watcher or accumulated store. DOM remounts do not change semantic tokens; an assistant-only virtualized remount rebinds without duplicating a toolbar; Directory visibility/items/geometry remain unchanged in this phase; pending local content does not rewrite React-owned nodes; and current-message DOM access cannot become a second multi-message discovery path. Governance also requires the retired Discovery Coordinator, Conversation Index, standalone Materialization implementation, and source-only V2 integration harness/tests to remain absent.
-- Same-page navigation tests enter through the shared Directory/Bookmark/Reader navigation seam and cover exact stable IDs, outer-slot deduplication, initial latest-window navigation, target-above/target-below direction, batch-load overshoot and step reduction, dynamic scroll-root geometry, configurable 1000–5000px stride values in 400px increments, bounded stalls/deadlines, user cancellation, projection changes, and exact-anchor stabilization. These tests must prove that navigation may cause ordinary page hydration only after an explicit user action and never adds a content observer, network acquisition path, placeholder count, or second pool. A separate real-button fast-top test proves immediate native top, delayed prepend re-top, 20-second default deadline, quiet completion, second-click cancellation, wheel/keyboard cancellation, mouse/pointer movement and touchstart tolerance, and lifecycle cleanup.
+- Same-page navigation tests enter through the shared Directory/Bookmark/Reader navigation seam and cover exact stable IDs, outer-slot deduplication, initial latest-window navigation, target-above/target-below direction, batch-load overshoot and step reduction, dynamic scroll-root geometry, configurable 1000–5000px stride values in 400px increments, bounded stalls/deadlines, user cancellation, projection changes, and exact-anchor stabilization. These tests must prove that navigation may cause ordinary page hydration only after an explicit user action and never adds a content observer, network acquisition path, placeholder count, or second pool. Full-history tests separately enter through the real lower-right action or ChatGPT message bookmark, assert empty `message` URL construction and full-page reload, then cover the bounded DOM sweep and shared-pool completion rules.
 - Installed Chrome MV3 and Firefox MV2 tests remain separate acceptance evidence; unit/integration green is not a substitute for real host verification.
+
+### 3.0 Full-history trigger and DOM correction (2026-08-26)
+
+ChatGPT's explicit full-history path uses the empty `?message=` query and a
+single bounded DOM materialization sweep. Tests must prove that the official
+navigation skeleton is detected structurally, expected assistant count and
+body coverage transition the shared Repository from `partial` to `complete`,
+same-ID DOM correction wins without changing slot order, and a new slot or
+route change returns the pool to a truthful partial state. This path reuses
+PageIndex, Host Monitor and Conversation Surface; it must not add a second
+observer, network acquisition path, polling loop, or per-message timer.
+
+The lower-right full-history action and ChatGPT message bookmark Go path both
+reload through the same URL helper. The removed top-scroll controller and its
+setting have no active gate; word count, current-message copy, Copy PNG and
+formula actions remain mounted-DOM consumers.
 
 ### 3.0.1 Semantic content and rendered-surface contract
 

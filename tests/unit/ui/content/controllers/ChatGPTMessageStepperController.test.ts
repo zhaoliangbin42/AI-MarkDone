@@ -134,14 +134,12 @@ describe('ChatGPTMessageStepperController', () => {
         const onOpenBookmarksPanel = vi.fn();
         const onOpenDetachedReader = vi.fn(async () => undefined);
         const onOpenPrompts = vi.fn();
-        let boundTopScrollButton: HTMLButtonElement | null = null;
+        const onLoadFullHistory = vi.fn();
         const controller = new ChatGPTMessageStepperController(adapter, {
             onOpenBookmarksPanel,
             onOpenDetachedReader,
             onOpenPrompts,
-            onTopScrollButton: (button) => {
-                boundTopScrollButton = button;
-            },
+            onLoadFullHistory,
         });
         controllers.push(controller);
         controller.init();
@@ -150,7 +148,7 @@ describe('ChatGPTMessageStepperController', () => {
         const bookmarksPanel = host.querySelector<HTMLButtonElement>('[data-action="open-bookmarks-panel"]')!;
         const split = host.querySelector<HTMLButtonElement>('[data-action="open-detached-reader"]')!;
         const prompts = host.querySelector<HTMLButtonElement>('[data-action="open-prompts"]')!;
-        const topScroll = host.querySelector<HTMLButtonElement>('[data-action="chatgpt-scroll-to-top"]')!;
+        const fullHistory = host.querySelector<HTMLButtonElement>('[data-action="chatgpt-load-full-history"]')!;
         const previous = host.querySelector<HTMLButtonElement>('[data-action="previous-message"]')!;
         const next = host.querySelector<HTMLButtonElement>('[data-action="next-message"]')!;
 
@@ -160,7 +158,7 @@ describe('ChatGPTMessageStepperController', () => {
             'toggle-page-bookmark',
             'open-detached-reader',
             'open-prompts',
-            'chatgpt-scroll-to-top',
+            'chatgpt-load-full-history',
             'previous-message',
             'next-message',
         ]);
@@ -168,8 +166,7 @@ describe('ChatGPTMessageStepperController', () => {
         expect(bookmarksPanel.querySelector('img')?.getAttribute('alt')).toBe('AI-MarkDone');
         expect(split.getAttribute('aria-label')).toBe('Open Reader in split view');
         expect(prompts.getAttribute('aria-label')).toBe('Prompts');
-        expect(topScroll.getAttribute('aria-label')).toBe('Go to top');
-        expect(boundTopScrollButton).toBe(topScroll);
+        expect(fullHistory.getAttribute('aria-label')).toBe('Load all messages');
         expect(previous.getAttribute('aria-label')).toBe('Previous message');
         expect(next.getAttribute('aria-label')).toBe('Next message');
         const style = document.getElementById('aimd-chatgpt-message-stepper-style')?.textContent ?? '';
@@ -212,6 +209,22 @@ describe('ChatGPTMessageStepperController', () => {
             createNavigationTarget(3),
             { surface },
         );
+    });
+
+    it('exposes a full-history reload action instead of the retired top-scroll action', async () => {
+        const onLoadFullHistory = vi.fn(async () => undefined);
+        const controller = new ChatGPTMessageStepperController(adapter, { onLoadFullHistory });
+        controllers.push(controller);
+        controller.init();
+
+        const host = document.getElementById('aimd-chatgpt-message-stepper')!;
+        const button = host.querySelector<HTMLButtonElement>('[data-action="chatgpt-load-full-history"]');
+
+        expect(button).toBeTruthy();
+        expect(host.querySelector('[data-action="chatgpt-scroll-to-top"]')).toBeNull();
+        button?.click();
+        await Promise.resolve();
+        expect(onLoadFullHistory).toHaveBeenCalledTimes(1);
     });
 
     it('keeps page bookmarks unavailable without an id and restores them after identity promotion', async () => {
@@ -320,7 +333,7 @@ describe('ChatGPTMessageStepperController', () => {
         expect(host.querySelector('[data-action="toggle-page-bookmark"]')?.getAttribute('aria-label')).toBe('收藏当前页面');
         expect(host.querySelector('[data-action="open-detached-reader"]')?.getAttribute('aria-label')).toBe('在分屏中打开阅读器');
         expect(host.querySelector('[data-action="open-prompts"]')?.getAttribute('aria-label')).toBe('提示词');
-        expect(host.querySelector('[data-action="chatgpt-scroll-to-top"]')?.getAttribute('aria-label')).toBe('回到对话顶部');
+        expect(host.querySelector('[data-action="chatgpt-load-full-history"]')?.getAttribute('aria-label')).toBe('加载全部消息');
         expect(host.querySelector('[data-action="previous-message"]')?.getAttribute('aria-label')).toBe('上一条消息');
         expect(host.querySelector('[data-action="next-message"]')?.getAttribute('aria-label')).toBe('下一条消息');
 

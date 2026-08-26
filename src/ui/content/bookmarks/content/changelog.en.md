@@ -9,16 +9,14 @@ From May through last Friday, ChatGPT used an incremental-loading model based on
 
 Since last Friday, ChatGPT has changed that model. It no longer reserves the height of the entire conversation with virtual nodes. When you open a conversation, it fetches only the latest two or three messages; older messages are neither preloaded in the browser nor represented by height placeholders. In other words, the page no longer has a stable total height. You may also have noticed that reaching the top triggers another load. That load requires the network, so if you go offline after opening the conversation, scrolling to the top cannot retrieve history that has not been loaded yet. This is why the plugin can no longer build the complete directory as soon as the page opens.
 
-The good news is that ChatGPT still provides an official directory. It only appears after you reach the very top and ChatGPT has loaded the available history.
+The good news is that ChatGPT still provides an official directory. Refreshing a conversation with the empty `?message=` query makes that navigation skeleton available, while the message bodies remain virtualized in the DOM.
 
 This release is a larger update, so here are the main points to keep in mind:
 
-1. Word count, formula copy, partial selection copy, and related message actions are now independent of the old content-discovery path. A future website update to directory discovery should no longer take these actions down with it.
-2. The directory can only grow as you browse and ChatGPT loads more messages. It cannot retrieve the entire conversation in one pass. Directory navigation now uses simulated page scrolling to bring messages into view and locate them, so long-distance jumps are progressive and may take some time.
-3. Export and Reader follow the same incremental content path as the directory. They can only process messages that have been loaded during the current page lifecycle. If you want to include more of a conversation, browse to those messages and let ChatGPT load them; the directory, Reader, and export will recognize the new content as it appears.
-4. I still recommend using ChatGPT's official directory when possible. The official directory requires the page to reach the top before it becomes available, so this release adds a small but useful Go to top control. It repeatedly moves toward the top, waits for ChatGPT to load more history, and tries again until it reaches the top of the conversation or the configured maximum wait time is reached.
-
-Because the control moves quickly, it may skip over some intermediate messages instead of mounting every one of them. As a result, the directory, Reader, or export may still be incomplete after Go to top finishes. This limitation is worth keeping in mind.
+1. Word count, formula copy, partial selection copy, and related message actions remain mounted-DOM features. They do not wait for full-history discovery or read messages outside the current message.
+2. Ordinary conversation entry remains partial. The lower-right Load all messages action refreshes with the empty `?message=` query, then performs one bounded DOM materialization sweep through the existing PageIndex, Host Monitor, and Conversation Surface.
+3. Directory, Reader, and export consume one shared ordered content pool. It is marked complete only after the official navigation count and every expected assistant body have been verified; otherwise it stays honestly partial and can be retried.
+4. ChatGPT message bookmarks use the same full-history refresh before restoring their target. The DOM remains authoritative for later message corrections, while persistent host-slot order keeps the shared consumer list stable.
 
 Overall, the features outside the directory's progressive loading path should continue to work normally. Please give the update a try, and keep sending feedback and suggestions.
 

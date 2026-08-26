@@ -80,10 +80,11 @@ describe('ConversationNavigationCoordinator', () => {
     });
 
     it('uses position only for legacy bookmarks after a complete source is available', async () => {
-        const source = createConversationContentSource({
+        const snapshot = toConversationSnapshotV1({
             conversationId: '12345678-1234-1234-1234-123456789abc',
             rounds: [{ id: 'round-1', userPrompt: 'First', assistantContent: 'A1', userMessageId: 'user-1', assistantMessageId: 'assistant-1' }],
         });
+        const source = createConversationContentSource({ ...snapshot, historyStatus: 'complete' });
         const execute = vi.fn(async () => ({ ok: true as const }));
         const coordinator = new ConversationNavigationCoordinator({ source, execute });
 

@@ -24,7 +24,7 @@ const INITIAL_HYDRATION_TIMEOUT_MS = 1500;
 function normalizeAppSettings(value: unknown): AppSettings | null {
     if (!isRecord(value)) return null;
     const version = (value as any).version;
-    if (version !== 1 && version !== 2 && version !== 3 && version !== 4) return null;
+    if (version !== 1 && version !== 2 && version !== 3 && version !== 4 && version !== 5) return null;
     return loadAndNormalize(value);
 }
 

@@ -13,9 +13,11 @@ import { ConversationContentRepository } from '../../services/content/Conversati
 import { DiscoveryDiagnostics } from '../../services/content/DiscoveryDiagnostics';
 import { ChatGPTConversationSurface } from '../../drivers/content/chatgpt/ChatGPTConversationSurface';
 import { ChatGPTConversationHostMonitor } from '../../drivers/content/chatgpt/ChatGPTConversationHostMonitor';
+import { ChatGPTFullHistoryDiscoveryController } from './ChatGPTFullHistoryDiscovery';
 import { getChatGPTPageIndex } from '../../drivers/content/chatgpt/domConversationDiscovery';
 import type { ChatGPTPageIndex } from '../../drivers/content/chatgpt/ChatGPTPageIndex';
 import { getChatGPTConversationId } from '../../drivers/content/chatgpt/chatgptRoute';
+import { hasChatGPTFullHistoryTrigger } from '../../drivers/content/chatgpt/chatgptRoute';
 
 export type ChatGPTConversationContentRuntimeOptions = Readonly<{
     /** Test seam; production uses the 400ms stable-host quiet window. */
@@ -40,6 +42,7 @@ export class ChatGPTConversationContentRuntime {
     readonly materialization: ConversationMaterializationPortV1 & { dispose(): void };
     private readonly repository: ConversationContentRepository;
     private readonly hostMonitor: ChatGPTConversationHostMonitor;
+    private readonly fullHistoryDiscovery: ChatGPTFullHistoryDiscoveryController;
     private readonly pageIndex: ChatGPTPageIndex;
     private readonly pageDocument: ConversationDocumentRefV1;
     private readonly diagnostics = new DiscoveryDiagnostics();
@@ -96,6 +99,13 @@ export class ChatGPTConversationContentRuntime {
             content: this.repository,
             pageIndex: this.pageIndex,
         });
+        this.fullHistoryDiscovery = new ChatGPTFullHistoryDiscoveryController({
+            adapter,
+            pageIndex: this.pageIndex,
+            surface: this.surface,
+            hostMonitor: this.hostMonitor,
+            repository: this.repository,
+        });
         const source: ConversationDiscoveryContentPortV1 = {
             read: () => this.repository.read(),
             subscribe: (listener) => this.repository.subscribe(listener),
@@ -131,6 +141,9 @@ export class ChatGPTConversationContentRuntime {
         window.addEventListener('hashchange', this.handleHashChange);
         this.installHistoryHooks();
         this.synchronizeCurrentEpoch(true);
+        if (hasChatGPTFullHistoryTrigger(window.location.href)) {
+            void this.fullHistoryDiscovery.start();
+        }
     }
 
     dispose(): void {
@@ -149,6 +162,7 @@ export class ChatGPTConversationContentRuntime {
         this.restoreHistoryHooks();
         this.unsubscribePage?.();
         this.unsubscribePage = null;
+        this.fullHistoryDiscovery.dispose();
         this.surface.dispose();
         this.hostMonitor.dispose();
         this.pageIndex.dispose();
@@ -175,6 +189,12 @@ export class ChatGPTConversationContentRuntime {
         if (changed) this.hostMonitor.notifyRouteChanged(isInitialSynchronization);
         this.lastDocumentKey = nextDocumentKey;
         if (changed || force) this.repository.bindCurrentDocument();
+        if (changed) {
+            this.fullHistoryDiscovery.cancel();
+            if (hasChatGPTFullHistoryTrigger(pageUrl)) {
+                void this.fullHistoryDiscovery.start();
+            }
+        }
     }
 
     private resolveCurrentDocument(pageUrl = window.location.href): ConversationDocumentRefV1 {

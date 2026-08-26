@@ -57,6 +57,24 @@ const SNAPSHOT = {
     }],
 };
 
+const TWO_TURN_SNAPSHOT = {
+    ...SNAPSHOT,
+    revision: 2,
+    rounds: [
+        ...SNAPSHOT.rounds,
+        {
+            id: 'round-2',
+            position: 2,
+            userPrompt: 'Second prompt',
+            assistantContent: 'Second complete answer',
+            preview: 'Second prompt',
+            messageId: 'm2',
+            userMessageId: 'u2',
+            assistantMessageId: 'm2',
+        },
+    ],
+};
+
 type Harness = {
     adapter: FakeOfficialToolbarAdapter;
     source: ReturnType<typeof createConversationContentSource>;
@@ -80,6 +98,31 @@ function renderTurn(options: { officialToolbar?: boolean; stopButton?: boolean }
         </article>
       </main>
       ${options.stopButton ? '<button data-testid="stop-button">Stop</button>' : ''}
+    `;
+}
+
+function renderTwoTurns(): void {
+    document.body.innerHTML = `
+      <main>
+        <article data-turn="user" data-turn-id="round-1">
+          <div data-message-author-role="user" data-message-id="u1">First prompt</div>
+        </article>
+        <article data-turn="assistant" data-turn-id="assistant-turn-1">
+          <div class="assistant-message" data-message-author-role="assistant" data-message-id="m1">
+            <div class="content">First complete answer</div>
+            <div class="official-toolbar"><button data-testid="copy-turn-action-button">Copy 1</button></div>
+          </div>
+        </article>
+        <article data-turn="user" data-turn-id="round-2">
+          <div data-message-author-role="user" data-message-id="u2">Second prompt</div>
+        </article>
+        <article data-turn="assistant" data-turn-id="assistant-turn-2">
+          <div class="assistant-message" data-message-author-role="assistant" data-message-id="m2">
+            <div class="content">Second complete answer</div>
+            <div class="official-toolbar"><button data-testid="copy-turn-action-button">Copy 2</button></div>
+          </div>
+        </article>
+      </main>
     `;
 }
 
@@ -191,6 +234,27 @@ describe('MessageToolbarOrchestrator Surface-driven official toolbar lifecycle',
         });
         expect(toolbarHosts()).toHaveLength(1);
         expect(document.querySelectorAll('[data-testid="copy-turn-action-button"]')).toHaveLength(1);
+    });
+
+    it('keeps one toolbar per stable assistant identity across multi-message remounts', async () => {
+        renderTwoTurns();
+        const { orchestrator } = createHarness(TWO_TURN_SNAPSHOT);
+        orchestrator.init();
+
+        await vi.waitFor(() => expect(toolbarHosts()).toHaveLength(2));
+        for (const message of Array.from(document.querySelectorAll<HTMLElement>('.assistant-message'))) {
+            expect(message.querySelectorAll('[data-aimd-role="message-toolbar"]')).toHaveLength(1);
+        }
+
+        const previous = document.querySelector<HTMLElement>('[data-message-id="m2"]');
+        if (!previous) throw new Error('second assistant fixture is missing');
+        const replacement = previous.cloneNode(true) as HTMLElement;
+        replacement.querySelector('[data-aimd-role="message-toolbar"]')?.remove();
+        previous.replaceWith(replacement);
+
+        await vi.waitFor(() => expect(toolbarHosts()).toHaveLength(2));
+        expect(document.querySelectorAll<HTMLElement>('[data-message-id="m2"] [data-aimd-role="message-toolbar"]')).toHaveLength(1);
+        expect(document.querySelectorAll('[data-testid="copy-turn-action-button"]')).toHaveLength(2);
     });
 
     it('keeps official controls untouched while content is pending, then upgrades from the pool', async () => {

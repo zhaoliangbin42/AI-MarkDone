@@ -100,10 +100,10 @@ export type ConversationSnapshotV1 = Readonly<{
     /** Bodies of every admitted turn are dense and complete. */
     coverage: 'complete';
     /**
-     * Whether the pool is known to cover the whole conversation. The current
-     * DOM-authoritative ChatGPT producer always publishes 'partial' because it
-     * records only messages loaded during this tab lifecycle. 'complete' and
-     * 'unknown' remain accepted for schema compatibility with other producers.
+     * Whether the pool is known to cover the whole conversation. Ordinary
+     * DOM-authoritative ChatGPT capture publishes 'partial'; an explicit empty
+     * `?message=` sweep may publish 'complete' after its navigation/body proof.
+     * 'unknown' remains accepted for older producers and snapshots.
      * Additive honesty field; snapshots that omit it are treated as
      * 'unknown' by {@link getConversationHistoryStatusV1}.
      */

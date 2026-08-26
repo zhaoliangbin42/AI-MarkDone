@@ -13,10 +13,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - ChatGPT: Message toolbars and current-message Copy, Reader, Export, selection copy, and annotations now use the mounted message DOM directly instead of waiting for content-pool admission. The accumulated pool uses stable message IDs plus the page's outer slot order, so host `conversation-turn-N` renumbering cannot scramble already loaded messages.
 - ChatGPT: Simplified content capture to use completed message DOM as the only body source. Official action rows trigger one debounced scan, loaded messages remain in a tab-local conversation pool across DOM virtualization and SPA navigation, unchanged completed messages no longer repeat Markdown conversion when remounted, and formulas use their own DOM parser path without waiting for conversation discovery.
 - ChatGPT: Removed the passive Graph bridge, discovery retry controls, active conversation requests, polling, and per-message retry timers. The directory now intentionally represents only content loaded during the current page lifecycle.
-- ChatGPT: Added a lower-right one-click top control that jumps instantly and keeps boundedly handling delayed history loading; the default timeout is 20 seconds, and wheel, click, keyboard input, or a second click stops it while mouse movement remains allowed.
 - ChatGPT: Added a Settings slider for long-distance Directory/Bookmark/Reader/Stepper navigation, from 1000 to 5000px in 400px steps, while preserving adaptive correction and cancellation.
 
 ## [Unreleased]
+
+### Changed
+- ChatGPT: The lower-right history-loading control now refreshes with the official `?message=` trigger and rebuilds the shared ordered message pool through DOM materialization.
+- ChatGPT: Message bookmarks use the same full-history trigger before restoring a saved message target; current-message copy and word count remain DOM-local.
+
+### Fixed
+- ChatGPT: Save Messages now shows the same shared conversation pool regardless of which message's Export button opens it.
 
 ## [5.3.0] - 2026-08-20
 

@@ -37,8 +37,18 @@ async function settle(ms = 25): Promise<void> {
     await Promise.resolve();
 }
 
-function createRuntime(id = 'conversation-a') {
-    history.replaceState({}, '', `/c/${id}`);
+function officialNavigationHtml(count: number): string {
+    return `
+        <div class="qMYqUG_convSearchResultHighlightRoot">
+            <div class="fixed inset-e-4 top-1/2 z-20 -translate-y-1/2">
+                ${Array.from({ length: count }, (_, index) => `<button aria-label="Prompt ${index + 1}"></button>`).join('')}
+            </div>
+        </div>
+    `;
+}
+
+function createRuntime(id = 'conversation-a', fullHistory = false) {
+    history.replaceState({}, '', `/c/${id}${fullHistory ? '?message=' : ''}`);
     const adapter = new ChatGPTAdapter();
     const runtime = new ChatGPTConversationContentRuntime(adapter, { hostSettleDelayMs: 20 });
     return {
@@ -79,6 +89,65 @@ describe('ChatGPT DOM content discovery lifecycle', () => {
                         assistantMarkdown: 'Initial answer',
                     }],
                 },
+            });
+        } finally {
+            harness.dispose();
+        }
+    });
+
+    it('materializes the full DOM sweep and publishes complete history when the trigger is present', async () => {
+        document.querySelector('main')!.innerHTML = officialNavigationHtml(2)
+            + roundHtml(1, 'Answer 1')
+            + roundHtml(2, 'Answer 2');
+        const harness = createRuntime('full-history-conversation', true);
+
+        try {
+            harness.runtime.init();
+            await vi.advanceTimersByTimeAsync(500);
+            await Promise.resolve();
+            await Promise.resolve();
+
+            expect(harness.runtime.source.read()).toMatchObject({
+                kind: 'ready',
+                snapshot: {
+                    historyStatus: 'complete',
+                    turns: [
+                        { assistantMarkdown: 'Answer 1' },
+                        { assistantMarkdown: 'Answer 2' },
+                    ],
+                },
+            });
+        } finally {
+            harness.dispose();
+        }
+    });
+
+    it('hydrates an empty mounted body while the bounded sweep visits its slot', async () => {
+        const main = document.querySelector('main')!;
+        main.innerHTML = officialNavigationHtml(2)
+            + roundHtml(1, 'Answer 1')
+            + roundHtml(2, '');
+        const emptyAssistantSlot = main.querySelector<HTMLElement>('[data-turn-id-container="assistant-slot-2"]');
+        const emptyBody = emptyAssistantSlot?.querySelector<HTMLElement>('.markdown');
+        if (!emptyAssistantSlot || !emptyBody) throw new Error('empty assistant fixture is missing');
+        emptyAssistantSlot.scrollIntoView = vi.fn(() => {
+            emptyBody.textContent = 'Answer 2';
+        });
+        const harness = createRuntime('full-history-hydration', true);
+
+        try {
+            harness.runtime.init();
+            await vi.advanceTimersByTimeAsync(500);
+            await Promise.resolve();
+            await Promise.resolve();
+
+            expect(emptyAssistantSlot.scrollIntoView).toHaveBeenCalled();
+            expect(harness.runtime.source.read().snapshot).toMatchObject({
+                historyStatus: 'complete',
+                turns: [
+                    { assistantMarkdown: 'Answer 1' },
+                    { assistantMarkdown: 'Answer 2' },
+                ],
             });
         } finally {
             harness.dispose();

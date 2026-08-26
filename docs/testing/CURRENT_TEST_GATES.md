@@ -20,9 +20,13 @@ For message PNG and formula asset export, see `docs/testing/IMAGE_EXPORT_GATES.m
 - `IMAGE_EXPORT_GATES.md`
   - executable image-export correctness, visual, budget, performance, bundle, and three-browser contract
 
-### ChatGPT DOM content pool current override (2026-08-21)
+### ChatGPT DOM content pool current override (2026-08-26)
 
 The active gate follows [ADR-0024](../adr/ADR-0024-chatgpt-dom-authoritative-content-pool.md).
+The normal path remains DOM-authoritative and partial. The explicit `?message=`
+path must additionally prove official navigation skeleton detection, one bounded
+materialization sweep, and `historyStatus=complete` only after the expected
+assistant count and bodies are present.
 Tests must prove the official action row is the readiness trigger, DOM is the
 only assistant body authority, and one PageIndex observer plus one page-level
 debounce drives the pool. Startup-existing and arbitrarily delayed action rows,
@@ -33,8 +37,11 @@ PNG/SVG/MathML actions must work directly from mounted formula DOM even when
 the containing message has not entered the Repository. Static/runtime gates
 must reject a page bridge, Graph adapter/transport, conversation network
 requests, polling, retry ladders, per-message timers, second observers, and a
-Settings discovery retry action. Directory completeness beyond actually loaded
-DOM is explicitly not an acceptance target.
+Settings discovery retry action. The explicit empty `message` query additionally
+requires one bounded persistent-slot materialization sweep, `partial → complete`
+publication, and DOM correction in the same Repository. Failure preserves a
+partial pool and remains retryable; Directory/Reader/Save Messages completeness
+is an acceptance target only after the explicit full-history trigger.
 
 ---
 
@@ -102,9 +109,19 @@ For ChatGPT content discovery, directory, or bookmark-position changes, targeted
 - bookmarks panel Go and cross-page pending navigation
 - Save Messages export source, when the change touches Reader content source, conversation snapshot fallback, or export turn conversion
 
-If those entrypoints intentionally share a ChatGPT-only helper, include one targeted test for each caller instead of only testing the helper in isolation. For ChatGPT bookmark-position or directory-navigation work, the focused set should cover `tests/unit/ui/content/chatgptDirectory.navigation.test.ts`, `tests/unit/ui/content/messageToolbarOrchestrator.fold-action.test.ts`, `tests/unit/ui/bookmarks/bookmarksPanelController.test.ts`, and `tests/unit/runtimes/content/entry.test.ts`. If the work changes the lower-right ChatGPT message stepper, its Settings visibility toggle, or arrow-key navigation, also cover `tests/unit/ui/content/controllers/ChatGPTMessageStepperController.test.ts`, `tests/unit/services/settings/settingsService.test.ts`, and `tests/unit/ui/bookmarks/settingsTabView.test.ts`. Configurable navigation must additionally cover the 1000–5000px range with 400px steps and the real Settings write path. The independent fast-top control must cover its real lower-right button path, delayed scroll-height recovery, 20-second bounded timeout, second-click/wheel/keyboard cancellation, pointer-movement and touchstart tolerance, and disposal cleanup in `tests/unit/ui/content/controllers/ChatGPTTopScrollController.test.ts`. If the work changes the directory rail settings surface, also cover `tests/unit/services/settings/settingsService.test.ts` and `tests/unit/ui/bookmarks/settingsTabView.test.ts`; if it changes official ChatGPT navigation hiding, also cover `tests/unit/ui/content/controllers/ChatGPTOfficialNavigationVisibilityController.test.ts`.
+If those entrypoints intentionally share a ChatGPT-only helper, include one targeted test for each caller instead of only testing the helper in isolation. For ChatGPT bookmark-position or directory-navigation work, the focused set should cover `tests/unit/ui/content/chatgptDirectory.navigation.test.ts`, `tests/unit/ui/content/messageToolbarOrchestrator.fold-action.test.ts`, `tests/unit/ui/bookmarks/bookmarksPanelController.test.ts`, and `tests/unit/runtimes/content/entry.test.ts`. If the work changes the lower-right ChatGPT message stepper, its Settings visibility toggle, or arrow-key navigation, also cover `tests/unit/ui/content/controllers/ChatGPTMessageStepperController.test.ts`, `tests/unit/services/settings/settingsService.test.ts`, and `tests/unit/ui/bookmarks/settingsTabView.test.ts`. Configurable navigation must additionally cover the 1000–5000px range with 400px steps and the real Settings write path. If the work changes the directory rail settings surface, also cover `tests/unit/services/settings/settingsService.test.ts` and `tests/unit/ui/bookmarks/settingsTabView.test.ts`; if it changes official ChatGPT navigation hiding, also cover `tests/unit/ui/content/controllers/ChatGPTOfficialNavigationVisibilityController.test.ts`.
+
+The full-history gate covers the stepper's `chatgpt-load-full-history` trigger,
+empty `message` URL construction, full-page reload, and the official navigation
+skeleton in `tests/unit/drivers/content/chatgpt/ChatGPTOfficialNavigation.test.ts`
+and `tests/unit/runtimes/content/ChatGPTFullHistoryDiscovery.test.ts`.
 
 For ChatGPT content-discovery or conversation-root replacement changes, the real trigger path must prove: no pool compile before an official action row or while stop/generation state is active; one compile after readiness; first and assistant-only messages enter the pool; same ID same Markdown causes no publication; same ID changed Markdown updates once; new messages retain old loaded turns; the outer host-slot sequence accepts only contiguous prefix/tail/both extension; an initial ten-slot suffix remains ordered after a direct jump to 62 slots; a historical empty slot hydrates in place; empty-slot-only growth causes no compile or token churn; mounted subwindows cannot shrink retained topology; reordered/unrelated sequences and conflicting assistant-slot bindings preserve the last authority; mutable `conversation-turn-N` rebasing is ignored; virtualized unmount never deletes content; page→canonical promotion preserves token; SPA A→B→A restores separate pools; wake signals coalesce to one rescan; and dispose/full reload clears runtime memory. One Conversation Surface continues to drive Directory and Stepper, and provides Toolbar host facts. An official row plus non-streaming mounted DOM must mount Toolbar before Repository publication; current-message Copy/Reader/Export/word count and connected same-message selection/annotation must remain usable from that DOM when pool evidence is absent or stale. Cross-message Reader/export and bookmarks continue to use the pool, with bookmarks requiring canonical identity and pool-proven position. Formula actions consume mounted formula DOM directly. Static/runtime coverage must prove zero extension conversation GET/POST, no page bridge/Graph modules/resources, no polling/retry ladder/per-message timers, no second observer/repository/join, and no Settings Retry.
+
+The full-history extension of this gate additionally covers the empty
+`message` query, official navigation count, bounded slot sweep, shared-pool
+provenance, DOM-wins correction, complete/partial transitions, retry/cancel
+behavior, and position-only bookmark fallback being rejected until complete.
 
 For Semantic Content, surface selection, or source-quality changes, run `tests/unit/services/semantic-content/SemanticContent.test.ts`, `tests/unit/services/semantic-content/SurfaceProjection.test.ts`, `tests/unit/drivers/content/adapters/ContentSurfaceAdapter.test.ts`, `tests/unit/services/reader/conversationContentReaderProjection.test.ts`, `tests/unit/services/reader/readerMarkdownCopy.test.ts`, `tests/unit/governance/semanticContentArchitecture.test.ts`, and the affected real consumer trigger tests, then `npm run test:chatgpt-discovery`, `npm run test:core`, `npm run test:smoke`, `npm run test:acceptance`, and `npm run build`. Coverage must prove immutable project-owned nodes, UTF-16 half-open source spans, complete provenance/coverage cache isolation, context-based duplicate disambiguation, rejection of unproven decoded offsets, wrapper-insensitive TextQuote evidence, content/materialization invalidation in `SurfaceProjection`, surface-token/Range invalidation at the interaction trigger, and one canonical projection shared by ordinary and structured selections. Governance must reject DOM/browser/platform imports in the Semantic Module, DOM handles in surface evidence, parser-library AST leakage, and any second source/surface join.
 
@@ -330,8 +347,9 @@ The active production contract is ADR-0024:
 - `ConversationContentRepository` maintains one in-memory pool per conversation
   key. Equal bodies are idempotent, changed bodies replace in place, DOM removal
   does not delete, and SPA A→B→A restores each pool.
-- `historyStatus` is always `partial`; Directory completeness beyond messages
-  loaded during this page lifecycle is not required.
+- Ordinary entry reports `historyStatus=partial`; the explicit empty
+  `?message=` sweep may report `complete` only after the official navigation
+  count and all assistant bodies are verified, and new topology downgrades it.
 - Formula click/copy and PNG/SVG/MathML actions parse mounted formula DOM
   directly and do not wait for Repository admission.
 - Cross-message Reader/export and bookmarks keep the Content Port; Directory

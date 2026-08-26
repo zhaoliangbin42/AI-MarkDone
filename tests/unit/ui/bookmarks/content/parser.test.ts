@@ -10,26 +10,27 @@ describe('bookmarks content parser', () => {
 
         expect(zh.title).toBe('更新日志');
         expect(en.title).toBe('Changelog');
-        expect(zh.entries.map((entry) => entry.version)).toEqual(['5.3.0', '5.2.1', '5.2.0', '5.1.1', '5.1.0', '5.0.2', '5.0.1', '5.0.0', '4.8.0', '4.7.0', '4.6.0', '4.5.1', '4.5.0', '4.4.6', '4.4.5', '4.4.1', '4.4.0', '4.3.1', '4.3.0', '4.2.3', '4.2.2', '4.2.1', '4.2.0', '4.1.2', '4.1.1', '4.1.0', '4.0.0', '3.0.0']);
-        expect(en.entries.map((entry) => entry.version)).toEqual(['5.3.0', '5.2.1', '5.2.0', '5.1.1', '5.1.0', '5.0.2', '5.0.1', '5.0.0', '4.8.0', '4.7.0', '4.6.0', '4.5.1', '4.5.0', '4.4.6', '4.4.5', '4.4.1', '4.4.0', '4.3.1', '4.3.0', '4.2.3', '4.2.2', '4.2.1', '4.2.0', '4.1.2', '4.1.1', '4.1.0', '4.0.0', '3.0.0']);
-        expect(zh.entries[0]?.date).toBe('2026-08-20');
-        expect(zh.entries[0]?.leadBlocks[0]).toEqual(expect.objectContaining({
+        expect(zh.entries.map((entry) => entry.version)).toEqual(['5.4.0', '5.3.0', '5.2.1', '5.2.0', '5.1.1', '5.1.0', '5.0.2', '5.0.1', '5.0.0', '4.8.0', '4.7.0', '4.6.0', '4.5.1', '4.5.0', '4.4.6', '4.4.5', '4.4.1', '4.4.0', '4.3.1', '4.3.0', '4.2.3', '4.2.2', '4.2.1', '4.2.0', '4.1.2', '4.1.1', '4.1.0', '4.0.0', '3.0.0']);
+        expect(en.entries.map((entry) => entry.version)).toEqual(['5.4.0', '5.3.0', '5.2.1', '5.2.0', '5.1.1', '5.1.0', '5.0.2', '5.0.1', '5.0.0', '4.8.0', '4.7.0', '4.6.0', '4.5.1', '4.5.0', '4.4.6', '4.4.5', '4.4.1', '4.4.0', '4.3.1', '4.3.0', '4.2.3', '4.2.2', '4.2.1', '4.2.0', '4.1.2', '4.1.1', '4.1.0', '4.0.0', '3.0.0']);
+        expect(zh.entries[0]?.date).toBe('2026-08-22');
+        expect(zh.entries[1]?.date).toBe('2026-08-20');
+        expect(zh.entries[1]?.leadBlocks[0]).toEqual(expect.objectContaining({
             type: 'paragraph',
             text: expect.stringContaining('上周网页又进行了一些更新'),
         }));
-        expect(en.entries[0]?.leadBlocks[0]).toEqual(expect.objectContaining({
+        expect(en.entries[1]?.leadBlocks[0]).toEqual(expect.objectContaining({
             type: 'paragraph',
             text: expect.stringContaining('website received some updates last week'),
         }));
-        expect(JSON.stringify(zh.entries[1]?.leadBlocks)).toContain('英雄召集贴');
-        expect(JSON.stringify(zh.entries[1]?.leadBlocks)).toContain('缓存中对话的存放位置');
-        expect(en.entries[1]?.leadBlocks[0]?.text).toContain('Message loading changed');
-        expect(zh.entries[1]?.sections.map((section) => section.heading)).toEqual(['修复']);
-        expect(en.entries[1]?.sections.map((section) => section.heading)).toEqual(['Fixed']);
-        expect(JSON.stringify(zh.entries[1]?.sections[0]?.blocks)).toContain('页面宽度设置刷新后没有恢复');
-        expect(JSON.stringify(en.entries[1]?.sections[0]?.blocks)).toContain('page width not being restored');
-        expect(zh.entries[7]?.date).toBe('2026-07-19');
-        expect(en.entries[15]?.leadBlocks[0]).toEqual(
+        expect(JSON.stringify(zh.entries[2]?.leadBlocks)).toContain('英雄召集贴');
+        expect(JSON.stringify(zh.entries[2]?.leadBlocks)).toContain('缓存中对话的存放位置');
+        expect(en.entries[2]?.leadBlocks[0]?.text).toContain('Message loading changed');
+        expect(zh.entries[2]?.sections.map((section) => section.heading)).toEqual(['修复']);
+        expect(en.entries[2]?.sections.map((section) => section.heading)).toEqual(['Fixed']);
+        expect(JSON.stringify(zh.entries[2]?.sections[0]?.blocks)).toContain('页面宽度设置刷新后没有恢复');
+        expect(JSON.stringify(en.entries[2]?.sections[0]?.blocks)).toContain('page width not being restored');
+        expect(zh.entries[8]?.date).toBe('2026-07-19');
+        expect(en.entries[16]?.leadBlocks[0]).toEqual(
             expect.objectContaining({
                 type: 'paragraph',
                 text: expect.stringContaining('personalization'),
@@ -49,11 +50,11 @@ describe('bookmarks content parser', () => {
             'Improved',
             'Fixed',
         ];
-        expect(zh.entries[6]?.sections.map((section) => section.heading)).toEqual(zhFiveZeroSections);
         expect(zh.entries[7]?.sections.map((section) => section.heading)).toEqual(zhFiveZeroSections);
-        expect(en.entries[6]?.sections.map((section) => section.heading)).toEqual(enFiveZeroSections);
+        expect(zh.entries[8]?.sections.map((section) => section.heading)).toEqual(zhFiveZeroSections);
         expect(en.entries[7]?.sections.map((section) => section.heading)).toEqual(enFiveZeroSections);
-        expect(zh.entries[6]?.sections[1]?.blocks).toContainEqual({
+        expect(en.entries[8]?.sections.map((section) => section.heading)).toEqual(enFiveZeroSections);
+        expect(zh.entries[7]?.sections[1]?.blocks).toContainEqual({
             type: 'image',
             alt: '好友迹——好友地图通讯录',
             src: 'icons/mappamory-promo-poster.png',

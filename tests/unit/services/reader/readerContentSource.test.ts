@@ -90,6 +90,16 @@ describe('readerContentSource', () => {
         });
 
         expect(result.historyStatus).toBe('partial');
+
+        source.publish({
+            kind: 'ready',
+            document: partialSnapshot.document,
+            snapshot: { ...partialSnapshot, historyStatus: 'complete' },
+        });
+        expect(readCurrentReaderContent(chatgptAdapter(), null, {
+            conversationContentSource: source,
+            pageUrl: 'https://chatgpt.com/c/conv-1',
+        }).historyStatus).toBe('complete');
     });
 
     it('resolves an explicit Reader start through materialization identity', () => {

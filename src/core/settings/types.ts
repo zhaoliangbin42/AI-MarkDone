@@ -5,7 +5,7 @@
  * - `browser.storage.sync` key: `app_settings` (legacy)
  *
  * Principles:
- * - Backward compatible migrations (v1/v2/v3 -> v4)
+ * - Backward compatible migrations (v1/v2/v3/v4 -> v5)
  * - Merge with defaults to allow adding new fields safely
  */
 
@@ -16,7 +16,7 @@ import { createDefaultReaderCommentExportSettings } from './readerCommentExport'
 import type { FormulaSettings } from './formula';
 import { DEFAULT_FORMULA_SETTINGS } from './formula';
 
-export type SettingsVersion = 4;
+export type SettingsVersion = 5;
 
 export type ChatGPTDirectoryMode = 'preview' | 'expanded';
 export type ChatGPTDirectoryPromptLabelMode = 'head' | 'headTail';
@@ -29,10 +29,6 @@ export const DEFAULT_CHATGPT_PAGE_WIDTH_SCALE = 100;
 export const MIN_CHATGPT_PAGE_WIDTH_SCALE = 100;
 export const MAX_CHATGPT_PAGE_WIDTH_SCALE = 200;
 export const CHATGPT_PAGE_WIDTH_SCALE_STEP = 5;
-export const DEFAULT_CHATGPT_AUTO_TOP_TIMEOUT_MS = 20_000;
-export const MIN_CHATGPT_AUTO_TOP_TIMEOUT_MS = 5_000;
-export const MAX_CHATGPT_AUTO_TOP_TIMEOUT_MS = 60_000;
-export const CHATGPT_AUTO_TOP_TIMEOUT_STEP_MS = 5_000;
 export const DEFAULT_CHATGPT_NAVIGATION_SEEK_STEP_PX = 3_000;
 export const MIN_CHATGPT_NAVIGATION_SEEK_STEP_PX = 1_000;
 export const MAX_CHATGPT_NAVIGATION_SEEK_STEP_PX = 5_000;
@@ -72,7 +68,6 @@ export type ChatGPTBehaviorSettings = {
     enableArrowKeyMessageNavigation: boolean;
     pageWidthScale: number;
     pageAnnotationsEnabled: boolean;
-    autoTopTimeoutMs: number;
     navigationSeekStepPx: number;
 };
 
@@ -166,7 +161,7 @@ export type AppSettings = {
 export type SettingsCategory = Exclude<keyof AppSettings, 'version'>;
 
 export const DEFAULT_SETTINGS: AppSettings = {
-    version: 4,
+    version: 5,
     platforms: { chatgpt: true, gemini: true, claude: true, deepseek: true },
     behavior: {
         showMessageToolbar: true,
@@ -211,7 +206,6 @@ export const DEFAULT_SETTINGS: AppSettings = {
         enableArrowKeyMessageNavigation: true,
         pageWidthScale: DEFAULT_CHATGPT_PAGE_WIDTH_SCALE,
         pageAnnotationsEnabled: true,
-        autoTopTimeoutMs: DEFAULT_CHATGPT_AUTO_TOP_TIMEOUT_MS,
         navigationSeekStepPx: DEFAULT_CHATGPT_NAVIGATION_SEEK_STEP_PX,
     },
     appearance: { fontSizePx: DEFAULT_GLOBAL_FONT_SIZE_PX, accentColor: null },

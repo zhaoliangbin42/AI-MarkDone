@@ -187,35 +187,36 @@ describe('BookmarksPanelController', () => {
         });
     });
 
-    it('uses the shared navigation port for same-page ChatGPT bookmark navigation', async () => {
+    it('reloads ChatGPT message bookmarks through the full-history query trigger', async () => {
         const { BookmarksPanelController } = await import('@/ui/content/bookmarks/BookmarksPanelController');
         const adapter = { getPlatformId: () => 'chatgpt' };
-        const controller = new BookmarksPanelController(adapter as any, { navigation: conversationNavigationMock });
-        const url = `${window.location.origin}/c/123`;
-        const bookmark = {
-            url,
-            urlWithoutProtocol: url.replace(/^https?:\/\//, ''),
-            position: 50,
-            messageId: 'payload-a50',
-            userMessage: 'Prompt',
-            aiResponse: 'Answer',
-            timestamp: Date.now(),
-            title: 'Saved thread',
-            platform: 'ChatGPT',
-            folderPath: 'Import',
-        };
-
-        await controller.goToBookmark(bookmark);
-
-        expect(conversationNavigationMock.navigate).toHaveBeenCalledWith(
-            {
+        const url = 'https://chatgpt.com/c/12345678-1234-1234-1234-123456789abc';
+        const assign = vi.fn();
+        const originalLocation = window.location;
+        Object.defineProperty(window, 'location', {
+            configurable: true,
+            value: { href: url, origin: 'https://chatgpt.com', assign },
+        });
+        try {
+            const controller = new BookmarksPanelController(adapter as any, { navigation: conversationNavigationMock });
+            await controller.goToBookmark({
+                url,
+                urlWithoutProtocol: url.replace(/^https?:\/\//, ''),
                 position: 50,
                 messageId: 'payload-a50',
-                assistantMessageId: 'payload-a50',
-                source: 'bookmark',
-            },
-            { timeoutMs: 15000, align: 'start' },
-        );
+                userMessage: 'Prompt',
+                aiResponse: 'Answer',
+                timestamp: Date.now(),
+                title: 'Saved thread',
+                platform: 'ChatGPT',
+                folderPath: 'Import',
+            });
+
+            expect(assign).toHaveBeenCalledWith(`${url}?message=`);
+            expect(conversationNavigationMock.navigate).not.toHaveBeenCalled();
+        } finally {
+            Object.defineProperty(window, 'location', { configurable: true, value: originalLocation });
+        }
     });
 
     it('normalizes ChatGPT transport query flags before reading bookmark positions', async () => {

@@ -28,6 +28,38 @@ export function isChatGPTConversationPage(url: string): boolean {
     return getChatGPTConversationId(url) !== null;
 }
 
+/**
+ * Ask ChatGPT to build its full conversation-navigation skeleton on reload.
+ * An empty value is intentional: non-empty values are treated as a concrete
+ * message target by the host page rather than as the full-history trigger.
+ */
+export function withChatGPTFullHistoryTrigger(url: string): string {
+    if (!isChatGPTConversationPage(url)) return url;
+    try {
+        const parsed = new URL(
+            url,
+            typeof window !== 'undefined' ? window.location.href : 'https://chatgpt.com',
+        );
+        parsed.searchParams.set('message', '');
+        return parsed.toString();
+    } catch {
+        return url;
+    }
+}
+
+export function hasChatGPTFullHistoryTrigger(url: string): boolean {
+    if (!isChatGPTConversationPage(url)) return false;
+    try {
+        const parsed = new URL(
+            url,
+            typeof window !== 'undefined' ? window.location.href : 'https://chatgpt.com',
+        );
+        return parsed.searchParams.has('message') && parsed.searchParams.get('message') === '';
+    } catch {
+        return false;
+    }
+}
+
 function readConversationPathToken(pathname: string): string | null {
     const segments = pathname.split('/').filter(Boolean);
     for (let index = 0; index < segments.length - 1; index += 1) {

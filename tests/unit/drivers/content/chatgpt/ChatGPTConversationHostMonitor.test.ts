@@ -140,6 +140,26 @@ describe('ChatGPTConversationHostMonitor DOM readiness', () => {
         }
     });
 
+    it('labels explicit full-history captures while sharing the normal repository', async () => {
+        document.querySelector('main')!.innerHTML = roundHtml(1, 'Full-history answer');
+        const harness = createHarness('full-history-origin');
+
+        try {
+            harness.monitor.init();
+            harness.monitor.setCaptureOrigin('full-discovery');
+            harness.monitor.requestCapture('full-discovery');
+            const flush = harness.monitor.flushObserved();
+            await settle();
+            await flush;
+
+            expect(harness.repository.read().snapshot?.turns[0]?.assistantProvenance?.producer).toBe(
+                'chatgpt-full-dom-discovery',
+            );
+        } finally {
+            harness.dispose();
+        }
+    });
+
     it('waits indefinitely for the official action row and reacts to its mutation once', async () => {
         document.querySelector('main')!.innerHTML = roundHtml(1, 'Delayed answer', false);
         const harness = createHarness('delayed');

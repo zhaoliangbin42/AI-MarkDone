@@ -356,7 +356,7 @@ describe('SettingsTabView', () => {
         expect(slider.value).toBe('145');
     });
 
-    it('wires fast-top timeout and navigation seek speed to the scoped behavior category', () => {
+    it('removes the retired fast-top control and keeps navigation seek speed scoped to behavior', () => {
         const modal = { confirm: vi.fn(async () => true) } as any;
         const onSetChatGptBehaviorSettings = vi.fn(async () => undefined);
         const view = new SettingsTabView({
@@ -369,23 +369,16 @@ describe('SettingsTabView', () => {
         });
 
         const root = view.getElement();
-        const timeout = root.querySelector<HTMLInputElement>('[data-role="settings-chatgpt-auto-top-timeout"]')!;
         const seekStep = root.querySelector<HTMLInputElement>('[data-role="settings-chatgpt-navigation-seek-step"]')!;
-        expect(timeout.min).toBe('5000');
-        expect(timeout.max).toBe('60000');
-        expect(timeout.step).toBe('5000');
-        expect(timeout.value).toBe('20000');
+        expect(root.querySelector('[data-role="settings-chatgpt-auto-top-timeout"]')).toBeNull();
         expect(seekStep.min).toBe('1000');
         expect(seekStep.max).toBe('5000');
         expect(seekStep.step).toBe('400');
         expect(seekStep.value).toBe('3000');
 
-        timeout.value = '45000';
-        timeout.dispatchEvent(new Event('change', { bubbles: true }));
         seekStep.value = '4600';
         seekStep.dispatchEvent(new Event('change', { bubbles: true }));
 
-        expect(onSetChatGptBehaviorSettings).toHaveBeenCalledWith({ autoTopTimeoutMs: 45_000 });
         expect(onSetChatGptBehaviorSettings).toHaveBeenCalledWith({ navigationSeekStepPx: 4_600 });
     });
 

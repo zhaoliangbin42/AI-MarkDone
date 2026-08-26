@@ -1,19 +1,16 @@
 import type { AppSettings } from '../../../../../core/settings/types';
 import {
     CHATGPT_DIRECTORY_RIGHT_INSET_STEP_PX,
-    CHATGPT_AUTO_TOP_TIMEOUT_STEP_MS,
     CHATGPT_NAVIGATION_SEEK_STEP_PX_STEP,
     CHATGPT_PAGE_WIDTH_SCALE_STEP,
     DEFAULT_SETTINGS,
     DEFAULT_GLOBAL_FONT_SIZE_PX,
     MAX_CHATGPT_DIRECTORY_RIGHT_INSET_PX,
-    MAX_CHATGPT_AUTO_TOP_TIMEOUT_MS,
     MAX_CHATGPT_NAVIGATION_SEEK_STEP_PX,
     MAX_CHATGPT_PAGE_WIDTH_SCALE,
     GLOBAL_FONT_SIZE_STEP_PX,
     MAX_GLOBAL_FONT_SIZE_PX,
     MIN_CHATGPT_DIRECTORY_RIGHT_INSET_PX,
-    MIN_CHATGPT_AUTO_TOP_TIMEOUT_MS,
     MIN_CHATGPT_NAVIGATION_SEEK_STEP_PX,
     MIN_CHATGPT_PAGE_WIDTH_SCALE,
     MIN_GLOBAL_FONT_SIZE_PX,
@@ -24,7 +21,6 @@ import {
     normalizeChatGPTAtomicMarkdownCopyShortcut,
     normalizeChatGPTDirectoryRightInsetPx,
     normalizeChatGPTDirectorySettings,
-    normalizeChatGPTAutoTopTimeoutMs,
     normalizeChatGPTNavigationSeekStepPx,
     normalizeChatGPTPageWidthScale,
     normalizeReaderOpenMode,
@@ -167,7 +163,6 @@ type Refs = {
         showPromptControl: HTMLInputElement;
         arrowKeyMessageNavigation: HTMLInputElement;
         pageWidthScale: SliderFieldRef;
-        autoTopTimeout: SliderFieldRef;
         navigationSeekStep: SliderFieldRef;
         enabled: HTMLInputElement;
         mode: SelectRef;
@@ -396,16 +391,6 @@ export class SettingsTabView {
             CHATGPT_PAGE_WIDTH_SCALE_STEP,
             'settings-chatgpt-page-width-scale-value',
             (value) => value <= MIN_CHATGPT_PAGE_WIDTH_SCALE ? t('chatgptPageWidthScaleNormal') : `${value}%`,
-        );
-        const chatGptAutoTopTimeout = this.createSliderRow(
-            chatGptDirectoryGroup.body,
-            t('chatgptAutoTopTimeoutLabel'),
-            t('chatgptAutoTopTimeoutDesc'),
-            MIN_CHATGPT_AUTO_TOP_TIMEOUT_MS,
-            MAX_CHATGPT_AUTO_TOP_TIMEOUT_MS,
-            CHATGPT_AUTO_TOP_TIMEOUT_STEP_MS,
-            'settings-chatgpt-auto-top-timeout-value',
-            (value) => `${Math.round(value / 1000)}s`,
         );
         const chatGptNavigationSeekStep = this.createSliderRow(
             chatGptDirectoryGroup.body,
@@ -658,7 +643,6 @@ export class SettingsTabView {
                 showPromptControl: chatGptShowPromptControl.input,
                 arrowKeyMessageNavigation: chatGptArrowKeyMessageNavigation.input,
                 pageWidthScale: chatGptPageWidthScale,
-                autoTopTimeout: chatGptAutoTopTimeout,
                 navigationSeekStep: chatGptNavigationSeekStep,
                 enabled: chatGptDirectoryEnabled.input,
                 mode: chatGptDirectoryMode,
@@ -706,7 +690,6 @@ export class SettingsTabView {
         this.refs.chatgptDirectory.showPromptControl.dataset.role = 'settings-chatgpt-show-prompt-control';
         this.refs.chatgptDirectory.arrowKeyMessageNavigation.dataset.role = 'settings-chatgpt-arrow-key-message-navigation';
         this.refs.chatgptDirectory.pageWidthScale.input.dataset.role = 'settings-chatgpt-page-width-scale';
-        this.refs.chatgptDirectory.autoTopTimeout.input.dataset.role = 'settings-chatgpt-auto-top-timeout';
         this.refs.chatgptDirectory.navigationSeekStep.input.dataset.role = 'settings-chatgpt-navigation-seek-step';
         this.refs.chatgptDirectory.enabled.dataset.role = 'settings-chatgpt-directory-enabled';
         this.refs.chatgptDirectory.mode.trigger.dataset.role = 'settings-chatgpt-directory-mode';
@@ -779,7 +762,6 @@ export class SettingsTabView {
                 ...DEFAULT_SETTINGS.chatgptBehavior,
                 ...params.settings.chatgptBehavior,
                 pageWidthScale: normalizeChatGPTPageWidthScale(params.settings.chatgptBehavior?.pageWidthScale),
-                autoTopTimeoutMs: normalizeChatGPTAutoTopTimeoutMs(params.settings.chatgptBehavior?.autoTopTimeoutMs),
                 navigationSeekStepPx: normalizeChatGPTNavigationSeekStepPx(params.settings.chatgptBehavior?.navigationSeekStepPx),
             },
             appearance: {
@@ -1036,15 +1018,6 @@ export class SettingsTabView {
             this.syncSliderValue(this.refs.chatgptDirectory.pageWidthScale, next);
             void this.actions.setChatGptBehaviorSettings?.({ pageWidthScale: next });
         });
-        this.refs.chatgptDirectory.autoTopTimeout.input.addEventListener('input', () => {
-            this.syncSliderValue(this.refs.chatgptDirectory.autoTopTimeout);
-        });
-        this.refs.chatgptDirectory.autoTopTimeout.input.addEventListener('change', () => {
-            const next = normalizeChatGPTAutoTopTimeoutMs(this.refs.chatgptDirectory.autoTopTimeout.input.value);
-            this.settings.chatgptBehavior.autoTopTimeoutMs = next;
-            this.syncSliderValue(this.refs.chatgptDirectory.autoTopTimeout, next);
-            void this.actions.setChatGptBehaviorSettings?.({ autoTopTimeoutMs: next });
-        });
         this.refs.chatgptDirectory.navigationSeekStep.input.addEventListener('input', () => {
             this.syncSliderValue(this.refs.chatgptDirectory.navigationSeekStep);
         });
@@ -1183,7 +1156,6 @@ export class SettingsTabView {
         this.refs.chatgptDirectory.showPromptControl.checked = Boolean(s.chatgptBehavior.showPromptControl);
         this.refs.chatgptDirectory.arrowKeyMessageNavigation.checked = Boolean(s.chatgptBehavior.enableArrowKeyMessageNavigation);
         this.syncSliderValue(this.refs.chatgptDirectory.pageWidthScale, normalizeChatGPTPageWidthScale(s.chatgptBehavior.pageWidthScale));
-        this.syncSliderValue(this.refs.chatgptDirectory.autoTopTimeout, normalizeChatGPTAutoTopTimeoutMs(s.chatgptBehavior.autoTopTimeoutMs));
         this.syncSliderValue(this.refs.chatgptDirectory.navigationSeekStep, normalizeChatGPTNavigationSeekStepPx(s.chatgptBehavior.navigationSeekStepPx));
         this.refs.chatgptDirectory.enabled.checked = Boolean(s.chatgptDirectory.enabled);
         this.refs.chatgptDirectory.mode.setValue(s.chatgptDirectory.mode === 'expanded' ? 'expanded' : 'preview');

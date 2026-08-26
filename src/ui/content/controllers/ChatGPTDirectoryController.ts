@@ -219,6 +219,7 @@ export class ChatGPTDirectoryController {
         // lower-right controls before rendering the next list state.
         this.rail.ensureAttached();
         const frame = this.surface.readFrame();
+        this.rail.setHistoryStatus(frame.snapshot?.historyStatus ?? 'unknown');
         const hasObtainedContent = frame.obtainedTurns.length > 0;
         if (!this.enabled || !hasObtainedContent) {
             this.roundPositions = [];

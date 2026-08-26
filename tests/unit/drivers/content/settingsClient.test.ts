@@ -35,7 +35,7 @@ describe('SettingsClient', () => {
         sendExtRequest.mockClear();
     });
 
-    it('accepts v4 settings updates from storage change events', async () => {
+    it('accepts current settings updates from storage change events', async () => {
         const { SettingsClient } = await import('@/drivers/content/settings/settingsClient');
         const client = new SettingsClient();
         const listener = vi.fn();
@@ -86,7 +86,7 @@ describe('SettingsClient', () => {
         }, 'sync');
 
         const latest = listener.mock.calls.at(-1)?.[0]?.settings;
-        expect(latest.version).toBe(4);
+        expect(latest.version).toBe(5);
         expect(latest.formula.clickCopyMarkdown).toBe(true);
         expect(latest.formula.assetActions).toEqual({
             copyPng: false,
@@ -119,7 +119,7 @@ describe('SettingsClient', () => {
 
         const settings = await client.refresh();
 
-        expect(settings?.version).toBe(4);
+        expect(settings?.version).toBe(5);
         expect(settings?.formula.clickCopyMarkdown).toBe(false);
         expect(settings?.formula.assetActions.copyPng).toBe(false);
         expect(settings?.formula.assetFontSizePx).toBe(36);

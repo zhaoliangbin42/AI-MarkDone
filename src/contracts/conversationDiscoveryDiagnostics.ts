@@ -13,8 +13,9 @@ export type DiscoverySnapshotBasisV1 = 'source' | 'hybrid' | 'host';
 
 /**
  * Whether the obtained pool is known to cover the whole conversation.
- * Current DOM-only snapshots report 'partial'. The other values remain in the
- * stable snapshot schema for older persisted/exported consumers.
+ * Ordinary DOM-only snapshots report 'partial'; the explicit ChatGPT
+ * `?message=` sweep may report 'complete' after its proof. The other value
+ * remains in the stable snapshot schema for older persisted consumers.
  */
 export type DiscoveryHistoryStatusV1 = 'unknown' | 'partial' | 'complete';
 

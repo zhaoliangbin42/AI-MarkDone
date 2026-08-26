@@ -30,6 +30,7 @@ export type ChatGPTConversationHostMonitorOptions = Readonly<{
 }>;
 
 const DEFAULT_SETTLE_DELAY_MS = 400;
+type ConversationHostTurnOrigin = 'full-discovery' | 'dom-fallback';
 
 /**
  * Lightweight DOM capture coordinator backed by the shared ChatGPTPageIndex.
@@ -54,6 +55,8 @@ export class ChatGPTConversationHostMonitor {
     private elementSequence = 0;
     private stableCaptureCount = 0;
     private globalDirty = false;
+    private captureOrigin: ConversationHostTurnOrigin = 'dom-fallback';
+    private readonly flushWaiters = new Set<() => void>();
     private initialized = false;
     private disposed = false;
     private lastDocument: ConversationDocumentRefV1 | null = null;
@@ -111,7 +114,20 @@ export class ChatGPTConversationHostMonitor {
     async flushObserved(): Promise<void> {
         if (this.disposed) return;
         await Promise.resolve();
-        if (this.capturePromise) await this.capturePromise;
+        while (!this.disposed && (this.settleTimer !== null || this.capturePromise !== null)) {
+            await new Promise<void>((resolve) => this.flushWaiters.add(resolve));
+        }
+    }
+
+    setCaptureOrigin(origin: ConversationHostTurnOrigin): void {
+        this.captureOrigin = origin;
+    }
+
+    requestCapture(origin: ConversationHostTurnOrigin = this.captureOrigin): void {
+        if (this.disposed) return;
+        this.captureOrigin = origin;
+        this.globalDirty = true;
+        this.scheduleCapture();
     }
 
     dispose(): void {
@@ -128,6 +144,8 @@ export class ChatGPTConversationHostMonitor {
         this.capturedAssistantIdsByDocumentKey.clear();
         this.globalDirty = false;
         this.lastDocument = null;
+        for (const resolve of this.flushWaiters) resolve();
+        this.flushWaiters.clear();
     }
 
     private observe(batch: ChatGPTHostObservationBatch): void {
@@ -159,8 +177,14 @@ export class ChatGPTConversationHostMonitor {
         const delay = Math.max(0, this.options.settleDelayMs ?? DEFAULT_SETTLE_DELAY_MS);
         this.settleTimer = setTimeout(() => {
             this.settleTimer = null;
-            void this.startCapture();
+            void this.startCapture().finally(() => this.resolveFlushWaiters());
         }, delay);
+    }
+
+    private resolveFlushWaiters(): void {
+        if (this.settleTimer !== null || this.capturePromise !== null) return;
+        for (const resolve of this.flushWaiters) resolve();
+        this.flushWaiters.clear();
     }
 
     private startCapture(): Promise<void> {
@@ -187,6 +211,7 @@ export class ChatGPTConversationHostMonitor {
         const documentKey = this.options.resolveDocument()?.key ?? null;
         const captureAll = this.globalDirty;
         const dirtyIds = new Set(this.dirtyAssistantIds);
+        const captureOrigin = this.captureOrigin;
         const hostSlots = collectChatGPTDomHostSlots(this.options.adapter);
         const observedHostSlotOrder = hostSlots.map((slot) => slot.id);
         const rounds = this.options.index.getSnapshot();
@@ -218,6 +243,7 @@ export class ChatGPTConversationHostMonitor {
                 round,
                 hostSlotId,
                 revision,
+                captureOrigin,
             );
             if (
                 this.disposed
@@ -267,6 +293,7 @@ export class ChatGPTConversationHostMonitor {
         round: ChatGPTDomRoundRef,
         hostSlotId: string,
         captureRevision: number,
+        origin: ConversationHostTurnOrigin,
     ): Promise<ConversationHostTurnObservationV1 | null> {
         const identityParts = resolveChatGPTDomRoundProjectionIdentity(round);
         const assistantRoot = round.assistantContentRootEl;
@@ -303,12 +330,15 @@ export class ChatGPTConversationHostMonitor {
             assistantProvenance: Object.freeze({
                 authority: 'host-rendered' as const,
                 fidelity: 'normalized' as const,
-                producer: 'rendered-content-v2',
+                producer: origin === 'full-discovery'
+                    ? 'chatgpt-full-dom-discovery'
+                    : 'chatgpt-dom-fallback',
             }),
         });
         return Object.freeze({
             turn,
             hostSlotId,
+            origin,
         });
     }
 

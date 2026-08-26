@@ -2,6 +2,7 @@ import type {
     ConversationContentSourceV1,
     ConversationSnapshotV1,
 } from '../../contracts/conversationContent';
+import { getConversationHistoryStatusV1 } from '../../contracts/conversationContent';
 import type {
     ConversationCanonicalTargetV1,
     ConversationNavigationInputV1,
@@ -40,7 +41,9 @@ function normalize(value: string | null | undefined): string | null {
 }
 
 function isCompleteSnapshot(snapshot: ConversationSnapshotV1): boolean {
-    return snapshot.coverage === 'complete' && snapshot.turns.length > 0;
+    return snapshot.coverage === 'complete'
+        && getConversationHistoryStatusV1(snapshot) === 'complete'
+        && snapshot.turns.length > 0;
 }
 
 function targetKey(input: ConversationNavigationInputV1): string {
@@ -121,8 +124,10 @@ function tryResolve(
         };
     }
 
+    if (!canUsePositionFallback(input)) {
+        return { kind: 'failed', reason: 'source-unavailable' };
+    }
     if (!isCompleteSnapshot(snapshot)) return { kind: 'wait' };
-    if (!canUsePositionFallback(input)) return { kind: 'failed', reason: 'source-unavailable' };
     if (!Number.isFinite(input.position) || input.position <= 0) {
         return { kind: 'failed', reason: 'source-unavailable' };
     }

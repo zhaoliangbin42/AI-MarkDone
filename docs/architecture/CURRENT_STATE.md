@@ -2,7 +2,7 @@
 
 本文描述 AI-MarkDone 当前仓库已经落地的结构事实，用于帮助开发者和 Codex 理解“现在是什么”。它不描述目标蓝图，也不描述未来计划。
 
-> **ChatGPT discovery current boundary (2026-08-22)**
+> **ChatGPT discovery current boundary (2026-08-26)**
 >
 > Production has one DOM-only, signal-driven lifecycle. The official ChatGPT
 > action row marks a completed assistant message; the Host Monitor clones its
@@ -12,7 +12,10 @@
 > the private position skeleton because ChatGPT's `conversation-turn-N` values
 > can be renumbered as older history loads. The
 > Repository and the single `ChatGPTPageIndex` are joined by
-> `ChatGPTConversationSurface` for accumulated-content consumers. Toolbar and
+> `ChatGPTConversationSurface` for accumulated-content consumers. An explicit
+> `?message=` reload creates ChatGPT's full navigation skeleton and runs one
+> bounded DOM materialization sweep over that same PageIndex/Host Monitor path;
+> it never creates a second observer or content pool. Toolbar and
 > current-message actions use mounted PageIndex facts and current DOM directly,
 > without waiting for pool admission. Formula actions remain DOM-local. See
 > [ADR-0024](../adr/ADR-0024-chatgpt-dom-authoritative-content-pool.md) and
@@ -32,7 +35,24 @@
 > non-streaming message with an official action row can mount its toolbar and
 > serve current-message Copy/Reader/Export or selection/annotation from live DOM
 > before Repository publication. It does not enter Directory or multi-message
-> output until its stable ID is admitted into proven pool order.
+> output until its stable ID is admitted into proven pool order. The shared
+> snapshot reports `historyStatus=partial` until the explicit full-history sweep
+> proves the official navigation count and all assistant bodies; DOM corrections
+> remain authoritative for existing identities.
+>
+> **Full-history discovery update (2026-08-26)**
+>
+> Normal ChatGPT entry remains partial and does not reload automatically. The
+> explicit lower-right load action and ChatGPT message bookmark navigation use
+> the shared route helper to reload with an empty `message` query. When that
+> trigger is present, `ChatGPTFullHistoryDiscoveryController` reads the
+> official navigation skeleton, sweeps persistent outer slots through the
+> existing PageIndex/Host Monitor, and marks the same Repository snapshot
+> `historyStatus=complete` only after the expected assistant count and bodies
+> are present. A later DOM observation for an existing assistant identity
+> replaces its body/provenance; new topology downgrades the snapshot to
+> partial. Directory, Reader and Save Messages consume this same snapshot.
+> Current-message copy, word count, Copy PNG and formula actions remain DOM-local.
 
 > **Page lifecycle wake boundary (2026-08-21)**
 >
@@ -166,10 +186,10 @@
 
 - 当前生产完整页面 adapter 为 `src/drivers/content/adapters/sites/chatgpt.ts`
 - Gemini、Claude、DeepSeek 当前保留公式复制 runtime，用于单公式 LaTeX 点击复制与用户启用的公式 PNG/SVG/MathML copy/save；旧书签中的平台字符串仍作为用户历史数据保留。formula runtime 可以构造/打开全局书签管理面板以支持扩展图标入口和设置入口，但不得恢复这些平台的 Reader、消息 toolbar、发送、整条消息复制/导出、定位或完整 adapter 链路。
-- ChatGPT 内容发现采用 **官方 action row 触发 + DOM 唯一正文权威 + 标签页内多会话池 + 原子 Surface**。`ChatGPTConversationContentRuntime` 统一处理初始化、PageIndex 事实、会话身份、History 事件、`pageshow`、`resume` 与 visible 恢复。Graph bridge、bootstrap、transport、decoder、baseline gate、upgrade probe 和 Settings Retry 已从生产删除；扩展主动 conversation GET/POST 恒为零。
-  - `ChatGPTConversationHostMonitor` 只订阅唯一 `ChatGPTPageIndex` observer。启动扫描已有 action row；消息结构、身份、assistant 正文以及 typed user message 的字符/子树 hydrate mutation 都只进入同一页面级防抖 capture；消息需具备非空 assistant DOM、`data-message-id`、已连接的官方复制 action row，并且不在生成状态。缺少 action row 时不轮询、不设失败窗口，等待下一次真实 DOM 或页面生命周期信号。
+- ChatGPT 内容发现采用 **官方 action row + `?message=` 全量触发 + DOM 唯一正文权威 + 标签页内多会话池 + 原子 Surface**。`ChatGPTConversationContentRuntime` 统一处理初始化、PageIndex 事实、会话身份、History 事件、`pageshow`、`resume` 与 visible 恢复。Graph bridge、bootstrap、transport、decoder、baseline gate、upgrade probe 和 Settings Retry 已从生产删除；扩展主动 conversation GET/POST 恒为零。
+  - `ChatGPTConversationHostMonitor` 只订阅唯一 `ChatGPTPageIndex` observer。普通启动扫描已有 action row；显式 `?message=` 触发时，`ChatGPTFullHistoryDiscoveryController` 复用同一 observer、Host Monitor 和 Surface，读取官方导航骨架并按持久化外层 slot 做一次有界 materialization sweep。消息需具备非空 assistant DOM、`data-message-id`、已连接的官方复制 action row，并且不在生成状态。缺少官方导航时保持 partial，不轮询、不建立第二 source。
   - 每条首次获得或真实变化的消息只 clone 当前 user/assistant 根一次，经既有 Adapter 规范化并各转换一次 Markdown。完整 user/assistant pair 成功编译后，同一稳定 assistant ID 的纯结构虚拟化重挂只更新 mounted 顺序与 host surface，不重复 clone/compile；content/identity mutation、late user-body hydration、generation completion、页面生命周期重扫仍重读。assistant-only capture 因后续可能恢复 user prompt，不进入这项跳过条件。user prompt 是 best-effort，可为空或未挂载；assistant ID 与非空正文是最低准入条件。公式/代码不做预扫描，编译器不做第二次全文语义签名比对，只保留基础节点、输入、输出和执行时间预算。
-  - Repository 按 `assistantMessageId` 维护正文 Map，并把最外层 `data-turn-id-container` 完整序列作为私有槽位骨架：旧序列是新序列连续子段时接受前缀、尾部或二者同时扩展；当前序列只是旧序列子窗口时不缩减；冲突或无关序列不猜测。正文按所属 `hostSlotId` 原位填充，同 ID 同 Markdown 不发布，late user/assistant body 按原绑定更新，冲突绑定忽略。公共 V1 只投影已获得正文并重新稠密化 ordinal，空槽增长本身不改变 `contentToken`。`conversation-turn-N` 只属于宿主当前状态，不进入排序；DOM 虚拟化移除不删槽位或正文。内部 `Map<conversationKey, ConversationPool>` 支持 SPA A→B→A 恢复，刷新页面后清空。所有快照 `historyStatus` 为 `partial`。
+  - Repository 按 `assistantMessageId` 维护正文 Map，并把最外层 `data-turn-id-container` 完整序列作为私有槽位骨架：旧序列是新序列连续子段时接受前缀、尾部或二者同时扩展；当前序列只是旧序列子窗口时不缩减；冲突或无关序列不猜测。正文按所属 `hostSlotId` 原位填充，同 ID 同 Markdown 不发布，late user/assistant body 按原绑定更新，冲突绑定忽略。公共 V1 只投影已获得正文并重新稠密化 ordinal，空槽增长本身不改变 `contentToken`。`conversation-turn-N` 只属于宿主当前状态，不进入排序；DOM 虚拟化移除不删槽位或正文。内部 `Map<conversationKey, ConversationPool>` 支持 SPA A→B→A 恢复，刷新页面后清空。普通进入的快照保持 `historyStatus=partial`；显式 `?message=` sweep 在官方导航数量和全部 assistant 正文验证后发布 `complete`，新槽位进入后再次降回 `partial`。
   - 当前消息 Toolbar、word count、whole-message Copy、Reader fallback 与单消息 Export fallback 在用户动作时读取对应已挂载 DOM，不等待 Repository。跨消息 Reader、Save Messages、Directory 和后续目录能力仍消费 `ConversationContentSourceV1` 有序池；书签提交继续要求 canonical identity 与已证明 position。公式点击复制及 PNG/SVG/MathML 直接使用公式 DOM 与 parser Adapter。
   - `src/contracts/semanticContent.ts` + `src/services/semantic-content/SemanticContent.ts` 是 provider-neutral Semantic Content Module：输入 canonical Markdown、revision、coverage 与 provenance，输出 AI-MarkDone 自有不可变节点、UTF-16 半开 source spans、plain text、Reader units/outline 与 canonical/fragment projections。unified/remark 只属于实现；DOM、Range、browser global、platform id、host selector、clipboard 与 UI 不进入该 Module。
   - `ContentSurfaceAdapter` 只在拖选阶段定位同一非流式 assistant message 的原生 Range。复制或注释动作发生时，`PageMarkdownSelectionResolver` 优先使用可用的 canonical `SurfaceProjection`；若池尚未收录、token 已变化或缓存正文不可用，则从仍连接的 owning message DOM 构建当前 Markdown。跨消息、detached 或 streaming selection 仍 fail closed；拖选期间不编译 Markdown。
@@ -179,11 +199,11 @@
   - `ChatGPTConversationSurface` 仍以 `assistantMessageId` 连接池和当前挂载窗口。已加载后虚拟化卸载的消息保留在池；assistant-only DOM 也可直接建立正文 turn，user prompt 缺失时保存空字符串。
   - ChatGPT Message toolbar 不再维护 mounted-surface inventory、MutationObserver、route watcher、scan scheduler 或 recovery timer。它复用共享 Surface 中由 PageIndex 提供的 mounted facts；只要消息非 streaming 且官方 action row 已连接，即使 Repository 尚无 snapshot 也立即挂载。词数和正文动作直接读取当前消息 DOM；后续池 admission 只补充 canonical ordinal、跨消息列表和书签上下文。它不移动、删除或替换官方工具栏、停止按钮或其父节点，虚拟化卸载/重挂保持单例。非 ChatGPT adapter 暂时保留旧 DOM-local toolbar lifecycle。
   - `ChatGPTConversationNavigation` 的 off-screen 主路径使用 ChatGPT 持久化的 sibling turn slots，而不是按总高度推算目标像素：它只用当前已挂载且 identity 唯一的 user/assistant anchors 校准 canonical sequence 与宿主 slot sequence 的单一 offset，不读取 React/Fiber、私有 virtualizer 或 `conversation-turn-N` 数字。宿主可能在外层持久 slot 与内层 `section[data-turn]` 上重复 `data-message-id`/`data-turn-id-container`；PageIndex 的相邻性必须先归一到有同类 sibling 的外层 slot，不能把最近的重复 marker 当作列表项。一次导航只扫描一次 slot group并复用同一 target slot；若没有可信 target slot，则在显式 Directory/Stepper/Reader locate/Bookmark Go/pending action 内，以 Surface 稳定 ID 顺序和 scroll-root 中心游标执行有界单调寻迹：目标 ordinal 与游标 ordinal 的符号决定上下方向，符号翻转即越界并缩小步长。每步重新读取 Surface/DOM，寻迹最多 200 步；用户在 Settings 中配置初始步长为 1000–5000 CSS 像素、400 像素递进，运行中仍按越界和停滞自适应减半，缺少配置时才使用 120–2000 CSS 像素的兼容默认范围，并继续受现有总 timeout、停滞次数和滚动边界限制；不使用全局比例、像素插值或私有 virtualizer。精确 anchor 的最终滚动必须在 bounded alignment window 内连续两次保持 tolerance；anchor 断开或持续漂移要 fail closed，用户主动滚动则立即停止自动纠偏。普通导航不新增全页 `MutationObserver`、`ResizeObserver` 或常驻 timer，诊断 observer 仅在显式 debug 模式短暂启用。
-  - `ChatGPTTopScrollController` 是与目录/消息寻迹独立的 ChatGPT-only 快速到顶行为：按钮复用 `ChatGPTMessageStepperController` 现有右下角 host，插在 Prompts 与 Previous/Next 之间，不创建第二个 fixed host；用户点击后直接对现有 conversation scroll root 使用 native `scrollTo({ top: 0, behavior: 'auto' })`，在短生命周期采样中处理历史加载造成的回弹，默认最多运行 20 秒；到顶且 scrollHeight 连续 3 秒稳定后结束，第二次点击、wheel 或键盘输入立即停止，鼠标移动、pointer press 与 touchstart 不停止。控件不注册 observer、不发请求、不常驻运行，timeout 由 Settings 配置。
+  - 右下角旧的 `ChatGPTTopScrollController` 已删除。`ChatGPTMessageStepperController` 复用原有 lower-right host，提供“加载全部消息”按钮；点击后通过共享 route helper 设置空 `message` 参数并刷新当前 ChatGPT conversation。旧 `autoTopTimeoutMs` 设置、滑块和到顶采样逻辑不再存在。
   - ChatGPT conversation route 识别只由共享 route helper 定义；内容发现的路由生命周期只由 `ChatGPTConversationContentRuntime` 持有。Directory、Toolbar、Stepper 与 Conversation Surface 信任 Runtime 已绑定的 page/canonical document，不再各自重解析 URL 来判断内容是否可用；内容链路没有 500 ms RouteWatcher。其它非内容功能若仍使用共享 RouteWatcher，不构成正文发现输入。
   - `ChatGPTDirectoryController` + `ChatGPTDirectoryRail` 是默认开启、用户可关闭的 ChatGPT right-side surface，由 `chatgptDirectory.enabled` 控制。目录宿主在 Runtime 初始化时独立挂载到 `document.body`，使用与 lower-right controls 相同的 page-level fixed portal；body 尚未创建时才暂挂到 `document.documentElement`。Directory 生产路径只订阅一个 Surface Frame，并在一次 `reconcile(frame)` 中同时更新条目、可见性、DOM geometry、书签投影与 active observer，因此不存在“Shadow DOM 已有条目但 rail 仍隐藏”的独立状态。所有 obtained turns 都进入目录；未挂载项保留条目，挂载项使用完整 message group 计算高亮。当前 DOM hydration window 变小不得缩短目录。无 canonical ID 时目录仍工作，但不读取消息书签状态。rail/preview 几何与官方导航隐藏规则保持原有 tokenized、fail-open 边界，不修改官方 DOM，也不影响 Reader、Save Messages、复制或书签存储。
-  - `ChatGPTMessageStepperController` 是独立于旧 directory rail 的轻量 lower-right surface：它默认提供书签面板入口、当前页面收藏、Detached Reader Split View、Prompts、上一条/下一条按钮。书签面板入口使用 AI-MarkDone 品牌 Logo 并固定贴底，替代 ChatGPT header 入口，避免在官方 header 区注入按钮影响第三方划词弹窗；页面收藏按钮由 `chatgptBehavior.showPageBookmarkControl` 单独控制，只保存当前 ChatGPT 对话 URL/标题/平台/文件夹/时间等元数据，不保存完整对话内容，也不进入消息级 `bookmarks:positions` 高亮链路；无 canonical conversation identity 时该收藏动作不可用且不发送请求，identity promotion 后按原协议恢复。Detached Reader Split View 由 `chatgptBehavior.showDetachedReaderControl` 控制；Prompts 由 `chatgptBehavior.showPromptControl` 控制；上一条/下一条按钮显示由 `chatgptBehavior.showMessageStepper` 控制。Prompts 按钮使用 `messageSquareTextIcon`，位于 Split View 和 Previous/Next 之间，并打开与 composer `\` 联想共用的 Prompt 管理浮层。Left/Right 键消息导航由 `chatgptBehavior.enableArrowKeyMessageNavigation` 单独控制。定位时复用 `src/ui/content/chatgptDirectory/navigation.ts` 的 same-page helper。键盘监听默认开启，但会跳过 input、textarea、contenteditable、role=textbox、组合键、IME composing 与 AI-MarkDone 自有面板/弹窗/输入区。
-  - `ChatGPTComposerEditingController` 统一持有官方 composer 绑定、键盘优先级、列表删除、公式助手和加号旁 Input Enhancement 按钮生命周期，并继续复用唯一 `document.body` subtree observer，不新增全局 observer。观察回调只在当前 composer scope、输入替换或 hydration shell 脱离时合帧 rebind，普通回复 mutation 不再唤醒 composer 消费者。设置 SSOT 是 `chatgptBehavior.inputEnhancement`：`available` 决定入口存在与否，`enabled` 是运行总开关，Enter、粗体、列表父开关、有序/无序列表、公式联想和公式预览是保值的独立子项；有效状态只由 `resolveChatGPTInputEnhancement()` 计算。新安装全部开启；旧 `markdownComposerEnabled` / `enterKeyNewline` 只作为 v4 normalizer 的迁移输入。Settings 只修改 `available`，composer 弹层乐观保存完整嵌套快照，保存中禁用控件，失败回滚整个快照。按钮与官方加号动作容器并列；popover 是页面根节点上的独立 tokenized Shadow DOM portal，语法说明复用 `OverlaySession + ModalHost`。
+  - `ChatGPTMessageStepperController` 是独立于 directory rail 的轻量 lower-right surface：它默认提供书签面板入口、当前页面收藏、Detached Reader Split View、Prompts、加载全部消息、上一条/下一条按钮。加载全部消息按钮只调用共享 `?message=` route helper 并刷新，不执行滚动寻迹；其余按钮和左右键导航保持现有设置与安全边界。
+  - `ChatGPTComposerEditingController` 统一持有官方 composer 绑定、键盘优先级、列表删除、公式助手和加号旁 Input Enhancement 按钮生命周期，并继续复用唯一 `document.body` subtree observer，不新增全局 observer。观察回调只在当前 composer scope、输入替换或 hydration shell 脱离时合帧 rebind，普通回复 mutation 不再唤醒 composer 消费者。设置 SSOT 是 `chatgptBehavior.inputEnhancement`：`available` 决定入口存在与否，`enabled` 是运行总开关，Enter、粗体、列表父开关、有序/无序列表、公式联想和公式预览是保值的独立子项；有效状态只由 `resolveChatGPTInputEnhancement()` 计算。新安装全部开启；旧 `markdownComposerEnabled` / `enterKeyNewline` 只作为 v5 normalizer 的迁移输入。Settings 只修改 `available`，composer 弹层乐观保存完整嵌套快照，保存中禁用控件，失败回滚整个快照。按钮与官方加号动作容器并列；popover 是页面根节点上的独立 tokenized Shadow DOM portal，语法说明复用 `OverlaySession + ModalHost`。
   - composer 事件优先级固定为 IME/重入放行 → 已打开公式联想 → Cmd/Ctrl + Enter 发送与 Shift + Enter 宿主行为 → 已启用列表类型的 Backspace/Delete → 已启用粗体快捷键 → 普通 Enter。Enter 换行关闭时，普通文本 Enter 交还 ChatGPT，只有命中已启用真实列表类型才拦截。行前缀只做廉价候选检查，`markdownListEditing` 继续以 Lezer CommonMark AST 确认 `OrderedList` / `BulletList → ListItem`；有序/无序开关分别关闭对应类型全部规则。续写、拆分、空项退出、连续 sibling 重编号、loose list、引用、嵌套、等宽 marker 删除、二次合并和完整中间行删除继续共用纯规则与一个 native range edit；代码块、伪 marker、跳号边界、IME 和失败编辑交还宿主，不允许 `replaceChildren` 重建 ProseMirror。
   - Cmd/Ctrl + B 仍只写入或移除可见 `**`。公式联想和公式预览是独立能力：只开联想时只按需加载 `vendor/latex-workshop/formula-snippets.json` 且不调用 renderer；只开预览时只渲染 `$...$` / `$$...$$` 浮层且不加载目录；两者都关时不调度 scanner、目录或 renderer。目录继续来自固定 LaTeX Workshop upstream commit 的 1,250 条离线筛选项，不读取 `at-suggestions.json`、不实现 `@` 语法；候选和 Prompt autocomplete 复用 `ComposerSuggestionList`，公式插入只走 native range port。当前不接入 Reader，也不提供输入框内富文本、表格辅助、`\\(...\\)` / `\\[...\\]` 或用户宏。
   - composer observer 必须覆盖 ChatGPT 对任意嵌套 hydration shell 的替换，因为观察 adapter container 或其直接父级都无法感知该被观察节点自身从文档脱离；coalesced rebind 后必须把键盘监听迁移到当前 composer，并在 `available` 时恢复唯一 Input Enhancement 按钮，替换时关闭旧 popover。
@@ -280,7 +300,7 @@ flowchart TD
 - `ModalHost` 与 `panel-window` 家族现在都使用共享 focus lifecycle：打开前捕获 opener，打开稳定后把焦点移入 surface，关闭后再恢复焦点
 - Settings tab 中的公式配置写入独立 `formula` category；平台开关写入 `platforms` category。`platforms.chatgpt` 控制 ChatGPT 完整 runtime；`platforms.gemini` / `platforms.claude` / `platforms.deepseek` 控制对应平台公式复制 runtime。`formula.clickCopyFormulaFormat` 是点击单公式复制的唯一格式设置，`formula.markdownCopyFormulaFormat` 是整段 Markdown 源码复制/下载的唯一格式设置；两个字段共享同一组 formula source format model，但互不覆盖。旧 `behavior.enableClickToCopy` 只作为设置迁移/兼容输入，不再作为公式交互的运行时 SSOT；旧 `formula.copyMarkdownDelimiters` 只作为迁移输入，`false` 会迁移为点击单公式 raw LaTeX，且不会改变整段 Markdown 源码输出默认值
 - Settings tab 的主顺序是 Platforms、Buttons & Entrypoints、ChatGPT Reading & Input、Reader & Comment Workflow、Copy, Formula & Export、Language、Data Management、Advanced。Buttons & Entrypoints 是无路由、非持久化的二级页，集中持有工具栏、lower-right ChatGPT 入口和公式 hover action 可见性。ChatGPT Reading & Input 持有发送后恢复阅读位置、Input Enhancement 入口可用性、Prompt autocomplete、对话/输入条宽度、左右方向键导航，以及 `chatgptDirectory` 目录条开关、显示模式、prompt label 模式和右侧边距；不再单独暴露 Enter 换行或 Markdown 开关。`chatgptBehavior.inputEnhancement.available` 默认开启，关闭后按钮卸载且全部输入增强暂停，但 `enabled` 和所有子项原值保留。`chatgptBehavior.promptAutocomplete`、页面宽度、lower-right 按钮和目录条继续保持各自独立设置边界。
-- Input Enhancement 的运行总开关和详细项只在 composer 弹层中管理；按钮高亮只代表 `available && enabled`。Enter 换行、列表父开关、有序/无序、粗体、公式联想和公式预览独立保存；列表父开关只禁用两个列表类型，总开关只禁用全部子项，均不清空值。页面弹层与 Settings 通过同一个 `chatgptBehavior` category 和 storage 订阅回流。设置版本保持 v4，旧 `markdownComposerEnabled` / `enterKeyNewline` 不再出现在正式类型或写回 payload 中。
+  - Input Enhancement 的运行总开关和详细项只在 composer 弹层中管理；按钮高亮只代表 `available && enabled`。Enter 换行、列表父开关、有序/无序、粗体、公式联想和公式预览独立保存；列表父开关只禁用两个列表类型，总开关只禁用全部子项，均不清空值。页面弹层与 Settings 通过同一个 `chatgptBehavior` category 和 storage 订阅回流。设置版本保持 v5，旧 `markdownComposerEnabled` / `enterKeyNewline` 不再出现在正式类型或写回 payload 中。
 - 更新日志的一次性提示由 background 的 `bookmarks:changelogNotice:get/ack` 状态持有；BookmarksPanel 与 Reader conversation profile 都通过共享 presenter 读取并确认同一条 pending notice，因此同一版本只提示一次，不新增 Reader 私有计数或存储字段
 - `ToolbarHoverActionPortal` 是消息工具栏 hover 次动作与公式 hover 图片动作的共享 anchored portal；它负责 viewport clamp、anchor bridge 定位与顶部空间不足时的下翻，不允许调用方各自实现一次性边界补偿。该 portal 的 action row 以 `transform` 持有上下方锚定几何，因此明确保留既有的无动效 outside-pointer / resize / scroll 生命周期，避免通用 opening motion 覆盖定位并造成 hover 闪烁。
 - 消息工具栏 Copy 主按钮的 `Copy Markdown` label tooltip 固定优先显示在按钮下方，避免遮挡其上方展开的 Copy PNG 次动作；移入 Copy PNG 按钮后，次动作自己的 label tooltip 仍按标准规则优先显示在按钮上方。
@@ -334,7 +354,7 @@ flowchart TD
 - ChatGPT right-side directory rail 当前是默认开启、用户可关闭的 surface；content runtime 会创建 `ChatGPTDirectoryController`，实际显示由 `chatgptDirectory.enabled` 与 perf kill switch 控制。
 - `ChatGPTDirectoryController` / `ChatGPTDirectoryRail` 必须继续共享 active position、round discovery 与 `navigateChatGPTDirectoryTarget(...)`，不得新增第二套定位模型。
 - Directory rail 必须把 `window.innerWidth - document.documentElement.clientWidth` 测得的 classic scrollbar 宽度与 `chatgptDirectory.rightInsetPx` 用户边距相加后作为 right offset；默认用户边距为 0px，用于在 overlay scrollbar 或浏览器滚动条视觉入侵时手动兜底。该设置只调整 rail/preview 的右侧定位，不改变条目长度、目录发现、active following 或导航模型。
-  - 右下角 page-control cluster 由独立 `ChatGPTMessageStepperController` 持有，不属于 directory rail；它承载书签面板入口、当前页面收藏、Detached Reader Split View、Prompts、快速到顶、Previous/Next。书签面板入口使用 AI-MarkDone 品牌 Logo、固定 `bottom: 0`，并替代 ChatGPT header 注入入口；页面收藏走 `bookmarks:page:*` 并与消息书签共用书签管理/文件夹/导入导出；Previous/Next 复用同一条 `navigateChatGPTDirectoryTarget(...)` 定位模型。该 cluster 是 `docs/design.md` 明确记录的 scoped light-DOM 例外：只在 `document.body` 持有唯一 fixed host，快速到顶按钮复用该 host，不再创建第二行；不修改 ChatGPT 官方 header 或 conversation DOM，只使用唯一前缀的 AI-MarkDone 选择器；content runtime 把 `ThemeManager` 与 settings 归一为一个 `AppearanceSnapshot`，controller 再通过 `AppearanceScope.forLightDomPortal(...)` 应用共享 token CSS。不得通过一次性读取 document attribute、硬编码深色颜色或局部样式补丁修复 light/dark 对比度。`chatgptBehavior.showPageBookmarkControl` 只控制页面收藏按钮；`chatgptBehavior.showDetachedReaderControl` 只控制 Split View；`chatgptBehavior.showPromptControl` 只控制 Prompts；`chatgptBehavior.showMessageStepper` 只控制 Previous/Next 按钮显示；`chatgptBehavior.enableArrowKeyMessageNavigation` 只控制左右方向键监听。
+  - 右下角 page-control cluster 由独立 `ChatGPTMessageStepperController` 持有，不属于 directory rail；它承载书签面板入口、当前页面收藏、Detached Reader Split View、Prompts、加载全部消息、Previous/Next。书签面板入口使用 AI-MarkDone 品牌 Logo、固定 `bottom: 0`，并替代 ChatGPT header 注入入口；加载全部消息按钮通过空 `?message=` 参数刷新当前会话并启动全量 DOM discovery；页面收藏与消息书签的其他安全边界保持不变。`chatgptBehavior.showPageBookmarkControl` 只控制页面收藏按钮；`chatgptBehavior.showDetachedReaderControl` 只控制 Split View；`chatgptBehavior.showPromptControl` 只控制 Prompts；`chatgptBehavior.showMessageStepper` 只控制 Previous/Next 按钮显示；`chatgptBehavior.enableArrowKeyMessageNavigation` 只控制左右方向键监听。
 - Rail hover preview 与 accordion 的历史约束保留：只能更新 UI 层缓存和邻近 marker 状态，preview 内容从 rail 内轮次缓存读取，preview 位置保持固定 page-root surface，避免 hover 期间触发 layout measurement 或 portal style 重写。
 - 浏览器 viewport 宽度变化超过 8px 时，页面级 resize suspend 会立即保护 action-row message toolbar chrome，并临时隐藏 directory rail、directory preview 与 lower-right message stepper；停止 resize 1 秒后恢复。
 

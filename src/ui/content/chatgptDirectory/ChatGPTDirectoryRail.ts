@@ -8,6 +8,7 @@ import { AppearanceScope } from '../../../style/appearanceScope';
 import type { UserThemeOverrides } from '../../../style/tokens';
 import { ensureStyle } from '../../../style/shadow';
 import type { ChatGPTConversationRound } from '../../../drivers/content/chatgpt/types';
+import type { DiscoveryHistoryStatusV1 } from '../../../contracts/conversationDiscoveryDiagnostics';
 import { AIMD_CONVERSATION_SURFACE_CONSUMER_ATTRIBUTE } from '../../../contracts/conversationSurface';
 import {
     CHATGPT_DIRECTORY_RIGHT_INSET_STEP_PX,
@@ -71,6 +72,7 @@ export class ChatGPTDirectoryRail {
     private displayMode: ChatGPTDirectoryMode = 'preview';
     private promptLabelMode: ChatGPTDirectoryPromptLabelMode = 'head';
     private rightInsetPx = DEFAULT_CHATGPT_DIRECTORY_RIGHT_INSET_PX;
+    private historyStatus: DiscoveryHistoryStatusV1 = 'unknown';
     private viewportScrollbarWidthPx = 0;
     private expanded = false;
     private userInteracting = false;
@@ -93,6 +95,7 @@ export class ChatGPTDirectoryRail {
         this.rootEl.setAttribute(AIMD_CONVERSATION_SURFACE_CONSUMER_ATTRIBUTE, '');
         this.rootEl.dataset.mode = this.displayMode;
         this.rootEl.dataset.expanded = '0';
+        this.rootEl.dataset.historyStatus = this.historyStatus;
         this.rootEl.setAttribute('data-aimd-theme', theme);
         this.rootEl.style.display = 'none';
         this.shadowRoot = this.rootEl.attachShadow({ mode: 'open' });
@@ -217,6 +220,12 @@ export class ChatGPTDirectoryRail {
     setRightInsetPx(value: number): void {
         this.rightInsetPx = normalizeRightInsetPx(value);
         this.applyRightOffsetVars();
+    }
+
+    setHistoryStatus(status: DiscoveryHistoryStatusV1): void {
+        if (this.historyStatus === status) return;
+        this.historyStatus = status;
+        this.rootEl.dataset.historyStatus = status;
     }
 
     setRounds(rounds: ChatGPTConversationRound[]): void {

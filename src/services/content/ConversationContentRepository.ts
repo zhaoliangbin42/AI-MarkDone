@@ -7,6 +7,7 @@ import {
     type ConversationSnapshotV1,
     type ConversationTurnV1,
 } from '../../contracts/conversationContent';
+import type { DiscoveryHistoryStatusV1 } from '../../contracts/conversationDiscoveryDiagnostics';
 import type {
     ConversationTurnReadPortV1,
     ConversationTurnReadResultV1,
@@ -18,6 +19,8 @@ export type ConversationHostTurnObservationV1 = Readonly<{
     turn: ConversationTurnV1;
     /** Stable outer host position containing this rendered assistant body. */
     hostSlotId: string;
+    /** Acquisition mode used for this DOM observation. */
+    origin?: 'full-discovery' | 'dom-fallback';
 }>;
 
 export type ConversationContentRepositoryOptionsV1 = Readonly<{
@@ -27,11 +30,14 @@ export type ConversationContentRepositoryOptionsV1 = Readonly<{
 type ConversationPool = {
     projectionId: string;
     turns: readonly ConversationTurnV1[];
+    historyStatus: DiscoveryHistoryStatusV1;
+    expectedTurnCount: number | null;
     slotOrder: readonly string[];
     turnsByAssistantId: Map<string, ConversationTurnV1>;
     slotIdByAssistantId: Map<string, string>;
     assistantIdBySlotId: Map<string, string>;
     digests: Map<string, string>;
+    acquisitionModeByAssistantId: Map<string, 'full-discovery' | 'dom-fallback'>;
     documentKeys: Set<string>;
 };
 
@@ -86,6 +92,33 @@ export class ConversationContentRepository implements ConversationContentSourceV
         this.switchDocument(document);
     }
 
+    setFullDiscoveryExpectedTurnCount(count: number | null): void {
+        this.bindCurrentDocument();
+        const pool = this.activePool;
+        if (!pool) return;
+        pool.expectedTurnCount = typeof count === 'number' && Number.isInteger(count) && count > 0
+            ? count
+            : null;
+    }
+
+    markFullDiscoveryComplete(): boolean {
+        this.bindCurrentDocument();
+        const pool = this.activePool;
+        if (!pool || pool.expectedTurnCount === null || pool.turns.length !== pool.expectedTurnCount) return false;
+        if (pool.historyStatus === 'complete') return true;
+        pool.historyStatus = 'complete';
+        this.publishProjection();
+        return true;
+    }
+
+    markFullDiscoveryPartial(): void {
+        this.bindCurrentDocument();
+        const pool = this.activePool;
+        if (!pool || pool.historyStatus === 'partial') return;
+        pool.historyStatus = 'partial';
+        this.publishProjection();
+    }
+
     ingestHostTurn(observation: ConversationHostTurnObservationV1): ConversationContentStateV1 {
         return this.ingestHostBatch([observation], [observation.hostSlotId]);
     }
@@ -105,8 +138,31 @@ export class ConversationContentRepository implements ConversationContentSourceV
         const pool = this.activePool;
         if (!pool || !this.currentDocument) return this.state;
 
-        pool.slotOrder = reconcileHostSlotOrder(pool.slotOrder, observedHostSlotOrder);
-        const knownSlots = new Set(pool.slotOrder);
+        const previousSlotOrder = pool.slotOrder;
+        const previousHistoryStatus = pool.historyStatus;
+        const normalizedObservedHostSlotOrder = normalizeSlotOrder(observedHostSlotOrder);
+        if (
+            previousSlotOrder.length > 0
+            && normalizedObservedHostSlotOrder.length > 0
+            && !sameStringSequence(previousSlotOrder, normalizedObservedHostSlotOrder)
+            && !containsContiguousSequence(normalizedObservedHostSlotOrder, previousSlotOrder)
+            && !containsContiguousSequence(previousSlotOrder, normalizedObservedHostSlotOrder)
+        ) {
+            return this.state;
+        }
+
+        const nextSlotOrder = reconcileHostSlotOrder(previousSlotOrder, normalizedObservedHostSlotOrder);
+        const topologyExpanded = nextSlotOrder.length > previousSlotOrder.length;
+        const knownSlots = new Set(nextSlotOrder);
+        const pendingObservations: Array<{
+            turn: ConversationTurnV1;
+            hostSlotId: string;
+            assistantMessageId: string;
+            digest: string;
+            origin?: ConversationHostTurnObservationV1['origin'];
+        }> = [];
+        const pendingAssistantSlotIds = new Map<string, string>();
+        const pendingSlotAssistantIds = new Map<string, string>();
         for (const observation of observations) {
             const incoming = normalizeTurn(observation.turn, 1);
             const hostSlotId = observation.hostSlotId.trim();
@@ -119,14 +175,46 @@ export class ConversationContentRepository implements ConversationContentSourceV
                 (existingSlotId && existingSlotId !== hostSlotId)
                 || (existingAssistantId && existingAssistantId !== assistantMessageId)
             ) {
-                continue;
+                return this.state;
             }
             const digest = digestTurnContent(incoming);
+            const pendingSlotId = pendingAssistantSlotIds.get(assistantMessageId);
+            const pendingAssistantId = pendingSlotAssistantIds.get(hostSlotId);
+            if (
+                (pendingSlotId && pendingSlotId !== hostSlotId)
+                || (pendingAssistantId && pendingAssistantId !== assistantMessageId)
+            ) {
+                return this.state;
+            }
+            const pendingDuplicate = pendingObservations.find((candidate) => (
+                candidate.assistantMessageId === assistantMessageId
+                && candidate.hostSlotId === hostSlotId
+            ));
+            if (pendingDuplicate && pendingDuplicate.digest !== digest) return this.state;
+            if (pendingDuplicate) continue;
+            pendingAssistantSlotIds.set(assistantMessageId, hostSlotId);
+            pendingSlotAssistantIds.set(hostSlotId, assistantMessageId);
+            pendingObservations.push({
+                turn: incoming,
+                hostSlotId,
+                assistantMessageId,
+                digest,
+                origin: observation.origin,
+            });
+        }
+
+        pool.slotOrder = nextSlotOrder;
+        for (const observation of pendingObservations) {
+            const { turn: incoming, hostSlotId, assistantMessageId, digest } = observation;
             if (pool.digests.get(assistantMessageId) === digest) continue;
             pool.slotIdByAssistantId.set(assistantMessageId, hostSlotId);
             pool.assistantIdBySlotId.set(hostSlotId, assistantMessageId);
             pool.turnsByAssistantId.set(assistantMessageId, incoming);
             pool.digests.set(assistantMessageId, digest);
+            pool.acquisitionModeByAssistantId.set(
+                assistantMessageId,
+                observation.origin === 'full-discovery' ? 'full-discovery' : 'dom-fallback',
+            );
         }
 
         const nextTurns = freezeTurns(pool.slotOrder.flatMap((hostSlotId) => {
@@ -134,7 +222,17 @@ export class ConversationContentRepository implements ConversationContentSourceV
             const turn = assistantMessageId ? pool.turnsByAssistantId.get(assistantMessageId) : null;
             return turn ? [turn] : [];
         }));
-        if (sameTurnProjection(pool.turns, nextTurns)) return this.state;
+        const turnProjectionChanged = !sameTurnProjection(pool.turns, nextTurns);
+        const newTurnDiscovered = nextTurns.some((turn) => (
+            !pool.turns.some((existing) => (
+                existing.identity.assistantMessageId === turn.identity.assistantMessageId
+            ))
+        ));
+        if (pool.historyStatus === 'complete' && (topologyExpanded || newTurnDiscovered)) {
+            pool.historyStatus = 'partial';
+        }
+        const historyStatusChanged = pool.historyStatus !== previousHistoryStatus;
+        if (!turnProjectionChanged && !historyStatusChanged) return this.state;
 
         pool.turns = nextTurns;
         this.publishProjection();
@@ -184,7 +282,7 @@ export class ConversationContentRepository implements ConversationContentSourceV
             basis: this.activePool?.turns.length ? 'host' : null,
             epoch: this.epoch,
             turnCount: this.activePool?.turns.length ?? 0,
-            historyStatus: this.currentDocument ? 'partial' : 'unknown',
+            historyStatus: this.activePool?.historyStatus ?? (this.currentDocument ? 'partial' : 'unknown'),
         };
     }
 
@@ -236,11 +334,14 @@ export class ConversationContentRepository implements ConversationContentSourceV
         return {
             projectionId: `conversation-projection:${++this.projectionSequence}`,
             turns: Object.freeze([]),
+            historyStatus: 'partial',
+            expectedTurnCount: null,
             slotOrder: Object.freeze([]),
             turnsByAssistantId: new Map(),
             slotIdByAssistantId: new Map(),
             assistantIdBySlotId: new Map(),
             digests: new Map(),
+            acquisitionModeByAssistantId: new Map(),
             documentKeys: new Set([documentKey]),
         };
     }
@@ -254,7 +355,7 @@ export class ConversationContentRepository implements ConversationContentSourceV
             document,
             projectionId: pool.projectionId,
             coverage: 'complete' as const,
-            historyStatus: 'partial' as const,
+            historyStatus: pool.historyStatus,
             turns: pool.turns,
             proof: Object.freeze({ basis: 'host' as const }),
         };
@@ -361,12 +462,14 @@ function digestTurnContent(turn: ConversationTurnV1): string {
         identity: turn.identity,
         userText: turn.userText,
         assistantMarkdown: turn.assistantMarkdown,
+        assistantProvenance: turn.assistantProvenance,
     });
 }
 
 function createContentToken(snapshot: Omit<ConversationSnapshotV1, 'contentToken'>): string {
     const semantic = JSON.stringify({
         projectionId: snapshot.projectionId,
+        historyStatus: snapshot.historyStatus,
         turns: snapshot.turns.map((turn) => ({
             key: turn.key,
             ordinal: turn.ordinal,

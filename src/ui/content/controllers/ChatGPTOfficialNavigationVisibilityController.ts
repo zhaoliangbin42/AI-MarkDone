@@ -1,8 +1,12 @@
+import {
+    CHATGPT_OFFICIAL_NAV_FIXED_CHILD_CSS_SELECTOR,
+    CHATGPT_OFFICIAL_NAV_ROOT_SELECTOR,
+} from '../../../drivers/content/chatgpt/ChatGPTOfficialNavigation';
+
 const STYLE_ID = 'aimd-official-conversation-nav-visibility-style';
-const OFFICIAL_NAV_ROOT_CLASS_SUFFIX = '_convSearchResultHighlightRoot';
-const OFFICIAL_NAV_ROOT_AT_END_SELECTOR = `main [class$="${OFFICIAL_NAV_ROOT_CLASS_SUFFIX}"]`;
-const OFFICIAL_NAV_ROOT_BEFORE_SPACE_SELECTOR = `main [class*="${OFFICIAL_NAV_ROOT_CLASS_SUFFIX} "]`;
-const OFFICIAL_NAV_FIXED_CHILD_SELECTOR = '> [class~="fixed"][class~="inset-e-4"][class~="top-1/2"][class~="z-20"][class~="-translate-y-1/2"]:not([data-aimd-role])';
+const OFFICIAL_NAV_ROOT_AT_END_SELECTOR = CHATGPT_OFFICIAL_NAV_ROOT_SELECTOR.split(',')[0]!;
+const OFFICIAL_NAV_ROOT_BEFORE_SPACE_SELECTOR = CHATGPT_OFFICIAL_NAV_ROOT_SELECTOR.split(',')[1]!;
+const OFFICIAL_NAV_FIXED_CHILD_SELECTOR = `> ${CHATGPT_OFFICIAL_NAV_FIXED_CHILD_CSS_SELECTOR}:not([data-aimd-role])`;
 
 export class ChatGPTOfficialNavigationVisibilityController {
     private enabled = false;

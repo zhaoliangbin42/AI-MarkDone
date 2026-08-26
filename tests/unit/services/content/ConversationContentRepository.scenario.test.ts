@@ -53,10 +53,12 @@ function observation(
     item: ConversationTurnV1,
     _predecessorAssistantMessageId: string | null,
     revision = item.ordinal,
+    origin: 'full-discovery' | 'dom-fallback' = 'dom-fallback',
 ): ConversationHostTurnObservationV1 {
     return {
         turn: item,
         hostSlotId: item.identity.assistantMessageId,
+        origin,
     };
 }
 
@@ -93,6 +95,74 @@ describe('ConversationContentRepository DOM pool', () => {
             assistantMarkdown: 'First answer',
             identity: { userMessageId: null },
         });
+    });
+
+    it('publishes a status-only transition when full discovery proves the expected turn count', () => {
+        const ref = documentRef('full-history-status');
+        const repository = new ConversationContentRepository({ resolveDocument: () => ref });
+        const listener = vi.fn();
+        repository.subscribe(listener);
+
+        repository.ingestHostBatch(
+            [
+                observation(turn(1, 'Answer 1'), null, 1, 'full-discovery'),
+                observation(turn(2, 'Answer 2'), 'assistant-1', 2, 'full-discovery'),
+            ],
+            ['assistant-1', 'assistant-2'],
+        );
+        const partialToken = repository.read().snapshot?.contentToken;
+        const publicationCount = listener.mock.calls.length;
+
+        repository.setFullDiscoveryExpectedTurnCount(2);
+        expect(repository.markFullDiscoveryComplete()).toBe(true);
+
+        expect(repository.read().snapshot?.historyStatus).toBe('complete');
+        expect(repository.read().snapshot?.contentToken).not.toBe(partialToken);
+        expect(listener.mock.calls.length).toBeGreaterThan(publicationCount);
+    });
+
+    it('lets DOM correction replace full-discovery content without reordering the pool', () => {
+        const ref = documentRef('full-history-dom-correction');
+        const repository = new ConversationContentRepository({ resolveDocument: () => ref });
+        const fullTurn = turn(1, 'Source body');
+        const domTurn = {
+            ...turn(1, 'DOM body'),
+            assistantProvenance: {
+                authority: 'host-rendered' as const,
+                fidelity: 'normalized' as const,
+                producer: 'chatgpt-dom-fallback',
+            },
+        };
+
+        repository.ingestHostBatch([observation(fullTurn, null, 1, 'full-discovery')], ['assistant-1']);
+        repository.setFullDiscoveryExpectedTurnCount(1);
+        expect(repository.markFullDiscoveryComplete()).toBe(true);
+
+        repository.ingestHostBatch([observation(domTurn, null, 1, 'dom-fallback')], ['assistant-1']);
+
+        expect(repository.read().snapshot?.historyStatus).toBe('complete');
+        expect(repository.read().snapshot?.turns.map((item) => item.assistantMarkdown)).toEqual(['DOM body']);
+        expect(repository.read().snapshot?.turns[0]?.assistantProvenance?.producer).toBe('chatgpt-dom-fallback');
+    });
+
+    it('downgrades a complete pool when a new message slot appears', () => {
+        const ref = documentRef('full-history-new-message');
+        const repository = new ConversationContentRepository({ resolveDocument: () => ref });
+
+        repository.ingestHostBatch([observation(turn(1, 'Answer 1'), null, 1, 'full-discovery')], ['assistant-1']);
+        repository.setFullDiscoveryExpectedTurnCount(1);
+        expect(repository.markFullDiscoveryComplete()).toBe(true);
+
+        repository.ingestHostBatch(
+            [observation(turn(2, 'Answer 2'), 'assistant-1', 2, 'dom-fallback')],
+            ['assistant-1', 'assistant-2'],
+        );
+
+        expect(repository.read().snapshot?.historyStatus).toBe('partial');
+        expect(repository.read().snapshot?.turns.map((item) => item.identity.assistantMessageId)).toEqual([
+            'assistant-1',
+            'assistant-2',
+        ]);
     });
 
     it('appends new DOM messages without dropping earlier loaded content', () => {
@@ -205,6 +275,50 @@ describe('ConversationContentRepository DOM pool', () => {
             'assistant-1',
             'assistant-2',
             'assistant-3',
+        ]);
+        expect(repository.read().snapshot?.contentToken).toBe(stableToken);
+    });
+
+    it('rejects the whole batch when an identity binding conflicts', () => {
+        const ref = documentRef('identity-conflict');
+        const repository = new ConversationContentRepository({ resolveDocument: () => ref });
+        repository.ingestHostBatch([
+            observation(turn(1, 'Answer 1'), null),
+            observation(turn(2, 'Answer 2'), 'assistant-1'),
+        ]);
+        const stableToken = repository.read().snapshot?.contentToken;
+
+        repository.ingestHostBatch([
+            observation(turn(1, 'Changed but conflicted'), null),
+            { turn: turn(2, 'Wrong slot'), hostSlotId: 'assistant-1', origin: 'dom-fallback' },
+        ]);
+
+        expect(repository.read().snapshot?.turns.map((item) => item.assistantMarkdown)).toEqual([
+            'Answer 1',
+            'Answer 2',
+        ]);
+        expect(repository.read().snapshot?.contentToken).toBe(stableToken);
+    });
+
+    it('rejects body updates from an incompatible slot sequence as one batch', () => {
+        const ref = documentRef('order-conflict-body');
+        const repository = new ConversationContentRepository({ resolveDocument: () => ref });
+        repository.ingestHostBatch([
+            observation(turn(1, 'Answer 1'), null),
+            observation(turn(2, 'Answer 2'), 'assistant-1'),
+            observation(turn(3, 'Answer 3'), 'assistant-2'),
+        ]);
+        const stableToken = repository.read().snapshot?.contentToken;
+
+        repository.ingestHostBatch([
+            observation(turn(1, 'Changed but reordered'), null),
+            observation(turn(3, 'Changed but reordered'), 'assistant-1'),
+        ], ['assistant-1', 'assistant-3', 'assistant-2']);
+
+        expect(repository.read().snapshot?.turns.map((item) => item.assistantMarkdown)).toEqual([
+            'Answer 1',
+            'Answer 2',
+            'Answer 3',
         ]);
         expect(repository.read().snapshot?.contentToken).toBe(stableToken);
     });
