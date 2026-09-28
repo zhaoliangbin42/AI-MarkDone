@@ -1,5 +1,6 @@
 import { DEFAULT_SETTINGS, isSettingsCategory, type AppSettings, type SettingsCategory } from '../../core/settings/types';
 import { normalizeExportSettings } from '../../core/settings/export';
+import { normalizeSelectionToolbarActions } from '../../core/settings/selectionToolbar';
 import {
     migrateSortMode,
     loadAndNormalize,
@@ -60,6 +61,7 @@ export function planSetCategory(current: AppSettings, category: SettingsCategory
             const next: AppSettings = {
                 ...cur,
                 reader: {
+                    selectionToolbar: normalizeSelectionToolbarActions(mergeObject(cur.reader.selectionToolbar, patch.selectionToolbar)),
                     renderCodeInReader: Boolean(
                         patch.renderCodeInReader
                         ?? cur.reader.renderCodeInReader

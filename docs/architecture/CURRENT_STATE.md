@@ -371,6 +371,8 @@ flowchart TD
 
 ### ChatGPT Send Position Restore
 
+- 2026-09-27：同时支持普通滚动和 `column-reverse` 的负 `scrollTop`。反向布局以 0 为底部；恢复位置交由浏览器按实际滚动范围限制，不再强制非负。沿用原有锚点和有限恢复生命周期。
+
 - 该能力属于 ChatGPT-only UI/page-behavior 层，设置为 `chatgptBehavior.restorePositionAfterSend`，默认开启。
 - 发送前 arm 的入口只有官方 composer 的 Enter / send button / form submit，以及 AI-MarkDone `SendPopover` 在调用 `sendText()` 前派发的同一 arm event。
 - controller 只在 armed 后挂 MutationObserver、scroll listener 与 rAF schedule，并用 anchor delta 优先恢复视觉位置；anchor 丢失或水合延迟时 fallback 到 saved `scrollTop`，后续 anchor 出现后再校准。
@@ -448,3 +450,7 @@ flowchart TD
 - 组织目录读取与原始资料读取并行且独立处理失败；目录不可用时保留来源资料及已读名称，回到全部范围并暂停目录写入。按网页缓存一次展示标题解析，单次列表投影不为每条标记重复查询宿主标题。`SettingsCatalog` 的分类激活显式请求 shell 切回设置内容，不能只更新选中样式。
 - `MarkFolderNavigation` 管理独立的 `aimd:mark_library:catalog:v1` 组织目录：高亮和注释共用稳定 folder ID、自定义对话名称及整段对话归属；不保存条目副本，不修改书签文件夹或原标记包。`LibraryMarksView` 以 document key 生成可重建的对话折叠列表，对话每页 20 个，展开正文最多 20 条，文件夹树窗口最多 40 行。对话级批量移动仅修改目录；条目级删除、改色仍复用既有修订接口。
 - `MessageMetadataSource` 是独立只读接口。bridge 仅从已捕获图缓存建立消息时间索引；读取不触发 fetch。现有内容快照、发现、定位协议不变。
+
+### Shared interaction preferences (2026-09-27)
+
+`reader.selectionToolbar` is the single Copy/Annotation/Highlight visibility snapshot consumed by page annotations and both Reader runtimes through their existing Reader settings paths. `chatgptBehavior.pinnedPageControls` and `showInputEnhancementControl` govern the lower-right controls. Pin selection is edited and saved through the Settings surface; the drawer only consumes the preference. Input Enhancement popover writes go through the existing SettingsClient/background category authority. Composer preview asset actions call the existing lazy formula façade; no startup renderer import, new background message, or DOM screenshot export path is added. Settings search reparents existing controls into labeled subgroups without duplicating their state.

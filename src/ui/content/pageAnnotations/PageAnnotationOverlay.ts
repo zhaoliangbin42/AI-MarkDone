@@ -20,6 +20,7 @@ export type PageAnnotationToolbarRender = {
     onActionPointerDown?: () => void;
     onActionPointerCancel?: () => void;
     onCopy: () => void;
+    copyEnabled?: boolean;
     onComment: () => void;
     commentEnabled?: boolean;
     onHighlight?: (color: HighlightColor) => Promise<void>;
@@ -265,7 +266,7 @@ export class PageAnnotationOverlay {
             }
         });
 
-        group.append(copyButton);
+        if (toolbar.copyEnabled !== false) group.append(copyButton);
         if (toolbar.commentEnabled !== false) group.append(commentButton);
         if (toolbar.onHighlight) {
             const swatches = createHighlightSwatches({ onSelect: async color => {

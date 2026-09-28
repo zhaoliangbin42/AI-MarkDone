@@ -5,6 +5,24 @@ All notable changes to AI-MarkDone will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Added
+- Added shared Copy, Annotation, and Highlight visibility switches for page and Reader selections.
+- Pin individual page actions to keep them visible when the lower-right drawer is closed, including the new Input Enhancement controls.
+- Copy or save formula assets directly from composer previews.
+
+### Fixed
+- Copy selected code fragments without adding code fences or altering formula-like text, and keep partially selected formulas complete.
+- Preserve the reading position after sending messages in ChatGPT's updated scrolling layout.
+- Keep the Directory expanded while moving between its entries and preview, and close both after leaving the interaction area.
+- Keep lower-right page controls floating if ChatGPT replaces extension styles during a page update.
+
+### Changed
+- Composer formula previews now follow the text caret instead of mouse hover.
+- Grouped Settings controls by purpose and clarified where each option appears and what it changes, including formula buttons, image exports, selection actions, annotations, and page navigation.
+- Refreshed the default accent with sapphire blue while preserving existing color choices.
+
 ## [6.0.0] - 2026-09-25
 
 ### Added

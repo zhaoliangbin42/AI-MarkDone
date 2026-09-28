@@ -114,6 +114,7 @@ export class ChatGPTDirectoryRail {
     private previewCloseTimer: number | null = null;
     private previewFitFrame: number | null = null;
     private previewPointerInside = false;
+    private railPointerInside = false;
     private previewDocumentPointerDown: ((event: Event) => void) | null = null;
     private previewKeyDown: ((event: KeyboardEvent) => void) | null = null;
 
@@ -156,10 +157,13 @@ export class ChatGPTDirectoryRail {
         this.listEl.dataset.expanded = '0';
         this.listEl.dataset.promptLabelMode = this.promptLabelMode;
         this.listEl.addEventListener('pointerenter', () => {
+            this.railPointerInside = true;
+            this.clearPreviewCloseTimer();
             this.markUserInteracting();
             this.setExpanded(true);
         });
         this.listEl.addEventListener('pointerover', (event) => {
+            this.railPointerInside = true;
             const item = event.target instanceof Element ? event.target.closest<HTMLElement>('.rail__item') : null;
             if (!item) return;
             this.markUserInteracting();
@@ -167,8 +171,8 @@ export class ChatGPTDirectoryRail {
             this.setHoverPosition(Number(item.dataset.position));
         });
         this.listEl.addEventListener('pointerleave', () => {
-            this.clearRailHover();
-            this.setExpanded(false);
+            this.railPointerInside = false;
+            this.schedulePreviewClose();
             this.releaseUserInteractionSoon();
         });
         this.listEl.addEventListener('focusin', (event) => {
@@ -179,8 +183,7 @@ export class ChatGPTDirectoryRail {
             this.setHoverPosition(Number(item.dataset.position));
         });
         this.listEl.addEventListener('focusout', () => {
-            this.clearRailHover();
-            this.setExpanded(false);
+            this.schedulePreviewClose();
             this.releaseUserInteractionSoon();
         });
         this.listEl.addEventListener('scroll', () => {
@@ -217,6 +220,8 @@ export class ChatGPTDirectoryRail {
             this.previewPointerInside = false;
             this.schedulePreviewClose();
         });
+        this.previewEl.addEventListener('focusin', () => this.clearPreviewCloseTimer());
+        this.previewEl.addEventListener('focusout', () => this.schedulePreviewClose());
         this.previewAppearanceScope = AppearanceScope.forLightDomPortal(this.previewEl, {
             selector: '.aimd-chatgpt-directory-preview',
             styleId: PREVIEW_TOKEN_STYLE_ID,
@@ -662,6 +667,7 @@ export class ChatGPTDirectoryRail {
             if (target instanceof Node && (this.previewEl.contains(target) || this.rootEl.contains(target))) return;
             this.previewPosition = null;
             this.hoverPosition = null;
+            this.setExpanded(false);
             this.renderHoverState();
             this.previewEl.dataset.open = '0';
             this.disposePreviewToolbar();
@@ -670,6 +676,7 @@ export class ChatGPTDirectoryRail {
             if (event.key !== 'Escape') return;
             this.previewPosition = null;
             this.hoverPosition = null;
+            this.setExpanded(false);
             this.renderHoverState();
             this.previewEl.dataset.open = '0';
             this.disposePreviewToolbar();
@@ -699,7 +706,12 @@ export class ChatGPTDirectoryRail {
         this.clearPreviewCloseTimer();
         this.previewCloseTimer = window.setTimeout(() => {
             this.previewCloseTimer = null;
-            if (this.previewPointerInside || this.hoverPosition !== null) return;
+            if (this.previewPointerInside || this.railPointerInside
+                || this.listEl.contains(this.shadowRoot.activeElement)
+                || this.previewEl.contains(document.activeElement)) return;
+            this.hoverPosition = null;
+            this.setExpanded(false);
+            this.renderHoverState();
             this.previewPosition = null;
             this.previewEl.dataset.open = '0';
             this.removePreviewGlobalHandlers();

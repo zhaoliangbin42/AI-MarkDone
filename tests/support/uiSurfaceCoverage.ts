@@ -83,6 +83,14 @@ export const uiSurfaceCoverage = [
         visualEvidence: { status: 'covered-by-family', mockPath: 'mocks/components/bookmarks-workspace', reason: 'The production settings center owns the relocated enhancement controls and syntax guide' },
     },
     {
+        id: 'input-enhancement-popover', family: 'composer', userEntry: 'Lower-right drawer → Input enhancement',
+        ownerModule: 'src/ui/content/components/InputEnhancementPopover.ts', productionEntry: 'src/runtimes/content/entry.ts',
+        profiles: ['anchored'], domScopes: ['shadow-root', 'page-portal'], lifecycleOwners: owners('InputEnhancementPopover'),
+        responsive: 'Viewport-clamped width with internal scroll above the lower-right drawer', browsers,
+        triggerTests: ['tests/unit/ui/content/components/InputEnhancementPopover.test.ts', 'tests/unit/ui/content/controllers/ChatGPTMessageStepperController.test.ts'],
+        visualEvidence: { status: 'covered-by-family', mockPath: 'mocks/components/host-integrated-controls', reason: 'The actual drawer trigger opens the production input settings popover' },
+    },
+    {
         id: 'formula-composer-assistant', family: 'composer', userEntry: 'Formula caret inside the official composer',
         ownerModule: 'src/ui/content/components/FormulaComposerAssistantPopover.ts', productionEntry: 'src/ui/content/controllers/ChatGPTComposerEditingController.ts',
         profiles: ['anchored'], domScopes: ['shadow-root', 'page-portal'], lifecycleOwners: owners('FormulaComposerAssistantPopover'),

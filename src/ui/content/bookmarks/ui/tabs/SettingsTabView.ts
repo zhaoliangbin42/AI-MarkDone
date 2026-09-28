@@ -6,6 +6,8 @@ import {
     CHATGPT_NAVIGATION_SEEK_STEP_PX_STEP,
     CHATGPT_PAGE_WIDTH_SCALE_STEP,
     DEFAULT_SETTINGS,
+    PAGE_CONTROL_ACTIONS,
+    type PageControlAction,
     DEFAULT_GLOBAL_FONT_SIZE_PX,
     MAX_CHATGPT_DIRECTORY_RIGHT_INSET_PX,
     MAX_CHATGPT_DIRECTORY_PREVIEW_MAX_CHARS,
@@ -770,9 +772,9 @@ export class SettingsTabView {
         add('reading', r.chatgptDirectory.enabled, r.chatgptDirectory.mode.root, r.chatgptDirectory.promptLabelMode, r.chatgptDirectory.rightInset.root, r.chatgptDirectory.previewMaxChars.root, r.chatgptDirectory.restorePositionAfterSend, r.reader.defaultOpenMode.root, r.reader.renderCode, r.reader.showOutline);
         add('input', r.chatgptDirectory.inputEnhancement, r.chatgptDirectory.promptAutocomplete, r.reader.promptsButton);
         add('marks', r.reader.persistAnnotations, r.chatgptDirectory.pageAnnotationsEnabled, r.reader.promptPositionBottom, r.reader.templateButton);
-        add('export', r.behavior.saveContextOnly, r.formula.clickCopyMarkdown, r.formula.clickCopyFormulaFormat.root, r.formula.markdownCopyFormulaFormat.root, r.formula.assetFontSize.root, r.export.pngWidthPreset.trigger, r.export.pngPixelRatio.root);
+        add('export', r.formula.clickCopyMarkdown, r.formula.clickCopyFormulaFormat.root, r.formula.markdownCopyFormulaFormat.root, r.formula.assetFontSize.root, r.export.pngWidthPreset.trigger, r.export.pngPixelRatio.root);
         add('controls', r.behavior.showMessageToolbar, r.behavior.showSaveMessages, r.behavior.showWordCount, r.chatgptDirectory.showPageBookmarkControl, r.chatgptDirectory.showDetachedReaderControl, r.chatgptDirectory.showPromptControl, r.chatgptDirectory.showMessageStepper, r.chatgptDirectory.arrowKeyMessageNavigation, r.chatgptDirectory.showPageSelectionToolbar, r.chatgptDirectory.atomicMarkdownCopyShortcut.root);
-        add('data', ...this.root.querySelectorAll<HTMLElement>('.settings-data-card'));
+        add('data', r.behavior.saveContextOnly, ...this.root.querySelectorAll<HTMLElement>('.settings-data-card'));
         add('advanced', r.platforms.chatgpt, r.chatgptDirectory.navigationSeekStep.root, this.diagnosticsCopyButton);
         const staging = document.createElement('div');
         const toggle = (category: SettingsCategoryId, role: string, label: string, description: string, read: () => boolean, write: (value: boolean) => void) => {
@@ -790,14 +792,14 @@ export class SettingsTabView {
             const themeMode = value === 'light' || value === 'dark' ? value : 'auto';
             this.settings.appearance.themeMode = themeMode; void this.actions.setAppearanceSettings?.({ themeMode });
         });
-        toggle('reading', 'settings-hide-official-navigation', t('settingsHideOfficialNavigation'), '', () => this.settings.chatgptDirectory.hideOfficialNavigation, value => {
+        toggle('reading', 'settings-hide-official-navigation', t('settingsHideOfficialNavigation'), t('settingsHideOfficialNavigationDesc'), () => this.settings.chatgptDirectory.hideOfficialNavigation, value => {
             this.settings.chatgptDirectory.hideOfficialNavigation = value; void this.actions.setChatGptDirectorySettings?.({ hideOfficialNavigation: value });
         });
         for (const [field, label, min, max, step] of [
             ['bodyFontSizePx', t('settingsReaderBodyFont'), 12, 22, 1],
             ['contentMaxWidthPx', t('settingsReaderBodyWidth'), 480, 1600, 20],
         ] as const) {
-            const ref = this.createSliderRow(staging, label, '', min, max, step, `settings-reader-${field}`, value => `${value}px`);
+            const ref = this.createSliderRow(staging, label, field === 'contentMaxWidthPx' ? t('settingsReaderBodyWidthDesc') : '', min, max, step, `settings-reader-${field}`, value => `${value}px`);
             ref.input.dataset.role = `settings-reader-${field}`;
             ref.input.addEventListener('input', () => this.syncSliderValue(ref));
             ref.input.addEventListener('change', () => { const value = Number(ref.input.value); this.settings.reader[field] = value; void this.actions.setReaderSettings?.({ [field]: value }); });
@@ -806,8 +808,8 @@ export class SettingsTabView {
         for (const [field, label, description] of [
             ['enterKeyNewline', t('chatgptInputEnhancementEnterLabel'), t('chatgptInputEnhancementEnterDesc')],
             ['boldShortcut', t('chatgptInputEnhancementBoldLabel'), t('chatgptInputEnhancementBoldDesc')],
-            ['formulaSuggestions', t('chatgptInputEnhancementFormulaSuggestionsLabel'), ''],
-            ['formulaPreview', t('chatgptInputEnhancementFormulaPreviewLabel'), ''],
+            ['formulaSuggestions', t('chatgptInputEnhancementFormulaSuggestionsLabel'), t('settingsInputFormulaSuggestionsDesc')],
+            ['formulaPreview', t('chatgptInputEnhancementFormulaPreviewLabel'), t('settingsInputFormulaPreviewDesc')],
         ] as const) toggle('input', `settings-input-${field}`, label, description, () => this.settings.chatgptBehavior.inputEnhancement[field], value => {
             const inputEnhancement = { ...this.settings.chatgptBehavior.inputEnhancement, [field]: value };
             this.settings.chatgptBehavior.inputEnhancement = inputEnhancement; void this.actions.setChatGptBehaviorSettings?.({ inputEnhancement });
@@ -825,6 +827,24 @@ export class SettingsTabView {
             const style = document.createElement('style'); style.textContent = INPUT_ENHANCEMENT_GUIDE_CSS; body.prepend(style);
             void this.modal.showCustom({kind: 'info', title: t('chatgptInputEnhancementGuideTitle'), body});
         }); add('input', guide.root);
+        for (const [field, labelKey] of [['copy', 'settingsSelectionCopy'], ['annotation', 'settingsSelectionAnnotation'], ['highlight', 'settingsSelectionHighlight']] as const) {
+            toggle('controls', `settings-selection-${field}`, t(labelKey), '',
+                () => this.settings.reader.selectionToolbar[field], value => {
+                    const selectionToolbar = { ...this.settings.reader.selectionToolbar, [field]: value };
+                    this.settings.reader.selectionToolbar = selectionToolbar;
+                    void this.actions.setReaderSettings?.({ selectionToolbar });
+                });
+        }
+        toggle('controls', 'settings-show-input-enhancement-control', t('settingsShowInputEnhancementButton'), t('settingsShowInputEnhancementButtonDesc'),
+            () => this.settings.chatgptBehavior.showInputEnhancementControl, value => {
+                this.settings.chatgptBehavior.showInputEnhancementControl = value;
+                void this.actions.setChatGptBehaviorSettings?.({ showInputEnhancementControl: value });
+            });
+        const pins = this.createActionRow(staging, t('settingsPinnedActions'), t('settingsPinnedActionsDesc'), 'settings-pinned-page-controls');
+        pins.button.setAttribute('aria-label', t('settingsPinnedActions'));
+        pins.button.title = t('settingsPinnedActions');
+        pins.button.addEventListener('click', () => this.openPinnedActions());
+        add('controls', pins.root);
         select('marks', 'settings-comment-sort', t('settingsCommentSort'), [{ value: 'created', label: t('settingsSortCreated') }, { value: 'position', label: t('settingsSortPosition') }], () => this.settings.reader.commentExport.sortMode, value => {
             const commentExport = { ...this.settings.reader.commentExport, sortMode: value === 'position' ? 'position' as const : 'created' as const };
             this.settings.reader.commentExport = commentExport; void this.actions.setReaderSettings?.({ commentExport });
@@ -837,11 +857,11 @@ export class SettingsTabView {
             this.settings.bookmarks.sortMode = sortMode; void this.actions.setBookmarksSettings?.({ sortMode });
         });
         for (const [field, label, role] of [
-            ['copyPng', t('formulaCopyAsPng'), 'settings-formula-asset-action-copy-png'],
-            ['copySvg', t('formulaCopyAsSvg'), 'settings-formula-asset-action-copy-svg'],
-            ['copyMathml', t('formulaCopyAsMathml'), 'settings-formula-asset-action-copy-mathml'],
-            ['savePng', t('formulaSaveAsPng'), 'settings-formula-asset-action-save-png'],
-            ['saveSvg', t('formulaSaveAsSvg'), 'settings-formula-asset-action-save-svg'],
+            ['copyPng', t('settingsFormulaButtonCopyPng'), 'settings-formula-asset-action-copy-png'],
+            ['copySvg', t('settingsFormulaButtonCopySvg'), 'settings-formula-asset-action-copy-svg'],
+            ['copyMathml', t('settingsFormulaButtonCopyMathml'), 'settings-formula-asset-action-copy-mathml'],
+            ['savePng', t('settingsFormulaButtonSavePng'), 'settings-formula-asset-action-save-png'],
+            ['saveSvg', t('settingsFormulaButtonSaveSvg'), 'settings-formula-asset-action-save-svg'],
         ] as const) toggle('export', role, label, '', () => this.settings.formula.assetActions[field], value => {
             const assetActions = { ...this.settings.formula.assetActions, [field]: value };
             this.settings.formula.assetActions = assetActions; void this.actions.setFormulaSettings?.({ assetActions });
@@ -854,9 +874,83 @@ export class SettingsTabView {
             try { if (await this.actions.setReaderSettings?.({ detachedNoticeConfirmed: false }) !== false) notice.summary.textContent = t('settingsReaderNoticeReset'); }
             finally { notice.button.disabled = false; }
         }); add('advanced', notice.button);
+        for (const [category, rows] of Object.entries(groups)) {
+            for (const row of rows) {
+                const roles = Array.from(row.querySelectorAll<HTMLElement>('[data-role]')).map(el => el.dataset.role).join(' ');
+                let key = ({ appearance: 'Interface', reading: 'Reader', input: 'Editing', marks: 'AnnotationOutput', export: 'Markdown', controls: 'Drawer', data: 'Data', advanced: 'Advanced' } as Record<string, string>)[category];
+                if (category === 'appearance' && roles.includes('page-width')) key = 'Page';
+                if (category === 'reading') {
+                    if (/directory|hide-official/.test(roles)) key = 'Directory';
+                    if (roles.includes('restore-position')) key = 'Position';
+                }
+                if (category === 'input') {
+                    if (/formula/i.test(roles)) key = 'FormulaAssistant';
+                    else if (/prompt/.test(roles)) key = 'Prompts';
+                }
+                if (category === 'marks' && /persist|page-annotations/.test(roles)) key = 'Marks';
+                if (category === 'export') {
+                    if (roles.includes('formula-asset-action')) key = 'FormulaButtons';
+                    else if (roles.includes('formula-asset-font')) key = 'FormulaImages';
+                    else if (roles.includes('export-png')) key = 'MessageImages';
+                }
+                if (category === 'controls') {
+                    if (/atomic-markdown|arrow-key/.test(roles)) key = 'Keyboard';
+                    else if (/selection/.test(roles)) key = 'Selection';
+                    else if (/show-message-toolbar|show-save-messages|show-word-count/.test(roles)) key = 'MessageButtons';
+                }
+                row.dataset.settingsGroup = `settingsGroup${key}`;
+            }
+        }
         this.catalog = new SettingsCatalog(groups, () => { this.dismissTransientUi(); this.scrollRoot.scrollTop = 0; });
         this.scrollRoot.replaceChildren(this.catalog.content);
         this.root.insertBefore(this.catalog.header, this.scrollRoot);
+    }
+
+    private openPinnedActions(): void {
+        const labels: Record<PageControlAction, string> = {
+            'toggle-page-bookmark': t('chatgptPageControlBookmark'),
+            'open-detached-reader': t('chatgptPageControlSplitView'),
+            'open-prompts': t('chatgptPageControlPrompts'),
+            'open-input-enhancement': t('settingsInputEnhancementControl'),
+            'chatgpt-refresh-message-navigation': t('chatgptRefreshMessageNavigation'),
+            'previous-message': t('previousMessage'),
+            'next-message': t('nextMessage'),
+        };
+        const selected = new Set(this.settings.chatgptBehavior.pinnedPageControls);
+        const body = document.createElement('div'); body.className = 'settings-pin-options';
+        const description = document.createElement('p'); description.textContent = t('settingsPinnedActionsDesc'); body.append(description);
+        for (const action of PAGE_CONTROL_ACTIONS) {
+            const label = document.createElement('label');
+            const input = document.createElement('input'); input.type = 'checkbox'; input.checked = selected.has(action); input.dataset.pinAction = action;
+            input.addEventListener('change', () => { if (input.checked) selected.add(action); else selected.delete(action); });
+            label.append(input, document.createTextNode(labels[action])); body.append(label);
+        }
+        const status = document.createElement('p'); status.setAttribute('role', 'status'); body.append(status);
+        let pending = false;
+        void this.modal.showCustom({
+            kind: 'info', title: t('settingsPinnedActions'), body, canDismiss: () => !pending,
+            footer: (footer, close) => {
+                const cancel = document.createElement('button'); cancel.type = 'button'; cancel.className = 'mock-modal__button mock-modal__button--secondary'; cancel.textContent = t('btnCancel');
+                cancel.addEventListener('click', () => { if (!pending) close(); });
+                const save = document.createElement('button'); save.type = 'button'; save.className = 'mock-modal__button mock-modal__button--primary'; save.textContent = t('btnSave');
+                save.addEventListener('click', async () => {
+                    if (pending) return;
+                    pending = true; save.disabled = true; cancel.disabled = true;
+                    body.querySelectorAll<HTMLInputElement>('input').forEach(input => { input.disabled = true; });
+                    const pinnedPageControls = PAGE_CONTROL_ACTIONS.filter(action => selected.has(action));
+                    try {
+                        if (await this.actions.setChatGptBehaviorSettings?.({ pinnedPageControls }) === false) throw new Error('save');
+                        this.settings.chatgptBehavior.pinnedPageControls = pinnedPageControls;
+                        pending = false; close();
+                    } catch { status.textContent = t('settingsSaveFailed'); }
+                    finally {
+                        pending = false; save.disabled = false; cancel.disabled = false;
+                        body.querySelectorAll<HTMLInputElement>('input').forEach(input => { input.disabled = false; });
+                    }
+                });
+                footer.append(cancel, save);
+            },
+        });
     }
 
     private async handleRuntimeRecovery(): Promise<void> {

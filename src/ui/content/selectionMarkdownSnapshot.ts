@@ -4,8 +4,8 @@ import type { ContentSurfaceAdapter } from '../../drivers/content/adapters/Conte
 import type { ContentSurfaceSelectionEvidenceV1 } from '../../contracts/contentSurface';
 import type { ConversationContentSourceV1 } from '../../contracts/conversationContent';
 import type { ConversationMaterializationPortV1 } from '../../contracts/conversationMaterialization';
-import type { RenderedAtomicUnit } from '../../services/reader/atomicSelection';
-import { buildPageAtomicSelectionSnapshot } from '../../services/copy/atomicSelectionMarkdown';
+import { hasPartialRenderedInlineUnitSelection, type RenderedAtomicUnit } from '../../services/reader/atomicSelection';
+import { buildPageAtomicSelectionSnapshot, readPartialCodeSelection } from '../../services/copy/atomicSelectionMarkdown';
 import { projectSurfaceSelectionToMarkdown } from '../../services/semantic-content/SurfaceProjection';
 import type { ChatGPTPageSelectionFrame } from './controllers/ChatGPTPageSelectionCoordinator';
 import { emitContentPerformanceEvent } from '../../drivers/content/performanceDiagnostics';
@@ -22,6 +22,7 @@ export type PageMarkdownSelectionSnapshot = {
     root: HTMLElement;
     units: RenderedAtomicUnit[];
     canonicalMarkdown: string;
+    literal?: true;
     evidence: ContentSurfaceSelectionEvidenceV1 | null;
 };
 
@@ -114,7 +115,15 @@ export function buildPageMarkdownSelectionSnapshot(
     params: BuildPageMarkdownSelectionSnapshotParams,
 ): PageMarkdownSelectionSnapshot | null {
     const { adapter, contentSource, materialization, context, units } = params;
-    if (contentSource && materialization && context.evidence) {
+    const literal = readPartialCodeSelection(context.range, context.root);
+    if (literal !== null) return {
+        range: context.range.cloneRange(), root: context.root, units: [],
+        canonicalMarkdown: literal, literal: true, evidence: context.evidence,
+    };
+    const partialFormula = units.some(unit => unit.kind === 'inline-math' || unit.kind === 'display-math')
+        && hasPartialRenderedInlineUnitSelection(context.range, context.root);
+    // A TextQuote for one glyph must not slice the authoritative formula source.
+    if (!partialFormula && contentSource && materialization && context.evidence) {
         const semantic = projectSurfaceSelectionToMarkdown({
             source: contentSource,
             materialization,

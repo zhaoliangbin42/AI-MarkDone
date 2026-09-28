@@ -1,7 +1,8 @@
 import '../browserExtensionMock';
 import { installHighlightFixture } from '../highlightFixture';
 
-import { DEFAULT_SETTINGS } from '../../../src/core/settings/types';
+import { DEFAULT_SETTINGS, type SettingsCategory } from '../../../src/core/settings/types';
+import { planSetCategory } from '../../../src/services/settings/settingsService';
 import type { Bookmark, Folder } from '../../../src/core/bookmarks/types';
 import type { SiteAdapter } from '../../../src/drivers/content/adapters/base';
 import { createAppearanceSnapshot } from '../../../src/style/appearance';
@@ -50,16 +51,21 @@ const bookmarks: Bookmark[] = [
     })),
 ];
 
+let fixtureSettings = structuredClone(DEFAULT_SETTINGS);
 const browserApi = (globalThis as typeof globalThis & { browser: any }).browser;
-browserApi.runtime.sendMessage = async (request: { v: number; id: string; type: string }) => {
+browserApi.runtime.sendMessage = async (request: { v: number; id: string; type: string; payload?: { category: SettingsCategory; value: unknown } }) => {
     let data: unknown = {};
     switch (request.type) {
         case 'settings:getAll':
-            data = { settings: structuredClone(DEFAULT_SETTINGS) };
+            data = { settings: structuredClone(fixtureSettings) };
             break;
-        case 'settings:setCategory':
-            data = { category: 'appearance' };
+        case 'settings:setCategory': {
+            const { category, value } = request.payload!;
+            fixtureSettings = planSetCategory(fixtureSettings, category, value).next;
+            stepper?.setPinnedActions(fixtureSettings.chatgptBehavior.pinnedPageControls);
+            data = { category };
             break;
+        }
         case 'bookmarks:list':
             data = { bookmarks };
             break;

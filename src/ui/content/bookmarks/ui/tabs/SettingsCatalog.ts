@@ -14,6 +14,12 @@ export const SETTINGS_CATEGORIES = [
     ['advanced', 'settingsCategoryAdvanced', settingsIcon],
 ] as const;
 export type SettingsCategoryId = typeof SETTINGS_CATEGORIES[number][0];
+const GROUP_ORDER = ['Interface', 'Page', 'Directory', 'Reader', 'Position', 'Editing', 'FormulaAssistant', 'Prompts', 'Marks', 'AnnotationOutput', 'Markdown', 'FormulaButtons', 'FormulaImages', 'MessageImages', 'MessageButtons', 'Selection', 'Drawer', 'Keyboard', 'Data', 'Advanced'].map(name => `settingsGroup${name}`);
+const GROUP_HINT_KEYS: Record<string, string> = {
+    settingsGroupFormulaButtons: 'settingsGroupFormulaButtonsHint',
+    settingsGroupSelection: 'settingsGroupSelectionHint',
+    settingsGroupDrawer: 'settingsGroupDrawerHint',
+};
 
 /** Reparents existing controls so category changes and search preserve field state. */
 export class SettingsCatalog {
@@ -41,8 +47,25 @@ export class SettingsCatalog {
             this.navigation.append(button);
             const section = document.createElement('section'); section.className = 'settings-catalog-section'; section.dataset.category = id;
             const heading = document.createElement('h3'); heading.textContent = label;
-            const card = document.createElement('div'); card.className = 'settings-card'; card.append(...groups[id]);
-            section.append(heading, card); this.content.append(section);
+            section.append(heading);
+            const subgroups = new Map<string, HTMLElement[]>();
+            for (const row of groups[id]) {
+                const key = row.dataset.settingsGroup ?? '';
+                subgroups.set(key, [...(subgroups.get(key) ?? []), row]);
+            }
+            for (const [key, rows] of [...subgroups].sort(([left], [right]) => GROUP_ORDER.indexOf(left) - GROUP_ORDER.indexOf(right))) {
+                const subgroup = document.createElement('section'); subgroup.className = 'settings-subgroup';
+                if (key) {
+                    const title = document.createElement('h4'); title.textContent = t(key); subgroup.append(title);
+                    if (GROUP_HINT_KEYS[key]) {
+                        const hint = document.createElement('p'); hint.className = 'settings-subgroup-hint'; hint.textContent = t(GROUP_HINT_KEYS[key]);
+                        subgroup.append(hint);
+                    }
+                }
+                const card = document.createElement('div'); card.className = 'settings-card'; card.append(...rows);
+                subgroup.append(card); section.append(subgroup);
+            }
+            this.content.append(section);
             this.sections.set(id, { root: section, rows: groups[id], label });
         }
         this.empty.className = 'library-empty'; this.empty.textContent = t('libraryNoMatches'); this.content.append(this.empty);
@@ -51,12 +74,19 @@ export class SettingsCatalog {
     }
     private filter(): void {
         const query = this.search.value.trim().toLocaleLowerCase();
+        const terms = query.split(/\s+/u).filter(Boolean);
         let found = false;
         for (const [id, group] of this.sections) {
             let visible = false;
             for (const row of group.rows) {
-                row.hidden = query ? !`${group.label} ${row.textContent} ${row.querySelector('[data-role]')?.getAttribute('data-role') ?? ''}`.toLocaleLowerCase().includes(query) : id !== this.active;
+                const groupKey = row.dataset.settingsGroup ?? '';
+                const hint = GROUP_HINT_KEYS[groupKey] ? t(GROUP_HINT_KEYS[groupKey]) : '';
+                const searchableText = `${group.label} ${t(groupKey)} ${hint} ${row.textContent} ${row.querySelector('[data-role]')?.getAttribute('data-role') ?? ''}`.toLocaleLowerCase();
+                row.hidden = terms.length ? !terms.every(term => searchableText.includes(term)) : id !== this.active;
                 visible ||= !row.hidden;
+            }
+            for (const subgroup of group.root.querySelectorAll<HTMLElement>('.settings-subgroup')) {
+                subgroup.hidden = !group.rows.some(row => subgroup.contains(row) && !row.hidden);
             }
             group.root.hidden = !visible; found ||= visible;
             group.root.querySelector('h3')!.hidden = !query;

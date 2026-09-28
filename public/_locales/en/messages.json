@@ -496,11 +496,11 @@
         "description": "Reader annotation source unavailable"
     },
     "readerAnnotationPersistenceLabel": {
-        "message": "Persist annotations",
+        "message": "Save new annotations for later",
         "description": "Reader annotation persistence setting"
     },
     "readerAnnotationPersistenceDesc": {
-        "message": "When enabled, new annotations are saved locally; existing annotations always remain visible.",
+        "message": "When on, new annotations remain after a refresh. When off, new annotations last only for this page session. Previously saved annotations stay available.",
         "description": "Reader annotation persistence setting description"
     },
     "readerAnnotationPersistenceTooltip": {
@@ -560,11 +560,11 @@
         "description": "Label for the assistant response section in Reader"
     },
     "readerDefaultOpenModeLabel": {
-        "message": "Default Reader size",
+        "message": "How Reader opens",
         "description": "Message for readerDefaultOpenModeLabel"
     },
     "readerDefaultOpenModeDesc": {
-        "message": "Fullscreen or centered panel.",
+        "message": "Choose full screen or a centered window inside ChatGPT.",
         "description": "Message for readerDefaultOpenModeDesc"
     },
     "readerOpenModeFullscreen": {
@@ -604,7 +604,7 @@
         "description": "Message for appearanceSettingsLabel"
     },
     "globalFontSizeLabel": {
-        "message": "Global font size",
+        "message": "Extension text size",
         "description": "Message for globalFontSizeLabel"
     },
     "globalFontSizeDesc": {
@@ -620,7 +620,7 @@
         "description": "Message for increaseFontSize"
     },
     "themeAccentColorLabel": {
-        "message": "Theme color",
+        "message": "Extension accent color",
         "description": "Message for themeAccentColorLabel"
     },
     "themeAccentColorDesc": {
@@ -656,19 +656,19 @@
         "description": "Message for advancedSettingsDesc"
     },
     "readerCommentPromptListLabel": {
-        "message": "Prompts",
+        "message": "Manage saved prompts",
         "description": "Message for readerCommentPromptListLabel"
     },
     "readerCommentPromptListDesc": {
-        "message": "Manage prompts used in ChatGPT and Reader.",
+        "message": "Open the saved prompts used in ChatGPT and Reader.",
         "description": "Message for readerCommentPromptListDesc"
     },
     "readerCommentPromptPositionBottomLabel": {
-        "message": "Place prompt below annotations",
+        "message": "Place the question after copied annotations",
         "description": "Message for readerCommentPromptPositionBottomLabel"
     },
     "readerCommentPromptPositionBottomDesc": {
-        "message": "When enabled, copied annotations appear first and the selected user prompt is appended at the bottom.",
+        "message": "In copied annotation text, place the original question after the annotation list.",
         "description": "Message for readerCommentPromptPositionBottomDesc"
     },
     "readerCommentSortModeLabel": {
@@ -688,11 +688,11 @@
         "description": "Annotation sort option by text position"
     },
     "readerCommentTemplateSettingsLabel": {
-        "message": "Annotations copy template",
+        "message": "Format for copying annotations",
         "description": "Message for readerCommentTemplateSettingsLabel"
     },
     "readerCommentTemplateSettingsDesc": {
-        "message": "Configure the reusable template for copied annotations.",
+        "message": "Choose how selected text and your annotations appear together in copied output.",
         "description": "Message for readerCommentTemplateSettingsDesc"
     },
     "readerCommentTemplatePreviewLabel": {
@@ -860,11 +860,11 @@
         "description": "Accessible label for the total PNG export progress bar"
     },
     "pngExportWidthPresetLabel": {
-        "message": "PNG image width",
+        "message": "Width of a full-message PNG",
         "description": "Message for pngExportWidthPresetLabel"
     },
     "pngExportWidthPresetDesc": {
-        "message": "Choose the default card width used for PNG exports.",
+        "message": "Used when exporting a reply as a PNG image; it does not affect single-formula images.",
         "description": "Message for pngExportWidthPresetDesc"
     },
     "pngExportWidthValueLabel": {
@@ -892,11 +892,11 @@
         "description": "Message for pngExportWidthPresetCustom"
     },
     "pngExportPixelRatioLabel": {
-        "message": "PNG image scale",
+        "message": "Sharpness of a full-message PNG",
         "description": "Message for pngExportPixelRatioLabel"
     },
     "pngExportPixelRatioDesc": {
-        "message": "Controls raster sharpness. Default is 1x; maximum is 3x. Long exports may still be capped for stability.",
+        "message": "Choose 1× to 3×. Very long images may use a lower effective scale so export can finish.",
         "description": "Message for pngExportPixelRatioDesc"
     },
     "saveBookmarkTitle": {
@@ -1168,27 +1168,27 @@
         "description": "Message for chatgptSettingsLabel"
     },
     "messageToolbarLabel": {
-        "message": "Toolbar > Message Toolbar",
+        "message": "Show reply action buttons",
         "description": "Message for messageToolbarLabel"
     },
     "messageToolbarDesc": {
-        "message": "Show the AI-MarkDone toolbar on each ChatGPT response",
+        "message": "Turning this off hides the other AI-MarkDone buttons below replies too.",
         "description": "Message for messageToolbarDesc"
     },
     "chatgptRestorePositionAfterSendLabel": {
-        "message": "Restore position after sending",
+        "message": "Keep my reading position after sending",
         "description": "Message for chatgptRestorePositionAfterSendLabel"
     },
     "chatgptRestorePositionAfterSendDesc": {
-        "message": "When reading older messages, sending a new message brings you back to your reading position.",
+        "message": "If you are reading older messages, sending a new message tries to keep the same content in view.",
         "description": "Message for chatgptRestorePositionAfterSendDesc"
     },
     "chatgptAtomicMarkdownCopyLabel": {
-        "message": "Markdown selection shortcut",
+        "message": "Shortcut to copy selected text as Markdown",
         "description": "Message for chatgptAtomicMarkdownCopyLabel"
     },
     "chatgptAtomicMarkdownCopyDesc": {
-        "message": "When a complete ChatGPT unit such as a formula, code block, table, or image is selected, use Ctrl/Cmd+C or Ctrl/Cmd+Shift+C to copy it as canonical Markdown. Other copy actions keep the host behavior.",
+        "message": "Choose the shortcut used on ChatGPT replies. A partial code selection copies exactly what you selected; a selected piece of a formula copies the whole formula.",
         "description": "Message for chatgptAtomicMarkdownCopyDesc"
     },
     "chatgptAtomicMarkdownCopyNone": {
@@ -1204,11 +1204,11 @@
         "description": "Option for using the shifted primary C shortcut for ChatGPT Markdown selection copy"
     },
     "chatgptInputEnhancementLabel": {
-        "message": "Input enhancement",
+        "message": "Use writing shortcuts in the ChatGPT input box",
         "description": "Settings label for making ChatGPT input enhancements available"
     },
     "chatgptInputEnhancementDesc": {
-        "message": "Show the input enhancement button in ChatGPT. When enabled, the composer supports lightweight Markdown syntax and live formula rendering.",
+        "message": "Enable Enter for a new line, bold and list shortcuts, and formula help. Set each option separately below.",
         "description": "Settings description for ChatGPT input enhancement availability"
     },
     "chatgptInputEnhancementButton": {
@@ -1252,7 +1252,7 @@
         "description": "Enter key enhancement description"
     },
     "chatgptInputEnhancementListsLabel": {
-        "message": "List enhancement",
+        "message": "Continue lists while typing",
         "description": "List enhancement master label"
     },
     "chatgptInputEnhancementListsDesc": {
@@ -1260,11 +1260,11 @@
         "description": "List enhancement description"
     },
     "chatgptInputEnhancementOrderedListLabel": {
-        "message": "Ordered lists",
+        "message": "Continue numbered lists",
         "description": "Ordered-list enhancement label"
     },
     "chatgptInputEnhancementUnorderedListLabel": {
-        "message": "Unordered lists",
+        "message": "Continue bullet lists",
         "description": "Unordered-list enhancement label"
     },
     "chatgptInputEnhancementBoldLabel": {
@@ -1276,7 +1276,7 @@
         "description": "Bold shortcut description"
     },
     "chatgptInputEnhancementFormulaSuggestionsLabel": {
-        "message": "Formula suggestions",
+        "message": "Suggest formula commands as I type",
         "description": "Formula suggestion label"
     },
     "chatgptInputEnhancementFormulaSuggestionsDesc": {
@@ -1284,7 +1284,7 @@
         "description": "Formula suggestion description"
     },
     "chatgptInputEnhancementFormulaPreviewLabel": {
-        "message": "Formula preview",
+        "message": "Preview the formula at the cursor",
         "description": "Formula preview switch label"
     },
     "chatgptInputEnhancementFormulaPreviewDesc": {
@@ -1400,15 +1400,15 @@
         "description": "Formula preview error state"
     },
     "chatgptPromptAutocompleteLabel": {
-        "message": "Prompt autocomplete",
+        "message": "Suggest saved prompts while typing",
         "description": "Message for chatgptPromptAutocompleteLabel"
     },
     "chatgptPromptAutocompleteDesc": {
-        "message": "Show Prompt suggestions when typing \\ in the ChatGPT input box or Reader send box. The Prompts panel can still be opened manually.",
+        "message": "Type \\ in the ChatGPT or Reader input box to see matching saved prompts. You can still open the prompt list manually.",
         "description": "Message for chatgptPromptAutocompleteDesc"
     },
     "chatgptShowMessageStepperLabel": {
-        "message": "Show lower-right message buttons",
+        "message": "Show Previous / Next buttons",
         "description": "Message for chatgptShowMessageStepperLabel"
     },
     "chatgptShowMessageStepperDesc": {
@@ -1416,39 +1416,39 @@
         "description": "Message for chatgptShowMessageStepperDesc"
     },
     "chatgptShowPageBookmarkControlLabel": {
-        "message": "Page bookmark button",
+        "message": "Show Bookmark button",
         "description": "Message for chatgptShowPageBookmarkControlLabel"
     },
     "chatgptShowPageBookmarkControlDesc": {
-        "message": "Show a current-page bookmark button in the lower-right ChatGPT controls.",
+        "message": "Bookmark this ChatGPT conversation.",
         "description": "Message for chatgptShowPageBookmarkControlDesc"
     },
     "chatgptShowDetachedReaderControlLabel": {
-        "message": "Detached Reader Split View",
+        "message": "Show Split Reader button",
         "description": "Message for chatgptShowDetachedReaderControlLabel"
     },
     "chatgptShowDetachedReaderControlDesc": {
-        "message": "Show the Split View button in the lower-right ChatGPT controls.",
+        "message": "Open this conversation in a separate Reader window.",
         "description": "Message for chatgptShowDetachedReaderControlDesc"
     },
     "chatgptShowPromptControlLabel": {
-        "message": "Prompts button",
+        "message": "Show Saved Prompts button",
         "description": "Message for chatgptShowPromptControlLabel"
     },
     "chatgptShowPromptControlDesc": {
-        "message": "Show the Prompts button in the lower-right ChatGPT controls.",
+        "message": "Open your saved prompts.",
         "description": "Message for chatgptShowPromptControlDesc"
     },
     "chatgptArrowKeyMessageNavigationLabel": {
-        "message": "Use arrow keys to move between messages",
+        "message": "Use Left and Right to switch messages",
         "description": "Message for chatgptArrowKeyMessageNavigationLabel"
     },
     "chatgptArrowKeyMessageNavigationDesc": {
-        "message": "Left and Right move to the previous or next message when you are not typing. Inside the ChatGPT input box, they still move the cursor.",
+        "message": "When you are not typing, Left and Right jump between messages. In the input box they still move the text cursor.",
         "description": "Message for chatgptArrowKeyMessageNavigationDesc"
     },
     "chatgptPageWidthScaleLabel": {
-        "message": "Chat width",
+        "message": "Width of the conversation and input box",
         "description": "Message for chatgptPageWidthScaleLabel"
     },
     "chatgptPageWidthScaleDesc": {
@@ -1464,15 +1464,15 @@
         "description": "Message for chatgptRefreshMessageNavigation"
     },
     "chatgptNavigationSeekStepLabel": {
-        "message": "Directory navigation speed",
+        "message": "Step size when finding unloaded messages",
         "description": "Message for chatgptNavigationSeekStepLabel"
     },
     "chatgptNavigationSeekStepDesc": {
-        "message": "The Directory helps you reach a message by simulating page scrolling. A larger step scrolls faster and reduces the time needed to reach the target.",
+        "message": "Controls how far each navigation attempt moves while looking for a message that is not yet on the page. Usually leave this at its default.",
         "description": "Message for chatgptNavigationSeekStepDesc"
     },
     "chatgptDirectoryEnabledLabel": {
-        "message": "Show directory rail",
+        "message": "Show message list on the right",
         "description": "Message for chatgptDirectoryEnabledLabel"
     },
     "chatgptDirectoryRetiredNotice": {
@@ -1480,47 +1480,47 @@
         "description": "Message for chatgptDirectoryRetiredNotice"
     },
     "chatgptDirectoryEnabledDesc": {
-        "message": "Show a conversation directory on the right and hide the website navigation.",
+        "message": "Find and jump to messages in this conversation from a list along the right edge.",
         "description": "Message for chatgptDirectoryEnabledDesc"
     },
     "chatgptDirectoryModeLabel": {
-        "message": "Directory display",
+        "message": "How the right-side message list opens",
         "description": "Message for chatgptDirectoryModeLabel"
     },
     "chatgptDirectoryModeDesc": {
-        "message": "Preview a summary or expand the directory.",
+        "message": "Keep it as a slim strip, or expand message titles when the pointer enters.",
         "description": "Message for chatgptDirectoryModeDesc"
     },
     "chatgptDirectoryModePreview": {
-        "message": "Preview",
+        "message": "Slim strip",
         "description": "Message for chatgptDirectoryModePreview"
     },
     "chatgptDirectoryModeExpanded": {
-        "message": "Expanded",
+        "message": "Expand titles on hover",
         "description": "Message for chatgptDirectoryModeExpanded"
     },
     "chatgptDirectoryPromptLabelModeLabel": {
-        "message": "Longer prompt labels",
+        "message": "Show both ends of long message titles",
         "description": "Message for chatgptDirectoryPromptLabelModeLabel"
     },
     "chatgptDirectoryPromptLabelModeDesc": {
-        "message": "Show the beginning and end of long prompts in the expanded directory.",
+        "message": "When the message list expands, show the start and end instead of only the start.",
         "description": "Message for chatgptDirectoryPromptLabelModeDesc"
     },
     "chatgptDirectoryRightInsetLabel": {
-        "message": "Directory right spacing",
+        "message": "Space from the right edge",
         "description": "Message for chatgptDirectoryRightInsetLabel"
     },
     "chatgptDirectoryRightInsetDesc": {
-        "message": "Increase this spacing if the browser scrollbar overlaps the right-side directory rail.",
+        "message": "Increase this if the message list overlaps the page scrollbar.",
         "description": "Message for chatgptDirectoryRightInsetDesc"
     },
     "chatgptDirectoryPreviewMaxCharsLabel": {
-        "message": "Directory preview length",
+        "message": "Words shown in a message preview",
         "description": "Message for chatgptDirectoryPreviewMaxCharsLabel"
     },
     "chatgptDirectoryPreviewMaxCharsDesc": {
-        "message": "Maximum characters in the hover preview.",
+        "message": "Limit the text shown when you hover over an item in the right-side message list.",
         "description": "Message for chatgptDirectoryPreviewMaxCharsDesc"
     },
     "reader": {
@@ -1780,11 +1780,11 @@
         "description": "Message for settingsLanguageDesc"
     },
     "settingsDiscoveryDiagnosticsLabel": {
-        "message": "Content Discovery Status",
+        "message": "Conversation reading status",
         "description": "Message for settingsDiscoveryDiagnosticsLabel"
     },
     "settingsDiscoveryDiagnosticsDesc": {
-        "message": "Active discovery path and pending work",
+        "message": "View this when the message list, Reader, or export is missing content.",
         "description": "Message for settingsDiscoveryDiagnosticsDesc"
     },
     "settingsDiscoveryDiagnosticsCopy": {
@@ -1816,19 +1816,19 @@
         "description": "Message for enableOnChatGPT"
     },
     "saveMessagesLabel": {
-        "message": "Save Messages",
+        "message": "Show Save Messages button",
         "description": "Message for saveMessagesLabel"
     },
     "saveMessagesDesc": {
-        "message": "Show \"Save as\" button in toolbar",
+        "message": "Choose and export multiple replies.",
         "description": "Message for saveMessagesDesc"
     },
     "wordCountLabel": {
-        "message": "Character count",
+        "message": "Show character count beside replies",
         "description": "Settings order or statistics label."
     },
     "wordCountDesc": {
-        "message": "Show the response character count.",
+        "message": "Display the character count for each reply.",
         "description": "Message for wordCountDesc"
     },
     "clickToCopyLabel": {
@@ -1844,27 +1844,27 @@
         "description": "Message for formulaSettingsLabel"
     },
     "formulaClickCopyMarkdownLabel": {
-        "message": "Formula click copies Markdown",
+        "message": "Click a formula to copy its source",
         "description": "Message for formulaClickCopyMarkdownLabel"
     },
     "formulaClickCopyMarkdownDesc": {
-        "message": "Click a formula to copy its original LaTeX / Markdown source.",
+        "message": "Click a formula in a reply to copy editable LaTeX or Markdown text.",
         "description": "Message for formulaClickCopyMarkdownDesc"
     },
     "formulaClickCopyFormulaFormatLabel": {
-        "message": "Formula click copy format",
+        "message": "Format when clicking one formula",
         "description": "Message for formulaClickCopyFormulaFormatLabel"
     },
     "formulaClickCopyFormulaFormatDesc": {
-        "message": "Choose how a single clicked formula is wrapped when copied.",
+        "message": "Only changes the result of clicking a single formula in a reply.",
         "description": "Message for formulaClickCopyFormulaFormatDesc"
     },
     "formulaMarkdownCopyFormulaFormatLabel": {
-        "message": "Markdown copy formula format",
+        "message": "Formula format when copying Markdown",
         "description": "Message for formulaMarkdownCopyFormulaFormatLabel"
     },
     "formulaMarkdownCopyFormulaFormatDesc": {
-        "message": "Choose how formulas are wrapped when copying or saving Markdown source.",
+        "message": "Applies to Reader, selected text, bookmarks, and Markdown exports. It does not change how formulas look on the page.",
         "description": "Message for formulaMarkdownCopyFormulaFormatDesc"
     },
     "formulaSourceFormatMarkdownDollar": {
@@ -1896,11 +1896,11 @@
         "description": "Message for formulaAssetActionsDesc"
     },
     "formulaAssetFontSizeLabel": {
-        "message": "Formula export font size",
+        "message": "Text size in a single-formula image",
         "description": "Message for formulaAssetFontSizeLabel"
     },
     "formulaAssetFontSizeDesc": {
-        "message": "Set the fixed font size used when copying or saving a single formula as PNG or SVG.",
+        "message": "Used when copying or saving one formula as PNG or SVG. It does not change reply text or full-message images.",
         "description": "Message for formulaAssetFontSizeDesc"
     },
     "formulaAssetActionsPopupTitle": {
@@ -1920,27 +1920,27 @@
         "description": "Message for formulaAssetActionsSummaryCount"
     },
     "contextOnlySaveLabel": {
-        "message": "Bookmark > Context-Only Save",
+        "message": "Save only a bookmark excerpt",
         "description": "Message for contextOnlySaveLabel"
     },
     "contextOnlySaveDesc": {
-        "message": "Save only the first 500 characters in each bookmark. Open the original page for the full content.",
+        "message": "When on, each bookmark stores the first 500 characters; open the original conversation for the full text.",
         "description": "Message for contextOnlySaveDesc"
     },
     "renderCodeBlocksLabel": {
-        "message": "Reader code blocks",
+        "message": "Show code blocks in Reader",
         "description": "Message for renderCodeBlocksLabel"
     },
     "renderCodeBlocksDesc": {
-        "message": "Show a placeholder when disabled.",
+        "message": "When off, Reader shows a placeholder instead of rendering each code block.",
         "description": "Message for renderCodeBlocksDesc"
     },
     "readerOutlineToggleLabel": {
-        "message": "Reader heading outline",
+        "message": "Show headings in Reader",
         "description": "Message for readerOutlineToggleLabel"
     },
     "readerOutlineToggleDesc": {
-        "message": "List the page headings on the right.",
+        "message": "List the reply headings along the right side of Reader.",
         "description": "Message for readerOutlineToggleDesc"
     },
     "supportDevDesc": {
@@ -3384,19 +3384,19 @@
         "description": "Label for the selected source excerpt in the comment popover"
     },
     "chatgptPageAnnotationsLabel": {
-        "message": "Page annotations",
+        "message": "Show annotations on ChatGPT replies",
         "description": "Toggle for the ChatGPT page annotation feature"
     },
     "chatgptPageAnnotationsDesc": {
-        "message": "Annotate selected replies directly on the page.",
+        "message": "Show saved annotation marks and allow new page annotations. Turning this off does not delete saved annotations.",
         "description": "Description for the ChatGPT page annotation toggle"
     },
     "chatgptShowPageSelectionToolbarLabel": {
-        "message": "Show selection action buttons",
+        "message": "Show the action row on ChatGPT",
         "description": "Toggle for the ChatGPT page selection action toolbar"
     },
     "chatgptShowPageSelectionToolbarDesc": {
-        "message": "Show the Copy Markdown and Add annotation buttons after selecting reply text. Turn this off if they interfere with another translation or selection tool.",
+        "message": "Turning this off hides only the ChatGPT row; Reader buttons and keyboard copying stay available.",
         "description": "Description for the ChatGPT page selection action toolbar toggle"
     },
     "pageControls": {
@@ -3608,15 +3608,15 @@
         "description": "Settings center label."
     },
     "settingsCategoryReading": {
-        "message": "Reading & navigation",
+        "message": "Reading & messages",
         "description": "Settings center label."
     },
     "settingsCategoryInput": {
-        "message": "Input & Prompts",
+        "message": "Writing & prompts",
         "description": "Settings center label."
     },
     "settingsCategoryMarks": {
-        "message": "Marks & annotations",
+        "message": "Highlights & notes",
         "description": "Settings center label."
     },
     "settingsCategoryExport": {
@@ -3632,7 +3632,7 @@
         "description": "Settings center label."
     },
     "settingsCategoryAdvanced": {
-        "message": "Advanced & diagnostics",
+        "message": "Advanced",
         "description": "Settings center label."
     },
     "settingsSearch": {
@@ -3660,31 +3660,31 @@
         "description": "Settings center label."
     },
     "settingsHideOfficialNavigation": {
-        "message": "Hide ChatGPT navigation",
+        "message": "Hide ChatGPT’s own message navigation",
         "description": "Settings center label."
     },
     "settingsReaderBodyFont": {
-        "message": "Reader text size",
+        "message": "Reader body text size",
         "description": "Settings center label."
     },
     "settingsReaderBodyWidth": {
-        "message": "Reader text width",
+        "message": "Maximum Reader text width",
         "description": "Settings center label."
     },
     "settingsCommentSort": {
-        "message": "Annotation output order",
+        "message": "Order when copying annotations",
         "description": "Settings center label."
     },
     "settingsSortCreated": {
-        "message": "Created",
+        "message": "By creation time",
         "description": "Settings center label."
     },
     "settingsSortPosition": {
-        "message": "Message position",
+        "message": "By message order",
         "description": "Settings center label."
     },
     "settingsDefaultBookmarkSort": {
-        "message": "Default bookmark order",
+        "message": "Default order in Library",
         "description": "Settings center label."
     },
     "settingsResetReaderNotice": {
@@ -3874,5 +3874,171 @@
     "libraryNextConversations": {
         "message": "Next conversations",
         "description": "Library folder and conversation management"
+    },
+    "settingsSelectionCopy": {
+        "message": "Show Copy Markdown button",
+        "description": "Settings and interaction label: settingsSelectionCopy"
+    },
+    "settingsSelectionAnnotation": {
+        "message": "Show Add Annotation button",
+        "description": "Settings and interaction label: settingsSelectionAnnotation"
+    },
+    "settingsSelectionHighlight": {
+        "message": "Show the three highlight colors",
+        "description": "Settings and interaction label: settingsSelectionHighlight"
+    },
+    "settingsSelectionSharedDesc": {
+        "message": "Shared by the page and Reader.",
+        "description": "Settings and interaction label: settingsSelectionSharedDesc"
+    },
+    "settingsInputEnhancementControl": {
+        "message": "Input enhancement",
+        "description": "Settings and interaction label: settingsInputEnhancementControl"
+    },
+    "settingsSaveFailed": {
+        "message": "Could not save settings. Please try again.",
+        "description": "Settings and interaction label: settingsSaveFailed"
+    },
+    "settingsGroupInterface": {
+        "message": "Interface",
+        "description": "Settings and interaction label: settingsGroupInterface"
+    },
+    "settingsGroupPage": {
+        "message": "ChatGPT page",
+        "description": "Settings and interaction label: settingsGroupPage"
+    },
+    "settingsGroupDirectory": {
+        "message": "Find and jump to messages",
+        "description": "Settings and interaction label: settingsGroupDirectory"
+    },
+    "settingsGroupReader": {
+        "message": "Reader display",
+        "description": "Settings and interaction label: settingsGroupReader"
+    },
+    "settingsGroupPosition": {
+        "message": "After you send a message",
+        "description": "Settings and interaction label: settingsGroupPosition"
+    },
+    "settingsGroupEditing": {
+        "message": "Typing in ChatGPT",
+        "description": "Settings and interaction label: settingsGroupEditing"
+    },
+    "settingsGroupFormulaAssistant": {
+        "message": "Typing formulas",
+        "description": "Settings and interaction label: settingsGroupFormulaAssistant"
+    },
+    "settingsGroupPrompts": {
+        "message": "Saved prompts",
+        "description": "Settings and interaction label: settingsGroupPrompts"
+    },
+    "settingsGroupMarks": {
+        "message": "Annotations on the page",
+        "description": "Settings and interaction label: settingsGroupMarks"
+    },
+    "settingsGroupAnnotationOutput": {
+        "message": "Copying annotations",
+        "description": "Settings and interaction label: settingsGroupAnnotationOutput"
+    },
+    "settingsGroupMarkdown": {
+        "message": "Copying formula source",
+        "description": "Settings and interaction label: settingsGroupMarkdown"
+    },
+    "settingsGroupFormulaButtons": {
+        "message": "Buttons above formulas in replies",
+        "description": "Settings and interaction label: settingsGroupFormulaButtons"
+    },
+    "settingsGroupFormulaImages": {
+        "message": "Single-formula images",
+        "description": "Settings and interaction label: settingsGroupFormulaImages"
+    },
+    "settingsGroupMessageImages": {
+        "message": "Full-message PNG images",
+        "description": "Settings and interaction label: settingsGroupMessageImages"
+    },
+    "settingsGroupMessageButtons": {
+        "message": "Buttons below each reply",
+        "description": "Settings and interaction label: settingsGroupMessageButtons"
+    },
+    "settingsGroupSelection": {
+        "message": "After you select text",
+        "description": "Settings and interaction label: settingsGroupSelection"
+    },
+    "settingsGroupDrawer": {
+        "message": "Bottom-right page buttons",
+        "description": "Settings and interaction label: settingsGroupDrawer"
+    },
+    "settingsGroupKeyboard": {
+        "message": "Keyboard shortcuts",
+        "description": "Settings and interaction label: settingsGroupKeyboard"
+    },
+    "settingsGroupData": {
+        "message": "Library and backups",
+        "description": "Settings and interaction label: settingsGroupData"
+    },
+    "settingsGroupAdvanced": {
+        "message": "Other settings and troubleshooting",
+        "description": "Settings and interaction label: settingsGroupAdvanced"
+    },
+    "themeAccentClassicBlue": {
+        "message": "Classic blue",
+        "description": "Settings and interaction label: themeAccentClassicBlue"
+    },
+    "settingsPinnedActions": {"message": "Keep buttons visible when closed", "description": "Pinned page action configuration"},
+    "settingsPinnedActionsDesc": {"message": "Choose which bottom-right actions stay on the page when the button row closes.", "description": "Pinned page action configuration"},
+    "settingsGroupFormulaButtonsHint": {
+        "message": "Choose buttons shown above a formula in a ChatGPT reply. Export actions in the input-box preview remain available.",
+        "description": "Settings copy for settingsGroupFormulaButtonsHint"
+    },
+    "settingsGroupSelectionHint": {
+        "message": "The three actions below apply to both ChatGPT and Reader.",
+        "description": "Settings copy for settingsGroupSelectionHint"
+    },
+    "settingsGroupDrawerHint": {
+        "message": "Choose which buttons appear at the bottom right. Use “Keep buttons visible when closed” for the ones you use most.",
+        "description": "Settings copy for settingsGroupDrawerHint"
+    },
+    "settingsShowInputEnhancementButton": {
+        "message": "Show Input Enhancement button",
+        "description": "Settings copy for settingsShowInputEnhancementButton"
+    },
+    "settingsShowInputEnhancementButtonDesc": {
+        "message": "Only controls this entry. Turn the writing features on or off under Writing & prompts.",
+        "description": "Settings copy for settingsShowInputEnhancementButtonDesc"
+    },
+    "settingsFormulaButtonCopyPng": {
+        "message": "Show Copy PNG button",
+        "description": "Settings copy for settingsFormulaButtonCopyPng"
+    },
+    "settingsFormulaButtonCopySvg": {
+        "message": "Show Copy SVG button",
+        "description": "Settings copy for settingsFormulaButtonCopySvg"
+    },
+    "settingsFormulaButtonCopyMathml": {
+        "message": "Show Copy MathML button",
+        "description": "Settings copy for settingsFormulaButtonCopyMathml"
+    },
+    "settingsFormulaButtonSavePng": {
+        "message": "Show Save PNG button",
+        "description": "Settings copy for settingsFormulaButtonSavePng"
+    },
+    "settingsFormulaButtonSaveSvg": {
+        "message": "Show Save SVG button",
+        "description": "Settings copy for settingsFormulaButtonSaveSvg"
+    },
+    "settingsHideOfficialNavigationDesc": {
+        "message": "Avoid seeing both ChatGPT’s message navigation and the AI-MarkDone list.",
+        "description": "Settings copy for settingsHideOfficialNavigationDesc"
+    },
+    "settingsReaderBodyWidthDesc": {
+        "message": "Limits the width of Reader text without changing the Reader window size.",
+        "description": "Settings copy for settingsReaderBodyWidthDesc"
+    },
+    "settingsInputFormulaSuggestionsDesc": {
+        "message": "While typing inside a formula, enter \\ to see LaTeX commands you can insert.",
+        "description": "Settings copy for settingsInputFormulaSuggestionsDesc"
+    },
+    "settingsInputFormulaPreviewDesc": {
+        "message": "A formula preview opens when the text cursor enters a formula. Mouse hover alone does not open it.",
+        "description": "Settings copy for settingsInputFormulaPreviewDesc"
     }
 }

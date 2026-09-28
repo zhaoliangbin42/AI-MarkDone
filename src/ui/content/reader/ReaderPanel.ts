@@ -1,3 +1,4 @@
+import { normalizeSelectionToolbarActions } from '../../../core/settings/selectionToolbar';
 import { readMarkDocumentTitle } from '../../../drivers/content/chatgpt/readMarkDocumentTitle';
 import type { Theme } from '../../../core/types/theme';
 import { pinIcon } from '../../../assets/icons';
@@ -177,6 +178,7 @@ export class ReaderPanel {
     private readonly annotationManagerPopover = new ReaderAnnotationManagerPopover();
     private readonly settingsPopover = new ReaderSettingsPopover();
     private readonly commentPromptPicker = new CommentPromptPickerPopover();
+    private selectionToolbarActions = normalizeSelectionToolbarActions(undefined);
     private settingsController: ReaderPanelSettingsController | null = null;
     private promptManagerController: ReaderPanelPromptManagerController | null = null;
     private onKeyDown: ((e: KeyboardEvent) => void) | null = null;
@@ -309,6 +311,7 @@ export class ReaderPanel {
         if (this.persistAnnotations === next) return;
         this.persistAnnotations = next;
         this.syncReaderSettingsSurfaces();
+        this.syncTransientCommentUi();
         if (this.state.visible) {
             this.syncCommentUi();
             this.syncCommentControls();
@@ -343,6 +346,7 @@ export class ReaderPanel {
     setReaderSettings(settings: AppSettings['reader']): void {
         const previous = this.getReaderSettingsSnapshot();
         const normalized = this.normalizeReaderSettings(settings);
+        this.selectionToolbarActions = normalized.selectionToolbar;
         this.renderCodeInReader = normalized.renderCodeInReader;
         this.state.showOutlineInReader = normalized.showOutlineInReader;
         this.state.defaultOpenMode = normalized.defaultOpenMode;
@@ -353,6 +357,7 @@ export class ReaderPanel {
         this.commentExportSettings = normalized.commentExport;
         this.setPersistAnnotations(normalized.persistAnnotations);
         this.syncReaderSettingsSurfaces();
+        this.syncTransientCommentUi();
         if (this.state.visible) {
             if (this.state.fullscreen && this.state.defaultOpenMode === 'panel') {
                 this.state.fullscreen = false;
@@ -1165,6 +1170,7 @@ export class ReaderPanel {
 
     private getReaderSettingsSnapshot(): AppSettings['reader'] {
         return this.normalizeReaderSettings({
+            selectionToolbar: this.selectionToolbarActions,
             renderCodeInReader: this.renderCodeInReader,
             showOutlineInReader: this.state.showOutlineInReader,
             persistAnnotations: this.persistAnnotations,
@@ -1179,6 +1185,7 @@ export class ReaderPanel {
 
     private normalizeReaderSettings(settings: AppSettings['reader']): AppSettings['reader'] {
         return {
+            selectionToolbar: normalizeSelectionToolbarActions(settings.selectionToolbar),
             renderCodeInReader: Boolean(settings.renderCodeInReader),
             showOutlineInReader: Boolean(settings.showOutlineInReader),
             persistAnnotations: Boolean(settings.persistAnnotations),
@@ -1960,9 +1967,10 @@ export class ReaderPanel {
         const item = this.getCurrentItem();
         const target = item ? this.getAnnotationTarget(item) : null;
         const markdownRoot = this.getMarkdownRoot();
-        const showHighlights = !!this.annotationDocument && !!target && !!markdownRoot
+        const showHighlights = this.selectionToolbarActions.highlight && !!this.annotationDocument && !!target && !!markdownRoot
             && isHighlightableTextSelection(selection.range, markdownRoot);
-        const actionCount = (showStickyAction ? 3 : 2) + (showHighlights ? 3 : 0);
+        const actionCount = Number(this.selectionToolbarActions.copy) + Number(this.selectionToolbarActions.annotation) + Number(showStickyAction) + (showHighlights ? 3 : 0);
+        group.hidden = actionCount === 0;
         const actionWidth = (buttonSize * actionCount) + (gap * (actionCount - 1));
         const clampPadding = this.getTokenSize('--aimd-space-3', 12);
         const verticalGap = this.getTokenSize('--aimd-space-2', 8);
@@ -2051,7 +2059,8 @@ export class ReaderPanel {
                 },
             });
         });
-        group.append(copyButton, commentButton);
+        if (this.selectionToolbarActions.copy) group.append(copyButton);
+        if (this.selectionToolbarActions.annotation) group.append(commentButton);
         if (showHighlights && item && target) {
             group.append(createHighlightSwatches({ document: this.host.document, onSelect: async color => {
                 if (this.highlightSaving) return;

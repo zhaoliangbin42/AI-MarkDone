@@ -1,5 +1,6 @@
 import '../browserExtensionMock';
 
+import { InputEnhancementPopover } from '../../../src/ui/content/components/InputEnhancementPopover';
 import { Icons } from '../../../src/assets/icons';
 import type { ConversationGroupRef, SiteAdapter } from '../../../src/drivers/content/adapters/base';
 import { createAppearanceSnapshot } from '../../../src/style/appearance';
@@ -88,6 +89,7 @@ let directory: ChatGPTDirectoryRail;
 let stepper: ChatGPTMessageStepperController;
 let progress: TaskProgressPanel;
 let progressScope: AppearanceScope;
+let inputEnhancement: InputEnhancementPopover;
 
 function mountToolbar(): void {
     const localeCopy = copy[variant.locale];
@@ -182,7 +184,11 @@ function mountStepper(): void {
             subscribe: () => () => undefined, resolveElement: () => null, locate: async () => 'missing',
         },
     };
+    inputEnhancement?.dispose();
+    inputEnhancement = new InputEnhancementPopover(async () => true);
+    inputEnhancement.setAppearance(createAppearanceSnapshot(variant.theme));
     stepper = new ChatGPTMessageStepperController(adapter, {
+        onOpenInputEnhancement: anchor => inputEnhancement.toggle(anchor),
         surface,
         onOpenBookmarksPanel: () => showToast({ text: 'Bookmarks opened' }),
         onOpenPrompts: () => showToast({ text: 'Prompts opened' }),
@@ -190,6 +196,7 @@ function mountStepper(): void {
         onRefreshPageBookmarkState: () => ({ ok: true, saved: true }),
     });
     stepper.init();
+    stepper.setPinnedActions(['open-input-enhancement']);
     stepper.setPageBookmarked(true);
     stepper.setAppearance(createAppearanceSnapshot(variant.theme));
 }

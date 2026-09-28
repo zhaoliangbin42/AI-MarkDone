@@ -146,6 +146,52 @@ describe('ChatGPTMessageStepperController', () => {
         });
     });
 
+    it('pins the existing action, keeps it callable when collapsed, and respects visibility preferences', async () => {
+        const onOpenInputEnhancement = vi.fn();
+        const controller = new ChatGPTMessageStepperController(adapter, { onOpenInputEnhancement });
+        controllers.push(controller); controller.init();
+        const host = document.getElementById('aimd-chatgpt-message-stepper')!;
+        const trigger = host.querySelector<HTMLButtonElement>('[data-action="open-bookmarks-panel"]')!;
+        trigger.dispatchEvent(new Event('pointerenter'));
+        controller.setPinnedActions(['open-input-enhancement']);
+        expect(host.querySelector('[data-pin]')).toBeNull();
+        host.dispatchEvent(new Event('pointerleave'));
+        const action = host.querySelector<HTMLButtonElement>('[data-action="open-input-enhancement"]')!;
+        expect(action.closest<HTMLElement>('.aimd-chatgpt-message-stepper__slot')!.hidden).toBe(false);
+        action.click(); expect(onOpenInputEnhancement).toHaveBeenCalledWith(action);
+        controller.setInputEnhancementControlVisible(false);
+        expect(action.closest<HTMLElement>('.aimd-chatgpt-message-stepper__slot')!.hidden).toBe(true);
+        controller.setInputEnhancementControlVisible(true);
+        expect(action.closest<HTMLElement>('.aimd-chatgpt-message-stepper__slot')!.hidden).toBe(false);
+        expect(host.querySelectorAll('[data-action="open-input-enhancement"]')).toHaveLength(1);
+    });
+
+    it('keeps the page controls floating when ChatGPT replaces the document head', async () => {
+        const controller = new ChatGPTMessageStepperController(adapter);
+        controllers.push(controller); controller.init();
+        const host = document.getElementById('aimd-chatgpt-message-stepper')!;
+        const trigger = host.querySelector<HTMLElement>('[data-action="open-bookmarks-panel"]')!;
+        controller.setPinnedActions(['open-input-enhancement']);
+        trigger.dispatchEvent(new Event('pointerenter'));
+
+        document.getElementById('aimd-chatgpt-message-stepper-style')!.remove();
+        document.getElementById('aimd-chatgpt-message-stepper-tokens')!.remove();
+        surfaceListener?.();
+        await waitForAnimationFrame();
+
+        expect(document.getElementById('aimd-chatgpt-message-stepper')).toBe(host);
+        expect(document.getElementById('aimd-chatgpt-message-stepper-style')?.textContent)
+            .toContain('position: fixed;');
+        expect(document.getElementById('aimd-chatgpt-message-stepper-tokens')?.textContent)
+            .toContain('.aimd-chatgpt-message-stepper[data-aimd-theme="light"]');
+        expect(getComputedStyle(host).position).toBe('fixed');
+        expect(host.dataset.expanded).toBe('1');
+        host.dispatchEvent(new Event('pointerleave'));
+        expect(host.dataset.expanded).toBe('0');
+        expect(host.dataset.hasPins).toBe('1');
+        expect(getComputedStyle(host).position).toBe('fixed');
+    });
+
     it('opens on hover and focus, preserves action order, and closes with Escape or an outside pointer', async () => {
         const onOpenBookmarksPanel = vi.fn();
         const controller = new ChatGPTMessageStepperController(adapter, { onOpenBookmarksPanel });
@@ -156,7 +202,7 @@ describe('ChatGPTMessageStepperController', () => {
         const actions = host.querySelector<HTMLElement>('.aimd-chatgpt-message-stepper__actions')!;
         expect(trigger.getAttribute('aria-expanded')).toBe('false');
         expect(actions.hasAttribute('inert')).toBe(true);
-        host.dispatchEvent(new Event('pointerenter'));
+        trigger.dispatchEvent(new Event('pointerenter'));
         expect(trigger.getAttribute('aria-expanded')).toBe('true');
         expect(actions.hasAttribute('inert')).toBe(false);
         host.dispatchEvent(new Event('pointerleave'));
@@ -174,7 +220,7 @@ describe('ChatGPTMessageStepperController', () => {
         trigger.click();
         expect(trigger.getAttribute('aria-expanded')).toBe('false');
         expect(onOpenBookmarksPanel).toHaveBeenCalledTimes(2);
-        host.dispatchEvent(new Event('pointerenter'));
+        trigger.dispatchEvent(new Event('pointerenter'));
         expect(trigger.getAttribute('aria-expanded')).toBe('true');
         document.body.dispatchEvent(new MouseEvent('pointerdown', { bubbles: true }));
         expect(trigger.getAttribute('aria-expanded')).toBe('false');
@@ -203,10 +249,11 @@ describe('ChatGPTMessageStepperController', () => {
         const next = host.querySelector<HTMLButtonElement>('[data-action="next-message"]')!;
 
         expect(host).toBeTruthy();
-        expect(Array.from(host.querySelectorAll<HTMLButtonElement>('.aimd-chatgpt-message-stepper__actions button')).map((button) => button.dataset.action)).toEqual([
+        expect(Array.from(host.querySelectorAll<HTMLButtonElement>('.aimd-chatgpt-message-stepper__actions button[data-action]')).map((button) => button.dataset.action)).toEqual([
             'toggle-page-bookmark',
             'open-detached-reader',
             'open-prompts',
+            'open-input-enhancement',
             'chatgpt-refresh-message-navigation',
             'previous-message',
             'next-message',

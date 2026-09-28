@@ -1,4 +1,7 @@
+import { normalizeSelectionToolbarActions } from './selectionToolbar';
 import {
+    PAGE_CONTROL_ACTIONS,
+    type PageControlAction,
     CHATGPT_DIRECTORY_RIGHT_INSET_STEP_PX,
     CHATGPT_NAVIGATION_SEEK_STEP_PX_STEP,
     DEFAULT_CHATGPT_DIRECTORY_RIGHT_INSET_PX,
@@ -197,6 +200,9 @@ export function normalizeChatGPTBehaviorSettings(value: unknown): AppSettings['c
         showPageBookmarkControl: Boolean((record as any).showPageBookmarkControl ?? DEFAULT_SETTINGS.chatgptBehavior.showPageBookmarkControl),
         showDetachedReaderControl: Boolean((record as any).showDetachedReaderControl ?? DEFAULT_SETTINGS.chatgptBehavior.showDetachedReaderControl),
         showPromptControl: Boolean((record as any).showPromptControl ?? DEFAULT_SETTINGS.chatgptBehavior.showPromptControl),
+        showInputEnhancementControl: Boolean(record.showInputEnhancementControl ?? true),
+        pinnedPageControls: Array.isArray(record.pinnedPageControls)
+            ? [...new Set(record.pinnedPageControls.filter((value): value is PageControlAction => PAGE_CONTROL_ACTIONS.includes(value as PageControlAction)))] : [],
         promptAutocomplete: Boolean((record as any).promptAutocomplete ?? DEFAULT_SETTINGS.chatgptBehavior.promptAutocomplete),
         enableArrowKeyMessageNavigation: Boolean((record as any).enableArrowKeyMessageNavigation ?? DEFAULT_SETTINGS.chatgptBehavior.enableArrowKeyMessageNavigation),
         pageWidthScale: normalizeChatGPTPageWidthScale((record as any).pageWidthScale),
@@ -309,6 +315,7 @@ export function mergeWithDefaults(stored: AppSettings): AppSettings {
         platforms: normalizePlatformSettings((stored as any).platforms),
         behavior: normalizeBehaviorSettings(stored.behavior),
         reader: {
+            selectionToolbar: normalizeSelectionToolbarActions(stored.reader?.selectionToolbar),
             renderCodeInReader: Boolean((stored.reader as any)?.renderCodeInReader ?? DEFAULT_SETTINGS.reader.renderCodeInReader),
             showOutlineInReader: Boolean((stored.reader as any)?.showOutlineInReader ?? DEFAULT_SETTINGS.reader.showOutlineInReader),
             persistAnnotations: Boolean((stored.reader as any)?.persistAnnotations ?? DEFAULT_SETTINGS.reader.persistAnnotations),
@@ -398,6 +405,7 @@ export function migrateFromV2(v2: unknown): AppSettings {
         platforms: normalizePlatformSettings(platforms),
         behavior: normalizeBehaviorSettings(behavior),
         reader: {
+            selectionToolbar: normalizeSelectionToolbarActions((reader as any).selectionToolbar),
             renderCodeInReader: Boolean((reader as any).renderCodeInReader ?? DEFAULT_SETTINGS.reader.renderCodeInReader),
             showOutlineInReader: Boolean((reader as any).showOutlineInReader ?? DEFAULT_SETTINGS.reader.showOutlineInReader),
             persistAnnotations: Boolean((reader as any).persistAnnotations ?? DEFAULT_SETTINGS.reader.persistAnnotations),

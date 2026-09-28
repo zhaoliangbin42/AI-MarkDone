@@ -21,6 +21,10 @@ import {
     type SurfacePositioner,
 } from './SurfaceRuntime';
 import { getAnchoredMotionCss } from './styles/anchoredMotionCss';
+import { createFormulaAssetActionItems } from './formulaAssetActionItems';
+import type { FormulaAssetAction } from '../../../services/math/formulaAssetActions';
+import { createIcon } from './Icon';
+import { getAnnotationActionButtonCss } from '../pageAnnotations/annotationActionButtonCss';
 
 export type FormulaPreviewState =
     | { status: 'loading' }
@@ -38,6 +42,9 @@ export type FormulaComposerAssistantView = {
 export type FormulaComposerAssistantDismissReason = 'escape' | 'outside';
 
 const CSS = `
+${getAnnotationActionButtonCss()}
+.formula-export-actions { display: flex; flex-wrap: wrap; gap: var(--aimd-space-1); padding: var(--aimd-space-2); border-top: 1px solid var(--aimd-workspace-border); }
+.formula-export-actions button { padding-inline: var(--aimd-space-2); font-size: var(--aimd-font-size-xs); }
 :host {
   box-sizing: border-box;
   color: var(--aimd-text-primary);
@@ -145,6 +152,7 @@ export class FormulaComposerAssistantPopover {
         onHover?: (index: number) => void;
         onDismiss?: (reason: FormulaComposerAssistantDismissReason) => void;
         getDismissRoots?: () => ReadonlyArray<HTMLElement | null | undefined>;
+        onExport?: (action: FormulaAssetAction, asset: FormulaSvgAsset) => Promise<void>;
     }) {
         this.host = markTransientRoot(document.createElement('div'));
         this.host.dataset.aimdRole = 'formula-composer-assistant';
@@ -300,6 +308,29 @@ export class FormulaComposerAssistantPopover {
                 preview.appendChild(status);
             }
             this.root.append(header, preview);
+            if (view.preview.status === 'ready' && this.params.onExport) {
+                const asset = view.preview.asset;
+                const actions = document.createElement('div');
+                actions.className = 'formula-export-actions';
+                for (const item of createFormulaAssetActionItems(action => {
+                    actions.querySelectorAll<HTMLButtonElement>('button').forEach(button => { button.disabled = true; });
+                    void this.params.onExport!(action, asset).finally(() => {
+                        actions.querySelectorAll<HTMLButtonElement>('button').forEach(button => { button.disabled = false; });
+                    });
+                })) {
+                    const button = document.createElement('button');
+                    button.type = 'button';
+                    button.className = 'annotation-action-button';
+                    button.dataset.action = item.id;
+                    button.setAttribute('aria-label', item.label);
+                    button.title = item.label;
+                    button.append(createIcon(item.icon), document.createTextNode(item.displayLabel));
+                    button.addEventListener('pointerdown', event => event.preventDefault());
+                    button.addEventListener('click', item.onClick);
+                    actions.append(button);
+                }
+                this.root.append(actions);
+            }
         }
 
         if (view.suggestions.length > 0) {

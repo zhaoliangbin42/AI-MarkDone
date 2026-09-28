@@ -10,6 +10,21 @@ afterEach(() => {
 });
 
 describe('buildPageAtomicSelectionMarkdown', () => {
+    it('copies a partial code block literally, preserving whitespace and formula-like source', () => {
+        const root = document.createElement('div');
+        root.innerHTML = '<pre><code><span>prefix</span><span>  $x$\n</span><span>suffix</span></code></pre>';
+        const range = document.createRange();
+        range.selectNodeContents(root.querySelectorAll('span')[1]!);
+        expect(buildPageAtomicSelectionMarkdown({ adapter: new ChatGPTAdapter(), range, root })).toBe('  $x$\n');
+    });
+    it('copies the complete formula source when only part of its visual text is selected', () => {
+        const root = document.createElement('div');
+        root.innerHTML = '<p><span class="katex" data-latex-source="x+y"><span class="katex-html">x+y</span></span></p>';
+        const range = document.createRange();
+        range.setStart(root.querySelector('.katex-html')!.firstChild!, 0);
+        range.setEnd(root.querySelector('.katex-html')!.firstChild!, 1);
+        expect(buildPageAtomicSelectionMarkdown({ adapter: new ChatGPTAdapter(), range, root })).toBe('$x+y$');
+    });
     it('serializes a plain-text selection spanning paragraphs without requiring an atomic unit', () => {
         const root = document.createElement('div');
         root.innerHTML = '<p>First line</p><p>Second line</p>';

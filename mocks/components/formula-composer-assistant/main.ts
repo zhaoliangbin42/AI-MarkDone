@@ -75,6 +75,7 @@ function anchorRect(id: string): DOMRect {
 }
 
 const inline = new FormulaComposerAssistantPopover({
+    onExport: async action => { status!.textContent = `Export requested: ${action}`; },
     onSelect: (index: number) => {
         status!.textContent = `Selected ${inlineSuggestions[index]?.label ?? 'unknown'} without moving composer focus.`;
     },
@@ -92,7 +93,7 @@ instances.push({
     getAnchor: () => document.getElementById('inline-anchor'),
 });
 
-const display = new FormulaComposerAssistantPopover({ onSelect: () => undefined });
+const display = new FormulaComposerAssistantPopover({ onSelect: () => undefined, onExport: async action => { status!.textContent = `Export requested: ${action}`; } });
 let showingError = false;
 const showSecondary = () => display.show(showingError ? {
     anchorRect: anchorRect('error-anchor'),

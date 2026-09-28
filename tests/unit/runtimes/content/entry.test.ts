@@ -1,3 +1,4 @@
+vi.mock('@/ui/content/components/InputEnhancementPopover', () => ({ InputEnhancementPopover: class { updateSettings = vi.fn(); setAppearance = vi.fn(); close = vi.fn(); toggle = vi.fn(); } }));
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import type { ConversationNavigationCoordinatorOptionsV1 } from '@/services/content/ConversationNavigationCoordinator';
 
@@ -187,6 +188,7 @@ const composerEnterCtor = vi.fn(function (_adapter: unknown, options: typeof com
         init: composerEnterInit,
         dispose: composerEnterDispose,
         setInputEnhancementSettings: composerInputEnhancementSetSettings,
+        setFormulaAssetFontSize: vi.fn(),
         setAppearance: composerSetAppearance,
     };
 });
@@ -208,6 +210,8 @@ const messageStepperCtor = vi.fn(function () {
         setPageBookmarkControlVisible: messageStepperSetPageBookmarkControlVisible,
         setDetachedReaderControlVisible: messageStepperSetDetachedReaderControlVisible,
         setPromptControlVisible: messageStepperSetPromptControlVisible,
+        setPinnedActions: vi.fn(),
+        setInputEnhancementControlVisible: vi.fn(),
         setPageBookmarked: messageStepperSetPageBookmarked,
         setAppearance: messageStepperSetAppearance,
     };

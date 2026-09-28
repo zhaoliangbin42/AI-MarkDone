@@ -152,7 +152,7 @@ export class ChatGPTAtomicSelectionController {
             }
             return;
         }
-        const markdown = formatCanonicalMarkdownForCopy(snapshot.canonicalMarkdown);
+        const markdown = formatCanonicalMarkdownForCopy(snapshot.canonicalMarkdown, snapshot.literal);
         if (!markdown) return;
         try {
             event.clipboardData.clearData?.();
@@ -177,7 +177,7 @@ export class ChatGPTAtomicSelectionController {
 
     private async handleMarkdownShortcut(snapshot: PageMarkdownSelectionSnapshot): Promise<void> {
         if (!this.isSnapshotCurrent(snapshot)) return;
-        const copied = await copyCanonicalMarkdownToClipboard(snapshot.canonicalMarkdown);
+        const copied = await copyCanonicalMarkdownToClipboard(snapshot.canonicalMarkdown, snapshot.literal);
         if (!copied && this.lastSelection === snapshot) this.showCopyFailure();
     }
 

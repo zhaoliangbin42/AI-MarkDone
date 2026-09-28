@@ -167,6 +167,36 @@ afterEach(() => {
 });
 
 describe('ChatGPTAtomicSelectionController', () => {
+    it.each([false, true])('copies an entire formula from one selected glyph (canonical ports: %s)', (canonical) => {
+        const message = mountMessage('<p><span class="katex" data-latex-source="x+y"><span class="katex-html">x+y</span></span></p>');
+        const range = document.createRange();
+        range.setStart(message.querySelector('.katex-html')!.firstChild!, 0);
+        range.setEnd(message.querySelector('.katex-html')!.firstChild!, 1);
+        selectRange(range);
+        const controller = canonical ? createCanonicalSelectionController(message, { markdown: '$x+y$' }) : createController();
+        controller.setMarkdownCopyShortcut('mod-c');
+        controller.init();
+        try {
+            dispatchKeyboardCopy();
+            expect(dispatchCopy().readText()).toBe('$x+y$');
+        } finally { controller.dispose(); }
+    });
+    it('copies a partial code block through the configured shortcut without adding fences or rewriting TeX', () => {
+        const message = mountMessage('<pre><code>prefix  $x$\nsuffix</code></pre>');
+        const range = document.createRange();
+        range.setStart(message.querySelector('code')!.firstChild!, 6);
+        range.setEnd(message.querySelector('code')!.firstChild!, 12);
+        selectRange(range);
+        const controller = createCanonicalSelectionController(message, { markdown: '```\nprefix  $x$\nsuffix\n```' });
+        controller.setMarkdownCopyShortcut('mod-c');
+        controller.init();
+        setCanonicalMarkdownCopyFormulaFormat('raw');
+        try {
+            dispatchKeyboardCopy();
+            const copy = dispatchCopy();
+            expect(copy.readText()).toBe('  $x$\n');
+        } finally { controller.dispose(); }
+    });
     it('does not create a selection copy action portal', async () => {
         const message = mountMessage('<p><code>answer</code></p>');
         const range = document.createRange();

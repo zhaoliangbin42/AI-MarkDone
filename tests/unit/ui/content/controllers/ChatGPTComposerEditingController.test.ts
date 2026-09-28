@@ -964,15 +964,18 @@ describe('ChatGPTComposerEditingController behavior', () => {
             viewBox: '0 0 30 20',
             svg: '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 30 20"></svg>',
         }));
+        const runFormulaAssetAction = vi.fn(async () => ({ ok: true as const, status: 'saved' as const }));
         const controller = new ChatGPTComposerEditingController(createAdapter({ current: composer }), {
             loadFormulaSnippets,
             renderFormula,
+            runFormulaAssetAction,
         });
         controller.setInputEnhancementSettings({
             ...DEFAULT_CHATGPT_INPUT_ENHANCEMENT_SETTINGS,
             formulaSuggestions: false,
             formulaPreview: true,
         });
+        controller.setFormulaAssetFontSize(48);
         controller.init();
 
         composer.dispatchEvent(new Event('input', { bubbles: true }));
@@ -985,6 +988,13 @@ describe('ChatGPTComposerEditingController behavior', () => {
         expect(shadow?.querySelector('[data-role="formula-suggestion"]')).toBeNull();
         expect(loadFormulaSnippets).not.toHaveBeenCalled();
         expect(renderFormula).toHaveBeenCalledOnce();
+        const exportButton = shadow!.querySelector<HTMLButtonElement>('[data-action="save_formula_svg"]')!;
+        exportButton.dispatchEvent(new MouseEvent('pointerdown', { bubbles: true, composed: true, cancelable: true }));
+        exportButton.click();
+        await Promise.resolve();
+        expect(runFormulaAssetAction).toHaveBeenCalledWith(expect.objectContaining({
+            action: 'save_svg', source: { kind: 'tex', value: 'x', confidence: 'authoritative' }, fontSizePx: 48,
+        }));
 
         const escape = new KeyboardEvent('keydown', { key: 'Escape', bubbles: true, cancelable: true });
         composer.dispatchEvent(escape);
@@ -1025,7 +1035,7 @@ describe('ChatGPTComposerEditingController behavior', () => {
         controller.dispose();
     });
 
-    it('previews a closed formula after pointer dwell without moving the composer selection', async () => {
+    it('ignores pointer dwell and previews only after the caret enters the formula', async () => {
         const composer = document.createElement('div');
         composer.setAttribute('contenteditable', 'true');
         composer.innerHTML = '<p>Before $x+y$ after</p>';
@@ -1053,6 +1063,10 @@ describe('ChatGPTComposerEditingController behavior', () => {
         await Promise.resolve();
         await Promise.resolve();
 
+        expect(renderFormula).not.toHaveBeenCalled();
+        expect(setContenteditablePlainTextSelection(composer, 9)).toBe(true);
+        composer.dispatchEvent(new MouseEvent('click', { bubbles: true }));
+        await vi.advanceTimersByTimeAsync(160);
         expect(renderFormula).toHaveBeenCalledWith(expect.objectContaining({ source: 'x+y', displayMode: false }));
         expect(document.querySelector<HTMLElement>('[data-aimd-role="formula-composer-assistant"]')?.hidden).toBe(false);
         expect(window.getSelection()?.isCollapsed).toBe(true);

@@ -1,4 +1,6 @@
 import type { SiteAdapter } from '../../../drivers/content/adapters/base';
+import type { PageControlAction } from '../../../core/settings/types';
+import { textCursorIcon } from '../../../assets/workspaceIcons';
 import { createBrandIcon } from '../../../assets/icons';
 import { settingsIcon, bookmarkCheckIcon, bookmarkIcon, chevronRightIcon, messageSquareTextIcon, refreshCwIcon, splitViewIcon } from '../../../assets/workspaceIcons';
 import {
@@ -68,6 +70,9 @@ export class ChatGPTMessageStepperController {
     private pageBookmarkVisibleEnabled = true;
     private detachedReaderVisibleEnabled = true;
     private promptVisibleEnabled = true;
+    private inputEnhancementVisibleEnabled = true;
+    private inputEnhancementButton: HTMLButtonElement | null = null;
+    private pinnedActions: PageControlAction[] = [];
     private pageBookmarkState: PageBookmarkState = 'unknown';
     private pageBookmarkError: string | null = null;
     private pageBookmarkMutationPending = false;
@@ -103,6 +108,7 @@ export class ChatGPTMessageStepperController {
         private readonly options: {
             onOpenBookmarksPanel?: () => Promise<void> | void;
             onOpenDetachedReader?: () => Promise<void> | void;
+            onOpenInputEnhancement?: (anchor: HTMLElement) => void;
             onOpenPrompts?: (anchor: HTMLElement) => Promise<void> | void;
             onRefreshMessageNavigation?: () => Promise<void> | void;
             onTogglePageBookmark?: (url: string) => Promise<PageBookmarkMutationResult> | PageBookmarkMutationResult;
@@ -217,6 +223,16 @@ export class ChatGPTMessageStepperController {
         this.refreshState();
     }
 
+    setInputEnhancementControlVisible(enabled: boolean): void {
+        this.inputEnhancementVisibleEnabled = enabled;
+        this.syncAuxiliaryButtonVisibility();
+    }
+
+    setPinnedActions(actions: readonly PageControlAction[]): void {
+        this.pinnedActions = [...actions];
+        this.syncPinnedControls();
+    }
+
     setPageBookmarked(saved: boolean): void {
         this.pageBookmarkState = saved ? 'saved' : 'unsaved';
         this.pageBookmarkError = null;
@@ -231,6 +247,7 @@ export class ChatGPTMessageStepperController {
 
     private ensureHost(): void {
         if (this.host?.isConnected) {
+            this.ensureStyle();
             this.appearanceScope?.apply(this.appearance);
             return;
         }
@@ -262,6 +279,9 @@ export class ChatGPTMessageStepperController {
             if (prompts.hidden || prompts.disabled) return;
             void this.options.onOpenPrompts?.(prompts);
         }, messageSquareTextIcon);
+        const inputEnhancement = this.createButton('open-input-enhancement', this.getLabel('settingsInputEnhancementControl', 'Input enhancement'), () => {
+            this.options.onOpenInputEnhancement?.(inputEnhancement);
+        }, textCursorIcon);
         const refreshMessageNavigation = this.createButton(
             'chatgpt-refresh-message-navigation',
             this.getLabel('chatgptRefreshMessageNavigation', 'Refresh message navigation'),
@@ -275,7 +295,12 @@ export class ChatGPTMessageStepperController {
         const drawerActions = document.createElement('div');
         drawerActions.id = `${HOST_ID}-actions`;
         drawerActions.className = 'aimd-chatgpt-message-stepper__actions';
-        drawerActions.append(pageBookmark, detachedReader, prompts, refreshMessageNavigation, previous, next);
+        for (const button of [pageBookmark, detachedReader, prompts, inputEnhancement, refreshMessageNavigation, previous, next]) {
+            const slot = document.createElement('div');
+            slot.className = 'aimd-chatgpt-message-stepper__slot';
+            slot.append(button);
+            drawerActions.append(slot);
+        }
         const trigger = bookmarksPanel;
         const settingGlyph = document.createElement('span'); settingGlyph.className = 'aimd-chatgpt-message-stepper__settings'; settingGlyph.innerHTML = settingsIcon; settingGlyph.setAttribute('aria-hidden', 'true');
         trigger.append(settingGlyph);
@@ -283,15 +308,15 @@ export class ChatGPTMessageStepperController {
         trigger.setAttribute('aria-controls', drawerActions.id);
         // Put the disclosure first in keyboard order while keeping it at the right edge.
         host.append(trigger, drawerActions);
-        host.addEventListener('pointerenter', () => {
-            this.pointerInside = true; this.suppressRestoredFocus = false;
-            this.setDrawerOpen(true);
+        host.addEventListener('pointerenter', () => { this.pointerInside = true; });
+        trigger.addEventListener('pointerenter', () => {
+            this.suppressRestoredFocus = false; this.setDrawerOpen(true);
         });
         host.addEventListener('pointerleave', () => {
             this.pointerInside = false;
             if (!host.contains(document.activeElement)) this.setDrawerOpen(false);
         });
-        host.addEventListener('focusin', () => {
+        trigger.addEventListener('focusin', () => {
             if (this.suppressRestoredFocus) { this.suppressRestoredFocus = false; return; }
             this.setDrawerOpen(true);
         });
@@ -322,6 +347,7 @@ export class ChatGPTMessageStepperController {
         this.pageBookmarkButton = pageBookmark;
         this.detachedReaderButton = detachedReader;
         this.promptsButton = prompts;
+        this.inputEnhancementButton = inputEnhancement;
         this.messageNavigationButton = refreshMessageNavigation;
         this.previousButton = previous;
         this.nextButton = next;
@@ -339,6 +365,7 @@ export class ChatGPTMessageStepperController {
         const labels: ReadonlyArray<[HTMLButtonElement | null, string]> = [
             [this.drawerTrigger, this.getLabel('tabSettings', 'Settings')],
             [this.detachedReaderButton, this.getLabel('chatgptPageControlSplitView', 'Open Reader in split view')],
+            [this.inputEnhancementButton, this.getLabel('settingsInputEnhancementControl', 'Input enhancement')],
             [this.promptsButton, this.getLabel('chatgptPageControlPrompts', 'Prompts')],
             [this.messageNavigationButton, this.getLabel('chatgptRefreshMessageNavigation', 'Refresh message navigation')],
             [this.previousButton, this.getLabel('previousMessage', 'Previous message')],
@@ -350,6 +377,7 @@ export class ChatGPTMessageStepperController {
             button.dataset.tooltip = label;
         }
         this.syncPageBookmarkButton();
+        this.syncPinnedControls();
     }
 
     private createButton(action: string, label: string, onClick: () => void, icon: string | HTMLElement = chevronRightIcon): HTMLButtonElement {
@@ -425,14 +453,17 @@ export class ChatGPTMessageStepperController {
     transform calc(var(--aimd-duration-base) * 2) var(--aimd-ease-out),
     visibility var(--aimd-duration-base);
 }
-.aimd-chatgpt-message-stepper[data-expanded="1"] .aimd-chatgpt-message-stepper__actions {
-  max-width: calc(var(--_page-control-size) * 6 + var(--_page-control-gap) * 5);
+.aimd-chatgpt-message-stepper[data-expanded="1"] .aimd-chatgpt-message-stepper__actions,
+.aimd-chatgpt-message-stepper[data-has-pins="1"] .aimd-chatgpt-message-stepper__actions {
+  max-width: calc(var(--_page-control-size) * 7 + var(--_page-control-gap) * 6);
   opacity: 1;
   visibility: visible;
   transform: translateX(0);
   overflow-x: auto;
   scrollbar-width: none;
 }
+.aimd-chatgpt-message-stepper__slot { display: inline-flex; flex: none; }
+.aimd-chatgpt-message-stepper__slot[hidden] { display: none; }
 .aimd-chatgpt-message-stepper__actions::-webkit-scrollbar { display: none; }
 .aimd-chatgpt-message-stepper .aimd-chatgpt-message-stepper__trigger {
   order: 2;
@@ -507,8 +538,23 @@ export class ChatGPTMessageStepperController {
         if (!this.host || !this.drawerActions || !this.drawerTrigger) return;
         this.host.dataset.expanded = open ? '1' : '0';
         this.drawerTrigger.setAttribute('aria-expanded', String(open));
-        this.drawerActions.setAttribute('aria-hidden', String(!open));
-        this.drawerActions.toggleAttribute('inert', !open);
+        this.syncPinnedControls();
+    }
+
+    private syncPinnedControls(): void {
+        if (!this.host || !this.drawerActions) return;
+        const open = this.host.dataset.expanded === '1';
+        let visible = false;
+        for (const slot of this.drawerActions.querySelectorAll<HTMLElement>('.aimd-chatgpt-message-stepper__slot')) {
+            const button = slot.querySelector<HTMLButtonElement>('[data-action]')!;
+            const pinned = this.pinnedActions.includes(button.dataset.action as PageControlAction);
+            slot.hidden = button.hidden || (!open && !pinned);
+            visible ||= !slot.hidden;
+
+        }
+        this.host.dataset.hasPins = !open && visible ? '1' : '0';
+        this.drawerActions.setAttribute('aria-hidden', String(!visible));
+        this.drawerActions.toggleAttribute('inert', !visible);
     }
 
     private onOutsidePointerDown = (event: PointerEvent): void => {
@@ -636,11 +682,14 @@ export class ChatGPTMessageStepperController {
             if (!button) continue;
             button.hidden = !this.navigationVisibleEnabled;
         }
+        this.syncPinnedControls();
     }
 
     private syncAuxiliaryButtonVisibility(): void {
         if (this.detachedReaderButton) this.detachedReaderButton.hidden = !this.detachedReaderVisibleEnabled;
         if (this.promptsButton) this.promptsButton.hidden = !this.promptVisibleEnabled;
+        if (this.inputEnhancementButton) this.inputEnhancementButton.hidden = !this.inputEnhancementVisibleEnabled;
+        this.syncPinnedControls();
     }
 
     private syncPageBookmarkButton(): void {
@@ -665,6 +714,7 @@ export class ChatGPTMessageStepperController {
         this.pageBookmarkButton.dataset.tooltip = this.pageBookmarkError ?? label;
         const iconEl = this.pageBookmarkButton.querySelector<HTMLElement>('.aimd-chatgpt-message-stepper__icon');
         if (iconEl) iconEl.innerHTML = this.pageBookmarkState === 'saved' ? bookmarkCheckIcon : bookmarkIcon;
+        this.syncPinnedControls();
     }
 
     private refreshPageBookmarkStatusIfNeeded(): void {

@@ -10,6 +10,7 @@
  */
 
 import type { ReaderCommentExportSettings } from './readerCommentExport';
+import { normalizeSelectionToolbarActions, type SelectionToolbarActions } from './selectionToolbar';
 import type { ExportSettings } from './export';
 import { DEFAULT_EXPORT_SETTINGS } from './export';
 import { createDefaultReaderCommentExportSettings } from './readerCommentExport';
@@ -21,6 +22,8 @@ export type SettingsVersion = 5;
 export type ChatGPTDirectoryMode = 'preview' | 'expanded';
 export type ChatGPTDirectoryPromptLabelMode = 'head' | 'headTail';
 export type ChatGPTAtomicMarkdownCopyShortcut = 'none' | 'mod-c' | 'mod-shift-c';
+export const PAGE_CONTROL_ACTIONS = ['toggle-page-bookmark', 'open-detached-reader', 'open-prompts', 'open-input-enhancement', 'chatgpt-refresh-message-navigation', 'previous-message', 'next-message'] as const;
+export type PageControlAction = typeof PAGE_CONTROL_ACTIONS[number];
 export const DEFAULT_CHATGPT_DIRECTORY_RIGHT_INSET_PX = 0;
 export const MIN_CHATGPT_DIRECTORY_RIGHT_INSET_PX = 0;
 export const MAX_CHATGPT_DIRECTORY_RIGHT_INSET_PX = 40;
@@ -69,6 +72,8 @@ export type ChatGPTBehaviorSettings = {
     showPageBookmarkControl: boolean;
     showDetachedReaderControl: boolean;
     showPromptControl: boolean;
+    showInputEnhancementControl: boolean;
+    pinnedPageControls: PageControlAction[];
     promptAutocomplete: boolean;
     enableArrowKeyMessageNavigation: boolean;
     pageWidthScale: number;
@@ -115,7 +120,8 @@ export const MIN_GLOBAL_FONT_SIZE_PX = 12;
 export const MAX_GLOBAL_FONT_SIZE_PX = 20;
 export const GLOBAL_FONT_SIZE_STEP_PX = 1;
 export const THEME_ACCENT_SWATCHES = [
-    { value: '#2563eb', labelKey: 'themeAccentDefaultBlue' },
+    { value: '#3b5bdb', labelKey: 'themeAccentDefaultBlue' },
+    { value: '#2563eb', labelKey: 'themeAccentClassicBlue' },
     { value: '#059669', labelKey: 'themeAccentEmerald' },
     { value: '#7c3aed', labelKey: 'themeAccentViolet' },
     { value: '#e11d48', labelKey: 'themeAccentRose' },
@@ -140,6 +146,7 @@ export type AppSettings = {
         _contextOnlyConfirmed: boolean;
     };
     reader: {
+        selectionToolbar: SelectionToolbarActions;
         renderCodeInReader: boolean;
         showOutlineInReader: boolean;
         persistAnnotations: boolean;
@@ -179,6 +186,7 @@ export const DEFAULT_SETTINGS: AppSettings = {
         _contextOnlyConfirmed: false,
     },
     reader: {
+        selectionToolbar: normalizeSelectionToolbarActions(undefined),
         renderCodeInReader: true,
         showOutlineInReader: true,
         persistAnnotations: false,
@@ -210,6 +218,8 @@ export const DEFAULT_SETTINGS: AppSettings = {
         showPageBookmarkControl: true,
         showDetachedReaderControl: true,
         showPromptControl: true,
+        showInputEnhancementControl: true,
+        pinnedPageControls: [],
         promptAutocomplete: true,
         enableArrowKeyMessageNavigation: true,
         pageWidthScale: DEFAULT_CHATGPT_PAGE_WIDTH_SCALE,

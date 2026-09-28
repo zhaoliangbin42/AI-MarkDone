@@ -181,7 +181,8 @@ export class ChatGPTSendPositionRestoreController {
         if (!session) return;
         const targetTop = this.resolveRestoreTop(session);
         if (Math.abs(session.root.scrollTop - targetTop) <= RESTORE_TOLERANCE_PX) return;
-        session.root.scrollTop = Math.max(0, targetTop);
+        // The browser clamps both normal and column-reverse scroll ranges.
+        session.root.scrollTop = targetTop;
         session.restoreCount += 1;
         if (session.restoreCount >= MAX_RESTORE_ATTEMPTS) this.release();
     }
@@ -247,6 +248,7 @@ export class ChatGPTSendPositionRestoreController {
     }
 
     private distanceToBottom(root: HTMLElement): number {
+        if (window.getComputedStyle(root).flexDirection === 'column-reverse') return -root.scrollTop;
         return root.scrollHeight - root.scrollTop - root.clientHeight;
     }
 

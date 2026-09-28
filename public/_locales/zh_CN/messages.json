@@ -496,11 +496,11 @@
         "description": "Reader annotation source unavailable"
     },
     "readerAnnotationPersistenceLabel": {
-        "message": "持久化注释",
+        "message": "保存新建的注释",
         "description": "Reader annotation persistence setting"
     },
     "readerAnnotationPersistenceDesc": {
-        "message": "开启后，新注释会保存到本地；已保存的注释始终显示。",
+        "message": "开启后，新注释在刷新后仍可查看；关闭后，新注释仅保留在当前页面。已经保存的注释不受影响。",
         "description": "Reader annotation persistence setting description"
     },
     "readerAnnotationPersistenceTooltip": {
@@ -560,11 +560,11 @@
         "description": "Label for the assistant response section in Reader"
     },
     "readerDefaultOpenModeLabel": {
-        "message": "阅读器默认大小",
+        "message": "阅读器打开方式",
         "description": "Message for readerDefaultOpenModeLabel"
     },
     "readerDefaultOpenModeDesc": {
-        "message": "全屏或居中面板。",
+        "message": "选择全屏阅读，或在 ChatGPT 页面中以居中窗口打开。",
         "description": "Message for readerDefaultOpenModeDesc"
     },
     "readerOpenModeFullscreen": {
@@ -604,7 +604,7 @@
         "description": "Message for appearanceSettingsLabel"
     },
     "globalFontSizeLabel": {
-        "message": "全局字号",
+        "message": "扩展界面的文字大小",
         "description": "Message for globalFontSizeLabel"
     },
     "globalFontSizeDesc": {
@@ -620,7 +620,7 @@
         "description": "Message for increaseFontSize"
     },
     "themeAccentColorLabel": {
-        "message": "主题色",
+        "message": "扩展界面的主色",
         "description": "Message for themeAccentColorLabel"
     },
     "themeAccentColorDesc": {
@@ -656,19 +656,19 @@
         "description": "Message for advancedSettingsDesc"
     },
     "readerCommentPromptListLabel": {
-        "message": "Prompts",
+        "message": "管理已保存的提示词",
         "description": "Message for readerCommentPromptListLabel"
     },
     "readerCommentPromptListDesc": {
-        "message": "管理 ChatGPT 和 Reader 使用的提示词。",
+        "message": "打开 ChatGPT 和阅读器共用的提示词列表。",
         "description": "Message for readerCommentPromptListDesc"
     },
     "readerCommentPromptPositionBottomLabel": {
-        "message": "将提示词放在注释下方",
+        "message": "复制注释时把提问放在末尾",
         "description": "Message for readerCommentPromptPositionBottomLabel"
     },
     "readerCommentPromptPositionBottomDesc": {
-        "message": "开启后，复制内容会先显示注释列表，再把选中的用户提示词追加到底部。",
+        "message": "复制注释时，先列出注释，再将原来的提问放在末尾。",
         "description": "Message for readerCommentPromptPositionBottomDesc"
     },
     "readerCommentSortModeLabel": {
@@ -688,11 +688,11 @@
         "description": "Annotation sort option by text position"
     },
     "readerCommentTemplateSettingsLabel": {
-        "message": "注释复制模板",
+        "message": "设置复制注释时的排版",
         "description": "Message for readerCommentTemplateSettingsLabel"
     },
     "readerCommentTemplateSettingsDesc": {
-        "message": "配置复制注释时使用的唯一模板。",
+        "message": "决定复制时怎样排列选中文字和注释。",
         "description": "Message for readerCommentTemplateSettingsDesc"
     },
     "readerCommentTemplatePreviewLabel": {
@@ -860,11 +860,11 @@
         "description": "Accessible label for the total PNG export progress bar"
     },
     "pngExportWidthPresetLabel": {
-        "message": "PNG 图片宽度",
+        "message": "整条消息 PNG 的宽度",
         "description": "Message for pngExportWidthPresetLabel"
     },
     "pngExportWidthPresetDesc": {
-        "message": "选择 PNG 导出默认使用的卡片宽度。",
+        "message": "将整条回复导出为 PNG 时使用，不影响单个公式的图片。",
         "description": "Message for pngExportWidthPresetDesc"
     },
     "pngExportWidthValueLabel": {
@@ -892,11 +892,11 @@
         "description": "Message for pngExportWidthPresetCustom"
     },
     "pngExportPixelRatioLabel": {
-        "message": "PNG 图片倍率",
+        "message": "整条消息 PNG 的清晰度",
         "description": "Message for pngExportPixelRatioLabel"
     },
     "pngExportPixelRatioDesc": {
-        "message": "控制位图清晰度。默认 1x，最大 3x。长图导出时仍可能为了稳定性自动降级。",
+        "message": "可选 1× 至 3×；图片很长时可能自动降低实际倍率，以便顺利导出。",
         "description": "Message for pngExportPixelRatioDesc"
     },
     "saveBookmarkTitle": {
@@ -1168,27 +1168,27 @@
         "description": "Message for chatgptSettingsLabel"
     },
     "messageToolbarLabel": {
-        "message": "工具栏 > 显示消息工具栏",
+        "message": "显示回复操作按钮",
         "description": "Message for messageToolbarLabel"
     },
     "messageToolbarDesc": {
-        "message": "关闭后不再注入每条 ChatGPT 回复下方的 AI-MarkDone 工具栏",
+        "message": "关闭后，回复下方的其他插件按钮也会隐藏。",
         "description": "Message for messageToolbarDesc"
     },
     "chatgptRestorePositionAfterSendLabel": {
-        "message": "发送后恢复阅读位置",
+        "message": "发送消息后保持当前阅读位置",
         "description": "Message for chatgptRestorePositionAfterSendLabel"
     },
     "chatgptRestorePositionAfterSendDesc": {
-        "message": "阅读历史消息时，发送后会尽快回到原来的阅读位置。",
+        "message": "阅读较早的消息时，发送新消息后尽量留在当前阅读的位置。",
         "description": "Message for chatgptRestorePositionAfterSendDesc"
     },
     "chatgptAtomicMarkdownCopyLabel": {
-        "message": "选区 Markdown 复制快捷键",
+        "message": "将选中文字复制为 Markdown 的快捷键",
         "description": "Message for chatgptAtomicMarkdownCopyLabel"
     },
     "chatgptAtomicMarkdownCopyDesc": {
-        "message": "选中 ChatGPT 中完整的公式、代码块、表格或图片等内容单元时，使用 Ctrl/Cmd+C 或 Ctrl/Cmd+Shift+C 将其复制为规范 Markdown；其他复制操作保持官网行为。",
+        "message": "选择在 ChatGPT 回复中使用的快捷键。代码片段按选中内容复制；选中公式的一部分会复制整个公式。",
         "description": "Message for chatgptAtomicMarkdownCopyDesc"
     },
     "chatgptAtomicMarkdownCopyNone": {
@@ -1204,11 +1204,11 @@
         "description": "使用带 Shift 的主 C 快捷键复制 ChatGPT 选区 Markdown 的选项"
     },
     "chatgptInputEnhancementLabel": {
-        "message": "输入增强",
+        "message": "在 ChatGPT 输入框中使用输入增强",
         "description": "控制 ChatGPT 输入增强入口的设置标签"
     },
     "chatgptInputEnhancementDesc": {
-        "message": "在 ChatGPT 中显示输入增强按钮。开启后，输入框支持轻量 Markdown 语法与公式渲染。",
+        "message": "启用 Enter 换行、加粗、列表和公式辅助；下方可分别调整。",
         "description": "ChatGPT 输入增强入口设置说明"
     },
     "chatgptInputEnhancementButton": {
@@ -1252,7 +1252,7 @@
         "description": "Enter 换行能力说明"
     },
     "chatgptInputEnhancementListsLabel": {
-        "message": "列表增强",
+        "message": "输入时自动续写列表",
         "description": "列表增强总开关标签"
     },
     "chatgptInputEnhancementListsDesc": {
@@ -1260,11 +1260,11 @@
         "description": "列表增强说明"
     },
     "chatgptInputEnhancementOrderedListLabel": {
-        "message": "有序列表",
+        "message": "自动续写编号列表",
         "description": "有序列表能力标签"
     },
     "chatgptInputEnhancementUnorderedListLabel": {
-        "message": "无序列表",
+        "message": "自动续写项目符号列表",
         "description": "无序列表能力标签"
     },
     "chatgptInputEnhancementBoldLabel": {
@@ -1276,7 +1276,7 @@
         "description": "粗体快捷键说明"
     },
     "chatgptInputEnhancementFormulaSuggestionsLabel": {
-        "message": "公式联想",
+        "message": "输入公式时提示命令",
         "description": "公式联想标签"
     },
     "chatgptInputEnhancementFormulaSuggestionsDesc": {
@@ -1284,7 +1284,7 @@
         "description": "公式联想说明"
     },
     "chatgptInputEnhancementFormulaPreviewLabel": {
-        "message": "公式预览",
+        "message": "预览光标所在的公式",
         "description": "公式预览开关标签"
     },
     "chatgptInputEnhancementFormulaPreviewDesc": {
@@ -1400,15 +1400,15 @@
         "description": "Formula preview error state"
     },
     "chatgptPromptAutocompleteLabel": {
-        "message": "Prompt 联想",
+        "message": "输入时提示已保存的提示词",
         "description": "Message for chatgptPromptAutocompleteLabel"
     },
     "chatgptPromptAutocompleteDesc": {
-        "message": "在 ChatGPT 输入框或阅读器发送框输入 \\ 时显示 Prompt 候选。关闭后仍可手动打开 Prompts 面板。",
+        "message": "在 ChatGPT 或阅读器输入框键入 \\ 时显示匹配的提示词；关闭后仍可手动打开提示词列表。",
         "description": "Message for chatgptPromptAutocompleteDesc"
     },
     "chatgptShowMessageStepperLabel": {
-        "message": "显示右下角消息切换按钮",
+        "message": "显示“上一条／下一条”按钮",
         "description": "Message for chatgptShowMessageStepperLabel"
     },
     "chatgptShowMessageStepperDesc": {
@@ -1416,39 +1416,39 @@
         "description": "Message for chatgptShowMessageStepperDesc"
     },
     "chatgptShowPageBookmarkControlLabel": {
-        "message": "页面收藏按钮",
+        "message": "显示“收藏对话”按钮",
         "description": "Message for chatgptShowPageBookmarkControlLabel"
     },
     "chatgptShowPageBookmarkControlDesc": {
-        "message": "在 ChatGPT 页面右下角显示当前页面收藏按钮。",
+        "message": "一键收藏当前 ChatGPT 对话。",
         "description": "Message for chatgptShowPageBookmarkControlDesc"
     },
     "chatgptShowDetachedReaderControlLabel": {
-        "message": "独立阅读器 Split View",
+        "message": "显示“分屏阅读”按钮",
         "description": "Message for chatgptShowDetachedReaderControlLabel"
     },
     "chatgptShowDetachedReaderControlDesc": {
-        "message": "在 ChatGPT 右下角控制区显示 Split View 按钮。",
+        "message": "在独立的阅读器窗口打开当前对话。",
         "description": "Message for chatgptShowDetachedReaderControlDesc"
     },
     "chatgptShowPromptControlLabel": {
-        "message": "Prompts 按钮",
+        "message": "显示“提示词”按钮",
         "description": "Message for chatgptShowPromptControlLabel"
     },
     "chatgptShowPromptControlDesc": {
-        "message": "在 ChatGPT 右下角控制区显示 Prompts 按钮。",
+        "message": "打开已保存的提示词。",
         "description": "Message for chatgptShowPromptControlDesc"
     },
     "chatgptArrowKeyMessageNavigationLabel": {
-        "message": "使用左右方向键切换消息",
+        "message": "用左右方向键切换消息",
         "description": "Message for chatgptArrowKeyMessageNavigationLabel"
     },
     "chatgptArrowKeyMessageNavigationDesc": {
-        "message": "不在输入时，左/右方向键会跳到上一条或下一条消息；在 ChatGPT 输入框里，它们仍然只移动光标。",
+        "message": "不在输入时，左／右方向键在消息间跳转；输入框内仍只移动文字光标。",
         "description": "Message for chatgptArrowKeyMessageNavigationDesc"
     },
     "chatgptPageWidthScaleLabel": {
-        "message": "对话宽度",
+        "message": "对话正文和输入框的宽度",
         "description": "Message for chatgptPageWidthScaleLabel"
     },
     "chatgptPageWidthScaleDesc": {
@@ -1464,15 +1464,15 @@
         "description": "Message for chatgptRefreshMessageNavigation"
     },
     "chatgptNavigationSeekStepLabel": {
-        "message": "目录跳转速度",
+        "message": "查找未加载消息时的滚动步长",
         "description": "Message for chatgptNavigationSeekStepLabel"
     },
     "chatgptNavigationSeekStepDesc": {
-        "message": "插件的目录条是通过模拟页面滚动的方式去帮助你跳转到指定消息的。步长越大，则页面滚动速度越快，跳转到目标位置所需时间越短。",
+        "message": "查找尚未显示的消息时，每次尝试移动的距离；通常保持默认即可。",
         "description": "Message for chatgptNavigationSeekStepDesc"
     },
     "chatgptDirectoryEnabledLabel": {
-        "message": "显示目录条",
+        "message": "在右侧显示消息目录",
         "description": "Message for chatgptDirectoryEnabledLabel"
     },
     "chatgptDirectoryRetiredNotice": {
@@ -1480,47 +1480,47 @@
         "description": "Message for chatgptDirectoryRetiredNotice"
     },
     "chatgptDirectoryEnabledDesc": {
-        "message": "在右侧显示对话目录，并隐藏官网导航。",
+        "message": "在对话右侧查看消息列表，并点击跳转。",
         "description": "Message for chatgptDirectoryEnabledDesc"
     },
     "chatgptDirectoryModeLabel": {
-        "message": "目录条显示方式",
+        "message": "右侧消息目录如何展开",
         "description": "Message for chatgptDirectoryModeLabel"
     },
     "chatgptDirectoryModeDesc": {
-        "message": "预览摘要或展开目录。",
+        "message": "可始终保持细条，也可在鼠标移入时展开消息标题。",
         "description": "Message for chatgptDirectoryModeDesc"
     },
     "chatgptDirectoryModePreview": {
-        "message": "预览",
+        "message": "保持细条",
         "description": "Message for chatgptDirectoryModePreview"
     },
     "chatgptDirectoryModeExpanded": {
-        "message": "展开",
+        "message": "悬停时展开标题",
         "description": "Message for chatgptDirectoryModeExpanded"
     },
     "chatgptDirectoryPromptLabelModeLabel": {
-        "message": "更长的提示词标题",
+        "message": "长消息标题同时显示开头和结尾",
         "description": "Message for chatgptDirectoryPromptLabelModeLabel"
     },
     "chatgptDirectoryPromptLabelModeDesc": {
-        "message": "展开目录时显示长提示词的开头和结尾。",
+        "message": "目录展开后，长标题会同时保留开头和结尾。",
         "description": "Message for chatgptDirectoryPromptLabelModeDesc"
     },
     "chatgptDirectoryRightInsetLabel": {
-        "message": "目录条右侧边距",
+        "message": "目录距右侧的距离",
         "description": "Message for chatgptDirectoryRightInsetLabel"
     },
     "chatgptDirectoryRightInsetDesc": {
-        "message": "如果浏览器滚动条覆盖右侧目录条，可增加这个边距。",
+        "message": "如果目录挡住页面滚动条，可适当调大。",
         "description": "Message for chatgptDirectoryRightInsetDesc"
     },
     "chatgptDirectoryPreviewMaxCharsLabel": {
-        "message": "目录预览最大字数",
+        "message": "消息预览显示的字数",
         "description": "Message for chatgptDirectoryPreviewMaxCharsLabel"
     },
     "chatgptDirectoryPreviewMaxCharsDesc": {
-        "message": "悬停预览的字符上限。",
+        "message": "鼠标移到右侧目录中的消息时，限制预览的文字长度。",
         "description": "Message for chatgptDirectoryPreviewMaxCharsDesc"
     },
     "reader": {
@@ -1780,11 +1780,11 @@
         "description": "Message for settingsLanguageDesc"
     },
     "settingsDiscoveryDiagnosticsLabel": {
-        "message": "内容发现状态",
+        "message": "对话内容读取状态",
         "description": "Message for settingsDiscoveryDiagnosticsLabel"
     },
     "settingsDiscoveryDiagnosticsDesc": {
-        "message": "当前生效的发现路径与待处理工作",
+        "message": "当消息目录、阅读器或导出缺少内容时，在这里查看排查信息。",
         "description": "Message for settingsDiscoveryDiagnosticsDesc"
     },
     "settingsDiscoveryDiagnosticsCopy": {
@@ -1816,19 +1816,19 @@
         "description": "Message for enableOnChatGPT"
     },
     "saveMessagesLabel": {
-        "message": "工具栏 > 消息导出",
+        "message": "显示“保存消息”按钮",
         "description": "Message for saveMessagesLabel"
     },
     "saveMessagesDesc": {
-        "message": "在工具栏中显示\"另存为\"按钮",
+        "message": "可选择多条回复并保存或导出。",
         "description": "Message for saveMessagesDesc"
     },
     "wordCountLabel": {
-        "message": "字符统计",
+        "message": "在回复旁显示字数",
         "description": "Settings order or statistics label."
     },
     "wordCountDesc": {
-        "message": "显示回复的字符统计。",
+        "message": "显示每条回复的字符数。",
         "description": "Message for wordCountDesc"
     },
     "clickToCopyLabel": {
@@ -1844,27 +1844,27 @@
         "description": "Message for formulaSettingsLabel"
     },
     "formulaClickCopyMarkdownLabel": {
-        "message": "公式点击复制为 Markdown",
+        "message": "点击公式即可复制源码",
         "description": "Message for formulaClickCopyMarkdownLabel"
     },
     "formulaClickCopyMarkdownDesc": {
-        "message": "点击公式时复制原始 LaTeX / Markdown 源码。",
+        "message": "点击回复中的公式时，复制可编辑的 LaTeX 或 Markdown 文本。",
         "description": "Message for formulaClickCopyMarkdownDesc"
     },
     "formulaClickCopyFormulaFormatLabel": {
-        "message": "点击公式复制格式",
+        "message": "单击一个公式时的复制格式",
         "description": "Message for formulaClickCopyFormulaFormatLabel"
     },
     "formulaClickCopyFormulaFormatDesc": {
-        "message": "设置点击单个公式时复制出来的包围格式。",
+        "message": "只影响直接点击回复中某个公式后的复制结果。",
         "description": "Message for formulaClickCopyFormulaFormatDesc"
     },
     "formulaMarkdownCopyFormulaFormatLabel": {
-        "message": "Markdown 复制公式格式",
+        "message": "复制 Markdown 时的公式格式",
         "description": "Message for formulaMarkdownCopyFormulaFormatLabel"
     },
     "formulaMarkdownCopyFormulaFormatDesc": {
-        "message": "设置复制或保存整段 Markdown 源码时的公式包围格式。",
+        "message": "影响阅读器、选中文字、书签和 Markdown 导出的公式写法；不改变页面显示。",
         "description": "Message for formulaMarkdownCopyFormulaFormatDesc"
     },
     "formulaSourceFormatMarkdownDollar": {
@@ -1896,11 +1896,11 @@
         "description": "Message for formulaAssetActionsDesc"
     },
     "formulaAssetFontSizeLabel": {
-        "message": "公式导出字号",
+        "message": "单个公式图片的字号",
         "description": "Message for formulaAssetFontSizeLabel"
     },
     "formulaAssetFontSizeDesc": {
-        "message": "设置单个公式复制或保存为 PNG / SVG 时使用的固定字号。",
+        "message": "复制或保存单个公式 PNG／SVG 时使用；不改变回复正文或整条消息图片。",
         "description": "Message for formulaAssetFontSizeDesc"
     },
     "formulaAssetActionsPopupTitle": {
@@ -1920,27 +1920,27 @@
         "description": "Message for formulaAssetActionsSummaryCount"
     },
     "contextOnlySaveLabel": {
-        "message": "书签 > 仅保存部分文本",
+        "message": "书签只保存内容开头",
         "description": "Message for contextOnlySaveLabel"
     },
     "contextOnlySaveDesc": {
-        "message": "书签只保存前 500 个字符；完整内容可在原页查看。",
+        "message": "开启后，每条书签只保存前 500 个字符；完整内容仍可在原对话查看。",
         "description": "Message for contextOnlySaveDesc"
     },
     "renderCodeBlocksLabel": {
-        "message": "Reader 代码块",
+        "message": "在阅读器中显示代码块",
         "description": "Message for renderCodeBlocksLabel"
     },
     "renderCodeBlocksDesc": {
-        "message": "关闭后仅显示代码占位符。",
+        "message": "关闭后，阅读器会用占位提示代替代码块。",
         "description": "Message for renderCodeBlocksDesc"
     },
     "readerOutlineToggleLabel": {
-        "message": "Reader 标题大纲",
+        "message": "在阅读器中显示标题目录",
         "description": "Message for readerOutlineToggleLabel"
     },
     "readerOutlineToggleDesc": {
-        "message": "在右侧列出正文标题。",
+        "message": "在阅读器右侧列出回复中的标题。",
         "description": "Message for readerOutlineToggleDesc"
     },
     "supportDevDesc": {
@@ -3384,19 +3384,19 @@
         "description": "Label for the selected source excerpt in the comment popover"
     },
     "chatgptPageAnnotationsLabel": {
-        "message": "页面注释",
+        "message": "在 ChatGPT 回复中显示注释",
         "description": "Toggle for the ChatGPT page annotation feature"
     },
     "chatgptPageAnnotationsDesc": {
-        "message": "在页面上直接为选中的回复添加注释。",
+        "message": "显示已保存的注释标记，并允许在页面上新建注释；关闭不会删除已有注释。",
         "description": "Description for the ChatGPT page annotation toggle"
     },
     "chatgptShowPageSelectionToolbarLabel": {
-        "message": "显示选区操作按钮",
+        "message": "在 ChatGPT 页面显示这排按钮",
         "description": "Toggle for the ChatGPT page selection action toolbar"
     },
     "chatgptShowPageSelectionToolbarDesc": {
-        "message": "选中回复文字后显示“复制 Markdown”和“添加注释”按钮。如果与其他翻译或选区工具冲突，可以关闭。",
+        "message": "关闭后只隐藏 ChatGPT 页面的这排按钮，不影响阅读器或键盘复制。",
         "description": "Description for the ChatGPT page selection action toolbar toggle"
     },
     "pageControls": {
@@ -3608,15 +3608,15 @@
         "description": "Settings center label."
     },
     "settingsCategoryReading": {
-        "message": "阅读与导航",
+        "message": "阅读与消息",
         "description": "Settings center label."
     },
     "settingsCategoryInput": {
-        "message": "输入与 Prompt",
+        "message": "输入与提示词",
         "description": "Settings center label."
     },
     "settingsCategoryMarks": {
-        "message": "标记与注释",
+        "message": "高亮与注释",
         "description": "Settings center label."
     },
     "settingsCategoryExport": {
@@ -3632,7 +3632,7 @@
         "description": "Settings center label."
     },
     "settingsCategoryAdvanced": {
-        "message": "高级与诊断",
+        "message": "高级设置",
         "description": "Settings center label."
     },
     "settingsSearch": {
@@ -3660,31 +3660,31 @@
         "description": "Settings center label."
     },
     "settingsHideOfficialNavigation": {
-        "message": "隐藏 ChatGPT 官方导航",
+        "message": "显示插件目录时隐藏 ChatGPT 自带导航",
         "description": "Settings center label."
     },
     "settingsReaderBodyFont": {
-        "message": "Reader 正文字号",
+        "message": "阅读器正文字号",
         "description": "Settings center label."
     },
     "settingsReaderBodyWidth": {
-        "message": "Reader 正文宽度",
+        "message": "阅读器正文最大宽度",
         "description": "Settings center label."
     },
     "settingsCommentSort": {
-        "message": "注释输出顺序",
+        "message": "复制注释时的排序方式",
         "description": "Settings center label."
     },
     "settingsSortCreated": {
-        "message": "创建时间",
+        "message": "按创建时间",
         "description": "Settings center label."
     },
     "settingsSortPosition": {
-        "message": "消息位置",
+        "message": "按消息顺序",
         "description": "Settings center label."
     },
     "settingsDefaultBookmarkSort": {
-        "message": "默认书签排序",
+        "message": "资料库中的默认排序",
         "description": "Settings center label."
     },
     "settingsResetReaderNotice": {
@@ -3874,5 +3874,171 @@
     "libraryNextConversations": {
         "message": "下一页对话",
         "description": "Library folder and conversation management"
+    },
+    "settingsSelectionCopy": {
+        "message": "显示“复制 Markdown”按钮",
+        "description": "Settings and interaction label: settingsSelectionCopy"
+    },
+    "settingsSelectionAnnotation": {
+        "message": "显示“添加注释”按钮",
+        "description": "Settings and interaction label: settingsSelectionAnnotation"
+    },
+    "settingsSelectionHighlight": {
+        "message": "显示三种高亮颜色",
+        "description": "Settings and interaction label: settingsSelectionHighlight"
+    },
+    "settingsSelectionSharedDesc": {
+        "message": "用于页面和 Reader。",
+        "description": "Settings and interaction label: settingsSelectionSharedDesc"
+    },
+    "settingsInputEnhancementControl": {
+        "message": "输入增强",
+        "description": "Settings and interaction label: settingsInputEnhancementControl"
+    },
+    "settingsSaveFailed": {
+        "message": "设置未能保存，请重试。",
+        "description": "Settings and interaction label: settingsSaveFailed"
+    },
+    "settingsGroupInterface": {
+        "message": "界面",
+        "description": "Settings and interaction label: settingsGroupInterface"
+    },
+    "settingsGroupPage": {
+        "message": "ChatGPT 页面",
+        "description": "Settings and interaction label: settingsGroupPage"
+    },
+    "settingsGroupDirectory": {
+        "message": "查找与跳转消息",
+        "description": "Settings and interaction label: settingsGroupDirectory"
+    },
+    "settingsGroupReader": {
+        "message": "阅读器显示",
+        "description": "Settings and interaction label: settingsGroupReader"
+    },
+    "settingsGroupPosition": {
+        "message": "发送消息之后",
+        "description": "Settings and interaction label: settingsGroupPosition"
+    },
+    "settingsGroupEditing": {
+        "message": "在 ChatGPT 中输入",
+        "description": "Settings and interaction label: settingsGroupEditing"
+    },
+    "settingsGroupFormulaAssistant": {
+        "message": "输入公式",
+        "description": "Settings and interaction label: settingsGroupFormulaAssistant"
+    },
+    "settingsGroupPrompts": {
+        "message": "已保存的提示词",
+        "description": "Settings and interaction label: settingsGroupPrompts"
+    },
+    "settingsGroupMarks": {
+        "message": "页面上的注释",
+        "description": "Settings and interaction label: settingsGroupMarks"
+    },
+    "settingsGroupAnnotationOutput": {
+        "message": "复制注释",
+        "description": "Settings and interaction label: settingsGroupAnnotationOutput"
+    },
+    "settingsGroupMarkdown": {
+        "message": "复制公式源码",
+        "description": "Settings and interaction label: settingsGroupMarkdown"
+    },
+    "settingsGroupFormulaButtons": {
+        "message": "回复中公式上方的按钮",
+        "description": "Settings and interaction label: settingsGroupFormulaButtons"
+    },
+    "settingsGroupFormulaImages": {
+        "message": "单个公式图片",
+        "description": "Settings and interaction label: settingsGroupFormulaImages"
+    },
+    "settingsGroupMessageImages": {
+        "message": "整条消息的 PNG 图片",
+        "description": "Settings and interaction label: settingsGroupMessageImages"
+    },
+    "settingsGroupMessageButtons": {
+        "message": "每条回复下方的按钮",
+        "description": "Settings and interaction label: settingsGroupMessageButtons"
+    },
+    "settingsGroupSelection": {
+        "message": "选中文字后出现的按钮",
+        "description": "Settings and interaction label: settingsGroupSelection"
+    },
+    "settingsGroupDrawer": {
+        "message": "页面右下角的按钮",
+        "description": "Settings and interaction label: settingsGroupDrawer"
+    },
+    "settingsGroupKeyboard": {
+        "message": "键盘快捷键",
+        "description": "Settings and interaction label: settingsGroupKeyboard"
+    },
+    "settingsGroupData": {
+        "message": "资料库与备份",
+        "description": "Settings and interaction label: settingsGroupData"
+    },
+    "settingsGroupAdvanced": {
+        "message": "其他设置与排查",
+        "description": "Settings and interaction label: settingsGroupAdvanced"
+    },
+    "themeAccentClassicBlue": {
+        "message": "经典蓝",
+        "description": "Settings and interaction label: themeAccentClassicBlue"
+    },
+    "settingsPinnedActions": {"message": "收起后仍显示的按钮", "description": "Pinned page action configuration"},
+    "settingsPinnedActionsDesc": {"message": "选择右下角按钮列收起后仍留在页面上的操作。", "description": "Pinned page action configuration"},
+    "settingsGroupFormulaButtonsHint": {
+        "message": "选择鼠标移到回复中的公式上时显示哪些按钮；输入框公式预览中的导出不受这些开关影响。",
+        "description": "Settings copy for settingsGroupFormulaButtonsHint"
+    },
+    "settingsGroupSelectionHint": {
+        "message": "下面三项同时用于 ChatGPT 页面和阅读器。",
+        "description": "Settings copy for settingsGroupSelectionHint"
+    },
+    "settingsGroupDrawerHint": {
+        "message": "选择页面右下角显示哪些按钮。常用操作可在下方设为收起后仍显示。",
+        "description": "Settings copy for settingsGroupDrawerHint"
+    },
+    "settingsShowInputEnhancementButton": {
+        "message": "显示“输入增强”按钮",
+        "description": "Settings copy for settingsShowInputEnhancementButton"
+    },
+    "settingsShowInputEnhancementButtonDesc": {
+        "message": "这里只控制入口是否显示；输入增强本身请在“输入与提示词”中开启或关闭。",
+        "description": "Settings copy for settingsShowInputEnhancementButtonDesc"
+    },
+    "settingsFormulaButtonCopyPng": {
+        "message": "显示“复制 PNG”按钮",
+        "description": "Settings copy for settingsFormulaButtonCopyPng"
+    },
+    "settingsFormulaButtonCopySvg": {
+        "message": "显示“复制 SVG”按钮",
+        "description": "Settings copy for settingsFormulaButtonCopySvg"
+    },
+    "settingsFormulaButtonCopyMathml": {
+        "message": "显示“复制 MathML”按钮",
+        "description": "Settings copy for settingsFormulaButtonCopyMathml"
+    },
+    "settingsFormulaButtonSavePng": {
+        "message": "显示“保存 PNG”按钮",
+        "description": "Settings copy for settingsFormulaButtonSavePng"
+    },
+    "settingsFormulaButtonSaveSvg": {
+        "message": "显示“保存 SVG”按钮",
+        "description": "Settings copy for settingsFormulaButtonSaveSvg"
+    },
+    "settingsHideOfficialNavigationDesc": {
+        "message": "避免同时出现 ChatGPT 自带导航和插件消息目录。",
+        "description": "Settings copy for settingsHideOfficialNavigationDesc"
+    },
+    "settingsReaderBodyWidthDesc": {
+        "message": "限制阅读器正文的行宽，不改变阅读器窗口大小。",
+        "description": "Settings copy for settingsReaderBodyWidthDesc"
+    },
+    "settingsInputFormulaSuggestionsDesc": {
+        "message": "在输入框公式内键入 \\ 时，显示可以直接插入的 LaTeX 命令。",
+        "description": "Settings copy for settingsInputFormulaSuggestionsDesc"
+    },
+    "settingsInputFormulaPreviewDesc": {
+        "message": "文字光标进入公式时显示预览；仅把鼠标移上去不会弹出。",
+        "description": "Settings copy for settingsInputFormulaPreviewDesc"
     }
 }

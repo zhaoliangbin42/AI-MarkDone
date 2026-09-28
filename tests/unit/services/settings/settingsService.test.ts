@@ -12,6 +12,15 @@ import { loadAndNormalize, planGetCategory, planReset, planSetCategory } from '@
 import type { CommentTemplateSegment } from '@/services/reader/commentExport';
 
 describe('settingsService', () => {
+    it('preserves shared selection siblings and accepts only known unique pin actions', () => {
+        const old = loadAndNormalize({ version: 5, reader: { persistAnnotations: true } });
+        expect(old.reader.selectionToolbar).toEqual({ copy: true, annotation: true, highlight: true });
+        const first = planSetCategory(old, 'reader', { selectionToolbar: { copy: false } }).next;
+        const next = planSetCategory(first, 'reader', { selectionToolbar: { highlight: false } }).next;
+        expect(next.reader.selectionToolbar).toEqual({ copy: false, annotation: true, highlight: false });
+        expect(next.reader.persistAnnotations).toBe(true);
+        expect(planSetCategory(next, 'chatgptBehavior', { pinnedPageControls: ['open-prompts', 'unknown', 'open-prompts'] }).next.chatgptBehavior.pinnedPageControls).toEqual(['open-prompts']);
+    });
     it('uses v4 defaults with formula asset hover actions disabled', () => {
         const next = loadAndNormalize(null);
 
@@ -209,6 +218,8 @@ describe('settingsService', () => {
             showPageBookmarkControl: false,
             showDetachedReaderControl: false,
             showPromptControl: false,
+            showInputEnhancementControl: true,
+            pinnedPageControls: [],
             promptAutocomplete: false,
             enableArrowKeyMessageNavigation: false,
             pageWidthScale: 147,
@@ -223,6 +234,8 @@ describe('settingsService', () => {
             showPageBookmarkControl: false,
             showDetachedReaderControl: false,
             showPromptControl: false,
+            showInputEnhancementControl: true,
+            pinnedPageControls: [],
             promptAutocomplete: false,
             enableArrowKeyMessageNavigation: false,
             pageWidthScale: 145,
@@ -259,6 +272,8 @@ describe('settingsService', () => {
             showPageBookmarkControl: true,
             showDetachedReaderControl: true,
             showPromptControl: true,
+            showInputEnhancementControl: true,
+            pinnedPageControls: [],
             promptAutocomplete: true,
             enableArrowKeyMessageNavigation: true,
             pageWidthScale: 100,

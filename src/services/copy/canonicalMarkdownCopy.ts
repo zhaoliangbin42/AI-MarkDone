@@ -12,13 +12,13 @@ export function setCanonicalMarkdownCopyFormulaFormat(format: FormulaSourceForma
     markdownCopyFormulaFormat = normalizeFormulaSourceFormat(format);
 }
 
-export function formatCanonicalMarkdownForCopy(markdown: string): string {
+export function formatCanonicalMarkdownForCopy(markdown: string, literal = false): string {
     // Canonical Markdown already uses dollar-delimited math. Avoid reparsing the
     // synchronous default copy path unless the user requested another wrapper.
-    if (markdownCopyFormulaFormat === DEFAULT_FORMULA_SOURCE_FORMAT) return markdown;
+    if (literal || markdownCopyFormulaFormat === DEFAULT_FORMULA_SOURCE_FORMAT) return markdown;
     return rewriteMarkdownFormulaSources(markdown, markdownCopyFormulaFormat);
 }
 
-export function copyCanonicalMarkdownToClipboard(markdown: string): Promise<boolean> {
-    return copyTextToClipboard(formatCanonicalMarkdownForCopy(markdown));
+export function copyCanonicalMarkdownToClipboard(markdown: string, literal = false): Promise<boolean> {
+    return copyTextToClipboard(formatCanonicalMarkdownForCopy(markdown, literal));
 }

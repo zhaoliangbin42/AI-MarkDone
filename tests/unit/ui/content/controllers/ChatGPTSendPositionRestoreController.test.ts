@@ -148,6 +148,39 @@ describe('ChatGPTSendPositionRestoreController', () => {
         expect(FakeMutationObserver.instances).toHaveLength(0);
     });
 
+    it('restores negative scroll positions after the real send-button event sequence in a reversed layout', async () => {
+        const root = appendConversation();
+        root.style.display = 'flex';
+        root.style.flexDirection = 'column-reverse';
+        root.scrollTop = -900;
+        const button = document.createElement('button');
+        button.setAttribute('aria-label', '发送');
+        document.body.appendChild(button);
+        const controller = createController();
+        controller.init();
+        controller.setEnabled(true);
+
+        button.dispatchEvent(new Event('pointerdown', { bubbles: true }));
+        button.click();
+        root.scrollTop = 0;
+        root.dispatchEvent(new Event('scroll'));
+        await vi.advanceTimersByTimeAsync(20);
+
+        expect(root.scrollTop).toBe(-900);
+    });
+
+    it.each([0, -100])('does not capture a reversed container near its bottom (%s)', (top) => {
+        const root = appendConversation();
+        root.style.display = 'flex';
+        root.style.flexDirection = 'column-reverse';
+        root.scrollTop = top;
+        const controller = createController();
+        controller.init();
+        controller.setEnabled(true);
+        armChatGPTSendPositionRestore();
+        expect(FakeMutationObserver.instances).toHaveLength(0);
+    });
+
     it('uses anchor delta when the saved anchor is still connected', async () => {
         const root = appendConversation();
         const anchor = root.querySelector<HTMLElement>('[data-message]')!;

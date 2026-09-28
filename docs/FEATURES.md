@@ -7,6 +7,7 @@
 ## 产品范围决策（2026-09-11，已确认）
 
 - 产品后续所有功能仅面向 **ChatGPT**，包括官网页面、页面内 Reader 和 detached Reader。不再为 Gemini、Claude、DeepSeek 或任意网页设计、扩展设置或安排新功能验收。
+
 - ChatGPT 的现有 verified conversation identity 与 exact-host 规则继续有效。平台范围收敛不改变 Chrome MV3 / Firefox MV2 的浏览器支持与构建门禁。
 - 下面能力矩阵中其他平台的记录描述遗留实现，不构成后续产品支持与功能对齐要求。现存 adapter、manifest 权限、旧设置及旧数据尚未在本轮删除；其清理应单独实施，不得静默丢弃历史资料。
 - 本轮升级：资料库统一管理书签、注释与三色高亮；设置分为八个可搜索分类。圆角浅色界面支持深色与跟随页面，高亮入口固定为选区弹窗中的色块。
@@ -24,6 +25,17 @@
 - **UI**：Surface 渲染与交互，默认使用 Shadow DOM；catalog 中明确登记的 light-DOM host 与 extension page 是受控例外（不得直写存储；不得包含平台差异选择器）
 
 ---
+
+### 2026-09-27 selection and interaction corrections
+
+- `reader.selectionToolbar` stores default-on `copy`, `annotation`, and `highlight` visibility, shared by ChatGPT page, in-page Reader and detached Reader. Existing `showPageSelectionToolbar` remains a page-only master; hiding actions does not delete records or disable keyboard copy.
+- `chatgptBehavior.pinnedPageControls` stores known unique page-action IDs, default `[]`; setting-hidden actions keep their pin preference. Pin configuration lives in Settings → Buttons & shortcuts → Lower-right drawer, with explicit Save/Cancel; ordinary drawer actions have no small pin hit targets. `showInputEnhancementControl` defaults to true and controls the new drawer entry independently from whether enhancement is running. The popover and Settings edit the same `inputEnhancement` snapshot, preserving the availability/enabled gate and child preferences.
+- Settings retain the eight categories and every existing control, with named subgroups for function switches, visible buttons, and output parameters. The default accent changes to sapphire blue while existing explicit accent values remain valid. These additions keep schema version 5 and merge new fields with defaults.
+
+- ChatGPT page selection copy treats a selection entirely inside one code block as literal text when the block is incomplete. Preserve whitespace and formula-like source without fences or formula-format rewriting; complete code blocks retain Markdown fences. Both the shortcut and floating Copy action use the same snapshot. Other incomplete cross-block structures retain strict validation.
+- Selecting part of a rendered formula copies its complete authoritative formula source. A one-glyph TextQuote must not take precedence over formula closure. The mounted formula still needs an adapter-proven source; visual glyphs are never used as TeX.
+- Composer formula previews follow caret click, keyboard movement and input events; mouse movement no longer opens them. Formula suggestions and IME guards remain unchanged. A ready preview always offers supported PNG/SVG/MathML copy and PNG/SVG save actions through the existing asset renderer; these buttons are independent of the five rendered-formula hover preferences. Export uses authoritative TeX and the shared formula font-size setting, not a screenshot.
+- Directory rail expansion and preview share a 400ms close delay and remain open while either surface owns pointer or keyboard focus. Sending position restore accepts negative positions in reverse-flex scroll containers.
 
 ## A) Product Decisions（产品决策）
 

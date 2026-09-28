@@ -30,12 +30,12 @@ export function getReferenceTokenCss(theme: Theme): string {
   --aimd-ref-color-neutral-alpha-22: ${isDark ? 'rgba(255,255,255,0.22)' : 'rgba(0,0,0,0.22)'};
   --aimd-ref-color-black-alpha-06: rgba(0,0,0,0.06);
   --aimd-ref-color-white-alpha-16: rgba(255,255,255,0.16);
-  --aimd-ref-color-brand-600: #2563eb;
-  --aimd-ref-color-brand-700: #1d4ed8;
+  --aimd-ref-color-brand-600: #3b5bdb;
+  --aimd-ref-color-brand-700: #304bc0;
   --aimd-ref-color-neutral-white: #ffffff;
-  --aimd-ref-color-brand-alpha-12: ${isDark ? 'rgba(37, 99, 235, 0.18)' : 'rgba(37, 99, 235, 0.12)'};
-  --aimd-ref-color-brand-alpha-28: ${isDark ? 'rgba(37, 99, 235, 0.36)' : 'rgba(37, 99, 235, 0.28)'};
-  --aimd-ref-color-brand-alpha-35: rgba(37,99,235,0.35);
+  --aimd-ref-color-brand-alpha-12: ${isDark ? 'rgba(59, 91, 219, 0.18)' : 'rgba(59, 91, 219, 0.12)'};
+  --aimd-ref-color-brand-alpha-28: ${isDark ? 'rgba(59, 91, 219, 0.36)' : 'rgba(59, 91, 219, 0.28)'};
+  --aimd-ref-color-brand-alpha-35: rgba(59,91,219,0.35);
   --aimd-ref-color-bookmark-rainbow-rose: #f43f5e;
   --aimd-ref-color-bookmark-rainbow-amber: #f59e0b;
   --aimd-ref-color-bookmark-rainbow-emerald: #10b981;

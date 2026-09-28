@@ -632,6 +632,7 @@ describe('ChatGPTDirectoryController', () => {
 
         list?.dispatchEvent(new Event('pointerleave', { bubbles: true }));
 
+        vi.advanceTimersByTime(400);
         expect(list?.dataset.hasHover).toBe('0');
         expect(items.every((item) => item.dataset.proximity === undefined)).toBe(true);
     });
@@ -755,6 +756,7 @@ describe('ChatGPTDirectoryController', () => {
         expect(preview?.textContent?.match(/First question/g)).toHaveLength(1);
 
         list?.dispatchEvent(new Event('pointerleave', { bubbles: true }));
+        vi.advanceTimersByTime(400);
         expect(preview?.dataset.open).toBe('0');
     });
 
@@ -828,6 +830,7 @@ describe('ChatGPTDirectoryController', () => {
         expect(document.getElementById('aimd-chatgpt-directory-preview')?.dataset.open).toBe('1');
 
         list?.dispatchEvent(new Event('pointerleave', { bubbles: true }));
+        vi.advanceTimersByTime(400);
         expect(list?.dataset.expanded).toBe('0');
         expect(list?.dataset.hasHover).toBe('0');
     });
@@ -949,6 +952,7 @@ describe('ChatGPTDirectoryController', () => {
     it('keeps the preview action toolbar interactive while moving from a directory item', async () => {
         const onReader = vi.fn(async () => ({ ok: true as const, message: 'opened' }));
         const rail = new ChatGPTDirectoryRail('light', () => undefined);
+        rail.setDisplayMode('expanded');
         rail.setPreviewActionsFactory(() => [{
             id: 'reader',
             label: 'Reader',
@@ -972,6 +976,13 @@ describe('ChatGPTDirectoryController', () => {
         const preview = document.getElementById('aimd-chatgpt-directory-preview');
         item?.dispatchEvent(new Event('pointerover', { bubbles: true }));
         list?.dispatchEvent(new Event('pointerleave', { bubbles: true }));
+        expect(list?.dataset.expanded).toBe('1');
+        preview?.dispatchEvent(new Event('pointerenter', { bubbles: true }));
+        vi.advanceTimersByTime(500);
+        expect(list?.dataset.expanded).toBe('1');
+        preview?.dispatchEvent(new Event('pointerleave', { bubbles: true }));
+        vi.advanceTimersByTime(200);
+        expect(list?.dataset.expanded).toBe('1');
         preview?.dispatchEvent(new Event('pointerenter', { bubbles: true }));
 
         const actionButton = preview?.querySelector<HTMLElement>('.aimd-message-toolbar-host')?.shadowRoot

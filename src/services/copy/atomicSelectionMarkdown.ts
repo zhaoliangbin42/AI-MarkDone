@@ -16,7 +16,21 @@ export type PageAtomicSelectionSnapshot = {
     root: HTMLElement;
     units: RenderedAtomicUnit[];
     canonicalMarkdown: string;
+    literal?: true;
 };
+
+/** Code fragments are literal text; only a complete block owns Markdown fences. */
+export function readPartialCodeSelection(range: Range, root: HTMLElement): string | null {
+    if (!root.contains(range.startContainer) || !root.contains(range.endContainer)) return null;
+    const start = range.startContainer instanceof Element ? range.startContainer : range.startContainer.parentElement;
+    const block = start?.closest<HTMLElement>('pre, [data-markdown-copy="code-block"]');
+    if (!block || !root.contains(block) || !block.contains(range.endContainer)) return null;
+    const code = block.querySelector('code, .cm-content, [data-lexical-editor="true"]') ?? block;
+    if (!code.contains(range.startContainer) || !code.contains(range.endContainer)) return null;
+    const selection = resolveStrictRenderedAtomicSelection(range, block);
+    if (selection.units.some(unit => unit.kind === 'code-block')) return null;
+    return range.toString() || null;
+}
 
 type PageAtomicSelectionSnapshotParams = {
     adapter: SiteAdapter;
@@ -31,11 +45,30 @@ export function buildPageAtomicSelectionSnapshot(
 ): PageAtomicSelectionSnapshot | null {
     const {
         adapter,
-        range,
+        range: requestedRange,
         root,
         maxProcessingTimeMs = DEFAULT_MAX_PROCESSING_TIME_MS,
         maxNodeCount = DEFAULT_MAX_NODE_COUNT,
     } = params;
+    let range = requestedRange;
+    const literal = readPartialCodeSelection(range, root);
+    if (literal !== null) return { range: range.cloneRange(), root, units: [], canonicalMarkdown: literal, literal: true };
+    if (!root.contains(range.startContainer) || !root.contains(range.endContainer)) return null;
+    range = range.cloneRange();
+    // Math is indivisible even when the browser Range covers one visible glyph.
+    for (const edge of ['start', 'end'] as const) {
+        const node = edge === 'start' ? range.startContainer : range.endContainer;
+        let element = node instanceof HTMLElement ? node : node.parentElement;
+        let formula: HTMLElement | null = null;
+        while (element && root.contains(element)) {
+            if (isFormulaContainer(element)) formula = element;
+            if (element === root) break;
+            element = element.parentElement;
+        }
+        if (!formula || formula === root) continue;
+        if (edge === 'start') range.setStart(formula, 0);
+        else range.setEnd(formula, formula.childNodes.length);
+    }
     const startedAt = performance.now();
     const selection = resolveStrictRenderedAtomicSelection(range, root);
     if (selection.hasPartialUnit || (selection.units.length === 0 && !range.toString().trim())) return null;
@@ -60,7 +93,7 @@ export function buildPageAtomicSelectionSnapshot(
 
 export function buildPageAtomicSelectionMarkdown(params: PageAtomicSelectionSnapshotParams): string | null {
     const snapshot = buildPageAtomicSelectionSnapshot(params);
-    return snapshot ? formatCanonicalMarkdownForCopy(snapshot.canonicalMarkdown) || null : null;
+    return snapshot ? formatCanonicalMarkdownForCopy(snapshot.canonicalMarkdown, snapshot.literal) || null : null;
 }
 
 function cloneClosedSelectionFragment(

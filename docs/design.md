@@ -166,14 +166,14 @@ Core palette:
 | Secondary text | `--aimd-ref-color-neutral-700` | `#374151` | `#D1D5DB` |
 | Primary text | `--aimd-ref-color-neutral-900` | `#111827` | `#F3F4F6` |
 | White / on-accent | `--aimd-ref-color-neutral-white` | `#ffffff` | `#ffffff` |
-| Brand accent | `--aimd-ref-color-brand-600` | `#2563eb` | `#2563eb` |
-| Brand hover | `--aimd-ref-color-brand-700` | `#1d4ed8` | `#1d4ed8` |
+| Brand accent | `--aimd-ref-color-brand-600` | `#3b5bdb` | `#3b5bdb` |
+| Brand hover | `--aimd-ref-color-brand-700` | `#304bc0` | `#304bc0` |
 
 Approved user theme swatches:
 
 | Swatch | Stored value | Rule |
 |:--|:--|:--|
-| Default blue | `null` / `#2563eb` preview | Product default; reset state stores `null`. |
+| Default blue | `null` / `#3b5bdb` preview | Product default; reset state stores `null`. |
 | Emerald | `#059669` | Optional user accent. |
 | Violet | `#7c3aed` | Optional user accent. |
 | Rose | `#e11d48` | Optional user accent. |
@@ -188,9 +188,9 @@ Alpha and interaction palette:
 | Default border / hover | `--aimd-ref-color-neutral-alpha-12` | `rgba(0,0,0,0.12)` | `rgba(255,255,255,0.12)` |
 | Strong border / hover | `--aimd-ref-color-neutral-alpha-16` | `rgba(0,0,0,0.16)` | `rgba(255,255,255,0.16)` |
 | Pressed neutral | `--aimd-ref-color-neutral-alpha-18` | `rgba(0,0,0,0.18)` | `rgba(255,255,255,0.18)` |
-| Brand soft | `--aimd-ref-color-brand-alpha-12` | `rgba(37, 99, 235, 0.12)` | `rgba(37, 99, 235, 0.18)` |
-| Brand flash | `--aimd-ref-color-brand-alpha-28` | `rgba(37, 99, 235, 0.28)` | `rgba(37, 99, 235, 0.36)` |
-| Focus / info border | `--aimd-ref-color-brand-alpha-35` | `rgba(37,99,235,0.35)` | `rgba(37,99,235,0.35)` |
+| Brand soft | `--aimd-ref-color-brand-alpha-12` | `rgba(59, 91, 219, 0.12)` | `rgba(59, 91, 219, 0.18)` |
+| Brand flash | `--aimd-ref-color-brand-alpha-28` | `rgba(59, 91, 219, 0.28)` | `rgba(59, 91, 219, 0.36)` |
+| Focus / info border | `--aimd-ref-color-brand-alpha-35` | `rgba(59,91,219,0.35)` | `rgba(59,91,219,0.35)` |
 
 State palette:
 
@@ -607,6 +607,10 @@ The iteration may stop only when the average score is above 90 and verification 
 
 ### Collapsible page controls
 
+The 2026-09-27 update adds configured pinned actions and an Input Enhancement action. Pin choices are edited in Settings → Buttons & shortcuts → Lower-right drawer → Pin favorite actions, with explicit Save/Cancel; the ordinary drawer has no per-button pin controls. The same action elements serve expanded and pinned views; only the trigger opens the full drawer on hover/focus, so a pinned action remains directly usable. Hidden actions preserve their pin preference. The Input Enhancement anchored ShadowRoot surface uses the shared settings snapshot and rolls back failed writes. Its production mock is `mocks/components/host-integrated-controls`.
+
+Directory interaction (2026-09-27): the rail and its preview form one hover/focus region. Keep rail width and the active-item expansion stable while crossing into the preview. After the pointer and focus leave both surfaces, close the preview and collapse the rail together after 400ms. Pointer re-entry cancels closure; outside click and Escape dismiss immediately.
+
 The existing lower-right light-DOM page-control surface collapses to a compact circular brand icon with a border and small shadow. At the default token scale, controls are 24px, glyphs 14px, internal gaps 2px, and shell padding 1px, giving an approximately 28px-high shell; these dimensions derive from existing public size/spacing tokens. Hover, focus, or click expands the existing actions to the left without changing their order. The trigger precedes the actions in keyboard order, remains fixed at the right edge visually, and exposes `aria-expanded`/`aria-controls`; collapsed actions are inert. Escape returns focus to the trigger, and outside pointer interaction closes the drawer. An internally focused control keeps the drawer open. The narrow layout scrolls actions horizontally while retaining the trigger. Glass tint, border, blur radius, shadows, spacing, and easing derive from existing public tokens; unsupported backdrop filtering uses an opaque surface, and reduced motion removes the expansion transition. The live fixture is `mocks/components/host-integrated-controls`.
 
 ## Library UI implementation — 2026-09-12
@@ -637,3 +641,9 @@ Annotation creation and editing use the shared `ReaderCommentPopover` in Page an
 2026-09-14 导航与归档更新：`WorkspaceNavigationButton` 统一类型和设置分类的图标槽、文字槽、行高及状态。默认模块标题 16px、分类 14px、图标 18px、行高 40px、行间距 4px，随已有字号比例缩放；替代上一轮分类约 15px 的独立配置。文件夹选中使用较轻的内凹材质。对话折叠横条在主区域呈现，文件夹树保留在左侧。设置分类区域独立滚动，底部信息链接和两个特色入口常显；短/窄窗口不缩小点击区域。消息胶囊与选区使用 workspace 材质令牌，页面抽屉复用相同边缘与阴影；不为消息列表逐条增加 backdrop filter。信息页及设置之间切换必须恢复正确选中态；设置目标须经 LazyBookmarksPanel 传递，不能只验证直接构造的面板。
 
 2026-09-21 字体与布局收敛：页面标题以正文比例形成约 22px / 窄窗 20px，分区标题 16px，导航及条目主文 14px，说明 12–13px；采用既有 500/600 字重与正常行高，中文标题不额外收紧字距。设置项的说明与控件整体垂直居中，主模块按钮不得以超过 grid 行高的 min-height 或 padding 撑出轨道。材质仍集中在 `workspaceMaterials.css`，删除被它覆盖的旧材质规则。消息胶囊的 border-box 宽度须计入内边距和按钮间距，统计采用等宽数字，时间降低一级字号。收起的目录预览同时隐藏视觉与指针命中；透明度为零不能代替关闭。
+
+### Settings groups and accent update (2026-09-27)
+
+Eight searchable categories retain all existing controls and now contain task-oriented subgroups. Formula toolbar visibility controls, formula image font size, and message-image width/scale are separate groups. Copy, Annotation and Highlight visibility is shared by page and Reader; Reader retains its existing Stick action. Default brand blue is `#3b5bdb` with `#304bc0` hover. Explicit existing accents remain valid, including Classic blue `#2563eb`; semantic highlight colors are unchanged.
+
+Settings language names the visible result and its location: “after selecting text,” “above formulas in replies,” or “bottom-right buttons.” A short group hint explains shared scope or a dependency; individual rows describe the consequence or exception only when the label alone is insufficient. Keep one setting per row, and preserve searchability after changing labels. This presentation rule does not change stored keys or defaults.

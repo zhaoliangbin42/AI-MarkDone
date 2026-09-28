@@ -8,6 +8,8 @@ import { toReaderAnnotationRecord } from '@/services/reader/commentSession';
 import { createPageCommentRecord, resolveReaderCommentAnchor } from '@/services/reader/commentAnchoring';
 import { createHighlightRecord } from '@/ui/content/highlights/HighlightSession';
 import { RuntimeClientRequestError } from '@/drivers/shared/clients/clientResult';
+import * as clipboard from '@/drivers/content/clipboard/clipboard';
+import { setCanonicalMarkdownCopyFormulaFormat } from '@/services/copy/canonicalMarkdownCopy';
 
 const annotationClientMock = vi.hoisted(() => ({
     list: vi.fn(async () => ({ ok: true, data: { entries: [] } })),
@@ -839,6 +841,56 @@ describe('ChatGPTPageAnnotationController', () => {
         expect(materialize).toHaveBeenCalledTimes(1);
 
         controller.dispose();
+    });
+
+    it('updates shared copy, annotation and highlight visibility on an unchanged selection', async () => {
+        const message = mountMessage('<p>selected text</p>');
+        const root = message.querySelector<HTMLElement>('.markdown.prose')!;
+        const text = message.querySelector<HTMLElement>('p')!;
+        const range = document.createRange(); range.selectNodeContents(text);
+        selectRange(range); mockGeometry(root, text, range);
+        const controller = new ChatGPTPageAnnotationController(new ChatGPTAdapter()); controller.init();
+        try {
+            dispatchPointerUp(320, 240); await flushSelectionFrame();
+            controller.setReaderSettings({ selectionToolbar: { copy: false, annotation: true, highlight: false } });
+            expect(selectionToolbarButton('page-selection-copy')).toBeNull();
+            expect(selectionToolbarButton('page-comment-add')).not.toBeNull();
+            expect(selectionToolbarHost()!.querySelector('[data-action="highlight-selection"]')).toBeNull();
+            controller.setReaderSettings({ selectionToolbar: { copy: false, annotation: false, highlight: false } });
+            expect(selectionToolbarHost()).toBeNull();
+            mockGeometry(root, text, controller['selectionCoordinator'].getCurrentFrame()!.location.range);
+            controller.setReaderSettings({ selectionToolbar: { copy: true, annotation: true, highlight: true } });
+            expect(selectionToolbarButton('page-selection-copy')).not.toBeNull();
+        } finally { controller.dispose(); }
+    });
+
+    it('copies a literal code fragment through the floating toolbar pointerdown and click path', async () => {
+        const message = mountMessage('<pre><code>prefix  $x$\nsuffix</code></pre>');
+        const root = message.querySelector<HTMLElement>('.markdown.prose')!;
+        const code = message.querySelector<HTMLElement>('code')!;
+        const range = document.createRange();
+        range.setStart(code.firstChild!, 6);
+        range.setEnd(code.firstChild!, 12);
+        selectRange(range);
+        mockGeometry(root, code, range);
+        const copy = vi.spyOn(clipboard, 'copyTextToClipboard').mockResolvedValue(true);
+        const controller = new ChatGPTPageAnnotationController(new ChatGPTAdapter());
+        setCanonicalMarkdownCopyFormulaFormat('raw');
+        controller.init();
+        try {
+            dispatchPointerUp(320, 240);
+            await flushSelectionFrame();
+            const button = selectionToolbarButton('page-selection-copy')!;
+            expect(button).not.toBeNull();
+            button.dispatchEvent(new MouseEvent('pointerdown', { bubbles: true, composed: true, cancelable: true }));
+            button.click();
+            await Promise.resolve();
+            expect(copy).toHaveBeenCalledWith('  $x$\n');
+        } finally {
+            controller.dispose();
+            copy.mockRestore();
+            setCanonicalMarkdownCopyFormulaFormat('markdown-dollar');
+        }
     });
 
     it('can open the same selection again after saving a page annotation', async () => {

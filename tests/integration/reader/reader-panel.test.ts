@@ -409,6 +409,10 @@ describe('ReaderPanel (MVP)', () => {
         document.dispatchEvent(new Event('pointerup'));
         await Promise.resolve();
 
+        panel.setReaderSettings({ ...DEFAULT_SETTINGS.reader, selectionToolbar: { copy: false, annotation: false, highlight: false } });
+        expect(shadow.querySelector('[data-action="reader-selection-copy"]')).toBeNull();
+        expect(shadow.querySelector('[data-action="reader-comment-add"]')).toBeNull();
+        panel.setReaderSettings(DEFAULT_SETTINGS.reader);
         shadow.querySelector<HTMLButtonElement>('[data-action="reader-selection-copy"]')!.click();
         await Promise.resolve();
         expect(writeText).toHaveBeenLastCalledWith('answer');

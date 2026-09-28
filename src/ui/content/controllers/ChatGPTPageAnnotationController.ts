@@ -1,3 +1,4 @@
+import { normalizeSelectionToolbarActions, type SelectionToolbarActions } from '../../../core/settings/selectionToolbar';
 import { readMarkDocumentTitle } from '../../../drivers/content/chatgpt/readMarkDocumentTitle';
 import type { SiteAdapter } from '../../../drivers/content/adapters/base';
 import {
@@ -91,6 +92,7 @@ type PointerAnchor = {
 };
 
 export type ReaderSettingsInput = {
+    selectionToolbar?: SelectionToolbarActions;
     persistAnnotations?: boolean;
     commentExport?: ReaderCommentExportSettings;
 };
@@ -104,6 +106,7 @@ export class ChatGPTPageAnnotationController {
     private appearance: AppearanceSnapshot;
     private persistEnabled = false;
     private selectionToolbarEnabled = true;
+    private selectionToolbarActions = normalizeSelectionToolbarActions(undefined);
     private annotationsEnabled = true;
     private highlightSaving = false;
     private readonly highlights = new HighlightSession(
@@ -286,6 +289,11 @@ export class ChatGPTPageAnnotationController {
     }
 
     setReaderSettings(settings: ReaderSettingsInput): void {
+        if (settings.selectionToolbar) {
+            this.selectionToolbarActions = normalizeSelectionToolbarActions(settings.selectionToolbar);
+            const frame = this.selectionCoordinator.getCurrentFrame() ?? this.selectionCoordinator.refreshNow();
+            if (frame && this.selectionToolbarEnabled && this.initialized) this.showToolbar(frame, selectionKey(frame));
+        }
         const persist = settings.persistAnnotations ?? false;
         if (persist !== this.persistEnabled) {
             this.persistEnabled = persist;
@@ -382,7 +390,11 @@ export class ChatGPTPageAnnotationController {
     }
 
     private renderToolbar(frame: ChatGPTPageSelectionFrame): boolean {
-        const canHighlight = isHighlightableTextSelection(frame.location.range, frame.location.root);
+        const canHighlight = this.selectionToolbarActions.highlight && isHighlightableTextSelection(frame.location.range, frame.location.root);
+        if (!this.selectionToolbarActions.copy && !(this.selectionToolbarActions.annotation && this.annotationsEnabled) && !canHighlight) {
+            this.ensureOverlay().renderToolbar(null);
+            return false;
+        }
         const position = this.resolveToolbarPosition(frame, canHighlight);
         if (!position) {
             this.ensureOverlay().renderToolbar(null);
@@ -403,7 +415,8 @@ export class ChatGPTPageAnnotationController {
             },
             onCopy: () => void this.copyCurrentSelection(),
             onComment: () => this.openCreateCommentFromCurrentSelection(),
-            commentEnabled: this.annotationsEnabled,
+            copyEnabled: this.selectionToolbarActions.copy,
+            commentEnabled: this.annotationsEnabled && this.selectionToolbarActions.annotation,
             onHighlight: canHighlight ? color => this.saveHighlight(color) : undefined,
         });
         return true;
@@ -414,7 +427,8 @@ export class ChatGPTPageAnnotationController {
             const buttonSize = this.readPxVar('--aimd-size-control-icon-panel', 32);
             const pointerGap = this.readPxVar('--aimd-space-2', 8);
             const pointerEdge = this.readPxVar('--aimd-space-3', 12);
-            const actionWidth = buttonSize * (canHighlight ? (this.annotationsEnabled ? 5 : 4) : (this.annotationsEnabled ? 2 : 1)) + pointerGap * (canHighlight ? 3 : 1);
+            const count = Number(this.selectionToolbarActions.copy) + Number(this.annotationsEnabled && this.selectionToolbarActions.annotation) + (canHighlight ? 3 : 0);
+            const actionWidth = buttonSize * count + pointerGap * Math.max(0, count - 1);
             let left = this.pointerAnchor.x + pointerGap;
             if (left + actionWidth > window.innerWidth - pointerEdge) {
                 left = Math.max(pointerEdge, this.pointerAnchor.x - actionWidth - pointerGap);
@@ -458,7 +472,7 @@ export class ChatGPTPageAnnotationController {
             this.reportSelectionUnavailable();
             return;
         }
-        const ok = await copyCanonicalMarkdownToClipboard(snapshot.canonicalMarkdown);
+        const ok = await copyCanonicalMarkdownToClipboard(snapshot.canonicalMarkdown, snapshot.literal);
         showToast({
             text: ok
                 ? this.getLabel('btnCopied', 'Copied!')

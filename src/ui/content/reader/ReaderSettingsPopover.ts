@@ -439,6 +439,7 @@ export class ReaderSettingsPopover {
 
     private cloneSettings(settings: AppSettings['reader']): AppSettings['reader'] {
         return {
+            selectionToolbar: { ...settings.selectionToolbar },
             renderCodeInReader: Boolean(settings.renderCodeInReader),
             showOutlineInReader: Boolean(settings.showOutlineInReader),
             persistAnnotations: Boolean(settings.persistAnnotations),
