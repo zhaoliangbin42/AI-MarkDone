@@ -17,6 +17,7 @@ export interface ReaderPanelPort {
     removeLibraryAnnotation?(record: ReaderCommentRecord): void;
     setAppearance(snapshot: AppearanceSnapshot): void;
     setReaderSettings(settings: AppSettings['reader']): void;
+    setContentCleanupSettings(settings: AppSettings['content']): void;
     setReaderSettingsController(controller: ReaderPanelSettingsController | null): void;
     setPromptManagerController(controller: ReaderPanelPromptManagerController | null): void;
     show(items: ReaderItem[], startIndex: number, theme: Theme, options?: ReaderPanelShowOptions): Promise<void>;

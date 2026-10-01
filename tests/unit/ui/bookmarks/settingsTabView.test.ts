@@ -2,6 +2,14 @@ import { describe, expect, it, vi } from 'vitest';
 import { getBookmarksPanelCss } from '@/ui/content/bookmarks/ui/styles/bookmarksPanelCss';
 import { SettingsTabView } from '@/ui/content/bookmarks/ui/tabs/SettingsTabView';
 
+
+function buttonSetting(view: SettingsTabView, group: string, path: string): HTMLButtonElement {
+    view.getNavigationElement().querySelector<HTMLButtonElement>('[data-category="controls"]')!.click();
+    const shadow = view.getElement().querySelector('[data-role="settings-buttons"]')!.shadowRoot!;
+    shadow.querySelector<HTMLButtonElement>(`[data-group="${group}"]`)!.click();
+    return shadow.querySelector<HTMLButtonElement>(`[data-path="${path}"] [role="switch"]`)!;
+}
+
 const baseSettings = {
     version: 4,
     platforms: { chatgpt: true, gemini: true, claude: true, deepseek: true },
@@ -80,6 +88,29 @@ const baseSettings = {
 } as any;
 
 describe('SettingsTabView', () => {
+    it('locks new controls across real category changes until matching runtime capabilities arrive', () => {
+        const setBehavior = vi.fn(async () => undefined);
+        const transfer = { exportSettings: vi.fn(), previewImport: vi.fn(), applyImport: vi.fn(), getRecovery: vi.fn(), onApplied: vi.fn() };
+        const view = new SettingsTabView({ modal: { confirm: vi.fn(async () => true) } as any, actions: { setBehavior, settingsTransfer: transfer } });
+        const state = { settings: structuredClone(baseSettings), storageUsage: null };
+        view.setState({ ...state, canConfigureButtons: false, canTransferSettings: false });
+        const toggle = buttonSetting(view, 'Message', 'behavior.showMessageToolbar');
+        expect(toggle.disabled).toBe(true);
+        toggle.click();
+        expect(setBehavior).not.toHaveBeenCalled();
+        view.getNavigationElement().querySelector<HTMLButtonElement>('[data-category="data"]')!.click();
+        const shadow = view.getElement().querySelector('[data-role="settings-transfer"]')!.shadowRoot!;
+        const exportButton = shadow.querySelector<HTMLButtonElement>('[data-action="settingsExport"]')!;
+        expect(exportButton.disabled).toBe(true);
+        exportButton.click();
+        expect(transfer.exportSettings).not.toHaveBeenCalled();
+        expect(shadow.querySelector('[role="status"]')!.textContent).toBeTruthy();
+        view.setState({ ...state, canConfigureButtons: true, canTransferSettings: true });
+        expect(buttonSetting(view, 'Message', 'behavior.showMessageToolbar').disabled).toBe(false);
+        expect(exportButton.disabled).toBe(false);
+        expect(shadow.querySelector('[role="status"]')!.textContent).toBe('');
+        view.destroy();
+    });
     it('blocks editing and offers retry when the runtime is disconnected', async () => {
         const modal = { confirm: vi.fn(async () => true) } as any;
         const retryLoad = vi.fn(async () => undefined);
@@ -164,7 +195,7 @@ describe('SettingsTabView', () => {
         });
     });
 
-    it('wires the master message toolbar toggle to behavior settings', () => {
+    it('wires the master message toolbar toggle to behavior settings', async () => {
         const modal = { confirm: vi.fn(async () => true) } as any;
         const onSetBehaviorSettings = vi.fn(async () => undefined);
         const view = new SettingsTabView({ modal, actions: { setBehaviorSettings: onSetBehaviorSettings } });
@@ -173,11 +204,11 @@ describe('SettingsTabView', () => {
             storageUsage: null,
         });
 
-        const toggle = view.getElement().querySelector<HTMLInputElement>('[data-role="settings-show-message-toolbar"]')!;
-        expect(toggle.checked).toBe(true);
+        const toggle = buttonSetting(view, 'Message', 'behavior.showMessageToolbar');
+        expect(toggle.getAttribute('aria-checked')).toBe('true');
 
-        toggle.checked = false;
-        toggle.dispatchEvent(new Event('change', { bubbles: true }));
+        toggle.click();
+        await Promise.resolve(); await Promise.resolve(); await Promise.resolve();
 
         expect(onSetBehaviorSettings).toHaveBeenCalledWith({ showMessageToolbar: false });
     });
@@ -414,7 +445,7 @@ describe('SettingsTabView', () => {
         expect(onSetChatGptBehaviorSettings).toHaveBeenCalledWith({ promptAutocomplete: false });
     });
 
-    it('wires the ChatGPT page selection toolbar toggle to the scoped behavior category', () => {
+    it('wires the ChatGPT page selection toolbar toggle to the scoped behavior category', async () => {
         const modal = { confirm: vi.fn(async () => true) } as any;
         const onSetChatGptBehaviorSettings = vi.fn(async () => undefined);
 
@@ -427,14 +458,12 @@ describe('SettingsTabView', () => {
             storageUsage: null,
         });
 
-        const toggle = view.getElement().querySelector<HTMLInputElement>(
-            '[data-role="settings-chatgpt-show-page-selection-toolbar"]',
-        )!;
+        const toggle = buttonSetting(view, 'Selection', 'chatgptBehavior.showPageSelectionToolbar');
 
-        expect(toggle.checked).toBe(true);
+        expect(toggle.getAttribute('aria-checked')).toBe('true');
 
-        toggle.checked = false;
-        toggle.dispatchEvent(new Event('change', { bubbles: true }));
+        toggle.click();
+        await Promise.resolve(); await Promise.resolve(); await Promise.resolve();
 
         expect(onSetChatGptBehaviorSettings).toHaveBeenCalledWith({ showPageSelectionToolbar: false });
     });
@@ -463,7 +492,7 @@ describe('SettingsTabView', () => {
         expect(onSetChatGptBehaviorSettings).toHaveBeenCalledWith({ enableArrowKeyMessageNavigation: false });
     });
 
-    it('lets users hide the lower-right ChatGPT message stepper buttons', () => {
+    it('lets users hide the lower-right ChatGPT message stepper buttons', async () => {
         const modal = { confirm: vi.fn(async () => true) } as any;
         const onSetChatGptBehaviorSettings = vi.fn(async () => undefined);
 
@@ -477,17 +506,17 @@ describe('SettingsTabView', () => {
         });
 
         const root = view.getElement();
-        const toggle = root.querySelector<HTMLInputElement>('[data-role="settings-chatgpt-show-message-stepper"]')!;
+        const toggle = buttonSetting(view, 'Directory', 'chatgptBehavior.showMessageStepper');
 
-        expect(toggle.checked).toBe(true);
+        expect(toggle.getAttribute('aria-checked')).toBe('true');
 
-        toggle.checked = false;
-        toggle.dispatchEvent(new Event('change', { bubbles: true }));
+        toggle.click();
+        await Promise.resolve(); await Promise.resolve(); await Promise.resolve();
 
         expect(onSetChatGptBehaviorSettings).toHaveBeenCalledWith({ showMessageStepper: false });
     });
 
-    it('lets users hide the lower-right ChatGPT page bookmark button', () => {
+    it('lets users hide the lower-right ChatGPT page bookmark button', async () => {
         const modal = { confirm: vi.fn(async () => true) } as any;
         const onSetChatGptBehaviorSettings = vi.fn(async () => undefined);
 
@@ -501,17 +530,17 @@ describe('SettingsTabView', () => {
         });
 
         const root = view.getElement();
-        const toggle = root.querySelector<HTMLInputElement>('[data-role="settings-chatgpt-show-page-bookmark-control"]')!;
+        const toggle = buttonSetting(view, 'Page', 'chatgptBehavior.showPageBookmarkControl');
 
-        expect(toggle.checked).toBe(true);
+        expect(toggle.getAttribute('aria-checked')).toBe('true');
 
-        toggle.checked = false;
-        toggle.dispatchEvent(new Event('change', { bubbles: true }));
+        toggle.click();
+        await Promise.resolve(); await Promise.resolve(); await Promise.resolve();
 
         expect(onSetChatGptBehaviorSettings).toHaveBeenCalledWith({ showPageBookmarkControl: false });
     });
 
-    it('lets users hide the lower-right ChatGPT Split View and Prompts buttons independently', () => {
+    it('lets users hide the lower-right ChatGPT Split View and Prompts buttons independently', async () => {
         const modal = { confirm: vi.fn(async () => true) } as any;
         const onSetChatGptBehaviorSettings = vi.fn(async () => undefined);
 
@@ -525,16 +554,18 @@ describe('SettingsTabView', () => {
         });
 
         const root = view.getElement();
-        const splitView = root.querySelector<HTMLInputElement>('[data-role="settings-chatgpt-show-detached-reader-control"]')!;
-        const prompts = root.querySelector<HTMLInputElement>('[data-role="settings-chatgpt-show-prompt-control"]')!;
+        const splitView = buttonSetting(view, 'Page', 'chatgptBehavior.showDetachedReaderControl');
+        let prompts = buttonSetting(view, 'Page', 'chatgptBehavior.showPromptControl');
 
-        expect(splitView.checked).toBe(true);
-        expect(prompts.checked).toBe(true);
+        expect(splitView.getAttribute('aria-checked')).toBe('true');
+        expect(prompts.getAttribute('aria-checked')).toBe('true');
 
-        splitView.checked = false;
-        splitView.dispatchEvent(new Event('change', { bubbles: true }));
-        prompts.checked = false;
-        prompts.dispatchEvent(new Event('change', { bubbles: true }));
+        splitView.click();
+        await Promise.resolve(); await Promise.resolve(); await Promise.resolve();
+        await vi.waitFor(() => expect(buttonSetting(view, 'Page', 'chatgptBehavior.showPromptControl').disabled).toBe(false));
+        prompts = buttonSetting(view, 'Page', 'chatgptBehavior.showPromptControl');
+        prompts.click();
+        await Promise.resolve(); await Promise.resolve(); await Promise.resolve();
 
         expect(onSetChatGptBehaviorSettings).toHaveBeenCalledWith({ showDetachedReaderControl: false });
         expect(onSetChatGptBehaviorSettings).toHaveBeenCalledWith({ showPromptControl: false });
@@ -567,18 +598,14 @@ describe('SettingsTabView', () => {
         expect(onOpenPromptManager).toHaveBeenCalledWith(button);
     });
 
-    it('persists the Reader annotation preference from the global Settings page', () => {
+    it('keeps Reader-only annotation persistence out of global Settings', () => {
         const modal = { confirm: vi.fn(async () => true) } as any;
         const onSetReaderSettings = vi.fn(async () => undefined);
         const view = new SettingsTabView({ modal, actions: { setReaderSettings: onSetReaderSettings } });
         view.setState({ settings: structuredClone(baseSettings), storageUsage: null });
 
-        const toggle = view.getElement().querySelector<HTMLInputElement>('[data-role="settings-reader-annotation-persistence"]')!;
-        expect(toggle.checked).toBe(false);
-        toggle.checked = true;
-        toggle.dispatchEvent(new Event('change', { bubbles: true }));
-
-        expect(onSetReaderSettings).toHaveBeenCalledWith({ persistAnnotations: true });
+        expect(view.getElement().querySelector('[data-role="settings-reader-annotation-persistence"]')).toBeNull();
+        expect(onSetReaderSettings).not.toHaveBeenCalled();
     });
 
     it('renders shipped platform icon wrappers and storage/export content', async () => {
@@ -643,14 +670,16 @@ describe('SettingsTabView', () => {
         await Promise.resolve();
 
         expect(group.classList.contains('settings-card')).toBe(false);
+        expect(group.querySelectorAll('.settings-subgroup')).toHaveLength(3);
+        expect(cards[0].closest('.settings-card')).not.toBe(cards[1].closest('.settings-card'));
         expect(cards).toHaveLength(2);
         expect(cards[0].dataset.role).toBe('settings-google-drive-backup-card');
-        expect(cards[0].textContent).toContain('googleDriveBackupCardTitle');
+        expect(cards[0].closest('.settings-subgroup')?.querySelector('h4')?.textContent).toBe('settingsGroupCloudBackup');
         expect(cards[0].textContent).toContain('cloudBackupExperimentalLabel');
         expect(cards[0].textContent?.toLowerCase()).not.toContain('sync');
         expect(cards[0].textContent?.toLowerCase()).not.toContain('prompt');
         expect(cards[1].dataset.role).toBe('settings-data-backup-card');
-        expect(cards[1].textContent).toContain('localBackupCardTitle');
+        expect(cards[1].closest('.settings-subgroup')?.querySelector('h4')?.textContent).toBe('settingsGroupLocalBackup');
         expect(cards[1].textContent?.toLowerCase()).not.toContain('prompt');
         expect(googleDriveRow).toBeTruthy();
         expect(cards[0].contains(googleDriveRow)).toBe(true);
@@ -823,26 +852,11 @@ describe('SettingsTabView', () => {
         expect(onSetFormulaSettings).toHaveBeenCalledWith({ assetFontSizePx: 44 });
 
         expect(assetButton).toBeNull();
-        const toggles = Array.from(root.querySelectorAll<HTMLInputElement>('[data-role^="settings-formula-asset-action-"]'));
-        expect(toggles.map((input) => input.dataset.role)).toEqual([
-            'settings-formula-asset-action-copy-png',
-            'settings-formula-asset-action-copy-svg',
-            'settings-formula-asset-action-copy-mathml',
-            'settings-formula-asset-action-save-png',
-            'settings-formula-asset-action-save-svg',
-        ]);
+        const toggle = buttonSetting(view, 'Formula', 'formula.assetActions.copyPng');
+        expect(toggle.getAttribute('aria-checked')).toBe('true');
+        toggle.click();
+        expect(onSetFormulaSettings).toHaveBeenLastCalledWith({ assetActions: { copyPng: false } });
 
-        toggles[0]!.checked = false;
-        toggles[0]!.dispatchEvent(new Event('change', { bubbles: true }));
-        expect(onSetFormulaSettings).toHaveBeenLastCalledWith({
-            assetActions: {
-                copyPng: false,
-                copySvg: true,
-                copyMathml: true,
-                savePng: true,
-                saveSvg: true,
-            },
-        });
     });
 
     it('keeps PNG export width presets and custom width in sync inside Settings', () => {
@@ -947,6 +961,9 @@ describe('SettingsTabView', () => {
         const root = view.getElement();
 
         const swatches = Array.from(root.querySelectorAll<HTMLButtonElement>('[data-role="settings-accent-color-swatch"]'));
+        expect(swatches.some(button => button.dataset.color === '#2563eb')).toBe(false);
+        expect(swatches.some(button => button.dataset.color === '#9333ea')).toBe(false);
+        expect(swatches.some(button => button.dataset.color === '#f472b6')).toBe(true);
         expect(swatches.length).toBeGreaterThan(3);
         expect(swatches.some((button) => button.querySelector('.settings-color-swatch__preview'))).toBe(true);
         expect(swatches.find((button) => button.dataset.color === '#059669')?.dataset.selected).toBe('1');
@@ -956,6 +973,16 @@ describe('SettingsTabView', () => {
 
         expect(onSetAppearanceSettings).toHaveBeenLastCalledWith({ accentColor: '#7c3aed' });
         expect(swatches.find((button) => button.dataset.color === '#7c3aed')?.dataset.selected).toBe('1');
+    });
+
+    it.each(['#2563eb', '#9333ea'])('preserves removed preset %s as the selected custom color without writing settings', (accentColor) => {
+        const setAppearanceSettings = vi.fn(async () => undefined);
+        const view = new SettingsTabView({ modal: { confirm: vi.fn(async () => true) } as any, actions: { setAppearanceSettings } });
+        view.setState({ settings: { ...structuredClone(baseSettings), appearance: { fontSizePx: 16, accentColor } }, storageUsage: null });
+        const custom = view.getElement().querySelector<HTMLButtonElement>('[data-role="settings-accent-custom"]')!;
+        expect(custom.dataset.selected).toBe('1');
+        expect(custom.style.getPropertyValue('--_settings-accent-color')).toBe(accentColor);
+        expect(setAppearanceSettings).not.toHaveBeenCalled();
     });
 
     it('keeps group headings at least as prominent as child item titles in settings typography', () => {

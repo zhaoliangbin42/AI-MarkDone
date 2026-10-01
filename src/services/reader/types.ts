@@ -30,6 +30,8 @@ export type ReaderItem = {
     id: string;
     userPrompt: string;
     content: ContentProvider;
+    /** Unfiltered captured Markdown, when available from ChatGPT. */
+    sourceContent?: ContentProvider;
     meta?: ReaderItemMeta;
 };
 

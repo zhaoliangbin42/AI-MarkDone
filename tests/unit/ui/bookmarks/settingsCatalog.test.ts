@@ -5,7 +5,7 @@ import { normalizeAppearanceSettings } from '@/core/settings/migrations';
 import { resolveAppearanceTheme } from '@/style/appearance';
 
 function fixture(settings = structuredClone(DEFAULT_SETTINGS)) {
-    const actions = { setChatGptBehaviorSettings: vi.fn(async () => true), setFormulaSettings: vi.fn(async () => true), setReaderSettings: vi.fn(async () => true), setAppearanceSettings: vi.fn(async () => true), setBookmarksSettings: vi.fn(async () => true) };
+    const actions = { setChatGptBehaviorSettings: vi.fn(async () => true), setFormulaSettings: vi.fn(async () => true), setReaderSettings: vi.fn(async () => true), setContentSettings: vi.fn(async () => true), setAppearanceSettings: vi.fn(async () => true), setBookmarksSettings: vi.fn(async () => true) };
     const modal = { confirm: vi.fn(), showCustom: vi.fn(async (_options: any) => undefined) };
     const view = new SettingsTabView({ modal: modal as any, actions });
     view.setState({ settings, storageUsage: null });
@@ -15,50 +15,29 @@ function fixture(settings = structuredClone(DEFAULT_SETTINGS)) {
 }
 
 describe('Settings catalog', () => {
-    it('configures pinned actions through Settings, saves once, and retains the draft after a failed write', async () => {
-        const f = fixture();
-        const trigger = f.root.querySelector<HTMLButtonElement>('[data-role="settings-pinned-page-controls"]')!;
-        trigger.dispatchEvent(new MouseEvent('pointerdown', { bubbles: true })); trigger.click();
-        const options = f.modal.showCustom.mock.calls[0]![0];
-        document.body.append(options.body);
-        const input = options.body.querySelector('[data-pin-action="open-input-enhancement"]') as HTMLInputElement;
-        input.click();
-        expect(f.actions.setChatGptBehaviorSettings).not.toHaveBeenCalled();
-        const footer = document.createElement('div'); const close = vi.fn(); options.footer(footer, close);
+    it('configures page pins in the Buttons tab, waits for acknowledgement and preserves preferences after a failed write', async () => {
+        const f = fixture(); const shadow = f.root.querySelector('[data-role="settings-buttons"]')!.shadowRoot!;
+        f.view.getNavigationElement().querySelector<HTMLButtonElement>('[data-category="controls"]')!.click();
         f.actions.setChatGptBehaviorSettings.mockResolvedValueOnce(false).mockResolvedValueOnce(true);
-        const save = footer.querySelector<HTMLButtonElement>('.mock-modal__button--primary')!;
-        save.click();
-        await vi.waitFor(() => expect(options.body.querySelector('[role="status"]').textContent).toBeTruthy());
-        expect(close).not.toHaveBeenCalled(); expect(input.checked).toBe(true);
-        save.click();
-        await vi.waitFor(() => expect(close).toHaveBeenCalledOnce());
-        expect(f.actions.setChatGptBehaviorSettings).toHaveBeenLastCalledWith({ pinnedPageControls: ['open-input-enhancement'] });
-        options.body.remove();
-        f.view.destroy();
+        shadow.querySelector<HTMLButtonElement>('[data-pin="open-input-enhancement"]')!.click();
+        await vi.waitFor(() => expect(shadow.querySelector('[role="status"]')?.textContent).toBeTruthy());
+        expect(shadow.querySelector('[data-pin="open-input-enhancement"]')!.getAttribute('aria-pressed')).toBe('false');
+        shadow.querySelector<HTMLButtonElement>('[data-pin="open-input-enhancement"]')!.click();
+        await vi.waitFor(() => expect(shadow.querySelector('[data-pin="open-input-enhancement"]')!.getAttribute('aria-pressed')).toBe('true'));
+        expect(f.actions.setChatGptBehaviorSettings).toHaveBeenLastCalledWith({pinnedPageControls:['open-input-enhancement']}); f.view.destroy();
     });
-    it('separates formula buttons from output parameters and writes the three shared selection controls', () => {
-        const f = fixture();
-        const actions = f.root.querySelector('[data-role="settings-formula-asset-action-copy-svg"]')!;
-        const size = f.root.querySelector('[data-role="settings-formula-asset-font-size"]')!;
-        expect(actions.closest('.settings-subgroup')).not.toBe(size.closest('.settings-subgroup'));
-        for (const field of ['copy', 'annotation', 'highlight']) {
-            const toggle = f.root.querySelector<HTMLInputElement>(`[data-role="settings-selection-${field}"]`)!;
-            expect(toggle.checked).toBe(true);
-            toggle.checked = false; toggle.dispatchEvent(new Event('change'));
-        }
-        expect(f.actions.setReaderSettings).toHaveBeenLastCalledWith({ selectionToolbar: { copy: false, annotation: false, highlight: false } });
-        f.view.destroy();
+    it('keeps output parameters outside Buttons and writes shared selection controls independently', async () => {
+        const f = fixture(); const shadow = f.root.querySelector('[data-role="settings-buttons"]')!.shadowRoot!;
+        shadow.querySelector<HTMLButtonElement>('[data-group="Selection"]')!.click();
+        expect(f.root.querySelector('[data-role="settings-formula-asset-font-size"]')!.closest('[data-category="export"]')).toBeTruthy();
+        for (const field of ['copy','annotation','highlight']) { shadow.querySelector<HTMLButtonElement>(`[data-path="reader.selectionToolbar.${field}"] [role="switch"]`)!.click(); await vi.waitFor(()=>expect(shadow.querySelector(`[data-path="reader.selectionToolbar.${field}"] [role="switch"]`)!.getAttribute('aria-checked')).toBe('false')); }
+        expect(f.actions.setReaderSettings).toHaveBeenLastCalledWith({selectionToolbar:{highlight:false}}); f.view.destroy();
     });
-    it('exposes eight categories and preserves controls across navigation and search', () => {
-        const f = fixture(); const nav = f.view.getNavigationElement();
-        expect(nav.querySelectorAll('button')).toHaveLength(8);
-        const toggle = f.root.querySelector('[data-role="settings-show-word-count"]')!;
-        nav.querySelector<HTMLButtonElement>('[data-category="controls"]')!.click();
-        expect(toggle.closest('[hidden]')).toBeNull();
-        f.find('wordCountLabel'); expect(toggle.closest('[hidden]')).toBeNull();
-        expect(f.root.querySelector('[data-role="settings-show-word-count"]')).toBe(toggle);
-        f.find('does not exist'); expect(f.root.querySelector<HTMLElement>('.library-empty')!.hidden).toBe(false);
-        f.view.destroy();
+    it('exposes eight categories and preserves the Buttons host across navigation and search', () => {
+        const f = fixture();const nav=f.view.getNavigationElement();expect(nav.querySelectorAll('button')).toHaveLength(8);
+        const host=f.root.querySelector('[data-role="settings-buttons"]')!;nav.querySelector<HTMLButtonElement>('[data-category="controls"]')!.click();expect(host.closest('[hidden]')).toBeNull();
+        f.find('wordCountLabel');expect(host.closest('[hidden]')).toBeNull();expect(f.root.querySelector('[data-role="settings-buttons"]')).toBe(host);
+        f.find('does not exist');expect(f.root.querySelector<HTMLElement>('.library-empty')!.hidden).toBe(false);f.view.destroy();
     });
     it('reads the effective enhancement switch without rewriting disabled legacy preferences', () => {
         const settings = structuredClone(DEFAULT_SETTINGS);
@@ -78,25 +57,23 @@ describe('Settings catalog', () => {
         expect(f.actions.setChatGptBehaviorSettings).toHaveBeenCalledWith({ inputEnhancement: expect.objectContaining({ enabled: true, lists: { enabled: true, ordered: false, unordered: true } }) });
         f.view.destroy();
     });
-    it('makes formula asset settings directly searchable and editable', () => {
-        const f = fixture(); f.find('settingsFormulaButtonCopySvg');
-        const toggle = f.root.querySelector<HTMLInputElement>('[data-role="settings-formula-asset-action-copy-svg"]')!;
-        expect(toggle.closest('[hidden]')).toBeNull(); toggle.checked = true; toggle.dispatchEvent(new Event('change'));
-        expect(f.actions.setFormulaSettings).toHaveBeenCalledWith({ assetActions: { ...DEFAULT_SETTINGS.formula.assetActions, copySvg: true } });
-        f.view.destroy();
+    it('makes formula buttons searchable and writes the selected field', async () => {
+        const f=fixture();f.find('settingsFormulaButtonCopySvg');const host=f.root.querySelector('[data-role="settings-buttons"]')!;expect(host.closest('[hidden]')).toBeNull();
+        const shadow=host.shadowRoot!;shadow.querySelector<HTMLButtonElement>('[data-path="formula.assetActions.copySvg"] [role="switch"]')!.click();expect(f.actions.setFormulaSettings).toHaveBeenCalledWith({assetActions:{copySvg:true}});f.view.destroy();
     });
-    it('finds a formula PNG control when the query combines a group name with its format', () => {
-        const f = fixture(); f.find('formula png');
-        expect(f.root.querySelector('[data-role="settings-formula-asset-action-copy-png"]')?.closest('[hidden]')).toBeNull();
-        expect(f.root.querySelector('[data-role="settings-formula-asset-action-copy-svg"]')?.closest('[hidden]')).not.toBeNull();
-        f.view.destroy();
+    it('finds formula PNG controls when searching by group and format', () => {
+        const f=fixture();f.find('formula png');const shadow=f.root.querySelector('[data-role="settings-buttons"]')!.shadowRoot!;
+        expect((shadow.querySelector('[data-path="formula.assetActions.copyPng"]') as HTMLElement).hidden).toBe(false);
+        expect((shadow.querySelector('[data-path="formula.assetActions.copySvg"]') as HTMLElement).hidden).toBe(true);f.view.destroy();
     });
-    it('keeps Reader sizing, output ordering and notice reset accessible', () => {
+    it('keeps shared content rules in Settings and moves Reader-only controls into Reader', () => {
         const f = fixture();
-        for (const role of ['settings-reader-bodyFontSizePx', 'settings-reader-contentMaxWidthPx', 'settings-comment-sort', 'settings-reset-reader-notice', 'settings-bookmark-sort']) expect(f.root.querySelector(`[data-role="${role}"]`)).toBeTruthy();
-        const input = f.root.querySelector<HTMLInputElement>('[data-role="settings-reader-bodyFontSizePx"]')!;
-        input.value = '18'; input.dispatchEvent(new Event('change'));
-        expect(f.actions.setReaderSettings).toHaveBeenCalledWith({ bodyFontSizePx: 18 });
+        for (const role of ['settings-reader-bodyFontSizePx', 'settings-reader-contentMaxWidthPx', 'settings-comment-sort', 'settings-reset-reader-notice']) expect(f.root.querySelector(`[data-role="${role}"]`)).toBeNull();
+        expect(f.root.querySelector('[data-role="settings-bookmark-sort"]')).toBeTruthy();
+        const button = f.root.querySelector<HTMLButtonElement>('[data-role="settings-content-cleanup"]')!;
+        expect(button.closest('[data-category="reading"]')).toBeTruthy();
+        button.click();
+        expect(f.modal.showCustom).toHaveBeenCalledWith(expect.objectContaining({ title: 'settingsContentCleanupTitle' }));
         f.view.destroy();
     });
     it('normalizes an absent theme preference to following the page', () => {
@@ -107,4 +84,8 @@ describe('Settings catalog', () => {
         expect(resolveAppearanceTheme('dark', 'auto')).toBe('dark');
         expect(normalizeAppearanceSettings({ themeMode: 'unsupported' }).themeMode).toBe('auto');
     });
+});
+
+it('finds Pin preferences through the Settings search and exposes their row controls',()=>{
+    const f=fixture();f.find('settingsPin');const host=f.root.querySelector('[data-role="settings-buttons"]')!;expect(host.closest('[hidden]')).toBeNull();expect((host.shadowRoot!.querySelector('[data-path="chatgptBehavior.showPromptControl"]') as HTMLElement).hidden).toBe(false);f.view.destroy();
 });

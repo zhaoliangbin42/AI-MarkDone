@@ -7,6 +7,8 @@ import {
     setContenteditablePlainTextSelection,
 } from '@/core/sending/contenteditable';
 import { DEFAULT_CHATGPT_INPUT_ENHANCEMENT_SETTINGS } from '@/core/settings/types';
+import { showToast } from '@/utils/toast';
+vi.mock('@/utils/toast', () => ({ showToast: vi.fn() }));
 
 vi.mock('@/drivers/content/chatgpt/sendPositionRestoreEvents', () => ({
     armChatGPTSendPositionRestore: vi.fn(),
@@ -88,12 +90,47 @@ describe('ChatGPTComposerEditingController behavior', () => {
         vi.stubGlobal('MutationObserver', FakeMutationObserver);
         vi.useFakeTimers();
         vi.mocked(armChatGPTSendPositionRestore).mockClear();
+        vi.mocked(showToast).mockClear();
     });
 
     afterEach(() => {
         vi.useRealTimers();
         vi.unstubAllGlobals();
         document.body.innerHTML = '';
+    });
+
+    it.each(['$E=mc^2$', '$$E=mc^2$$'])('keeps the preview when typing a complete formula at its closing boundary: %s', async value => {
+        const composer = document.createElement('textarea');
+        composer.value = value;
+        composer.setSelectionRange(value.length, value.length);
+        document.body.append(composer);
+        const renderFormula = vi.fn(async options => ({ source: options.source, displayMode: options.displayMode, fontSizePx: 36, width: 30, height: 20, viewBox: '0 0 30 20', svg: '<svg xmlns="http://www.w3.org/2000/svg"/>' }));
+        const controller = new ChatGPTComposerEditingController(createAdapter({ current: composer }), { renderFormula });
+        controller.init();
+        composer.dispatchEvent(new InputEvent('input', { bubbles: true, inputType: 'insertText', data: '$' }));
+        await vi.advanceTimersByTimeAsync(160);
+        expect(renderFormula).toHaveBeenCalledWith(expect.objectContaining({ source: 'E=mc^2', displayMode: value.startsWith('$$') }));
+        expect(document.querySelector<HTMLElement>('[data-aimd-role="formula-composer-assistant"]')?.hidden).toBe(false);
+        composer.value += ' text';
+        composer.setSelectionRange(composer.value.length, composer.value.length);
+        composer.dispatchEvent(new Event('input', { bubbles: true }));
+        await vi.advanceTimersByTimeAsync(350);
+        expect(document.querySelector<HTMLElement>('[data-aimd-role="formula-composer-assistant"]')?.hidden).toBe(true);
+        controller.dispose();
+    });
+
+    it('previews a prefilled formula on keyboard focus without requiring edits', async () => {
+        const composer = document.createElement('textarea');
+        composer.value = '$x$';
+        document.body.append(composer);
+        const renderFormula = vi.fn(async () => ({ source: 'x', displayMode: false, fontSizePx: 36, width: 30, height: 20, viewBox: '0 0 30 20', svg: '<svg xmlns="http://www.w3.org/2000/svg"/>' }));
+        const controller = new ChatGPTComposerEditingController(createAdapter({ current: composer }), { renderFormula });
+        controller.init();
+        composer.focus();
+        composer.setSelectionRange(3, 3);
+        await vi.advanceTimersByTimeAsync(160);
+        expect(renderFormula).toHaveBeenCalledOnce();
+        controller.dispose();
     });
 
     it('leaves plain Enter alone while disabled', () => {
@@ -955,10 +992,10 @@ describe('ChatGPTComposerEditingController behavior', () => {
         composer.setSelectionRange(composer.value.length, composer.value.length);
         document.body.appendChild(composer);
         const loadFormulaSnippets = vi.fn();
-        const renderFormula = vi.fn(async () => ({
+        const renderFormula = vi.fn(async (options) => ({
             source: 'x',
             displayMode: false,
-            fontSizePx: 36,
+            fontSizePx: options.fontSizePx,
             width: 30,
             height: 20,
             viewBox: '0 0 30 20',
@@ -988,6 +1025,7 @@ describe('ChatGPTComposerEditingController behavior', () => {
         expect(shadow?.querySelector('[data-role="formula-suggestion"]')).toBeNull();
         expect(loadFormulaSnippets).not.toHaveBeenCalled();
         expect(renderFormula).toHaveBeenCalledOnce();
+        expect(renderFormula).toHaveBeenCalledWith(expect.objectContaining({fontSizePx:48}));
         const exportButton = shadow!.querySelector<HTMLButtonElement>('[data-action="save_formula_svg"]')!;
         exportButton.dispatchEvent(new MouseEvent('pointerdown', { bubbles: true, composed: true, cancelable: true }));
         exportButton.click();
@@ -1002,6 +1040,86 @@ describe('ChatGPTComposerEditingController behavior', () => {
 
         expect(escape.defaultPrevented).toBe(true);
         expect(document.querySelector<HTMLElement>('[data-aimd-role="formula-composer-assistant"]')?.hidden).toBe(true);
+        controller.dispose();
+    });
+
+    it('coalesces 100 input events, reuses the SVG on caret movement, and blocks stale export during debounce', async () => {
+        const composer = document.createElement('textarea');
+        document.body.appendChild(composer);
+        const renderFormula = vi.fn(async (options) => ({
+            source: options.source, displayMode: false, fontSizePx: 36,
+            width: 30, height: 20, viewBox: '0 0 30 20',
+            svg: '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 30 20"/>',
+        }));
+        const runFormulaAssetAction = vi.fn(async () => ({ ok: true as const, status: 'saved' as const }));
+        const controller = new ChatGPTComposerEditingController(createAdapter({ current: composer }), { renderFormula, runFormulaAssetAction });
+        controller.init();
+        for (let index = 0; index < 100; index++) {
+            composer.value = `$x+${index}`;
+            composer.setSelectionRange(composer.value.length, composer.value.length);
+            composer.dispatchEvent(new Event('input', { bubbles: true }));
+            await vi.advanceTimersByTimeAsync(5);
+        }
+        expect(renderFormula).not.toHaveBeenCalled();
+        await vi.advanceTimersByTimeAsync(160);
+        expect(renderFormula).toHaveBeenCalledOnce();
+        const shadow = document.querySelector<HTMLElement>('[data-aimd-role="formula-composer-assistant"]')!.shadowRoot!;
+        const svg = shadow.querySelector('svg');
+        composer.dispatchEvent(new Event('keyup', { bubbles: true }));
+        await vi.advanceTimersByTimeAsync(160);
+        expect(renderFormula).toHaveBeenCalledOnce();
+        expect(shadow.querySelector('svg')).toBe(svg);
+        composer.value = '$y';
+        composer.setSelectionRange(2, 2);
+        composer.dispatchEvent(new Event('input', { bubbles: true }));
+        const button = shadow.querySelector<HTMLButtonElement>('[data-action="save_formula_svg"]')!;
+        expect(button.disabled).toBe(true);
+        button.click();
+        expect(runFormulaAssetAction).not.toHaveBeenCalled();
+        controller.dispose();
+    });
+
+    it('suppresses a delayed export error after the composer controller is disposed', async () => {
+        const composer = document.createElement('textarea');
+        composer.value = '$x';
+        composer.setSelectionRange(2, 2);
+        document.body.appendChild(composer);
+        let rejectExport!: (error: Error) => void;
+        const runFormulaAssetAction = vi.fn(() => new Promise<any>((_resolve, reject) => { rejectExport = reject; }));
+        const controller = new ChatGPTComposerEditingController(createAdapter({ current: composer }), {
+            renderFormula: async () => ({ source: 'x', displayMode: false, fontSizePx: 36, width: 30, height: 20, viewBox: '0 0 30 20', svg: '<svg xmlns="http://www.w3.org/2000/svg"/>' }),
+            runFormulaAssetAction,
+        });
+        controller.init();
+        composer.dispatchEvent(new Event('input', { bubbles: true }));
+        await vi.advanceTimersByTimeAsync(160);
+        document.querySelector<HTMLElement>('[data-aimd-role="formula-composer-assistant"]')!.shadowRoot!.querySelector<HTMLButtonElement>('[data-action="save_formula_svg"]')!.click();
+        expect(runFormulaAssetAction).toHaveBeenCalledOnce();
+        controller.dispose();
+        rejectExport(new Error('Renderer disconnected'));
+        await vi.advanceTimersByTimeAsync(0);
+        expect(showToast).not.toHaveBeenCalled();
+    });
+
+    it('invalidates an older font-size render before the settings refresh timer runs', async () => {
+        const composer = document.createElement('textarea');
+        composer.value = '$x';
+        composer.setSelectionRange(2, 2);
+        document.body.appendChild(composer);
+        let complete!: (asset: any) => void;
+        const asset = (fontSizePx: number) => ({ source: 'x', displayMode: false, fontSizePx, width: 30, height: 20, viewBox: '0 0 30 20', svg: '<svg xmlns="http://www.w3.org/2000/svg"/>' });
+        const renderFormula = vi.fn().mockImplementationOnce(() => new Promise(resolve => { complete = resolve; })).mockResolvedValue(asset(48));
+        const controller = new ChatGPTComposerEditingController(createAdapter({ current: composer }), { renderFormula, runFormulaAssetAction: vi.fn() });
+        controller.init();
+        composer.dispatchEvent(new Event('input', { bubbles: true }));
+        await vi.advanceTimersByTimeAsync(120);
+        controller.setFormulaAssetFontSize(48);
+        complete(asset(36));
+        for (let index = 0; index < 6; index++) await Promise.resolve();
+        const shadow = document.querySelector<HTMLElement>('[data-aimd-role="formula-composer-assistant"]')!.shadowRoot!;
+        expect(shadow.querySelector('[data-action="save_formula_svg"]')).toBeNull();
+        await vi.advanceTimersByTimeAsync(0);
+        expect(renderFormula).toHaveBeenLastCalledWith(expect.objectContaining({ fontSizePx: 48 }));
         controller.dispose();
     });
 
@@ -1108,16 +1226,30 @@ describe('ChatGPTComposerEditingController behavior', () => {
         composer.dispatchEvent(new Event('input', { bubbles: true }));
         await vi.advanceTimersByTimeAsync(120);
 
-        resolveSecond(asset('y', 'new-preview'));
-        await Promise.resolve();
-        await Promise.resolve();
+        expect(renderFormula).toHaveBeenCalledTimes(1);
         resolveFirst(asset('x', 'stale-preview'));
+        await vi.advanceTimersByTimeAsync(0);
+        expect(renderFormula).toHaveBeenCalledTimes(2);
+        resolveSecond(asset('y', 'new-preview'));
         await Promise.resolve();
         await Promise.resolve();
 
         const shadow = document.querySelector<HTMLElement>('[data-aimd-role="formula-composer-assistant"]')?.shadowRoot;
         expect(shadow?.querySelector('#new-preview')).not.toBeNull();
         expect(shadow?.querySelector('#stale-preview')).toBeNull();
+        controller.dispose();
+    });
+});
+
+
+describe('Removed composer enhancement entry', () => {
+    it('keeps the official composer action and never mounts the removed enhancement button', () => {
+        document.body.innerHTML='<form><textarea id="input"></textarea><div><span><button data-testid="composer-plus-btn">+</button></span></div></form>';
+        const composer=document.querySelector<HTMLTextAreaElement>('#input')!;
+        const controller=new ChatGPTComposerEditingController(createAdapter({current:composer}),{onOpenInputEnhancement:vi.fn()});
+        controller.init();controller.setComposerControlVisible(true);
+        expect(document.querySelector('[data-aimd-role="composer-input-enhancement-chip"]')).toBeNull();
+        expect(document.querySelector('[data-testid="composer-plus-btn"]')).toBeTruthy();
         controller.dispose();
     });
 });

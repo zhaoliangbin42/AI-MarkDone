@@ -12,5 +12,6 @@ export type SaveMessagesDialogPort = Pick<SaveMessagesDialog,
     | 'close'
     | 'setAppearance'
     | 'setExportSettings'
+    | 'setContentCleanupSettings'
     | 'setMarkdownFormulaFormat'
 >;

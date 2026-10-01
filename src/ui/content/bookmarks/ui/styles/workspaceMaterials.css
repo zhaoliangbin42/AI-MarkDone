@@ -58,7 +58,12 @@
 :host .settings-catalog .settings-card, :host .library-records, :host .settings-data-card {
   background: var(--_workspace-card); border-color: var(--aimd-workspace-border); box-shadow: var(--aimd-workspace-edge-shadow); border-radius: var(--aimd-radius-2xl);
 }
-:host .settings-catalog .settings-card { padding: 0 var(--aimd-space-5); }
+:host .settings-catalog .settings-card { padding: var(--aimd-space-4) var(--aimd-space-5); }
+:host .settings-catalog .settings-card:has(> [data-role="settings-buttons"]) { padding: 0; }
+:host .settings-catalog .settings-item:first-child { padding-top: 0; }
+:host .settings-catalog .settings-item:last-child { padding-bottom: 0; }
+:host .settings-catalog .settings-data-card { padding: var(--aimd-space-4) var(--aimd-space-5); }
+:host .settings-catalog .settings-card .settings-data-card { padding: 0; border: 0; background: transparent; box-shadow: none; }
 :host .settings-catalog .settings-item { padding-block: var(--aimd-space-4); align-items: center; border-color: color-mix(in srgb, var(--aimd-workspace-border) 65%, transparent); }
 :host .settings-label strong { font-size: var(--_workspace-navigation-size); line-height: var(--aimd-leading-normal); }
 :host .settings-label p { font-size: var(--aimd-text-xs); line-height: var(--aimd-leading-normal); max-width: 65ch; }

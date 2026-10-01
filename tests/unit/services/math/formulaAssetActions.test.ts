@@ -172,3 +172,7 @@ describe('formulaAssetActions', () => {
     });
 
 });
+
+it('delivers a matching prepared SVG without invoking the renderer again',async()=>{
+ vi.mocked(renderExportHostJob).mockClear();const asset={source:'x',displayMode:false,fontSizePx:36,width:30,height:20,viewBox:'0 0 30 20',svg:'<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 30 20"/>'};expect(await runFormulaAssetAction({action:'save_svg',source:{kind:'tex',value:'x',confidence:'authoritative'},displayMode:false,preparedSvg:asset})).toEqual({ok:true,status:'saved'});expect(renderExportHostJob).not.toHaveBeenCalled();
+});

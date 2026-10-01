@@ -361,7 +361,7 @@ describe('Library through the production panel and bookmark controller', () => {
             expect(root.querySelector<HTMLElement>('.tab-panel[data-tab-id="settings"]')!.hidden).toBe(false);
             expect(root.querySelector<HTMLElement>(`.tab-panel[data-tab-id="${info}"]`)!.hidden).toBe(true);
             expect(root.querySelector('.aimd-panel-title')?.textContent).toBe('Settings');
-            expect(root.querySelector('.settings-catalog-header h2')?.textContent).toBe('Input & Prompts');
+            expect(root.querySelector('.settings-catalog-header h2')?.textContent).toBe('Writing & prompts');
         }
     });
     it.each(['Highlights','Annotations'])('keeps %s readable when the folder service is unavailable and retries without writes', async type => {

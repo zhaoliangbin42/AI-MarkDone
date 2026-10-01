@@ -1,3 +1,5 @@
+import { createSettingsFile, mergePortableSettings } from '../../../src/core/settings/portableSettings';
+import { previewSettingsImport, fingerprintSettings } from '../../../src/services/settings/settingsTransfer';
 import '../browserExtensionMock';
 import { installHighlightFixture } from '../highlightFixture';
 
@@ -52,12 +54,20 @@ const bookmarks: Bookmark[] = [
 ];
 
 let fixtureSettings = structuredClone(DEFAULT_SETTINGS);
+let fixtureSettingsRecovery: ReturnType<typeof createSettingsFile> | null = null;
 const browserApi = (globalThis as typeof globalThis & { browser: any }).browser;
-browserApi.runtime.sendMessage = async (request: { v: number; id: string; type: string; payload?: { category: SettingsCategory; value: unknown } }) => {
+browserApi.runtime.sendMessage = async (request: { v: number; id: string; type: string; payload?: { category: SettingsCategory; value: unknown; fileText?: string; expectedFingerprint?: string; categories?: string[] } }) => {
     let data: unknown = {};
     switch (request.type) {
+        case 'settings:export': data = {file:createSettingsFile(fixtureSettings,'6.0.0')};break;
+        case 'settings:previewImport': data = {preview:await previewSettingsImport(fixtureSettings,request.payload?.fileText??'')};break;
+        case 'settings:getRecovery': data = {file:fixtureSettingsRecovery};break;
+        case 'settings:applyImport': {
+            if(request.payload?.expectedFingerprint!==await fingerprintSettings(fixtureSettings))return {v:request.v,id:request.id,type:request.type,ok:false,error:{code:'CONFLICT',message:'CONFLICT'}};
+            const preview=await previewSettingsImport(fixtureSettings,request.payload?.fileText??'');fixtureSettingsRecovery=createSettingsFile(fixtureSettings,'6.0.0');fixtureSettings=mergePortableSettings(fixtureSettings,preview.file.settings,request.payload?.categories??[]);data={applied:true};break;
+        }
         case 'settings:getAll':
-            data = { settings: structuredClone(fixtureSettings) };
+            data = { settings: structuredClone(fixtureSettings),capabilities:{appVersion:'6.0.0',settingsVersion:5,settingsFileFormatVersion:1,buttonsPreferences:true} };
             break;
         case 'settings:setCategory': {
             const { category, value } = request.payload!;
@@ -140,7 +150,7 @@ const adapter = {
 } as unknown as SiteAdapter;
 
 const controller = new BookmarksPanelController(adapter);
-const panel = new BookmarksPanel(controller, { show: async () => undefined, hide: () => undefined });
+const panel = new BookmarksPanel(controller, { show: async () => undefined, hide: () => undefined },{renderFormulaPreview:async options=>(await import('../../../src/runtimes/export-renderer/formulaMathJax')).renderFormulaSvgAsset({...options,fontSizePx:options.fontSizePx??36})});
 let stepper: ChatGPTMessageStepperController | null = null;
 const fixtureParams = new URLSearchParams(window.location.search);
 let variant: VisualHarnessVariant = { theme: fixtureParams.get('theme') === 'dark' ? 'dark' : 'light', locale: fixtureParams.get('locale') === 'zh_CN' ? 'zh_CN' : 'en' };

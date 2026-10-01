@@ -10,6 +10,8 @@ import type {
     TranslateFn,
 } from './saveMessagesTypes';
 import type { FormulaSourceFormat } from '../../core/math/formulaSourceFormat';
+import { DEFAULT_CONTENT_CLEANUP_SETTINGS, type ContentCleanupSettings } from '../../core/settings/content';
+import { projectChatGPTMarkdown, omitMarkdownCodeBlocks } from '../../core/content/chatgptMarkdownCleanup';
 import { buildMarkdownExport } from './saveMessagesMarkdown';
 import { buildPdfPrintPlan } from './saveMessagesPdf';
 import { buildMessageExportDocument } from './messageExportDocument';
@@ -26,10 +28,23 @@ export type ExportResult =
 export type ExportOptions = {
     t: TranslateFn;
     markdownFormulaFormat?: FormulaSourceFormat;
+    contentCleanup?: ContentCleanupSettings;
     png?: MessagePngRenderSettings;
     onProgress?: ExportProgressCallback;
     signal?: AbortSignal;
 };
+
+function projectTurns(turns: ChatTurn[], settings: ContentCleanupSettings = DEFAULT_CONTENT_CLEANUP_SETTINGS): ChatTurn[] {
+    if (!settings.preserveLinks && settings.includeCodeBlocks) return turns;
+    return turns.map((turn) => ({
+        ...turn,
+        assistant: !settings.preserveLinks
+            ? omitMarkdownCodeBlocks(turn.assistant)
+            : turn.assistantSource !== undefined
+            ? projectChatGPTMarkdown(turn.assistantSource, settings)
+            : settings.includeCodeBlocks ? turn.assistant : omitMarkdownCodeBlocks(turn.assistant),
+    }));
+}
 
 export async function exportTurnsMarkdown(
     turns: ChatTurn[],
@@ -39,7 +54,7 @@ export async function exportTurnsMarkdown(
 ): Promise<ExportResult> {
     if (!selectedIndices || selectedIndices.length === 0) return { ok: true, noop: true };
     try {
-        const out = buildMarkdownExport(turns, selectedIndices, metadata, options.t, {
+        const out = buildMarkdownExport(projectTurns(turns, options.contentCleanup), selectedIndices, metadata, options.t, {
             formulaFormat: options.markdownFormulaFormat,
         });
         if (!out) return { ok: true, noop: true };
@@ -61,7 +76,7 @@ export async function exportTurnsPdf(
 ): Promise<ExportResult> {
     if (!selectedIndices || selectedIndices.length === 0) return { ok: true, noop: true };
     try {
-        const plan = buildPdfPrintPlan(turns, selectedIndices, metadata, options.t);
+        const plan = buildPdfPrintPlan(projectTurns(turns, options.contentCleanup), selectedIndices, metadata, options.t);
         if (!plan) return { ok: true, noop: true };
         await printPdf({ html: plan.html, containerId: plan.containerId });
         return { ok: true, noop: false };
@@ -82,7 +97,7 @@ export async function exportTurnsPng(
     if (!selectedIndices || selectedIndices.length === 0) return { ok: true, noop: true };
     try {
         throwIfAborted(options.signal);
-        const document = buildMessageExportDocument(turns, selectedIndices, {
+        const document = buildMessageExportDocument(projectTurns(turns, options.contentCleanup), selectedIndices, {
             title: metadata.title,
             labels: {
                 user: options.t('pdfUserLabel'),

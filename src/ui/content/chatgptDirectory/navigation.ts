@@ -128,12 +128,19 @@ function getRoundViewportRange(round: ChatGPTRoundPosition): { top: number; bott
         : (round.jumpAnchor ? [round.jumpAnchor] : []);
     let top = Number.POSITIVE_INFINITY;
     let bottom = Number.NEGATIVE_INFINITY;
-    for (const node of nodes) {
-        if (!node.isConnected) continue;
+    const measure = (node: HTMLElement) => {
+        if (!node.isConnected) return;
         const rect = node.getBoundingClientRect();
-        if (!Number.isFinite(rect.top) || !Number.isFinite(rect.bottom)) continue;
+        // display:contents and hidden host markers have no viewport box.
+        if (!Number.isFinite(rect.top) || !Number.isFinite(rect.bottom) || rect.bottom <= rect.top) return;
         top = Math.min(top, rect.top);
         bottom = Math.max(bottom, rect.bottom);
+    };
+    for (const node of nodes) measure(node);
+    if (!Number.isFinite(top)) {
+        for (const node of new Set([round.userAnchor, round.assistantRoot, round.jumpAnchor])) {
+            if (node && !nodes.includes(node)) measure(node);
+        }
     }
     if (!Number.isFinite(top) || !Number.isFinite(bottom)) return null;
     return { top, bottom };

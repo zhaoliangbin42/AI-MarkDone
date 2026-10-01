@@ -14,7 +14,7 @@ export type RenderedContentCompilerCapabilities = Readonly<{
 }>;
 
 export type RenderedContentCompileResult =
-    | Readonly<{ kind: 'ready'; markdown: string }>
+    | Readonly<{ kind: 'ready'; markdown: string; sourceMarkdown?: string }>
     | Readonly<{
         kind: 'rejected';
         reason: 'unsupported-parser' | 'empty-content' | 'parser-budget' | 'compile-error';
@@ -66,7 +66,7 @@ export class RenderedContentCompiler {
                     message: 'Rendered content did not contain a complete semantic body.',
                 };
             }
-            return Object.freeze({ kind: 'ready', markdown: normalized });
+            return Object.freeze({ kind: 'ready', markdown: normalized, ...(parsed.trim()!==normalized?{sourceMarkdown:parsed.trim()}:{}) });
         } catch (error) {
             logger.warn('[AI-MarkDone][RenderedContentCompiler] Compile failed', error);
             return {

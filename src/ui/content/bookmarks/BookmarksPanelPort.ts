@@ -1,3 +1,4 @@
+import type { FormulaRenderOptions, FormulaSvgAsset } from '../../../services/math/formulaAssetRenderer';
 import type { ReaderCommentRecord } from '../../../services/reader/commentSession';
 
 export type LibraryAnnotationPort = {
@@ -11,6 +12,7 @@ export type LibraryAnnotationPort = {
 };
 
 export type BookmarksPanelOptions = {
+    renderFormulaPreview?:(options:FormulaRenderOptions)=>Promise<FormulaSvgAsset>;
     onOpenPromptManager?: (anchor: HTMLElement) => Promise<void> | void;
     annotations?: LibraryAnnotationPort;
 };

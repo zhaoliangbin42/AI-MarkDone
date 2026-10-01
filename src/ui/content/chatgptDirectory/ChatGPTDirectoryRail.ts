@@ -21,6 +21,7 @@ import {
 } from '../../../core/settings/types';
 import { normalizeChatGPTDirectoryPreviewMaxChars } from '../../../core/settings/migrations';
 import { MessageToolbar, type MessageToolbarAction } from '../MessageToolbar';
+import { TooltipDelegate } from '../../../utils/tooltip';
 
 const RAIL_ID = 'aimd-chatgpt-directory-rail';
 const PREVIEW_ID = 'aimd-chatgpt-directory-preview';
@@ -85,6 +86,9 @@ export class ChatGPTDirectoryRail {
     private shadowRoot: ShadowRoot;
     private railAppearanceScope: AppearanceScope;
     private listEl: HTMLDivElement;
+    private navigationControlsEl: HTMLDivElement;
+    private navigationControls: HTMLButtonElement[] = [];
+    private tooltipDelegate: TooltipDelegate;
     private previewEl: HTMLDivElement;
     private previewAppearanceScope: AppearanceScope;
     private appearance: AppearanceSnapshot;
@@ -151,6 +155,9 @@ export class ChatGPTDirectoryRail {
 
         const shell = document.createElement('div');
         shell.className = 'rail';
+        this.navigationControlsEl = document.createElement('div');
+        this.navigationControlsEl.className = 'rail__navigation-controls';
+        this.tooltipDelegate = new TooltipDelegate(this.shadowRoot, { upgradeTitles: false });
         this.listEl = document.createElement('div');
         this.listEl.className = 'rail__list';
         this.listEl.dataset.mode = this.displayMode;
@@ -238,6 +245,15 @@ export class ChatGPTDirectoryRail {
         return this.rootEl;
     }
 
+    setNavigationControls(previous: HTMLButtonElement, next: HTMLButtonElement): void {
+        this.navigationControls.filter(control => control !== previous && control !== next).forEach(control => control.remove());
+        this.navigationControls = [previous, next];
+        previous.classList.add('rail__navigation');
+        next.classList.add('rail__navigation');
+        this.navigationControlsEl.replaceChildren(previous, next);
+        this.shadowRoot.append(this.navigationControlsEl);
+    }
+
     ensureAttached(): void {
         const portalHost = getDirectoryPortalHost();
         if (portalHost && this.rootEl.parentElement !== portalHost) portalHost.appendChild(this.rootEl);
@@ -258,6 +274,7 @@ export class ChatGPTDirectoryRail {
         this.disposePreviewToolbar();
         window.removeEventListener('resize', this.handleViewportResize as any);
         this.railAppearanceScope.dispose();
+        this.tooltipDelegate.disconnect();
         this.previewAppearanceScope.dispose();
         this.rootEl.remove();
         this.previewEl.remove();
@@ -316,8 +333,13 @@ export class ChatGPTDirectoryRail {
     }
 
     setRounds(rounds: ChatGPTConversationRound[], contentToken?: string | null): void {
+        const orderChanged = rounds.length !== this.rounds.length || rounds.some((round, index) => {
+            const previous = this.rounds[index];
+            return round.position !== previous?.position
+                || (round.assistantMessageId ?? round.messageId ?? round.id) !== (previous?.assistantMessageId ?? previous?.messageId ?? previous?.id);
+        });
         const signature = contentToken ?? this.buildRoundsSignature(rounds);
-        if (signature !== this.roundsSignature) {
+        if (signature !== this.roundsSignature || orderChanged) {
             // The same ordinal can now refer to another branch or updated content.
             this.disposePreviewToolbar();
             this.roundsSignature = signature;
@@ -325,6 +347,9 @@ export class ChatGPTDirectoryRail {
             this.render();
         }
         this.syncVisibilityFromRounds();
+        // A passive history upgrade can add the active row after the tracker
+        // already published its position. Follow after the new rows are visible.
+        if (orderChanged) this.followActiveItem();
     }
 
     private syncVisibilityFromRounds(): void {
@@ -824,9 +849,11 @@ export class ChatGPTDirectoryRail {
   position: fixed;
   top: 50%;
   right: calc(var(--aimd-space-2) + var(--_directory-scrollbar-width, 0px) + var(--_directory-user-right-inset, ${DEFAULT_CHATGPT_DIRECTORY_RIGHT_INSET_PX}px));
-  transform: translateY(-50%);
+  --_directory-dock-bottom: calc(var(--aimd-size-control-icon-toolbar) + var(--aimd-space-4) + var(--aimd-space-3) / 2);
+  --_directory-dock-height: calc(var(--aimd-size-control-icon-toolbar) * 2 + var(--aimd-space-1) / 2);
+  --_directory-list-max-height: min(78vh, 920px);
   z-index: var(--aimd-z-panel);
-  pointer-events: auto;
+  pointer-events: none;
   display: block;
   font-family: var(--aimd-font-family-sans);
   width: calc(var(--aimd-space-4) + var(--aimd-space-6));
@@ -837,9 +864,49 @@ export class ChatGPTDirectoryRail {
 }
 .rail {
   display: flex;
-  align-items: center;
-  justify-content: flex-end;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: var(--aimd-space-1);
+  transform: translateY(-50%);
+  pointer-events: auto;
 }
+.rail__navigation {
+  all: unset;
+  box-sizing: border-box;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex: none;
+  width: var(--aimd-size-control-icon-toolbar);
+  height: var(--aimd-size-control-icon-toolbar);
+  border-radius: var(--aimd-radius-full);
+  color: var(--aimd-text-secondary);
+  cursor: pointer;
+}
+.rail__navigation-controls {
+  position: fixed;
+  right: calc(var(--aimd-space-2) + var(--_directory-scrollbar-width, 0px) + var(--_directory-user-right-inset, ${DEFAULT_CHATGPT_DIRECTORY_RIGHT_INSET_PX}px));
+  bottom: var(--_directory-dock-bottom);
+  pointer-events: auto;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  align-self: flex-end;
+  gap: calc(var(--aimd-space-1) / 2);
+}
+.rail__navigation-controls:not(:has(.rail__navigation:not([hidden]))) { display: none; }
+.rail__navigation:hover:not(:disabled), .rail__navigation:focus-visible {
+  background: var(--aimd-button-icon-hover);
+  color: var(--aimd-text-primary);
+}
+.rail__navigation:focus-visible { outline: 2px solid var(--aimd-focus-ring); outline-offset: 2px; }
+.rail__navigation:disabled { opacity: 0.4; cursor: default; }
+.rail__navigation[hidden] { display: none; }
+.rail__navigation .aimd-chatgpt-message-stepper__icon { display: inline-flex; }
+.rail__navigation svg { width: var(--aimd-size-control-glyph-panel); height: var(--aimd-size-control-glyph-panel); }
+.rail__navigation[data-action="previous-message"] svg { transform: rotate(-90deg); }
+.rail__navigation[data-action="next-message"] svg { transform: rotate(90deg); }
+.rail__navigation .aimd-chatgpt-message-stepper__settings { display: none; }
 .rail__list {
   position: relative;
   display: flex;
@@ -848,10 +915,13 @@ export class ChatGPTDirectoryRail {
   gap: calc(var(--aimd-space-1) / 2);
   width: 100%;
   padding: var(--aimd-space-1) 0;
-  min-height: calc(var(--aimd-space-3) * 6);
-  max-height: min(78vh, 920px);
+  min-height: min(calc(var(--aimd-space-3) * 6), var(--_directory-list-max-height));
+  max-height: var(--_directory-list-max-height);
   overflow: hidden auto;
   scrollbar-width: none;
+}
+.rail:has(+ .rail__navigation-controls .rail__navigation:not([hidden])) {
+  --_directory-list-max-height: min(78vh, 920px, max(0px, calc(100vh - (var(--_directory-dock-bottom) + var(--_directory-dock-height) + var(--aimd-space-3)) * 2)));
 }
 .rail__list::-webkit-scrollbar {
   width: 0;

@@ -39,6 +39,7 @@ const readerPanelCtor = vi.fn(function () {
     return {
         setAppearance: panelSetAppearance,
         setReaderSettings: panelSetReaderSettings,
+        setContentCleanupSettings: vi.fn(),
         setReaderSettingsController: panelSetReaderSettingsController,
         setPromptManagerController: panelSetPromptManagerController,
         getCommentExportContext: panelGetCommentExportContext,

@@ -43,6 +43,7 @@ const readerPanelCtor = vi.fn(function () {
         setShowOutlineInReader: vi.fn(),
         setContentMaxWidthPx: vi.fn(),
         setReaderSettings: vi.fn(),
+        setContentCleanupSettings: vi.fn(),
         setReaderSettingsController: vi.fn(),
         setPromptManagerController: vi.fn(),
         setCommentExportSettings: vi.fn(),
@@ -124,6 +125,7 @@ const messageToolbarCtor = vi.fn(function () {
         setAppearance: messageToolbarsSetAppearance,
         setBehaviorFlags: messageToolbarsSetBehaviorFlags,
         setExportSettings: messageToolbarsSetExportSettings,
+        setContentCleanupSettings: vi.fn(),
         dispose: messageToolbarsDispose,
     };
 });
@@ -135,6 +137,7 @@ const directorySetRightInsetPx = vi.fn();
 const directorySetPreviewMaxChars = vi.fn();
 const directorySetPreviewActionsFactory = vi.fn();
 const directorySetAppearance = vi.fn();
+const directorySetNavigationControls = vi.fn();
 const directoryDispose = vi.fn();
 const directoryCtor = vi.fn(function () {
     return {
@@ -146,6 +149,7 @@ const directoryCtor = vi.fn(function () {
         setPreviewMaxChars: directorySetPreviewMaxChars,
         setPreviewActionsFactory: directorySetPreviewActionsFactory,
         setAppearance: directorySetAppearance,
+        setNavigationControls: directorySetNavigationControls,
         dispose: directoryDispose,
     };
 });
@@ -201,6 +205,7 @@ const messageStepperSetDetachedReaderControlVisible = vi.fn();
 const messageStepperSetPromptControlVisible = vi.fn();
 const messageStepperSetPageBookmarked = vi.fn();
 const messageStepperSetAppearance = vi.fn();
+const messageStepperSetInputEnhancementEnabled = vi.fn();
 const messageStepperCtor = vi.fn(function () {
     return {
         init: messageStepperInit,
@@ -212,6 +217,7 @@ const messageStepperCtor = vi.fn(function () {
         setPromptControlVisible: messageStepperSetPromptControlVisible,
         setPinnedActions: vi.fn(),
         setInputEnhancementControlVisible: vi.fn(),
+        setInputEnhancementEnabled: messageStepperSetInputEnhancementEnabled,
         setPageBookmarked: messageStepperSetPageBookmarked,
         setAppearance: messageStepperSetAppearance,
     };
@@ -442,6 +448,7 @@ vi.mock('@/runtimes/content/lazyContentFeatures', () => ({
         open: vi.fn(async () => undefined),
         setAppearance: saveMessagesDialogSetAppearance,
         setExportSettings: vi.fn(),
+        setContentCleanupSettings: vi.fn(),
         setMarkdownFormulaFormat: vi.fn(),
     })),
     createLazyBookmarkSaveDialog: vi.fn(() => ({
@@ -920,6 +927,9 @@ describe('content runtime entry', () => {
         };
         settingsSubscriber!({ settings: { ...structuredClone(DEFAULT_SETTINGS), chatgptBehavior: { ...DEFAULT_SETTINGS.chatgptBehavior, inputEnhancement } } });
         expect(composerInputEnhancementSetSettings).toHaveBeenLastCalledWith(inputEnhancement);
+        expect(messageStepperSetInputEnhancementEnabled).toHaveBeenLastCalledWith(inputEnhancement.available && inputEnhancement.enabled);
+        settingsSubscriber!({ settings: { ...structuredClone(DEFAULT_SETTINGS), chatgptBehavior: { ...DEFAULT_SETTINGS.chatgptBehavior, inputEnhancement: { ...inputEnhancement, enabled: false } } } });
+        expect(messageStepperSetInputEnhancementEnabled).toHaveBeenLastCalledWith(false);
     });
 
     it('maps cached appearance accent color into runtime theme overrides', async () => {
@@ -1208,6 +1218,11 @@ describe('content runtime entry', () => {
 
         expect(bookmarksShow).toHaveBeenCalledWith({tab:'settings'});
 
+        const previous = document.createElement('button');
+        const next = document.createElement('button');
+        messageStepperCtor.mock.calls[0]?.[1]?.onNavigationControlsReady?.(previous, next);
+        expect(directorySetNavigationControls).toHaveBeenCalledWith(previous, next);
+
         const settingsAnchor = document.createElement('button');
         const onOpenPromptManager = bookmarksPanelCtor.mock.calls[0]?.[2]?.onOpenPromptManager;
         await onOpenPromptManager?.(settingsAnchor);
@@ -1382,6 +1397,7 @@ describe('content runtime entry', () => {
         expect(contentRuntimeDispose).toHaveBeenCalledTimes(1);
         expect(mathClickDisable).toHaveBeenCalledTimes(1);
         expect(mathClickSetFormulaSettings).toHaveBeenLastCalledWith({
+            composerAssetActions: { copyPng: true, copySvg: true, copyMathml: true, savePng: true, saveSvg: true },
             clickCopyMarkdown: false,
             clickCopyFormulaFormat: 'markdown-dollar',
             markdownCopyFormulaFormat: 'markdown-dollar',
@@ -1454,6 +1470,10 @@ describe('content runtime entry', () => {
             renderCodeInReader: true,
         }));
         expect(messageToolbarsSetBehaviorFlags).toHaveBeenLastCalledWith({
+            messageControls: { bookmark_toggle: true, copy_markdown: true, copy_prompt_reply: true, reader: true, export: true },
+            pinnedMessageControls: [],
+            showCopyPng: true,
+            showMessageTimestamp: true,
             showMessageToolbar: true,
             showSaveMessages: true,
             showWordCount: true,
@@ -1586,6 +1606,7 @@ describe('content runtime entry', () => {
             commentExport: cachedCommentExport,
         }));
         expect(mathClickSetFormulaSettings).toHaveBeenCalledWith({
+            composerAssetActions: { copyPng: true, copySvg: true, copyMathml: true, savePng: true, saveSvg: true },
             clickCopyMarkdown: false,
             clickCopyFormulaFormat: 'markdown-dollar',
             markdownCopyFormulaFormat: 'markdown-dollar',

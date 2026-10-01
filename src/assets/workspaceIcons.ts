@@ -20,6 +20,7 @@ export const messageSquareTextIcon = /* @__PURE__ */ glyph("<path d=\"M8 19.5 4 
 export const highlighterIcon = /* @__PURE__ */ glyph("<path d=\"m9 12 7-8a1.8 1.8 0 0 1 2.6-.1l1.5 1.5A1.8 1.8 0 0 1 20 8l-8 7 M9 12l3 3-3 3H5v-4l4-2Z M3 21h10\"/>", " class=\"aimd-glyph\" data-glyph=\"highlighter\"");
 export const settingsIcon = /* @__PURE__ */ glyph("<path d=\"M6 3.5v5 M6 14v6.5 M18 3.5V10 M18 15v5.5\"/><circle cx=\"6\" cy=\"11.5\" r=\"2.5\"/><circle cx=\"18\" cy=\"12.5\" r=\"2.5\"/>", " class=\"aimd-glyph\" data-glyph=\"settings\"");
 export const copyIcon = /* @__PURE__ */ glyph("<rect x=\"8\" y=\"8\" width=\"12.5\" height=\"12.5\" rx=\"2.8\"/><path d=\"M15.5 4H6A2 2 0 0 0 4 6v9.5\"/>", " class=\"aimd-glyph\" data-glyph=\"copy\"");
+export const promptReplyIcon = /* @__PURE__ */ glyph("<path d=\"M8 7V5a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v9l-3-3h-1 M5 10h8a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2H7l-4 3V12a2 2 0 0 1 2-2Z\"/>", " class=\"aimd-glyph\" data-glyph=\"promptReply\"");
 export const downloadIcon = /* @__PURE__ */ glyph("<path d=\"M12 3.5v12 M7.5 11l4.5 4.5 4.5-4.5 M4 16v3a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-3\"/>", " class=\"aimd-glyph\" data-glyph=\"download\"");
 export const uploadIcon = /* @__PURE__ */ glyph("<path d=\"M12 15.5v-12 M7.5 8 12 3.5 16.5 8 M4 16v3a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-3\"/>", " class=\"aimd-glyph\" data-glyph=\"upload\"");
 export const searchIcon = /* @__PURE__ */ glyph("<circle cx=\"10.5\" cy=\"10.5\" r=\"6.5\"/><path d=\"m15.3 15.3 5.2 5.2\"/>", " class=\"aimd-glyph\" data-glyph=\"search\"");

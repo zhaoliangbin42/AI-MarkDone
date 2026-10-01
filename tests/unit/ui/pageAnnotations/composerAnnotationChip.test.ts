@@ -81,3 +81,9 @@ describe('ComposerAnnotationChip', () => {
         chip.dispose();
     });
 });
+
+it('does not reorder the two entry hosts when their owners refresh unchanged values', () => {
+    const container=document.createElement('div');const official=document.createElement('span');container.append(official);document.body.append(container);
+    const first=new ComposerAnnotationChip(createAppearanceSnapshot('light'));const second=new ComposerAnnotationChip(createAppearanceSnapshot('light'),{role:'composer-input-enhancement-chip',showCount:false});const mount={container,anchor:official,officialContainer:official};const handlers={label:'Entry',onOpenManager:()=>undefined};
+    first.render(mount,1,handlers);second.render(mount,1,handlers);const order=Array.from(container.children);const observer=new MutationObserver(()=>undefined);observer.observe(container,{childList:true});first.render(mount,1,handlers);second.render(mount,1,handlers);expect(Array.from(container.children)).toEqual(order);expect(observer.takeRecords()).toHaveLength(0);observer.disconnect();first.dispose();second.dispose();container.remove();
+});

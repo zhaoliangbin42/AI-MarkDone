@@ -1,6 +1,6 @@
 (() => {
   const BRIDGE_KEY = '__AIMD_CHATGPT_CONVERSATION_BRIDGE__';
-  const BRIDGE_VERSION = 9;
+  const BRIDGE_VERSION = 10;
   const MAX_RESPONSE_BYTES = 8 * 1024 * 1024;
   const MAX_GRAPH_OBJECTS = 256;
   const MAX_GRAPH_DEPTH = 4;
@@ -341,7 +341,10 @@
       const urlId = getConversationIdFromUrl(url);
       let sameOrigin = false;
       try { sameOrigin = new URL(url, window.location.href).origin === window.location.origin; } catch {}
-      if (method === 'GET' && currentId && sameOrigin && (!urlId || urlId === currentId)) {
+      // SPA prefetch can start before history reflects the target route.
+      // A typed conversation URL owns its capture independently of the
+      // current tab route; route entry will consume that cached result.
+      if (method === 'GET' && (urlId || currentId) && sameOrigin) {
         const expectedId = urlId || currentId;
         const requestId = ++requestSequence;
         Promise.resolve(result)

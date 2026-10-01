@@ -9,6 +9,7 @@ export function resolveFormulaSettings(settings: typeof DEFAULT_SETTINGS.formula
         clickCopyFormulaFormat: normalizeFormulaSourceFormat(settings?.clickCopyFormulaFormat),
         markdownCopyFormulaFormat: normalizeFormulaSourceFormat(settings?.markdownCopyFormulaFormat),
         assetFontSizePx: normalizeFormulaAssetFontSizePx(settings?.assetFontSizePx),
+        composerAssetActions: { ...DEFAULT_SETTINGS.formula.composerAssetActions!, ...settings?.composerAssetActions },
         assetActions: {
             ...DEFAULT_SETTINGS.formula.assetActions,
             ...settings?.assetActions,

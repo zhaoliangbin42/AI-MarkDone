@@ -464,6 +464,43 @@ describe('ChatGPTConversationHostMonitor DOM readiness', () => {
         }
     });
 
+    it('publishes obtained messages while hydration keeps producing mutations', async () => {
+        document.querySelector('main')!.innerHTML = roundHtml(1, 'Ready answer');
+        const harness = createHarness('continuous-hydration');
+        const content = document.querySelector<HTMLElement>('.markdown.prose')!;
+        try {
+            harness.monitor.init();
+            for (let index = 0; index < 12; index += 1) {
+                content.textContent = `Hydration ${index}`;
+                await Promise.resolve();
+                await vi.advanceTimersByTimeAsync(10);
+            }
+            expect(harness.repository.read().snapshot?.turns).toHaveLength(1);
+            expect(harness.renderedCompiler.compile).toHaveBeenCalled();
+        } finally {
+            harness.dispose();
+        }
+    });
+
+    it('keeps obtained clones when a different message mounts during compilation', async () => {
+        document.querySelector('main')!.innerHTML = roundHtml(1, 'Ready 1') + roundHtml(2, 'Ready 2');
+        const harness = createHarness('progressive-capture');
+        const delegate = compiler().compile;
+        vi.mocked(harness.renderedCompiler.compile).mockImplementationOnce(async request => {
+            document.querySelector('main')!.insertAdjacentHTML('beforeend', roundHtml(3, 'Ready 3'));
+            return delegate(request);
+        });
+        try {
+            harness.monitor.init();
+            await settle();
+            expect(harness.repository.read().snapshot?.turns).toHaveLength(2);
+            await settle();
+            expect(harness.repository.read().snapshot?.turns).toHaveLength(3);
+        } finally {
+            harness.dispose();
+        }
+    });
+
     it('rescans mounted content on a page lifecycle wake', async () => {
         document.querySelector('main')!.innerHTML = roundHtml(1, 'Wake answer');
         const harness = createHarness('wake');

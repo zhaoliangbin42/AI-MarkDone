@@ -5,6 +5,7 @@ export function getReferenceTokenCss(theme: Theme): string {
 
     return `
 :host {
+  --aimd-ref-color-neutral-black: #000000;
   --aimd-ref-color-highlight-blue: ${isDark ? '#344B63' : '#DCE9F6'};
   --aimd-ref-color-highlight-yellow: ${isDark ? '#554D32' : '#F5EBBF'};
   --aimd-ref-color-highlight-red: ${isDark ? '#593E42' : '#F2DCD9'};

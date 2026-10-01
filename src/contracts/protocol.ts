@@ -38,6 +38,7 @@ export type SettingsCategory =
     | 'platforms'
     | 'behavior'
     | 'reader'
+    | 'content'
     | 'formula'
     | 'export'
     | 'chatgptDirectory'
@@ -204,6 +205,7 @@ export type ReaderSessionSerializableItem = {
     id: string;
     userPrompt: string;
     content: string;
+    sourceContent?: string;
     meta?: {
         platformId?: string;
         messageId?: string | null;
@@ -304,6 +306,10 @@ export type ExtRequest =
     | { v: ProtocolVersion; id: RequestId; type: 'settings:getCategory'; payload: SettingsGetCategoryPayload }
     | { v: ProtocolVersion; id: RequestId; type: 'settings:setCategory'; payload: SettingsSetCategoryPayload }
     | { v: ProtocolVersion; id: RequestId; type: 'settings:reset' }
+    | { v: ProtocolVersion; id: RequestId; type: 'settings:export' }
+    | { v: ProtocolVersion; id: RequestId; type: 'settings:previewImport'; payload: { fileText: string } }
+    | { v: ProtocolVersion; id: RequestId; type: 'settings:applyImport'; payload: { fileText: string; expectedFingerprint: string; categories: string[] } }
+    | { v: ProtocolVersion; id: RequestId; type: 'settings:getRecovery' }
     | { v: ProtocolVersion; id: RequestId; type: 'bookmarks:list'; payload?: BookmarksListPayload }
     | { v: ProtocolVersion; id: RequestId; type: 'bookmarks:positions'; payload: BookmarksPositionsPayload }
     | { v: ProtocolVersion; id: RequestId; type: 'bookmarks:save'; payload: BookmarksSavePayload }
@@ -437,6 +443,7 @@ export function isExtRequest(value: unknown): value is ExtRequest {
         'settings:getCategory',
         'settings:setCategory',
         'settings:reset',
+        'settings:export', 'settings:previewImport', 'settings:applyImport', 'settings:getRecovery',
         'bookmarks:list',
         'bookmarks:positions',
         'bookmarks:save',

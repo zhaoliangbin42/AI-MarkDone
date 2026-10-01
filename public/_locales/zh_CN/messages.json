@@ -243,6 +243,14 @@
         "message": "下一条消息",
         "description": "Message for nextMessage"
     },
+    "previousMessageShortcut": {
+        "message": "上一条消息 · ←",
+        "description": "Directory navigation tooltip with keyboard shortcut."
+    },
+    "nextMessageShortcut": {
+        "message": "下一条消息 · →",
+        "description": "Directory navigation tooltip with keyboard shortcut."
+    },
     "navigateHint": {
         "message": "\"← →\" 切换消息",
         "description": "Message for navigateHint"
@@ -1408,11 +1416,11 @@
         "description": "Message for chatgptPromptAutocompleteDesc"
     },
     "chatgptShowMessageStepperLabel": {
-        "message": "显示“上一条／下一条”按钮",
+        "message": "显示右下角导航箭头",
         "description": "Message for chatgptShowMessageStepperLabel"
     },
     "chatgptShowMessageStepperDesc": {
-        "message": "快速跳到上一条或下一条消息。",
+        "message": "上箭头跳到上一条消息，下箭头跳到下一条消息。",
         "description": "Message for chatgptShowMessageStepperDesc"
     },
     "chatgptShowPageBookmarkControlLabel": {
@@ -1928,11 +1936,11 @@
         "description": "Message for contextOnlySaveDesc"
     },
     "renderCodeBlocksLabel": {
-        "message": "在阅读器中显示代码块",
+        "message": "代码语法高亮",
         "description": "Message for renderCodeBlocksLabel"
     },
     "renderCodeBlocksDesc": {
-        "message": "关闭后，阅读器会用占位提示代替代码块。",
+        "message": "关闭后仍显示代码块，但不再为代码添加语法颜色。",
         "description": "Message for renderCodeBlocksDesc"
     },
     "readerOutlineToggleLabel": {
@@ -2996,11 +3004,11 @@
         "description": "Message for settingsSaveContextOnlyDesc"
     },
     "settingsRenderCodeInReaderLabel": {
-        "message": "在阅读器中渲染代码",
+        "message": "阅读器代码语法高亮",
         "description": "Message for settingsRenderCodeInReaderLabel"
     },
     "settingsRenderCodeInReaderDesc": {
-        "message": "在阅读器中以格式化样式展示代码块，而不是原始纯文本。",
+        "message": "仅控制代码颜色，代码块会继续显示。",
         "description": "Message for settingsRenderCodeInReaderDesc"
     },
     "settingsInterfaceLanguageLabel": {
@@ -3624,7 +3632,7 @@
         "description": "Settings center label."
     },
     "settingsCategoryControls": {
-        "message": "按钮与快捷键",
+        "message": "按钮",
         "description": "Settings center label."
     },
     "settingsCategoryData": {
@@ -3896,8 +3904,8 @@
         "description": "Settings and interaction label: settingsInputEnhancementControl"
     },
     "settingsSaveFailed": {
-        "message": "设置未能保存，请重试。",
-        "description": "Settings and interaction label: settingsSaveFailed"
+        "message": "保存失败，已保留原设置。",
+        "description": "Settings UI: settingsSaveFailed"
     },
     "settingsGroupInterface": {
         "message": "界面",
@@ -3914,6 +3922,42 @@
     "settingsGroupReader": {
         "message": "阅读器显示",
         "description": "Settings and interaction label: settingsGroupReader"
+    },
+    "settingsContentCleanupTitle": {
+        "message": "内容保留规则",
+        "description": "Settings item and dialog title."
+    },
+    "settingsContentCleanupDesc": {
+        "message": "统一设置阅读器、Markdown 复制和导出中是否保留链接与代码块。",
+        "description": "Settings item and dialog description."
+    },
+    "readerSettingsDisplaySection": {
+        "message": "阅读显示",
+        "description": "Reader settings section."
+    },
+    "readerSettingsAnnotationsSection": {
+        "message": "注释与提示词",
+        "description": "Reader settings section."
+    },
+    "readerSettingsOtherSection": {
+        "message": "其他",
+        "description": "Reader settings section."
+    },
+    "settingsPreserveLinks": {
+        "message": "保留链接和网址",
+        "description": "Shared content cleanup preference."
+    },
+    "settingsPreserveLinksDesc": {
+        "message": "开启后，在阅读器、复制 Markdown 和导出中保留正文链接及网址。",
+        "description": "Shared content cleanup preference."
+    },
+    "settingsIncludeCodeBlocks": {
+        "message": "包含代码块",
+        "description": "Shared content cleanup preference."
+    },
+    "settingsIncludeCodeBlocksDesc": {
+        "message": "关闭后，在阅读器、复制 Markdown 和导出中省略整块代码；手动选中的文字仍按原样复制。",
+        "description": "Shared content cleanup preference."
     },
     "settingsGroupPosition": {
         "message": "发送消息之后",
@@ -3983,10 +4027,16 @@
         "message": "经典蓝",
         "description": "Settings and interaction label: themeAccentClassicBlue"
     },
-    "settingsPinnedActions": {"message": "收起后仍显示的按钮", "description": "Pinned page action configuration"},
-    "settingsPinnedActionsDesc": {"message": "选择右下角按钮列收起后仍留在页面上的操作。", "description": "Pinned page action configuration"},
+    "settingsPinnedActions": {
+        "message": "收起后仍显示的按钮",
+        "description": "Pinned page action configuration"
+    },
+    "settingsPinnedActionsDesc": {
+        "message": "选择右下角按钮列收起后仍留在页面上的操作。",
+        "description": "Pinned page action configuration"
+    },
     "settingsGroupFormulaButtonsHint": {
-        "message": "选择鼠标移到回复中的公式上时显示哪些按钮；输入框公式预览中的导出不受这些开关影响。",
+        "message": "选择鼠标移到回复中的公式上时显示哪些按钮；输入公式时的预览预览中的导出不受这些开关影响。",
         "description": "Settings copy for settingsGroupFormulaButtonsHint"
     },
     "settingsGroupSelectionHint": {
@@ -4034,11 +4084,592 @@
         "description": "Settings copy for settingsReaderBodyWidthDesc"
     },
     "settingsInputFormulaSuggestionsDesc": {
-        "message": "在输入框公式内键入 \\ 时，显示可以直接插入的 LaTeX 命令。",
+        "message": "在输入公式时的预览内键入 \\ 时，显示可以直接插入的 LaTeX 命令。",
         "description": "Settings copy for settingsInputFormulaSuggestionsDesc"
     },
     "settingsInputFormulaPreviewDesc": {
         "message": "文字光标进入公式时显示预览；仅把鼠标移上去不会弹出。",
         "description": "Settings copy for settingsInputFormulaPreviewDesc"
+    },
+    "btnCopyPromptReply": {
+        "message": "复制 Prompt＋回复",
+        "description": "Settings UI: btnCopyPromptReply"
+    },
+    "promptReplyUnavailable": {
+        "message": "未取得对应的用户 Prompt，请等待对话加载完成后重试。",
+        "description": "Settings UI: promptReplyUnavailable"
+    },
+    "settingsButtonsGroupPage": {
+        "message": "页面按钮",
+        "description": "Settings UI: settingsButtonsGroupPage"
+    },
+    "settingsButtonsGroupMessage": {
+        "message": "消息按钮",
+        "description": "Settings UI: settingsButtonsGroupMessage"
+    },
+    "settingsButtonsGroupFormula": {
+        "message": "公式按钮",
+        "description": "Settings UI: settingsButtonsGroupFormula"
+    },
+    "settingsButtonsGroupSelection": {
+        "message": "选区按钮",
+        "description": "Settings UI: settingsButtonsGroupSelection"
+    },
+    "settingsButtonsGroupDirectory": {
+        "message": "目录导航",
+        "description": "Settings UI: settingsButtonsGroupDirectory"
+    },
+    "settingsButtonsGroupComposer": {
+        "message": "输入框按钮",
+        "description": "Settings UI: settingsButtonsGroupComposer"
+    },
+    "settingsPreview": {
+        "message": "预览",
+        "description": "Settings UI: settingsPreview"
+    },
+    "settingsExpanded": {
+        "message": "展开",
+        "description": "Settings UI: settingsExpanded"
+    },
+    "settingsCollapsed": {
+        "message": "收起",
+        "description": "Settings UI: settingsCollapsed"
+    },
+    "settingsPin": {
+        "message": "常驻",
+        "description": "Settings UI: settingsPin"
+    },
+    "settingsMessageTimestamp": {
+        "message": "消息时间",
+        "description": "Settings UI: settingsMessageTimestamp"
+    },
+    "settingsPreviewChars": {
+        "message": "字",
+        "description": "Settings UI: settingsPreviewChars"
+    },
+    "settingsComposerAnnotations": {
+        "message": "注释入口",
+        "description": "Settings UI: settingsComposerAnnotations"
+    },
+    "settingsButtonsPinHint": {
+        "message": "常驻按钮在收起时仍可见。关闭按钮后保留常驻偏好，重新开启即可恢复。",
+        "description": "Settings UI: settingsButtonsPinHint"
+    },
+    "settingsButtonsFormulaHint": {
+        "message": "预览模拟鼠标悬停在公式上。仅显示已开启且当前浏览器支持的导出按钮。",
+        "description": "Settings UI: settingsButtonsFormulaHint"
+    },
+    "settingsButtonsComposerHint": {
+        "message": "入口显示不影响功能设置。当前对话有注释时才显示注释入口。",
+        "description": "Settings UI: settingsButtonsComposerHint"
+    },
+    "settingsPreviewSelection": {
+        "message": "已选中的文字",
+        "description": "Settings UI: settingsPreviewSelection"
+    },
+    "settingsPreviewComposer": {
+        "message": "输入消息…",
+        "description": "Settings UI: settingsPreviewComposer"
+    },
+    "settingsTransferTitle": {
+        "message": "配置文件",
+        "description": "Settings UI: settingsTransferTitle"
+    },
+    "settingsTransferHint": {
+        "message": "导出偏好设置，或预览配置文件后导入。内容备份单独管理。",
+        "description": "Settings UI: settingsTransferHint"
+    },
+    "settingsExport": {
+        "message": "导出配置",
+        "description": "Settings UI: settingsExport"
+    },
+    "settingsImport": {
+        "message": "导入配置",
+        "description": "Settings UI: settingsImport"
+    },
+    "settingsRestore": {
+        "message": "恢复上次配置",
+        "description": "Settings UI: settingsRestore"
+    },
+    "settingsExportNotice": {
+        "message": "JSON 文件包含按钮显示、常驻偏好、外观、阅读及导出选项；不包含令牌、账号信息、对话、收藏、注释、高亮、提示词及自定义模板。请将文件保存在可信的位置。",
+        "description": "Settings UI: settingsExportNotice"
+    },
+    "settingsExportConfirm": {
+        "message": "导出 JSON 文件",
+        "description": "Settings UI: settingsExportConfirm"
+    },
+    "settingsExportDone": {
+        "message": "配置文件已导出。",
+        "description": "Settings UI: settingsExportDone"
+    },
+    "settingsImportNotice": {
+        "message": "共有 $1 项变更。选择要应用的类别；内容数据和自定义模板保持不变。",
+        "description": "Settings UI: settingsImportNotice"
+    },
+    "settingsImportConfirm": {
+        "message": "应用所选配置",
+        "description": "Settings UI: settingsImportConfirm"
+    },
+    "settingsImportDone": {
+        "message": "配置已应用，已保留导入前的配置恢复点。",
+        "description": "Settings UI: settingsImportDone"
+    },
+    "settingsImportNoChanges": {
+        "message": "无需修改配置。",
+        "description": "Settings UI: settingsImportNoChanges"
+    },
+    "settingsImportConflict": {
+        "message": "预览后配置已发生变化，请重新选择文件并核对变更。",
+        "description": "Settings UI: settingsImportConflict"
+    },
+    "settingsImportQuota": {
+        "message": "配置存储空间不足，当前配置未修改。",
+        "description": "Settings UI: settingsImportQuota"
+    },
+    "settingsImportInvalid": {
+        "message": "文件无效、过大或配置格式不受支持，当前配置未修改。",
+        "description": "Settings UI: settingsImportInvalid"
+    },
+    "settingsTransferFailed": {
+        "message": "未能完成操作，请检查当前配置后重试。",
+        "description": "Settings UI: settingsTransferFailed"
+    },
+    "settingsRecoveryEmpty": {
+        "message": "暂无可恢复的上次配置。",
+        "description": "Settings UI: settingsRecoveryEmpty"
+    },
+    "settingsValueOn": {
+        "message": "开启",
+        "description": "Settings UI: settingsValueOn"
+    },
+    "settingsValueOff": {
+        "message": "关闭",
+        "description": "Settings UI: settingsValueOff"
+    },
+    "settingsValueNone": {
+        "message": "无",
+        "description": "Settings UI: settingsValueNone"
+    },
+    "settingsValueDefault": {
+        "message": "默认",
+        "description": "Settings UI: settingsValueDefault"
+    },
+    "settingsFormulaResponse": {
+        "message": "回复公式",
+        "description": "Settings UI: settingsFormulaResponse"
+    },
+    "settingsFormulaComposer": {
+        "message": "输入公式时的预览",
+        "description": "Settings UI: settingsFormulaComposer"
+    },
+    "settingsPreferencePlatformsChatgpt": {
+        "message": "ChatGPT 插件",
+        "description": "Settings UI: settingsPreferencePlatformsChatgpt"
+    },
+    "settingsPreferenceBehaviorShowMessageToolbar": {
+        "message": "消息工具栏",
+        "description": "Settings UI: settingsPreferenceBehaviorShowMessageToolbar"
+    },
+    "settingsPreferenceBehaviorShowSaveMessages": {
+        "message": "消息导出",
+        "description": "Settings UI: settingsPreferenceBehaviorShowSaveMessages"
+    },
+    "settingsPreferenceBehaviorShowWordCount": {
+        "message": "字数统计",
+        "description": "Settings UI: settingsPreferenceBehaviorShowWordCount"
+    },
+    "settingsPreferenceBehaviorShowMessageTimestamp": {
+        "message": "消息时间",
+        "description": "Settings UI: settingsPreferenceBehaviorShowMessageTimestamp"
+    },
+    "settingsPreferenceBehaviorShowCopyPng": {
+        "message": "复制回复为 PNG",
+        "description": "Settings UI: settingsPreferenceBehaviorShowCopyPng"
+    },
+    "settingsPreferenceBehaviorSaveContextOnly": {
+        "message": "仅保存上下文",
+        "description": "Settings UI: settingsPreferenceBehaviorSaveContextOnly"
+    },
+    "settingsPreferenceBehaviorPinnedMessageControls": {
+        "message": "消息常驻按钮",
+        "description": "Settings UI: settingsPreferenceBehaviorPinnedMessageControls"
+    },
+    "settingsPreferenceReaderRenderCodeInReader": {
+        "message": "阅读器显示代码块",
+        "description": "Settings UI: settingsPreferenceReaderRenderCodeInReader"
+    },
+    "settingsPreferenceReaderShowOutlineInReader": {
+        "message": "阅读器大纲",
+        "description": "Settings UI: settingsPreferenceReaderShowOutlineInReader"
+    },
+    "settingsPreferenceReaderPersistAnnotations": {
+        "message": "保存注释",
+        "description": "Settings UI: settingsPreferenceReaderPersistAnnotations"
+    },
+    "settingsPreferenceReaderDefaultOpenMode": {
+        "message": "阅读器打开方式",
+        "description": "Settings UI: settingsPreferenceReaderDefaultOpenMode"
+    },
+    "settingsPreferenceReaderPanelSizeRatioWidthRatio": {
+        "message": "阅读器面板宽度",
+        "description": "Settings UI: settingsPreferenceReaderPanelSizeRatioWidthRatio"
+    },
+    "settingsPreferenceReaderPanelSizeRatioHeightRatio": {
+        "message": "阅读器面板高度",
+        "description": "Settings UI: settingsPreferenceReaderPanelSizeRatioHeightRatio"
+    },
+    "settingsPreferenceReaderBodyFontSizePx": {
+        "message": "阅读器字号",
+        "description": "Settings UI: settingsPreferenceReaderBodyFontSizePx"
+    },
+    "settingsPreferenceReaderContentMaxWidthPx": {
+        "message": "阅读器内容宽度",
+        "description": "Settings UI: settingsPreferenceReaderContentMaxWidthPx"
+    },
+    "settingsPreferenceReaderCommentExportPromptPosition": {
+        "message": "注释提示词位置",
+        "description": "Settings UI: settingsPreferenceReaderCommentExportPromptPosition"
+    },
+    "settingsPreferenceReaderCommentExportSortMode": {
+        "message": "注释导出排序",
+        "description": "Settings UI: settingsPreferenceReaderCommentExportSortMode"
+    },
+    "settingsPreferenceContentPreserveLinks": {
+        "message": "保留回复链接",
+        "description": "Settings UI: settingsPreferenceContentPreserveLinks"
+    },
+    "settingsPreferenceContentIncludeCodeBlocks": {
+        "message": "包含回复代码块",
+        "description": "Settings UI: settingsPreferenceContentIncludeCodeBlocks"
+    },
+    "settingsPreferenceFormulaClickCopyMarkdown": {
+        "message": "点击公式复制",
+        "description": "Settings UI: settingsPreferenceFormulaClickCopyMarkdown"
+    },
+    "settingsPreferenceFormulaClickCopyFormulaFormat": {
+        "message": "公式点击复制格式",
+        "description": "Settings UI: settingsPreferenceFormulaClickCopyFormulaFormat"
+    },
+    "settingsPreferenceFormulaMarkdownCopyFormulaFormat": {
+        "message": "Markdown 公式格式",
+        "description": "Settings UI: settingsPreferenceFormulaMarkdownCopyFormulaFormat"
+    },
+    "settingsPreferenceFormulaAssetFontSizePx": {
+        "message": "公式图片字号",
+        "description": "Settings UI: settingsPreferenceFormulaAssetFontSizePx"
+    },
+    "settingsPreferenceExportPngWidthPreset": {
+        "message": "PNG 宽度预设",
+        "description": "Settings UI: settingsPreferenceExportPngWidthPreset"
+    },
+    "settingsPreferenceExportPngCustomWidth": {
+        "message": "PNG 自定义宽度",
+        "description": "Settings UI: settingsPreferenceExportPngCustomWidth"
+    },
+    "settingsPreferenceExportPngPixelRatio": {
+        "message": "PNG 清晰度",
+        "description": "Settings UI: settingsPreferenceExportPngPixelRatio"
+    },
+    "settingsPreferenceChatgptDirectoryEnabled": {
+        "message": "显示目录",
+        "description": "Settings UI: settingsPreferenceChatgptDirectoryEnabled"
+    },
+    "settingsPreferenceChatgptDirectoryMode": {
+        "message": "目录显示方式",
+        "description": "Settings UI: settingsPreferenceChatgptDirectoryMode"
+    },
+    "settingsPreferenceChatgptDirectoryPromptLabelMode": {
+        "message": "目录 Prompt 摘要",
+        "description": "Settings UI: settingsPreferenceChatgptDirectoryPromptLabelMode"
+    },
+    "settingsPreferenceChatgptDirectoryHideOfficialNavigation": {
+        "message": "隐藏 ChatGPT 导航",
+        "description": "Settings UI: settingsPreferenceChatgptDirectoryHideOfficialNavigation"
+    },
+    "settingsPreferenceChatgptDirectoryRightInsetPx": {
+        "message": "目录右侧间距",
+        "description": "Settings UI: settingsPreferenceChatgptDirectoryRightInsetPx"
+    },
+    "settingsPreferenceChatgptDirectoryPreviewMaxChars": {
+        "message": "目录预览长度",
+        "description": "Settings UI: settingsPreferenceChatgptDirectoryPreviewMaxChars"
+    },
+    "settingsPreferenceChatgptBehaviorRestorePositionAfterSend": {
+        "message": "发送后恢复阅读位置",
+        "description": "Settings UI: settingsPreferenceChatgptBehaviorRestorePositionAfterSend"
+    },
+    "settingsPreferenceChatgptBehaviorAtomicMarkdownCopyShortcut": {
+        "message": "选区复制快捷键",
+        "description": "Settings UI: settingsPreferenceChatgptBehaviorAtomicMarkdownCopyShortcut"
+    },
+    "settingsPreferenceChatgptBehaviorShowMessageStepper": {
+        "message": "目录导航箭头",
+        "description": "Settings UI: settingsPreferenceChatgptBehaviorShowMessageStepper"
+    },
+    "settingsPreferenceChatgptBehaviorShowPageBookmarkControl": {
+        "message": "页面收藏按钮",
+        "description": "Settings UI: settingsPreferenceChatgptBehaviorShowPageBookmarkControl"
+    },
+    "settingsPreferenceChatgptBehaviorShowDetachedReaderControl": {
+        "message": "分屏阅读器按钮",
+        "description": "Settings UI: settingsPreferenceChatgptBehaviorShowDetachedReaderControl"
+    },
+    "settingsPreferenceChatgptBehaviorShowPromptControl": {
+        "message": "提示词按钮",
+        "description": "Settings UI: settingsPreferenceChatgptBehaviorShowPromptControl"
+    },
+    "settingsPreferenceChatgptBehaviorShowInputEnhancementControl": {
+        "message": "页面输入增强按钮",
+        "description": "Settings UI: settingsPreferenceChatgptBehaviorShowInputEnhancementControl"
+    },
+    "settingsPreferenceChatgptBehaviorShowRefreshNavigationControl": {
+        "message": "刷新导航按钮",
+        "description": "Settings UI: settingsPreferenceChatgptBehaviorShowRefreshNavigationControl"
+    },
+    "settingsPreferenceChatgptBehaviorShowComposerInputEnhancementControl": {
+        "message": "输入框输入增强入口",
+        "description": "Settings UI: settingsPreferenceChatgptBehaviorShowComposerInputEnhancementControl"
+    },
+    "settingsPreferenceChatgptBehaviorShowComposerAnnotationControl": {
+        "message": "输入框注释入口",
+        "description": "Settings UI: settingsPreferenceChatgptBehaviorShowComposerAnnotationControl"
+    },
+    "settingsPreferenceChatgptBehaviorPromptAutocomplete": {
+        "message": "提示词自动补全",
+        "description": "Settings UI: settingsPreferenceChatgptBehaviorPromptAutocomplete"
+    },
+    "settingsPreferenceChatgptBehaviorEnableArrowKeyMessageNavigation": {
+        "message": "方向键消息导航",
+        "description": "Settings UI: settingsPreferenceChatgptBehaviorEnableArrowKeyMessageNavigation"
+    },
+    "settingsPreferenceChatgptBehaviorPageAnnotationsEnabled": {
+        "message": "页面注释",
+        "description": "Settings UI: settingsPreferenceChatgptBehaviorPageAnnotationsEnabled"
+    },
+    "settingsPreferenceChatgptBehaviorShowPageSelectionToolbar": {
+        "message": "页面选区工具栏",
+        "description": "Settings UI: settingsPreferenceChatgptBehaviorShowPageSelectionToolbar"
+    },
+    "settingsPreferenceChatgptBehaviorPinnedPageControls": {
+        "message": "页面常驻按钮",
+        "description": "Settings UI: settingsPreferenceChatgptBehaviorPinnedPageControls"
+    },
+    "settingsPreferenceChatgptBehaviorPageWidthScale": {
+        "message": "ChatGPT 内容宽度",
+        "description": "Settings UI: settingsPreferenceChatgptBehaviorPageWidthScale"
+    },
+    "settingsPreferenceChatgptBehaviorNavigationSeekStepPx": {
+        "message": "导航加载步长",
+        "description": "Settings UI: settingsPreferenceChatgptBehaviorNavigationSeekStepPx"
+    },
+    "settingsPreferenceAppearanceThemeMode": {
+        "message": "主题",
+        "description": "Settings UI: settingsPreferenceAppearanceThemeMode"
+    },
+    "settingsPreferenceAppearanceFontSizePx": {
+        "message": "界面字号",
+        "description": "Settings UI: settingsPreferenceAppearanceFontSizePx"
+    },
+    "settingsPreferenceAppearanceAccentColor": {
+        "message": "强调色",
+        "description": "Settings UI: settingsPreferenceAppearanceAccentColor"
+    },
+    "settingsPreferenceBookmarksSortMode": {
+        "message": "收藏排序",
+        "description": "Settings UI: settingsPreferenceBookmarksSortMode"
+    },
+    "settingsPreferenceLanguage": {
+        "message": "语言",
+        "description": "Settings UI: settingsPreferenceLanguage"
+    },
+    "settingsPreferenceBehaviorMessageControlsBookmarkToggle": {
+        "message": "消息收藏按钮",
+        "description": "Settings UI: settingsPreferenceBehaviorMessageControlsBookmarkToggle"
+    },
+    "settingsPreferenceBehaviorMessageControlsCopyMarkdown": {
+        "message": "消息复制 Markdown按钮",
+        "description": "Settings UI: settingsPreferenceBehaviorMessageControlsCopyMarkdown"
+    },
+    "settingsPreferenceBehaviorMessageControlsCopyPromptReply": {
+        "message": "消息复制 Prompt＋回复按钮",
+        "description": "Settings UI: settingsPreferenceBehaviorMessageControlsCopyPromptReply"
+    },
+    "settingsPreferenceBehaviorMessageControlsReader": {
+        "message": "消息阅读器按钮",
+        "description": "Settings UI: settingsPreferenceBehaviorMessageControlsReader"
+    },
+    "settingsPreferenceBehaviorMessageControlsExport": {
+        "message": "消息导出按钮",
+        "description": "Settings UI: settingsPreferenceBehaviorMessageControlsExport"
+    },
+    "settingsPreferenceReaderSelectionToolbarCopy": {
+        "message": "选区复制按钮",
+        "description": "Settings UI: settingsPreferenceReaderSelectionToolbarCopy"
+    },
+    "settingsPreferenceReaderSelectionToolbarAnnotation": {
+        "message": "选区注释按钮",
+        "description": "Settings UI: settingsPreferenceReaderSelectionToolbarAnnotation"
+    },
+    "settingsPreferenceReaderSelectionToolbarHighlight": {
+        "message": "选区高亮按钮",
+        "description": "Settings UI: settingsPreferenceReaderSelectionToolbarHighlight"
+    },
+    "settingsPreferenceFormulaAssetActionsCopyPng": {
+        "message": "回复公式：复制 PNG",
+        "description": "Settings UI: settingsPreferenceFormulaAssetActionsCopyPng"
+    },
+    "settingsPreferenceFormulaAssetActionsCopySvg": {
+        "message": "回复公式：复制 SVG",
+        "description": "Settings UI: settingsPreferenceFormulaAssetActionsCopySvg"
+    },
+    "settingsPreferenceFormulaAssetActionsCopyMathml": {
+        "message": "回复公式：复制 MathML",
+        "description": "Settings UI: settingsPreferenceFormulaAssetActionsCopyMathml"
+    },
+    "settingsPreferenceFormulaAssetActionsSavePng": {
+        "message": "回复公式：保存 PNG",
+        "description": "Settings UI: settingsPreferenceFormulaAssetActionsSavePng"
+    },
+    "settingsPreferenceFormulaAssetActionsSaveSvg": {
+        "message": "回复公式：保存 SVG",
+        "description": "Settings UI: settingsPreferenceFormulaAssetActionsSaveSvg"
+    },
+    "settingsPreferenceFormulaComposerAssetActionsCopyPng": {
+        "message": "输入公式时的预览：复制 PNG",
+        "description": "Settings UI: settingsPreferenceFormulaComposerAssetActionsCopyPng"
+    },
+    "settingsPreferenceFormulaComposerAssetActionsCopySvg": {
+        "message": "输入公式时的预览：复制 SVG",
+        "description": "Settings UI: settingsPreferenceFormulaComposerAssetActionsCopySvg"
+    },
+    "settingsPreferenceFormulaComposerAssetActionsCopyMathml": {
+        "message": "输入公式时的预览：复制 MathML",
+        "description": "Settings UI: settingsPreferenceFormulaComposerAssetActionsCopyMathml"
+    },
+    "settingsPreferenceFormulaComposerAssetActionsSavePng": {
+        "message": "输入公式时的预览：保存 PNG",
+        "description": "Settings UI: settingsPreferenceFormulaComposerAssetActionsSavePng"
+    },
+    "settingsPreferenceFormulaComposerAssetActionsSaveSvg": {
+        "message": "输入公式时的预览：保存 SVG",
+        "description": "Settings UI: settingsPreferenceFormulaComposerAssetActionsSaveSvg"
+    },
+    "settingsPreferenceChatgptBehaviorInputEnhancementAvailable": {
+        "message": "输入增强可用性",
+        "description": "Settings UI: settingsPreferenceChatgptBehaviorInputEnhancementAvailable"
+    },
+    "settingsPreferenceChatgptBehaviorInputEnhancementEnabled": {
+        "message": "输入增强",
+        "description": "Settings UI: settingsPreferenceChatgptBehaviorInputEnhancementEnabled"
+    },
+    "settingsPreferenceChatgptBehaviorInputEnhancementEnterKeyNewline": {
+        "message": "回车换行",
+        "description": "Settings UI: settingsPreferenceChatgptBehaviorInputEnhancementEnterKeyNewline"
+    },
+    "settingsPreferenceChatgptBehaviorInputEnhancementBoldShortcut": {
+        "message": "加粗快捷键",
+        "description": "Settings UI: settingsPreferenceChatgptBehaviorInputEnhancementBoldShortcut"
+    },
+    "settingsPreferenceChatgptBehaviorInputEnhancementFormulaSuggestions": {
+        "message": "公式补全",
+        "description": "Settings UI: settingsPreferenceChatgptBehaviorInputEnhancementFormulaSuggestions"
+    },
+    "settingsPreferenceChatgptBehaviorInputEnhancementFormulaPreview": {
+        "message": "公式预览",
+        "description": "Settings UI: settingsPreferenceChatgptBehaviorInputEnhancementFormulaPreview"
+    },
+    "settingsPreferenceChatgptBehaviorInputEnhancementListsEnabled": {
+        "message": "列表辅助",
+        "description": "Settings UI: settingsPreferenceChatgptBehaviorInputEnhancementListsEnabled"
+    },
+    "settingsPreferenceChatgptBehaviorInputEnhancementListsOrdered": {
+        "message": "有序列表",
+        "description": "Settings UI: settingsPreferenceChatgptBehaviorInputEnhancementListsOrdered"
+    },
+    "settingsPreferenceChatgptBehaviorInputEnhancementListsUnordered": {
+        "message": "无序列表",
+        "description": "Settings UI: settingsPreferenceChatgptBehaviorInputEnhancementListsUnordered"
+    },
+    "settingsButtonsSelectionHint": {
+        "message": "复制、注释和高亮按钮随文字选择显示；这些偏好同步应用于阅读器。",
+        "description": "Settings selection preview hint"
+    },
+    "settingsButtonsDirectoryHint": {
+        "message": "目录开启时，箭头固定在页面右下角、品牌按钮上方。此开关只控制显示，不改变方向键导航。",
+        "description": "Settings Directory arrow preview hint"
+    },
+    "settingsReloadForUpdate": {
+        "message": "请重新加载扩展并刷新页面，以使用这些设置。",
+        "description": "Settings UI: settingsReloadForUpdate"
+    },
+    "settingsImportUnsupported": {
+        "message": "文件或已存配置的版本不受支持，未导入任何配置。",
+        "description": "Settings UI: settingsImportUnsupported"
+    },
+    "settingsFormulaExample": {
+        "message": "预览示例",
+        "description": "Settings UI: settingsFormulaExample"
+    },
+    "settingsFormulaExampleInline": {
+        "message": "行内公式",
+        "description": "Settings UI: settingsFormulaExampleInline"
+    },
+    "settingsFormulaExampleDisplay": {
+        "message": "独立公式",
+        "description": "Settings UI: settingsFormulaExampleDisplay"
+    },
+    "settingsFormulaExampleCompletion": {
+        "message": "预览与公式补全",
+        "description": "Settings UI: settingsFormulaExampleCompletion"
+    },
+    "settingsFormulaPreviewDisabled": {
+        "message": "输入增强或公式预览未开启。可在“输入与提示词”中开启，导出按钮的偏好会保留。",
+        "description": "Settings UI: settingsFormulaPreviewDisabled"
+    },
+    "settingsButtonsTypingFormulaHint": {
+        "message": "此示例完整呈现输入公式时的实际窗口，示例中的操作不会执行复制或导出。",
+        "description": "Settings typing formula preview hint"
+    },
+    "settingsFormulaSettingsUnavailable": {
+        "message": "设置尚未就绪，预览暂不可用。",
+        "description": "Settings formula preview unavailable state"
+    },
+    "inputEnhancementStateEnabled": {
+        "message": "已开启",
+        "description": "Accessible description for the effective input enhancement state"
+    },
+    "inputEnhancementStateDisabled": {
+        "message": "未开启",
+        "description": "Accessible description for the effective input enhancement state"
+    },
+    "themeAccentCherryPink": {
+        "message": "樱桃粉",
+        "description": "Settings appearance color control"
+    },
+    "themeAccentLilac": {
+        "message": "丁香紫",
+        "description": "Settings appearance color control"
+    },
+    "themeAccentBayBlue": {
+        "message": "海湾蓝",
+        "description": "Settings appearance color control"
+    },
+    "themeAccentLightPink": { "message": "浅粉色", "description": "Settings appearance color control" },
+    "settingsGroupConfiguration": { "message": "配置文件", "description": "Settings data subgroup" },
+    "settingsGroupLibraryData": { "message": "资料库", "description": "Settings data subgroup" },
+    "settingsGroupCloudBackup": { "message": "云端备份", "description": "Settings data subgroup" },
+    "settingsGroupLocalBackup": { "message": "本地备份", "description": "Settings data subgroup" },
+    "themeAccentCustom": {
+        "message": "自定义 RGB 色值",
+        "description": "Settings appearance color control"
+    },
+    "themeAccentRgbLabel": {
+        "message": "RGB 色值",
+        "description": "Settings appearance color control"
+    },
+    "themeAccentRgbInvalid": {
+        "message": "请输入六位色值，例如 FF6699。",
+        "description": "Settings appearance color control"
     }
 }

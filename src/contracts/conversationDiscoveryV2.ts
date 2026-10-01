@@ -303,6 +303,7 @@ export type RenderedTurnCompileResultV2 =
         kind: 'ready';
         user: ConversationBodyV2;
         assistant: ConversationBodyV2;
+        assistantSourceMarkdown?: string;
         semanticDigest: string;
         surfaceDigest: string;
         manifest: Readonly<{

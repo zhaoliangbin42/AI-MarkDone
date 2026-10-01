@@ -190,6 +190,9 @@ export class ChatGPTPageAnnotationController {
         else this.dispose();
     }
 
+    /** @deprecated The annotation entry is always enabled when annotations exist. */
+    setComposerControlVisible(_visible: boolean): void { this.syncChip(); }
+
     setSelectionToolbarEnabled(enabled: boolean): void {
         if (enabled === this.selectionToolbarEnabled) return;
         this.selectionToolbarEnabled = enabled;

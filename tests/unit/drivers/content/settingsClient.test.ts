@@ -62,7 +62,7 @@ describe('SettingsClient', () => {
         };
         storageListener?.({ app_settings: { newValue: next } }, 'sync');
 
-        expect(listener).toHaveBeenLastCalledWith({ settings: next });
+        expect(listener).toHaveBeenLastCalledWith({ settings: { ...next, formula: { ...next.formula, composerAssetActions: { copyPng: true, copySvg: true, copyMathml: true, savePng: true, saveSvg: true } } } });
         expect(client.getCached()?.formula.assetActions.copyPng).toBe(true);
     });
 

@@ -19,8 +19,8 @@ The complete Surface catalog, token ownership rules, and responsive contracts ar
 ## ChatGPT Input Enhancement
 
 - **Input Enhancement**: the complete optional authoring layer attached to the official ChatGPT composer. It does not replace the composer or render rich text inside it.
-- **Availability switch**: `chatgptBehavior.inputEnhancement.available`, shown in bookmark Settings. Turning it off hides the composer button and pauses every enhancement while preserving detailed preferences.
-- **Runtime master switch**: `chatgptBehavior.inputEnhancement.enabled`, shown in the composer popover. It controls whether the button is highlighted and whether any child capability runs.
+- **Availability switch**: `chatgptBehavior.inputEnhancement.available`, shown in Settings. Turning it off pauses every enhancement while preserving detailed preferences. The composer has no Input Enhancement entry; lower-right entry visibility is controlled separately.
+- **Runtime master switch**: `chatgptBehavior.inputEnhancement.enabled`, shown in Settings and the lower-right Input Enhancement popover. Effective state is `available && enabled`; it controls entry highlighting and whether any child capability runs.
 - **Enter-newline**: intercepts ordinary Enter outside lists. Cmd/Ctrl + Enter remains the send shortcut; Shift + Enter remains host-owned.
 - **List enhancement**: the parent capability for CommonMark-aware list authoring. Ordered and unordered lists are independently selectable beneath it, while each list type keeps its own complete behavior set.
 - **Bold shortcut**: Cmd/Ctrl + B inserts or removes visible `**` markers; it is not rich-text rendering.

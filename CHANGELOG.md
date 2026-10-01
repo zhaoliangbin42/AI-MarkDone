@@ -8,17 +8,35 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
+- Added Cherry pink, Bay blue, Light pink, and a custom RGB hex color editor; removed duplicate blue and purple presets while preserving saved colors.
+- Added shared options to keep links and omit code blocks in Reader, Markdown copy, and message exports.
 - Added shared Copy, Annotation, and Highlight visibility switches for page and Reader selections.
-- Pin individual page actions to keep them visible when the lower-right drawer is closed, including the new Input Enhancement controls.
-- Copy or save formula assets directly from composer previews.
+- Added a dedicated Buttons settings page with live previews, individual visibility switches, and page/message button pins.
+- Copy the matching user Prompt and AI reply together with short role headings.
+- Export and import settings as JSON, review changes by category, and restore the previous configuration without including saved content or credentials.
+- Copy or save formula assets directly from composer previews, with separate button preferences for replies and composer formulas.
 
 ### Fixed
+- Corrected Settings card padding, group dividers, configuration-transfer spacing, and pin alignment.
+- Keep formula previews visible after closing delimiters and when focusing a saved draft; show whether Input enhancement is enabled in its page control.
+- Follow the current Directory entry after history loads and ignore host markers without a visible box when tracking scroll position.
+- Keep keyboard focus while switching button groups and tighten their navigation spacing.
+- Recover full conversation data fetched before a ChatGPT route change, and update the Directory while messages continue loading.
 - Copy selected code fragments without adding code fences or altering formula-like text, and keep partially selected formulas complete.
 - Preserve the reading position after sending messages in ChatGPT's updated scrolling layout.
 - Keep the Directory expanded while moving between its entries and preview, and close both after leaving the interaction area.
 - Keep lower-right page controls floating if ChatGPT replaces extension styles during a page update.
 
 ### Changed
+- Hover over Copy to copy an image above or the matching Prompt and reply below; use the same layout and distinct conversation icon in Settings.
+- Separate configuration files, Library preferences, cloud backups, and local backups into clear settings groups.
+- Removed the composer Input enhancement button and its button-settings group; the annotation entry is enabled automatically when annotations exist.
+- Control message time and character counts independently, and configure Copy PNG without moving its secondary action.
+- Docked Previous/Next arrows above the bottom-right brand button, with the existing visibility switch and keyboard shortcuts preserved.
+- Show the complete formula assistant in Settings, including inline, display, and completion examples; remove misleading Directory and composer-entry previews.
+- Reuse formula renders, limit pending preview work, and disable stale exports immediately when input changes.
+- Reject newer or unknown settings files before import and protect newer stored settings from older clients.
+- Moved Reader-only preferences into a compact panel under the Reader header and clarified the existing code syntax highlighting option.
 - Composer formula previews now follow the text caret instead of mouse hover.
 - Grouped Settings controls by purpose and clarified where each option appears and what it changes, including formula buttons, image exports, selection actions, annotations, and page navigation.
 - Refreshed the default accent with sapphire blue while preserving existing color choices.

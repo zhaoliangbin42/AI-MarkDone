@@ -3,6 +3,7 @@ import type { ImageExportProgressEvent } from './imageExportContracts';
 export interface ChatTurn {
     user: string;
     assistant: string; // markdown
+    assistantSource?: string;
     index: number;
 }
 

@@ -13,6 +13,7 @@ import type { ReaderCommentExportSettings } from './readerCommentExport';
 import { normalizeSelectionToolbarActions, type SelectionToolbarActions } from './selectionToolbar';
 import type { ExportSettings } from './export';
 import { DEFAULT_EXPORT_SETTINGS } from './export';
+import { DEFAULT_CONTENT_CLEANUP_SETTINGS, type ContentCleanupSettings } from './content';
 import { createDefaultReaderCommentExportSettings } from './readerCommentExport';
 import type { FormulaSettings } from './formula';
 import { DEFAULT_FORMULA_SETTINGS } from './formula';
@@ -22,8 +23,14 @@ export type SettingsVersion = 5;
 export type ChatGPTDirectoryMode = 'preview' | 'expanded';
 export type ChatGPTDirectoryPromptLabelMode = 'head' | 'headTail';
 export type ChatGPTAtomicMarkdownCopyShortcut = 'none' | 'mod-c' | 'mod-shift-c';
-export const PAGE_CONTROL_ACTIONS = ['toggle-page-bookmark', 'open-detached-reader', 'open-prompts', 'open-input-enhancement', 'chatgpt-refresh-message-navigation', 'previous-message', 'next-message'] as const;
+export const PAGE_CONTROL_ACTIONS = ['toggle-page-bookmark', 'open-detached-reader', 'open-prompts', 'open-input-enhancement', 'chatgpt-refresh-message-navigation'] as const;
 export type PageControlAction = typeof PAGE_CONTROL_ACTIONS[number];
+export const MESSAGE_CONTROL_ACTIONS = ['bookmark_toggle', 'copy_markdown', 'copy_prompt_reply', 'reader', 'export'] as const;
+export type MessageControlAction = typeof MESSAGE_CONTROL_ACTIONS[number];
+export type MessageControlVisibility = Record<MessageControlAction, boolean>;
+export const DEFAULT_MESSAGE_CONTROL_VISIBILITY: MessageControlVisibility = {
+    bookmark_toggle: true, copy_markdown: true, copy_prompt_reply: true, reader: true, export: true,
+};
 export const DEFAULT_CHATGPT_DIRECTORY_RIGHT_INSET_PX = 0;
 export const MIN_CHATGPT_DIRECTORY_RIGHT_INSET_PX = 0;
 export const MAX_CHATGPT_DIRECTORY_RIGHT_INSET_PX = 40;
@@ -73,6 +80,9 @@ export type ChatGPTBehaviorSettings = {
     showDetachedReaderControl: boolean;
     showPromptControl: boolean;
     showInputEnhancementControl: boolean;
+    showRefreshNavigationControl: boolean;
+    showComposerInputEnhancementControl: boolean;
+    showComposerAnnotationControl: boolean;
     pinnedPageControls: PageControlAction[];
     promptAutocomplete: boolean;
     enableArrowKeyMessageNavigation: boolean;
@@ -121,13 +131,15 @@ export const MAX_GLOBAL_FONT_SIZE_PX = 20;
 export const GLOBAL_FONT_SIZE_STEP_PX = 1;
 export const THEME_ACCENT_SWATCHES = [
     { value: '#3b5bdb', labelKey: 'themeAccentDefaultBlue' },
-    { value: '#2563eb', labelKey: 'themeAccentClassicBlue' },
     { value: '#059669', labelKey: 'themeAccentEmerald' },
     { value: '#7c3aed', labelKey: 'themeAccentViolet' },
     { value: '#e11d48', labelKey: 'themeAccentRose' },
     { value: '#d97706', labelKey: 'themeAccentAmber' },
+    { value: '#be185d', labelKey: 'themeAccentCherryPink' },
+    { value: '#0e7490', labelKey: 'themeAccentBayBlue' },
+    { value: '#f472b6', labelKey: 'themeAccentLightPink' },
 ] as const;
-export type ThemeAccentColor = typeof THEME_ACCENT_SWATCHES[number]['value'];
+export type ThemeAccentColor = `#${string}`;
 
 export type AppSettings = {
     version: SettingsVersion;
@@ -141,6 +153,10 @@ export type AppSettings = {
         showMessageToolbar: boolean;
         showSaveMessages: boolean;
         showWordCount: boolean;
+        showMessageTimestamp: boolean;
+        showCopyPng: boolean;
+        messageControls: MessageControlVisibility;
+        pinnedMessageControls: MessageControlAction[];
         enableClickToCopy: boolean;
         saveContextOnly: boolean;
         _contextOnlyConfirmed: boolean;
@@ -157,6 +173,7 @@ export type AppSettings = {
         contentMaxWidthPx: number;
         commentExport: ReaderCommentExportSettings;
     };
+    content: ContentCleanupSettings;
     formula: FormulaSettings;
     export: ExportSettings;
     chatgptDirectory: ChatGPTDirectorySettings;
@@ -181,6 +198,10 @@ export const DEFAULT_SETTINGS: AppSettings = {
         showMessageToolbar: true,
         showSaveMessages: true,
         showWordCount: true,
+        showMessageTimestamp: true,
+        showCopyPng: true,
+        messageControls: { ...DEFAULT_MESSAGE_CONTROL_VISIBILITY },
+        pinnedMessageControls: [],
         enableClickToCopy: true,
         saveContextOnly: false,
         _contextOnlyConfirmed: false,
@@ -197,6 +218,7 @@ export const DEFAULT_SETTINGS: AppSettings = {
         contentMaxWidthPx: DEFAULT_READER_CONTENT_MAX_WIDTH_PX,
         commentExport: createDefaultReaderCommentExportSettings(),
     },
+    content: DEFAULT_CONTENT_CLEANUP_SETTINGS,
     formula: DEFAULT_FORMULA_SETTINGS,
     export: DEFAULT_EXPORT_SETTINGS,
     chatgptDirectory: {
@@ -219,6 +241,9 @@ export const DEFAULT_SETTINGS: AppSettings = {
         showDetachedReaderControl: true,
         showPromptControl: true,
         showInputEnhancementControl: true,
+        showRefreshNavigationControl: true,
+        showComposerInputEnhancementControl: true,
+        showComposerAnnotationControl: true,
         pinnedPageControls: [],
         promptAutocomplete: true,
         enableArrowKeyMessageNavigation: true,
@@ -237,6 +262,7 @@ export function isSettingsCategory(value: unknown): value is SettingsCategory {
         value === 'platforms'
         || value === 'behavior'
         || value === 'reader'
+        || value === 'content'
         || value === 'formula'
         || value === 'export'
         || value === 'chatgptDirectory'

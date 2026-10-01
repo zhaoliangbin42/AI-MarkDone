@@ -14,7 +14,7 @@ export const SETTINGS_CATEGORIES = [
     ['advanced', 'settingsCategoryAdvanced', settingsIcon],
 ] as const;
 export type SettingsCategoryId = typeof SETTINGS_CATEGORIES[number][0];
-const GROUP_ORDER = ['Interface', 'Page', 'Directory', 'Reader', 'Position', 'Editing', 'FormulaAssistant', 'Prompts', 'Marks', 'AnnotationOutput', 'Markdown', 'FormulaButtons', 'FormulaImages', 'MessageImages', 'MessageButtons', 'Selection', 'Drawer', 'Keyboard', 'Data', 'Advanced'].map(name => `settingsGroup${name}`);
+const GROUP_ORDER = ['Interface', 'Page', 'Directory', 'Reader', 'Position', 'ContentRules', 'Editing', 'FormulaAssistant', 'Prompts', 'Marks', 'AnnotationOutput', 'Markdown', 'FormulaButtons', 'FormulaImages', 'MessageImages', 'MessageButtons', 'Selection', 'Drawer', 'Keyboard', 'Configuration', 'LibraryData', 'CloudBackup', 'LocalBackup', 'Data', 'Advanced'].map(name => `settingsGroup${name}`);
 const GROUP_HINT_KEYS: Record<string, string> = {
     settingsGroupFormulaButtons: 'settingsGroupFormulaButtonsHint',
     settingsGroupSelection: 'settingsGroupSelectionHint',
@@ -81,7 +81,7 @@ export class SettingsCatalog {
             for (const row of group.rows) {
                 const groupKey = row.dataset.settingsGroup ?? '';
                 const hint = GROUP_HINT_KEYS[groupKey] ? t(GROUP_HINT_KEYS[groupKey]) : '';
-                const searchableText = `${group.label} ${t(groupKey)} ${hint} ${row.textContent} ${row.querySelector('[data-role]')?.getAttribute('data-role') ?? ''}`.toLocaleLowerCase();
+                const searchableText = `${group.label} ${t(groupKey)} ${hint} ${row.textContent} ${row.dataset.searchText ?? ''} ${row.querySelector('[data-role]')?.getAttribute('data-role') ?? ''}`.toLocaleLowerCase();
                 row.hidden = terms.length ? !terms.every(term => searchableText.includes(term)) : id !== this.active;
                 visible ||= !row.hidden;
             }

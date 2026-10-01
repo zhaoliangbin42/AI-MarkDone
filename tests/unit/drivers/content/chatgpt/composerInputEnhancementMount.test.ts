@@ -75,3 +75,10 @@ describe('findChatGPTComposerInputEnhancementMount', () => {
         expect(document.getElementById('aimd-chatgpt-input-enhancement-mount-style')).toBeNull();
     });
 });
+
+it('keeps the shared composer row active until both entry owners release it', () => {
+    const official=document.createElement('span');const row=document.createElement('div');row.append(official);document.body.append(row);
+    const first=activateChatGPTComposerInputEnhancementMount(row,official);const second=activateChatGPTComposerInputEnhancementMount(row,official);
+    first();expect(row.dataset.aimdInputEnhancementMount).toBe('1');first();expect(row.dataset.aimdInputEnhancementMount).toBe('1');
+    second();expect(row.dataset.aimdInputEnhancementMount).toBeUndefined();row.remove();
+});

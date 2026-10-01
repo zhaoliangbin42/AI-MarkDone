@@ -22,6 +22,7 @@ export type ToolbarHoverPortalAction = {
     disabled?: boolean;
     busy?: boolean;
     preserveSelection?: boolean;
+    placement?: 'top' | 'bottom';
     onClick: () => void;
 };
 
@@ -46,6 +47,8 @@ export class ToolbarHoverActionPortal {
     private shadow: ShadowRoot;
     private bridge: HTMLElement;
     private actionsRoot: HTMLElement;
+    private bottomActionsRoot: HTMLElement;
+    private bottomBridge: HTMLElement;
     private currentAnchor: HTMLElement | null = null;
     private currentAnchorRect: DOMRect | null = null;
     private onPointerEnter: (() => void) | null = null;
@@ -88,10 +91,33 @@ export class ToolbarHoverActionPortal {
         this.actionsRoot = document.createElement('div');
         this.actionsRoot.className = 'toolbar-hover-actions';
         this.actionsRoot.dataset.role = 'toolbar-hover-actions';
+        this.actionsRoot.dataset.placement = 'top';
         this.actionsRoot.addEventListener('pointerenter', () => this.onPointerEnter?.());
         this.actionsRoot.addEventListener('pointerleave', () => this.onPointerLeave?.());
+        this.bottomActionsRoot = document.createElement('div');
+        this.bottomActionsRoot.className = 'toolbar-hover-actions toolbar-hover-actions--bottom';
+        this.bottomActionsRoot.dataset.role = 'toolbar-hover-actions';
+        this.bottomActionsRoot.dataset.placement = 'bottom';
+        this.bottomBridge = this.bridge.cloneNode() as HTMLElement;
+        this.bottomBridge.classList.add('toolbar-hover-bridge--bottom');
+        for (const element of [this.bottomActionsRoot, this.bottomBridge]) {
+            element.addEventListener('pointerenter', () => this.onPointerEnter?.());
+            element.addEventListener('pointerleave', () => this.onPointerLeave?.());
+        }
+        for (const element of [this.actionsRoot, this.bottomActionsRoot]) {
+            element.addEventListener('focusin', () => this.onPointerEnter?.());
+            element.addEventListener('focusout', () => this.onPointerLeave?.());
+        }
         this.shadow.appendChild(this.bridge);
         this.shadow.appendChild(this.actionsRoot);
+        this.shadow.append(this.bottomBridge, this.bottomActionsRoot);
+    }
+
+    createInlinePreview(actions: ToolbarHoverPortalAction[]): HTMLElement {
+        this.renderActions(actions);
+        this.host.dataset.open = '1';
+        ensureStyle(this.shadow, `:host { position: relative; display: inline-flex; max-width: 100%; inset: auto; } .toolbar-hover-actions { position: relative; max-width: 100%; transform: none; } .toolbar-hover-bridge { display: none; }`, { id: 'aimd-inline-preview', cache: 'shared' });
+        return this.host;
     }
 
     isOpen(): boolean {
@@ -99,6 +125,7 @@ export class ToolbarHoverActionPortal {
     }
 
     containsEvent(event: Event): boolean { return event.composedPath().includes(this.host); }
+    hasFocus(): boolean { return this.shadow.activeElement !== null; }
 
     setAppearance(snapshot: AppearanceSnapshot): void {
         if (areAppearanceSnapshotsEqual(this.appearance, snapshot)) return;
@@ -146,6 +173,7 @@ export class ToolbarHoverActionPortal {
         this.onPointerLeave = null;
         this.onRequestClose = null;
         this.actionsRoot.replaceChildren();
+        this.bottomActionsRoot.replaceChildren();
         this.removeGlobalHandlers();
         this.host.remove();
     }
@@ -162,6 +190,31 @@ export class ToolbarHoverActionPortal {
         const margin = VIEWPORT_GUTTER_PX;
         const width = actionRect.width || this.actionsRoot.scrollWidth || this.actionsRoot.offsetWidth || 0;
         const height = actionRect.height || this.actionsRoot.scrollHeight || this.actionsRoot.offsetHeight || 0;
+        if (!this.bottomActionsRoot.hidden) {
+            const bottomRect = this.bottomActionsRoot.getBoundingClientRect();
+            const bottomHeight = bottomRect.height || this.bottomActionsRoot.scrollHeight;
+            const splitWidth = Math.max(width, bottomRect.width || this.bottomActionsRoot.scrollWidth);
+            const center = rect.left + rect.width / 2;
+            const splitLeft = Math.min(Math.max(margin, viewportWidth - margin - splitWidth), Math.max(margin, center - splitWidth / 2));
+            let topEdge = -margin;
+            let bottomEdge = rect.height + margin;
+            const viewportHeight = window.innerHeight || document.documentElement.clientHeight || 768;
+            if (!this.actionsRoot.hidden && rect.top - height - margin < margin) {
+                topEdge = rect.height + margin + height;
+                bottomEdge = topEdge + margin;
+            } else if (rect.top + bottomEdge + bottomHeight > viewportHeight - margin) {
+                bottomEdge = -bottomHeight - margin;
+                topEdge = bottomEdge - margin;
+            }
+            this.host.dataset.placement = 'split';
+            this.host.style.left = `${Math.round(splitLeft)}px`;
+            this.host.style.top = `${Math.round(rect.top)}px`;
+            this.host.style.width = `${Math.round(splitWidth)}px`;
+            this.host.style.setProperty('--_toolbar-hover-anchor-x', `${Math.round(center - splitLeft)}px`);
+            this.host.style.setProperty('--_toolbar-hover-top-edge', `${Math.round(topEdge)}px`);
+            this.host.style.setProperty('--_toolbar-hover-bottom-edge', `${Math.round(bottomEdge)}px`);
+            return;
+        }
         const rawCenter = rect.left + (rect.width / 2);
         const rawLeft = rawCenter - (width / 2);
         const maxLeft = Math.max(margin, viewportWidth - margin - width);
@@ -192,9 +245,16 @@ export class ToolbarHoverActionPortal {
 
     private renderActions(actions: ToolbarHoverPortalAction[]): void {
         this.tooltipDelegate.hide();
+        this.host.style.removeProperty('width');
         this.actionsRoot.replaceChildren();
+        this.bottomActionsRoot.replaceChildren();
         this.actionsRoot.dataset.layout = actions.length > 1 ? 'multi' : 'single';
-        this.host.dataset.layout = actions.length > 1 ? 'multi' : 'single';
+        const split = actions.some(action => action.placement === 'bottom');
+        this.host.dataset.layout = split ? 'split' : actions.length > 1 ? 'multi' : 'single';
+        this.actionsRoot.hidden = actions.every(action => action.placement === 'bottom');
+        this.bridge.hidden = this.actionsRoot.hidden;
+        this.bottomActionsRoot.hidden = !split;
+        this.bottomBridge.hidden = !split;
         for (const action of actions) {
             const button = document.createElement('button');
             button.type = 'button';
@@ -229,7 +289,7 @@ export class ToolbarHoverActionPortal {
                 event.stopPropagation();
                 action.onClick();
             });
-            this.actionsRoot.appendChild(button);
+            (action.placement === 'bottom' ? this.bottomActionsRoot : this.actionsRoot).appendChild(button);
         }
     }
 
@@ -299,6 +359,25 @@ export class ToolbarHoverActionPortal {
   flex-wrap: wrap;
   transform: translateY(calc(-100% - var(--aimd-space-2)));
   pointer-events: auto;
+}
+
+[hidden] { display: none; }
+
+:host([data-placement="split"]) .toolbar-hover-actions {
+  position: absolute;
+  left: 50%;
+  top: var(--_toolbar-hover-top-edge);
+  width: max-content;
+  transform: translate(-50%, -100%);
+}
+
+:host([data-placement="split"]) .toolbar-hover-actions--bottom {
+  top: var(--_toolbar-hover-bottom-edge);
+  transform: translateX(-50%);
+}
+
+:host([data-placement="split"]) .toolbar-hover-bridge--bottom {
+  top: calc(var(--_toolbar-hover-bottom-edge) - var(--aimd-space-3));
 }
 
 :host([data-placement="bottom"]) .toolbar-hover-actions {

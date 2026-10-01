@@ -84,6 +84,8 @@ export type ConversationTurnV1 = Readonly<{
     identity: ConversationTurnIdentityV1;
     userText: string;
     assistantMarkdown: string;
+    /** Captured source before user-facing cleanup; older snapshots may omit it. */
+    assistantSourceMarkdown?: string;
     /**
      * Additive source-quality evidence. Older V1 snapshots may omit it; all
      * current discovery implementations must publish it.
@@ -247,6 +249,7 @@ export function isConversationSnapshotV1(value: unknown): value is ConversationS
         if (!isNullableString(identity.userMessageId)) return false;
         if (identity.userMessageId && userIds.has(identity.userMessageId)) return false;
         if (typeof turn.userText !== 'string' || typeof turn.assistantMarkdown !== 'string') return false;
+        if (turn.assistantSourceMarkdown !== undefined && typeof turn.assistantSourceMarkdown !== 'string') return false;
         if (!isOptionalSemanticContentProvenanceV1(turn.assistantProvenance)) return false;
 
         keys.add(turn.key);

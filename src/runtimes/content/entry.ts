@@ -259,6 +259,7 @@ if (adapter) {
             navigation: conversationNavigation,
             activePositionTracker: chatGptActivePositionTracker ?? undefined,
             onOpenBookmarksPanel: () => bookmarksPanel.show({tab:'settings'}),
+            onNavigationControlsReady: (previous, next) => chatGptDirectory?.setNavigationControls(previous, next),
             onOpenDetachedReader: () => openDetachedReaderFromStepper(),
             onOpenPrompts: (anchor) => chatGptPromptAutocomplete?.openManager(anchor),
             onOpenInputEnhancement: anchor => inputEnhancementPopover?.toggle(anchor),
@@ -461,6 +462,7 @@ if (adapter) {
         const next = resolveFormulaSettings(settings);
         mathClick.setFormulaSettings(next);
         chatGptComposerEditing?.setFormulaAssetFontSize(next.assetFontSizePx);
+        chatGptComposerEditing?.setFormulaAssetActions?.(next.composerAssetActions);
         setCanonicalMarkdownCopyFormulaFormat(next.markdownCopyFormulaFormat);
         saveMessagesDialog.setMarkdownFormulaFormat(next.markdownCopyFormulaFormat);
         if (options.applyInteractionGate === false) return;
@@ -602,6 +604,7 @@ if (adapter) {
             settings,
         );
         const effectiveInputEnhancement = resolveChatGPTInputEnhancement(inputEnhancement);
+        chatGptMessageStepper?.setInputEnhancementEnabled?.(effectiveInputEnhancement.enabled);
         chatGptNavigationSeekStepPx = normalizeChatGPTNavigationSeekStepPx(next.navigationSeekStepPx);
         chatGptAtomicSelection?.setMarkdownCopyShortcut(next.atomicMarkdownCopyShortcut);
         setAtomicSelectionEnabled(Boolean(runtimeEnabled));
@@ -617,6 +620,7 @@ if (adapter) {
         chatGptMessageStepper?.setDetachedReaderControlVisible(Boolean(next.showDetachedReaderControl));
         chatGptMessageStepper?.setPromptControlVisible(Boolean(next.showPromptControl));
         chatGptMessageStepper?.setInputEnhancementControlVisible(next.showInputEnhancementControl ?? true);
+        chatGptMessageStepper?.setRefreshNavigationControlVisible?.(next.showRefreshNavigationControl ?? true);
         chatGptMessageStepper?.setPinnedActions(next.pinnedPageControls ?? []);
         chatGptPromptAutocomplete?.setEnabled(Boolean(next.promptAutocomplete));
         chatGptMessageStepper?.setKeyboardEnabled(Boolean(next.enableArrowKeyMessageNavigation));
@@ -696,6 +700,9 @@ if (adapter) {
         readerPanel.setReaderSettings(cachedSettings.reader);
         chatGptPageAnnotation?.setReaderSettings(cachedSettings.reader);
     }
+    readerPanel.setContentCleanupSettings(cachedSettings?.content ?? DEFAULT_SETTINGS.content);
+    saveMessagesDialog.setContentCleanupSettings(cachedSettings?.content ?? DEFAULT_SETTINGS.content);
+    messageToolbars.setContentCleanupSettings(cachedSettings?.content ?? DEFAULT_SETTINGS.content);
     const initialReaderSettings = cachedSettings?.reader ?? DEFAULT_SETTINGS.reader;
     let confirmedReaderSettings = cachedSettings?.reader ?? null;
     let readerSettingsWriteQueue: Promise<void> = Promise.resolve();
@@ -743,6 +750,10 @@ if (adapter) {
         showMessageToolbar: cachedSettings?.behavior?.showMessageToolbar ?? DEFAULT_SETTINGS.behavior.showMessageToolbar,
         showSaveMessages: cachedSettings?.behavior?.showSaveMessages ?? DEFAULT_SETTINGS.behavior.showSaveMessages,
         showWordCount: cachedSettings?.behavior?.showWordCount ?? DEFAULT_SETTINGS.behavior.showWordCount,
+        pinnedMessageControls: cachedSettings?.behavior?.pinnedMessageControls ?? DEFAULT_SETTINGS.behavior.pinnedMessageControls,
+        messageControls: cachedSettings?.behavior?.messageControls ?? DEFAULT_SETTINGS.behavior.messageControls,
+        showCopyPng: cachedSettings?.behavior?.showCopyPng ?? DEFAULT_SETTINGS.behavior.showCopyPng,
+        showMessageTimestamp: cachedSettings?.behavior?.showMessageTimestamp ?? DEFAULT_SETTINGS.behavior.showMessageTimestamp,
     });
     settingsClient.subscribe((snap) => {
         if (snap.settings.language !== lastLocale) {
@@ -760,6 +771,9 @@ if (adapter) {
         syncFormulaSettings(snap.settings.formula);
         confirmedReaderSettings = snap.settings.reader;
         readerPanel.setReaderSettings(snap.settings.reader);
+        readerPanel.setContentCleanupSettings(snap.settings.content);
+        saveMessagesDialog.setContentCleanupSettings(snap.settings.content);
+        messageToolbars.setContentCleanupSettings(snap.settings.content);
         chatGptPageAnnotation?.setReaderSettings(snap.settings.reader);
         saveMessagesDialog.setExportSettings(snap.settings.export ?? DEFAULT_SETTINGS.export);
         messageToolbars.setExportSettings(snap.settings.export ?? DEFAULT_SETTINGS.export);
@@ -768,6 +782,10 @@ if (adapter) {
             showMessageToolbar: snap.settings.behavior?.showMessageToolbar ?? DEFAULT_SETTINGS.behavior.showMessageToolbar,
             showSaveMessages: snap.settings.behavior?.showSaveMessages ?? DEFAULT_SETTINGS.behavior.showSaveMessages,
             showWordCount: snap.settings.behavior?.showWordCount ?? DEFAULT_SETTINGS.behavior.showWordCount,
+            pinnedMessageControls: snap.settings.behavior?.pinnedMessageControls ?? DEFAULT_SETTINGS.behavior.pinnedMessageControls,
+            messageControls: snap.settings.behavior?.messageControls ?? DEFAULT_SETTINGS.behavior.messageControls,
+            showCopyPng: snap.settings.behavior?.showCopyPng ?? DEFAULT_SETTINGS.behavior.showCopyPng,
+            showMessageTimestamp: snap.settings.behavior?.showMessageTimestamp ?? DEFAULT_SETTINGS.behavior.showMessageTimestamp,
         });
     });
 

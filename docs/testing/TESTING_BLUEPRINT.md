@@ -249,3 +249,24 @@ scripts/               # browser visual, bundle, performance, and renderer harne
 5. **产品层**：Toolbar Copy PNG、Save Messages 多选、公式 hover、Clipboard/Download fallback、Chromium/Firefox visual golden 与 12k/30k/60k benchmark。
 
 Release gate 不允许用单一 unit suite 替代真实 renderer harness，也不允许用最后一张 mock canvas 证明“没有总高度 Canvas”。固定阈值、fixture、命令与双端验收见 `docs/testing/IMAGE_EXPORT_GATES.md`。
+
+
+### Portable settings and Buttons regression scope
+
+- Core tests round-trip v5/default and partial v1 files, enforce types/ranges/action IDs/metadata, reject newer exporter versions, unknown fields, future/foreign/oversized/prototype-bearing files, and exclude credentials, free text and legacy Prompt migration fields.
+- Background tests assert the exact write-key set: `app_settings` and the portable recovery key only. Seed bookmark, annotation, highlight, Prompt and credential records and compare them after success and failure. Cover preview/cancel no writes, selected categories, fingerprint conflicts, native quota, recovery-write failures, sync-write failures and read-back mismatch without replay/rollback.
+- Enter UI tests through Settings category/group/row controls and real toolbar triggers. Verify acknowledgement before preview updates, failed-write state, dormant Pin restoration, no duplicate action nodes, independent metadata, secondary Copy PNG gating, proven Prompt pairing, absence of the retired composer entry, automatic annotation entry visibility and isolated formula defaults.
+- `mocks/components/buttons-settings` mounts production components against disposable in-memory settings. Browser acceptance includes native JSON selection, readable diff, category selection, confirmed import, reviewed recovery, export notice, actual downloaded file validation and no-change re-import. This fixture does not replace installed Chrome/Firefox acceptance.
+- Formula regressions enter through real composer input/key events: debounce bursts, unchanged caret SVG identity, stale result rejection, immediate export disabling, IME/outside/escape closing, selected font size, prepared SVG reuse and latest-only cache bounds. `mocks/components/buttons-settings/formula-performance.html` runs 100-input/caret/queue/cache samples with the production controller/pipeline/MathJax and logs counts/timings only. Verify the complete Settings inline/display/completion examples, no Directory preview and no retired composer-entry group, vertical Directory arrows and distinct Prompt icon in browser acceptance.
+- Capability tests cover old/mismatched runtimes, malformed RPC capabilities, future stored schemas without writes, and whole-file rejection before preview/apply. Content-cleanup copy tests include preserved links through the real Prompt+Reply action and prompt/assistant identity changes during preparation.
+
+### Directory and composer interaction corrections
+
+- Reproduce complete inline/display formula input with the caret after its closing delimiter, focus on a prefilled draft, IME composition, leaving math context, unchanged caret movement, cancellation and export. The page Input enhancement entry reflects effective state through runtime settings updates; the composer entry is removed.
+- Test late history inserting an already-active rail row, zero-size `display:contents` markers near a reference-point gap, physical message geometry through Surface updates, real scroll events, manual rail interaction and content-only redraw preservation. Browser acceptance checks the independent bottom dock, its list/brand clearance and pointer hit testing.
+- Enter Buttons through real category/group controls and check keyboard focus, all five groups, visibility/Pin independence, formula contexts, narrow layouts, both languages and themes. Keep UI captures separate from installed-extension evidence; formula iframe validation uses native browser interaction when automation substitutes a `srcdoc` frame.
+
+### Copy variants, Data groups and accent compatibility
+
+- Enter the real Copy trigger and shared Settings preview: PNG is above, Prompt+Reply below, both live in one dismissal boundary, and secondary actions have no standalone toolbar or Pin button. Cover pointerdown-before-click, keyboard focus retention, independent switches, hidden parent Copy, missing/changed Prompt identity, and preserved dormant pin values.
+- Enter Data through Settings navigation and verify separate configuration-file, Library, cloud-backup and local-backup groups, existing callbacks and searchable headings. Accent coverage must preserve removed Classic blue/Lilac values as selected custom colors without writing settings, validate the Light pink preset and retain the single case-insensitive HEX editor.

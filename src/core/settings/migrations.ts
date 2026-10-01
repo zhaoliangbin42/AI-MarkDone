@@ -1,6 +1,11 @@
+import { normalizeAccentHex } from './appearance';
 import { normalizeSelectionToolbarActions } from './selectionToolbar';
 import {
     PAGE_CONTROL_ACTIONS,
+    MESSAGE_CONTROL_ACTIONS,
+    DEFAULT_MESSAGE_CONTROL_VISIBILITY,
+    type MessageControlVisibility,
+    type MessageControlAction,
     type PageControlAction,
     CHATGPT_DIRECTORY_RIGHT_INSET_STEP_PX,
     CHATGPT_NAVIGATION_SEEK_STEP_PX_STEP,
@@ -36,7 +41,6 @@ import {
     MIN_READER_PANEL_WIDTH_RATIO,
     READER_BODY_FONT_SIZE_STEP_PX,
     READER_CONTENT_MAX_WIDTH_STEP_PX,
-    THEME_ACCENT_SWATCHES,
     DEFAULT_SETTINGS,
     DEFAULT_CHATGPT_INPUT_ENHANCEMENT_SETTINGS,
     type AppSettings,
@@ -44,6 +48,7 @@ import {
     type ThemeAccentColor,
 } from './types';
 import { normalizeExportSettings } from './export';
+import { normalizeContentCleanupSettings } from './content';
 import {
     DEFAULT_FORMULA_SETTINGS,
     normalizeFormulaAssetFontSizePx,
@@ -59,11 +64,17 @@ function isRecord(value: unknown): value is Record<string, unknown> {
 
 export function normalizeBehaviorSettings(behavior: unknown): AppSettings['behavior'] {
     const record = isRecord(behavior) ? behavior : {};
+    const controls = isRecord(record.messageControls) ? record.messageControls : {};
 
     return {
         showMessageToolbar: Boolean((record as any).showMessageToolbar ?? DEFAULT_SETTINGS.behavior.showMessageToolbar),
         showSaveMessages: Boolean((record as any).showSaveMessages ?? DEFAULT_SETTINGS.behavior.showSaveMessages),
         showWordCount: Boolean((record as any).showWordCount ?? DEFAULT_SETTINGS.behavior.showWordCount),
+        showMessageTimestamp: Boolean(record.showMessageTimestamp ?? true),
+        showCopyPng: Boolean(record.showCopyPng ?? true),
+        messageControls: Object.fromEntries(MESSAGE_CONTROL_ACTIONS.map(action => [action, Boolean(controls[action] ?? DEFAULT_MESSAGE_CONTROL_VISIBILITY[action])])) as MessageControlVisibility,
+        pinnedMessageControls: Array.isArray(record.pinnedMessageControls)
+            ? [...new Set(record.pinnedMessageControls.filter((value): value is MessageControlAction => MESSAGE_CONTROL_ACTIONS.includes(value as MessageControlAction)))] : [],
         enableClickToCopy: Boolean((record as any).enableClickToCopy ?? DEFAULT_SETTINGS.behavior.enableClickToCopy),
         saveContextOnly: Boolean((record as any).saveContextOnly ?? DEFAULT_SETTINGS.behavior.saveContextOnly),
         _contextOnlyConfirmed: Boolean((record as any)._contextOnlyConfirmed ?? DEFAULT_SETTINGS.behavior._contextOnlyConfirmed),
@@ -83,6 +94,7 @@ export function normalizePlatformSettings(platforms: unknown): AppSettings['plat
 export function normalizeFormulaSettings(formula: unknown, legacyBehavior?: unknown): FormulaSettings {
     const record = isRecord(formula) ? formula : {};
     const legacyRecord = isRecord(legacyBehavior) ? legacyBehavior : {};
+    const composerAssetActions = isRecord(record.composerAssetActions) ? record.composerAssetActions : {};
     const assetActions = isRecord((record as any).assetActions) ? (record as any).assetActions : {};
     const fallbackClickCopyMarkdown = (legacyRecord as any).enableClickToCopy ?? DEFAULT_FORMULA_SETTINGS.clickCopyMarkdown;
 
@@ -90,6 +102,7 @@ export function normalizeFormulaSettings(formula: unknown, legacyBehavior?: unkn
         clickCopyMarkdown: Boolean((record as any).clickCopyMarkdown ?? fallbackClickCopyMarkdown),
         clickCopyFormulaFormat: normalizeLegacyClickCopyFormulaFormat(record),
         markdownCopyFormulaFormat: normalizeFormulaSourceFormat((record as any).markdownCopyFormulaFormat),
+        composerAssetActions: { copyPng: Boolean(composerAssetActions.copyPng ?? true), copySvg: Boolean(composerAssetActions.copySvg ?? true), copyMathml: Boolean(composerAssetActions.copyMathml ?? true), savePng: Boolean(composerAssetActions.savePng ?? true), saveSvg: Boolean(composerAssetActions.saveSvg ?? true) },
         assetActions: {
             copyPng: Boolean((assetActions as any).copyPng ?? DEFAULT_FORMULA_SETTINGS.assetActions.copyPng),
             copySvg: Boolean((assetActions as any).copySvg ?? DEFAULT_FORMULA_SETTINGS.assetActions.copySvg),
@@ -200,7 +213,10 @@ export function normalizeChatGPTBehaviorSettings(value: unknown): AppSettings['c
         showPageBookmarkControl: Boolean((record as any).showPageBookmarkControl ?? DEFAULT_SETTINGS.chatgptBehavior.showPageBookmarkControl),
         showDetachedReaderControl: Boolean((record as any).showDetachedReaderControl ?? DEFAULT_SETTINGS.chatgptBehavior.showDetachedReaderControl),
         showPromptControl: Boolean((record as any).showPromptControl ?? DEFAULT_SETTINGS.chatgptBehavior.showPromptControl),
+        showComposerInputEnhancementControl: Boolean(record.showComposerInputEnhancementControl ?? true),
+        showComposerAnnotationControl: Boolean(record.showComposerAnnotationControl ?? true),
         showInputEnhancementControl: Boolean(record.showInputEnhancementControl ?? true),
+        showRefreshNavigationControl: Boolean(record.showRefreshNavigationControl ?? true),
         pinnedPageControls: Array.isArray(record.pinnedPageControls)
             ? [...new Set(record.pinnedPageControls.filter((value): value is PageControlAction => PAGE_CONTROL_ACTIONS.includes(value as PageControlAction)))] : [],
         promptAutocomplete: Boolean((record as any).promptAutocomplete ?? DEFAULT_SETTINGS.chatgptBehavior.promptAutocomplete),
@@ -279,10 +295,7 @@ export function normalizeGlobalFontSizePx(value: unknown): number {
 }
 
 export function normalizeThemeAccentColor(value: unknown): ThemeAccentColor | null {
-    if (typeof value !== 'string') return null;
-    const normalized = value.trim().toLowerCase();
-    const match = THEME_ACCENT_SWATCHES.find((swatch) => swatch.value === normalized);
-    return match?.value ?? null;
+    return normalizeAccentHex(value);
 }
 
 export function normalizeAppearanceSettings(value: unknown): AppSettings['appearance'] {
@@ -326,6 +339,7 @@ export function mergeWithDefaults(stored: AppSettings): AppSettings {
             contentMaxWidthPx: normalizeReaderContentMaxWidthPx((stored.reader as any)?.contentMaxWidthPx),
             commentExport: normalizeReaderCommentExportSettings((stored.reader as any)?.commentExport),
         },
+        content: normalizeContentCleanupSettings((stored as any).content),
         formula: normalizeFormulaSettings((stored as any).formula, stored.behavior),
         export: normalizeExportSettings((stored as any).export),
         chatgptDirectory: normalizeChatGPTDirectorySettings((stored as any).chatgptDirectory),
@@ -375,6 +389,7 @@ export function migrateFromV1(v1: unknown): AppSettings {
             contentMaxWidthPx: normalizeReaderContentMaxWidthPx((behavior as any).contentMaxWidthPx),
             commentExport: normalizeReaderCommentExportSettings(undefined),
         },
+        content: normalizeContentCleanupSettings(undefined),
         formula: normalizeFormulaSettings(undefined, behavior),
         export: normalizeExportSettings(undefined),
         chatgptDirectory: normalizeChatGPTDirectorySettings(undefined),
@@ -416,6 +431,7 @@ export function migrateFromV2(v2: unknown): AppSettings {
             contentMaxWidthPx: normalizeReaderContentMaxWidthPx((reader as any).contentMaxWidthPx),
             commentExport: normalizeReaderCommentExportSettings((reader as any).commentExport),
         } as any,
+        content: normalizeContentCleanupSettings((rec as any).content),
         formula: normalizeFormulaSettings((rec as any).formula, behavior),
         export: normalizeExportSettings((rec as any).export),
         chatgptDirectory: normalizeChatGPTDirectorySettings((rec as any).chatgptDirectory),

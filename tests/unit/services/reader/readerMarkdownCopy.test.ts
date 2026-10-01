@@ -48,4 +48,35 @@ describe('readerMarkdownCopy formula formatting', () => {
 
         expect(copyTextToClipboard).not.toHaveBeenCalled();
     });
+
+    it('keeps legacy default copy and projects preserved links and hidden code from the source', async () => {
+        const item = {
+            id: 'item-source', userPrompt: 'Prompt',
+            content: 'Read paper\n\n```ts\nconst answer = 42;\n```',
+            sourceContent: 'Read [paper](https://example.com)\n\n```ts\nconst answer = 42;\n```',
+        };
+        await copyReaderItemMarkdownToClipboard(item);
+        expect(copyTextToClipboard).toHaveBeenLastCalledWith(item.content);
+
+        await copyReaderItemMarkdownToClipboard(item, { preserveLinks: true, includeCodeBlocks: false });
+        expect(copyTextToClipboard).toHaveBeenLastCalledWith('Read [paper](https://example.com)');
+    });
+});
+
+describe('Prompt and reply copy', () => {
+    it('preserves Prompt text while formatting and cleaning only the reply', async () => {
+        const { copyReaderPromptReplyToClipboard } = await import('@/services/reader/readerMarkdownCopy');
+        setCanonicalMarkdownCopyFormulaFormat('latex-brackets');
+        const prompt = 'Please keep $x$ and [my link](https://example.com) exactly.';
+        expect(await copyReaderPromptReplyToClipboard({id:'pair',userPrompt:prompt,content:'$y$\n\n```js\nanswer()\n```'}, {preserveLinks:false,includeCodeBlocks:false})).toBe(true);
+        expect(copyTextToClipboard).toHaveBeenLastCalledWith(`## User Prompt\n\n${prompt}\n\n## AI Reply\n\n\\(y\\)`);
+    });
+    it('does not write an incomplete or reconstructed pair', async () => {
+        const { copyReaderPromptReplyToClipboard } = await import('@/services/reader/readerMarkdownCopy');
+        const copy=vi.mocked(copyTextToClipboard);copy.mockClear();
+        expect(await copyReaderPromptReplyToClipboard({id:'empty',userPrompt:'',content:'Answer'})).toBe(false);
+        expect(await copyReaderPromptReplyToClipboard({id:'missing',userPrompt:'Question',content:''})).toBe(false);
+        expect(await copyReaderPromptReplyToClipboard({id:'reconstructed',userPrompt:'Question',content:'Answer',meta:{sourceQuality:'reconstructed'}})).toBe(false);
+        expect(copy).not.toHaveBeenCalled();setCanonicalMarkdownCopyFormulaFormat('markdown-dollar');
+    });
 });

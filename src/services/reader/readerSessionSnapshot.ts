@@ -17,6 +17,9 @@ export async function buildReaderSessionSnapshot(params: {
             id: item.id,
             userPrompt: item.userPrompt,
             content: await resolveContent(item.content),
+            ...(item.sourceContent !== undefined
+                ? { sourceContent: await resolveContent(item.sourceContent) }
+                : {}),
             meta: item.meta ? { ...item.meta } : undefined,
         });
     }

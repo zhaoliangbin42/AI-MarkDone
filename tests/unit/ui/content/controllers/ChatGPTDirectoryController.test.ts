@@ -1949,6 +1949,29 @@ describe('ChatGPTDirectoryRail active following', () => {
         document.body.innerHTML = '';
     });
 
+    it('docks the same navigation buttons outside the centered list and keeps their click behavior', () => {
+        const rail = new ChatGPTDirectoryRail('light', vi.fn());
+        rail.ensureAttached();
+        const previous = document.createElement('button');
+        const next = document.createElement('button');
+        previous.dataset.action = 'previous-message';
+        next.dataset.action = 'next-message';
+        previous.disabled = true;
+        const onNext = vi.fn();
+        next.addEventListener('click', onNext);
+        rail.setNavigationControls(previous, next);
+        const shell = rail.getElement().shadowRoot!.querySelector('.rail')!;
+        const controls = rail.getElement().shadowRoot!.querySelector('.rail__navigation-controls')!;
+        expect(shell.contains(controls)).toBe(false);
+        expect(controls.firstElementChild).toBe(previous);
+        expect(controls.lastElementChild).toBe(next);
+        expect(previous.disabled).toBe(true);
+        next.dispatchEvent(new MouseEvent('pointerdown', { bubbles: true }));
+        next.click();
+        expect(onNext).toHaveBeenCalledOnce();
+        rail.dispose();
+    });
+
     it('centers the active item by scrolling only the rail list', () => {
         const rail = new ChatGPTDirectoryRail('light', vi.fn());
         document.body.appendChild(rail.getElement());
@@ -1965,6 +1988,24 @@ describe('ChatGPTDirectoryRail active following', () => {
         expect(list.scrollTop).toBe(135);
         expect(scrollIntoView).not.toHaveBeenCalled();
         rail.dispose();
+    });
+
+    it('follows the current position after late history supplies its previously missing row', () => {
+        const rail = new ChatGPTDirectoryRail('light', vi.fn());
+        document.body.append(rail.getElement());
+        const list = rail.getElement().shadowRoot!.querySelector<HTMLElement>('.rail__list')!;
+        Object.defineProperties(list, { clientHeight: { value: 100 }, scrollHeight: { value: 400 } });
+        const top = vi.spyOn(HTMLElement.prototype, 'offsetTop', 'get').mockImplementation(function () { return this.dataset.position === '2' ? 180 : 0; });
+        const height = vi.spyOn(HTMLElement.prototype, 'offsetHeight', 'get').mockReturnValue(10);
+        try {
+            rail.setActivePosition(2);
+            rail.setRounds(buildSnapshot().rounds);
+            expect(list.scrollTop).toBe(135);
+        } finally {
+            rail.dispose();
+            top.mockRestore();
+            height.mockRestore();
+        }
     });
 
     it('does not auto-scroll the rail while the user is interacting with it', () => {

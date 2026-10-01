@@ -17,6 +17,22 @@ function rect(input: { left: number; top: number; width: number; height: number 
 }
 
 describe('MessageToolbar', () => {
+    it('keeps copy hover choices open while the trigger retains keyboard focus', () => {
+        vi.useFakeTimers();
+        const toolbar = new MessageToolbar('light', [{
+            id: 'copy_markdown', label: 'Copy', icon: '<svg/>', onClick: async () => undefined,
+            hoverActions: [{ id: 'copy_prompt_reply', label: 'Prompt and reply', icon: '<svg/>', placement: 'bottom', progress: false, onClick: async () => undefined }],
+        }]);
+        document.body.append(toolbar.getElement());
+        const trigger = toolbar.getElement().shadowRoot!.querySelector<HTMLButtonElement>('[data-action="copy_markdown"]')!;
+        trigger.focus();
+        trigger.dispatchEvent(new MouseEvent('mouseleave'));
+        vi.advanceTimersByTime(150);
+        expect(document.querySelector('.aimd-toolbar-hover-action-host')).toBeTruthy();
+        toolbar.dispose();
+        toolbar.getElement().remove();
+        vi.useRealTimers();
+    });
     it('shares one constructed token stylesheet across message toolbar ShadowRoots', () => {
         class FakeSheet {
             cssText = '';

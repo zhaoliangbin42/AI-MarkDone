@@ -250,7 +250,10 @@ async function applyVariant(next: VisualHarnessVariant): Promise<void> {
     });
     mountToolbar();
     mountPageControl();
-    await openFromProductionTrigger(next.theme === 'dark');
+    const host = await openFromProductionTrigger(next.theme === 'dark');
+    if (fixtureParams.get('settings') === '1') {
+        host.shadowRoot?.querySelector<HTMLButtonElement>('[data-action="reader-settings"]')?.click();
+    }
 }
 
 installHighlightFixture();

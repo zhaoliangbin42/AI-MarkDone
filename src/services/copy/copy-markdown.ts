@@ -3,7 +3,7 @@ import type { ParserOptions } from '../markdown-parser/core/types';
 import { RenderedContentCompiler } from '../content/RenderedContentCompiler';
 
 export type CopyMarkdownResult =
-    | { ok: true; markdown: string }
+    | { ok: true; markdown: string; sourceMarkdown?: string }
     | { ok: false; error: { code: 'NO_MESSAGE' | 'UNSUPPORTED_SITE' | 'INTERNAL_ERROR'; message: string } };
 
 function resolveContentRoot(adapter: SiteAdapter, messageElement: HTMLElement): HTMLElement | null {
@@ -36,7 +36,7 @@ function copyMarkdownFromElementInternal(
         enhanceUnrenderedMath: adapter.shouldEnhanceUnrenderedMath(),
         cleanMarkdown: (markdown) => adapter.cleanMarkdown(markdown),
     }).compile(root, options);
-    if (result.kind === 'ready') return { ok: true, markdown: result.markdown };
+    if (result.kind === 'ready') return { ok: true, markdown: result.markdown, ...(result.sourceMarkdown?{sourceMarkdown:result.sourceMarkdown}:{}) };
     return {
         ok: false,
         error: {

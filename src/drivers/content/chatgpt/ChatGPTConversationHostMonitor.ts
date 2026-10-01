@@ -19,6 +19,7 @@ import {
     type ChatGPTDomRoundRef,
 } from './domConversationDiscovery';
 import type { ChatGPTHostObservationBatch, ChatGPTPageIndex } from './ChatGPTPageIndex';
+import { hasConfigurableLinks, normalizeChatGPTReaderMarkdown } from '../../../core/content/chatgptMarkdownCleanup';
 
 export type ChatGPTConversationHostMonitorOptions = Readonly<{
     adapter: SiteAdapter;
@@ -30,6 +31,7 @@ export type ChatGPTConversationHostMonitorOptions = Readonly<{
 }>;
 
 const DEFAULT_SETTLE_DELAY_MS = 400;
+const MAX_CAPTURE_COALESCE_MS = 1_000;
 
 /**
  * Lightweight DOM capture coordinator backed by the shared ChatGPTPageIndex.
@@ -48,6 +50,7 @@ export class ChatGPTConversationHostMonitor {
     private readonly compileRejectionCounts = new Map<string, number>();
     private unsubscribe: (() => void) | null = null;
     private settleTimer: ReturnType<typeof setTimeout> | null = null;
+    private captureWindowStartedAt: number | null = null;
     private capturePromise: Promise<void> | null = null;
     private captureRequested = false;
     private documentFence = 0;
@@ -93,6 +96,7 @@ export class ChatGPTConversationHostMonitor {
             this.globalDirty = captureCurrentSurface;
             if (this.settleTimer !== null) clearTimeout(this.settleTimer);
             this.settleTimer = null;
+            this.captureWindowStartedAt = null;
         } else if (captureCurrentSurface) {
             this.globalDirty = true;
         }
@@ -125,6 +129,7 @@ export class ChatGPTConversationHostMonitor {
         this.unsubscribe = null;
         if (this.settleTimer !== null) clearTimeout(this.settleTimer);
         this.settleTimer = null;
+        this.captureWindowStartedAt = null;
         this.documentFence += 1;
         this.captureRequested = false;
         this.dirtyAssistantIds.clear();
@@ -161,9 +166,16 @@ export class ChatGPTConversationHostMonitor {
 
     private scheduleCapture(): void {
         if (this.settleTimer !== null) clearTimeout(this.settleTimer);
-        const delay = Math.max(0, this.options.settleDelayMs ?? DEFAULT_SETTLE_DELAY_MS);
+        const quietDelay = Math.max(0, this.options.settleDelayMs ?? DEFAULT_SETTLE_DELAY_MS);
+        const now = Date.now();
+        this.captureWindowStartedAt ??= now;
+        // Hydration may never provide a quiet window. Coalesce bursts, but
+        // publish obtained messages before continued host changes starve it.
+        const maxDelay = Math.max(quietDelay, Math.min(MAX_CAPTURE_COALESCE_MS, quietDelay * 4));
+        const delay = Math.min(quietDelay, Math.max(0, maxDelay - (now - this.captureWindowStartedAt)));
         this.settleTimer = setTimeout(() => {
             this.settleTimer = null;
+            this.captureWindowStartedAt = null;
             void this.startCapture().finally(() => this.resolveFlushWaiters());
         }, delay);
     }
@@ -234,10 +246,7 @@ export class ChatGPTConversationHostMonitor {
                 this.disposed
                 || fence !== this.documentFence
                 || documentKey !== (this.options.resolveDocument()?.key ?? null)
-                || revision !== this.options.index.getObservationRevision()
             ) {
-                this.globalDirty = true;
-                this.scheduleCapture();
                 return;
             }
             if (!observation) {
@@ -256,7 +265,15 @@ export class ChatGPTConversationHostMonitor {
         if (observedHostSlotOrder.length > 0) {
             this.options.repository.ingestHostBatch(observations, observedHostSlotOrder);
         }
-        for (const assistantMessageId of successfulIds) this.dirtyAssistantIds.delete(assistantMessageId);
+        if (revision === this.options.index.getObservationRevision()) {
+            for (const assistantMessageId of successfulIds) this.dirtyAssistantIds.delete(assistantMessageId);
+        } else {
+            // Captured clones remain obtained evidence in this document.
+            // New hydration invalidates the next pass, not unrelated bodies
+            // already compiled during this pass.
+            this.globalDirty = true;
+            this.scheduleCapture();
+        }
     }
 
     private wasCapturedForCurrentDocument(assistantMessageId: string): boolean {
@@ -305,12 +322,20 @@ export class ChatGPTConversationHostMonitor {
             return null;
         }
 
+        const assistantSourceMarkdown = result.assistantSourceMarkdown && hasConfigurableLinks(result.assistantSourceMarkdown)
+            ? normalizeChatGPTReaderMarkdown(result.assistantSourceMarkdown, {
+                stripMarkdownLinks: false,
+                stripBareUrls: false,
+            }) : result.assistant.markdown;
         const turn: ConversationTurnV1 = Object.freeze({
             key: `${turnId}:${assistantMessageId}`,
             ordinal: round.assistantIndex + 1,
             identity: Object.freeze({ turnId, userMessageId, assistantMessageId }),
             userText: result.user.text,
             assistantMarkdown: result.assistant.markdown,
+            ...(assistantSourceMarkdown !== result.assistant.markdown
+                ? { assistantSourceMarkdown }
+                : {}),
             assistantProvenance: Object.freeze({
                 authority: 'host-rendered' as const,
                 fidelity: 'normalized' as const,

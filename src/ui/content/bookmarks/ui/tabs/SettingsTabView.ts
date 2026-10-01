@@ -1,3 +1,8 @@
+import { parseAccentRgb, formatAccentRgb } from '../../../../../core/settings/appearance';
+import type { FormulaRenderOptions, FormulaSvgAsset } from '../../../../../services/math/formulaAssetRenderer';
+import type { AppearanceSnapshot } from '../../../../../style/appearance';
+import { ButtonsSettingsView } from './ButtonsSettingsView';
+import { SettingsTransferPanel, type SettingsTransferActions } from './SettingsTransferPanel';
 import { SettingsCatalog, type SettingsCategoryId } from './SettingsCatalog';
 import type { AppSettings } from '../../../../../core/settings/types';
 import {
@@ -6,8 +11,6 @@ import {
     CHATGPT_NAVIGATION_SEEK_STEP_PX_STEP,
     CHATGPT_PAGE_WIDTH_SCALE_STEP,
     DEFAULT_SETTINGS,
-    PAGE_CONTROL_ACTIONS,
-    type PageControlAction,
     DEFAULT_GLOBAL_FONT_SIZE_PX,
     MAX_CHATGPT_DIRECTORY_RIGHT_INSET_PX,
     MAX_CHATGPT_DIRECTORY_PREVIEW_MAX_CHARS,
@@ -86,6 +89,7 @@ export type SettingsTabViewState = {
     settings: AppSettings;
     storageUsage: BookmarksStorageUsageResponse | null;
     dataState?: SettingsDataState;
+    canConfigureButtons?:boolean;canTransferSettings?:boolean;
 };
 
 export type SettingsTabViewActions = {
@@ -95,6 +99,7 @@ export type SettingsTabViewActions = {
     setPlatforms?: (patch: Partial<AppSettings['platforms']>) => Promise<boolean | void> | boolean | void;
     setBehaviorSettings?: (patch: Partial<AppSettings['behavior']>) => Promise<boolean | void> | boolean | void;
     setReaderSettings?: (patch: Partial<AppSettings['reader']>) => Promise<boolean | void> | boolean | void;
+    setContentSettings?: (patch: Partial<AppSettings['content']>) => Promise<boolean | void> | boolean | void;
     setFormulaSettings?: (patch: Partial<AppSettings['formula']>) => Promise<boolean | void> | boolean | void;
     setExportSettings?: (patch: Partial<AppSettings['export']>) => Promise<boolean | void> | boolean | void;
     setChatGptDirectorySettings?: (patch: Partial<AppSettings['chatgptDirectory']>) => Promise<boolean | void> | boolean | void;
@@ -103,6 +108,7 @@ export type SettingsTabViewActions = {
     setLanguage?: (value: AppSettings['language']) => Promise<boolean | void> | boolean | void;
     exportAllBookmarks?: () => Promise<void> | void;
     cloudBackup?: CloudBackupSettingsPanelActions;
+    settingsTransfer?: SettingsTransferActions;
 };
 
 type SelectRef = {
@@ -209,6 +215,13 @@ export class SettingsTabView {
     private readonly readerCommentTemplateSettingsPopover = new ReaderCommentTemplateSettingsPopover();
     private readonly outsideDismissBoundary: TransientOutsideDismissBoundaryHandle;
     private catalog: SettingsCatalog | null = null;
+    private canConfigureButtons=true;private canTransferSettings=true;
+    private readonly renderFormulaPreview:((options:FormulaRenderOptions)=>Promise<FormulaSvgAsset>)|undefined;
+    private buttonsView: ButtonsSettingsView | null = null;
+    private transferPanel: SettingsTransferPanel | null = null;
+    private customAccentButton: HTMLButtonElement | null = null;
+    private customAccentInput: HTMLInputElement | null = null;
+    private customAccentPending = false;
     private extraSync: Array<() => void> = [];
     private languageChangeRevision = 0;
     private languageSaveQueue: Promise<void> = Promise.resolve();
@@ -216,7 +229,8 @@ export class SettingsTabView {
     private diagnosticsSummary: HTMLElement;
     private diagnosticsCopyButton: HTMLButtonElement;
 
-    constructor(params: { modal: ModalHost; actions?: SettingsTabViewActions; onOpenPromptManager?: (anchor: HTMLElement) => Promise<void> | void; readDiscoveryDiagnostics?: () => DiscoveryDiagnosticsSnapshotV1 | null }) {
+    constructor(params: { renderFormulaPreview?:(options:FormulaRenderOptions)=>Promise<FormulaSvgAsset>; modal: ModalHost; actions?: SettingsTabViewActions; onOpenPromptManager?: (anchor: HTMLElement) => Promise<void> | void; readDiscoveryDiagnostics?: () => DiscoveryDiagnosticsSnapshotV1 | null }) {
+        this.renderFormulaPreview=params.renderFormulaPreview;
         this.modal = params.modal;
         this.actions = params.actions ?? {};
         this.onOpenPromptManager = params.onOpenPromptManager;
@@ -491,10 +505,6 @@ export class SettingsTabView {
         const googleDriveBackupCard = document.createElement('section');
         googleDriveBackupCard.className = 'settings-data-card';
         googleDriveBackupCard.dataset.role = 'settings-google-drive-backup-card';
-        const googleDriveBackupTitle = document.createElement('h4');
-        googleDriveBackupTitle.className = 'settings-data-card__title';
-        googleDriveBackupTitle.textContent = `${t('googleDriveBackupCardTitle')} (${t('cloudBackupExperimentalLabel')})`;
-        googleDriveBackupCard.appendChild(googleDriveBackupTitle);
         if (this.actions.cloudBackup) {
             const cloudBackup = new CloudBackupSettingsPanel({
                 modal: this.modal,
@@ -507,10 +517,6 @@ export class SettingsTabView {
         const backupCard = document.createElement('section');
         backupCard.className = 'settings-data-card';
         backupCard.dataset.role = 'settings-data-backup-card';
-        const backupTitle = document.createElement('h4');
-        backupTitle.className = 'settings-data-card__title';
-        backupTitle.textContent = t('localBackupCardTitle');
-        backupCard.appendChild(backupTitle);
 
         const storageInfo = document.createElement('div');
         storageInfo.className = 'settings-storage-info';
@@ -686,6 +692,8 @@ export class SettingsTabView {
         this.extraSync.forEach(sync => sync());
     }
 
+    setAppearance(snapshot: AppearanceSnapshot): void { this.buttonsView?.setAppearance(snapshot); this.transferPanel?.setAppearance(snapshot); }
+
     getNavigationElement(): HTMLElement { return this.catalog!.navigation; }
 
     getElement(): HTMLElement {
@@ -725,7 +733,7 @@ export class SettingsTabView {
             ...DEFAULT_SETTINGS,
             ...params.settings,
             platforms: { ...DEFAULT_SETTINGS.platforms, ...params.settings.platforms },
-            behavior: { ...DEFAULT_SETTINGS.behavior, ...params.settings.behavior },
+            behavior: { ...DEFAULT_SETTINGS.behavior, ...params.settings.behavior, messageControls: { ...DEFAULT_SETTINGS.behavior.messageControls, ...params.settings.behavior?.messageControls } },
             formula: this.normalizeFormulaSettings(params.settings.formula),
             export: { ...DEFAULT_SETTINGS.export, ...params.settings.export },
             chatgptDirectory: normalizeChatGPTDirectorySettings(params.settings.chatgptDirectory),
@@ -749,12 +757,15 @@ export class SettingsTabView {
             },
         };
         this.storageUsage = params.storageUsage;
+        this.canConfigureButtons=params.canConfigureButtons??true;this.canTransferSettings=params.canTransferSettings??true;
         this.dataState = params.dataState ?? { kind: 'ready' };
         this.applySettingsToDom();
         this.applyDataStateToDom();
     }
 
     destroy(): void {
+        this.buttonsView?.dispose();
+        this.transferPanel?.dispose();
         this.outsideDismissBoundary.detach();
         this.dismissTransientUi();
     }
@@ -767,16 +778,33 @@ export class SettingsTabView {
                 if (!groups[category].includes(row)) groups[category].push(row);
             }
         };
+        const staging = document.createElement('div');
         const r = this.refs;
         add('appearance', r.advanced.fontSize!.root, this.root.querySelector<HTMLElement>('.settings-color-row')!, r.language.root, r.chatgptDirectory.pageWidthScale.root);
-        add('reading', r.chatgptDirectory.enabled, r.chatgptDirectory.mode.root, r.chatgptDirectory.promptLabelMode, r.chatgptDirectory.rightInset.root, r.chatgptDirectory.previewMaxChars.root, r.chatgptDirectory.restorePositionAfterSend, r.reader.defaultOpenMode.root, r.reader.renderCode, r.reader.showOutline);
+        add('reading', r.chatgptDirectory.enabled, r.chatgptDirectory.mode.root, r.chatgptDirectory.promptLabelMode, r.chatgptDirectory.rightInset.root, r.chatgptDirectory.previewMaxChars.root, r.chatgptDirectory.restorePositionAfterSend);
+        const contentCleanup = this.createActionRow(staging, t('settingsContentCleanupTitle'), t('settingsContentCleanupDesc'), 'settings-content-cleanup');
+        contentCleanup.button.addEventListener('click', () => this.openContentCleanupSettings());
+        add('reading', contentCleanup.root);
         add('input', r.chatgptDirectory.inputEnhancement, r.chatgptDirectory.promptAutocomplete, r.reader.promptsButton);
-        add('marks', r.reader.persistAnnotations, r.chatgptDirectory.pageAnnotationsEnabled, r.reader.promptPositionBottom, r.reader.templateButton);
+        add('marks', r.chatgptDirectory.pageAnnotationsEnabled);
         add('export', r.formula.clickCopyMarkdown, r.formula.clickCopyFormulaFormat.root, r.formula.markdownCopyFormulaFormat.root, r.formula.assetFontSize.root, r.export.pngWidthPreset.trigger, r.export.pngPixelRatio.root);
-        add('controls', r.behavior.showMessageToolbar, r.behavior.showSaveMessages, r.behavior.showWordCount, r.chatgptDirectory.showPageBookmarkControl, r.chatgptDirectory.showDetachedReaderControl, r.chatgptDirectory.showPromptControl, r.chatgptDirectory.showMessageStepper, r.chatgptDirectory.arrowKeyMessageNavigation, r.chatgptDirectory.showPageSelectionToolbar, r.chatgptDirectory.atomicMarkdownCopyShortcut.root);
+        add('advanced', r.chatgptDirectory.arrowKeyMessageNavigation, r.chatgptDirectory.atomicMarkdownCopyShortcut.root);
+        this.buttonsView = new ButtonsSettingsView(async (category, patch) => {
+            let saved: boolean | void;
+            switch(category) {
+                case 'behavior': if(!this.actions.setBehaviorSettings)return false; saved=await this.actions.setBehaviorSettings(patch as Partial<AppSettings['behavior']>);break;
+                case 'chatgptBehavior': if(!this.actions.setChatGptBehaviorSettings)return false; saved=await this.actions.setChatGptBehaviorSettings(patch as Partial<AppSettings['chatgptBehavior']>);break;
+                case 'reader': if(!this.actions.setReaderSettings)return false; saved=await this.actions.setReaderSettings(patch as Partial<AppSettings['reader']>);break;
+                case 'formula': if(!this.actions.setFormulaSettings)return false; saved=await this.actions.setFormulaSettings(patch as Partial<AppSettings['formula']>);break;
+                default:return false;
+            }
+            if(saved===false)return false;
+            await this.refresh(); return true;
+        }, this.renderFormulaPreview);
+        groups.controls.push(this.buttonsView.root);
+        if (this.actions.settingsTransfer) { this.transferPanel = new SettingsTransferPanel(this.actions.settingsTransfer, { showHeading: false }); groups.data.push(this.transferPanel.root); }
         add('data', r.behavior.saveContextOnly, ...this.root.querySelectorAll<HTMLElement>('.settings-data-card'));
         add('advanced', r.platforms.chatgpt, r.chatgptDirectory.navigationSeekStep.root, this.diagnosticsCopyButton);
-        const staging = document.createElement('div');
         const toggle = (category: SettingsCategoryId, role: string, label: string, description: string, read: () => boolean, write: (value: boolean) => void) => {
             const ref = this.createToggle(staging, label, description); ref.input.dataset.role = role;
             ref.input.addEventListener('change', () => { write(ref.input.checked); this.syncToggle(ref.input); });
@@ -803,7 +831,7 @@ export class SettingsTabView {
             ref.input.dataset.role = `settings-reader-${field}`;
             ref.input.addEventListener('input', () => this.syncSliderValue(ref));
             ref.input.addEventListener('change', () => { const value = Number(ref.input.value); this.settings.reader[field] = value; void this.actions.setReaderSettings?.({ [field]: value }); });
-            this.extraSync.push(() => this.syncSliderValue(ref, this.settings.reader[field])); add('reading', ref.root);
+            this.extraSync.push(() => this.syncSliderValue(ref, this.settings.reader[field]));
         }
         for (const [field, label, description] of [
             ['enterKeyNewline', t('chatgptInputEnhancementEnterLabel'), t('chatgptInputEnhancementEnterDesc')],
@@ -827,28 +855,6 @@ export class SettingsTabView {
             const style = document.createElement('style'); style.textContent = INPUT_ENHANCEMENT_GUIDE_CSS; body.prepend(style);
             void this.modal.showCustom({kind: 'info', title: t('chatgptInputEnhancementGuideTitle'), body});
         }); add('input', guide.root);
-        for (const [field, labelKey] of [['copy', 'settingsSelectionCopy'], ['annotation', 'settingsSelectionAnnotation'], ['highlight', 'settingsSelectionHighlight']] as const) {
-            toggle('controls', `settings-selection-${field}`, t(labelKey), '',
-                () => this.settings.reader.selectionToolbar[field], value => {
-                    const selectionToolbar = { ...this.settings.reader.selectionToolbar, [field]: value };
-                    this.settings.reader.selectionToolbar = selectionToolbar;
-                    void this.actions.setReaderSettings?.({ selectionToolbar });
-                });
-        }
-        toggle('controls', 'settings-show-input-enhancement-control', t('settingsShowInputEnhancementButton'), t('settingsShowInputEnhancementButtonDesc'),
-            () => this.settings.chatgptBehavior.showInputEnhancementControl, value => {
-                this.settings.chatgptBehavior.showInputEnhancementControl = value;
-                void this.actions.setChatGptBehaviorSettings?.({ showInputEnhancementControl: value });
-            });
-        const pins = this.createActionRow(staging, t('settingsPinnedActions'), t('settingsPinnedActionsDesc'), 'settings-pinned-page-controls');
-        pins.button.setAttribute('aria-label', t('settingsPinnedActions'));
-        pins.button.title = t('settingsPinnedActions');
-        pins.button.addEventListener('click', () => this.openPinnedActions());
-        add('controls', pins.root);
-        select('marks', 'settings-comment-sort', t('settingsCommentSort'), [{ value: 'created', label: t('settingsSortCreated') }, { value: 'position', label: t('settingsSortPosition') }], () => this.settings.reader.commentExport.sortMode, value => {
-            const commentExport = { ...this.settings.reader.commentExport, sortMode: value === 'position' ? 'position' as const : 'created' as const };
-            this.settings.reader.commentExport = commentExport; void this.actions.setReaderSettings?.({ commentExport });
-        });
         select('data', 'settings-bookmark-sort', t('settingsDefaultBookmarkSort'), [
             { value: 'time-desc', label: t('sortTimeDesc') }, { value: 'time-asc', label: t('sortTimeAsc') },
             { value: 'alpha-asc', label: t('sortAlphaAsc') }, { value: 'alpha-desc', label: t('sortAlphaDesc') },
@@ -856,31 +862,15 @@ export class SettingsTabView {
             const sortMode = value as AppSettings['bookmarks']['sortMode'];
             this.settings.bookmarks.sortMode = sortMode; void this.actions.setBookmarksSettings?.({ sortMode });
         });
-        for (const [field, label, role] of [
-            ['copyPng', t('settingsFormulaButtonCopyPng'), 'settings-formula-asset-action-copy-png'],
-            ['copySvg', t('settingsFormulaButtonCopySvg'), 'settings-formula-asset-action-copy-svg'],
-            ['copyMathml', t('settingsFormulaButtonCopyMathml'), 'settings-formula-asset-action-copy-mathml'],
-            ['savePng', t('settingsFormulaButtonSavePng'), 'settings-formula-asset-action-save-png'],
-            ['saveSvg', t('settingsFormulaButtonSaveSvg'), 'settings-formula-asset-action-save-svg'],
-        ] as const) toggle('export', role, label, '', () => this.settings.formula.assetActions[field], value => {
-            const assetActions = { ...this.settings.formula.assetActions, [field]: value };
-            this.settings.formula.assetActions = assetActions; void this.actions.setFormulaSettings?.({ assetActions });
-        });
         groups.appearance.unshift(groups.appearance.pop()!);
         const promptRows = groups.input.splice(1, 2); groups.input.push(...promptRows);
-        const notice = this.createActionRow(staging, t('settingsResetReaderNotice'), '', 'settings-reset-reader-notice');
-        notice.button.addEventListener('click', async () => {
-            notice.button.disabled = true;
-            try { if (await this.actions.setReaderSettings?.({ detachedNoticeConfirmed: false }) !== false) notice.summary.textContent = t('settingsReaderNoticeReset'); }
-            finally { notice.button.disabled = false; }
-        }); add('advanced', notice.button);
         for (const [category, rows] of Object.entries(groups)) {
             for (const row of rows) {
                 const roles = Array.from(row.querySelectorAll<HTMLElement>('[data-role]')).map(el => el.dataset.role).join(' ');
                 let key = ({ appearance: 'Interface', reading: 'Reader', input: 'Editing', marks: 'AnnotationOutput', export: 'Markdown', controls: 'Drawer', data: 'Data', advanced: 'Advanced' } as Record<string, string>)[category];
                 if (category === 'appearance' && roles.includes('page-width')) key = 'Page';
                 if (category === 'reading') {
-                    if (/directory|hide-official/.test(roles)) key = 'Directory';
+                    if (/directory|hide-official|show-message-stepper/.test(roles)) key = 'Directory';
                     if (roles.includes('restore-position')) key = 'Position';
                 }
                 if (category === 'input') {
@@ -898,53 +888,84 @@ export class SettingsTabView {
                     else if (/selection/.test(roles)) key = 'Selection';
                     else if (/show-message-toolbar|show-save-messages|show-word-count/.test(roles)) key = 'MessageButtons';
                 }
+                if (category === 'data') {
+                    key = row.dataset.role === 'settings-transfer' ? 'Configuration'
+                        : row.dataset.role === 'settings-google-drive-backup-card' ? 'CloudBackup'
+                        : row.dataset.role === 'settings-data-backup-card' ? 'LocalBackup' : 'LibraryData';
+                }
                 row.dataset.settingsGroup = `settingsGroup${key}`;
             }
         }
-        this.catalog = new SettingsCatalog(groups, () => { this.dismissTransientUi(); this.scrollRoot.scrollTop = 0; });
+        this.buttonsView.root.dataset.settingsGroup = '';
+        this.buttonsView.root.dataset.searchText = this.buttonsView.getSearchText();
+        this.catalog = new SettingsCatalog(groups, () => { this.dismissTransientUi(); this.scrollRoot.scrollTop = 0; this.buttonsView?.search(this.catalog?.search.value ?? ''); });
         this.scrollRoot.replaceChildren(this.catalog.content);
         this.root.insertBefore(this.catalog.header, this.scrollRoot);
     }
 
-    private openPinnedActions(): void {
-        const labels: Record<PageControlAction, string> = {
-            'toggle-page-bookmark': t('chatgptPageControlBookmark'),
-            'open-detached-reader': t('chatgptPageControlSplitView'),
-            'open-prompts': t('chatgptPageControlPrompts'),
-            'open-input-enhancement': t('settingsInputEnhancementControl'),
-            'chatgpt-refresh-message-navigation': t('chatgptRefreshMessageNavigation'),
-            'previous-message': t('previousMessage'),
-            'next-message': t('nextMessage'),
-        };
-        const selected = new Set(this.settings.chatgptBehavior.pinnedPageControls);
-        const body = document.createElement('div'); body.className = 'settings-pin-options';
-        const description = document.createElement('p'); description.textContent = t('settingsPinnedActionsDesc'); body.append(description);
-        for (const action of PAGE_CONTROL_ACTIONS) {
+
+    private openContentCleanupSettings(): void {
+        const selected = { ...this.settings.content };
+        const body = document.createElement('div');
+        body.className = 'settings-pin-options';
+        const description = document.createElement('p');
+        description.textContent = t('settingsContentCleanupDesc');
+        body.append(description);
+
+        const addOption = (key: keyof AppSettings['content'], labelKey: string, descriptionKey: string): void => {
+            const wrapper = document.createElement('div');
+            wrapper.className = 'settings-content-option';
             const label = document.createElement('label');
-            const input = document.createElement('input'); input.type = 'checkbox'; input.checked = selected.has(action); input.dataset.pinAction = action;
-            input.addEventListener('change', () => { if (input.checked) selected.add(action); else selected.delete(action); });
-            label.append(input, document.createTextNode(labels[action])); body.append(label);
-        }
-        const status = document.createElement('p'); status.setAttribute('role', 'status'); body.append(status);
+            const input = document.createElement('input');
+            input.type = 'checkbox';
+            input.checked = selected[key];
+            input.dataset.role = `settings-content-${key}`;
+            input.addEventListener('change', () => { selected[key] = input.checked; });
+            label.append(input, document.createTextNode(t(labelKey)));
+            const help = document.createElement('p');
+            help.textContent = t(descriptionKey);
+            wrapper.append(label, help);
+            body.append(wrapper);
+        };
+        addOption('preserveLinks', 'settingsPreserveLinks', 'settingsPreserveLinksDesc');
+        addOption('includeCodeBlocks', 'settingsIncludeCodeBlocks', 'settingsIncludeCodeBlocksDesc');
+
+        const status = document.createElement('p');
+        status.setAttribute('role', 'status');
+        body.append(status);
         let pending = false;
         void this.modal.showCustom({
-            kind: 'info', title: t('settingsPinnedActions'), body, canDismiss: () => !pending,
+            kind: 'info',
+            title: t('settingsContentCleanupTitle'),
+            body,
+            canDismiss: () => !pending,
             footer: (footer, close) => {
-                const cancel = document.createElement('button'); cancel.type = 'button'; cancel.className = 'mock-modal__button mock-modal__button--secondary'; cancel.textContent = t('btnCancel');
+                const cancel = document.createElement('button');
+                cancel.type = 'button';
+                cancel.className = 'mock-modal__button mock-modal__button--secondary';
+                cancel.textContent = t('btnCancel');
                 cancel.addEventListener('click', () => { if (!pending) close(); });
-                const save = document.createElement('button'); save.type = 'button'; save.className = 'mock-modal__button mock-modal__button--primary'; save.textContent = t('btnSave');
+
+                const save = document.createElement('button');
+                save.type = 'button';
+                save.className = 'mock-modal__button mock-modal__button--primary';
+                save.textContent = t('btnSave');
                 save.addEventListener('click', async () => {
                     if (pending) return;
-                    pending = true; save.disabled = true; cancel.disabled = true;
+                    pending = true;
+                    save.disabled = true;
+                    cancel.disabled = true;
                     body.querySelectorAll<HTMLInputElement>('input').forEach(input => { input.disabled = true; });
-                    const pinnedPageControls = PAGE_CONTROL_ACTIONS.filter(action => selected.has(action));
                     try {
-                        if (await this.actions.setChatGptBehaviorSettings?.({ pinnedPageControls }) === false) throw new Error('save');
-                        this.settings.chatgptBehavior.pinnedPageControls = pinnedPageControls;
-                        pending = false; close();
-                    } catch { status.textContent = t('settingsSaveFailed'); }
-                    finally {
-                        pending = false; save.disabled = false; cancel.disabled = false;
+                        if (await this.actions.setContentSettings?.(selected) === false) throw new Error('save');
+                        this.settings.content = { ...selected };
+                        this.extraSync.forEach(sync => sync());
+                        close();
+                    } catch {
+                        status.textContent = t('settingsSaveFailed');
+                        pending = false;
+                        save.disabled = false;
+                        cancel.disabled = false;
                         body.querySelectorAll<HTMLInputElement>('input').forEach(input => { input.disabled = false; });
                     }
                 });
@@ -964,6 +985,10 @@ export class SettingsTabView {
     }
 
     private applyDataStateToDom(): void {
+        this.buttonsView?.setReadOnly(this.dataState.kind !== 'ready'||!this.canConfigureButtons);
+        this.buttonsView?.setCompatibilityNotice(!this.canConfigureButtons);
+        this.transferPanel?.setReadOnly(this.dataState.kind !== 'ready'||!this.canTransferSettings);
+        this.transferPanel?.setCompatibilityNotice(!this.canTransferSettings);
         this.scrollRoot.inert = this.dataState.kind !== 'ready';
         this.root.toggleAttribute('aria-busy', this.dataState.kind === 'loading');
         if (this.dataState.kind === 'ready') {
@@ -1287,6 +1312,7 @@ export class SettingsTabView {
     }
 
     private applySettingsToDom(): void {
+        this.buttonsView?.setState(this.settings);
         const s = this.settings;
         const usagePercent = this.formatPercent(this.storageUsage?.usedPercentage);
         this.refs.platforms.chatgpt.checked = Boolean(s.platforms.chatgpt);
@@ -1741,12 +1767,71 @@ export class SettingsTabView {
             field.appendChild(button);
         }
 
+        const custom = document.createElement('button');
+        custom.type = 'button';
+        custom.className = 'settings-color-swatch settings-color-swatch--custom';
+        custom.dataset.role = 'settings-accent-custom';
+        custom.setAttribute('role', 'radio');
+        custom.setAttribute('aria-label', t('themeAccentCustom'));
+        custom.title = t('themeAccentCustom');
+        const input = document.createElement('input');
+        input.type = 'text';
+        input.className = 'settings-accent-rgb-input';
+        input.dataset.role = 'settings-accent-rgb';
+        input.placeholder = 'RRGGBB';
+        input.maxLength = 7;
+        input.autocomplete = 'off';
+        input.setAttribute('aria-label', t('themeAccentRgbLabel'));
+        input.hidden = true;
+        this.customAccentButton = custom;
+        this.customAccentInput = input;
+        custom.addEventListener('click', () => {
+            input.value = formatAccentRgb(this.normalizeAccentColor(this.settings.appearance?.accentColor));
+            input.removeAttribute('aria-invalid');
+            custom.hidden = true;
+            input.hidden = false;
+            input.focus();
+            input.select();
+        });
+        input.addEventListener('input', () => { input.value = input.value.replace(/#/g, ''); input.removeAttribute('aria-invalid'); });
+        input.addEventListener('keydown', event => {
+            if (event.key === 'Enter') { event.preventDefault(); event.stopPropagation(); void this.commitCustomAccent(); }
+            if (event.key === 'Escape') { event.preventDefault(); event.stopPropagation(); input.hidden = true; custom.hidden = false; custom.focus(); }
+        });
+        input.addEventListener('blur', () => { if (!input.hidden) void this.commitCustomAccent(); });
+        field.append(custom, input);
         item.append(info, field);
         parent.appendChild(item);
     }
 
+    private async commitCustomAccent(): Promise<void> {
+        const input = this.customAccentInput;
+        if (!input || input.hidden || this.customAccentPending || this.dataState.kind !== 'ready' || !this.actions.setAppearanceSettings) return;
+        const color = parseAccentRgb(input.value);
+        if (!color) { input.setAttribute('aria-invalid', 'true'); input.title = t('themeAccentRgbInvalid'); return; }
+        const next = color === THEME_ACCENT_SWATCHES[0].value ? null : color;
+        this.customAccentPending = true;
+        input.disabled = true;
+        try {
+            const saved = await this.actions.setAppearanceSettings?.({ accentColor: next });
+            if (saved === false) return;
+            this.settings.appearance = { ...this.settings.appearance, accentColor: next };
+            input.hidden = true;
+            if (this.customAccentButton) this.customAccentButton.hidden = false;
+            this.syncAccentColorSwatches();
+        } catch { input.setAttribute('aria-invalid', 'true'); input.title = t('settingsTransferFailed'); }
+        finally { this.customAccentPending = false; input.disabled = this.dataState.kind !== 'ready'; }
+    }
+
     private syncAccentColorSwatches(): void {
         const selected = this.normalizeAccentColor(this.settings.appearance?.accentColor) ?? THEME_ACCENT_SWATCHES[0].value;
+        if (this.customAccentButton) {
+            const custom = !THEME_ACCENT_SWATCHES.some(swatch => swatch.value === selected);
+            this.customAccentButton.dataset.selected = custom ? '1' : '0';
+            this.customAccentButton.setAttribute('aria-checked', String(custom));
+            this.customAccentButton.style.setProperty('--_settings-accent-color', custom ? selected : 'var(--aimd-bg-surface)');
+            this.customAccentButton.style.background = custom ? selected : '';
+        }
         this.root.querySelectorAll<HTMLButtonElement>('[data-role="settings-accent-color-swatch"]').forEach((button) => {
             const isSelected = button.dataset.color === selected;
             button.dataset.selected = isSelected ? '1' : '0';
@@ -1797,6 +1882,7 @@ export class SettingsTabView {
             clickCopyFormulaFormat: normalizeLegacyClickCopyFormulaFormat(record as Record<string, unknown>),
             markdownCopyFormulaFormat: normalizeFormulaSourceFormat(record.markdownCopyFormulaFormat),
             assetFontSizePx: normalizeFormulaAssetFontSizePx(record.assetFontSizePx),
+            composerAssetActions: { ...DEFAULT_FORMULA_SETTINGS.composerAssetActions!, ...record.composerAssetActions },
             assetActions: {
                 copyPng: Boolean(assetActions.copyPng ?? DEFAULT_FORMULA_SETTINGS.assetActions.copyPng),
                 copySvg: Boolean(assetActions.copySvg ?? DEFAULT_FORMULA_SETTINGS.assetActions.copySvg),

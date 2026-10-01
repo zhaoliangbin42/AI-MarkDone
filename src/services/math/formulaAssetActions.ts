@@ -2,7 +2,7 @@ import { copyImageBlobToClipboard } from '../../drivers/content/clipboard/copyIm
 import { copyMathmlToClipboard } from '../../drivers/content/clipboard/copyMathmlToClipboard';
 import { copySvgBlobToClipboard } from '../../drivers/content/clipboard/copySvgToClipboard';
 import { downloadBlob } from '../../drivers/content/export/downloadBlob';
-import type { FormulaSource } from '../../core/math/formulaAssetTypes';
+import type { FormulaSource, FormulaSvgAsset } from '../../core/math/formulaAssetTypes';
 import type { ImageExportErrorCode } from '../export/imageExportContracts';
 import {
     DEFAULT_FORMULA_FONT_SIZE_PX,
@@ -16,6 +16,8 @@ export type FormulaAssetActionResult =
     | { ok: false; code: 'EMPTY_SOURCE' | 'CLIPBOARD_UNSUPPORTED' | 'CLIPBOARD_WRITE_FAILED' | ImageExportErrorCode; message: string };
 
 export type RunFormulaAssetActionOptions = {
+    signal?:AbortSignal;
+    preparedSvg?: FormulaSvgAsset;
     action: FormulaAssetAction;
     source: FormulaSource;
     displayMode: boolean;
@@ -32,7 +34,10 @@ function clipboardError(code: 'CLIPBOARD_UNSUPPORTED' | 'CLIPBOARD_WRITE_FAILED'
 }
 
 async function renderSvgBlob(options: RunFormulaAssetActionOptions): Promise<Blob> {
+    const asset=options.preparedSvg;
+    if(asset&&options.source.kind==='tex'&&asset.source===options.source.value.trim()&&asset.displayMode===options.displayMode&&asset.fontSizePx===(options.fontSizePx??DEFAULT_FORMULA_FONT_SIZE_PX)&&!options.foregroundColor)return new Blob([asset.svg],{type:'image/svg+xml'});
     return (await renderFormulaAsset({
+        signal:options.signal,
         source: options.source,
         displayMode: options.displayMode,
         fontSizePx: options.fontSizePx ?? DEFAULT_FORMULA_FONT_SIZE_PX,
@@ -43,6 +48,7 @@ async function renderSvgBlob(options: RunFormulaAssetActionOptions): Promise<Blo
 
 async function renderPngBlob(options: RunFormulaAssetActionOptions): Promise<Blob> {
     return (await renderFormulaAsset({
+        signal:options.signal,
         source: options.source,
         displayMode: options.displayMode,
         fontSizePx: options.fontSizePx ?? DEFAULT_FORMULA_FONT_SIZE_PX,
@@ -58,32 +64,36 @@ export async function runFormulaAssetAction(options: RunFormulaAssetActionOption
         return { ok: false, code: 'EMPTY_SOURCE', message: 'Formula source is empty.' };
     }
     try {
+        const check=()=>{if(options.signal?.aborted)throw new DOMException('Cancelled','AbortError');};check();
         if (options.action === 'copy_mathml') {
             const mathml = await readBlobText((await renderFormulaAsset({
+                signal:options.signal,
                 source: options.source,
                 displayMode: options.displayMode,
                 fontSizePx: options.fontSizePx ?? DEFAULT_FORMULA_FONT_SIZE_PX,
                 foregroundColor: options.foregroundColor,
                 output: 'mathml',
             })).blob);
+            check();
             const result = await copyMathmlToClipboard(mathml);
             if (result.ok) return { ok: true, status: 'copied' };
             return clipboardError('CLIPBOARD_WRITE_FAILED', result.errorMessage || 'MathML clipboard copy failed.');
         }
 
         if (options.action === 'copy_svg') {
-            const result = await copySvgBlobToClipboard(await renderSvgBlob(options));
+            const blob=await renderSvgBlob(options);check();
+            const result = await copySvgBlobToClipboard(blob);
             if (result.ok) return { ok: true, status: 'copied' };
             if (result.reason === 'unsupported') return clipboardError('CLIPBOARD_UNSUPPORTED', 'SVG clipboard copy is not supported by this browser.');
             return clipboardError('CLIPBOARD_WRITE_FAILED', result.errorMessage || 'SVG clipboard copy failed.');
         }
 
         if (options.action === 'save_svg') {
-            downloadBlob({ filename: SVG_FILENAME, blob: await renderSvgBlob(options) });
+            const blob=await renderSvgBlob(options);check();downloadBlob({ filename: SVG_FILENAME, blob });
             return { ok: true, status: 'saved' };
         }
 
-        const pngBlob = await renderPngBlob(options);
+        const pngBlob = await renderPngBlob(options);check();
         if (options.action === 'save_png') {
             downloadBlob({ filename: PNG_FILENAME, blob: pngBlob });
             return { ok: true, status: 'saved' };
@@ -94,6 +104,7 @@ export async function runFormulaAssetAction(options: RunFormulaAssetActionOption
         if (result.reason === 'unsupported') return clipboardError('CLIPBOARD_UNSUPPORTED', 'PNG clipboard copy is not supported by this browser.');
         return clipboardError('CLIPBOARD_WRITE_FAILED', result.errorMessage || 'PNG clipboard copy failed.');
     } catch (error: any) {
+        if(error?.name==='AbortError')return {ok:false,code:'CANCELLED',message:'Formula export cancelled.'};
         if (typeof error?.code === 'string' && IMAGE_EXPORT_ERROR_CODES.has(error.code)) {
             return { ok: false, code: error.code as ImageExportErrorCode, message: error.message };
         }

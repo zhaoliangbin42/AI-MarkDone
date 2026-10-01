@@ -20,12 +20,18 @@ function getChipCss(): string {
   margin-inline-start: var(--aimd-space-1);
   font-family: var(--aimd-font-family-sans);
 }
+.chip-button[data-active="1"], .chip-button[data-active="1"]:hover:not(:disabled) {
+  color: color-mix(in srgb, var(--aimd-interactive-primary) 60%, var(--aimd-text-primary));
+  background: var(--aimd-interactive-selected);
+}
 `;
 }
 
 export type ComposerAnnotationChipHandlers = {
-    onOpenManager: () => void;
+    onOpenManager: (anchor: HTMLElement) => void;
     label: string;
+    active?: boolean;
+    stateDescription?: string;
 };
 
 /**
@@ -42,7 +48,7 @@ export class ComposerAnnotationChip {
     private mountedContainer: HTMLElement | null = null;
     private releaseMount: (() => void) | null = null;
 
-    constructor(appearance: AppearanceSnapshot) {
+    constructor(appearance: AppearanceSnapshot, private readonly options: { icon?: string; role?: string; showCount?: boolean } = {}) {
         this.appearance = appearance;
     }
 
@@ -62,6 +68,7 @@ export class ComposerAnnotationChip {
         if (this.button) {
             this.button.setAttribute('aria-label', handlers.label);
             this.button.title = handlers.label;
+            this.syncActiveState();
         }
         if (!mount || count < 1) {
             this.host?.remove();
@@ -84,11 +91,11 @@ export class ComposerAnnotationChip {
         const preferredAnchor = mount.anchor;
         if (
             this.host!.parentElement !== mount.container
-            || this.host!.previousSibling !== preferredAnchor
+            || !(preferredAnchor.compareDocumentPosition(this.host!) & Node.DOCUMENT_POSITION_FOLLOWING)
         ) {
             mount.container.insertBefore(this.host!, preferredAnchor.nextSibling);
         }
-        if (this.countEl) this.countEl.textContent = String(count);
+        if (this.countEl && this.countEl.textContent !== String(count)) this.countEl.textContent = String(count);
     }
 
     dispose(): void {
@@ -106,7 +113,7 @@ export class ComposerAnnotationChip {
 
     private createHost(container: HTMLElement): void {
         const host = document.createElement('span');
-        host.dataset.aimdRole = CHIP_ROLE;
+        host.dataset.aimdRole = this.options.role ?? CHIP_ROLE;
         host.setAttribute(AIMD_CONVERSATION_SURFACE_CONSUMER_ATTRIBUTE, '');
         const shadow = host.attachShadow({ mode: 'open' });
         const scope = AppearanceScope.forShadowRoot(shadow, { styleId: TOKEN_STYLE_ID });
@@ -119,21 +126,30 @@ export class ComposerAnnotationChip {
         const label = this.handlers?.label?.trim() || 'Page annotations';
         button.setAttribute('aria-label', label);
         button.title = label;
-        button.appendChild(createIcon(messageSquareTextIcon));
+        button.appendChild(createIcon(this.options.icon ?? messageSquareTextIcon));
         const count = document.createElement('span');
         count.className = 'chip-count';
-        button.appendChild(count);
+        if (this.options.showCount !== false) button.appendChild(count);
         button.addEventListener('click', (event) => {
             event.preventDefault();
             event.stopPropagation();
-            this.handlers?.onOpenManager();
+            this.handlers?.onOpenManager(button);
         });
         shadow.appendChild(button);
 
         this.host = host;
         this.countEl = count;
         this.button = button;
+        this.syncActiveState();
         this.appearanceScope = scope;
         container.appendChild(host);
+    }
+
+    private syncActiveState(): void {
+        if (!this.button || !this.handlers) return;
+        if (this.handlers.active === undefined) delete this.button.dataset.active;
+        else this.button.dataset.active = this.handlers.active ? '1' : '0';
+        if (this.handlers.stateDescription) this.button.setAttribute('aria-description', this.handlers.stateDescription);
+        else this.button.removeAttribute('aria-description');
     }
 }

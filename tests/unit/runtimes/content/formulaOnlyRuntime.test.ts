@@ -203,6 +203,7 @@ function enabledFormulaSettings() {
         clickCopyMarkdown: true,
         clickCopyFormulaFormat: 'markdown-dollar',
         markdownCopyFormulaFormat: 'markdown-dollar',
+        composerAssetActions: { copyPng: true, copySvg: true, copyMathml: true, savePng: true, saveSvg: true },
         assetFontSizePx: 36,
         assetActions: {
             copyPng: true,
@@ -219,6 +220,7 @@ function disabledFormulaSettings() {
         clickCopyMarkdown: false,
         clickCopyFormulaFormat: 'markdown-dollar',
         markdownCopyFormulaFormat: 'markdown-dollar',
+        composerAssetActions: { copyPng: true, copySvg: true, copyMathml: true, savePng: true, saveSvg: true },
         assetFontSizePx: 36,
         assetActions: {
             copyPng: false,

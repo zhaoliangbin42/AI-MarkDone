@@ -186,3 +186,10 @@ describe('FormulaComposerAssistantPopover', () => {
         popover.dispose();
     });
 });
+
+it('keeps the formula SVG mounted while the selected suggestion changes',()=>{
+ const popover=new FormulaComposerAssistantPopover({onSelect:()=>undefined});popover.show({anchorRect:new DOMRect(20,40,0,20),mathKind:'inline',preview:{status:'ready',asset:{source:'x',displayMode:false,fontSizePx:36,width:30,height:20,viewBox:'0 0 30 20',svg:'<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 30 20"><path d="M0 0"/></svg>'}},suggestions:[suggestion,{...suggestion,id:'sqrt',label:'\\sqrt'}],selectedIndex:0});const shadow=document.querySelector<HTMLElement>('[data-aimd-role="formula-composer-assistant"]')!.shadowRoot!;const svg=shadow.querySelector('svg')!;popover.updateSelectedIndex(1);expect(shadow.querySelector('svg')).toBe(svg);expect(shadow.querySelector('[data-index="1"]')!.getAttribute('aria-selected')).toBe('true');popover.dispose();
+});
+it('retains exclusive export state when a new view renders',async()=>{
+ let finish!:()=>void;const onExport=vi.fn(()=>new Promise<void>(resolve=>{finish=resolve;}));const popover=new FormulaComposerAssistantPopover({onSelect:()=>undefined,onExport});const view={anchorRect:new DOMRect(20,40,0,20),mathKind:'inline' as const,preview:{status:'ready' as const,asset:{source:'x',displayMode:false,fontSizePx:36,width:30,height:20,viewBox:'0 0 30 20',svg:'<svg xmlns="http://www.w3.org/2000/svg"/>'}},suggestions:[],selectedIndex:0};popover.show(view);const shadow=document.querySelector<HTMLElement>('[data-aimd-role="formula-composer-assistant"]')!.shadowRoot!;shadow.querySelector<HTMLButtonElement>('[data-action="save_formula_svg"]')!.click();popover.show(view);expect(Array.from(shadow.querySelectorAll<HTMLButtonElement>('.formula-export-actions button')).every(button=>button.disabled)).toBe(true);expect(onExport).toHaveBeenCalledOnce();finish();await Promise.resolve();await Promise.resolve();popover.dispose();
+});

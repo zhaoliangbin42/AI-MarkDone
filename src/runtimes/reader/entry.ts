@@ -58,6 +58,7 @@ function isReaderSessionSnapshot(value: unknown): value is ReaderSessionSnapshot
     if (!hasFields(value, ['sourceUrl'], ['startIndex', 'createdAt', 'updatedAt'])) return false;
     const items = readArrayField(value, 'items', (item) => (
         hasFields(item, ['id', 'userPrompt', 'content'])
+        && (item.sourceContent === undefined || typeof item.sourceContent === 'string')
         && (item.meta === undefined || isReaderSessionItemMeta(item.meta))
     ));
     if (!items) return false;
@@ -110,6 +111,7 @@ function toReaderItems(snapshot: ReaderSessionSnapshot): ReaderItem[] {
         id: item.id,
         userPrompt: item.userPrompt,
         content: item.content,
+        sourceContent: item.sourceContent,
         meta: item.meta ? { ...item.meta } : undefined,
     }));
 }
@@ -238,6 +240,7 @@ async function run(): Promise<void> {
     sendPopover.setPromptAutocompleteController(promptManager);
     promptManager.setEnabled(Boolean(settings.chatgptBehavior?.promptAutocomplete ?? DEFAULT_SETTINGS.chatgptBehavior.promptAutocomplete));
     panel.setReaderSettings(settings.reader);
+    panel.setContentCleanupSettings(settings.content);
     let readerSettingsWriteQueue: Promise<void> = Promise.resolve();
     panel.setReaderSettingsController({
         onChange: (patch) => {
@@ -275,6 +278,7 @@ async function run(): Promise<void> {
     }
 
     const unsubscribeSettings = settingsClient.subscribe((snapshot) => {
+        panel.setContentCleanupSettings(snapshot.settings.content);
         settings = snapshot.settings;
         const nextLocale = settings.language ?? DEFAULT_SETTINGS.language;
         if (nextLocale !== activeLocale) {

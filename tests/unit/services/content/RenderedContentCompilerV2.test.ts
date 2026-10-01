@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { chatgptMarkdownParserAdapter } from '@/drivers/content/adapters/parser/chatgpt';
+import { normalizeChatGPTReaderMarkdown } from '@/core/content/chatgptMarkdownCleanup';
 import {
     createRenderedParserCapabilityV2,
     RenderedContentCompilerV2,
@@ -48,6 +49,18 @@ describe('RenderedContentCompilerV2', () => {
         expect(result.user.markdown).not.toContain('copy');
         expect(result.assistant.markdown).toContain('- One');
         expect(result.manifest.nodeCount).toBeGreaterThan(0);
+    });
+
+    it('retains parsed source links alongside the legacy cleaned body', async () => {
+        const compiler = new RenderedContentCompilerV2({
+            markdownParserAdapter: chatgptMarkdownParserAdapter,
+            cleanMarkdown: normalizeChatGPTReaderMarkdown,
+        });
+        const result = await compiler.compile(request('<p>Question</p>', '<p>Read <a href="https://example.com">paper</a>.</p>'));
+        expect(result.kind).toBe('ready');
+        if (result.kind !== 'ready') return;
+        expect(result.assistant.markdown).toBe('Read paper.');
+        expect(result.assistantSourceMarkdown).toContain('[paper](https://example.com)');
     });
 
     it('uses formula source when available without rejecting the whole message when it is absent', async () => {

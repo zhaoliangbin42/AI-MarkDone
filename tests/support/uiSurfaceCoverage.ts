@@ -43,6 +43,22 @@ function owners(owner: string): UiSurfaceCoverageEntry['lifecycleOwners'] {
 /** Executable mirror of the user-visible catalog in docs/design.md. */
 export const uiSurfaceCoverage = [
     {
+        id: 'buttons-settings', family: 'settings', userEntry: 'Settings → Buttons → group and row controls',
+        ownerModule: 'src/ui/content/bookmarks/ui/tabs/ButtonsSettingsView.ts', productionEntry: 'src/ui/content/bookmarks/ui/tabs/SettingsTabView.ts',
+        profiles: ['inline'], domScopes: ['shadow-root'], lifecycleOwners: owners('ButtonsSettingsView'),
+        responsive: 'Stack group navigation above previews in narrow settings panels', browsers,
+        triggerTests: ['tests/unit/ui/bookmarks/buttonsSettingsView.test.ts', 'tests/unit/ui/bookmarks/settingsCatalog.test.ts'],
+        visualEvidence: { status: 'direct-mock', mockPath: 'mocks/components/buttons-settings' },
+    },
+    {
+        id: 'settings-transfer', family: 'settings', userEntry: 'Settings → Data → configuration export/import/recovery',
+        ownerModule: 'src/ui/content/bookmarks/ui/tabs/SettingsTransferPanel.ts', productionEntry: 'src/ui/content/bookmarks/BookmarksPanel.ts',
+        profiles: ['inline'], domScopes: ['shadow-root'], lifecycleOwners: owners('SettingsTransferPanel'),
+        responsive: 'Wrap actions and scroll change lists while retaining confirmation controls', browsers,
+        triggerTests: ['tests/unit/ui/bookmarks/settingsTransferPanel.test.ts', 'tests/unit/runtimes/background/settings-transfer.test.ts'],
+        visualEvidence: { status: 'covered-by-family', mockPath: 'mocks/components/buttons-settings', reason: 'The settings fixture mounts the real transfer panel beside button preferences using isolated test settings' },
+    },
+    {
         id: 'message-toolbar', family: 'message-toolbar', userEntry: 'Official message action row',
         ownerModule: 'src/ui/content/MessageToolbar.ts', productionEntry: 'src/ui/content/controllers/MessageToolbarOrchestrator.ts',
         profiles: ['inline'], domScopes: ['shadow-root'], lifecycleOwners: owners('MessageToolbar'),

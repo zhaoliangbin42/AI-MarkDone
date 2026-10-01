@@ -60,6 +60,7 @@ export class ChatGPTDirectoryController {
     private promptLabelMode: ChatGPTDirectoryPromptLabelMode = 'head';
     private previewMaxChars = DEFAULT_CHATGPT_DIRECTORY_PREVIEW_MAX_CHARS;
     private previewActionsFactory: ChatGPTDirectoryPreviewActionsFactory | null = null;
+    private navigationControls: { previous: HTMLButtonElement; next: HTMLButtonElement } | null = null;
     private roundPositions: ChatGPTRoundPosition[] = [];
     private renderedContentToken: string | null = null;
     private activePosition = 0;
@@ -214,8 +215,14 @@ export class ChatGPTDirectoryController {
         this.rail.setPromptLabelMode(this.promptLabelMode);
         this.rail.setPreviewMaxChars(this.previewMaxChars);
         this.rail.setPreviewActionsFactory(this.previewActionsFactory);
+        if (this.navigationControls) this.rail.setNavigationControls(this.navigationControls.previous, this.navigationControls.next);
         this.rail.ensureAttached();
         writeDebugState({ DirectoryHost: 'created' });
+    }
+
+    setNavigationControls(previous: HTMLButtonElement, next: HTMLButtonElement): void {
+        this.navigationControls = { previous, next };
+        this.rail?.setNavigationControls(previous, next);
     }
 
     private async refresh(): Promise<void> {

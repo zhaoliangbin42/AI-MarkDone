@@ -7,6 +7,7 @@ import { HighlightSession, createHighlightRecord, highlightAnchor } from '../hig
 import { createHighlightSwatches } from '../components/HighlightSwatches';
 import type { ReaderItem } from '../../../services/reader/types';
 import { copyReaderItemMarkdownToClipboard } from '../../../services/reader/readerMarkdownCopy';
+import { DEFAULT_CONTENT_CLEANUP_SETTINGS, type ContentCleanupSettings } from '../../../core/settings/content';
 import {
     copyCanonicalMarkdownToClipboard,
     formatCanonicalMarkdownForCopy,
@@ -188,6 +189,7 @@ export class ReaderPanel {
     private katexCssToken = 0;
     private statusTimer: number | null = null;
     private renderCodeInReader = true;
+    private contentCleanup: ContentCleanupSettings = DEFAULT_CONTENT_CLEANUP_SETTINGS;
     private appearance: AppearanceSnapshot = createAppearanceSnapshot('light');
     private closing = false;
     private motionNeedsOpen = false;
@@ -376,6 +378,13 @@ export class ReaderPanel {
                 this.render();
             }
         }
+    }
+
+    setContentCleanupSettings(settings: ContentCleanupSettings): void {
+        if (this.contentCleanup.preserveLinks === settings.preserveLinks
+            && this.contentCleanup.includeCodeBlocks === settings.includeCodeBlocks) return;
+        this.contentCleanup = { ...settings };
+        if (this.overlaySession) void this.renderCurrentContent({ restoreScrollPosition: true });
     }
 
     getCommentExportContext(): ReaderCommentExportContext | null {
@@ -989,6 +998,7 @@ export class ReaderPanel {
         const token = ++this.contentRenderToken;
         const rendered = await renderReaderItem(item, {
             highlightCode: this.renderCodeInReader,
+            contentCleanup: this.contentCleanup,
             labels: {
                 copyCode: this.getLabel('btnCopyText', 'Copy code'),
                 enableCodeWrap: this.getLabel('readerCodeWrapEnable', 'Enable word wrap'),
@@ -1024,7 +1034,7 @@ export class ReaderPanel {
 
         try {
             button.disabled = true;
-            const ok = await copyReaderItemMarkdownToClipboard(item);
+            const ok = await copyReaderItemMarkdownToClipboard(item, this.contentCleanup);
             showEphemeralTooltip({
                 root: this.overlaySession?.shadow ?? this.host.document,
                 anchor: button,
@@ -1240,6 +1250,7 @@ export class ReaderPanel {
                 (key, fallback, substitutions) => this.getLabel(key, fallback, substitutions),
             ),
         );
+        this.settingsPopover.reposition();
         this.overlaySession.syncKeyboardScope({
             root: this.overlaySession.host,
             onEscape: () => this.requestClose(),

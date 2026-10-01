@@ -1,4 +1,5 @@
 import type { Theme } from '../../../core/types/theme';
+import { DEFAULT_CONTENT_CLEANUP_SETTINGS, type ContentCleanupSettings } from '../../../core/settings/content';
 import {
     DEFAULT_EXPORT_SETTINGS,
     resolvePngExportPixelRatio,
@@ -57,7 +58,8 @@ type State = {
 export class SaveMessagesDialog {
     private overlaySession: OverlaySession | null = null;
     private adapter: SiteAdapter | null = null;
-    private turns: Array<{ user: string; assistant: string; index: number }> = [];
+    private turns: Array<{ user: string; assistant: string; assistantSource?: string; index: number }> = [];
+    private contentCleanup: ContentCleanupSettings = DEFAULT_CONTENT_CLEANUP_SETTINGS;
     private metadata: { url: string; exportedAt: string; title: string; count: number; platform: string } | null = null;
     private tooltipDelegate: TooltipDelegate | null = null;
     private unsubscribeLocale: (() => void) | null = null;
@@ -93,6 +95,10 @@ export class SaveMessagesDialog {
     setExportSettings(settings: ExportSettings): void {
         this.resolvedPngWidth = resolvePngExportWidth(settings);
         this.resolvedPngPixelRatio = resolvePngExportPixelRatio(settings);
+    }
+
+    setContentCleanupSettings(settings: ContentCleanupSettings): void {
+        this.contentCleanup = { ...settings };
     }
 
     setMarkdownFormulaFormat(format: FormulaSourceFormat): void {
@@ -371,11 +377,12 @@ export class SaveMessagesDialog {
                 format === 'pdf'
                     ? await (async () => {
                           this.finishClose();
-                          return exportTurnsPdf(turns, selectedIndices, metadata, { t: this.exportT });
+                          return exportTurnsPdf(turns, selectedIndices, metadata, { t: this.exportT, contentCleanup: this.contentCleanup });
                       })()
                     : format === 'png'
                     ? await exportTurnsPng(turns, selectedIndices, metadata, {
                           t: this.exportT,
+                          contentCleanup: this.contentCleanup,
                           png: { width: this.resolvedPngWidth, pixelRatio: this.resolvedPngPixelRatio },
                           signal: pngAbort?.signal,
                           onProgress: (event) => {
@@ -385,6 +392,7 @@ export class SaveMessagesDialog {
                       })
                     : await exportTurnsMarkdown(turns, selectedIndices, metadata, {
                           t: this.exportT,
+                          contentCleanup: this.contentCleanup,
                           markdownFormulaFormat: this.markdownFormulaFormat,
                       });
 

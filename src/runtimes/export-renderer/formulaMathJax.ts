@@ -304,7 +304,7 @@ function getTopLevelSvgElement(root: HTMLElement): SVGSVGElement | null {
     return directSvgElements[0] ?? null;
 }
 
-export async function renderFormulaSvgAsset(request: FormulaCapabilityRenderRequest): Promise<FormulaSvgAsset> {
+async function renderUncachedFormulaSvgAsset(request: FormulaCapabilityRenderRequest): Promise<FormulaSvgAsset> {
     const source = request.source.trim();
     if (!source) throw new Error('Formula source is empty.');
     const fontSizePx = Number.isFinite(request.fontSizePx) && request.fontSizePx > 0
@@ -359,3 +359,12 @@ export async function renderFormulaMathmlAsset(request: FormulaCapabilityRenderR
         mathml,
     };
 }
+
+const svgCache=new Map<string,{asset:FormulaSvgAsset;bytes:number}>();let svgCacheBytes=0;
+export async function renderFormulaSvgAsset(request:FormulaCapabilityRenderRequest):Promise<FormulaSvgAsset>{
+    const key=JSON.stringify([request.source.trim(),request.displayMode,Math.round(request.fontSizePx||36),request.foregroundColor||'#000000']);const cached=svgCache.get(key);if(cached){svgCache.delete(key);svgCache.set(key,cached);return cached.asset;}
+    const asset=await renderUncachedFormulaSvgAsset(request);const bytes=new TextEncoder().encode(key+asset.svg).length;
+    if(bytes<=2*1024*1024){svgCache.set(key,{asset,bytes});svgCacheBytes+=bytes;while(svgCache.size>16||svgCacheBytes>2*1024*1024){const oldest=svgCache.keys().next().value as string;svgCacheBytes-=svgCache.get(oldest)!.bytes;svgCache.delete(oldest);}}return asset;
+}
+
+export function __resetFormulaSvgCacheForTests():void {svgCache.clear();svgCacheBytes=0;}

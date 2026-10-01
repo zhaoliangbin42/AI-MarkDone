@@ -1,5 +1,6 @@
+import { promptIcon } from '../../../assets/workspaceIcons';
 import type { PromptRecord } from '../../../core/prompts/promptLibrary';
-import { checkIcon, gripHorizontalIcon, messageSquareTextIcon, pencilIcon, plusIcon, trashIcon, xIcon } from '../../../assets/icons';
+import { checkIcon, gripHorizontalIcon, pencilIcon, plusIcon, trashIcon, xIcon } from '../../../assets/icons';
 import { installInputEventBoundary } from '../components/inputEventBoundary';
 import { t } from '../components/i18n';
 import { renderComposerSuggestionList } from '../components/ComposerSuggestionList';
@@ -190,7 +191,7 @@ export class PromptSurfaceRenderer {
         this.root.className = 'prompt-popover prompt-popover--manager';
         this.root.innerHTML = `
           <div class="prompt-header">
-            <div class="prompt-header__title">${messageSquareTextIcon}<span>${escapeHtml(t('promptManagerTitle'))}</span></div>
+            <div class="prompt-header__title">${promptIcon}<span>${escapeHtml(t('promptManagerTitle'))}</span></div>
             <button class="icon-btn" type="button" data-action="close-prompts" aria-label="${escapeHtml(t('btnClose'))}">${xIcon}</button>
           </div>
           <div class="prompt-toolbar">
@@ -208,7 +209,7 @@ export class PromptSurfaceRenderer {
         this.root.className = 'prompt-popover prompt-popover--editor';
         this.root.innerHTML = `
           <div class="prompt-header">
-            <div class="prompt-header__title">${messageSquareTextIcon}<span>${escapeHtml(prompt.content ? t('promptEdit') : t('promptAdd'))}</span></div>
+            <div class="prompt-header__title">${promptIcon}<span>${escapeHtml(prompt.content ? t('promptEdit') : t('promptAdd'))}</span></div>
             <button class="icon-btn" type="button" data-action="cancel-edit" aria-label="${escapeHtml(t('btnBack'))}">${xIcon}</button>
           </div>
           <div class="prompt-editor-body">

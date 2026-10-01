@@ -32,7 +32,8 @@ vi.mock('../../../../src/drivers/content/export/zipBlobs', () => ({
 import { downloadText } from '../../../../src/drivers/content/export/downloadFile';
 import { downloadBlob } from '../../../../src/drivers/content/export/downloadBlob';
 import { zipBlobs } from '../../../../src/drivers/content/export/zipBlobs';
-import { exportTurnsMarkdown, exportTurnsPng } from '../../../../src/services/export/saveMessagesFacade';
+import { exportTurnsMarkdown, exportTurnsPdf, exportTurnsPng } from '../../../../src/services/export/saveMessagesFacade';
+import { printPdf } from '../../../../src/drivers/content/export/printPdf';
 import { renderMessageDocumentPng } from '../../../../src/services/export/messagePngRenderer';
 import type { ChatTurn, ConversationMetadata } from '../../../../src/services/export/saveMessagesTypes';
 
@@ -77,6 +78,29 @@ describe('exportTurnsMarkdown', () => {
         expect(arg.filename.endsWith('.md')).toBe(true);
         expect(arg.content).toContain('Question \\(q\\)');
         expect(arg.content).toContain('Inline \\(x+y\\)');
+    });
+
+    it('uses the same content rules for Markdown, PDF, and PNG output', async () => {
+        const sourceTurn: ChatTurn = {
+            user: 'Question', index: 0,
+            assistant: 'Read paper\n\n```ts\nconst answer = 42;\n```',
+            assistantSource: 'Read [paper](https://example.com)\n\n```ts\nconst answer = 42;\n```',
+        };
+        const contentCleanup = { preserveLinks: true, includeCodeBlocks: false };
+        vi.mocked(downloadText).mockClear();
+        vi.mocked(printPdf).mockClear();
+        vi.mocked(renderMessageDocumentPng).mockClear();
+        await exportTurnsMarkdown([sourceTurn], [0], metadata, { t, contentCleanup });
+        await exportTurnsPdf([sourceTurn], [0], metadata, { t, contentCleanup });
+        await exportTurnsPng([sourceTurn], [0], metadata, { t, contentCleanup });
+
+        const markdown = vi.mocked(downloadText).mock.calls[0]![0].content;
+        const pdf = vi.mocked(printPdf).mock.calls[0]![0].html;
+        const png = vi.mocked(renderMessageDocumentPng).mock.calls[0]![0].sections[0].assistantMarkdown;
+        expect(markdown).toContain('[paper](https://example.com)');
+        expect(pdf).toContain('https://example.com');
+        expect(png).toContain('[paper](https://example.com)');
+        for (const output of [markdown, pdf, png]) expect(output).not.toContain('const answer');
     });
 });
 

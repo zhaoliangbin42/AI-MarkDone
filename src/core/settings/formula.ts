@@ -17,6 +17,7 @@ export type FormulaSettings = {
     clickCopyFormulaFormat: FormulaSourceFormat;
     markdownCopyFormulaFormat: FormulaSourceFormat;
     assetActions: FormulaAssetActionSettings;
+    composerAssetActions?: FormulaAssetActionSettings;
     assetFontSizePx: number;
 };
 
@@ -43,6 +44,7 @@ export const DEFAULT_FORMULA_SETTINGS: FormulaSettings = {
         savePng: false,
         saveSvg: false,
     },
+    composerAssetActions: { copyPng: true, copySvg: true, copyMathml: true, savePng: true, saveSvg: true },
     assetFontSizePx: DEFAULT_FORMULA_ASSET_FONT_SIZE_PX,
 };
 

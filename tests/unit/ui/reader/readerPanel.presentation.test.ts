@@ -481,6 +481,7 @@ describe('ReaderPanel presentation', () => {
 
             expect(onChange).toHaveBeenCalledWith({ bodyFontSizePx: 17 });
             expect(shell.getAttribute('style')).toContain('--aimd-reader-markdown-body-size: 17px');
+            expect(settingsPanel.isConnected).toBe(true);
 
             const contentWidth = settingsPanel.querySelector<HTMLInputElement>('[data-role="reader-settings-content-width"]')!;
             expect(contentWidth.type).toBe('range');
@@ -496,6 +497,7 @@ describe('ReaderPanel presentation', () => {
 
             expect(onChange).toHaveBeenCalledWith({ contentMaxWidthPx: 1540 });
             expect(settingsPanel.querySelector<HTMLElement>('[data-role="reader-settings-content-width-value"]')?.textContent).toBe('1540px');
+            expect(settingsPanel.isConnected).toBe(true);
 
             settingsPanel.querySelector<HTMLButtonElement>('[data-action="reader-settings-detached-notice-reset"]')!.click();
             await Promise.resolve();
@@ -581,9 +583,9 @@ describe('ReaderPanel presentation', () => {
             settingsTrigger.click();
 
             const settingsPanel = shadow.querySelector<HTMLElement>('.reader-settings-popover--display')!;
-            expect(settingsPanel.dataset.aimdSurfaceProfile).toBe('panel');
+            expect(settingsPanel.dataset.aimdSurfaceProfile).toBe('anchored');
             expect(settingsPanel.getAttribute('role')).toBe('dialog');
-            expect(settingsPanel.getAttribute('aria-modal')).toBe('true');
+            expect(settingsPanel.getAttribute('aria-modal')).toBe('false');
 
             const templateTrigger = settingsPanel.querySelector<HTMLButtonElement>('[data-action="reader-settings-comment-template"]')!;
             templateTrigger.focus();

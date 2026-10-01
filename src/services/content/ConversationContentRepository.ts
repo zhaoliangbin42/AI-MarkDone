@@ -521,6 +521,9 @@ function normalizeTurn(turn: ConversationTurnV1, ordinal: number): ConversationT
         identity: Object.freeze({ turnId, userMessageId, assistantMessageId }),
         userText: turn.userText.trim(),
         assistantMarkdown,
+        ...(typeof turn.assistantSourceMarkdown === 'string'
+            ? { assistantSourceMarkdown: turn.assistantSourceMarkdown }
+            : {}),
         ...(turn.assistantProvenance
             ? { assistantProvenance: Object.freeze({ ...turn.assistantProvenance }) }
             : {}),
@@ -672,6 +675,7 @@ function digestTurnContent(turn: ConversationTurnV1): string {
         identity: turn.identity,
         userText: turn.userText,
         assistantMarkdown: turn.assistantMarkdown,
+        assistantSourceMarkdown: turn.assistantSourceMarkdown,
         assistantProvenance: turn.assistantProvenance,
     });
 }
@@ -686,6 +690,7 @@ function createContentToken(snapshot: Omit<ConversationSnapshotV1, 'contentToken
             identity: turn.identity,
             userText: turn.userText,
             assistantMarkdown: turn.assistantMarkdown,
+            assistantSourceMarkdown: turn.assistantSourceMarkdown,
             assistantProvenance: turn.assistantProvenance,
         })),
     });

@@ -206,6 +206,7 @@ class LazyReaderPanel implements ReaderPanelPort {
     private readonly lazy: LazyInstance<ReaderPanelPort>;
     private appearance: AppearanceSnapshot = createAppearanceSnapshot('light');
     private readerSettings: AppSettings['reader'] | null = null;
+    private contentCleanup: AppSettings['content'] | null = null;
     private settingsController: ReaderPanelSettingsController | null = null;
     private promptManagerController: ReaderPanelPromptManagerController | null = null;
 
@@ -215,6 +216,7 @@ class LazyReaderPanel implements ReaderPanelPort {
             (instance) => {
                 instance.setAppearance(this.appearance);
                 if (this.readerSettings) instance.setReaderSettings(this.readerSettings);
+                if (this.contentCleanup) instance.setContentCleanupSettings(this.contentCleanup);
                 instance.setReaderSettingsController(this.settingsController);
                 instance.setPromptManagerController(this.promptManagerController);
             },
@@ -230,6 +232,11 @@ class LazyReaderPanel implements ReaderPanelPort {
     setReaderSettings(settings: AppSettings['reader']): void {
         this.readerSettings = structuredClone(settings);
         this.lazy.current?.setReaderSettings(this.readerSettings);
+    }
+
+    setContentCleanupSettings(settings: AppSettings['content']): void {
+        this.contentCleanup = { ...settings };
+        this.lazy.current?.setContentCleanupSettings(this.contentCleanup);
     }
 
     setReaderSettingsController(controller: ReaderPanelSettingsController | null): void {
@@ -322,6 +329,7 @@ class LazySaveMessagesDialog implements SaveMessagesDialogPort {
     private readonly lazy: LazyInstance<SaveMessagesDialogPort>;
     private appearance: AppearanceSnapshot = createAppearanceSnapshot('light');
     private exportSettings: ExportSettings | null = null;
+    private contentCleanup: AppSettings['content'] | null = null;
     private markdownFormulaFormat: FormulaSourceFormat | null = null;
 
     constructor(loader: ContentFeatureModuleLoader) {
@@ -330,6 +338,7 @@ class LazySaveMessagesDialog implements SaveMessagesDialogPort {
             (instance) => {
                 instance.setAppearance(this.appearance);
                 if (this.exportSettings) instance.setExportSettings(this.exportSettings);
+                if (this.contentCleanup) instance.setContentCleanupSettings(this.contentCleanup);
                 if (this.markdownFormulaFormat) instance.setMarkdownFormulaFormat(this.markdownFormulaFormat);
             },
         );
@@ -344,6 +353,11 @@ class LazySaveMessagesDialog implements SaveMessagesDialogPort {
     setExportSettings(settings: ExportSettings): void {
         this.exportSettings = structuredClone(settings);
         this.lazy.current?.setExportSettings(this.exportSettings);
+    }
+
+    setContentCleanupSettings(settings: AppSettings['content']): void {
+        this.contentCleanup = { ...settings };
+        this.lazy.current?.setContentCleanupSettings(this.contentCleanup);
     }
 
     setMarkdownFormulaFormat(format: FormulaSourceFormat): void {

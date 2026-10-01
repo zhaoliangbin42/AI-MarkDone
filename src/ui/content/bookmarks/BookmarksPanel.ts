@@ -1,3 +1,5 @@
+import { version as buildVersion } from '../../../../package.json';
+import { showToast } from '../../../utils/toast';
 import { DEFAULT_SETTINGS, type AppSettings } from '../../../core/settings/types';
 import { loadAndNormalize } from '../../../services/settings/settingsService';
 import { settingsClientRpc } from '../../../drivers/shared/clients/settingsClientRpc';
@@ -45,6 +47,7 @@ type UiState = {
 type BookmarksPanelTabView = {
     getElement(): HTMLElement;
     getNavigationElement?(): HTMLElement;
+    setAppearance?(snapshot: ReturnType<BookmarksPanelController['getAppearance']>): void;
     update?(snapshot: BookmarksPanelSnapshot | null): void;
     focusPrimaryInput?(): void;
     dismissTransientUi?(): void;
@@ -112,6 +115,7 @@ export class BookmarksPanel {
     private readonly uiState: UiState = {
         settings: structuredClone(DEFAULT_SETTINGS),
     };
+    private settingsCapabilities = {buttons:false,transfer:false};
     private settingsDataState: SettingsDataState = { kind: 'ready' };
     private readonly tabWorkflow: BookmarksPanelTabWorkflow;
     private readonly cloudBackupWorkflow: BookmarksCloudBackupWorkflow;
@@ -260,6 +264,7 @@ export class BookmarksPanel {
 
         this.unsubscribeSnapshot = this.controller.subscribe((snapshot) => {
             this.overlaySession?.setAppearance(this.controller.getAppearance());
+            this.settingsView?.setAppearance?.(this.controller.getAppearance());
             const previousSnapshot = this.snapshot;
             this.snapshot = snapshot;
             if (!this.applySnapshotUpdate(previousSnapshot, snapshot)) {
@@ -351,6 +356,9 @@ export class BookmarksPanel {
             this.syncSettingsViewState();
             return;
         }
+        const capabilities=result.data.capabilities;
+        const matched=capabilities?.appVersion===buildVersion&&capabilities.settingsVersion===5;
+        this.settingsCapabilities={buttons:Boolean(matched&&capabilities?.buttonsPreferences),transfer:Boolean(matched&&capabilities?.settingsFileFormatVersion===1)};
         this.uiState.settings = mergeSettings(result.data.settings);
         this.controller.setSortMode(this.uiState.settings.bookmarks.sortMode);
         this.settingsDataState = { kind: 'ready' };
@@ -370,6 +378,7 @@ export class BookmarksPanel {
             settings: this.uiState.settings,
             storageUsage: this.snapshot?.storageUsage ?? null,
             dataState: this.settingsDataState,
+            canConfigureButtons:this.settingsCapabilities.buttons,canTransferSettings:this.settingsCapabilities.transfer,
         });
     }
 
@@ -392,10 +401,18 @@ export class BookmarksPanel {
 
     private createSettingsActions(): SettingsTabViewActions {
         return {
+            settingsTransfer: {
+                exportSettings: async () => { const result = await settingsClientRpc.exportSettings(); if (!result.ok) throw new Error(result.errorCode); return result.data.file; },
+                previewImport: async text => { const result = await settingsClientRpc.previewImport(text); if (!result.ok) throw new Error(result.errorCode === 'INVALID_IMPORT' ? 'SETTINGS_FILE_INVALID' : result.errorCode); return result.data.preview; },
+                applyImport: async (text, fingerprint, categories) => { const result = await settingsClientRpc.applyImport(text, fingerprint, categories); if (!result.ok) throw new Error(result.errorCode); return result.data.applied; },
+                getRecovery: async () => { const result = await settingsClientRpc.getRecovery(); if (!result.ok) throw new Error(result.errorCode); return result.data.file; },
+                onApplied: async applied => { await this.loadSettings(); await (this.settingsView as SettingsTabView | null)?.refresh(); showToast({ text: t(applied ? 'settingsImportDone' : 'settingsImportNoChanges'), tone: 'success' }); },
+            },
             loadState: async () => ({
                 settings: this.uiState.settings,
                 storageUsage: this.snapshot?.storageUsage ?? null,
                 dataState: this.settingsDataState,
+                canConfigureButtons:this.settingsCapabilities.buttons,canTransferSettings:this.settingsCapabilities.transfer,
             }),
             retryLoad: async () => await this.loadSettings(),
             setBookmarksSettings: async (patch) => {
@@ -415,6 +432,7 @@ export class BookmarksPanel {
                 behavior: {
                     ...current.behavior,
                     ...patch,
+                    messageControls: { ...current.behavior.messageControls, ...patch.messageControls },
                 },
             })),
             setReaderSettings: async (patch) => await this.persistSettingsCategory('reader', patch, (current) => ({
@@ -424,11 +442,16 @@ export class BookmarksPanel {
                     ...patch,
                 },
             })),
+            setContentSettings: async (patch) => await this.persistSettingsCategory('content', patch, (current) => ({
+                ...current,
+                content: { ...current.content, ...patch },
+            })),
             setFormulaSettings: async (patch) => await this.persistSettingsCategory('formula', patch, (current) => ({
                 ...current,
                 formula: {
                     ...current.formula,
                     ...patch,
+                    composerAssetActions: { ...current.formula.composerAssetActions!, ...patch.composerAssetActions },
                     assetActions: {
                         ...current.formula.assetActions,
                         ...patch.assetActions,
@@ -640,7 +663,9 @@ export class BookmarksPanel {
                     actions: this.createSettingsActions(),
                     onOpenPromptManager: this.options.onOpenPromptManager,
                     readDiscoveryDiagnostics: () => this.controller.getDiscoveryDiagnostics?.() ?? null,
+                    renderFormulaPreview:this.options.renderFormulaPreview,
                 });
+                this.settingsView.setAppearance?.(this.controller.getAppearance());
             } catch (error) {
                 logger.warn('[AI-MarkDone][BookmarksPanel] Failed to create settings tab view; keeping the shell open.', {
                     error: String(error),
@@ -747,6 +772,7 @@ export class BookmarksPanel {
             settings: this.uiState.settings,
             storageUsage: this.snapshot?.storageUsage ?? null,
             dataState: this.settingsDataState,
+            canConfigureButtons:this.settingsCapabilities.buttons,canTransferSettings:this.settingsCapabilities.transfer,
         });
     }
 

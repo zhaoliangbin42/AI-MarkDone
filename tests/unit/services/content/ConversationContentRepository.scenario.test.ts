@@ -115,6 +115,24 @@ describe('ConversationContentRepository DOM pool', () => {
         });
     });
 
+    it('revises content when only a preserved link destination changes', () => {
+        const ref = documentRef('source-link-change');
+        const repository = new ConversationContentRepository({ resolveDocument: () => ref });
+        const first = repository.ingestHostTurn(observation({
+            ...turn(1, 'Read paper'),
+            assistantSourceMarkdown: 'Read [paper](https://example.com/a)',
+        }, null, 1));
+        const next = repository.ingestHostTurn(observation({
+            ...turn(1, 'Read paper'),
+            assistantSourceMarkdown: 'Read [paper](https://example.com/b)',
+        }, null, 2));
+        expect(first.kind).toBe('ready');
+        expect(next.kind).toBe('ready');
+        if (first.kind !== 'ready' || next.kind !== 'ready') return;
+        expect(next.snapshot.contentToken).not.toBe(first.snapshot.contentToken);
+        expect(next.snapshot.turns[0]?.assistantSourceMarkdown).toContain('/b)');
+    });
+
     it('publishes usable get content from one source candidate', () => {
         const ref = documentRef('get-seed');
         const repository = new ConversationContentRepository({ resolveDocument: () => ref });

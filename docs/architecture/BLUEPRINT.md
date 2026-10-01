@@ -223,7 +223,7 @@ Detached Reader 是 Reader 闭环的跨 runtime 形态，而不是第三套 Read
 3. Extension page 复用 ReaderPanel、Reader settings surface、Markdown rendering、bookmark、copy/comment/Sticky/prompt 与 conversation Reader action service；发送弹框必须复用同一个 tokenized SendPopover，通过完整 SendPort contract 在 content adapter 与 detached reader-session bridge 之间切换：draft 读写走 `readerSession:draft`，发送前准备走 `readerSession:beforeSend`，真实提交走 `readerSession:send`，不得退回 `window.prompt` 或一次性原生弹框
 4. Reader header refresh 必须复用同一条 fresh Reader source：官网内 Reader 直接刷新，detached Reader 通过 `readerSession:refresh` 回源 content runtime 刷新；draft/beforeSend/send/locate 同样继续回源执行，不能在 extension page 直接操作 ChatGPT DOM；detached send 会在转发前 best-effort 激活源 ChatGPT tab 后调用官方 composer 发送链路，detached locate 必须激活源 ChatGPT tab 并定位目标消息，但不得关闭 detached Reader tab
 5. 首次打开的实验性说明属于用户意图确认边界，必须复用现有 modal/notice family，不新增孤立提示框组件
-6. Reader 专属配置由 Reader 内 settings dialog 拥有；Settings 页面不再承载 Reader rendering、Reader typography、Reader prompt/template 或 Reader presentation 控件
+6. Reader 专属配置由 Reader header gear 下的 anchored settings panel 拥有；Settings 页面不再承载 Reader rendering、Reader typography、Reader prompt/template 或 Reader presentation 控件
 7. Reader panel resize 只保存相对于 viewport 的比例，viewport 变化后由 Reader surface 自己重算并 clamp；调用方不得传入 CSS 或绝对几何值覆盖 shared Reader
 8. Reader visual assets 由 Reader surface 自己持有：Markdown/KaTeX layout CSS 注入 Reader Shadow DOM，KaTeX `@font-face` 在 document 层注册；detached extension page 不得依赖 ChatGPT 宿主页面已有的公式字体或样式
 
@@ -536,3 +536,7 @@ ReaderPanel 是 orchestration owner，职责拆分为：
 ### 2026-09-14 标记资料组织边界
 
 资料库仍以原始书签、注释、高亮作为内容来源，仅新增独立组织目录保存高亮/注释共用的 folder ID、对话别名和归属。展示与搜索索引可重建；用户组织信息不能当作可丢弃缓存。书签路径模型不迁移，新标记文件夹不以路径为身份。目录写入、条目写入与锚点解析分别保留各自职责。
+
+### Settings authority and portable preference files
+
+Settings normalization, category writes and reset retain the existing Settings Core and background write authority over sync `app_settings`. Portable files add read-only export/preview/recovery and a confirmed, serialized import through that same boundary; they do not create a second settings store or restore content records. The local recovery key holds only one sanitized preference snapshot. Keep storage schema v5 distinct from file format v1, validate runtime capabilities before new UI writes, preserve old preference values, and reject unsupported future schemas/files without normalization writes. Request shapes and whitelist/import semantics are authoritative in [RUNTIME_PROTOCOL.md](RUNTIME_PROTOCOL.md); implemented owners and limits are recorded in [CURRENT_STATE.md](CURRENT_STATE.md).

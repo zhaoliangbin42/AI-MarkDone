@@ -1,5 +1,7 @@
 import type { ReaderItem } from '../../../services/reader/types';
 import { resolveContent } from '../../../services/reader/types';
+import { resolveReaderItemOutputMarkdown } from '../../../services/reader/readerMarkdownCopy';
+import type { ContentCleanupSettings } from '../../../core/settings/content';
 import { formatReaderUserPromptDisplay, type ReaderUserPromptDisplay } from '../../../services/reader/userPromptDisplay';
 import { renderMarkdownForReader, type ReaderAtomicUnit, type ReaderOutlineItem } from '../../../services/renderer/renderMarkdown';
 import { decorateReaderCodeBlocksHtml } from './readerCodeBlockEnhancer';
@@ -34,13 +36,17 @@ export function createEmptyReaderRenderResult(userPrompt = ''): ReaderRenderResu
 
 export async function renderReaderItem(item: ReaderItem, options: {
     highlightCode: boolean;
+    contentCleanup?: ContentCleanupSettings;
     labels: {
         copyCode: string;
         enableCodeWrap: string;
         disableCodeWrap: string;
     };
 }): Promise<ReaderRenderResult> {
-    const markdown = await resolveContent(item.content);
+    const markdown = options.contentCleanup
+        && (options.contentCleanup.preserveLinks || !options.contentCleanup.includeCodeBlocks)
+        ? await resolveReaderItemOutputMarkdown(item, options.contentCleanup)
+        : await resolveContent(item.content);
     const rendered = renderMarkdownForReader(markdown, {
         highlightCode: options.highlightCode,
     });

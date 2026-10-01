@@ -188,6 +188,7 @@ function mountStepper(): void {
     inputEnhancement = new InputEnhancementPopover(async () => true);
     inputEnhancement.setAppearance(createAppearanceSnapshot(variant.theme));
     stepper = new ChatGPTMessageStepperController(adapter, {
+        onNavigationControlsReady: (previous, next) => directory.setNavigationControls(previous, next),
         onOpenInputEnhancement: anchor => inputEnhancement.toggle(anchor),
         surface,
         onOpenBookmarksPanel: () => showToast({ text: 'Bookmarks opened' }),

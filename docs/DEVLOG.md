@@ -687,3 +687,20 @@ Verification:
   passive-boundary and bundle-size checks passed.
 - Installed-browser acceptance remains a separate manual gate; it was not
   inferred from these automated results.
+
+
+## 2026-10-01 — ChatGPT controls, Settings and portable configuration
+
+- Consolidated five Buttons groups and production previews, page/message primary-action pins, independent metadata and formula preferences. Copy PNG opens above Copy; matching Prompt+Reply opens below with a distinct paired-conversation icon. Secondary actions follow Copy visibility and retain old dormant pin values without standalone toolbar buttons.
+- Separated Data into configuration-file, Library, cloud-backup and local-backup cards. Added eight distinct accent presets and one validated HEX editor; removed preset values remain compatible custom colors. Removed the composer Input Enhancement entry while preserving its authoring capabilities and automatic annotation entry.
+- Kept settings transfer inside the existing background authority: strict portable format v1, category diff/confirmation, capability and fingerprint validation, quota checks, one sanitized recovery point and read-back verification. Content/credential stores remain outside settings transfer.
+- Retained bounded composer formula preview work, complete shared preview/export views, delayed conversation discovery reconciliation, independent Directory navigation dock, shared content cleanup and compact Reader-owned settings.
+- Synchronized feature, design, current/target architecture, runtime protocol, vocabulary, testing and Settings Core checklist descriptions with the final implementation.
+
+Verification:
+
+- Serial `npm run test:core -- --maxWorkers=2`: 303 files / 2,330 tests passed. Corrected an obsolete preset-only assertion to accept valid custom HEX while retaining malformed-value rejection. A prior concurrent run timed out in the existing 200-round navigation pressure case; the final complete serial run passed.
+- `npm run test:acceptance -- --maxWorkers=2`: 33 files / 422 tests passed.
+- `npm run build`: Chrome MV3 and Firefox MV2 builds, entry-format checks and single-pool content boundaries passed.
+- `git diff --check` and 18 local documentation link checks passed. The preceding UI refinement additionally passed focused interaction checks and smoke gates, with real production-component browser previews.
+- Earlier formula and runtime performance evidence remains separate from installed-browser/release acceptance. The existing Chromium message-image golden mismatch of 1.081% was also reproduced on clean HEAD; it remains an open release gate. Installed Firefox extension acceptance was not completed. This checkpoint is a local development commit, not a release sign-off.

@@ -437,11 +437,10 @@
 
 .reader-settings-popover-layer {
   position: absolute;
-  inset: 0;
-  padding: var(--aimd-space-4);
-  display: grid;
-  place-items: center;
-  pointer-events: none;
+  top: calc(var(--_reader-settings-top) + var(--aimd-space-2));
+  bottom: calc(var(--_reader-settings-bottom) + var(--aimd-space-3));
+  right: calc(var(--_reader-settings-right) + var(--aimd-space-3));
+  width: min(380px, calc(100vw - var(--aimd-space-3) * 2));
   z-index: var(--aimd-z-panel);
 }
 
@@ -450,19 +449,27 @@
   inset: auto;
   transform: none;
   pointer-events: auto;
-  width: min(920px, calc(100% - var(--aimd-space-6)));
-  max-width: 90%;
-  max-height: 90%;
+  width: 100%;
+  height: auto;
+  max-width: 100%;
+  max-height: min(620px, 100%);
 }
 
 .dialog-body--reader-settings {
   display: grid;
   grid-auto-rows: max-content;
   align-content: start;
-  gap: var(--aimd-space-3);
+  gap: var(--aimd-space-1);
   min-height: 0;
   overflow: auto;
-  padding: calc(var(--aimd-space-5) + var(--aimd-space-1));
+  padding: var(--aimd-space-3);
+}
+
+.reader-settings-section-heading {
+  margin: var(--aimd-space-3) var(--aimd-space-1) var(--aimd-space-1);
+  color: var(--aimd-text-secondary);
+  font-size: var(--aimd-text-xs);
+  font-weight: var(--aimd-font-semibold);
 }
 
 .panel-footer--reader-settings {
@@ -485,12 +492,10 @@
   display: grid;
   grid-template-columns: minmax(0, 1fr) auto;
   align-items: center;
-  gap: var(--aimd-space-4);
-  min-height: var(--aimd-size-control-action-panel);
-  padding: var(--aimd-space-3);
-  border-radius: var(--aimd-radius-xl);
-  border: 1px solid color-mix(in srgb, var(--aimd-border-default) 72%, transparent);
-  background: color-mix(in srgb, var(--aimd-bg-primary) 94%, transparent);
+  gap: var(--aimd-space-2);
+  min-height: var(--aimd-size-control-icon-panel);
+  padding: var(--aimd-space-2) var(--aimd-space-1);
+  border-bottom: 1px solid var(--aimd-border-subtle);
 }
 
 .reader-settings-row__info {
@@ -917,7 +922,8 @@
   }
 
   .reader-settings-popover-layer {
-    padding: var(--aimd-space-2);
+    right: calc(var(--_reader-settings-right) + var(--aimd-space-2));
+    width: min(380px, calc(100vw - var(--aimd-space-2) * 2));
   }
 
   .panel-window--reader-settings {
@@ -957,7 +963,7 @@
   }
 
   .reader-settings-popover-layer {
-    padding-block: var(--aimd-space-2);
+    top: calc(var(--_reader-settings-top) + var(--aimd-space-2));
   }
 }
 

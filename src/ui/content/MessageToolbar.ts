@@ -27,6 +27,16 @@ export type MessageToolbarMenuItem = {
     onClick: () => Promise<void | ToolbarActionResult>;
 };
 
+export type MessageToolbarHoverAction = {
+    id: string;
+    label: string;
+    tooltip?: string;
+    icon: string;
+    placement?: 'top' | 'bottom';
+    progress?: boolean;
+    onClick: (context?: ToolbarActionContext) => Promise<void | ToolbarActionResult>;
+};
+
 export type MessageToolbarAction = {
     id: string;
     label: string;
@@ -37,13 +47,8 @@ export type MessageToolbarAction = {
     onPrepare?: () => void | Promise<void>;
     onClick: () => Promise<void | ToolbarActionResult>;
     menu?: MessageToolbarMenuItem[];
-    hoverAction?: {
-        id: string;
-        label: string;
-        tooltip?: string;
-        icon: string;
-        onClick: (context?: ToolbarActionContext) => Promise<void | ToolbarActionResult>;
-    };
+    hoverAction?: MessageToolbarHoverAction;
+    hoverActions?: MessageToolbarHoverAction[];
 };
 
 export class MessageToolbar {
@@ -74,6 +79,11 @@ export class MessageToolbar {
     private capsuleCloseTimer: number | null = null;
     private capsuleToggle: HTMLButtonElement | null = null;
     private capsuleActions: HTMLElement | null = null;
+    private pinnedActions: HTMLElement | null = null;
+    private drawerActionGroup: HTMLElement | null = null;
+    private readonly pinnedActionIds: ReadonlySet<string>;
+    private readonly showTimestamp: boolean;
+    private readonly preview: boolean;
     private readonly collapseOutside = (event: Event) => {
         if (event.composedPath().includes(this.host) || this.hoverActionPortal?.containsEvent(event)) return;
         this.setExpanded(false);
@@ -85,7 +95,7 @@ export class MessageToolbar {
     };
     private readonly resizeCapsule = () => {
         const right = this.capsuleToggle?.getBoundingClientRect().right ?? 0;
-        this.host.style.setProperty('--_capsule-available-width', `${Math.max(0, right - 8)}px`);
+        this.host.style.setProperty('--_capsule-available-width', `${Math.max(0, right - (this.preview ? this.host.parentElement?.getBoundingClientRect().left ?? 8 : 8))}px`);
     };
 
     constructor(theme: Theme, actions: MessageToolbarAction[], opts?: {
@@ -93,10 +103,16 @@ export class MessageToolbar {
         themeOverrides?: UserThemeOverrides;
         variant?: 'default' | 'bare';
         collapsible?: boolean;
+        pinnedActions?: readonly string[];
+        showTimestamp?: boolean;
+        preview?: boolean;
     }) {
         this.appearance = createAppearanceSnapshot(theme, opts?.themeOverrides ?? {});
         this.actions = actions;
         this.collapsible = opts?.collapsible === true;
+        this.pinnedActionIds = new Set(opts?.pinnedActions ?? []);
+        this.showTimestamp = opts?.showTimestamp ?? true;
+        this.preview = opts?.preview === true;
         this.showStats = opts?.showStats ?? false;
         this.host = document.createElement('div');
         this.host.className = 'aimd-message-toolbar-host';
@@ -197,15 +213,17 @@ export class MessageToolbar {
         time.textContent = `${day} ${clock}`;
     }
 
-    private setExpanded(expanded: boolean): void {
+    setExpanded(expanded: boolean): void {
         if (!this.collapsible || expanded === this.expanded) return;
         this.expanded = expanded;
+        this.syncPinnedActions();
         this.host.dataset.expanded = String(expanded);
         this.capsuleToggle?.setAttribute('aria-expanded', String(expanded));
         this.capsuleActions?.toggleAttribute('inert', !expanded);
         this.capsuleActions?.setAttribute('aria-hidden', String(!expanded));
         if (expanded) {
             this.resizeCapsule();
+            if (this.preview) return;
             document.addEventListener('pointerdown', this.collapseOutside, true);
             window.addEventListener('keydown', this.collapseOnEscape, true);
             window.addEventListener('resize', this.resizeCapsule);
@@ -216,6 +234,16 @@ export class MessageToolbar {
             window.removeEventListener('keydown', this.collapseOnEscape, true);
             window.removeEventListener('resize', this.resizeCapsule);
         }
+    }
+
+    private syncPinnedActions(): void {
+        if (!this.pinnedActions || !this.drawerActionGroup) return;
+        // Move the same nodes: one handler and one focus target per action.
+        for (const action of this.actions) {
+            const button = this.actionButtons.get(action.id);
+            if (button) (this.expanded || !this.pinnedActionIds.has(action.id) ? this.drawerActionGroup : this.pinnedActions).append(button);
+        }
+        this.pinnedActions.hidden = this.expanded || this.pinnedActions.childElementCount === 0;
     }
 
     private clearCapsuleCloseTimer(): void {
@@ -286,8 +314,8 @@ export class MessageToolbar {
             btn.type = 'button';
             btn.dataset.action = action.id;
             btn.dataset.tooltip = action.tooltip || action.label;
-            if (action.hoverAction) {
-                btn.dataset.tooltipPlacement = 'bottom';
+            if (this.getHoverActions(action).length) {
+                btn.dataset.tooltipPlacement = action.hoverActions?.some(item => item.placement === 'bottom') ? 'left' : 'bottom';
             }
             btn.setAttribute('aria-label', action.tooltip || action.label);
             btn.appendChild(createIcon(action.icon));
@@ -301,7 +329,7 @@ export class MessageToolbar {
             btn.addEventListener('pointerdown', prepare);
             btn.addEventListener('focusin', prepare);
             btn.addEventListener('mouseenter', prepare);
-            if (action.hoverAction) {
+            if (this.getHoverActions(action).length) {
                 this.attachHoverAction(action, btn);
             }
             btn.addEventListener('click', (e) => void this.handleActionClick(action, e));
@@ -318,7 +346,7 @@ export class MessageToolbar {
         if (this.collapsible) {
             const capsule = document.createElement('div'); capsule.className = 'capsule';
             bar.addEventListener('mouseenter', () => {
-                if (!this.supportsPointerHover()) return;
+                if (this.preview || !this.supportsPointerHover()) return;
                 this.toolbarHovered = true;
                 this.clearCapsuleCloseTimer();
                 this.setExpanded(true);
@@ -336,7 +364,10 @@ export class MessageToolbar {
                 event.stopPropagation();
                 this.setExpanded(this.toolbarHovered && event.detail > 0 ? true : !this.expanded);
             });
-            this.capsuleToggle = toggle; capsule.append(drawer, toggle); bar.append(capsule);
+            const pinned = document.createElement('div'); pinned.className = 'group capsule-pinned';
+            this.pinnedActions = pinned; this.drawerActionGroup = left;
+            this.capsuleToggle = toggle; capsule.append(pinned, drawer, toggle); bar.append(capsule);
+            this.syncPinnedActions();
         } else bar.append(left);
         if (this.showStats) {
             if (!this.collapsible) addSeparator();
@@ -349,10 +380,11 @@ export class MessageToolbar {
             (this.collapsible ? metadataBox : bar).appendChild(stats);
         }
 
-        if (this.collapsible) {
+        if (this.collapsible && this.showTimestamp) {
             const time = document.createElement('time'); time.dataset.role = 'message-time'; time.hidden = true;
-            metadataBox.append(time); bar.append(metadataBox);
+            metadataBox.append(time);
         }
+        if (this.collapsible) bar.append(metadataBox);
         const note = document.createElement('span');
         note.className = 'note';
         note.dataset.field = 'note';
@@ -464,7 +496,7 @@ export class MessageToolbar {
         const btn = this.actionButtons.get(action.id);
         if (!btn) return;
 
-        if (action.hoverAction && !this.supportsPointerHover()) {
+        if (this.getHoverActions(action).length && !this.supportsPointerHover()) {
             ev.preventDefault();
             ev.stopPropagation();
             this.openHoverAction(action, btn);
@@ -563,7 +595,8 @@ export class MessageToolbar {
         this.clearHoverActionOpenTimer();
         this.clearHoverActionCloseTimer();
         this.hoverActionCloseTimer = window.setTimeout(() => {
-            if (this.hoverActionTriggerInside || this.hoverActionPortalInside) return;
+            const focusedAction = this.actions.find(action => action.id === (this.shadow.activeElement as HTMLElement | null)?.dataset.action);
+            if (this.hoverActionTriggerInside || this.hoverActionPortalInside || this.hoverActionPortal?.hasFocus() || (focusedAction && this.getHoverActions(focusedAction).length)) return;
             this.closeHoverAction();
         }, 120);
     }
@@ -583,17 +616,25 @@ export class MessageToolbar {
         return this.hoverActionPortal;
     }
 
+    private getHoverActions(action: MessageToolbarAction): MessageToolbarHoverAction[] {
+        return action.hoverActions ?? (action.hoverAction ? [action.hoverAction] : []);
+    }
+
     private openHoverAction(action: MessageToolbarAction, anchor: HTMLButtonElement): void {
-        if (!action.hoverAction) return;
+        const hoverActions = this.getHoverActions(action);
+        if (!hoverActions.length || anchor.disabled) return;
         this.clearHoverActionOpenTimer();
         this.clearHoverActionCloseTimer();
         this.getHoverActionPortal().open({
             anchorEl: anchor,
-            id: action.hoverAction.id,
-            label: action.hoverAction.label,
-            tooltip: action.hoverAction.tooltip || action.hoverAction.label,
-            icon: action.hoverAction.icon,
-            onClick: () => void this.handleHoverActionClick(action, anchor),
+            actions: hoverActions.map(hoverAction => ({
+                id: hoverAction.id,
+                label: hoverAction.label,
+                tooltip: hoverAction.tooltip || hoverAction.label,
+                icon: hoverAction.icon,
+                placement: hoverAction.placement,
+                onClick: () => void this.handleHoverActionClick(action, hoverAction, anchor),
+            })),
             onPointerEnter: () => {
                 this.hoverActionPortalInside = true;
                 this.clearCapsuleCloseTimer();
@@ -608,14 +649,19 @@ export class MessageToolbar {
         });
     }
 
-    private async handleHoverActionClick(action: MessageToolbarAction, button: HTMLButtonElement): Promise<void> {
-        if (!action.hoverAction) return;
+    private async handleHoverActionClick(action: MessageToolbarAction, hoverAction: MessageToolbarHoverAction, button: HTMLButtonElement): Promise<void> {
+        if (button.disabled) return;
+        if (hoverAction.progress === false) {
+            await this.handleActionClick({ ...action, hoverAction: undefined, hoverActions: undefined, onClick: () => hoverAction.onClick() }, new Event('click'));
+            this.closeHoverAction();
+            return;
+        }
         const abort = new AbortController();
         this.activeTaskAbort = abort;
-        this.openTaskProgress(button, { label: action.hoverAction.label, value: 0, indeterminate: false });
+        this.openTaskProgress(button, { label: hoverAction.label, value: 0, indeterminate: false });
         try {
             button.disabled = true;
-            const res = await action.hoverAction.onClick({
+            const res = await hoverAction.onClick({
                 signal: abort.signal,
                 onProgress: (event) => this.updateTaskProgress(event),
             });
@@ -863,6 +909,8 @@ export class MessageToolbar {
 :host([data-aimd-variant="capsule"]) .bar { padding: 0; gap: var(--aimd-space-3); border: none; background: transparent; box-shadow: none; }
 :host([data-aimd-variant="capsule"]) .icon-btn { border-radius: var(--aimd-radius-full); flex: none; }
 .capsule { position: relative; display: inline-flex; }
+.capsule-pinned { gap: var(--aimd-space-1); margin-inline-end: var(--aimd-space-1); }
+.capsule-pinned[hidden] { display: none; }
 .capsule-toggle { box-sizing: border-box; background: var(--aimd-workspace-card); border: 1px solid var(--aimd-workspace-border); box-shadow: var(--aimd-workspace-edge-shadow), var(--aimd-shadow-xs); z-index: var(--aimd-z-base); }
 :host([data-bookmarked="1"]:not([data-expanded="true"])) .capsule-toggle { background: var(--aimd-interactive-primary); color: var(--aimd-text-on-primary); box-shadow: none; }
 :host([data-bookmarked="1"]:not([data-expanded="true"])) .capsule-toggle:hover { background: var(--aimd-interactive-primary-hover); color: var(--aimd-text-on-primary); }

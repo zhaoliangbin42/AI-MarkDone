@@ -150,6 +150,53 @@ describe('ChatGPT DOM content discovery lifecycle', () => {
         }
     });
 
+    it('merges a late full source with incremental DOM content without a startup deadline or polling', async () => {
+        const conversationId = 'late-source-conversation';
+        let sourceReady = false;
+        const bridgeRequest = vi.fn((event: Event) => {
+            const detail = (event as CustomEvent<any>).detail;
+            const request = typeof detail === 'string' ? JSON.parse(detail) : detail;
+            window.dispatchEvent(new CustomEvent('aimd:chatgpt-conversation-bridge:response', {
+                detail: {
+                    requestId: request.requestId,
+                    ok: sourceReady,
+                    ...(sourceReady ? { snapshot: {
+                        conversationId, branchKey: 'assistant-20', capturedAt: 70_000, captureSequence: 1,
+                        rounds: Array.from({ length: 20 }, (_, index) => ({
+                            key: `user-slot-${index + 1}:assistant-${index + 1}`, ordinal: index + 1,
+                            identity: { turnId: `user-slot-${index + 1}`, userMessageId: `user-${index + 1}`, assistantMessageId: `assistant-${index + 1}` },
+                            userText: `Question ${index + 1}`, assistantMarkdown: `Source answer ${index + 1}`,
+                        })),
+                    } } : {}),
+                },
+            }));
+        });
+        window.addEventListener('aimd:chatgpt-conversation-bridge:request', bridgeRequest);
+        document.querySelector('main')!.innerHTML = Array.from({ length: 12 }, (_, index) => roundHtml(index + 1, `DOM answer ${index + 1}`)).join('');
+        const harness = createRuntime(conversationId);
+        try {
+            harness.runtime.init();
+            await settle();
+            expect(harness.runtime.source.read().snapshot?.turns).toHaveLength(12);
+            await settle(70_000);
+            expect(bridgeRequest).toHaveBeenCalledTimes(1);
+            sourceReady = true;
+            window.dispatchEvent(new CustomEvent('aimd:chatgpt-conversation-bridge:capture', {
+                detail: { kind: 'graph', conversationId },
+            }));
+            await settle(200);
+            expect(harness.runtime.source.read().snapshot?.turns).toHaveLength(20);
+            expect(harness.runtime.source.read().snapshot?.turns[0]?.assistantMarkdown).toBe('DOM answer 1');
+            document.querySelector('main')!.insertAdjacentHTML('beforeend', roundHtml(21, 'New DOM answer'));
+            await settle();
+            expect(harness.runtime.source.read().snapshot?.turns).toHaveLength(21);
+            expect(bridgeRequest).toHaveBeenCalledTimes(2);
+        } finally {
+            window.removeEventListener('aimd:chatgpt-conversation-bridge:request', bridgeRequest);
+            harness.dispose();
+        }
+    });
+
     it('does not start a full DOM scroll sweep when the navigation trigger is present', async () => {
         document.querySelector('main')!.innerHTML = officialNavigationHtml(2)
             + roundHtml(1, 'Answer 1')

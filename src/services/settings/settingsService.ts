@@ -1,5 +1,6 @@
 import { DEFAULT_SETTINGS, isSettingsCategory, type AppSettings, type SettingsCategory } from '../../core/settings/types';
 import { normalizeExportSettings } from '../../core/settings/export';
+import { normalizeContentCleanupSettings } from '../../core/settings/content';
 import { normalizeSelectionToolbarActions } from '../../core/settings/selectionToolbar';
 import {
     migrateSortMode,
@@ -50,9 +51,12 @@ export function planSetCategory(current: AppSettings, category: SettingsCategory
             return { next };
         }
         case 'behavior': {
+            const patch = isRecord(value) ? value : {};
             const next: AppSettings = {
                 ...cur,
-                behavior: normalizeBehaviorSettings(mergeObject({ ...cur.behavior }, value)),
+                behavior: normalizeBehaviorSettings({ ...cur.behavior, ...patch,
+                    messageControls: mergeObject(cur.behavior.messageControls, patch.messageControls),
+                }),
             };
             return { next };
         }
@@ -110,12 +114,16 @@ export function planSetCategory(current: AppSettings, category: SettingsCategory
             };
             return { next };
         }
+        case 'content': {
+            return { next: { ...cur, content: normalizeContentCleanupSettings(mergeObject(cur.content, value)) } };
+        }
         case 'formula': {
             const next: AppSettings = {
                 ...cur,
                 formula: normalizeFormulaSettings({
                     ...cur.formula,
                     ...(isRecord(value) ? value : {}),
+                    composerAssetActions: { ...cur.formula.composerAssetActions, ...(isRecord((value as any)?.composerAssetActions) ? (value as any).composerAssetActions : {}) },
                     assetActions: {
                         ...cur.formula.assetActions,
                         ...(isRecord((value as any)?.assetActions) ? (value as any).assetActions : {}),

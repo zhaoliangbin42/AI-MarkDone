@@ -243,6 +243,14 @@
         "message": "Next message",
         "description": "Message for nextMessage"
     },
+    "previousMessageShortcut": {
+        "message": "Previous message · ←",
+        "description": "Directory navigation tooltip with keyboard shortcut."
+    },
+    "nextMessageShortcut": {
+        "message": "Next message · →",
+        "description": "Directory navigation tooltip with keyboard shortcut."
+    },
     "navigateHint": {
         "message": "\"← →\" to navigate",
         "description": "Message for navigateHint"
@@ -1408,11 +1416,11 @@
         "description": "Message for chatgptPromptAutocompleteDesc"
     },
     "chatgptShowMessageStepperLabel": {
-        "message": "Show Previous / Next buttons",
+        "message": "Show navigation arrows at bottom right",
         "description": "Message for chatgptShowMessageStepperLabel"
     },
     "chatgptShowMessageStepperDesc": {
-        "message": "Jump to the previous or next message.",
+        "message": "The up arrow opens the previous message; the down arrow opens the next.",
         "description": "Message for chatgptShowMessageStepperDesc"
     },
     "chatgptShowPageBookmarkControlLabel": {
@@ -1928,11 +1936,11 @@
         "description": "Message for contextOnlySaveDesc"
     },
     "renderCodeBlocksLabel": {
-        "message": "Show code blocks in Reader",
+        "message": "Syntax highlighting for code",
         "description": "Message for renderCodeBlocksLabel"
     },
     "renderCodeBlocksDesc": {
-        "message": "When off, Reader shows a placeholder instead of rendering each code block.",
+        "message": "Code blocks remain visible without syntax colors when off.",
         "description": "Message for renderCodeBlocksDesc"
     },
     "readerOutlineToggleLabel": {
@@ -2996,11 +3004,11 @@
         "description": "Message for settingsSaveContextOnlyDesc"
     },
     "settingsRenderCodeInReaderLabel": {
-        "message": "Render code in Reader",
+        "message": "Syntax highlighting for Reader code",
         "description": "Message for settingsRenderCodeInReaderLabel"
     },
     "settingsRenderCodeInReaderDesc": {
-        "message": "Render fenced code blocks with reader formatting instead of raw plain text.",
+        "message": "Keep code blocks visible while turning syntax colors on or off.",
         "description": "Message for settingsRenderCodeInReaderDesc"
     },
     "settingsInterfaceLanguageLabel": {
@@ -3624,7 +3632,7 @@
         "description": "Settings center label."
     },
     "settingsCategoryControls": {
-        "message": "Buttons & shortcuts",
+        "message": "Buttons",
         "description": "Settings center label."
     },
     "settingsCategoryData": {
@@ -3896,8 +3904,8 @@
         "description": "Settings and interaction label: settingsInputEnhancementControl"
     },
     "settingsSaveFailed": {
-        "message": "Could not save settings. Please try again.",
-        "description": "Settings and interaction label: settingsSaveFailed"
+        "message": "Could not save. Your setting was kept unchanged.",
+        "description": "Settings UI: settingsSaveFailed"
     },
     "settingsGroupInterface": {
         "message": "Interface",
@@ -3914,6 +3922,42 @@
     "settingsGroupReader": {
         "message": "Reader display",
         "description": "Settings and interaction label: settingsGroupReader"
+    },
+    "settingsContentCleanupTitle": {
+        "message": "Content to keep",
+        "description": "Settings item and dialog title."
+    },
+    "settingsContentCleanupDesc": {
+        "message": "Choose whether Reader, Markdown copy, and exports keep links and code blocks.",
+        "description": "Settings item and dialog description."
+    },
+    "readerSettingsDisplaySection": {
+        "message": "Reading display",
+        "description": "Reader settings section."
+    },
+    "readerSettingsAnnotationsSection": {
+        "message": "Annotations and prompts",
+        "description": "Reader settings section."
+    },
+    "readerSettingsOtherSection": {
+        "message": "Other",
+        "description": "Reader settings section."
+    },
+    "settingsPreserveLinks": {
+        "message": "Keep links and URLs",
+        "description": "Shared content cleanup preference."
+    },
+    "settingsPreserveLinksDesc": {
+        "message": "Keep body links and URLs in Reader, Markdown copy, and exports.",
+        "description": "Shared content cleanup preference."
+    },
+    "settingsIncludeCodeBlocks": {
+        "message": "Include code blocks",
+        "description": "Shared content cleanup preference."
+    },
+    "settingsIncludeCodeBlocksDesc": {
+        "message": "Omit whole code blocks from Reader, Markdown copy, and exports when off. Explicit text selections still copy as selected.",
+        "description": "Shared content cleanup preference."
     },
     "settingsGroupPosition": {
         "message": "After you send a message",
@@ -3983,8 +4027,14 @@
         "message": "Classic blue",
         "description": "Settings and interaction label: themeAccentClassicBlue"
     },
-    "settingsPinnedActions": {"message": "Keep buttons visible when closed", "description": "Pinned page action configuration"},
-    "settingsPinnedActionsDesc": {"message": "Choose which bottom-right actions stay on the page when the button row closes.", "description": "Pinned page action configuration"},
+    "settingsPinnedActions": {
+        "message": "Keep buttons visible when closed",
+        "description": "Pinned page action configuration"
+    },
+    "settingsPinnedActionsDesc": {
+        "message": "Choose which bottom-right actions stay on the page when the button row closes.",
+        "description": "Pinned page action configuration"
+    },
     "settingsGroupFormulaButtonsHint": {
         "message": "Choose buttons shown above a formula in a ChatGPT reply. Export actions in the input-box preview remain available.",
         "description": "Settings copy for settingsGroupFormulaButtonsHint"
@@ -4040,5 +4090,586 @@
     "settingsInputFormulaPreviewDesc": {
         "message": "A formula preview opens when the text cursor enters a formula. Mouse hover alone does not open it.",
         "description": "Settings copy for settingsInputFormulaPreviewDesc"
+    },
+    "btnCopyPromptReply": {
+        "message": "Copy Prompt + Reply",
+        "description": "Settings UI: btnCopyPromptReply"
+    },
+    "promptReplyUnavailable": {
+        "message": "The matching user prompt is unavailable. Try again after the conversation finishes loading.",
+        "description": "Settings UI: promptReplyUnavailable"
+    },
+    "settingsButtonsGroupPage": {
+        "message": "Page buttons",
+        "description": "Settings UI: settingsButtonsGroupPage"
+    },
+    "settingsButtonsGroupMessage": {
+        "message": "Message buttons",
+        "description": "Settings UI: settingsButtonsGroupMessage"
+    },
+    "settingsButtonsGroupFormula": {
+        "message": "Formula buttons",
+        "description": "Settings UI: settingsButtonsGroupFormula"
+    },
+    "settingsButtonsGroupSelection": {
+        "message": "Selection buttons",
+        "description": "Settings UI: settingsButtonsGroupSelection"
+    },
+    "settingsButtonsGroupDirectory": {
+        "message": "Directory navigation",
+        "description": "Settings UI: settingsButtonsGroupDirectory"
+    },
+    "settingsButtonsGroupComposer": {
+        "message": "Composer buttons",
+        "description": "Settings UI: settingsButtonsGroupComposer"
+    },
+    "settingsPreview": {
+        "message": "Preview",
+        "description": "Settings UI: settingsPreview"
+    },
+    "settingsExpanded": {
+        "message": "Expanded",
+        "description": "Settings UI: settingsExpanded"
+    },
+    "settingsCollapsed": {
+        "message": "Collapsed",
+        "description": "Settings UI: settingsCollapsed"
+    },
+    "settingsPin": {
+        "message": "Pin",
+        "description": "Settings UI: settingsPin"
+    },
+    "settingsMessageTimestamp": {
+        "message": "Message time",
+        "description": "Settings UI: settingsMessageTimestamp"
+    },
+    "settingsPreviewChars": {
+        "message": "characters",
+        "description": "Settings UI: settingsPreviewChars"
+    },
+    "settingsComposerAnnotations": {
+        "message": "Annotation entry",
+        "description": "Settings UI: settingsComposerAnnotations"
+    },
+    "settingsButtonsPinHint": {
+        "message": "Pin keeps enabled buttons visible when collapsed. Turning a button off preserves its Pin preference.",
+        "description": "Settings UI: settingsButtonsPinHint"
+    },
+    "settingsButtonsFormulaHint": {
+        "message": "Preview shows the hovered formula. Export buttons appear only when enabled and supported by your browser.",
+        "description": "Settings UI: settingsButtonsFormulaHint"
+    },
+    "settingsButtonsComposerHint": {
+        "message": "Entry visibility does not change the feature settings. The annotation entry appears when the conversation has annotations.",
+        "description": "Settings UI: settingsButtonsComposerHint"
+    },
+    "settingsPreviewSelection": {
+        "message": "Selected text",
+        "description": "Settings UI: settingsPreviewSelection"
+    },
+    "settingsPreviewComposer": {
+        "message": "Ask anything…",
+        "description": "Settings UI: settingsPreviewComposer"
+    },
+    "settingsTransferTitle": {
+        "message": "Settings file",
+        "description": "Settings UI: settingsTransferTitle"
+    },
+    "settingsTransferHint": {
+        "message": "Export preferences or review a settings file before importing. Saved content is handled separately.",
+        "description": "Settings UI: settingsTransferHint"
+    },
+    "settingsExport": {
+        "message": "Export settings",
+        "description": "Settings UI: settingsExport"
+    },
+    "settingsImport": {
+        "message": "Import settings",
+        "description": "Settings UI: settingsImport"
+    },
+    "settingsRestore": {
+        "message": "Restore previous settings",
+        "description": "Settings UI: settingsRestore"
+    },
+    "settingsExportNotice": {
+        "message": "The JSON file includes button visibility, Pin preferences, appearance, reading and export options. It excludes tokens, account details, conversations, bookmarks, annotations, highlights, Prompts and custom templates. Keep the file in a trusted place.",
+        "description": "Settings UI: settingsExportNotice"
+    },
+    "settingsExportConfirm": {
+        "message": "Export JSON file",
+        "description": "Settings UI: settingsExportConfirm"
+    },
+    "settingsExportDone": {
+        "message": "Settings file exported.",
+        "description": "Settings UI: settingsExportDone"
+    },
+    "settingsImportNotice": {
+        "message": "$1 changes. Select the categories to apply. Saved content and custom templates remain unchanged.",
+        "description": "Settings UI: settingsImportNotice"
+    },
+    "settingsImportConfirm": {
+        "message": "Apply selected settings",
+        "description": "Settings UI: settingsImportConfirm"
+    },
+    "settingsImportDone": {
+        "message": "Settings applied. A recovery copy of the previous preferences is available.",
+        "description": "Settings UI: settingsImportDone"
+    },
+    "settingsImportNoChanges": {
+        "message": "No settings need to change.",
+        "description": "Settings UI: settingsImportNoChanges"
+    },
+    "settingsImportConflict": {
+        "message": "Settings changed since this preview. Select the file again to review the current changes.",
+        "description": "Settings UI: settingsImportConflict"
+    },
+    "settingsImportQuota": {
+        "message": "There is not enough settings storage space. Your configuration has not changed.",
+        "description": "Settings UI: settingsImportQuota"
+    },
+    "settingsImportInvalid": {
+        "message": "This file is invalid, too large, or uses an unsupported settings format. Your configuration has not changed.",
+        "description": "Settings UI: settingsImportInvalid"
+    },
+    "settingsTransferFailed": {
+        "message": "The operation could not be completed. Check the current settings before trying again.",
+        "description": "Settings UI: settingsTransferFailed"
+    },
+    "settingsRecoveryEmpty": {
+        "message": "No previous settings recovery is available.",
+        "description": "Settings UI: settingsRecoveryEmpty"
+    },
+    "settingsValueOn": {
+        "message": "On",
+        "description": "Settings UI: settingsValueOn"
+    },
+    "settingsValueOff": {
+        "message": "Off",
+        "description": "Settings UI: settingsValueOff"
+    },
+    "settingsValueNone": {
+        "message": "None",
+        "description": "Settings UI: settingsValueNone"
+    },
+    "settingsValueDefault": {
+        "message": "Default",
+        "description": "Settings UI: settingsValueDefault"
+    },
+    "settingsFormulaResponse": {
+        "message": "In replies",
+        "description": "Settings UI: settingsFormulaResponse"
+    },
+    "settingsFormulaComposer": {
+        "message": "Preview while entering formulas",
+        "description": "Settings UI: settingsFormulaComposer"
+    },
+    "settingsPreferencePlatformsChatgpt": {
+        "message": "ChatGPT extension",
+        "description": "Settings UI: settingsPreferencePlatformsChatgpt"
+    },
+    "settingsPreferenceBehaviorShowMessageToolbar": {
+        "message": "Message toolbar",
+        "description": "Settings UI: settingsPreferenceBehaviorShowMessageToolbar"
+    },
+    "settingsPreferenceBehaviorShowSaveMessages": {
+        "message": "Message export",
+        "description": "Settings UI: settingsPreferenceBehaviorShowSaveMessages"
+    },
+    "settingsPreferenceBehaviorShowWordCount": {
+        "message": "Character count",
+        "description": "Settings UI: settingsPreferenceBehaviorShowWordCount"
+    },
+    "settingsPreferenceBehaviorShowMessageTimestamp": {
+        "message": "Message time",
+        "description": "Settings UI: settingsPreferenceBehaviorShowMessageTimestamp"
+    },
+    "settingsPreferenceBehaviorShowCopyPng": {
+        "message": "Copy reply as PNG",
+        "description": "Settings UI: settingsPreferenceBehaviorShowCopyPng"
+    },
+    "settingsPreferenceBehaviorSaveContextOnly": {
+        "message": "Save context only",
+        "description": "Settings UI: settingsPreferenceBehaviorSaveContextOnly"
+    },
+    "settingsPreferenceBehaviorPinnedMessageControls": {
+        "message": "Pinned message buttons",
+        "description": "Settings UI: settingsPreferenceBehaviorPinnedMessageControls"
+    },
+    "settingsPreferenceReaderRenderCodeInReader": {
+        "message": "Show code blocks in Reader",
+        "description": "Settings UI: settingsPreferenceReaderRenderCodeInReader"
+    },
+    "settingsPreferenceReaderShowOutlineInReader": {
+        "message": "Reader outline",
+        "description": "Settings UI: settingsPreferenceReaderShowOutlineInReader"
+    },
+    "settingsPreferenceReaderPersistAnnotations": {
+        "message": "Save annotations",
+        "description": "Settings UI: settingsPreferenceReaderPersistAnnotations"
+    },
+    "settingsPreferenceReaderDefaultOpenMode": {
+        "message": "Reader opening mode",
+        "description": "Settings UI: settingsPreferenceReaderDefaultOpenMode"
+    },
+    "settingsPreferenceReaderPanelSizeRatioWidthRatio": {
+        "message": "Reader panel width",
+        "description": "Settings UI: settingsPreferenceReaderPanelSizeRatioWidthRatio"
+    },
+    "settingsPreferenceReaderPanelSizeRatioHeightRatio": {
+        "message": "Reader panel height",
+        "description": "Settings UI: settingsPreferenceReaderPanelSizeRatioHeightRatio"
+    },
+    "settingsPreferenceReaderBodyFontSizePx": {
+        "message": "Reader font size",
+        "description": "Settings UI: settingsPreferenceReaderBodyFontSizePx"
+    },
+    "settingsPreferenceReaderContentMaxWidthPx": {
+        "message": "Reader content width",
+        "description": "Settings UI: settingsPreferenceReaderContentMaxWidthPx"
+    },
+    "settingsPreferenceReaderCommentExportPromptPosition": {
+        "message": "Annotation prompt position",
+        "description": "Settings UI: settingsPreferenceReaderCommentExportPromptPosition"
+    },
+    "settingsPreferenceReaderCommentExportSortMode": {
+        "message": "Annotation export order",
+        "description": "Settings UI: settingsPreferenceReaderCommentExportSortMode"
+    },
+    "settingsPreferenceContentPreserveLinks": {
+        "message": "Preserve reply links",
+        "description": "Settings UI: settingsPreferenceContentPreserveLinks"
+    },
+    "settingsPreferenceContentIncludeCodeBlocks": {
+        "message": "Include reply code blocks",
+        "description": "Settings UI: settingsPreferenceContentIncludeCodeBlocks"
+    },
+    "settingsPreferenceFormulaClickCopyMarkdown": {
+        "message": "Click formula to copy",
+        "description": "Settings UI: settingsPreferenceFormulaClickCopyMarkdown"
+    },
+    "settingsPreferenceFormulaClickCopyFormulaFormat": {
+        "message": "Formula click copy format",
+        "description": "Settings UI: settingsPreferenceFormulaClickCopyFormulaFormat"
+    },
+    "settingsPreferenceFormulaMarkdownCopyFormulaFormat": {
+        "message": "Markdown formula format",
+        "description": "Settings UI: settingsPreferenceFormulaMarkdownCopyFormulaFormat"
+    },
+    "settingsPreferenceFormulaAssetFontSizePx": {
+        "message": "Formula image font size",
+        "description": "Settings UI: settingsPreferenceFormulaAssetFontSizePx"
+    },
+    "settingsPreferenceExportPngWidthPreset": {
+        "message": "PNG width preset",
+        "description": "Settings UI: settingsPreferenceExportPngWidthPreset"
+    },
+    "settingsPreferenceExportPngCustomWidth": {
+        "message": "Custom PNG width",
+        "description": "Settings UI: settingsPreferenceExportPngCustomWidth"
+    },
+    "settingsPreferenceExportPngPixelRatio": {
+        "message": "PNG resolution",
+        "description": "Settings UI: settingsPreferenceExportPngPixelRatio"
+    },
+    "settingsPreferenceChatgptDirectoryEnabled": {
+        "message": "Show directory",
+        "description": "Settings UI: settingsPreferenceChatgptDirectoryEnabled"
+    },
+    "settingsPreferenceChatgptDirectoryMode": {
+        "message": "Directory display",
+        "description": "Settings UI: settingsPreferenceChatgptDirectoryMode"
+    },
+    "settingsPreferenceChatgptDirectoryPromptLabelMode": {
+        "message": "Directory prompt summary",
+        "description": "Settings UI: settingsPreferenceChatgptDirectoryPromptLabelMode"
+    },
+    "settingsPreferenceChatgptDirectoryHideOfficialNavigation": {
+        "message": "Hide ChatGPT navigation",
+        "description": "Settings UI: settingsPreferenceChatgptDirectoryHideOfficialNavigation"
+    },
+    "settingsPreferenceChatgptDirectoryRightInsetPx": {
+        "message": "Directory right inset",
+        "description": "Settings UI: settingsPreferenceChatgptDirectoryRightInsetPx"
+    },
+    "settingsPreferenceChatgptDirectoryPreviewMaxChars": {
+        "message": "Directory preview length",
+        "description": "Settings UI: settingsPreferenceChatgptDirectoryPreviewMaxChars"
+    },
+    "settingsPreferenceChatgptBehaviorRestorePositionAfterSend": {
+        "message": "Restore position after sending",
+        "description": "Settings UI: settingsPreferenceChatgptBehaviorRestorePositionAfterSend"
+    },
+    "settingsPreferenceChatgptBehaviorAtomicMarkdownCopyShortcut": {
+        "message": "Selection copy shortcut",
+        "description": "Settings UI: settingsPreferenceChatgptBehaviorAtomicMarkdownCopyShortcut"
+    },
+    "settingsPreferenceChatgptBehaviorShowMessageStepper": {
+        "message": "Directory navigation arrows",
+        "description": "Settings UI: settingsPreferenceChatgptBehaviorShowMessageStepper"
+    },
+    "settingsPreferenceChatgptBehaviorShowPageBookmarkControl": {
+        "message": "Page bookmark button",
+        "description": "Settings UI: settingsPreferenceChatgptBehaviorShowPageBookmarkControl"
+    },
+    "settingsPreferenceChatgptBehaviorShowDetachedReaderControl": {
+        "message": "Split Reader button",
+        "description": "Settings UI: settingsPreferenceChatgptBehaviorShowDetachedReaderControl"
+    },
+    "settingsPreferenceChatgptBehaviorShowPromptControl": {
+        "message": "Prompt Library button",
+        "description": "Settings UI: settingsPreferenceChatgptBehaviorShowPromptControl"
+    },
+    "settingsPreferenceChatgptBehaviorShowInputEnhancementControl": {
+        "message": "Page input enhancement button",
+        "description": "Settings UI: settingsPreferenceChatgptBehaviorShowInputEnhancementControl"
+    },
+    "settingsPreferenceChatgptBehaviorShowRefreshNavigationControl": {
+        "message": "Refresh navigation button",
+        "description": "Settings UI: settingsPreferenceChatgptBehaviorShowRefreshNavigationControl"
+    },
+    "settingsPreferenceChatgptBehaviorShowComposerInputEnhancementControl": {
+        "message": "Composer input enhancement entry",
+        "description": "Settings UI: settingsPreferenceChatgptBehaviorShowComposerInputEnhancementControl"
+    },
+    "settingsPreferenceChatgptBehaviorShowComposerAnnotationControl": {
+        "message": "Composer annotation entry",
+        "description": "Settings UI: settingsPreferenceChatgptBehaviorShowComposerAnnotationControl"
+    },
+    "settingsPreferenceChatgptBehaviorPromptAutocomplete": {
+        "message": "Prompt autocomplete",
+        "description": "Settings UI: settingsPreferenceChatgptBehaviorPromptAutocomplete"
+    },
+    "settingsPreferenceChatgptBehaviorEnableArrowKeyMessageNavigation": {
+        "message": "Arrow key message navigation",
+        "description": "Settings UI: settingsPreferenceChatgptBehaviorEnableArrowKeyMessageNavigation"
+    },
+    "settingsPreferenceChatgptBehaviorPageAnnotationsEnabled": {
+        "message": "Page annotations",
+        "description": "Settings UI: settingsPreferenceChatgptBehaviorPageAnnotationsEnabled"
+    },
+    "settingsPreferenceChatgptBehaviorShowPageSelectionToolbar": {
+        "message": "Page selection toolbar",
+        "description": "Settings UI: settingsPreferenceChatgptBehaviorShowPageSelectionToolbar"
+    },
+    "settingsPreferenceChatgptBehaviorPinnedPageControls": {
+        "message": "Pinned page buttons",
+        "description": "Settings UI: settingsPreferenceChatgptBehaviorPinnedPageControls"
+    },
+    "settingsPreferenceChatgptBehaviorPageWidthScale": {
+        "message": "ChatGPT content width",
+        "description": "Settings UI: settingsPreferenceChatgptBehaviorPageWidthScale"
+    },
+    "settingsPreferenceChatgptBehaviorNavigationSeekStepPx": {
+        "message": "Navigation loading step",
+        "description": "Settings UI: settingsPreferenceChatgptBehaviorNavigationSeekStepPx"
+    },
+    "settingsPreferenceAppearanceThemeMode": {
+        "message": "Theme",
+        "description": "Settings UI: settingsPreferenceAppearanceThemeMode"
+    },
+    "settingsPreferenceAppearanceFontSizePx": {
+        "message": "Interface font size",
+        "description": "Settings UI: settingsPreferenceAppearanceFontSizePx"
+    },
+    "settingsPreferenceAppearanceAccentColor": {
+        "message": "Accent color",
+        "description": "Settings UI: settingsPreferenceAppearanceAccentColor"
+    },
+    "settingsPreferenceBookmarksSortMode": {
+        "message": "Bookmark order",
+        "description": "Settings UI: settingsPreferenceBookmarksSortMode"
+    },
+    "settingsPreferenceLanguage": {
+        "message": "Language",
+        "description": "Settings UI: settingsPreferenceLanguage"
+    },
+    "settingsPreferenceBehaviorMessageControlsBookmarkToggle": {
+        "message": "Bookmark button",
+        "description": "Settings UI: settingsPreferenceBehaviorMessageControlsBookmarkToggle"
+    },
+    "settingsPreferenceBehaviorMessageControlsCopyMarkdown": {
+        "message": "Copy Markdown button",
+        "description": "Settings UI: settingsPreferenceBehaviorMessageControlsCopyMarkdown"
+    },
+    "settingsPreferenceBehaviorMessageControlsCopyPromptReply": {
+        "message": "Copy Prompt + Reply button",
+        "description": "Settings UI: settingsPreferenceBehaviorMessageControlsCopyPromptReply"
+    },
+    "settingsPreferenceBehaviorMessageControlsReader": {
+        "message": "Reader button",
+        "description": "Settings UI: settingsPreferenceBehaviorMessageControlsReader"
+    },
+    "settingsPreferenceBehaviorMessageControlsExport": {
+        "message": "Export button",
+        "description": "Settings UI: settingsPreferenceBehaviorMessageControlsExport"
+    },
+    "settingsPreferenceReaderSelectionToolbarCopy": {
+        "message": "Copy selection button",
+        "description": "Settings UI: settingsPreferenceReaderSelectionToolbarCopy"
+    },
+    "settingsPreferenceReaderSelectionToolbarAnnotation": {
+        "message": "Annotate selection button",
+        "description": "Settings UI: settingsPreferenceReaderSelectionToolbarAnnotation"
+    },
+    "settingsPreferenceReaderSelectionToolbarHighlight": {
+        "message": "Highlight selection button",
+        "description": "Settings UI: settingsPreferenceReaderSelectionToolbarHighlight"
+    },
+    "settingsPreferenceFormulaAssetActionsCopyPng": {
+        "message": "Reply formula: Copy PNG",
+        "description": "Settings UI: settingsPreferenceFormulaAssetActionsCopyPng"
+    },
+    "settingsPreferenceFormulaAssetActionsCopySvg": {
+        "message": "Reply formula: Copy SVG",
+        "description": "Settings UI: settingsPreferenceFormulaAssetActionsCopySvg"
+    },
+    "settingsPreferenceFormulaAssetActionsCopyMathml": {
+        "message": "Reply formula: Copy MathML",
+        "description": "Settings UI: settingsPreferenceFormulaAssetActionsCopyMathml"
+    },
+    "settingsPreferenceFormulaAssetActionsSavePng": {
+        "message": "Reply formula: Save PNG",
+        "description": "Settings UI: settingsPreferenceFormulaAssetActionsSavePng"
+    },
+    "settingsPreferenceFormulaAssetActionsSaveSvg": {
+        "message": "Reply formula: Save SVG",
+        "description": "Settings UI: settingsPreferenceFormulaAssetActionsSaveSvg"
+    },
+    "settingsPreferenceFormulaComposerAssetActionsCopyPng": {
+        "message": "Composer formula: Copy PNG",
+        "description": "Settings UI: settingsPreferenceFormulaComposerAssetActionsCopyPng"
+    },
+    "settingsPreferenceFormulaComposerAssetActionsCopySvg": {
+        "message": "Composer formula: Copy SVG",
+        "description": "Settings UI: settingsPreferenceFormulaComposerAssetActionsCopySvg"
+    },
+    "settingsPreferenceFormulaComposerAssetActionsCopyMathml": {
+        "message": "Composer formula: Copy MathML",
+        "description": "Settings UI: settingsPreferenceFormulaComposerAssetActionsCopyMathml"
+    },
+    "settingsPreferenceFormulaComposerAssetActionsSavePng": {
+        "message": "Composer formula: Save PNG",
+        "description": "Settings UI: settingsPreferenceFormulaComposerAssetActionsSavePng"
+    },
+    "settingsPreferenceFormulaComposerAssetActionsSaveSvg": {
+        "message": "Composer formula: Save SVG",
+        "description": "Settings UI: settingsPreferenceFormulaComposerAssetActionsSaveSvg"
+    },
+    "settingsPreferenceChatgptBehaviorInputEnhancementAvailable": {
+        "message": "Input enhancement availability",
+        "description": "Settings UI: settingsPreferenceChatgptBehaviorInputEnhancementAvailable"
+    },
+    "settingsPreferenceChatgptBehaviorInputEnhancementEnabled": {
+        "message": "Input enhancement",
+        "description": "Settings UI: settingsPreferenceChatgptBehaviorInputEnhancementEnabled"
+    },
+    "settingsPreferenceChatgptBehaviorInputEnhancementEnterKeyNewline": {
+        "message": "Enter inserts a new line",
+        "description": "Settings UI: settingsPreferenceChatgptBehaviorInputEnhancementEnterKeyNewline"
+    },
+    "settingsPreferenceChatgptBehaviorInputEnhancementBoldShortcut": {
+        "message": "Bold shortcut",
+        "description": "Settings UI: settingsPreferenceChatgptBehaviorInputEnhancementBoldShortcut"
+    },
+    "settingsPreferenceChatgptBehaviorInputEnhancementFormulaSuggestions": {
+        "message": "Formula suggestions",
+        "description": "Settings UI: settingsPreferenceChatgptBehaviorInputEnhancementFormulaSuggestions"
+    },
+    "settingsPreferenceChatgptBehaviorInputEnhancementFormulaPreview": {
+        "message": "Formula preview",
+        "description": "Settings UI: settingsPreferenceChatgptBehaviorInputEnhancementFormulaPreview"
+    },
+    "settingsPreferenceChatgptBehaviorInputEnhancementListsEnabled": {
+        "message": "List assistance",
+        "description": "Settings UI: settingsPreferenceChatgptBehaviorInputEnhancementListsEnabled"
+    },
+    "settingsPreferenceChatgptBehaviorInputEnhancementListsOrdered": {
+        "message": "Ordered lists",
+        "description": "Settings UI: settingsPreferenceChatgptBehaviorInputEnhancementListsOrdered"
+    },
+    "settingsPreferenceChatgptBehaviorInputEnhancementListsUnordered": {
+        "message": "Unordered lists",
+        "description": "Settings UI: settingsPreferenceChatgptBehaviorInputEnhancementListsUnordered"
+    },
+    "settingsButtonsSelectionHint": {
+        "message": "Copy, Annotation and Highlight buttons appear for selected text. These preferences also apply in Reader.",
+        "description": "Settings selection preview hint"
+    },
+    "settingsButtonsDirectoryHint": {
+        "message": "When Directory is enabled, arrows stay at the bottom right above the brand button. This switch does not change arrow-key navigation.",
+        "description": "Settings Directory arrow preview hint"
+    },
+    "settingsReloadForUpdate": {
+        "message": "Reload the extension and refresh this page to use these settings.",
+        "description": "Settings UI: settingsReloadForUpdate"
+    },
+    "settingsImportUnsupported": {
+        "message": "This file or stored configuration requires an unsupported version. No settings were imported.",
+        "description": "Settings UI: settingsImportUnsupported"
+    },
+    "settingsFormulaExample": {
+        "message": "Preview example",
+        "description": "Settings UI: settingsFormulaExample"
+    },
+    "settingsFormulaExampleInline": {
+        "message": "Inline formula",
+        "description": "Settings UI: settingsFormulaExampleInline"
+    },
+    "settingsFormulaExampleDisplay": {
+        "message": "Display formula",
+        "description": "Settings UI: settingsFormulaExampleDisplay"
+    },
+    "settingsFormulaExampleCompletion": {
+        "message": "Preview with completion",
+        "description": "Settings UI: settingsFormulaExampleCompletion"
+    },
+    "settingsFormulaPreviewDisabled": {
+        "message": "Enable Input enhancement and Formula preview in Writing & prompts. Export button preferences are kept.",
+        "description": "Settings UI: settingsFormulaPreviewDisabled"
+    },
+    "settingsButtonsTypingFormulaHint": {
+        "message": "This example shows the actual formula window while entering a formula. Preview actions do not copy or export.",
+        "description": "Settings typing formula preview hint"
+    },
+    "settingsFormulaSettingsUnavailable": {
+        "message": "Settings are not ready. The preview is temporarily unavailable.",
+        "description": "Settings formula preview unavailable state"
+    },
+    "inputEnhancementStateEnabled": {
+        "message": "Enabled",
+        "description": "Accessible description for the effective input enhancement state"
+    },
+    "inputEnhancementStateDisabled": {
+        "message": "Disabled",
+        "description": "Accessible description for the effective input enhancement state"
+    },
+    "themeAccentCherryPink": {
+        "message": "Cherry pink",
+        "description": "Settings appearance color control"
+    },
+    "themeAccentLilac": {
+        "message": "Lilac purple",
+        "description": "Settings appearance color control"
+    },
+    "themeAccentBayBlue": {
+        "message": "Bay blue",
+        "description": "Settings appearance color control"
+    },
+    "themeAccentLightPink": { "message": "Light pink", "description": "Settings appearance color control" },
+    "settingsGroupConfiguration": { "message": "Configuration files", "description": "Settings data subgroup" },
+    "settingsGroupLibraryData": { "message": "Library", "description": "Settings data subgroup" },
+    "settingsGroupCloudBackup": { "message": "Cloud backup", "description": "Settings data subgroup" },
+    "settingsGroupLocalBackup": { "message": "Local backup", "description": "Settings data subgroup" },
+    "themeAccentCustom": {
+        "message": "Custom RGB color",
+        "description": "Settings appearance color control"
+    },
+    "themeAccentRgbLabel": {
+        "message": "RGB hexadecimal color",
+        "description": "Settings appearance color control"
+    },
+    "themeAccentRgbInvalid": {
+        "message": "Enter six hexadecimal characters, for example FF6699.",
+        "description": "Settings appearance color control"
     }
 }

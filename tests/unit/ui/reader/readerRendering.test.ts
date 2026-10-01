@@ -25,4 +25,19 @@ describe('ReaderRendering', () => {
         expect(result.userPromptDisplay.full).toBe('Explain the example');
         expect(result.atomicUnits.length).toBeGreaterThan(0);
     });
+
+    it('renders the same filtered Markdown used by copy and export', async () => {
+        const result = await renderReaderItem({
+            id: 'source', userPrompt: 'Prompt',
+            content: 'Read paper\n\n```ts\nconst answer = 42;\n```',
+            sourceContent: 'Read [paper](https://example.com)\n\n```ts\nconst answer = 42;\n```',
+        }, {
+            highlightCode: true,
+            contentCleanup: { preserveLinks: true, includeCodeBlocks: false },
+            labels: { copyCode: 'Copy code', enableCodeWrap: 'Wrap', disableCodeWrap: 'No wrap' },
+        });
+        expect(result.markdownSource).toBe('Read [paper](https://example.com)');
+        expect(result.html).toContain('https://example.com');
+        expect(result.html).not.toContain('reader-code-block');
+    });
 });

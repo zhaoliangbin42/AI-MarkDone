@@ -44,6 +44,7 @@ export class ReaderSettingsPopover {
     private session: SurfaceSession | null = null;
     private params: OpenParams | null = null;
     private settings: AppSettings['reader'] | null = null;
+    private resizeCleanup: (() => void) | null = null;
     private readonly templateSettingsPopover = new ReaderCommentTemplateSettingsPopover();
 
     isOpen(): boolean {
@@ -51,6 +52,8 @@ export class ReaderSettingsPopover {
     }
 
     close(): void {
+        this.resizeCleanup?.();
+        this.resizeCleanup = null;
         this.templateSettingsPopover.close();
         if (!this.rootEl) return;
         this.rootEl.remove();
@@ -74,6 +77,12 @@ export class ReaderSettingsPopover {
             panelClassNames: ['reader-settings-popover--display'],
         });
         this.rootEl = shell.layer;
+        this.reposition();
+        const onResize = () => this.reposition();
+        window.addEventListener('resize', onResize);
+        this.resizeCleanup = () => window.removeEventListener('resize', onResize);
+        shell.panel.dataset.aimdSurfaceProfile = 'anchored';
+        shell.panel.setAttribute('aria-modal', 'false');
         shell.title.textContent = '';
         const titleIcon = document.createElement('span');
         titleIcon.className = 'reader-settings-dialog__title-icon';
@@ -89,23 +98,14 @@ export class ReaderSettingsPopover {
         shell.closeButton.addEventListener('click', close);
 
         const session = new SurfaceSession({
-            profile: 'panel',
-            responsiveProfile: {
-                viewportGutterPx: 16,
-                maxWidthCss: 'min(920px, calc(100% - (var(--aimd-space-4) * 2)))',
-                maxHeightCss: 'calc(100% - (var(--aimd-space-4) * 2))',
-                collision: 'clamp',
-                scrollOwner: 'content',
-                narrowFallback: 'fullscreen',
-            },
-            motionProfile: getDefaultSurfaceMotionProfile('panel'),
+            profile: 'anchored',
+            motionProfile: getDefaultSurfaceMotionProfile('anchored'),
         });
         this.session = session;
         session.captureFocus(params.opener);
+        session.syncOutsideDismiss({ eventTarget: document, roots: [shell.panel, params.opener].filter((root): root is HTMLElement => Boolean(root)), onDismiss: close });
         session.syncEscapeScope({
             root: shell.panel,
-            trapTabWithin: shell.panel,
-            stopPropagationAll: true,
             ignoreEscapeWhileComposing: true,
             onEscape: close,
         });
@@ -119,7 +119,28 @@ export class ReaderSettingsPopover {
         if (!this.rootEl) return;
         const body = this.rootEl.querySelector<HTMLElement>('.dialog-body--reader-settings');
         const footer = this.rootEl.querySelector<HTMLElement>('.panel-footer--reader-settings');
-        if (body) this.render(body, footer ?? undefined);
+        if (body) {
+            const scrollTop = body.scrollTop;
+            this.render(body, footer ?? undefined);
+            body.scrollTop = scrollTop;
+        }
+    }
+
+    reposition(): void {
+        if (!this.rootEl || !this.params) return;
+        const reader = this.params.parent.querySelector<HTMLElement>('.panel-window--reader');
+        const opener = this.params.parent.querySelector<HTMLElement>('[data-action="reader-settings"]')
+            ?? this.params.opener;
+        if (!reader || !opener) return;
+        const readerRect = reader.getBoundingClientRect();
+        const openerRect = opener.getBoundingClientRect();
+        const headerBottom = reader.querySelector<HTMLElement>('.panel-header')?.getBoundingClientRect().bottom
+            ?? openerRect.bottom;
+        const view = reader.ownerDocument.defaultView;
+        if (!view) return;
+        this.rootEl.style.setProperty('--_reader-settings-top', `${headerBottom}px`);
+        this.rootEl.style.setProperty('--_reader-settings-right', `${Math.max(0, view.innerWidth - readerRect.right)}px`);
+        this.rootEl.style.setProperty('--_reader-settings-bottom', `${Math.max(0, view.innerHeight - readerRect.bottom)}px`);
     }
 
     private render(body: HTMLElement, footer?: HTMLElement): void {
@@ -128,16 +149,10 @@ export class ReaderSettingsPopover {
         body.replaceChildren();
         footer?.replaceChildren();
         body.append(
+            this.createSectionHeading(t('readerSettingsDisplaySection')),
             this.createOpenModeRow(settings),
             this.createFontSizeRow(settings),
             this.createContentWidthRow(settings),
-            this.createActionRow(
-                t('readerDetachedNoticeResetLabel'),
-                t('readerDetachedNoticeResetDesc'),
-                () => this.applyPatch({ detachedNoticeConfirmed: false }),
-                t('btnReset'),
-                'reader-settings-detached-notice-reset',
-            ),
             this.createToggleRow(
                 t('renderCodeBlocksLabel'),
                 t('renderCodeBlocksDesc'),
@@ -150,6 +165,7 @@ export class ReaderSettingsPopover {
                 settings.showOutlineInReader,
                 (checked) => this.applyPatch({ showOutlineInReader: checked }),
             ),
+            this.createSectionHeading(t('readerSettingsAnnotationsSection')),
             this.createToggleRow(
                 t('readerAnnotationPersistenceLabel'),
                 t('readerAnnotationPersistenceDesc'),
@@ -177,9 +193,24 @@ export class ReaderSettingsPopover {
                 t('btnEdit'),
                 'reader-settings-comment-template',
             ),
+            this.createSectionHeading(t('readerSettingsOtherSection')),
+            this.createActionRow(
+                t('readerDetachedNoticeResetLabel'),
+                t('readerDetachedNoticeResetDesc'),
+                () => this.applyPatch({ detachedNoticeConfirmed: false }),
+                t('btnReset'),
+                'reader-settings-detached-notice-reset',
+            ),
         );
 
         footer?.remove();
+    }
+
+    private createSectionHeading(label: string): HTMLElement {
+        const heading = document.createElement('h3');
+        heading.className = 'reader-settings-section-heading';
+        heading.textContent = label;
+        return heading;
     }
 
     private createOpenModeRow(settings: AppSettings['reader']): HTMLElement {

@@ -8,6 +8,7 @@ import {
 } from '../../../contracts/conversationContent';
 import { getChatGPTConversationId } from './chatgptRoute';
 import { normalizeChatGPTReaderMarkdown } from './normalizeReaderMarkdown';
+import { hasConfigurableLinks } from '../../../core/content/chatgptMarkdownCleanup';
 
 const REQUEST_EVENT = 'aimd:chatgpt-conversation-bridge:request';
 const RESPONSE_EVENT = 'aimd:chatgpt-conversation-bridge:response';
@@ -156,6 +157,12 @@ function toCandidate(
         const assistantMarkdown = typeof round?.assistantMarkdown === 'string'
             ? normalizeChatGPTReaderMarkdown(round.assistantMarkdown)
             : '';
+        const assistantSourceMarkdown = typeof round?.assistantMarkdown === 'string'
+            && hasConfigurableLinks(round.assistantMarkdown)
+            ? normalizeChatGPTReaderMarkdown(round.assistantMarkdown, {
+                stripMarkdownLinks: false,
+                stripBareUrls: false,
+            }) : '';
         if (!turnId || !assistantMessageId || !assistantMarkdown) {
             throw new ConversationContentAcquisitionError('invalid-payload', { retryable: false });
         }
@@ -174,6 +181,7 @@ function toCandidate(
             },
             userText: typeof round?.userText === 'string' ? round.userText.trim() : '',
             assistantMarkdown,
+            ...(assistantSourceMarkdown !== assistantMarkdown ? { assistantSourceMarkdown } : {}),
             ...(round?.assistantProvenance ? { assistantProvenance: round.assistantProvenance } : {}),
         };
     });

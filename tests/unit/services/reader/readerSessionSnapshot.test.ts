@@ -9,6 +9,7 @@ describe('buildReaderSessionSnapshot', () => {
                 id: 'reader-item-1',
                 userPrompt: 'Prompt',
                 content: () => 'Resolved markdown',
+                sourceContent: () => 'Resolved [markdown](https://example.com)',
                 meta: {
                     platformId: 'chatgpt',
                     position: 3,
@@ -40,6 +41,7 @@ describe('buildReaderSessionSnapshot', () => {
                     id: 'reader-item-1',
                     userPrompt: 'Prompt',
                     content: 'Resolved markdown',
+                    sourceContent: 'Resolved [markdown](https://example.com)',
                     meta: {
                         platformId: 'chatgpt',
                         position: 3,

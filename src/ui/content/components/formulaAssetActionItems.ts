@@ -1,3 +1,4 @@
+import { createIcon } from './Icon';
 import { copyIcon, downloadIcon } from '../../../assets/icons';
 import { targetSurfacePolicy } from '../../../config/targetSurface';
 import type { FormulaAssetActionSettings } from '../../../core/settings/formula';
@@ -23,3 +24,11 @@ export function createFormulaAssetActionItems(
             showLabel: true, onClick: () => onAction(action),
         }));
 }
+
+export function createFormulaAssetActionButton(item: ReturnType<typeof createFormulaAssetActionItems>[number]): HTMLButtonElement {
+    const button=document.createElement('button');button.type='button';button.className='annotation-action-button';button.dataset.action=item.id;button.setAttribute('aria-label',item.label);button.title=item.label;button.append(createIcon(item.icon),document.createTextNode(item.displayLabel));button.addEventListener('pointerdown',event=>event.preventDefault());button.addEventListener('click',item.onClick);return button;
+}
+export function getFormulaAssetActionRowCss(): string { return `
+.formula-export-actions { display: flex; flex-wrap: wrap; gap: var(--aimd-space-1); padding: var(--aimd-space-2); border-top: 1px solid var(--aimd-workspace-border); }
+.formula-export-actions button { padding-inline: var(--aimd-space-2); font-size: var(--aimd-font-size-xs); }
+`; }

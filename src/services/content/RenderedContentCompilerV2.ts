@@ -46,10 +46,10 @@ export class RenderedContentCompilerV2 implements RenderedContentCompilerV2Port 
             if (!user || !assistant) return { kind: 'rejected', reason: 'budget-exceeded' };
             if (!assistant.text) return { kind: 'rejected', reason: 'empty-content' };
 
-            const userMarkdown = user.text
-                ? (this.compileMarkdown(user.root, request.policy) || user.text)
-                : '';
-            const assistantMarkdown = this.compileMarkdown(assistant.root, request.policy) || assistant.text;
+            const userCompiled = user.text ? this.compileMarkdown(user.root, request.policy) : null;
+            const assistantCompiled = this.compileMarkdown(assistant.root, request.policy);
+            const userMarkdown = userCompiled?.markdown || user.text || '';
+            const assistantMarkdown = assistantCompiled.markdown || assistant.text;
             if (
                 userMarkdown.length > request.policy.maxOutputCodeUnits
                 || assistantMarkdown.length > request.policy.maxOutputCodeUnits
@@ -71,6 +71,7 @@ export class RenderedContentCompilerV2 implements RenderedContentCompilerV2Port 
                 kind: 'ready',
                 user: userBody,
                 assistant: assistantBody,
+                assistantSourceMarkdown: assistantCompiled.source || assistant.text,
                 semanticDigest: digest({
                     identity: request.identity,
                     user: userBody.markdown,
@@ -100,7 +101,7 @@ export class RenderedContentCompilerV2 implements RenderedContentCompilerV2Port 
         return { root, text, nodeCount };
     }
 
-    private compileMarkdown(root: HTMLElement, policy: RenderedContentCompilePolicyV2): string {
+    private compileMarkdown(root: HTMLElement, policy: RenderedContentCompilePolicyV2): { source: string; markdown: string } {
         const parsed = createMarkdownParser(this.options.markdownParserAdapter, {
             maxNodeCount: policy.maxNodes,
             maxProcessingTimeMs: policy.maxWallTimeMs,
@@ -108,8 +109,8 @@ export class RenderedContentCompilerV2 implements RenderedContentCompilerV2Port 
         }).parse(root);
         const cleaned = this.options.cleanMarkdown?.(parsed) ?? parsed;
         const normalized = cleaned.trim();
-        if (/Parser (Max nodes|Time budget)/.test(normalized)) return '';
-        return normalized;
+        if (/Parser (Max nodes|Time budget)/.test(normalized)) return { source: '', markdown: '' };
+        return { source: parsed, markdown: normalized };
     }
 }
 

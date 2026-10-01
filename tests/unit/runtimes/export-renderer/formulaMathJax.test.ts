@@ -1,5 +1,6 @@
+import { __resetFormulaSvgCacheForTests } from '@/runtimes/export-renderer/formulaMathJax';
 import { readFileSync } from 'node:fs';
-import { afterEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import type { FormulaMathmlAsset, FormulaSvgAsset } from '@/core/math/formulaAssetTypes';
 import { rasterizeFormulaSvgToPngBlob } from '@/runtimes/export-renderer/formulaSvgRasterizer';
 import {
@@ -301,3 +302,5 @@ describe('export renderer Formula MathJax capability', () => {
         expect(response.asset.mathml).toContain('<msub');
     });
 });
+
+beforeEach(()=>__resetFormulaSvgCacheForTests());

@@ -172,10 +172,10 @@ Checklist（每个域通用）：
 ### Module F — Settings Core（storage.sync; legacy app_settings; no UI）
 
 - [x] Contracts：legacy key `app_settings` 登记（`src/contracts/storage.ts`）
-- [x] Core：schema v3 + migrations v1/v2→v3（`src/core/settings/*`）
+- [x] Core：schema v5 normalization and legacy migrations（`src/core/settings/*`）；historical v3 baseline retained in Git
 - [x] Service：normalize + set/reset plans（`src/services/settings/settingsService.ts`）
 - [x] Driver：sync storage port（`src/drivers/background/storage/syncStoragePort.ts`）
-- [x] Runtime：Background handler write authority（`src/runtimes/background/handlers/settings.ts`）
+- [x] Runtime：Background handler write authority（`src/runtimes/background/handlers/settings.ts`）；2026-10-01 portable format v1 export/preview/confirmed import/recovery retain that authority and update `BLUEPRINT.md` / `RUNTIME_PROTOCOL.md`
 - [x] Content：settings client cache + subscribe（`src/drivers/content/settings/settingsClient.ts`）
 - [x] 自动化门禁：`npm run test:core` / `npm run build`
 - [ ] 人工验收：老用户升级后 settings 不丢；reset/set 后 background 落盘并可读回

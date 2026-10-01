@@ -237,7 +237,7 @@ describe('settings migrations', () => {
         } as any);
 
         expect(accepted.appearance.accentColor).toBe('#7c3aed');
-        expect(rejected.appearance.accentColor).toBeNull();
+        expect(rejected.appearance.accentColor).toBe('#123456');
     });
 
     it('normalizes ChatGPT directory settings while preserving retired ChatGPT settings cleanup', () => {
@@ -332,6 +332,9 @@ describe('settings migrations', () => {
             showDetachedReaderControl: true,
             showPromptControl: true,
             showInputEnhancementControl: true,
+            showRefreshNavigationControl: true,
+            showComposerInputEnhancementControl: true,
+            showComposerAnnotationControl: true,
             pinnedPageControls: [],
             promptAutocomplete: true,
             enableArrowKeyMessageNavigation: true,
@@ -357,6 +360,9 @@ describe('settings migrations', () => {
             showDetachedReaderControl: false,
             showPromptControl: false,
             showInputEnhancementControl: true,
+            showRefreshNavigationControl: true,
+            showComposerInputEnhancementControl: true,
+            showComposerAnnotationControl: true,
             pinnedPageControls: [],
             promptAutocomplete: false,
             enableArrowKeyMessageNavigation: false,
@@ -441,6 +447,7 @@ describe('settings migrations', () => {
             },
         } as any);
         expect(explicit.formula).toEqual({
+            composerAssetActions: { copyPng: true, copySvg: true, copyMathml: true, savePng: true, saveSvg: true },
             clickCopyMarkdown: false,
             clickCopyFormulaFormat: 'raw',
             markdownCopyFormulaFormat: 'markdown-dollar',

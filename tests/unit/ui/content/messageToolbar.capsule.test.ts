@@ -97,3 +97,16 @@ describe('message capsule entry', () => {
         }
     });
 });
+
+describe('message action pins', () => {
+    it('uses the same pinned button once in collapsed and expanded states and keeps it clickable outside the inert drawer', async () => {
+        const onClick=vi.fn(async()=>undefined);
+        const toolbar=new MessageToolbar('light',[{id:'copy',label:'Copy',icon:'<svg/>',onClick},{id:'reader',label:'Reader',icon:'<svg/>',onClick:async()=>undefined}],{collapsible:true,pinnedActions:['copy'],showStats:true,showTimestamp:false});
+        mounted.push(toolbar);document.body.append(toolbar.getElement());const shadow=toolbar.getElement().shadowRoot!;
+        const button=shadow.querySelector<HTMLButtonElement>('[data-action="copy"]')!;
+        expect(button.closest('[inert]')).toBeNull();expect(button.closest('.capsule-pinned')).toBeTruthy();expect(shadow.querySelector('time')).toBeNull();
+        button.click();await Promise.resolve();expect(onClick).toHaveBeenCalledOnce();
+        shadow.querySelector<HTMLButtonElement>('[data-action="toggle-capsule"]')!.click();expect(button.closest('.capsule-actions')).toBeTruthy();expect(shadow.querySelectorAll('[data-action="copy"]')).toHaveLength(1);
+        window.dispatchEvent(new KeyboardEvent('keydown',{key:'Escape'}));expect(button.closest('.capsule-pinned')).toBeTruthy();expect(button.closest('[inert]')).toBeNull();
+    });
+});

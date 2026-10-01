@@ -20,6 +20,28 @@ function rect(input: Partial<DOMRect>): DOMRect {
 }
 
 describe('ToolbarHoverActionPortal', () => {
+    it('keeps upper and lower actions in one pointerdown boundary around the copy trigger', () => {
+        const anchor = document.createElement('button');
+        document.body.append(anchor);
+        vi.spyOn(anchor, 'getBoundingClientRect').mockReturnValue(rect({ left: 300, top: 300, width: 28, height: 28 }));
+        const copy = vi.fn();
+        const onRequestClose = vi.fn();
+        const portal = new ToolbarHoverActionPortal('light');
+        portal.open({ anchorEl: anchor, onRequestClose, actions: [
+            { id: 'copy_png', label: 'Copy image', onClick: vi.fn() },
+            { id: 'copy_prompt_reply', label: 'Copy Prompt and reply', placement: 'bottom', onClick: copy },
+        ] });
+        const host = document.querySelector<HTMLElement>('.aimd-toolbar-hover-action-host')!;
+        const lower = host.shadowRoot!.querySelector<HTMLButtonElement>('[data-action="copy_prompt_reply"]')!;
+        expect(lower.closest<HTMLElement>('[data-role="toolbar-hover-actions"]')!.dataset.placement).toBe('bottom');
+        expect(host.dataset.layout).toBe('split');
+        expect(host.style.top).toBe('300px');
+        lower.dispatchEvent(new MouseEvent('pointerdown', { bubbles: true, composed: true }));
+        lower.click();
+        expect(onRequestClose).not.toHaveBeenCalled();
+        expect(copy).toHaveBeenCalledOnce();
+        portal.dispose();
+    });
     afterEach(() => {
         vi.restoreAllMocks();
         document.body.innerHTML = '';

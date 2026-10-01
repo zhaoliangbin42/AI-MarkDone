@@ -7,6 +7,7 @@ export type ChatGPTComposerInputEnhancementMount = {
 
 const MOUNT_STYLE_ID = 'aimd-chatgpt-input-enhancement-mount-style';
 const MOUNT_DATASET = 'aimdInputEnhancementMount';
+const mountOwners = new WeakMap<HTMLElement, number>();
 
 export function activateChatGPTComposerInputEnhancementMount(
     container: HTMLElement,
@@ -14,6 +15,7 @@ export function activateChatGPTComposerInputEnhancementMount(
 ): () => void {
     if (container === officialContainer) return () => undefined;
 
+    mountOwners.set(container, (mountOwners.get(container) ?? 0) + 1);
     container.dataset[MOUNT_DATASET] = '1';
     if (!document.getElementById(MOUNT_STYLE_ID)) {
         const style = document.createElement('style');
@@ -27,7 +29,13 @@ export function activateChatGPTComposerInputEnhancementMount(
         document.head.appendChild(style);
     }
 
+    let released = false;
     return () => {
+        if (released) return;
+        released = true;
+        const remaining = Math.max(0, (mountOwners.get(container) ?? 1) - 1);
+        if (remaining > 0) { mountOwners.set(container, remaining); return; }
+        mountOwners.delete(container);
         delete container.dataset[MOUNT_DATASET];
         if (!document.querySelector('[data-aimd-input-enhancement-mount="1"]')) {
             document.getElementById(MOUNT_STYLE_ID)?.remove();

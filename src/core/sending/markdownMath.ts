@@ -143,11 +143,12 @@ export function scanMarkdownMath(text: string): MarkdownMathRange[] {
 export function findMarkdownMathAt(
     text: string,
     index: number,
-    options: { includeOpen?: boolean } = {},
+    options: { includeOpen?: boolean; includeClosingBoundary?: boolean } = {},
 ): MarkdownMathRange | null {
     const position = Math.max(0, Math.min(text.length, Math.floor(index)));
     return collectMarkdownMath(text, Boolean(options.includeOpen)).find((range) => (
-        position >= range.contentStart && position <= range.contentEnd
+        (position >= range.contentStart && position <= range.contentEnd)
+        || (options.includeClosingBoundary && range.closed && position === range.end)
     )) ?? null;
 }
 
