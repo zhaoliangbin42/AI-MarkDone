@@ -36,7 +36,7 @@
         "description": "Accessible label for removing the current ChatGPT page bookmark"
     },
     "chatgptPageControlSplitView": {
-        "message": "Open Reader in split view",
+        "message": "Open separate reader",
         "description": "Accessible label for the detached Reader page control"
     },
     "chatgptPageControlPrompts": {
@@ -200,7 +200,7 @@
         "description": "Message for readerTitle"
     },
     "readerOutlineLabel": {
-        "message": "Markdown outline",
+        "message": "Heading outline",
         "description": "Accessible label for the Reader markdown heading outline"
     },
     "readerOutlineGoToHeading": {
@@ -208,23 +208,23 @@
         "description": "Accessible label for jumping to a Reader markdown heading"
     },
     "readerStickyTitle": {
-        "message": "Sticky",
+        "message": "Excerpt tray",
         "description": "Title for the Reader temporary sticky excerpt workspace"
     },
     "readerStickyExpand": {
-        "message": "Show sticky workspace",
+        "message": "Show excerpt tray",
         "description": "Accessible label for expanding the Reader sticky workspace"
     },
     "readerStickyCollapse": {
-        "message": "Hide sticky workspace",
+        "message": "Hide excerpt tray",
         "description": "Accessible label for collapsing the Reader sticky workspace"
     },
     "readerStickyEmpty": {
-        "message": "Select important content and click Stick.",
+        "message": "Select important content and choose Keep excerpt.",
         "description": "Empty state for the Reader sticky workspace"
     },
     "readerStickyDelete": {
-        "message": "Delete sticky block",
+        "message": "Remove excerpt",
         "description": "Accessible label for deleting a Reader sticky block"
     },
     "readerStickyDrag": {
@@ -368,7 +368,7 @@
         "description": "Message for readerCommentAction"
     },
     "readerStickyAction": {
-        "message": "Stick",
+        "message": "Keep excerpt",
         "description": "Message for adding the current Reader selection to the sticky workspace"
     },
     "readerCommentAddTitle": {
@@ -520,7 +520,7 @@
         "description": "Message for readerCommentCopyEmpty"
     },
     "readerCommentUserPrompt": {
-        "message": "User prompt",
+        "message": "Prompt",
         "description": "Message for readerCommentUserPrompt"
     },
     "readerCommentTemplate": {
@@ -560,7 +560,7 @@
         "description": "Message for readerSettingsLabel"
     },
     "readerUserMessageLabel": {
-        "message": "User message",
+        "message": "Question",
         "description": "Label for the user message section in Reader"
     },
     "readerAssistantMessageLabel": {
@@ -600,11 +600,11 @@
         "description": "Message for readerContentWidthDesc"
     },
     "readerDetachedNoticeResetLabel": {
-        "message": "Detached Reader notice",
+        "message": "Separate reader notice",
         "description": "Message for readerDetachedNoticeResetLabel"
     },
     "readerDetachedNoticeResetDesc": {
-        "message": "Reset this to show the experimental notice again the next time Detached Reader opens from Split View.",
+        "message": "Reset this to show the experimental notice again the next time you open a separate reader from the lower-right controls.",
         "description": "Message for readerDetachedNoticeResetDesc"
     },
     "appearanceSettingsLabel": {
@@ -672,11 +672,11 @@
         "description": "Message for readerCommentPromptListDesc"
     },
     "readerCommentPromptPositionBottomLabel": {
-        "message": "Place the question after copied annotations",
+        "message": "Place the prompt after copied annotations",
         "description": "Message for readerCommentPromptPositionBottomLabel"
     },
     "readerCommentPromptPositionBottomDesc": {
-        "message": "In copied annotation text, place the original question after the annotation list.",
+        "message": "In copied annotation text, place the selected prompt after the annotation list.",
         "description": "Message for readerCommentPromptPositionBottomDesc"
     },
     "readerCommentSortModeLabel": {
@@ -1160,7 +1160,7 @@
         "description": "Message for chatgptReadingInputSettingsLabel"
     },
     "readerWorkflowSettingsLabel": {
-        "message": "Reader & Comment Workflow",
+        "message": "Reader and annotations",
         "description": "Message for readerWorkflowSettingsLabel"
     },
     "copyFormulaExportSettingsLabel": {
@@ -1168,7 +1168,7 @@
         "description": "Message for copyFormulaExportSettingsLabel"
     },
     "chatgptDirectorySettingsLabel": {
-        "message": "ChatGPT Directory",
+        "message": "ChatGPT message directory",
         "description": "Message for chatgptDirectorySettingsLabel"
     },
     "chatgptSettingsLabel": {
@@ -1432,11 +1432,11 @@
         "description": "Message for chatgptShowPageBookmarkControlDesc"
     },
     "chatgptShowDetachedReaderControlLabel": {
-        "message": "Show Split Reader button",
+        "message": "Show Separate reader button",
         "description": "Message for chatgptShowDetachedReaderControlLabel"
     },
     "chatgptShowDetachedReaderControlDesc": {
-        "message": "Open this conversation in a separate Reader window.",
+        "message": "Open this conversation in a separate reader tab.",
         "description": "Message for chatgptShowDetachedReaderControlDesc"
     },
     "chatgptShowPromptControlLabel": {
@@ -1480,11 +1480,11 @@
         "description": "Message for chatgptNavigationSeekStepDesc"
     },
     "chatgptDirectoryEnabledLabel": {
-        "message": "Show message list on the right",
+        "message": "Show the message directory on the right",
         "description": "Message for chatgptDirectoryEnabledLabel"
     },
     "chatgptDirectoryRetiredNotice": {
-        "message": "The AI-MarkDone ChatGPT directory can be enabled from ChatGPT Settings.",
+        "message": "Enable the message directory under Settings → Reading & messages.",
         "description": "Message for chatgptDirectoryRetiredNotice"
     },
     "chatgptDirectoryEnabledDesc": {
@@ -1492,7 +1492,7 @@
         "description": "Message for chatgptDirectoryEnabledDesc"
     },
     "chatgptDirectoryModeLabel": {
-        "message": "How the right-side message list opens",
+        "message": "How the message directory opens",
         "description": "Message for chatgptDirectoryModeLabel"
     },
     "chatgptDirectoryModeDesc": {
@@ -1512,15 +1512,15 @@
         "description": "Message for chatgptDirectoryPromptLabelModeLabel"
     },
     "chatgptDirectoryPromptLabelModeDesc": {
-        "message": "When the message list expands, show the start and end instead of only the start.",
+        "message": "When the message directory expands, show the start and end instead of only the start.",
         "description": "Message for chatgptDirectoryPromptLabelModeDesc"
     },
     "chatgptDirectoryRightInsetLabel": {
-        "message": "Space from the right edge",
+        "message": "Message directory space from the right edge",
         "description": "Message for chatgptDirectoryRightInsetLabel"
     },
     "chatgptDirectoryRightInsetDesc": {
-        "message": "Increase this if the message list overlaps the page scrollbar.",
+        "message": "Increase this if the message directory overlaps the page scrollbar.",
         "description": "Message for chatgptDirectoryRightInsetDesc"
     },
     "chatgptDirectoryPreviewMaxCharsLabel": {
@@ -1528,7 +1528,7 @@
         "description": "Message for chatgptDirectoryPreviewMaxCharsLabel"
     },
     "chatgptDirectoryPreviewMaxCharsDesc": {
-        "message": "Limit the text shown when you hover over an item in the right-side message list.",
+        "message": "Limit the text shown when you hover over an item in the message directory.",
         "description": "Message for chatgptDirectoryPreviewMaxCharsDesc"
     },
     "reader": {
@@ -1928,11 +1928,11 @@
         "description": "Message for formulaAssetActionsSummaryCount"
     },
     "contextOnlySaveLabel": {
-        "message": "Save only a bookmark excerpt",
+        "message": "Save only bookmark excerpts",
         "description": "Message for contextOnlySaveLabel"
     },
     "contextOnlySaveDesc": {
-        "message": "When on, each bookmark stores the first 500 characters; open the original conversation for the full text.",
+        "message": "Text longer than 500 characters keeps 250 from the start and 250 from the end; open the original conversation for the full text.",
         "description": "Message for contextOnlySaveDesc"
     },
     "renderCodeBlocksLabel": {
@@ -1944,7 +1944,7 @@
         "description": "Message for renderCodeBlocksDesc"
     },
     "readerOutlineToggleLabel": {
-        "message": "Show headings in Reader",
+        "message": "Show the heading outline in Reader",
         "description": "Message for readerOutlineToggleLabel"
     },
     "readerOutlineToggleDesc": {
@@ -2272,7 +2272,7 @@
         "description": "Message for tabFeedback"
     },
     "tabAbout": {
-        "message": "About",
+        "message": "About the author",
         "description": "Message for tabAbout"
     },
     "tabMappamory": {
@@ -2716,7 +2716,7 @@
         "description": "Message for bookmarksCount"
     },
     "failedToExtractUserMessage": {
-        "message": "Failed to extract user message. Please try again.",
+        "message": "Could not read the question. Please try again.",
         "description": "Message for failedToExtractUserMessage"
     },
     "failedToPrepareBookmark": {
@@ -2868,11 +2868,11 @@
         "description": "Message for bookmarkTypeMessage"
     },
     "contextOnlyConfirmTitle": {
-        "message": "Enable Context-Only Save?",
+        "message": "Save only bookmark excerpts?",
         "description": "Message for contextOnlyConfirmTitle"
     },
     "contextOnlyConfirmSummary": {
-        "message": "This will save only 500 characters (250 from start + 250 from end) for new bookmarks.",
+        "message": "For new bookmarks, questions and replies longer than 500 characters keep 250 from the start and 250 from the end.",
         "description": "Message for contextOnlyConfirmSummary"
     },
     "contextOnlyBenefitTitle": {
@@ -2888,7 +2888,7 @@
         "description": "Message for contextOnlyTradeoffTitle"
     },
     "contextOnlyTradeoffDesc": {
-        "message": "Full text preview will not be available in the bookmark panel.",
+        "message": "Full bookmark content cannot be previewed in Library.",
         "description": "Message for contextOnlyTradeoffDesc"
     },
     "contextOnlyEnable": {
@@ -3180,11 +3180,11 @@
         "description": "Message for enableFormulaOnlyOnDeepSeek"
     },
     "detachedReaderOpened": {
-        "message": "Detached Reader opened",
+        "message": "Separate reader opened",
         "description": "Message for detachedReaderOpened"
     },
     "detachedReaderOpenFailed": {
-        "message": "Detached Reader could not be opened",
+        "message": "Separate reader could not be opened",
         "description": "Message for detachedReaderOpenFailed"
     },
     "detachedReaderSessionExpired": {
@@ -3212,7 +3212,7 @@
         "description": "Message for detachedReaderLocated"
     },
     "detachedReaderExperimentalTitle": {
-        "message": "Open detached Reader?",
+        "message": "Open separate reader?",
         "description": "Message for detachedReaderExperimentalTitle"
     },
     "detachedReaderExperimentalMessage": {
@@ -3284,7 +3284,7 @@
         "description": "Prompt save generic error message"
     },
     "detachedReaderClosed": {
-        "message": "Detached Reader closed.",
+        "message": "Separate reader closed.",
         "description": "Message for detachedReaderClosed"
     },
     "pageAnnotationChip": {
@@ -4092,11 +4092,11 @@
         "description": "Settings copy for settingsInputFormulaPreviewDesc"
     },
     "btnCopyPromptReply": {
-        "message": "Copy Prompt + Reply",
+        "message": "Copy question + reply",
         "description": "Settings UI: btnCopyPromptReply"
     },
     "promptReplyUnavailable": {
-        "message": "The matching user prompt is unavailable. Try again after the conversation finishes loading.",
+        "message": "The matching question is unavailable. Try again after the conversation finishes loading.",
         "description": "Settings UI: promptReplyUnavailable"
     },
     "settingsButtonsGroupPage": {
@@ -4116,7 +4116,7 @@
         "description": "Settings UI: settingsButtonsGroupSelection"
     },
     "settingsButtonsGroupDirectory": {
-        "message": "Directory navigation",
+        "message": "Message directory",
         "description": "Settings UI: settingsButtonsGroupDirectory"
     },
     "settingsButtonsGroupComposer": {
@@ -4136,7 +4136,7 @@
         "description": "Settings UI: settingsCollapsed"
     },
     "settingsPin": {
-        "message": "Pin",
+        "message": "Keep visible",
         "description": "Settings UI: settingsPin"
     },
     "settingsMessageTimestamp": {
@@ -4152,7 +4152,7 @@
         "description": "Settings UI: settingsComposerAnnotations"
     },
     "settingsButtonsPinHint": {
-        "message": "Pin keeps enabled buttons visible when collapsed. Turning a button off preserves its Pin preference.",
+        "message": "Kept buttons stay visible when collapsed. Turning a button off preserves this preference.",
         "description": "Settings UI: settingsButtonsPinHint"
     },
     "settingsButtonsFormulaHint": {
@@ -4192,7 +4192,7 @@
         "description": "Settings UI: settingsRestore"
     },
     "settingsExportNotice": {
-        "message": "The JSON file includes button visibility, Pin preferences, appearance, reading and export options. It excludes tokens, account details, conversations, bookmarks, annotations, highlights, Prompts and custom templates. Keep the file in a trusted place.",
+        "message": "The JSON file includes button visibility, appearance, reading and export options. It excludes tokens, account details, conversations, bookmarks, annotations, highlights, prompts and custom templates. Keep the file in a trusted place.",
         "description": "Settings UI: settingsExportNotice"
     },
     "settingsExportConfirm": {
@@ -4292,7 +4292,7 @@
         "description": "Settings UI: settingsPreferenceBehaviorSaveContextOnly"
     },
     "settingsPreferenceBehaviorPinnedMessageControls": {
-        "message": "Pinned message buttons",
+        "message": "Message buttons kept visible",
         "description": "Settings UI: settingsPreferenceBehaviorPinnedMessageControls"
     },
     "settingsPreferenceReaderRenderCodeInReader": {
@@ -4300,7 +4300,7 @@
         "description": "Settings UI: settingsPreferenceReaderRenderCodeInReader"
     },
     "settingsPreferenceReaderShowOutlineInReader": {
-        "message": "Reader outline",
+        "message": "Reader heading outline",
         "description": "Settings UI: settingsPreferenceReaderShowOutlineInReader"
     },
     "settingsPreferenceReaderPersistAnnotations": {
@@ -4372,15 +4372,15 @@
         "description": "Settings UI: settingsPreferenceExportPngPixelRatio"
     },
     "settingsPreferenceChatgptDirectoryEnabled": {
-        "message": "Show directory",
+        "message": "Show message directory",
         "description": "Settings UI: settingsPreferenceChatgptDirectoryEnabled"
     },
     "settingsPreferenceChatgptDirectoryMode": {
-        "message": "Directory display",
+        "message": "Message directory display",
         "description": "Settings UI: settingsPreferenceChatgptDirectoryMode"
     },
     "settingsPreferenceChatgptDirectoryPromptLabelMode": {
-        "message": "Directory prompt summary",
+        "message": "Message directory question summary",
         "description": "Settings UI: settingsPreferenceChatgptDirectoryPromptLabelMode"
     },
     "settingsPreferenceChatgptDirectoryHideOfficialNavigation": {
@@ -4388,11 +4388,11 @@
         "description": "Settings UI: settingsPreferenceChatgptDirectoryHideOfficialNavigation"
     },
     "settingsPreferenceChatgptDirectoryRightInsetPx": {
-        "message": "Directory right inset",
+        "message": "Message directory right inset",
         "description": "Settings UI: settingsPreferenceChatgptDirectoryRightInsetPx"
     },
     "settingsPreferenceChatgptDirectoryPreviewMaxChars": {
-        "message": "Directory preview length",
+        "message": "Message directory preview length",
         "description": "Settings UI: settingsPreferenceChatgptDirectoryPreviewMaxChars"
     },
     "settingsPreferenceChatgptBehaviorRestorePositionAfterSend": {
@@ -4412,7 +4412,7 @@
         "description": "Settings UI: settingsPreferenceChatgptBehaviorShowPageBookmarkControl"
     },
     "settingsPreferenceChatgptBehaviorShowDetachedReaderControl": {
-        "message": "Split Reader button",
+        "message": "Separate reader button",
         "description": "Settings UI: settingsPreferenceChatgptBehaviorShowDetachedReaderControl"
     },
     "settingsPreferenceChatgptBehaviorShowPromptControl": {
@@ -4452,7 +4452,7 @@
         "description": "Settings UI: settingsPreferenceChatgptBehaviorShowPageSelectionToolbar"
     },
     "settingsPreferenceChatgptBehaviorPinnedPageControls": {
-        "message": "Pinned page buttons",
+        "message": "Page buttons kept visible",
         "description": "Settings UI: settingsPreferenceChatgptBehaviorPinnedPageControls"
     },
     "settingsPreferenceChatgptBehaviorPageWidthScale": {
@@ -4492,7 +4492,7 @@
         "description": "Settings UI: settingsPreferenceBehaviorMessageControlsCopyMarkdown"
     },
     "settingsPreferenceBehaviorMessageControlsCopyPromptReply": {
-        "message": "Copy Prompt + Reply button",
+        "message": "Copy question + reply button",
         "description": "Settings UI: settingsPreferenceBehaviorMessageControlsCopyPromptReply"
     },
     "settingsPreferenceBehaviorMessageControlsReader": {
@@ -4596,7 +4596,7 @@
         "description": "Settings selection preview hint"
     },
     "settingsButtonsDirectoryHint": {
-        "message": "When Directory is enabled, arrows stay at the bottom right above the brand button. This switch does not change arrow-key navigation.",
+        "message": "When the message directory is enabled, arrows stay at the bottom right above the brand button. This switch does not change arrow-key navigation.",
         "description": "Settings Directory arrow preview hint"
     },
     "settingsReloadForUpdate": {
@@ -4671,5 +4671,797 @@
     "themeAccentRgbInvalid": {
         "message": "Enter six hexadecimal characters, for example FF6699.",
         "description": "Settings appearance color control"
+    },
+    "tabFeatureOverview": {
+        "message": "Feature overview",
+        "description": "Feature overview interface label"
+    },
+    "featureOverviewTitle": {
+        "message": "Feature overview",
+        "description": "Feature overview interface label"
+    },
+    "featureOverviewLead": {
+        "message": "Browse AI-MarkDone functions, what they do, and where to use them.",
+        "description": "Feature overview interface label"
+    },
+    "featureOverviewSearchPlaceholder": {
+        "message": "Search features, uses, or shortcuts",
+        "description": "Feature overview interface label"
+    },
+    "featureOverviewSearchLabel": {
+        "message": "Search features",
+        "description": "Feature overview interface label"
+    },
+    "featureOverviewNoMatches": {
+        "message": "No matching features. Try another search term.",
+        "description": "Feature overview interface label"
+    },
+    "featureOverviewAll": {
+        "message": "All features",
+        "description": "Feature overview interface label"
+    },
+    "featureOverviewSettings": {
+        "message": "Related settings",
+        "description": "Feature overview interface label"
+    },
+    "featureOverviewEntryLabel": {
+        "message": "Entry point",
+        "description": "Feature overview interface label"
+    },
+    "featureOverviewShortcutLabel": {
+        "message": "Shortcut",
+        "description": "Feature overview interface label"
+    },
+    "featureOverviewCount": {
+        "message": "$1 features",
+        "description": "Feature overview interface label"
+    },
+    "workspaceFullscreen": {
+        "message": "Full screen",
+        "description": "Feature overview interface label"
+    },
+    "workspaceExitFullscreen": {
+        "message": "Exit full screen",
+        "description": "Feature overview interface label"
+    },
+    "featureOverviewSectionReaderTitle": {
+        "message": "Reader",
+        "description": "Feature overview group title"
+    },
+    "featureOverviewSectionReaderSummary": {
+        "message": "Reply reading, heading outline, excerpts, and follow-up questions.",
+        "description": "Feature overview group introduction"
+    },
+    "featureOverviewReaderFocusTitle": {
+        "message": "Reader",
+        "description": "Feature overview title"
+    },
+    "featureOverviewReaderFocusDescription": {
+        "message": "Read long replies in a clear layout with headings, lists, tables, code, and formulas.",
+        "description": "Feature overview description"
+    },
+    "featureOverviewReaderFocusEntry": {
+        "message": "Reply toolbar → Reader",
+        "description": "Feature overview entry"
+    },
+    "featureOverviewReaderOutlineTitle": {
+        "message": "Heading outline",
+        "description": "Feature overview title"
+    },
+    "featureOverviewReaderOutlineDescription": {
+        "message": "See the current reply’s heading structure and jump to the section you need.",
+        "description": "Feature overview description"
+    },
+    "featureOverviewReaderOutlineEntry": {
+        "message": "Reader → Heading outline",
+        "description": "Feature overview entry"
+    },
+    "featureOverviewReaderOutlineNote": {
+        "message": "Shown when there are at least two headings; turn it off in Reader settings.",
+        "description": "Feature overview usage note"
+    },
+    "featureOverviewReaderPagesTitle": {
+        "message": "Reply pagination",
+        "description": "Feature overview title"
+    },
+    "featureOverviewReaderPagesDescription": {
+        "message": "Read collected replies one at a time without repeatedly scrolling through a long page.",
+        "description": "Feature overview description"
+    },
+    "featureOverviewReaderPagesEntry": {
+        "message": "Reader → Page numbers, Previous / Next",
+        "description": "Feature overview entry"
+    },
+    "featureOverviewReaderPositionTitle": {
+        "message": "Reading position memory",
+        "description": "Feature overview title"
+    },
+    "featureOverviewReaderPositionDescription": {
+        "message": "Return to a reply or reopen Reader on the same page and resume where you stopped.",
+        "description": "Feature overview description"
+    },
+    "featureOverviewReaderPositionEntry": {
+        "message": "Reader → Reply pagination",
+        "description": "Feature overview entry"
+    },
+    "featureOverviewReaderPositionNote": {
+        "message": "Reading positions last for this page session and reset after a refresh.",
+        "description": "Feature overview usage note"
+    },
+    "featureOverviewReaderCodeTitle": {
+        "message": "Code copying and wrapping",
+        "description": "Feature overview title"
+    },
+    "featureOverviewReaderCodeDescription": {
+        "message": "Copy individual code blocks or wrap long lines for reading; turn syntax highlighting off if needed.",
+        "description": "Feature overview description"
+    },
+    "featureOverviewReaderCodeEntry": {
+        "message": "Code blocks in Reader",
+        "description": "Feature overview entry"
+    },
+    "featureOverviewReaderExcerptsTitle": {
+        "message": "Excerpt tray",
+        "description": "Feature overview title"
+    },
+    "featureOverviewReaderExcerptsDescription": {
+        "message": "Keep important passages from different replies together for comparison; reorder or remove excerpts.",
+        "description": "Feature overview description"
+    },
+    "featureOverviewReaderExcerptsEntry": {
+        "message": "Reader text selection → Keep excerpt",
+        "description": "Feature overview entry"
+    },
+    "featureOverviewReaderExcerptsNote": {
+        "message": "Excerpts last until the page is refreshed, including when Reader is reopened. Bookmark previews have no excerpt tray.",
+        "description": "Feature overview usage note"
+    },
+    "featureOverviewReaderSendTitle": {
+        "message": "Reader sending",
+        "description": "Feature overview title"
+    },
+    "featureOverviewReaderSendDescription": {
+        "message": "Write your next question while reading; the draft stays in sync with ChatGPT until you send it.",
+        "description": "Feature overview description"
+    },
+    "featureOverviewReaderSendEntry": {
+        "message": "Reader → Send",
+        "description": "Feature overview entry"
+    },
+    "featureOverviewReaderLocateTitle": {
+        "message": "Source navigation",
+        "description": "Feature overview title"
+    },
+    "featureOverviewReaderLocateDescription": {
+        "message": "Return from the reply you are reading to its original conversation to see the surrounding content.",
+        "description": "Feature overview description"
+    },
+    "featureOverviewReaderLocateEntry": {
+        "message": "Reader → Locate",
+        "description": "Feature overview entry"
+    },
+    "featureOverviewReaderSeparateTitle": {
+        "message": "Separate reader",
+        "description": "Feature overview title"
+    },
+    "featureOverviewReaderSeparateDescription": {
+        "message": "Read a long conversation in a separate tab when scrolling on the ChatGPT page slows down.",
+        "description": "Feature overview description"
+    },
+    "featureOverviewReaderSeparateEntry": {
+        "message": "ChatGPT website’s lower-right toolbar → Separate reader",
+        "description": "Feature overview entry"
+    },
+    "featureOverviewReaderSeparateNote": {
+        "message": "Experimental. Keep the original ChatGPT tab open to refresh, send, or locate messages.",
+        "description": "Feature overview usage note"
+    },
+    "featureOverviewSectionNavigationTitle": {
+        "message": "Message directory & navigation",
+        "description": "Feature overview group title"
+    },
+    "featureOverviewSectionNavigationSummary": {
+        "message": "Finding replies and keeping your place in long conversations.",
+        "description": "Feature overview group introduction"
+    },
+    "featureOverviewNavigationDirectoryTitle": {
+        "message": "Message directory",
+        "description": "Feature overview title"
+    },
+    "featureOverviewNavigationDirectoryDescription": {
+        "message": "Find replies by their question summaries in compact previews or an expanded list; loaded history gradually joins the directory.",
+        "description": "Feature overview description"
+    },
+    "featureOverviewNavigationDirectoryEntry": {
+        "message": "Settings → Reading & messages → Message directory",
+        "description": "Feature overview entry"
+    },
+    "featureOverviewNavigationDirectoryNote": {
+        "message": "Enable the directory first. History that has not loaded may be missing.",
+        "description": "Feature overview usage note"
+    },
+    "featureOverviewNavigationPreviewTitle": {
+        "message": "Directory previews",
+        "description": "Feature overview title"
+    },
+    "featureOverviewNavigationPreviewDescription": {
+        "message": "Preview another reply without leaving your reading position, then open Reader or Export from it.",
+        "description": "Feature overview description"
+    },
+    "featureOverviewNavigationPreviewEntry": {
+        "message": "Message directory → Reply preview",
+        "description": "Feature overview entry"
+    },
+    "featureOverviewNavigationStepperTitle": {
+        "message": "Message navigation",
+        "description": "Feature overview title"
+    },
+    "featureOverviewNavigationStepperDescription": {
+        "message": "Move between adjacent replies with less manual scrolling; arrow keys still move the cursor while typing.",
+        "description": "Feature overview description"
+    },
+    "featureOverviewNavigationStepperEntry": {
+        "message": "ChatGPT page → Previous / Next",
+        "description": "Feature overview entry"
+    },
+    "featureOverviewNavigationSendPositionTitle": {
+        "message": "Reading position after sending",
+        "description": "Feature overview title"
+    },
+    "featureOverviewNavigationSendPositionDescription": {
+        "message": "Keep your position when possible after sending while reading earlier messages, reducing interruptions from jumps to the bottom.",
+        "description": "Feature overview description"
+    },
+    "featureOverviewNavigationSendPositionEntry": {
+        "message": "Settings → Reading & messages → Restore reading position after sending",
+        "description": "Feature overview entry"
+    },
+    "featureOverviewSectionCopyExportTitle": {
+        "message": "Copy & export",
+        "description": "Feature overview group title"
+    },
+    "featureOverviewSectionCopyExportSummary": {
+        "message": "Markdown, images, and file output.",
+        "description": "Feature overview group introduction"
+    },
+    "featureOverviewCopyMarkdownTitle": {
+        "message": "Markdown copy",
+        "description": "Feature overview title"
+    },
+    "featureOverviewCopyMarkdownDescription": {
+        "message": "Keep headings, lists, tables, code, and formula markup for further editing in notes or documents.",
+        "description": "Feature overview description"
+    },
+    "featureOverviewCopyMarkdownEntry": {
+        "message": "Reply toolbar or Reader → Copy Markdown",
+        "description": "Feature overview entry"
+    },
+    "featureOverviewCopyQuestionReplyTitle": {
+        "message": "Question + reply copy",
+        "description": "Feature overview title"
+    },
+    "featureOverviewCopyQuestionReplyDescription": {
+        "message": "Copy the question and answer together with role labels to share their context.",
+        "description": "Feature overview description"
+    },
+    "featureOverviewCopyQuestionReplyEntry": {
+        "message": "Reply toolbar → Hover Copy → Question + reply",
+        "description": "Feature overview entry"
+    },
+    "featureOverviewCopyImageTitle": {
+        "message": "Reply image copy",
+        "description": "Feature overview title"
+    },
+    "featureOverviewCopyImageDescription": {
+        "message": "Turn the current reply into an image for pasting into chats or documents.",
+        "description": "Feature overview description"
+    },
+    "featureOverviewCopyImageEntry": {
+        "message": "Reply toolbar → Hover Copy → Copy as PNG",
+        "description": "Feature overview entry"
+    },
+    "featureOverviewCopySelectionTitle": {
+        "message": "Markdown selection copy",
+        "description": "Feature overview title"
+    },
+    "featureOverviewCopySelectionDescription": {
+        "message": "Copy only the passage you need with formatting; formulas stay complete and partial code selections keep the selected text.",
+        "description": "Feature overview description"
+    },
+    "featureOverviewCopySelectionEntry": {
+        "message": "Reply or Reader text selection → Copy",
+        "description": "Feature overview entry"
+    },
+    "featureOverviewCopySelectionNote": {
+        "message": "On ChatGPT, change the shortcut to Cmd/Ctrl + C or turn it off. Reader uses Cmd/Ctrl + C.",
+        "description": "Feature overview usage note"
+    },
+    "featureOverviewExportFormatsTitle": {
+        "message": "Message export",
+        "description": "Feature overview title"
+    },
+    "featureOverviewExportFormatsDescription": {
+        "message": "Save one or several replies as Markdown, PDF, or PNG; pack multiple images in a ZIP and view progress or cancel generation.",
+        "description": "Feature overview description"
+    },
+    "featureOverviewExportFormatsEntry": {
+        "message": "Reply toolbar or directory preview → Export",
+        "description": "Feature overview entry"
+    },
+    "featureOverviewExportFormatsNote": {
+        "message": "PDF uses your browser’s print dialog; choose Save as PDF.",
+        "description": "Feature overview usage note"
+    },
+    "featureOverviewExportImageSettingsTitle": {
+        "message": "Image export settings",
+        "description": "Feature overview title"
+    },
+    "featureOverviewExportImageSettingsDescription": {
+        "message": "Choose mobile, tablet, desktop, or custom width and adjust resolution for your sharing needs.",
+        "description": "Feature overview description"
+    },
+    "featureOverviewExportImageSettingsEntry": {
+        "message": "Settings → Copy & export → Message images",
+        "description": "Feature overview entry"
+    },
+    "featureOverviewSectionInputTitle": {
+        "message": "Writing & prompts",
+        "description": "Feature overview group title"
+    },
+    "featureOverviewSectionInputSummary": {
+        "message": "Writing assistance and reusable prompts.",
+        "description": "Feature overview group introduction"
+    },
+    "featureOverviewInputNewlineTitle": {
+        "message": "Enter newline",
+        "description": "Feature overview title"
+    },
+    "featureOverviewInputNewlineDescription": {
+        "message": "Use Enter for new lines in a long question; send with the button or Cmd/Ctrl + Enter.",
+        "description": "Feature overview description"
+    },
+    "featureOverviewInputNewlineEntry": {
+        "message": "Settings → Writing & prompts → Input enhancement",
+        "description": "Feature overview entry"
+    },
+    "featureOverviewInputBoldTitle": {
+        "message": "Bold shortcut",
+        "description": "Feature overview title"
+    },
+    "featureOverviewInputBoldDescription": {
+        "message": "Add or remove visible bold markers on selected text to emphasize key points.",
+        "description": "Feature overview description"
+    },
+    "featureOverviewInputBoldEntry": {
+        "message": "ChatGPT input → Cmd/Ctrl + B",
+        "description": "Feature overview entry"
+    },
+    "featureOverviewInputListsTitle": {
+        "message": "List writing assistance",
+        "description": "Feature overview title"
+    },
+    "featureOverviewInputListsDescription": {
+        "message": "Continue, insert, split, or delete list items with automatic numbering, and exit empty items.",
+        "description": "Feature overview description"
+    },
+    "featureOverviewInputListsEntry": {
+        "message": "ChatGPT input; Settings → Writing & prompts → Input enhancement",
+        "description": "Feature overview entry"
+    },
+    "featureOverviewInputPromptLibraryTitle": {
+        "message": "Prompt management",
+        "description": "Feature overview title"
+    },
+    "featureOverviewInputPromptLibraryDescription": {
+        "message": "Save frequently used instructions, assign triggers, and search, edit, reorder, disable, or delete them.",
+        "description": "Feature overview description"
+    },
+    "featureOverviewInputPromptLibraryEntry": {
+        "message": "ChatGPT page controls or Settings → Writing & prompts → Prompts",
+        "description": "Feature overview entry"
+    },
+    "featureOverviewInputPromptTriggerTitle": {
+        "message": "Prompt shortcuts",
+        "description": "Feature overview title"
+    },
+    "featureOverviewInputPromptTriggerDescription": {
+        "message": "Use a backslash and trigger word to insert a saved instruction without retyping it.",
+        "description": "Feature overview description"
+    },
+    "featureOverviewInputPromptTriggerEntry": {
+        "message": "ChatGPT input or Reader send box → \\trigger",
+        "description": "Feature overview entry"
+    },
+    "featureOverviewInputPromptCursorTitle": {
+        "message": "Prompt cursor marker",
+        "description": "Feature overview title"
+    },
+    "featureOverviewInputPromptCursorDescription": {
+        "message": "Place the cursor where you need to fill in text after inserting a prompt.",
+        "description": "Feature overview description"
+    },
+    "featureOverviewInputPromptCursorEntry": {
+        "message": "Prompt editor → Insert cursor",
+        "description": "Feature overview entry"
+    },
+    "featureOverviewInputPromptCursorNote": {
+        "message": "The cursor marker is {{cursor}}.",
+        "description": "Feature overview usage note"
+    },
+    "featureOverviewInputPromptNotesTitle": {
+        "message": "Prompt and annotation insertion",
+        "description": "Feature overview title"
+    },
+    "featureOverviewInputPromptNotesDescription": {
+        "message": "Insert a selected prompt with current-conversation annotations into a draft for revision or follow-up questions.",
+        "description": "Feature overview description"
+    },
+    "featureOverviewInputPromptNotesEntry": {
+        "message": "Prompt suggestions in the input → Right arrow",
+        "description": "Feature overview entry"
+    },
+    "featureOverviewSectionFormulaTitle": {
+        "message": "Formulas",
+        "description": "Feature overview group title"
+    },
+    "featureOverviewSectionFormulaSummary": {
+        "message": "Formula writing, previews, copying, and export.",
+        "description": "Feature overview group introduction"
+    },
+    "featureOverviewFormulaSourceTitle": {
+        "message": "Formula source copy",
+        "description": "Feature overview title"
+    },
+    "featureOverviewFormulaSourceDescription": {
+        "message": "Copy an individual formula’s LaTeX source for further editing.",
+        "description": "Feature overview description"
+    },
+    "featureOverviewFormulaSourceEntry": {
+        "message": "Reply formula → Click to copy",
+        "description": "Feature overview entry"
+    },
+    "featureOverviewFormulaFormatsTitle": {
+        "message": "Formula copy formats",
+        "description": "Feature overview title"
+    },
+    "featureOverviewFormulaFormatsDescription": {
+        "message": "Set separate output formats for single formulas and whole-message Markdown to suit different editors.",
+        "description": "Feature overview description"
+    },
+    "featureOverviewFormulaFormatsEntry": {
+        "message": "Settings → Copy & export → Formulas",
+        "description": "Feature overview entry"
+    },
+    "featureOverviewFormulaSuggestionsTitle": {
+        "message": "Formula command completion",
+        "description": "Feature overview title"
+    },
+    "featureOverviewFormulaSuggestionsDescription": {
+        "message": "Insert common LaTeX snippets while writing a formula and use Tab to move between placeholders.",
+        "description": "Feature overview description"
+    },
+    "featureOverviewFormulaSuggestionsEntry": {
+        "message": "Inside a formula in ChatGPT input → Backslash command",
+        "description": "Feature overview entry"
+    },
+    "featureOverviewFormulaPreviewTitle": {
+        "message": "Formula preview",
+        "description": "Feature overview title"
+    },
+    "featureOverviewFormulaPreviewDescription": {
+        "message": "See the formula at your cursor before sending the draft and catch writing mistakes early.",
+        "description": "Feature overview description"
+    },
+    "featureOverviewFormulaPreviewEntry": {
+        "message": "ChatGPT input → Formula; Settings → Writing & prompts → Formula assistance",
+        "description": "Feature overview entry"
+    },
+    "featureOverviewFormulaAssetsTitle": {
+        "message": "Formula export",
+        "description": "Feature overview title"
+    },
+    "featureOverviewFormulaAssetsDescription": {
+        "message": "Copy individual formulas as PNG, SVG, or MathML, or save PNG or SVG; configure replies and input previews separately.",
+        "description": "Feature overview description"
+    },
+    "featureOverviewFormulaAssetsEntry": {
+        "message": "Reply formula or input preview → Export actions; Settings → Buttons → Formula",
+        "description": "Feature overview entry"
+    },
+    "featureOverviewFormulaAssetsNote": {
+        "message": "Enable image buttons for reply formulas first. SVG and MathML require available formula source.",
+        "description": "Feature overview usage note"
+    },
+    "featureOverviewSectionLibraryTitle": {
+        "message": "Bookmarks & Library",
+        "description": "Feature overview group title"
+    },
+    "featureOverviewSectionLibrarySummary": {
+        "message": "Saved replies, search, and folder organization.",
+        "description": "Feature overview group introduction"
+    },
+    "featureOverviewLibrarySaveReplyTitle": {
+        "message": "Message bookmarks",
+        "description": "Feature overview title"
+    },
+    "featureOverviewLibrarySaveReplyDescription": {
+        "message": "Save a reply and its question to read or copy from Library, or revisit the original conversation.",
+        "description": "Feature overview description"
+    },
+    "featureOverviewLibrarySaveReplyEntry": {
+        "message": "Reply toolbar or Reader → Bookmark",
+        "description": "Feature overview entry"
+    },
+    "featureOverviewLibrarySavePageTitle": {
+        "message": "Page bookmarks",
+        "description": "Feature overview title"
+    },
+    "featureOverviewLibrarySavePageDescription": {
+        "message": "Save a conversation’s name and link to reopen it later.",
+        "description": "Feature overview description"
+    },
+    "featureOverviewLibrarySavePageEntry": {
+        "message": "ChatGPT page controls → Bookmark page",
+        "description": "Feature overview entry"
+    },
+    "featureOverviewLibrarySavePageNote": {
+        "message": "Page bookmarks save a name and link, not the full conversation.",
+        "description": "Feature overview usage note"
+    },
+    "featureOverviewLibrarySearchTitle": {
+        "message": "Library search and sorting",
+        "description": "Feature overview title"
+    },
+    "featureOverviewLibrarySearchDescription": {
+        "message": "Find bookmarks, annotations, and highlights separately; sort bookmarks by name or date, or filter page and message types.",
+        "description": "Feature overview description"
+    },
+    "featureOverviewLibrarySearchEntry": {
+        "message": "Management panel → Library",
+        "description": "Feature overview entry"
+    },
+    "featureOverviewLibraryFoldersTitle": {
+        "message": "Bookmark folders",
+        "description": "Feature overview title"
+    },
+    "featureOverviewLibraryFoldersDescription": {
+        "message": "Group bookmarks by topic, rename folders and bookmarks, or move them to another folder.",
+        "description": "Feature overview description"
+    },
+    "featureOverviewLibraryFoldersEntry": {
+        "message": "Library → Bookmarks → Folders",
+        "description": "Feature overview entry"
+    },
+    "featureOverviewLibraryBatchTitle": {
+        "message": "Bookmark batch management",
+        "description": "Feature overview title"
+    },
+    "featureOverviewLibraryBatchDescription": {
+        "message": "Select a page or all filtered results to move, delete, or export several bookmarks at once.",
+        "description": "Feature overview description"
+    },
+    "featureOverviewLibraryBatchEntry": {
+        "message": "Library → Bookmarks → Manage",
+        "description": "Feature overview entry"
+    },
+    "featureOverviewLibrarySummariesTitle": {
+        "message": "Bookmark excerpts",
+        "description": "Feature overview title"
+    },
+    "featureOverviewLibrarySummariesDescription": {
+        "message": "Save space by keeping the beginning and end of each question and reply; read the full text in the original conversation.",
+        "description": "Feature overview description"
+    },
+    "featureOverviewLibrarySummariesEntry": {
+        "message": "Settings → Data & backup → Library → Save only bookmark excerpts",
+        "description": "Feature overview entry"
+    },
+    "featureOverviewLibrarySummariesNote": {
+        "message": "Text longer than 500 characters keeps 250 from the start and 250 from the end.",
+        "description": "Feature overview usage note"
+    },
+    "featureOverviewSectionMarksTitle": {
+        "message": "Annotations & highlights",
+        "description": "Feature overview group title"
+    },
+    "featureOverviewSectionMarksSummary": {
+        "message": "Source marks, notes, and follow-up questions.",
+        "description": "Feature overview group introduction"
+    },
+    "featureOverviewMarksAddNoteTitle": {
+        "message": "Text annotations",
+        "description": "Feature overview title"
+    },
+    "featureOverviewMarksAddNoteDescription": {
+        "message": "Attach your thoughts to selected source text so the context is ready for later revisions.",
+        "description": "Feature overview description"
+    },
+    "featureOverviewMarksAddNoteEntry": {
+        "message": "Reply or Reader text selection → Annotation",
+        "description": "Feature overview entry"
+    },
+    "featureOverviewMarksSaveAnnotationsTitle": {
+        "message": "Annotation saving",
+        "description": "Feature overview title"
+    },
+    "featureOverviewMarksSaveAnnotationsDescription": {
+        "message": "Keep new annotations after a refresh and share saved annotations between ChatGPT and Reader.",
+        "description": "Feature overview description"
+    },
+    "featureOverviewMarksSaveAnnotationsEntry": {
+        "message": "Reader settings → Save new annotations",
+        "description": "Feature overview entry"
+    },
+    "featureOverviewMarksSaveAnnotationsNote": {
+        "message": "Off by default. New annotations then last only for this page session; previously saved annotations remain.",
+        "description": "Feature overview usage note"
+    },
+    "featureOverviewMarksHighlightTitle": {
+        "message": "Three-color highlights",
+        "description": "Feature overview title"
+    },
+    "featureOverviewMarksHighlightDescription": {
+        "message": "Mark key passages in mist blue, cream yellow, or light coral; highlights save automatically and can be recolored later.",
+        "description": "Feature overview description"
+    },
+    "featureOverviewMarksHighlightEntry": {
+        "message": "Reply or Reader text selection → Color swatches",
+        "description": "Feature overview entry"
+    },
+    "featureOverviewMarksHighlightNote": {
+        "message": "Works with regular text, complete inline code, and formulas; code blocks and tables do not show color swatches.",
+        "description": "Feature overview usage note"
+    },
+    "featureOverviewMarksNotesManageTitle": {
+        "message": "Annotation and highlight management",
+        "description": "Feature overview title"
+    },
+    "featureOverviewMarksNotesManageDescription": {
+        "message": "Find, edit, or delete marks and open their conversations; recolor highlights in batches or insert current-conversation notes into the input.",
+        "description": "Feature overview description"
+    },
+    "featureOverviewMarksNotesManageEntry": {
+        "message": "Library → Annotations / Highlights",
+        "description": "Feature overview entry"
+    },
+    "featureOverviewMarksNotesOutputTitle": {
+        "message": "Annotation copying and insertion",
+        "description": "Feature overview title"
+    },
+    "featureOverviewMarksNotesOutputDescription": {
+        "message": "Combine source passages and annotations into a follow-up with an optional prompt, then preview, copy, or insert into a send draft.",
+        "description": "Feature overview description"
+    },
+    "featureOverviewMarksNotesOutputEntry": {
+        "message": "Reader → Copy annotations / Send → Insert annotations; current-conversation annotation manager",
+        "description": "Feature overview entry"
+    },
+    "featureOverviewMarksNotesTemplateTitle": {
+        "message": "Annotation templates",
+        "description": "Feature overview title"
+    },
+    "featureOverviewMarksNotesTemplateDescription": {
+        "message": "Customize the order of source text, notes, and prompts, and arrange annotations by time or text position.",
+        "description": "Feature overview description"
+    },
+    "featureOverviewMarksNotesTemplateEntry": {
+        "message": "Reader settings or Library annotation details → Copy template",
+        "description": "Feature overview entry"
+    },
+    "featureOverviewMarksOrganizeTitle": {
+        "message": "Conversation organization",
+        "description": "Feature overview title"
+    },
+    "featureOverviewMarksOrganizeDescription": {
+        "message": "Give conversations custom names and organize their annotations and highlights in folders; new marks keep the same location.",
+        "description": "Feature overview description"
+    },
+    "featureOverviewMarksOrganizeEntry": {
+        "message": "Library → Annotations / Highlights → Conversation management",
+        "description": "Feature overview entry"
+    },
+    "featureOverviewSectionSettingsBackupTitle": {
+        "message": "Settings & backup",
+        "description": "Feature overview group title"
+    },
+    "featureOverviewSectionSettingsBackupSummary": {
+        "message": "Interface preferences, Library backups, and settings transfer.",
+        "description": "Feature overview group introduction"
+    },
+    "featureOverviewSettingsAppearanceTitle": {
+        "message": "Appearance and layout",
+        "description": "Feature overview title"
+    },
+    "featureOverviewSettingsAppearanceDescription": {
+        "message": "Choose light, dark, or page-matched appearance, accent color, text size, and ChatGPT content and input widths.",
+        "description": "Feature overview description"
+    },
+    "featureOverviewSettingsAppearanceEntry": {
+        "message": "Settings → Appearance & layout",
+        "description": "Feature overview entry"
+    },
+    "featureOverviewSettingsButtonsTitle": {
+        "message": "Button visibility and placement",
+        "description": "Feature overview title"
+    },
+    "featureOverviewSettingsButtonsDescription": {
+        "message": "Keep the page, reply, formula, selection, and directory controls you use and keep common actions visible.",
+        "description": "Feature overview description"
+    },
+    "featureOverviewSettingsButtonsEntry": {
+        "message": "Settings → Buttons",
+        "description": "Feature overview entry"
+    },
+    "featureOverviewSettingsContentRulesTitle": {
+        "message": "Content to keep",
+        "description": "Feature overview title"
+    },
+    "featureOverviewSettingsContentRulesDescription": {
+        "message": "Choose whether Reader, whole-reply copying, and message exports keep links and code blocks.",
+        "description": "Feature overview description"
+    },
+    "featureOverviewSettingsContentRulesEntry": {
+        "message": "Settings → Reading & messages → Content to keep",
+        "description": "Feature overview entry"
+    },
+    "featureOverviewSettingsContentRulesNote": {
+        "message": "By default, link destinations are removed and code blocks kept. Saved bookmarks and explicit selections are unchanged.",
+        "description": "Feature overview usage note"
+    },
+    "featureOverviewBackupLocalTitle": {
+        "message": "Library file backup",
+        "description": "Feature overview title"
+    },
+    "featureOverviewBackupLocalDescription": {
+        "message": "Take bookmarks, saved annotations, highlights, and folders with you, and preview the merge before importing.",
+        "description": "Feature overview description"
+    },
+    "featureOverviewBackupLocalEntry": {
+        "message": "Settings → Data & backup → Local backup; Library → Import",
+        "description": "Feature overview entry"
+    },
+    "featureOverviewBackupLocalNote": {
+        "message": "Does not include unsaved annotations, excerpts, prompts, or settings.",
+        "description": "Feature overview usage note"
+    },
+    "featureOverviewBackupDriveTitle": {
+        "message": "Google Drive backup",
+        "description": "Feature overview title"
+    },
+    "featureOverviewBackupDriveDescription": {
+        "message": "Manually back up Library, preview an earlier backup before restoring, and manage backups you no longer need.",
+        "description": "Feature overview description"
+    },
+    "featureOverviewBackupDriveEntry": {
+        "message": "Settings → Data & backup → Cloud backup",
+        "description": "Feature overview entry"
+    },
+    "featureOverviewBackupDriveNote": {
+        "message": "Experimental. Uploads only when you choose Back up now; this is not automatic syncing.",
+        "description": "Feature overview usage note"
+    },
+    "featureOverviewBackupSettingsTransferTitle": {
+        "message": "Settings import and export",
+        "description": "Feature overview title"
+    },
+    "featureOverviewBackupSettingsTransferDescription": {
+        "message": "Reuse preferences elsewhere, preview differences and choose categories before importing, or restore the settings from before an import.",
+        "description": "Feature overview description"
+    },
+    "featureOverviewBackupSettingsTransferEntry": {
+        "message": "Settings → Data & backup → Configuration files",
+        "description": "Feature overview entry"
+    },
+    "featureOverviewBackupSettingsTransferNote": {
+        "message": "Configuration files contain preferences only, not Library, prompts, account credentials, or custom annotation templates.",
+        "description": "Feature overview usage note"
+    },
+    "featureOverviewFunctionLabel": {
+        "message": "Feature",
+        "description": "Feature overview table column header"
+    },
+    "featureOverviewEntryColumnLabel": {
+        "message": "Description",
+        "description": "Feature overview table column header"
     }
 }

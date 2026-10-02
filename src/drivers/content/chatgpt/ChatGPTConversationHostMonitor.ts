@@ -4,6 +4,7 @@ import type { RenderedContentCompilerV2 as RenderedContentCompilerPortV2 } from 
 import type { SiteAdapter } from '../adapters/base';
 import type {
     ConversationContentRepository,
+    ConversationHostBatchAdmissionV1,
     ConversationHostTurnObservationV1,
 } from '../../../services/content/ConversationContentRepository';
 import {
@@ -48,6 +49,7 @@ export class ChatGPTConversationHostMonitor {
     private readonly dirtyAssistantIds = new Set<string>();
     private readonly capturedAssistantIdsByDocumentKey = new Map<string, Set<string>>();
     private readonly compileRejectionCounts = new Map<string, number>();
+    private readonly admissionRejectionCounts = new Map<string, number>();
     private unsubscribe: (() => void) | null = null;
     private settleTimer: ReturnType<typeof setTimeout> | null = null;
     private captureWindowStartedAt: number | null = null;
@@ -143,6 +145,13 @@ export class ChatGPTConversationHostMonitor {
     private observe(batch: ChatGPTHostObservationBatch): void {
         if (this.disposed || batch.kinds.every((kind) => kind === 'surface')) return;
         this.options.repository.bindCurrentDocument();
+        if (batch.surfaceRebased || batch.kinds.includes('structure') || batch.kinds.includes('identity')) {
+            // Preserve overlap while it is mounted; body compilation stays
+            // coalesced and uses this same PageIndex observation boundary.
+            const slots = collectChatGPTDomHostSlots(this.options.adapter);
+            this.recordAdmission(this.options.repository.admitHostBatch([], slots.map(slot => slot.id),
+                slots.flatMap(slot => slot.identity ? [{ hostSlotId: slot.id, ...slot.identity }] : []), this.readHostPlacement()));
+        }
         if (batch.surfaceRebased || batch.assistantMessageIds.length === 0) this.globalDirty = true;
         const forceKnownCapture = batch.kinds.includes('content')
             || batch.kinds.includes('identity')
@@ -212,6 +221,7 @@ export class ChatGPTConversationHostMonitor {
         const dirtyIds = new Set(this.dirtyAssistantIds);
         const hostSlots = collectChatGPTDomHostSlots(this.options.adapter);
         const observedHostSlotOrder = hostSlots.map((slot) => slot.id);
+        const hostPlacement = this.readHostPlacement();
         const rounds = this.options.index.getSnapshot();
         const observations: ConversationHostTurnObservationV1[] = [];
         const successfulIds = new Set<string>();
@@ -223,6 +233,7 @@ export class ChatGPTConversationHostMonitor {
             const assistantMessageId = identity.assistantMessageId;
             const hostSlotId = resolveChatGPTDomRoundHostSlotId(round, hostSlots);
             if (!hostSlotId) continue;
+            const capturedOwner = hostSlots.find(slot => slot.id === hostSlotId)?.element;
             const shouldCapture = captureAll || dirtyIds.has(assistantMessageId);
             if (!shouldCapture) continue;
 
@@ -249,24 +260,38 @@ export class ChatGPTConversationHostMonitor {
             ) {
                 return;
             }
+            if (this.ownerIdentityChanged(round, hostSlotId, capturedOwner, assistantMessageId)) {
+                // A recycled owner invalidates this clone, while an ordinary
+                // virtualized unmount does not invalidate obtained evidence.
+                this.dirtyAssistantIds.delete(assistantMessageId);
+                continue;
+            }
             if (!observation) {
                 this.dirtyAssistantIds.add(assistantMessageId);
                 continue;
             }
             observations.push(observation);
             successfulIds.add(assistantMessageId);
-            // An assistant-only capture can later regain its virtualized user
-            // prompt, so only complete turn pairs are safe to skip on remount.
-            if (observation.turn.identity.userMessageId) {
-                this.rememberCaptured(documentKey, assistantMessageId);
-            }
         }
 
-        if (observedHostSlotOrder.length > 0) {
-            this.options.repository.ingestHostBatch(observations, observedHostSlotOrder);
+        const admission = this.options.repository.admitHostBatch(observations, observedHostSlotOrder,
+            hostSlots.flatMap(slot => slot.identity ? [{ hostSlotId: slot.id, ...slot.identity }] : []), hostPlacement);
+        this.recordAdmission(admission);
+        const admittedIds = new Set(admission.admittedAssistantMessageIds);
+        for (const observation of observations) {
+            const assistantMessageId = observation.turn.identity.assistantMessageId;
+            if (!admittedIds.has(assistantMessageId)) {
+                this.dirtyAssistantIds.add(assistantMessageId);
+                continue;
+            }
+            // An assistant-only capture can later regain its virtualized user
+            // prompt, so only admitted complete pairs may be skipped on remount.
+            if (observation.turn.identity.userMessageId) this.rememberCaptured(documentKey, assistantMessageId);
         }
         if (revision === this.options.index.getObservationRevision()) {
-            for (const assistantMessageId of successfulIds) this.dirtyAssistantIds.delete(assistantMessageId);
+            for (const assistantMessageId of successfulIds) {
+                if (admittedIds.has(assistantMessageId)) this.dirtyAssistantIds.delete(assistantMessageId);
+            }
         } else {
             // Captured clones remain obtained evidence in this document.
             // New hydration invalidates the next pass, not unrelated bodies
@@ -279,6 +304,39 @@ export class ChatGPTConversationHostMonitor {
     private wasCapturedForCurrentDocument(assistantMessageId: string): boolean {
         const documentKey = this.options.resolveDocument()?.key;
         return Boolean(documentKey && this.capturedAssistantIdsByDocumentKey.get(documentKey)?.has(assistantMessageId));
+    }
+
+    private ownerIdentityChanged(round: ChatGPTDomRoundRef, slotId: string, capturedOwner: HTMLElement | undefined, assistantId: string): boolean {
+        if (round.assistantMessageEl.isConnected) {
+            return this.options.adapter.getMessageId(round.assistantMessageEl) !== assistantId;
+        }
+        const owner = capturedOwner?.isConnected ? capturedOwner
+            : collectChatGPTDomHostSlots(this.options.adapter).find(slot => slot.id === slotId)?.element;
+        if (!owner?.isConnected) return false;
+        const selector = this.options.adapter.getMessageSelector();
+        const messages = Array.from(owner.querySelectorAll<HTMLElement>(selector));
+        if (owner.matches(selector)) messages.push(owner);
+        return messages.some(message => {
+            const currentId = this.options.adapter.getMessageId(message);
+            return currentId !== null && currentId !== assistantId;
+        });
+    }
+
+    private readHostPlacement(): 'before' | 'after' | undefined {
+        const root = this.options.adapter.getConversationScrollRoot?.();
+        if (!root || root.clientHeight <= 0 || root.scrollHeight <= root.clientHeight) return undefined;
+        const reverse = window.getComputedStyle(root).flexDirection === 'column-reverse';
+        const distanceFromLatest = reverse ? Math.abs(root.scrollTop)
+            : Math.max(0, root.scrollHeight - root.clientHeight - root.scrollTop);
+        // History belongs before obtained content; a newly generated reply at
+        // the latest end belongs after it. This is a coarse fallback only.
+        return distanceFromLatest <= root.clientHeight ? 'after' : 'before';
+    }
+
+    private recordAdmission(admission: ConversationHostBatchAdmissionV1): void {
+        if (!admission.rejectionReason) return;
+        const reason = admission.rejectionReason;
+        this.admissionRejectionCounts.set(reason, (this.admissionRejectionCounts.get(reason) ?? 0) + 1);
     }
 
     private rememberCaptured(documentKey: string | null, assistantMessageId: string): void {
@@ -362,6 +420,7 @@ export class ChatGPTConversationHostMonitor {
             stableCaptureCount: this.stableCaptureCount,
             dirtyAssistantCount: this.dirtyAssistantIds.size,
             compileRejections: Object.freeze(Object.fromEntries(this.compileRejectionCounts)),
+            admissionRejections: Object.freeze(Object.fromEntries(this.admissionRejectionCounts)),
         };
     }
 }

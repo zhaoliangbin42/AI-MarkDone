@@ -47,7 +47,7 @@ describe('motionLifecycle', () => {
         expect(panel.style.transform).toBe('translate(-50%, -50%) scale(1)');
     });
 
-    it('uses a fade-only opening motion for fullscreen reader panels', () => {
+    it.each(['reader', 'bookmarks'])('uses a fade-only opening motion for fullscreen %s panels', (family) => {
         const callbacks = new Map<number, FrameRequestCallback>();
         let nextId = 1;
 
@@ -61,7 +61,7 @@ describe('motionLifecycle', () => {
         }) as typeof window.cancelAnimationFrame;
 
         const panel = document.createElement('div');
-        panel.className = 'panel-window panel-window--reader';
+        panel.className = `panel-window panel-window--${family}`;
         panel.dataset.fullscreen = '1';
         document.body.appendChild(panel);
 

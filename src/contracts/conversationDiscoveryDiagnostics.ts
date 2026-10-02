@@ -35,6 +35,8 @@ export type DiscoveryHostMonitorFactsV1 = Readonly<{
     dirtyAssistantCount: number;
     /** Compiler rejection reason -> occurrence count. */
     compileRejections: Readonly<Record<string, number>>;
+    /** Admission/order rejections are separate from parser failures. */
+    admissionRejections?: Readonly<Record<string, number>>;
 }>;
 
 export type DiscoveryDiagnosticsSnapshotV1 = Readonly<{

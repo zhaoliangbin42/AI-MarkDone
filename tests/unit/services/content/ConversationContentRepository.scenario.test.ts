@@ -283,6 +283,79 @@ describe('ConversationContentRepository DOM pool', () => {
         ]);
     });
 
+    it('accepts a late older source baseline around shared DOM anchors and preserves the newer tail', () => {
+        const ref = documentRef('late-source-new-tail');
+        const repository = new ConversationContentRepository({ resolveDocument: () => ref });
+        repository.ingestHostBatch([5, 6, 7].map(index => observation(turn(index, `DOM ${index}`), null)));
+        repository.ingestSourceCandidate(sourceCandidate(ref, ...[1, 2, 3, 4, 5, 6].map(index => turn(index, `Source ${index}`))));
+        expect(repository.read().snapshot?.turns.map(item => item.assistantMarkdown)).toEqual(['Source 1', 'Source 2', 'Source 3', 'Source 4', 'DOM 5', 'DOM 6', 'DOM 7']);
+        expect(repository.read().snapshot?.historyStatus).toBe('get');
+    });
+
+    it('fills source-only history around a shared DOM anchor while retaining its newer tail', () => {
+        const ref = documentRef('ambiguous-source-tail');
+        const repository = new ConversationContentRepository({ resolveDocument: () => ref });
+        repository.ingestHostBatch([5, 7].map(index => observation(turn(index, `DOM ${index}`), null)));
+        repository.ingestSourceCandidate(sourceCandidate(ref, ...[1, 2, 3, 4, 5, 6].map(index => turn(index, `Source ${index}`))));
+        expect(repository.read().snapshot?.turns.map(item => item.assistantMarkdown)).toEqual(['Source 1', 'Source 2', 'Source 3', 'Source 4', 'DOM 5', 'Source 6', 'DOM 7']);
+    });
+
+    it('preserves the same source-history projection when the baseline arrives before the DOM', () => {
+        const ref = documentRef('source-first-ambiguous-tail');
+        const repository = new ConversationContentRepository({ resolveDocument: () => ref });
+        repository.ingestSourceCandidate(sourceCandidate(ref, ...[1, 2, 3, 4, 5, 6].map(index => turn(index, `Source ${index}`))));
+        const first = repository.admitHostBatch([5, 7].map(index => observation(turn(index, `DOM ${index}`), null)));
+        expect(first.admittedAssistantMessageIds).toEqual(['assistant-5', 'assistant-7']);
+        expect(repository.read().snapshot?.turns.map(item => item.assistantMarkdown)).toEqual(['Source 1', 'Source 2', 'Source 3', 'Source 4', 'DOM 5', 'Source 6', 'DOM 7']);
+        const admitted = repository.admitHostBatch([5, 6, 7].map(index => observation(turn(index, `DOM ${index}`), null)));
+        expect(admitted.admittedAssistantMessageIds).toEqual(['assistant-5', 'assistant-6', 'assistant-7']);
+        expect(repository.read().snapshot?.turns.map(item => item.assistantMarkdown)).toEqual(['Source 1', 'Source 2', 'Source 3', 'Source 4', 'DOM 5', 'DOM 6', 'DOM 7']);
+    });
+
+    it('rejects a late source with no shared DOM identities or reversed shared identities', () => {
+        const ref = documentRef('unproved-source');
+        const repository = new ConversationContentRepository({ resolveDocument: () => ref });
+        repository.ingestHostBatch([5, 6].map(index => observation(turn(index, `DOM ${index}`), null)));
+        const before = repository.read().snapshot;
+        repository.ingestSourceCandidate(sourceCandidate(ref, turn(1, 'Unrelated')));
+        expect(repository.read().snapshot).toBe(before);
+        repository.ingestSourceCandidate(sourceCandidate(ref, turn(6, 'Reversed 6'), turn(5, 'Reversed 5')));
+        expect(repository.read().snapshot).toBe(before);
+    });
+
+    it('keeps source-to-source seed compatibility separate from pragmatic DOM insertion', () => {
+        const ref = documentRef('source-seed-policy');
+        const repository = new ConversationContentRepository({ resolveDocument: () => ref });
+        repository.ingestSourceCandidate(sourceCandidate(ref, turn(1, 'Source 1'), turn(2, 'Source 2'), turn(4, 'Source 4')));
+        const before = repository.read().snapshot;
+        repository.ingestSourceCandidate(sourceCandidate(ref, turn(1, 'Changed 1'), turn(3, 'Source 3'), turn(4, 'Changed 4')));
+        expect(repository.read().snapshot).toBe(before);
+    });
+
+    it('uses accepted source identities to connect disjoint host windows', () => {
+        const ref = documentRef('source-host-anchors');
+        const repository = new ConversationContentRepository({ resolveDocument: () => ref });
+        repository.ingestSourceCandidate(sourceCandidate(ref, ...[1, 2, 3, 4, 5, 6].map(index => turn(index, `Source ${index}`))));
+        repository.ingestHostBatch([5, 6].map(index => observation(turn(index, `DOM ${index}`), null)));
+        const admission = repository.admitHostBatch([1, 2].map(index => observation(turn(index, `DOM ${index}`), null)));
+        expect(admission.admittedAssistantMessageIds).toEqual(['assistant-1', 'assistant-2']);
+        expect(repository.read().snapshot?.turns.map(item => item.assistantMarkdown)).toEqual(['DOM 1', 'DOM 2', 'Source 3', 'Source 4', 'DOM 5', 'DOM 6']);
+    });
+
+    it('validates a late source projection before modifying private state', () => {
+        const ref = documentRef('invalid-source-projection');
+        const repository = new ConversationContentRepository({ resolveDocument: () => ref });
+        repository.ingestHostBatch([observation(turn(1, 'DOM 1'), null)]);
+        const before = repository.read().snapshot;
+        const incoming = turn(2, 'Invalid source');
+        const invalid = { ...incoming, identity: { ...incoming.identity, turnId: 'turn-1' } };
+        repository.ingestSourceCandidate(sourceCandidate(ref, turn(1, 'Source 1'), invalid));
+        expect(repository.read().snapshot).toBe(before);
+        expect(repository.readDiagnosticsFacts().turnCount).toBe(1);
+        repository.ingestSourceCandidate(sourceCandidate(ref, turn(1, 'Source 1'), turn(2, 'Source 2')));
+        expect(repository.read().snapshot?.turns.map(item => item.assistantMarkdown)).toEqual(['DOM 1', 'Source 2']);
+    });
+
     it('does not let an unrelated host-slot sequence rewrite established order', () => {
         const ref = documentRef('disconnected-window');
         const repository = new ConversationContentRepository({ resolveDocument: () => ref });

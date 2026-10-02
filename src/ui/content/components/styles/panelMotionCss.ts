@@ -10,11 +10,13 @@ export function getPanelMotionCss(): string {
   animation: aimd-panel-pop-out var(--_surface-motion-close-duration, var(--aimd-duration-fast)) var(--_surface-motion-close-easing, var(--aimd-ease-in-out)) both;
 }
 
-.panel-window--reader[data-fullscreen="1"][data-motion-state="opening"]:not([data-motion-runtime]) {
+.panel-window--reader[data-fullscreen="1"][data-motion-state="opening"]:not([data-motion-runtime]),
+.panel-window--bookmarks[data-fullscreen="1"][data-motion-state="opening"]:not([data-motion-runtime]) {
   animation: aimd-reader-fullscreen-fade-in var(--_surface-motion-open-duration, var(--aimd-duration-base)) var(--_surface-motion-open-easing, var(--aimd-ease-out)) both;
 }
 
-.panel-window--reader[data-fullscreen="1"][data-motion-state="closing"] {
+.panel-window--reader[data-fullscreen="1"][data-motion-state="closing"],
+.panel-window--bookmarks[data-fullscreen="1"][data-motion-state="closing"] {
   animation: aimd-reader-fullscreen-fade-out var(--_surface-motion-close-duration, var(--aimd-duration-fast)) var(--_surface-motion-close-easing, var(--aimd-ease-in-out)) both;
 }
 
@@ -71,12 +73,14 @@ export function getPanelMotionCss(): string {
     animation-timing-function: var(--_surface-motion-close-easing, var(--aimd-ease-in-out));
   }
 
-  .panel-window--reader[data-fullscreen="1"][data-motion-state="opening"]:not([data-motion-runtime]) {
+  .panel-window--reader[data-fullscreen="1"][data-motion-state="opening"]:not([data-motion-runtime]),
+  .panel-window--bookmarks[data-fullscreen="1"][data-motion-state="opening"]:not([data-motion-runtime]) {
     animation-duration: var(--_surface-motion-open-duration, 0s);
     animation-timing-function: var(--_surface-motion-open-easing, var(--aimd-ease-in-out));
   }
 
-  .panel-window--reader[data-fullscreen="1"][data-motion-state="closing"] {
+  .panel-window--reader[data-fullscreen="1"][data-motion-state="closing"],
+  .panel-window--bookmarks[data-fullscreen="1"][data-motion-state="closing"] {
     animation-duration: var(--_surface-motion-close-duration, 0s);
     animation-timing-function: var(--_surface-motion-close-easing, var(--aimd-ease-in-out));
   }

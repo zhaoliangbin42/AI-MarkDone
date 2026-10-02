@@ -22,6 +22,18 @@ export type ConversationHostTurnObservationV1 = Readonly<{
     hostSlotId: string;
 }>;
 
+export type ConversationHostSlotIdentityV1 = Readonly<{
+    hostSlotId: string;
+    assistantMessageId: string;
+    userMessageId: string | null;
+}>;
+
+export type ConversationHostBatchAdmissionV1 = Readonly<{
+    state: ConversationContentStateV1;
+    admittedAssistantMessageIds: readonly string[];
+    rejectionReason: 'unbound' | 'order-unproven' | 'identity-conflict' | null;
+}>;
+
 export type ConversationContentRepositoryOptionsV1 = Readonly<{
     resolveDocument: () => ConversationDocumentRefV1 | null;
     readBaseline?: (
@@ -40,6 +52,8 @@ type ConversationPool = {
     sourceAttempted: boolean;
     basis: 'source' | 'hybrid' | 'host' | null;
     slotOrder: readonly string[];
+    hostSlotAliases: Map<string, string>;
+    hostSlotProofByAssistantId: Map<string, ConversationHostSlotIdentityV1>;
     turnsByAssistantId: Map<string, ConversationTurnV1>;
     slotIdByAssistantId: Map<string, string>;
     assistantIdBySlotId: Map<string, string>;
@@ -186,7 +200,15 @@ export class ConversationContentRepository implements ConversationContentSourceV
         if (new Set(incomingOrder).size !== incomingOrder.length) return this.state;
 
         const nextSourceOrder = mergeStableOrder(pool.sourceOrder, incomingOrder);
-        if (!nextSourceOrder || !isOrderCompatibleWithDom(pool, nextSourceOrder)) return this.state;
+        if (!nextSourceOrder || !isSharedOrderCompatibleWithDom(pool, nextSourceOrder)) return this.state;
+        const nextTurnsByAssistantId = new Map(pool.turnsByAssistantId);
+        for (const turn of turns) {
+            if (pool.acquisitionModeByAssistantId.get(turn.identity.assistantMessageId) !== 'dom-fallback') {
+                nextTurnsByAssistantId.set(turn.identity.assistantMessageId, turn);
+            }
+        }
+        const projectedTurns = buildProjectedTurns({ ...pool, sourceOrder: nextSourceOrder, turnsByAssistantId: nextTurnsByAssistantId });
+        if (!isPublishableProjection(document, pool, projectedTurns)) return this.state;
 
         const previousStatus = pool.historyStatus;
         const previousBasis = pool.basis;
@@ -206,7 +228,6 @@ export class ConversationContentRepository implements ConversationContentSourceV
             pool.acquisitionModeByAssistantId.set(assistantMessageId, 'get');
         }
         pool.basis = pool.basis === 'host' || pool.domObservedAssistantIds.size > 0 ? 'hybrid' : 'source';
-        const projectedTurns = buildProjectedTurns(pool);
         const sourceAddedNewTurn = projectedTurns.some((turn) => (
             !previousTurns.some((existing) => existing.identity.assistantMessageId === turn.identity.assistantMessageId)
         ));
@@ -236,27 +257,67 @@ export class ConversationContentRepository implements ConversationContentSourceV
             (observation) => observation.hostSlotId,
         ),
     ): ConversationContentStateV1 {
-        if (this.disposed || (observations.length === 0 && observedHostSlotOrder.length === 0)) return this.state;
+        return this.admitHostBatch(observations, observedHostSlotOrder).state;
+    }
+
+    /** A compiled body is obtained only after its identity and order are admitted. */
+    admitHostBatch(
+        observations: readonly ConversationHostTurnObservationV1[],
+        observedHostSlotOrder: readonly string[] = observations.map(observation => observation.hostSlotId),
+        slotIdentities: readonly ConversationHostSlotIdentityV1[] = [],
+        placement?: 'before' | 'after',
+    ): ConversationHostBatchAdmissionV1 {
+        const result = (admittedAssistantMessageIds: readonly string[], rejectionReason: ConversationHostBatchAdmissionV1['rejectionReason']): ConversationHostBatchAdmissionV1 => Object.freeze({
+            state: this.state,
+            admittedAssistantMessageIds: Object.freeze([...admittedAssistantMessageIds]),
+            rejectionReason,
+        });
+        if (this.disposed) return result([], 'unbound');
+        if (observations.length === 0 && observedHostSlotOrder.length === 0) return result([], null);
         this.bindCurrentDocument();
         const pool = this.activePool;
-        if (!pool || !this.currentDocument) return this.state;
+        if (!pool || !this.currentDocument) return result([], 'unbound');
 
-        const previousSlotOrder = pool.slotOrder;
+        const retainedSlotOrder = pool.slotOrder;
         const previousHistoryStatus = pool.historyStatus;
-        const normalizedObservedHostSlotOrder = normalizeSlotOrder(observedHostSlotOrder);
-        if (
-            previousSlotOrder.length > 0
-            && normalizedObservedHostSlotOrder.length > 0
-            && !sameStringSequence(previousSlotOrder, normalizedObservedHostSlotOrder)
-            && !containsContiguousSequence(normalizedObservedHostSlotOrder, previousSlotOrder)
-            && !containsContiguousSequence(previousSlotOrder, normalizedObservedHostSlotOrder)
-        ) {
-            return this.state;
+        const rawObservedOrder = normalizeSlotOrder(observedHostSlotOrder);
+        const nextAliases = new Map(pool.hostSlotAliases);
+        const resolveSlot = (id: string) => nextAliases.get(id) ?? id;
+        const identityFactsUnchanged = slotIdentities.every(fact => {
+            const known = pool.hostSlotProofByAssistantId.get(fact.assistantMessageId.trim());
+            const userId = fact.userMessageId?.trim();
+            return known?.hostSlotId === resolveSlot(fact.hostSlotId.trim()) && (!userId || userId === known.userMessageId);
+        });
+        if (observations.length === 0 && identityFactsUnchanged && containsSubsequence(retainedSlotOrder, rawObservedOrder.map(resolveSlot))) {
+            return result([], null);
         }
-
-        const nextSlotOrder = reconcileHostSlotOrder(previousSlotOrder, normalizedObservedHostSlotOrder);
-        const topologyExpanded = nextSlotOrder.length > previousSlotOrder.length;
-        const knownSlots = new Set(nextSlotOrder);
+        const knownSlots = new Set([...retainedSlotOrder, ...rawObservedOrder]);
+        const nextSlotProofs = new Map(pool.hostSlotProofByAssistantId);
+        const assistantByProvedSlot = new Map([...nextSlotProofs.values()].map(proof => [proof.hostSlotId, proof.assistantMessageId]));
+        const identityFacts = [...slotIdentities, ...observations.map(observation => ({ hostSlotId: observation.hostSlotId, ...observation.turn.identity }))];
+        for (const fact of identityFacts) {
+            const rawSlotId = fact.hostSlotId.trim();
+            const assistantMessageId = fact.assistantMessageId.trim();
+            if (!assistantMessageId || !knownSlots.has(rawSlotId)) continue;
+            const existingProof = nextSlotProofs.get(assistantMessageId);
+            const existingTurn = pool.turnsByAssistantId.get(assistantMessageId);
+            const knownUserId = existingProof?.userMessageId || existingTurn?.identity.userMessageId || null;
+            const userMessageId = fact.userMessageId?.trim() || null;
+            if (knownUserId && userMessageId && knownUserId !== userMessageId) return result([], 'identity-conflict');
+            let slotId = resolveSlot(rawSlotId);
+            const owner = assistantByProvedSlot.get(slotId) || pool.assistantIdBySlotId.get(slotId);
+            if (owner && owner !== assistantMessageId) return result([], 'identity-conflict');
+            const existingSlotId = existingProof?.hostSlotId || pool.slotIdByAssistantId.get(assistantMessageId);
+            if (existingSlotId && existingSlotId !== slotId) {
+                // Exact topology identity proves owner continuity even before
+                // completion; body readiness is a separate admission boundary.
+                if (rawObservedOrder.some(id => id !== rawSlotId && resolveSlot(id) === existingSlotId)) return result([], 'identity-conflict');
+                nextAliases.set(rawSlotId, existingSlotId);
+                slotId = existingSlotId;
+            }
+            assistantByProvedSlot.set(slotId, assistantMessageId);
+            nextSlotProofs.set(assistantMessageId, Object.freeze({ hostSlotId: slotId, assistantMessageId, userMessageId: userMessageId || knownUserId }));
+        }
         const pendingObservations: Array<{
             turn: ConversationTurnV1;
             hostSlotId: string;
@@ -266,19 +327,32 @@ export class ConversationContentRepository implements ConversationContentSourceV
         const pendingAssistantSlotIds = new Map<string, string>();
         const pendingSlotAssistantIds = new Map<string, string>();
         for (const observation of observations) {
-            const incoming = normalizeTurn(observation.turn, 1);
-            const hostSlotId = observation.hostSlotId.trim();
-            if (!incoming || !hostSlotId || !knownSlots.has(hostSlotId)) continue;
+            let incoming = normalizeTurn(observation.turn, 1);
+            const rawSlotId = observation.hostSlotId.trim();
+            if (!incoming || !rawSlotId || !knownSlots.has(rawSlotId)) continue;
 
             const assistantMessageId = incoming.identity.assistantMessageId;
+            const existing = pool.turnsByAssistantId.get(assistantMessageId);
+            if (existing) {
+                const knownUserId = existing.identity.userMessageId;
+                const incomingUserId = incoming.identity.userMessageId;
+                if (knownUserId && incomingUserId && knownUserId !== incomingUserId) return result([], 'identity-conflict');
+                incoming = normalizeTurn({
+                    ...incoming,
+                    key: existing.key,
+                    identity: { ...incoming.identity, turnId: existing.identity.turnId, userMessageId: incomingUserId || knownUserId },
+                    userText: incoming.userText || existing.userText,
+                }, 1)!;
+            }
             const existingSlotId = pool.slotIdByAssistantId.get(assistantMessageId);
+            const hostSlotId = resolveSlot(rawSlotId);
             const existingAssistantId = pool.assistantIdBySlotId.get(hostSlotId);
             if (
-                (existingSlotId && existingSlotId !== hostSlotId)
-                || (existingAssistantId && existingAssistantId !== assistantMessageId)
+                existingAssistantId && existingAssistantId !== assistantMessageId
             ) {
-                return this.state;
+                return result([], 'identity-conflict');
             }
+            if (existingSlotId && existingSlotId !== hostSlotId) return result([], 'identity-conflict');
             const digest = digestTurnContent(incoming);
             const pendingSlotId = pendingAssistantSlotIds.get(assistantMessageId);
             const pendingAssistantId = pendingSlotAssistantIds.get(hostSlotId);
@@ -286,13 +360,13 @@ export class ConversationContentRepository implements ConversationContentSourceV
                 (pendingSlotId && pendingSlotId !== hostSlotId)
                 || (pendingAssistantId && pendingAssistantId !== assistantMessageId)
             ) {
-                return this.state;
+                return result([], 'identity-conflict');
             }
             const pendingDuplicate = pendingObservations.find((candidate) => (
                 candidate.assistantMessageId === assistantMessageId
                 && candidate.hostSlotId === hostSlotId
             ));
-            if (pendingDuplicate && pendingDuplicate.digest !== digest) return this.state;
+            if (pendingDuplicate && pendingDuplicate.digest !== digest) return result([], 'identity-conflict');
             if (pendingDuplicate) continue;
             pendingAssistantSlotIds.set(assistantMessageId, hostSlotId);
             pendingSlotAssistantIds.set(hostSlotId, assistantMessageId);
@@ -304,31 +378,77 @@ export class ConversationContentRepository implements ConversationContentSourceV
             });
         }
 
+        const resolvedRetainedOrder = retainedSlotOrder.map(resolveSlot).filter((id, index, order) => index === 0 || id !== order[index - 1]);
+        if (!placement && new Set(resolvedRetainedOrder).size !== resolvedRetainedOrder.length) return result([], 'order-unproven');
+        const previousSlotOrder = normalizeSlotOrder(resolvedRetainedOrder);
+        const normalizedObservedHostSlotOrder = normalizeSlotOrder(rawObservedOrder.map(resolveSlot));
+        if (normalizedObservedHostSlotOrder.length !== rawObservedOrder.length) return result([], 'identity-conflict');
         const nextAssistantBySlot = new Map(pool.assistantIdBySlotId);
         for (const observation of pendingObservations) {
             nextAssistantBySlot.set(observation.hostSlotId, observation.assistantMessageId);
         }
+        let nextSlotOrder = reconcileHostSlotOrder(previousSlotOrder, normalizedObservedHostSlotOrder);
+        if (!nextSlotOrder && pool.sourceOrder.length > 0) {
+            // Accepted source identities can connect disjoint DOM windows;
+            // provisional source order never overrides shared DOM anchors.
+            const slotsByAssistant = new Map([...nextSlotProofs].map(([id, proof]) => [id, proof.hostSlotId]));
+            const sourceSlots = pool.sourceOrder.flatMap(id => {
+                const slot = slotsByAssistant.get(id);
+                return slot ? [slot] : [];
+            });
+            nextSlotOrder = reconcileHostSlotOrder(previousSlotOrder, normalizedObservedHostSlotOrder, sourceSlots);
+        }
+        if (!nextSlotOrder && placement) {
+            const shared = normalizedObservedHostSlotOrder.some(id => previousSlotOrder.includes(id));
+            // A virtualized jump may expose no overlap at all. Keep obtained
+            // bodies using the page's batch placement, then let a real shared
+            // window correct the tentative ordering rather than discard them.
+            nextSlotOrder = shared
+                ? mergeProjectionOrder(previousSlotOrder, normalizedObservedHostSlotOrder)
+                : normalizeSlotOrder(placement === 'before'
+                    ? [...normalizedObservedHostSlotOrder, ...previousSlotOrder]
+                    : [...previousSlotOrder, ...normalizedObservedHostSlotOrder]);
+        }
+        if (!nextSlotOrder) return result([], 'order-unproven');
+        const topologyExpanded = nextSlotOrder.length > previousSlotOrder.length;
         const nextDomAssistantOrder = readDomAssistantOrder(pool, nextAssistantBySlot, nextSlotOrder);
+        let nextSourceOrder = pool.sourceOrder;
         if (!isOrderCompatibleWithDom(pool, pool.sourceOrder, nextAssistantBySlot, nextSlotOrder)) {
             // Source order is provisional. Once DOM proves a conflicting
             // relative order, keep the same pool but let DOM become the order
             // authority and reinsert source-only turns around that evidence.
-            pool.sourceOrder = mergeProjectionOrder(pool.sourceOrder, nextDomAssistantOrder);
+            nextSourceOrder = mergeProjectionOrder(pool.sourceOrder, nextDomAssistantOrder);
         }
+        const nextTurnsByAssistantId = new Map(pool.turnsByAssistantId);
+        for (const observation of pendingObservations) {
+            if (pool.digests.get(observation.assistantMessageId) !== observation.digest) {
+                nextTurnsByAssistantId.set(observation.assistantMessageId, observation.turn);
+            }
+        }
+        const nextTurns = buildProjectedTurns({
+            ...pool,
+            slotOrder: nextSlotOrder,
+            sourceOrder: nextSourceOrder,
+            assistantIdBySlotId: nextAssistantBySlot,
+            turnsByAssistantId: nextTurnsByAssistantId,
+        });
+        if (!isPublishableProjection(this.currentDocument, pool, nextTurns)) return result([], 'identity-conflict');
 
+        pool.sourceOrder = nextSourceOrder;
         pool.slotOrder = nextSlotOrder;
+        pool.hostSlotAliases = nextAliases;
+        pool.hostSlotProofByAssistantId = nextSlotProofs;
         for (const observation of pendingObservations) {
             const { turn: incoming, hostSlotId, assistantMessageId, digest } = observation;
             pool.domObservedAssistantIds.add(assistantMessageId);
-            if (pool.digests.get(assistantMessageId) === digest) continue;
             pool.slotIdByAssistantId.set(assistantMessageId, hostSlotId);
             pool.assistantIdBySlotId.set(hostSlotId, assistantMessageId);
+            pool.acquisitionModeByAssistantId.set(assistantMessageId, 'dom-fallback');
+            if (pool.digests.get(assistantMessageId) === digest) continue;
             pool.turnsByAssistantId.set(assistantMessageId, incoming);
             pool.digests.set(assistantMessageId, digest);
-            pool.acquisitionModeByAssistantId.set(assistantMessageId, 'dom-fallback');
         }
 
-        const nextTurns = buildProjectedTurns(pool);
         const turnProjectionChanged = !sameTurnProjection(pool.turns, nextTurns);
         const newTurnDiscovered = nextTurns.some((turn) => (
             !pool.turns.some((existing) => (
@@ -342,11 +462,12 @@ export class ConversationContentRepository implements ConversationContentSourceV
             pool.basis = pool.sourceOrder.length > 0 ? 'hybrid' : 'host';
         }
         const historyStatusChanged = pool.historyStatus !== previousHistoryStatus;
-        if (!turnProjectionChanged && !historyStatusChanged) return this.state;
+        const admittedIds = pendingObservations.map(observation => observation.assistantMessageId);
+        if (!turnProjectionChanged && !historyStatusChanged) return result(admittedIds, null);
 
         pool.turns = nextTurns;
         this.publishProjection();
-        return this.state;
+        return result(admittedIds, null);
     }
 
     isCurrent(contentToken: string): boolean {
@@ -464,6 +585,8 @@ export class ConversationContentRepository implements ConversationContentSourceV
             sourceAttempted: false,
             basis: null,
             slotOrder: Object.freeze([]),
+            hostSlotAliases: new Map(),
+            hostSlotProofByAssistantId: new Map(),
             turnsByAssistantId: new Map(),
             slotIdByAssistantId: new Map(),
             assistantIdBySlotId: new Map(),
@@ -542,6 +665,21 @@ function buildProjectedTurns(pool: ConversationPool): readonly ConversationTurnV
     }));
 }
 
+function isPublishableProjection(document: ConversationDocumentRefV1, pool: ConversationPool, turns: readonly ConversationTurnV1[]): boolean {
+    // Validate before committing: a private pool must never acknowledge data
+    // that its public V1 snapshot cannot publish (e.g. reused display IDs).
+    return isConversationSnapshotV1({
+        schemaVersion: 1,
+        document,
+        projectionId: pool.projectionId,
+        contentToken: 'pending-projection',
+        coverage: 'complete',
+        historyStatus: pool.historyStatus,
+        turns,
+        proof: { basis: pool.basis ?? 'host' },
+    });
+}
+
 function mergeProjectionOrder(
     sourceOrder: readonly string[],
     domOrder: readonly string[],
@@ -590,6 +728,18 @@ function isOrderCompatibleWithDom(
     return containsSubsequence(sourceOrder, domAssistantOrder);
 }
 
+function isSharedOrderCompatibleWithDom(pool: ConversationPool, sourceOrder: readonly string[]): boolean {
+    const domOrder = readDomAssistantOrder(pool, pool.assistantIdBySlotId);
+    if (domOrder.length === 0) return true;
+    const sourceIds = new Set(sourceOrder);
+    const domIds = new Set(domOrder);
+    const sharedDom = domOrder.filter(id => sourceIds.has(id));
+    const sharedSource = sourceOrder.filter(id => domIds.has(id));
+    // A late seed may omit a newer DOM tail. Only shared identities must
+    // agree; source-only history keeps the established projection policy.
+    return sharedDom.length > 0 && sameStringSequence(sharedDom, sharedSource);
+}
+
 function readDomAssistantOrder(
     pool: ConversationPool,
     assistantBySlot: ReadonlyMap<string, string>,
@@ -615,7 +765,7 @@ function normalizeSlotOrder(order: readonly string[]): readonly string[] {
     const seen = new Set<string>();
     for (const rawId of order) {
         const id = rawId.trim();
-        if (!id || id === 'client-created-root' || seen.has(id)) continue;
+        if (!id || id === 'client-created-root' || id.startsWith('fallback-turn-') || seen.has(id)) continue;
         seen.add(id);
         normalized.push(id);
     }
@@ -625,23 +775,42 @@ function normalizeSlotOrder(order: readonly string[]): readonly string[] {
 function reconcileHostSlotOrder(
     existingOrder: readonly string[],
     observedOrder: readonly string[],
-): readonly string[] {
+    anchorOrder: readonly string[] = [],
+): readonly string[] | null {
     const observed = normalizeSlotOrder(observedOrder);
     if (observed.length === 0 || sameStringSequence(existingOrder, observed)) return existingOrder;
     if (existingOrder.length === 0) return observed;
-    if (containsContiguousSequence(observed, existingOrder)) return observed;
-    if (containsContiguousSequence(existingOrder, observed)) return existingOrder;
-    return existingOrder;
-}
+    if (containsSubsequence(existingOrder, observed)) return existingOrder;
+    if (containsSubsequence(observed, existingOrder)) return observed;
 
-function containsContiguousSequence(haystack: readonly string[], needle: readonly string[]): boolean {
-    if (needle.length === 0) return true;
-    if (needle.length > haystack.length) return false;
-    const lastStart = haystack.length - needle.length;
-    for (let start = 0; start <= lastStart; start += 1) {
-        if (needle.every((value, offset) => haystack[start + offset] === value)) return true;
+    const existingIds = new Set(existingOrder);
+    const observedIds = new Set(observed);
+    const shared = observed.filter(id => existingIds.has(id));
+    if (!sameStringSequence(existingOrder.filter(id => observedIds.has(id)), shared)) return null;
+    if (shared.length === 0) {
+        const allIds = new Set([...existingOrder, ...observed]);
+        const anchored = normalizeSlotOrder(anchorOrder.filter(id => allIds.has(id)));
+        return anchored.length === allIds.size
+            && containsSubsequence(anchored, existingOrder)
+            && containsSubsequence(anchored, observed) ? anchored : null;
     }
-    return false;
+
+    // Keep obtained order. Where unseen ranges have several valid interleavings,
+    // use the current window's next shared neighbour instead of blocking hydration.
+    const before = new Map<string, string[]>();
+    let pending: string[] = [];
+    let lastAnchor = shared[0]!;
+    for (const id of observed) {
+        if (!existingIds.has(id)) pending.push(id);
+        else {
+            if (pending.length > 0) before.set(id, pending);
+            pending = [];
+            lastAnchor = id;
+        }
+    }
+    return Object.freeze(existingOrder.flatMap(id => [
+        ...(before.get(id) ?? []), id, ...(id === lastAnchor ? pending : []),
+    ]));
 }
 
 function containsSubsequence(haystack: readonly string[], needle: readonly string[]): boolean {

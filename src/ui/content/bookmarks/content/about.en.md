@@ -1,4 +1,4 @@
-# About
+# About the author
 
 AI-MarkDone did not start as some grand product idea. It started as me trying to fix a workflow that kept getting in my way. I am a graduate student, and ChatGPT is one of the tools I use all the time. It is useful, obviously, but once it became part of my daily workbench, the rough edges of the web experience got harder and harder to ignore.
 

@@ -193,7 +193,7 @@ async function showSettingsAndCloudBackup(host: HTMLElement): Promise<void> {
     cloudBackup?.scrollIntoView({ block: 'center' });
 }
 
-async function showInfoTab(host: HTMLElement, tabId: 'about' | 'feedback' | 'mappamory'): Promise<void> {
+async function showInfoTab(host: HTMLElement, tabId: 'features' | 'about' | 'feedback' | 'mappamory'): Promise<void> {
     const shadow = host.shadowRoot!;
     shadow.querySelector<HTMLButtonElement>(`.tab-btn[data-tab-id="${tabId}"]`)?.click();
     await nextTask();
@@ -216,11 +216,11 @@ async function applyVariant(next: VisualHarnessVariant): Promise<void> {
 
     const zh = next.locale === 'zh_CN';
     document.querySelector<HTMLElement>('[data-role="fixture-title"]')!.textContent = zh
-        ? '书签工作区入口'
-        : 'Bookmarks workspace entry';
+        ? '管理面板入口'
+        : 'Management panel entry';
     document.querySelector<HTMLElement>('[data-role="fixture-description"]')!.textContent = zh
-        ? '真实页面控制按钮会打开生产环境中的书签面板。'
-        : 'The real page control opens the production Bookmarks panel.';
+        ? '真实页面控件会打开资料库与设置。'
+        : 'The real page control opens Library and Settings.';
 
     controller.setAppearance(createAppearanceSnapshot(next.theme));
     stepper = new ChatGPTMessageStepperController(adapter, {
@@ -240,7 +240,9 @@ async function applyVariant(next: VisualHarnessVariant): Promise<void> {
 
     const host = await openFromPageControl();
     const requestedView = fixtureParams.get('view');
-    if (requestedView === 'library' || requestedView === 'settings') {
+    if (requestedView === 'features') {
+        await showInfoTab(host, 'features');
+    } else if (requestedView === 'library' || requestedView === 'settings') {
         const tabId = requestedView === 'library' ? 'bookmarks' : 'settings';
         const button = host.shadowRoot?.querySelector<HTMLButtonElement>(`[data-action="set-bookmarks-tab"][data-tab="${tabId}"]`);
         if (!button) throw new Error(`Missing workspace view trigger: ${requestedView}`);
@@ -253,6 +255,10 @@ async function applyVariant(next: VisualHarnessVariant): Promise<void> {
         await showInfoTab(host, next.theme === 'light' ? 'feedback' : 'mappamory');
     } else if (next.theme === 'dark') {
         await showSettingsAndCloudBackup(host);
+    }
+    if (fixtureParams.get('fullscreen') === '1') {
+        host.shadowRoot?.querySelector<HTMLButtonElement>('[data-action="workspace-fullscreen"]')?.click();
+        await nextTask();
     }
 }
 

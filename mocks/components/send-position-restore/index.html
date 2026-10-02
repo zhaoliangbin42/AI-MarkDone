@@ -1,0 +1,65 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>AI-MarkDone Send Position Restore Fixture</title>
+    <style>
+      * { box-sizing: border-box; }
+      body { margin: 0; padding: 24px; background: #f5f5f4; color: #1c1917; font: 15px/1.6 system-ui, sans-serif; }
+      .fixture { max-width: 900px; margin: auto; }
+      h1 { margin: 0 0 8px; font-size: 24px; }
+      .notice { margin: 0 0 16px; color: #57534e; }
+      .controls { display: flex; flex-wrap: wrap; gap: 12px; align-items: center; margin-bottom: 16px; }
+      a { color: #364fc7; }
+      button { padding: 9px 14px; border: 1px solid #d6d3d1; border-radius: 8px; background: white; color: inherit; font: inherit; cursor: pointer; }
+      button:focus-visible, textarea:focus-visible { outline: 3px solid #748ffc; outline-offset: 2px; }
+      .thread { height: 390px; overflow-y: auto; border: 1px solid #d6d3d1; border-radius: 12px; background: white; }
+      .thread[data-layout="reverse"] { display: flex; flex-direction: column-reverse; }
+      .thread-content { flex-shrink: 0; width: 100%; }
+      .turn { min-height: 240px; padding: 24px; border-bottom: 1px solid #e7e5e4; }
+      .turn h2 { font-size: 17px; margin: 0 0 10px; }
+      #reading-anchor { background: #fff9db; }
+      form { display: flex; align-items: stretch; gap: 12px; margin-top: 16px; }
+      textarea { flex: 1; resize: vertical; min-height: 75px; border: 1px solid #d6d3d1; border-radius: 8px; padding: 12px; font: inherit; }
+      .metrics { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; margin: 16px 0; }
+      .metrics div { padding: 10px 14px; background: #e7e5e4; border-radius: 8px; }
+      .metrics dt { font-size: 12px; color: #57534e; }
+      .metrics dd { margin: 0; font-variant-numeric: tabular-nums; }
+      #fixture-result { display: block; min-height: 28px; font-weight: 600; }
+      @media (max-width: 600px) { body { padding: 12px; } .metrics { grid-template-columns: repeat(2, 1fr); } }
+    </style>
+  </head>
+  <body>
+    <section class="fixture">
+      <h1>Send position restore — <span id="layout-name"></span></h1>
+      <p class="notice">Local fixture using the production controllers. Simulated host focus and submission jump to the bottom; 30 placeholder updates follow. This is not an official ChatGPT page.</p>
+      <div class="controls">
+        <label><input id="enabled" type="checkbox" checked /> Restore enabled</label>
+        <label><input id="remount-history" type="checkbox" /> Remount history anchors</label>
+        <button id="reset-history" type="button">Reset and view history</button>
+        <button id="reader-send" type="button">Reader before-send</button>
+        <a href="?layout=normal">Normal layout</a>
+        <a href="?layout=reverse">Reverse layout</a>
+      </div>
+      <main class="thread" id="thread" tabindex="-1" aria-label="Fixture conversation">
+        <div class="thread-content" id="thread-content"></div>
+      </main>
+      <form id="composer-form">
+        <textarea id="prompt-textarea" aria-label="Fixture message" placeholder="Placeholder draft only"></textarea>
+        <button type="submit" id="send-button" data-testid="send-button" aria-label="Send fixture message">Send fixture message</button>
+      </form>
+      <dl class="metrics">
+        <div><dt>Send mode</dt><dd id="send-mode">Not sent</dd></div>
+        <div><dt>Before scrollTop</dt><dd id="before-top">—</dd></div>
+        <div><dt>Current scrollTop</dt><dd id="after-top">—</dd></div>
+        <div><dt>Reading anchor drift</dt><dd id="anchor-drift">—</dd></div>
+        <div><dt>Stream updates</dt><dd id="stream-updates">0 / 30</dd></div>
+        <div><dt>Restore session</dt><dd id="session-active">Inactive</dd></div>
+      </dl>
+      <output id="fixture-result" aria-live="polite">Ready</output>
+      <p class="notice">For keyboard sending, use Reset and view history, then Cmd/Ctrl+Enter. Plain Enter remains a newline. The unchecked baseline should move to the bottom.</p>
+    </section>
+    <script type="module" src="./main.ts"></script>
+  </body>
+</html>

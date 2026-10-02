@@ -1,7 +1,8 @@
 import { createIcon } from '../../components/Icon';
 import { createIconButton } from '../../components/IconButton';
+import { finishSurfaceMotionOpening } from '../../components/motionLifecycle';
 import { t } from '../../components/i18n';
-import { createBrandIcon } from '../../../../assets/icons';
+import { createBrandIcon, maximizeIcon, minimizeIcon } from '../../../../assets/icons';
 import { bookMarkedIcon, settingsIcon, chevronDownIcon } from '../../../../assets/workspaceIcons';
 
 export type BookmarksPanelTabSpec = {
@@ -26,6 +27,8 @@ export type BookmarksPanelShellRefs = {
     headerActions: HTMLElement;
     title: HTMLElement;
     closeBtn: HTMLButtonElement;
+    fullscreenBtn: HTMLButtonElement;
+    setFullscreen(fullscreen: boolean): void;
     tabs: BookmarksPanelTabs;
 };
 
@@ -35,6 +38,8 @@ export function createBookmarksPanelShell(params: {
     closeLabel: string;
     tabs: BookmarksPanelTabSpec[];
     defaultTabId: string;
+    fullscreen?: boolean;
+    onFullscreenChange?: (fullscreen: boolean) => void;
 }): BookmarksPanelShellRefs {
     const overlay = document.createElement('div');
     overlay.className = 'panel-stage__overlay aimd-panel-overlay';
@@ -46,7 +51,8 @@ export function createBookmarksPanelShell(params: {
     panel.setAttribute('aria-label', params.titleText);
 
     const header = document.createElement('div');
-    header.className = 'aimd-panel-header panel-header';
+    header.className = 'workspace-title-metadata';
+    header.hidden = true;
 
     const headerMeta = document.createElement('div');
     headerMeta.className = 'panel-header__meta';
@@ -57,7 +63,7 @@ export function createBookmarksPanelShell(params: {
     headerMeta.appendChild(title);
 
     const headerActions = document.createElement('div');
-    headerActions.className = 'panel-header__actions';
+    headerActions.className = 'workspace-corner-actions';
 
     const closeBtn = createIconButton({
         icon: params.closeIcon,
@@ -67,9 +73,31 @@ export function createBookmarksPanelShell(params: {
     });
     closeBtn.classList.add('icon-btn');
     closeBtn.dataset.action = 'close';
-    headerActions.appendChild(closeBtn);
-
-    header.append(headerMeta, headerActions);
+    header.append(headerMeta);
+    let fullscreen = Boolean(params.fullscreen);
+    const fullscreenBtn = createIconButton({
+        icon: fullscreen ? minimizeIcon : maximizeIcon,
+        label: t(fullscreen ? 'exitFullscreen' : 'toggleFullscreen'),
+        onClick: () => {
+            if (panel.dataset.motionState === 'closing') return;
+            setFullscreen(!fullscreen);
+            params.onFullscreenChange?.(fullscreen);
+        },
+    });
+    fullscreenBtn.classList.add('icon-btn');
+    fullscreenBtn.dataset.action = 'workspace-fullscreen';
+    const setFullscreen = (nextFullscreen: boolean): void => {
+        if (panel.isConnected) finishSurfaceMotionOpening(panel);
+        fullscreen = nextFullscreen;
+        panel.dataset.fullscreen = fullscreen ? '1' : '0';
+        const label = t(fullscreen ? 'exitFullscreen' : 'toggleFullscreen');
+        fullscreenBtn.replaceChildren(createIcon(fullscreen ? minimizeIcon : maximizeIcon));
+        fullscreenBtn.setAttribute('aria-label', label);
+        fullscreenBtn.title = label;
+        fullscreenBtn.setAttribute('aria-pressed', String(fullscreen));
+    };
+    setFullscreen(fullscreen);
+    headerActions.append(fullscreenBtn, closeBtn);
 
     const shell = document.createElement('div');
     shell.className = 'bookmarks-shell';
@@ -95,9 +123,14 @@ export function createBookmarksPanelShell(params: {
     const settingsNav = document.createElement('div');
     settingsNav.className = 'library-module-content';
     settingsNav.id = 'aimd-settings-navigation';
+    const settingsScroll = document.createElement('div');
+    settingsScroll.className = 'settings-navigation-scroll';
     const infoNav = document.createElement('div');
     infoNav.className = 'library-info-links';
-    settingsNav.append(infoNav);
+    settingsScroll.append(infoNav);
+    settingsNav.append(settingsScroll);
+    const featuredNav = document.createElement('div');
+    featuredNav.className = 'library-info-featured-links';
 
     const body = document.createElement('div');
     body.className = 'bookmarks-body';
@@ -117,6 +150,7 @@ export function createBookmarksPanelShell(params: {
         const isModule = tab.id === 'bookmarks' || tab.id === 'settings';
         btn.append(createIcon(tab.id === 'bookmarks' ? bookMarkedIcon : tab.id === 'settings' ? settingsIcon : tab.icon), document.createElement('span'));
         btn.lastElementChild!.textContent = tab.id === 'bookmarks' ? t('libraryTitle') : tab.label;
+        if (!isModule && tab.id !== 'mappamory' && tab.id !== 'sponsor') btn.lastElementChild!.classList.add('workspace-navigation-label');
         if (isModule) {
             btn.classList.add('library-module-button');
             btn.append(createIcon(chevronDownIcon));
@@ -131,11 +165,11 @@ export function createBookmarksPanelShell(params: {
             if (tab.navigation) libraryNav.append(tab.navigation);
         } else if (tab.id === 'settings') {
             modules.append(btn, settingsNav);
-            if (tab.navigation) settingsNav.prepend(tab.navigation);
+            if (tab.navigation) settingsScroll.prepend(tab.navigation);
         } else {
             if (tab.id === 'mappamory' || tab.id === 'sponsor') btn.classList.add('library-info-featured');
-            if (btn.classList.contains('library-info-featured')) infoNav.append(btn);
-            else infoNav.insertBefore(btn, infoNav.querySelector('.library-info-featured'));
+            if (btn.classList.contains('library-info-featured')) featuredNav.append(btn);
+            else infoNav.append(btn);
         }
         buttons.set(tab.id, btn);
 
@@ -151,6 +185,9 @@ export function createBookmarksPanelShell(params: {
     }
 
     const setActive = (id: string): void => {
+        if (id !== active) {
+            shell.dispatchEvent(new CustomEvent('aimd:tabs-before-change', { detail: { previousId: active, nextId: id } }));
+        }
         active = id;
         const label = id === 'bookmarks' ? t('libraryTitle') : params.tabs.find(tab => tab.id === id)?.label ?? params.titleText;
         panel.setAttribute('aria-label', label); sidebar.setAttribute('aria-label', label);
@@ -184,10 +221,10 @@ export function createBookmarksPanelShell(params: {
     };
 
     settingsNav.addEventListener('aimd:settings-request', () => setActive('settings'));
-    sidebar.append(modules);
+    sidebar.append(modules, featuredNav);
     shell.append(sidebar, body);
     body.prepend(header);
-    panel.append(shell);
+    panel.append(shell, headerActions);
     setActive(params.defaultTabId);
 
     return {
@@ -197,6 +234,8 @@ export function createBookmarksPanelShell(params: {
         headerActions,
         title,
         closeBtn,
+        fullscreenBtn,
+        setFullscreen,
         tabs: {
             getElement: () => shell,
             getActive: () => active,

@@ -17,6 +17,7 @@ import { AboutTabView } from './ui/tabs/AboutTabView';
 import { MappamoryTabView } from './ui/tabs/MappamoryTabView';
 import { FaqTabView } from './ui/tabs/FaqTabView';
 import { SponsorTabView } from './ui/tabs/SponsorTabView';
+import { FeatureOverviewTabView } from './ui/tabs/FeatureOverviewTabView';
 import { createBookmarksPanelShell, type BookmarksPanelShellRefs } from './ui/BookmarksPanelShell';
 import { OverlaySession } from '../overlay/OverlaySession';
 import type { ReaderPanelPort } from '../reader/ReaderPanelPort';
@@ -53,6 +54,7 @@ type BookmarksPanelTabView = {
     dismissTransientUi?(): void;
     consumeEscape?(): boolean;
     destroy?(): void;
+    dispose?(): void;
 };
 
 function shouldLogBookmarksPerf(): boolean {
@@ -121,11 +123,13 @@ export class BookmarksPanel {
     private readonly cloudBackupWorkflow: BookmarksCloudBackupWorkflow;
 
     private visible = false;
+    private fullscreen = false;
     private overlaySession: OverlaySession | null = null;
     private tooltipDelegate: TooltipDelegate | null = null;
     private snapshot: BookmarksPanelSnapshot | null = null;
     private bookmarksView: BookmarksPanelTabView | null = null;
     private settingsView: BookmarksPanelTabView | null = null;
+    private featuresView: BookmarksPanelTabView | null = null;
     private changelogView: BookmarksPanelTabView | null = null;
     private aboutView: BookmarksPanelTabView | null = null;
     private mappamoryView: BookmarksPanelTabView | null = null;
@@ -247,6 +251,8 @@ export class BookmarksPanel {
             this.bookmarksView = null;
             this.settingsView?.destroy?.();
             this.settingsView = null;
+            this.featuresView?.dispose?.();
+            this.featuresView = null;
             this.changelogView?.destroy?.();
             this.changelogView = null;
             this.aboutView?.destroy?.();
@@ -315,6 +321,7 @@ export class BookmarksPanel {
 
     private finishHide(): void {
         this.visible = false;
+        this.fullscreen = false;
         this.activeShell = null;
         this.unsubscribeSnapshot?.();
         this.unsubscribeSnapshot = null;
@@ -327,6 +334,8 @@ export class BookmarksPanel {
         this.bookmarksView = null;
         this.settingsView?.destroy?.();
         this.settingsView = null;
+        this.featuresView?.dispose?.();
+        this.featuresView = null;
         this.changelogView?.destroy?.();
         this.changelogView = null;
         this.aboutView?.destroy?.();
@@ -508,6 +517,7 @@ export class BookmarksPanel {
         const bookmarksPanel = this.bookmarksView?.getElement() ?? document.createElement('section');
         bookmarksPanel.classList.add('tab-panel--bookmarks');
         const settingsPanel = this.settingsView?.getElement() ?? document.createElement('section');
+        const featuresPanel = this.featuresView?.getElement() ?? document.createElement('section');
         const changelogPanel = this.changelogView?.getElement() ?? document.createElement('section');
         changelogPanel.classList.add('changelog-panel');
         const aboutPanel = this.aboutView?.getElement() ?? document.createElement('section');
@@ -525,6 +535,7 @@ export class BookmarksPanel {
             contents: {
                 bookmarks: bookmarksPanel,
                 settings: settingsPanel,
+                features: featuresPanel,
                 changelog: changelogPanel,
                 faq: faqPanel,
                 about: aboutPanel,
@@ -540,6 +551,11 @@ export class BookmarksPanel {
             closeIcon: xIcon,
             closeLabel: tr('btnClose', 'Close panel'),
             defaultTabId: this.tabWorkflow.getActiveTab(),
+            fullscreen: this.fullscreen,
+            onFullscreenChange: (fullscreen) => {
+                this.fullscreen = fullscreen;
+                this.tooltipDelegate?.refresh(this.overlaySession!.shadow);
+            },
             tabs: shellModel.tabs.map((tab) => ({ ...tab, navigation: tab.id === 'bookmarks' ? this.bookmarksView?.getNavigationElement?.() : tab.id === 'settings' ? this.settingsView?.getNavigationElement?.() : undefined })),
         });
         this.activeShell = shell;
@@ -557,6 +573,10 @@ export class BookmarksPanel {
             this.motionNeedsOpen = false;
         }
         shell.closeBtn.addEventListener('click', () => this.hide());
+        shell.tabs.getElement().addEventListener('aimd:tabs-before-change', (event) => {
+            const previousId = (event as CustomEvent<{ previousId: string }>).detail.previousId;
+            if (this.tabWorkflow.getActiveTab() === previousId) this.captureScrollTops();
+        });
         shell.tabs.getElement().addEventListener('aimd:tabs-change', (event) => {
             const nextTab = (event as CustomEvent<{ id: string }>).detail.id;
             if (this.tabWorkflow.isEnabled(nextTab)) {
@@ -623,6 +643,7 @@ export class BookmarksPanel {
         if (
             this.bookmarksView
             && this.settingsView
+            && this.featuresView
             && this.changelogView
             && this.aboutView
             && this.mappamoryView
@@ -671,6 +692,22 @@ export class BookmarksPanel {
                     error: String(error),
                 });
                 this.settingsView = createFallbackTabView('aimd-settings');
+            }
+        }
+
+        if (!this.featuresView) {
+            try {
+                this.featuresView = new FeatureOverviewTabView({
+                    onOpenSettings: (category) => {
+                        this.switchToTab('settings');
+                        this.settingsView?.getNavigationElement?.().querySelector<HTMLButtonElement>(`[data-category="${category}"]`)?.click();
+                    },
+                });
+            } catch (error) {
+                logger.warn('[AI-MarkDone][BookmarksPanel] Failed to create feature overview; keeping the shell open.', {
+                    error: String(error),
+                });
+                this.featuresView = createFallbackTabView('aimd-feature-overview');
             }
         }
 
@@ -777,6 +814,7 @@ export class BookmarksPanel {
     }
 
     private switchToTab(nextTab: BookmarksPanelTabId): void {
+        if (this.activeShell?.tabs.getActive() !== nextTab) this.captureScrollTops();
         if (!this.tabWorkflow.select(nextTab)) return;
         this.bookmarksView?.dismissTransientUi?.();
         this.settingsView?.dismissTransientUi?.();
@@ -788,7 +826,7 @@ export class BookmarksPanel {
         this.feedbackView?.dismissTransientUi?.();
         if (this.activeShell) {
             this.activeShell.tabs.setActive(nextTab);
-            const labelKey = nextTab === 'bookmarks' ? 'libraryTitle' : 'tab' + nextTab[0]!.toUpperCase() + nextTab.slice(1);
+            const labelKey = nextTab === 'bookmarks' ? 'libraryTitle' : nextTab === 'features' ? 'featureOverviewTitle' : 'tab' + nextTab[0]!.toUpperCase() + nextTab.slice(1);
             this.activeShell.title.textContent = t(labelKey);
             this.syncTabViews();
             this.restoreScrollTop();

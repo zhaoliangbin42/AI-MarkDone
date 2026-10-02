@@ -2019,8 +2019,8 @@ export class ReaderPanel {
         commentButton.className = 'icon-btn reader-comment-action__button';
         commentButton.type = 'button';
         commentButton.dataset.action = 'reader-comment-add';
-        commentButton.setAttribute('aria-label', this.getLabel('readerCommentAction', 'Comment'));
-        commentButton.setAttribute('title', this.getLabel('readerCommentAction', 'Comment'));
+        commentButton.setAttribute('aria-label', this.getLabel('readerCommentAction', 'Annotate'));
+        commentButton.setAttribute('title', this.getLabel('readerCommentAction', 'Annotate'));
         commentButton.innerHTML = createIcon(messageSquareTextIcon).outerHTML;
         commentButton.addEventListener('click', () => {
             const sourceMarkdown = this.materializeSelectionExport(selection);
@@ -2093,8 +2093,8 @@ export class ReaderPanel {
             stickButton.className = 'icon-btn reader-comment-action__button';
             stickButton.type = 'button';
             stickButton.dataset.action = 'reader-selection-stick';
-            stickButton.setAttribute('aria-label', this.getLabel('readerStickyAction', 'Stick'));
-            stickButton.setAttribute('title', this.getLabel('readerStickyAction', 'Stick'));
+            stickButton.setAttribute('aria-label', this.getLabel('readerStickyAction', 'Keep excerpt'));
+            stickButton.setAttribute('title', this.getLabel('readerStickyAction', 'Keep excerpt'));
             stickButton.innerHTML = createIcon(pinIcon).outerHTML;
             stickButton.addEventListener('click', () => {
                 this.addStickyBlock(this.materializeSelectionExport(selection));
@@ -2224,8 +2224,8 @@ export class ReaderPanel {
             initialText: params.initialText,
             mode: params.mode,
             labels: {
-                addTitle: this.getLabel('readerCommentAddTitle', 'Add comment'),
-                editTitle: this.getLabel('readerCommentEditTitle', 'Edit comment'),
+                addTitle: this.getLabel('readerCommentAddTitle', 'Add annotation'),
+                editTitle: this.getLabel('readerCommentEditTitle', 'Edit annotation'),
                 close: this.getLabel('btnClose', 'Close'),
                 selectedSource: this.getLabel('readerCommentSelectedSource', 'Selected content'),
                 placeholder: this.getLabel('readerCommentPlaceholder', 'Write your annotation...'),

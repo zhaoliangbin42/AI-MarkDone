@@ -88,7 +88,7 @@ function getEnterMotionSpec(element: HTMLElement): MotionSpec | null {
         };
     }
 
-    if (element.classList.contains('panel-window--reader') && element.dataset.fullscreen === '1') {
+    if ((element.classList.contains('panel-window--reader') || element.classList.contains('panel-window--bookmarks')) && element.dataset.fullscreen === '1') {
         return {
             duration: reducedMotion ? 80 : 300,
             easing: reducedMotion ? 'linear' : 'cubic-bezier(0.22, 1, 0.36, 1)',
@@ -130,6 +130,12 @@ function clearOpeningMotion(element: HTMLElement): void {
     element.style.removeProperty('transition');
     element.style.removeProperty('opacity');
     element.style.removeProperty('transform');
+}
+
+/** Settle the opening transform before an existing panel changes its viewport geometry. */
+export function finishSurfaceMotionOpening(element: HTMLElement): void {
+    clearOpeningMotion(element);
+    setMotionState(element, 'open');
 }
 
 export function setSurfaceMotionOpening(

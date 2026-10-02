@@ -349,7 +349,6 @@ export class MessageToolbar {
                 if (this.preview || !this.supportsPointerHover()) return;
                 this.toolbarHovered = true;
                 this.clearCapsuleCloseTimer();
-                this.setExpanded(true);
             });
             bar.addEventListener('mouseleave', () => {
                 this.toolbarHovered = false;
@@ -360,6 +359,11 @@ export class MessageToolbar {
             drawer.append(left); this.capsuleActions = drawer;
             const toggle = document.createElement('button'); toggle.type = 'button'; toggle.className = 'icon-btn capsule-toggle';
             toggle.dataset.action = 'toggle-capsule'; toggle.setAttribute('aria-label', t('messageActions')); toggle.setAttribute('aria-expanded', 'false'); toggle.setAttribute('aria-controls', drawer.id);
+            toggle.addEventListener('mouseenter', () => {
+                if (this.preview || !this.supportsPointerHover()) return;
+                this.clearCapsuleCloseTimer();
+                this.setExpanded(true);
+            });
             toggle.append(createIcon(moreHorizontalIcon)); toggle.addEventListener('click', event => {
                 event.stopPropagation();
                 this.setExpanded(this.toolbarHovered && event.detail > 0 ? true : !this.expanded);

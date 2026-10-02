@@ -275,7 +275,7 @@ describe('ChatGPTMessageStepperController', () => {
         ]);
         expect(bookmarksPanel.getAttribute('aria-label')).toBe('Settings');
         expect(bookmarksPanel.querySelector('img')?.getAttribute('alt')).toBe('AI-MarkDone');
-        expect(split.getAttribute('aria-label')).toBe('Open Reader in split view');
+        expect(split.getAttribute('aria-label')).toBe('Open separate reader');
         expect(prompts.getAttribute('aria-label')).toBe('Prompts');
         expect(messageNavigation.getAttribute('aria-label')).toBe('Refresh message navigation');
         expect(previous.getAttribute('aria-label')).toBe('Previous message · ←');
@@ -444,7 +444,7 @@ describe('ChatGPTMessageStepperController', () => {
         const host = document.getElementById('aimd-chatgpt-message-stepper')!;
         expect(host.querySelector('[data-action="open-bookmarks-panel"]')?.getAttribute('aria-label')).toBe('设置');
         expect(host.querySelector('[data-action="toggle-page-bookmark"]')?.getAttribute('aria-label')).toBe('收藏当前页面');
-        expect(host.querySelector('[data-action="open-detached-reader"]')?.getAttribute('aria-label')).toBe('在分屏中打开阅读器');
+        expect(host.querySelector('[data-action="open-detached-reader"]')?.getAttribute('aria-label')).toBe('打开独立阅读器');
         expect(host.querySelector('[data-action="open-prompts"]')?.getAttribute('aria-label')).toBe('提示词');
         expect(host.querySelector('[data-action="chatgpt-refresh-message-navigation"]')?.getAttribute('aria-label')).toBe('刷新消息导航');
         expect(document.querySelector('[data-action="previous-message"]')?.getAttribute('aria-label')).toBe('上一条消息 · ←');

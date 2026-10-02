@@ -1,5 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { ChatGPTSendPositionRestoreController } from '@/ui/content/controllers/ChatGPTSendPositionRestoreController';
+import { ChatGPTComposerEditingController } from '@/ui/content/controllers/ChatGPTComposerEditingController';
 import { armChatGPTSendPositionRestore, releaseChatGPTSendPositionRestore } from '@/drivers/content/chatgpt/sendPositionRestoreEvents';
 
 const adapter = {
@@ -58,11 +59,11 @@ function appendConversation(): HTMLElement {
     anchor.dataset.message = '1';
     anchor.getBoundingClientRect = vi.fn(() => ({
         x: 0,
-        y: 80,
-        top: 80,
+        y: 180 - root.scrollTop,
+        top: 180 - root.scrollTop,
         left: 0,
         right: 100,
-        bottom: 120,
+        bottom: 220 - root.scrollTop,
         width: 100,
         height: 40,
         toJSON: () => ({}),
@@ -70,6 +71,28 @@ function appendConversation(): HTMLElement {
     root.appendChild(anchor);
     document.body.appendChild(root);
     return root;
+}
+
+function appendSendForm(): { form: HTMLFormElement; composer: HTMLTextAreaElement; button: HTMLButtonElement } {
+    const form = document.createElement('form');
+    const composer = document.createElement('textarea');
+    composer.id = 'prompt-textarea';
+    const button = document.createElement('button');
+    button.type = 'button';
+    button.dataset.testid = 'send-button';
+    form.append(composer, button);
+    document.body.append(form);
+    return { form, composer, button };
+}
+
+function setReadingPosition(root: HTMLElement, reversed: boolean): number {
+    if (reversed) {
+        root.style.display = 'flex';
+        root.style.flexDirection = 'column-reverse';
+    }
+    const savedTop = reversed ? -900 : 100;
+    root.scrollTop = savedTop;
+    return savedTop;
 }
 
 describe('ChatGPTSendPositionRestoreController', () => {
@@ -201,6 +224,97 @@ describe('ChatGPTSendPositionRestoreController', () => {
         expect(root.scrollTop).toBe(700);
     });
 
+    it.each([false, true])('preserves the anchor when hydration already compensated its visual position (reverse=%s)', async (reversed) => {
+        const root = appendConversation();
+        const savedTop = setReadingPosition(root, reversed);
+        const anchor = root.querySelector<HTMLElement>('[data-message]')!;
+        let contentOffset = savedTop + 80;
+        anchor.getBoundingClientRect = vi.fn(() => ({
+            x: 0, y: contentOffset - root.scrollTop, top: contentOffset - root.scrollTop,
+            left: 0, right: 100, bottom: contentOffset - root.scrollTop + 40,
+            width: 100, height: 40, toJSON: () => ({}),
+        }));
+        const controller = createController();
+        controller.init();
+        controller.setEnabled(true);
+
+        armChatGPTSendPositionRestore();
+        contentOffset += 300;
+        root.scrollTop = savedTop + 300;
+        FakeMutationObserver.instances[0]!.trigger();
+        await vi.advanceTimersByTimeAsync(20);
+
+        expect(root.scrollTop).toBe(savedTop + 300);
+        expect(anchor.getBoundingClientRect().top).toBe(80);
+    });
+
+    it.each([false, true])('preserves reading offset after anchor replacement and reply growth (reverse=%s)', async (reversed) => {
+        const root = appendConversation();
+        const savedTop = setReadingPosition(root, reversed);
+        const metrics = { scrollTop: savedTop, scrollHeight: 2000, clientHeight: 500 };
+        defineScrollRoot(root, metrics);
+        const anchor = root.querySelector<HTMLElement>('[data-message]')!;
+        const controller = createController();
+        controller.init();
+        controller.setEnabled(true);
+
+        armChatGPTSendPositionRestore();
+        anchor.replaceWith(anchor.cloneNode(true));
+        metrics.scrollHeight += 700;
+        root.scrollTop = reversed ? 0 : metrics.scrollHeight - metrics.clientHeight;
+        FakeMutationObserver.instances[0]!.trigger();
+        root.dispatchEvent(new Event('scroll'));
+        await vi.advanceTimersByTimeAsync(20);
+
+        expect(root.scrollTop).toBe(reversed ? savedTop - 700 : savedTop);
+
+        // The scrollable extent can also change when the viewport becomes taller.
+        metrics.clientHeight += 100;
+        root.scrollTop = reversed ? 0 : metrics.scrollHeight - metrics.clientHeight;
+        root.dispatchEvent(new Event('scroll'));
+        await vi.advanceTimersByTimeAsync(20);
+        expect(root.scrollTop).toBe(reversed ? savedTop - 600 : savedTop);
+    });
+
+    it.each([
+        { invalidation: 'hidden', reversed: false },
+        { invalidation: 'hidden', reversed: true },
+        { invalidation: 'moved outside root', reversed: false },
+        { invalidation: 'moved outside root', reversed: true },
+    ])('uses the fallback for a connected anchor $invalidation (reverse=$reversed)', async ({ invalidation, reversed }) => {
+        const root = appendConversation();
+        const savedTop = setReadingPosition(root, reversed);
+        const metrics = { scrollTop: savedTop, scrollHeight: 2000, clientHeight: 500 };
+        defineScrollRoot(root, metrics);
+        const anchor = root.querySelector<HTMLElement>('[data-message]')!;
+        const controller = createController();
+        controller.init();
+        controller.setEnabled(true);
+        armChatGPTSendPositionRestore();
+
+        if (invalidation === 'hidden') {
+            anchor.style.display = 'none';
+            anchor.getBoundingClientRect = vi.fn(() => ({
+                x: 0, y: 0, top: 0, left: 0, right: 0, bottom: 0,
+                width: 0, height: 0, toJSON: () => ({}),
+            }));
+        } else {
+            document.body.append(anchor);
+            anchor.getBoundingClientRect = vi.fn(() => ({
+                x: 0, y: 10, top: 10, left: 0, right: 100, bottom: 50,
+                width: 100, height: 40, toJSON: () => ({}),
+            }));
+        }
+        expect(anchor.isConnected).toBe(true);
+        metrics.scrollHeight += 700;
+        root.scrollTop = reversed ? 0 : metrics.scrollHeight - metrics.clientHeight;
+        FakeMutationObserver.instances[0]!.trigger();
+        root.dispatchEvent(new Event('scroll'));
+        await vi.advanceTimersByTimeAsync(20);
+
+        expect(root.scrollTop).toBe(reversed ? savedTop - 700 : savedTop);
+    });
+
     it('releases on explicit navigation and stops restoring', async () => {
         const root = appendConversation();
         const controller = createController();
@@ -217,19 +331,221 @@ describe('ChatGPTSendPositionRestoreController', () => {
         expect(FakeMutationObserver.instances[0]?.disconnect).toHaveBeenCalled();
     });
 
-    it('releases after too many restore attempts', async () => {
+    it.each([false, true])('captures before send-button focus and preserves it through click and submit (reverse=%s)', async (reversed) => {
+        const root = appendConversation();
+        const savedTop = setReadingPosition(root, reversed);
+        const { form, button } = appendSendForm();
+        const controller = createController();
+        controller.init();
+        controller.setEnabled(true);
+
+        button.dispatchEvent(new Event('pointerdown', { bubbles: true }));
+        // Native focus can move the conversation before the click handler runs.
+        root.scrollTop = reversed ? 0 : 1500;
+        root.dispatchEvent(new Event('scroll'));
+        button.click();
+        form.dispatchEvent(new Event('submit', { bubbles: true }));
+        await vi.advanceTimersByTimeAsync(20);
+
+        expect(root.scrollTop).toBe(savedTop);
+        expect(FakeMutationObserver.instances).toHaveLength(1);
+    });
+
+    it.each([false, true])('keeps the original position when click and submit both arm (reverse=%s)', async (reversed) => {
+        const root = appendConversation();
+        const savedTop = setReadingPosition(root, reversed);
+        const { form, button } = appendSendForm();
+        const controller = createController();
+        controller.init();
+        controller.setEnabled(true);
+
+        button.click();
+        root.scrollTop = reversed ? -300 : 1000;
+        root.dispatchEvent(new Event('scroll'));
+        form.dispatchEvent(new Event('submit', { bubbles: true }));
+        await vi.advanceTimersByTimeAsync(20);
+
+        expect(root.scrollTop).toBe(savedTop);
+        expect(FakeMutationObserver.instances).toHaveLength(1);
+    });
+
+    it.each([false, true])('keeps keyboard and Reader before-send positions through later host signals (reverse=%s)', async (reversed) => {
+        const root = appendConversation();
+        const savedTop = setReadingPosition(root, reversed);
+        const { form, composer, button } = appendSendForm();
+        const controller = createController();
+        controller.init();
+        controller.setEnabled(true);
+
+        composer.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', bubbles: true }));
+        root.scrollTop = reversed ? -300 : 1000;
+        armChatGPTSendPositionRestore();
+        button.click();
+        form.dispatchEvent(new Event('submit', { bubbles: true }));
+        root.dispatchEvent(new Event('scroll'));
+        await vi.advanceTimersByTimeAsync(20);
+
+        expect(root.scrollTop).toBe(savedTop);
+        expect(FakeMutationObserver.instances).toHaveLength(1);
+    });
+
+    it('keeps an explicit before-send capture through the synthetic Enter used in newline mode', async () => {
+        const root = appendConversation();
+        const { composer } = appendSendForm();
+        const controller = createController();
+        controller.init();
+        controller.setEnabled(true);
+        controller.setEnterKeyNewlineEnabled(true);
+
+        armChatGPTSendPositionRestore();
+        composer.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', bubbles: true }));
+        root.scrollTop = 1200;
+        root.dispatchEvent(new Event('scroll'));
+        await vi.advanceTimersByTimeAsync(20);
+
+        expect(root.scrollTop).toBe(100);
+    });
+
+    it.each([false, true])('keeps Cmd/Ctrl+Enter sending from the real editing controller before composer focus (reverse=%s)', async (reversed) => {
+        const root = appendConversation();
+        const savedTop = setReadingPosition(root, reversed);
+        const { form, composer } = appendSendForm();
+        const controller = createController();
+        controller.init();
+        controller.setEnabled(true);
+        controller.setEnterKeyNewlineEnabled(true);
+        const editing = new ChatGPTComposerEditingController({
+            ...adapter,
+            getComposerInputElement: () => composer,
+        });
+        editing.init();
+        vi.spyOn(composer, 'focus').mockImplementation(() => {
+            root.scrollTop = reversed ? 0 : 1500;
+        });
+        composer.addEventListener('keydown', (event) => {
+            if (event.key === 'Enter' && !event.metaKey && !event.ctrlKey && !event.defaultPrevented) {
+                form.dispatchEvent(new Event('submit', { bubbles: true }));
+            }
+        });
+        try {
+            composer.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', metaKey: true, bubbles: true, cancelable: true }));
+            root.dispatchEvent(new Event('scroll'));
+            await vi.advanceTimersByTimeAsync(20);
+            expect(root.scrollTop).toBe(savedTop);
+        } finally {
+            editing.dispose();
+        }
+    });
+
+    it.each([false, true])('continues restoring through a long stream until user navigation (reverse=%s)', async (reversed) => {
+        const root = appendConversation();
+        const savedTop = setReadingPosition(root, reversed);
+        const controller = createController();
+        controller.init();
+        controller.setEnabled(true);
+
+        armChatGPTSendPositionRestore();
+        for (let i = 0; i < 25; i += 1) {
+            root.scrollTop = reversed ? 0 : 1200;
+            FakeMutationObserver.instances[0]!.trigger();
+            root.dispatchEvent(new Event('scroll'));
+            await vi.advanceTimersByTimeAsync(20);
+            expect(root.scrollTop).toBe(savedTop);
+        }
+        expect(document.documentElement.getAttribute('data-aimd-chatgpt-send-restore-active')).toBe('true');
+
+        document.dispatchEvent(new WheelEvent('wheel', { bubbles: true }));
+        root.scrollTop = reversed ? -400 : 600;
+        root.dispatchEvent(new Event('scroll'));
+        await vi.advanceTimersByTimeAsync(20);
+        expect(root.scrollTop).toBe(reversed ? -400 : 600);
+        expect(FakeMutationObserver.instances[0]!.disconnect).toHaveBeenCalled();
+    });
+
+    it.each(['pointerdown', 'touchmove', 'keydown'])('stops for intentional user interaction: %s', async (type) => {
         const root = appendConversation();
         const controller = createController();
         controller.init();
         controller.setEnabled(true);
 
         armChatGPTSendPositionRestore();
-        for (let i = 0; i < 21; i += 1) {
-            root.scrollTop = 1200;
-            root.dispatchEvent(new Event('scroll'));
-            await vi.runOnlyPendingTimersAsync();
-        }
+        document.dispatchEvent(type === 'keydown'
+            ? new KeyboardEvent(type, { key: 'ArrowDown', bubbles: true })
+            : new Event(type, { bubbles: true }));
+        root.scrollTop = 1200;
+        root.dispatchEvent(new Event('scroll'));
+        await vi.advanceTimersByTimeAsync(20);
+        expect(root.scrollTop).toBe(1200);
+        expect(FakeMutationObserver.instances[0]!.disconnect).toHaveBeenCalled();
+    });
 
+    it.each([
+        { shiftKey: true },
+        { isComposing: true },
+        { keyCode: 229 },
+    ])('does not treat modified or IME Enter as sending: %j', (options) => {
+        appendConversation();
+        const { composer } = appendSendForm();
+        const controller = createController();
+        controller.init();
+        controller.setEnabled(true);
+        composer.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', bubbles: true, ...options }));
+        expect(FakeMutationObserver.instances).toHaveLength(0);
+    });
+
+    it('does not capture a disabled send-button gesture', () => {
+        appendConversation();
+        const { button } = appendSendForm();
+        button.disabled = true;
+        const controller = createController();
+        controller.init();
+        controller.setEnabled(true);
+        button.dispatchEvent(new Event('pointerdown', { bubbles: true }));
+        expect(FakeMutationObserver.instances).toHaveLength(0);
+    });
+
+    it('captures a new position after the user explicitly leaves the prior send session', async () => {
+        const root = appendConversation();
+        const controller = createController();
+        controller.init();
+        controller.setEnabled(true);
+        armChatGPTSendPositionRestore();
+        document.dispatchEvent(new WheelEvent('wheel', { bubbles: true }));
+        root.scrollTop = 600;
+        armChatGPTSendPositionRestore();
+        root.scrollTop = 1200;
+        root.dispatchEvent(new Event('scroll'));
+        await vi.advanceTimersByTimeAsync(20);
+        expect(root.scrollTop).toBe(600);
+        expect(FakeMutationObserver.instances).toHaveLength(2);
+    });
+
+    it('cancels an already scheduled restoration when the feature is disabled', async () => {
+        const root = appendConversation();
+        const controller = createController();
+        controller.init();
+        controller.setEnabled(true);
+        armChatGPTSendPositionRestore();
+        root.scrollTop = 1200;
+        root.dispatchEvent(new Event('scroll'));
+        controller.setEnabled(false);
+        await vi.advanceTimersByTimeAsync(20);
+        expect(root.scrollTop).toBe(1200);
+        expect(FakeMutationObserver.instances[0]!.disconnect).toHaveBeenCalled();
+    });
+
+    it('releases at the bounded timeout even without a user interaction', async () => {
+        const root = appendConversation();
+        const controller = createController();
+        controller.init();
+        controller.setEnabled(true);
+
+        armChatGPTSendPositionRestore();
+        await vi.advanceTimersByTimeAsync(90_000);
         expect(document.documentElement.getAttribute('data-aimd-chatgpt-send-restore-active')).toBe('false');
+        root.scrollTop = 1200;
+        root.dispatchEvent(new Event('scroll'));
+        await vi.advanceTimersByTimeAsync(20);
+        expect(root.scrollTop).toBe(1200);
     });
 });

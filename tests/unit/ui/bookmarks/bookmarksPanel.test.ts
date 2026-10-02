@@ -272,6 +272,7 @@ describe('BookmarksPanel', () => {
 
         const panelWindow = shadow.querySelector<HTMLElement>('.panel-window.panel-window--bookmarks');
         const settingsTabButton = shadow.querySelector<HTMLElement>('[data-action="set-bookmarks-tab"][data-tab="settings"]');
+        const featuresTabButton = shadow.querySelector<HTMLButtonElement>('[data-action="set-bookmarks-tab"][data-tab="features"]');
         const changelogTabButton = shadow.querySelector<HTMLElement>('[data-action="set-bookmarks-tab"][data-tab="changelog"]');
         const feedbackTabButton = shadow.querySelector<HTMLElement>('[data-action="set-bookmarks-tab"][data-tab="feedback"]');
         const aboutTabButton = shadow.querySelector<HTMLElement>('[data-action="set-bookmarks-tab"][data-tab="about"]');
@@ -289,6 +290,7 @@ describe('BookmarksPanel', () => {
 
         expect(panelWindow).toBeTruthy();
         expect(settingsTabButton).toBeTruthy();
+        expect(featuresTabButton).toBeTruthy();
         expect(changelogTabButton).toBeTruthy();
         expect(aboutTabButton).toBeTruthy();
         expect(mappamoryTabButton).toBeTruthy();
@@ -296,7 +298,7 @@ describe('BookmarksPanel', () => {
         expect(sponsorTabButton).toBeTruthy();
         expect(feedbackTabButton).toBeTruthy();
         const tabIds = Array.from(shadow.querySelectorAll<HTMLElement>('[data-action="set-bookmarks-tab"]')).map((node) => node.dataset.tab);
-        expect(tabIds).toEqual(['bookmarks', 'settings', 'changelog', 'faq', 'about', 'feedback', 'mappamory', 'sponsor']);
+        expect(tabIds).toEqual(['bookmarks', 'settings', 'features', 'changelog', 'faq', 'about', 'feedback', 'mappamory', 'sponsor']);
         expect(sponsorTabButton?.textContent).toContain('Buy Me Coffee');
         expect(sponsorTabButton?.innerHTML).toContain('aimd-icon');
         expect(bookmarksPanel?.querySelector('.bookmarks-tab-content')).toBeTruthy();
@@ -311,8 +313,42 @@ describe('BookmarksPanel', () => {
         expect(sponsorPanel?.dataset.active).toBe('0');
         expect(feedbackPanel?.dataset.active).toBe('0');
         expect(panelWindow?.querySelector('.panel-footer')).toBeNull();
+        expect(panelWindow?.querySelector('.workspace-corner-actions [data-action="close"]')).toBeTruthy();
         expect(shadow.querySelector('.platform-dropdown')).toBeNull();
 
+        settingsTabButton!.click();
+        const settingsSearch = shadow.querySelector<HTMLInputElement>('[data-role="settings-search"]')!;
+        settingsSearch.value = 'formula';
+        settingsSearch.dispatchEvent(new Event('input', { bubbles: true }));
+        const settingsScroll = shadow.querySelector<HTMLElement>('.settings-panel-scroll')!;
+        const navigationScroll = shadow.querySelector<HTMLElement>('.settings-navigation-scroll')!;
+        settingsScroll.scrollTop = 146;
+        navigationScroll.scrollTop = 83;
+        const fullscreenButton = shadow.querySelector<HTMLButtonElement>('[data-action="workspace-fullscreen"]')!;
+        fullscreenButton.click();
+        expect(panelWindow?.dataset.fullscreen).toBe('1');
+        expect(fullscreenButton.getAttribute('aria-label')).toBe('Exit fullscreen');
+        expect(shadow.querySelector<HTMLInputElement>('[data-role="settings-search"]')).toBe(settingsSearch);
+        expect(settingsSearch.value).toBe('formula');
+        expect(settingsScroll.scrollTop).toBe(146);
+        expect(navigationScroll.scrollTop).toBe(83);
+        featuresTabButton!.click();
+        expect(shadow.querySelector('.features-panel')?.getAttribute('data-active')).toBe('1');
+        expect(shadow.querySelector('.features-panel .aimd-feature-overview')).toBeTruthy();
+        expect(panelWindow?.dataset.fullscreen).toBe('1');
+        settingsTabButton!.click();
+        expect(settingsSearch.value).toBe('formula');
+        expect(settingsScroll.scrollTop).toBe(146);
+        fullscreenButton.click();
+        expect(panelWindow?.dataset.fullscreen).toBe('0');
+        expect(shadow.querySelector<HTMLInputElement>('[data-role="settings-search"]')).toBe(settingsSearch);
+        settingsSearch.value = '';
+        settingsSearch.dispatchEvent(new Event('input', { bubbles: true }));
+
+        featuresTabButton!.click();
+        shadow.querySelector<HTMLButtonElement>('[data-action="feature-open-settings"][data-category="reading"]')!.click();
+        expect(shadow.querySelector<HTMLElement>('.settings-panel')?.dataset.active).toBe('1');
+        expect(shadow.querySelector('[data-category="reading"][aria-pressed="true"]')).toBeTruthy();
         settingsTabButton!.click();
 
         const refreshedSettingsPanel = shadow.querySelector<HTMLElement>('.settings-panel');
@@ -378,7 +414,7 @@ describe('BookmarksPanel', () => {
 
         const refreshedAboutActiveTab = shadow.querySelector<HTMLElement>('.about-panel');
         expect(refreshedAboutActiveTab?.dataset.active).toBe('1');
-        expect(shadow.querySelector('.aimd-panel-title')?.textContent).toBe('About');
+        expect(shadow.querySelector('.aimd-panel-title')?.textContent).toBe('About the author');
         expect(refreshedAboutActiveTab?.querySelector('.aimd-about')).toBeTruthy();
         expect(refreshedAboutActiveTab?.querySelectorAll('.info-section').length).toBe(1);
         expect(refreshedAboutActiveTab?.querySelector('.about-website-card')).toBeNull();
@@ -506,6 +542,13 @@ describe('BookmarksPanel', () => {
         expect(refreshedFaqActiveTab?.textContent).toContain('How do I copy a formula?');
         expect(refreshedFaqActiveTab?.textContent).toContain('Click it in the original reply');
 
+        fullscreenButton.click();
+        expect(panelWindow?.dataset.fullscreen).toBe('1');
+        shadow.querySelector<HTMLButtonElement>('.workspace-corner-actions [data-action="close"]')!.click();
+        expect(panel.isVisible()).toBe(false);
+        panelWindow!.dispatchEvent(new Event('animationend', { bubbles: true }));
+        await panel.show();
+        expect(document.getElementById('aimd-bookmarks-panel-host')!.shadowRoot!.querySelector<HTMLElement>('.panel-window')!.dataset.fullscreen).toBe('0');
         panel.hide();
     });
 
@@ -899,7 +942,7 @@ describe('BookmarksPanel', () => {
             Array.from(shadow.querySelectorAll('.tab-btn span'))
                 .map((node) => node.textContent?.trim() ?? '')
                 .filter(Boolean),
-        ).toEqual(['资料库', '设置', '更新日志', '常见问题', '关于我', '反馈', '好友迹', '请我喝咖啡']);
+        ).toEqual(['资料库', '设置', '功能全览', '更新日志', '常见问题', '关于作者', '反馈', '好友迹', '请我喝咖啡']);
         expect(shadow.querySelector<HTMLElement>('.settings-panel')?.textContent).toContain('存储占用');
 
         shadow.querySelector<HTMLButtonElement>('[data-action="set-bookmarks-tab"][data-tab="about"]')!.click();
@@ -1335,6 +1378,8 @@ describe('BookmarksPanel', () => {
 
         const host = document.getElementById('aimd-bookmarks-panel-host')!;
         const shadow = host.shadowRoot!;
+        shadow.querySelector<HTMLButtonElement>('[data-action="workspace-fullscreen"]')!.click();
+        expect(shadow.querySelector<HTMLElement>('.panel-window')?.dataset.fullscreen).toBe('1');
         shadow.querySelector<HTMLElement>('[data-action="set-bookmarks-tab"][data-tab="settings"]')!.click();
         shadow.querySelector<HTMLButtonElement>('[data-role="settings-theme-mode"]')!.click();
         expect(shadow.querySelector('.settings-select-menu[data-open="1"]')).toBeTruthy();

@@ -132,7 +132,7 @@ describe('BookmarksPanel Safari App Store surface policy', () => {
 
         const shadow = document.getElementById('aimd-bookmarks-panel-host')!.shadowRoot!;
         const tabIds = Array.from(shadow.querySelectorAll<HTMLElement>('[data-action="set-bookmarks-tab"]')).map((node) => node.dataset.tab);
-        expect(tabIds).toEqual(['bookmarks', 'settings', 'changelog', 'faq', 'about', 'feedback', 'mappamory']);
+        expect(tabIds).toEqual(['bookmarks', 'settings', 'features', 'changelog', 'faq', 'about', 'feedback', 'mappamory']);
         expect(shadow.querySelector('[data-action="set-bookmarks-tab"][data-tab="sponsor"]')).toBeNull();
         expect(shadow.querySelector('.sponsor-panel')).toBeNull();
         expect(shadow.textContent).not.toContain('Buy Me Coffee');

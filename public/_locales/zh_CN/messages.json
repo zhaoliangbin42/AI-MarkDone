@@ -4,7 +4,7 @@
         "description": "Message for extName"
     },
     "extDescription": {
-        "message": "为 ChatGPT 工作流提速：阅读、书签、Prompts、备份与 Markdown/PDF/PNG 导出。",
+        "message": "为 ChatGPT 工作流提速：阅读、书签、提示词、备份与 Markdown/PDF/PNG 导出。",
         "description": "Message for extDescription"
     },
     "popupSupportedSites": {
@@ -36,7 +36,7 @@
         "description": "Accessible label for removing the current ChatGPT page bookmark"
     },
     "chatgptPageControlSplitView": {
-        "message": "在分屏中打开阅读器",
+        "message": "打开独立阅读器",
         "description": "Accessible label for the detached Reader page control"
     },
     "chatgptPageControlPrompts": {
@@ -200,7 +200,7 @@
         "description": "Message for readerTitle"
     },
     "readerOutlineLabel": {
-        "message": "Markdown 大纲",
+        "message": "标题大纲",
         "description": "Accessible label for the Reader markdown heading outline"
     },
     "readerOutlineGoToHeading": {
@@ -208,23 +208,23 @@
         "description": "Accessible label for jumping to a Reader markdown heading"
     },
     "readerStickyTitle": {
-        "message": "Sticky",
+        "message": "摘录区",
         "description": "Title for the Reader temporary sticky excerpt workspace"
     },
     "readerStickyExpand": {
-        "message": "展开 Sticky 工作区",
+        "message": "展开摘录区",
         "description": "Accessible label for expanding the Reader sticky workspace"
     },
     "readerStickyCollapse": {
-        "message": "收起 Sticky 工作区",
+        "message": "收起摘录区",
         "description": "Accessible label for collapsing the Reader sticky workspace"
     },
     "readerStickyEmpty": {
-        "message": "选中重要内容后点击 Stick。",
+        "message": "选中重要内容后点击“暂存摘录”。",
         "description": "Empty state for the Reader sticky workspace"
     },
     "readerStickyDelete": {
-        "message": "删除 Sticky 块",
+        "message": "删除摘录",
         "description": "Accessible label for deleting a Reader sticky block"
     },
     "readerStickyDrag": {
@@ -368,7 +368,7 @@
         "description": "Message for readerCommentAction"
     },
     "readerStickyAction": {
-        "message": "Stick",
+        "message": "暂存摘录",
         "description": "Message for adding the current Reader selection to the sticky workspace"
     },
     "readerCommentAddTitle": {
@@ -520,7 +520,7 @@
         "description": "Message for readerCommentCopyEmpty"
     },
     "readerCommentUserPrompt": {
-        "message": "用户提示词",
+        "message": "提示词",
         "description": "Message for readerCommentUserPrompt"
     },
     "readerCommentTemplate": {
@@ -560,7 +560,7 @@
         "description": "Message for readerSettingsLabel"
     },
     "readerUserMessageLabel": {
-        "message": "用户消息",
+        "message": "提问",
         "description": "Label for the user message section in Reader"
     },
     "readerAssistantMessageLabel": {
@@ -604,7 +604,7 @@
         "description": "Message for readerDetachedNoticeResetLabel"
     },
     "readerDetachedNoticeResetDesc": {
-        "message": "重置后，下次从右下角 Split View 打开独立阅读器时会再次显示实验功能提示。",
+        "message": "重置后，下次从右下角打开独立阅读器时会再次显示实验功能提示。",
         "description": "Message for readerDetachedNoticeResetDesc"
     },
     "appearanceSettingsLabel": {
@@ -672,11 +672,11 @@
         "description": "Message for readerCommentPromptListDesc"
     },
     "readerCommentPromptPositionBottomLabel": {
-        "message": "复制注释时把提问放在末尾",
+        "message": "复制注释时把提示词放在末尾",
         "description": "Message for readerCommentPromptPositionBottomLabel"
     },
     "readerCommentPromptPositionBottomDesc": {
-        "message": "复制注释时，先列出注释，再将原来的提问放在末尾。",
+        "message": "复制注释时，先列出注释，再放选中的提示词。",
         "description": "Message for readerCommentPromptPositionBottomDesc"
     },
     "readerCommentSortModeLabel": {
@@ -1160,7 +1160,7 @@
         "description": "Message for chatgptReadingInputSettingsLabel"
     },
     "readerWorkflowSettingsLabel": {
-        "message": "Reader 与注释工作流",
+        "message": "阅读器与注释",
         "description": "Message for readerWorkflowSettingsLabel"
     },
     "copyFormulaExportSettingsLabel": {
@@ -1168,7 +1168,7 @@
         "description": "Message for copyFormulaExportSettingsLabel"
     },
     "chatgptDirectorySettingsLabel": {
-        "message": "ChatGPT 目录条",
+        "message": "ChatGPT 消息目录",
         "description": "Message for chatgptDirectorySettingsLabel"
     },
     "chatgptSettingsLabel": {
@@ -1380,7 +1380,7 @@
         "description": "公式联想触发行为"
     },
     "chatgptInputEnhancementGuidePromptTrigger": {
-        "message": "输入反斜杠和 Prompt 触发词（例如 \\rewrite）打开 Prompt 联想；公式中的反斜杠仍用于 LaTeX 联想。",
+        "message": "输入反斜杠和提示词触发词（例如 \\translate）打开提示词联想；公式中的反斜杠仍用于 LaTeX 联想。",
         "description": "Prompt 联想触发行为"
     },
     "promptAutocompleteKeyboardHint": {
@@ -1432,11 +1432,11 @@
         "description": "Message for chatgptShowPageBookmarkControlDesc"
     },
     "chatgptShowDetachedReaderControlLabel": {
-        "message": "显示“分屏阅读”按钮",
+        "message": "显示“独立阅读器”按钮",
         "description": "Message for chatgptShowDetachedReaderControlLabel"
     },
     "chatgptShowDetachedReaderControlDesc": {
-        "message": "在独立的阅读器窗口打开当前对话。",
+        "message": "在独立标签页打开当前对话的阅读器。",
         "description": "Message for chatgptShowDetachedReaderControlDesc"
     },
     "chatgptShowPromptControlLabel": {
@@ -1484,7 +1484,7 @@
         "description": "Message for chatgptDirectoryEnabledLabel"
     },
     "chatgptDirectoryRetiredNotice": {
-        "message": "你可以在 ChatGPT 设置中开启 AI-MarkDone 目录条。",
+        "message": "你可以在设置 → 阅读与消息中开启消息目录。",
         "description": "Message for chatgptDirectoryRetiredNotice"
     },
     "chatgptDirectoryEnabledDesc": {
@@ -1492,7 +1492,7 @@
         "description": "Message for chatgptDirectoryEnabledDesc"
     },
     "chatgptDirectoryModeLabel": {
-        "message": "右侧消息目录如何展开",
+        "message": "消息目录展开方式",
         "description": "Message for chatgptDirectoryModeLabel"
     },
     "chatgptDirectoryModeDesc": {
@@ -1512,15 +1512,15 @@
         "description": "Message for chatgptDirectoryPromptLabelModeLabel"
     },
     "chatgptDirectoryPromptLabelModeDesc": {
-        "message": "目录展开后，长标题会同时保留开头和结尾。",
+        "message": "消息目录展开后，长标题会同时保留开头和结尾。",
         "description": "Message for chatgptDirectoryPromptLabelModeDesc"
     },
     "chatgptDirectoryRightInsetLabel": {
-        "message": "目录距右侧的距离",
+        "message": "消息目录距右侧的距离",
         "description": "Message for chatgptDirectoryRightInsetLabel"
     },
     "chatgptDirectoryRightInsetDesc": {
-        "message": "如果目录挡住页面滚动条，可适当调大。",
+        "message": "如果消息目录挡住页面滚动条，可适当调大。",
         "description": "Message for chatgptDirectoryRightInsetDesc"
     },
     "chatgptDirectoryPreviewMaxCharsLabel": {
@@ -1528,7 +1528,7 @@
         "description": "Message for chatgptDirectoryPreviewMaxCharsLabel"
     },
     "chatgptDirectoryPreviewMaxCharsDesc": {
-        "message": "鼠标移到右侧目录中的消息时，限制预览的文字长度。",
+        "message": "鼠标移到消息目录中的条目时，限制预览的文字长度。",
         "description": "Message for chatgptDirectoryPreviewMaxCharsDesc"
     },
     "reader": {
@@ -1928,11 +1928,11 @@
         "description": "Message for formulaAssetActionsSummaryCount"
     },
     "contextOnlySaveLabel": {
-        "message": "书签只保存内容开头",
+        "message": "书签只保存内容摘要",
         "description": "Message for contextOnlySaveLabel"
     },
     "contextOnlySaveDesc": {
-        "message": "开启后，每条书签只保存前 500 个字符；完整内容仍可在原对话查看。",
+        "message": "超过 500 个字符的内容，各保留开头 250 和结尾 250 个字符；完整内容仍可在原对话查看。",
         "description": "Message for contextOnlySaveDesc"
     },
     "renderCodeBlocksLabel": {
@@ -1944,7 +1944,7 @@
         "description": "Message for renderCodeBlocksDesc"
     },
     "readerOutlineToggleLabel": {
-        "message": "在阅读器中显示标题目录",
+        "message": "在阅读器中显示标题大纲",
         "description": "Message for readerOutlineToggleLabel"
     },
     "readerOutlineToggleDesc": {
@@ -2272,7 +2272,7 @@
         "description": "Message for tabFeedback"
     },
     "tabAbout": {
-        "message": "关于我",
+        "message": "关于作者",
         "description": "Message for tabAbout"
     },
     "tabMappamory": {
@@ -2716,7 +2716,7 @@
         "description": "Message for bookmarksCount"
     },
     "failedToExtractUserMessage": {
-        "message": "提取用户消息失败，请重试。",
+        "message": "提取提问失败，请重试。",
         "description": "Message for failedToExtractUserMessage"
     },
     "failedToPrepareBookmark": {
@@ -2868,11 +2868,11 @@
         "description": "Message for bookmarkTypeMessage"
     },
     "contextOnlyConfirmTitle": {
-        "message": "启用仅保存上下文吗？",
+        "message": "只保存书签摘要？",
         "description": "Message for contextOnlyConfirmTitle"
     },
     "contextOnlyConfirmSummary": {
-        "message": "该功能会对新书签仅保存 500 个字符（开头 250 + 结尾 250）。",
+        "message": "新书签中的提问和回复超过 500 个字符时，只保存开头 250 和结尾 250 个字符。",
         "description": "Message for contextOnlyConfirmSummary"
     },
     "contextOnlyBenefitTitle": {
@@ -2888,7 +2888,7 @@
         "description": "Message for contextOnlyTradeoffTitle"
     },
     "contextOnlyTradeoffDesc": {
-        "message": "书签面板中将无法查看完整文本预览。",
+        "message": "资料库中将无法预览完整的书签内容。",
         "description": "Message for contextOnlyTradeoffDesc"
     },
     "contextOnlyEnable": {
@@ -3228,31 +3228,31 @@
         "description": "Message for detachedReaderExperimentalCancel"
     },
     "promptManagerTitle": {
-        "message": "Prompts",
+        "message": "提示词",
         "description": "Title for the prompt manager"
     },
     "promptSearchPlaceholder": {
-        "message": "搜索 Prompt",
+        "message": "搜索提示词",
         "description": "Placeholder for prompt manager search"
     },
     "promptAdd": {
-        "message": "添加 Prompt",
+        "message": "添加提示词",
         "description": "Action label for adding a prompt"
     },
     "promptEdit": {
-        "message": "编辑 Prompt",
+        "message": "编辑提示词",
         "description": "Action label for editing a prompt"
     },
     "promptDelete": {
-        "message": "删除 Prompt",
+        "message": "删除提示词",
         "description": "Action label for deleting a prompt"
     },
     "promptNoPrompts": {
-        "message": "暂无 Prompt",
+        "message": "暂无提示词",
         "description": "Empty state for prompt manager"
     },
     "promptUntitled": {
-        "message": "未命名 Prompt",
+        "message": "未命名提示词",
         "description": "Fallback prompt title"
     },
     "promptTitleLabel": {
@@ -3264,7 +3264,7 @@
         "description": "Prompt trigger field label"
     },
     "promptContentLabel": {
-        "message": "Prompt",
+        "message": "提示词内容",
         "description": "Prompt content field label"
     },
     "promptEnabledLabel": {
@@ -3276,11 +3276,11 @@
         "description": "Button label for inserting the prompt cursor placeholder"
     },
     "promptContentRequired": {
-        "message": "Prompt 内容不能为空。",
+        "message": "提示词内容不能为空。",
         "description": "Prompt validation message when content is empty"
     },
     "promptSaveFailed": {
-        "message": "Prompt 保存失败。",
+        "message": "提示词保存失败。",
         "description": "Prompt save generic error message"
     },
     "detachedReaderClosed": {
@@ -4092,11 +4092,11 @@
         "description": "Settings copy for settingsInputFormulaPreviewDesc"
     },
     "btnCopyPromptReply": {
-        "message": "复制 Prompt＋回复",
+        "message": "复制提问＋回复",
         "description": "Settings UI: btnCopyPromptReply"
     },
     "promptReplyUnavailable": {
-        "message": "未取得对应的用户 Prompt，请等待对话加载完成后重试。",
+        "message": "未取得对应提问，请等待对话加载完成后重试。",
         "description": "Settings UI: promptReplyUnavailable"
     },
     "settingsButtonsGroupPage": {
@@ -4116,7 +4116,7 @@
         "description": "Settings UI: settingsButtonsGroupSelection"
     },
     "settingsButtonsGroupDirectory": {
-        "message": "目录导航",
+        "message": "消息目录",
         "description": "Settings UI: settingsButtonsGroupDirectory"
     },
     "settingsButtonsGroupComposer": {
@@ -4136,7 +4136,7 @@
         "description": "Settings UI: settingsCollapsed"
     },
     "settingsPin": {
-        "message": "常驻",
+        "message": "固定按钮",
         "description": "Settings UI: settingsPin"
     },
     "settingsMessageTimestamp": {
@@ -4152,7 +4152,7 @@
         "description": "Settings UI: settingsComposerAnnotations"
     },
     "settingsButtonsPinHint": {
-        "message": "常驻按钮在收起时仍可见。关闭按钮后保留常驻偏好，重新开启即可恢复。",
+        "message": "固定的按钮在收起时仍可见。关闭按钮会保留固定偏好，重新开启即可恢复。",
         "description": "Settings UI: settingsButtonsPinHint"
     },
     "settingsButtonsFormulaHint": {
@@ -4192,7 +4192,7 @@
         "description": "Settings UI: settingsRestore"
     },
     "settingsExportNotice": {
-        "message": "JSON 文件包含按钮显示、常驻偏好、外观、阅读及导出选项；不包含令牌、账号信息、对话、收藏、注释、高亮、提示词及自定义模板。请将文件保存在可信的位置。",
+        "message": "JSON 文件包含按钮显示、固定按钮偏好、外观、阅读及导出选项；不包含令牌、账号信息、对话、书签、注释、高亮、提示词及自定义模板。请将文件保存在可信的位置。",
         "description": "Settings UI: settingsExportNotice"
     },
     "settingsExportConfirm": {
@@ -4292,7 +4292,7 @@
         "description": "Settings UI: settingsPreferenceBehaviorSaveContextOnly"
     },
     "settingsPreferenceBehaviorPinnedMessageControls": {
-        "message": "消息常驻按钮",
+        "message": "固定的消息按钮",
         "description": "Settings UI: settingsPreferenceBehaviorPinnedMessageControls"
     },
     "settingsPreferenceReaderRenderCodeInReader": {
@@ -4300,7 +4300,7 @@
         "description": "Settings UI: settingsPreferenceReaderRenderCodeInReader"
     },
     "settingsPreferenceReaderShowOutlineInReader": {
-        "message": "阅读器大纲",
+        "message": "阅读器标题大纲",
         "description": "Settings UI: settingsPreferenceReaderShowOutlineInReader"
     },
     "settingsPreferenceReaderPersistAnnotations": {
@@ -4372,15 +4372,15 @@
         "description": "Settings UI: settingsPreferenceExportPngPixelRatio"
     },
     "settingsPreferenceChatgptDirectoryEnabled": {
-        "message": "显示目录",
+        "message": "显示消息目录",
         "description": "Settings UI: settingsPreferenceChatgptDirectoryEnabled"
     },
     "settingsPreferenceChatgptDirectoryMode": {
-        "message": "目录显示方式",
+        "message": "消息目录显示方式",
         "description": "Settings UI: settingsPreferenceChatgptDirectoryMode"
     },
     "settingsPreferenceChatgptDirectoryPromptLabelMode": {
-        "message": "目录 Prompt 摘要",
+        "message": "消息目录提问摘要",
         "description": "Settings UI: settingsPreferenceChatgptDirectoryPromptLabelMode"
     },
     "settingsPreferenceChatgptDirectoryHideOfficialNavigation": {
@@ -4388,11 +4388,11 @@
         "description": "Settings UI: settingsPreferenceChatgptDirectoryHideOfficialNavigation"
     },
     "settingsPreferenceChatgptDirectoryRightInsetPx": {
-        "message": "目录右侧间距",
+        "message": "消息目录右侧间距",
         "description": "Settings UI: settingsPreferenceChatgptDirectoryRightInsetPx"
     },
     "settingsPreferenceChatgptDirectoryPreviewMaxChars": {
-        "message": "目录预览长度",
+        "message": "消息目录预览长度",
         "description": "Settings UI: settingsPreferenceChatgptDirectoryPreviewMaxChars"
     },
     "settingsPreferenceChatgptBehaviorRestorePositionAfterSend": {
@@ -4412,7 +4412,7 @@
         "description": "Settings UI: settingsPreferenceChatgptBehaviorShowPageBookmarkControl"
     },
     "settingsPreferenceChatgptBehaviorShowDetachedReaderControl": {
-        "message": "分屏阅读器按钮",
+        "message": "独立阅读器按钮",
         "description": "Settings UI: settingsPreferenceChatgptBehaviorShowDetachedReaderControl"
     },
     "settingsPreferenceChatgptBehaviorShowPromptControl": {
@@ -4452,7 +4452,7 @@
         "description": "Settings UI: settingsPreferenceChatgptBehaviorShowPageSelectionToolbar"
     },
     "settingsPreferenceChatgptBehaviorPinnedPageControls": {
-        "message": "页面常驻按钮",
+        "message": "固定的页面按钮",
         "description": "Settings UI: settingsPreferenceChatgptBehaviorPinnedPageControls"
     },
     "settingsPreferenceChatgptBehaviorPageWidthScale": {
@@ -4492,7 +4492,7 @@
         "description": "Settings UI: settingsPreferenceBehaviorMessageControlsCopyMarkdown"
     },
     "settingsPreferenceBehaviorMessageControlsCopyPromptReply": {
-        "message": "消息复制 Prompt＋回复按钮",
+        "message": "复制提问＋回复按钮",
         "description": "Settings UI: settingsPreferenceBehaviorMessageControlsCopyPromptReply"
     },
     "settingsPreferenceBehaviorMessageControlsReader": {
@@ -4596,7 +4596,7 @@
         "description": "Settings selection preview hint"
     },
     "settingsButtonsDirectoryHint": {
-        "message": "目录开启时，箭头固定在页面右下角、品牌按钮上方。此开关只控制显示，不改变方向键导航。",
+        "message": "消息目录开启时，箭头固定在页面右下角、品牌按钮上方。此开关只控制显示，不改变方向键导航。",
         "description": "Settings Directory arrow preview hint"
     },
     "settingsReloadForUpdate": {
@@ -4671,5 +4671,797 @@
     "themeAccentRgbInvalid": {
         "message": "请输入六位色值，例如 FF6699。",
         "description": "Settings appearance color control"
+    },
+    "tabFeatureOverview": {
+        "message": "功能全览",
+        "description": "Feature overview interface label"
+    },
+    "featureOverviewTitle": {
+        "message": "功能全览",
+        "description": "Feature overview interface label"
+    },
+    "featureOverviewLead": {
+        "message": "按功能查看 AI-MarkDone 的用途和使用入口。",
+        "description": "Feature overview interface label"
+    },
+    "featureOverviewSearchPlaceholder": {
+        "message": "搜索功能、用法或快捷键",
+        "description": "Feature overview interface label"
+    },
+    "featureOverviewSearchLabel": {
+        "message": "搜索功能",
+        "description": "Feature overview interface label"
+    },
+    "featureOverviewNoMatches": {
+        "message": "没有找到匹配的功能，试试其他关键词。",
+        "description": "Feature overview interface label"
+    },
+    "featureOverviewAll": {
+        "message": "全部功能",
+        "description": "Feature overview interface label"
+    },
+    "featureOverviewSettings": {
+        "message": "相关设置",
+        "description": "Feature overview interface label"
+    },
+    "featureOverviewEntryLabel": {
+        "message": "入口",
+        "description": "Feature overview interface label"
+    },
+    "featureOverviewShortcutLabel": {
+        "message": "快捷键",
+        "description": "Feature overview interface label"
+    },
+    "featureOverviewCount": {
+        "message": "$1 项功能",
+        "description": "Feature overview interface label"
+    },
+    "workspaceFullscreen": {
+        "message": "全屏",
+        "description": "Feature overview interface label"
+    },
+    "workspaceExitFullscreen": {
+        "message": "退出全屏",
+        "description": "Feature overview interface label"
+    },
+    "featureOverviewSectionReaderTitle": {
+        "message": "阅读器",
+        "description": "Feature overview group title"
+    },
+    "featureOverviewSectionReaderSummary": {
+        "message": "回复阅读、标题大纲、摘录和追问。",
+        "description": "Feature overview group introduction"
+    },
+    "featureOverviewReaderFocusTitle": {
+        "message": "阅读器",
+        "description": "Feature overview title"
+    },
+    "featureOverviewReaderFocusDescription": {
+        "message": "用清楚的排版阅读长回复，集中查看标题、列表、表格、代码和公式。",
+        "description": "Feature overview description"
+    },
+    "featureOverviewReaderFocusEntry": {
+        "message": "回复底部工具栏 → 阅读器",
+        "description": "Feature overview entry"
+    },
+    "featureOverviewReaderOutlineTitle": {
+        "message": "标题大纲",
+        "description": "Feature overview title"
+    },
+    "featureOverviewReaderOutlineDescription": {
+        "message": "按当前回复的标题查看结构，快速跳到需要阅读的段落。",
+        "description": "Feature overview description"
+    },
+    "featureOverviewReaderOutlineEntry": {
+        "message": "阅读器 → 标题大纲",
+        "description": "Feature overview entry"
+    },
+    "featureOverviewReaderOutlineNote": {
+        "message": "至少有两个标题时显示，也可以在阅读器设置中关闭。",
+        "description": "Feature overview usage note"
+    },
+    "featureOverviewReaderPagesTitle": {
+        "message": "回复分页",
+        "description": "Feature overview title"
+    },
+    "featureOverviewReaderPagesDescription": {
+        "message": "逐条阅读已收录的回复，切换消息时不用在长网页里反复滚动。",
+        "description": "Feature overview description"
+    },
+    "featureOverviewReaderPagesEntry": {
+        "message": "阅读器 → 消息页码、上一条／下一条",
+        "description": "Feature overview entry"
+    },
+    "featureOverviewReaderPositionTitle": {
+        "message": "阅读位置记忆",
+        "description": "Feature overview title"
+    },
+    "featureOverviewReaderPositionDescription": {
+        "message": "切回已经读过的回复，或同页关闭后重开阅读器，可以接着之前的位置读。",
+        "description": "Feature overview description"
+    },
+    "featureOverviewReaderPositionEntry": {
+        "message": "阅读器 → 回复分页",
+        "description": "Feature overview entry"
+    },
+    "featureOverviewReaderPositionNote": {
+        "message": "阅读位置只在当前页面保留，刷新后重新开始。",
+        "description": "Feature overview usage note"
+    },
+    "featureOverviewReaderCodeTitle": {
+        "message": "代码复制与换行",
+        "description": "Feature overview title"
+    },
+    "featureOverviewReaderCodeDescription": {
+        "message": "单独复制代码块，或让长行换行便于阅读；语法高亮可按需要关闭。",
+        "description": "Feature overview description"
+    },
+    "featureOverviewReaderCodeEntry": {
+        "message": "阅读器中的代码块",
+        "description": "Feature overview entry"
+    },
+    "featureOverviewReaderExcerptsTitle": {
+        "message": "摘录区",
+        "description": "Feature overview title"
+    },
+    "featureOverviewReaderExcerptsDescription": {
+        "message": "把不同回复的重要片段暂存到一起，阅读时左右对照；摘录可排序和删除。",
+        "description": "Feature overview description"
+    },
+    "featureOverviewReaderExcerptsEntry": {
+        "message": "阅读器选区 → 暂存摘录",
+        "description": "Feature overview entry"
+    },
+    "featureOverviewReaderExcerptsNote": {
+        "message": "摘录区是临时工作区：同页重开仍在，刷新后清空；书签预览不提供摘录区。",
+        "description": "Feature overview usage note"
+    },
+    "featureOverviewReaderSendTitle": {
+        "message": "阅读器发送",
+        "description": "Feature overview title"
+    },
+    "featureOverviewReaderSendDescription": {
+        "message": "边读边写下一条提问，草稿与官网输入框同步，确认后发送。",
+        "description": "Feature overview description"
+    },
+    "featureOverviewReaderSendEntry": {
+        "message": "阅读器 → 发送",
+        "description": "Feature overview entry"
+    },
+    "featureOverviewReaderLocateTitle": {
+        "message": "原文定位",
+        "description": "Feature overview title"
+    },
+    "featureOverviewReaderLocateDescription": {
+        "message": "从正在阅读的回复回到原对话，方便继续看前后内容。",
+        "description": "Feature overview description"
+    },
+    "featureOverviewReaderLocateEntry": {
+        "message": "阅读器 → 定位",
+        "description": "Feature overview entry"
+    },
+    "featureOverviewReaderSeparateTitle": {
+        "message": "独立阅读器",
+        "description": "Feature overview title"
+    },
+    "featureOverviewReaderSeparateDescription": {
+        "message": "在独立标签页阅读长对话，适合官网滚动卡顿时使用。",
+        "description": "Feature overview description"
+    },
+    "featureOverviewReaderSeparateEntry": {
+        "message": "ChatGPT 网站右下角工具栏 → 独立阅读器",
+        "description": "Feature overview entry"
+    },
+    "featureOverviewReaderSeparateNote": {
+        "message": "实验性功能；刷新、发送和定位需要原 ChatGPT 标签页保持打开。",
+        "description": "Feature overview usage note"
+    },
+    "featureOverviewSectionNavigationTitle": {
+        "message": "消息目录与导航",
+        "description": "Feature overview group title"
+    },
+    "featureOverviewSectionNavigationSummary": {
+        "message": "长对话里的回复查找和阅读位置。",
+        "description": "Feature overview group introduction"
+    },
+    "featureOverviewNavigationDirectoryTitle": {
+        "message": "消息目录",
+        "description": "Feature overview title"
+    },
+    "featureOverviewNavigationDirectoryDescription": {
+        "message": "按提问摘要查找对应回复；可选择预览或展开列表，历史消息加载后逐步补进目录。",
+        "description": "Feature overview description"
+    },
+    "featureOverviewNavigationDirectoryEntry": {
+        "message": "设置 → 阅读与消息 → 消息目录",
+        "description": "Feature overview entry"
+    },
+    "featureOverviewNavigationDirectoryNote": {
+        "message": "目录需要开启；未加载的历史不一定已包含在列表中。",
+        "description": "Feature overview usage note"
+    },
+    "featureOverviewNavigationPreviewTitle": {
+        "message": "目录预览",
+        "description": "Feature overview title"
+    },
+    "featureOverviewNavigationPreviewDescription": {
+        "message": "不离开当前阅读位置就能预览其他回复，也能从预览打开阅读器或导出。",
+        "description": "Feature overview description"
+    },
+    "featureOverviewNavigationPreviewEntry": {
+        "message": "消息目录 → 回复预览",
+        "description": "Feature overview entry"
+    },
+    "featureOverviewNavigationStepperTitle": {
+        "message": "消息导航",
+        "description": "Feature overview title"
+    },
+    "featureOverviewNavigationStepperDescription": {
+        "message": "在相邻回复间切换，减少手动滚动；输入文字时方向键仍移动光标。",
+        "description": "Feature overview description"
+    },
+    "featureOverviewNavigationStepperEntry": {
+        "message": "ChatGPT 页面 → 上一条／下一条",
+        "description": "Feature overview entry"
+    },
+    "featureOverviewNavigationSendPositionTitle": {
+        "message": "发送后阅读位置恢复",
+        "description": "Feature overview title"
+    },
+    "featureOverviewNavigationSendPositionDescription": {
+        "message": "阅读前文时发送新提问，尽量保持原来的位置，减少跳到底部的打断。",
+        "description": "Feature overview description"
+    },
+    "featureOverviewNavigationSendPositionEntry": {
+        "message": "设置 → 阅读与消息 → 发送后恢复阅读位置",
+        "description": "Feature overview entry"
+    },
+    "featureOverviewSectionCopyExportTitle": {
+        "message": "复制与导出",
+        "description": "Feature overview group title"
+    },
+    "featureOverviewSectionCopyExportSummary": {
+        "message": "Markdown、图片和文件输出。",
+        "description": "Feature overview group introduction"
+    },
+    "featureOverviewCopyMarkdownTitle": {
+        "message": "Markdown 复制",
+        "description": "Feature overview title"
+    },
+    "featureOverviewCopyMarkdownDescription": {
+        "message": "保留标题、列表、表格、代码和公式标记，方便粘贴到笔记或文档后继续编辑。",
+        "description": "Feature overview description"
+    },
+    "featureOverviewCopyMarkdownEntry": {
+        "message": "消息工具栏或阅读器 → 复制 Markdown",
+        "description": "Feature overview entry"
+    },
+    "featureOverviewCopyQuestionReplyTitle": {
+        "message": "提问＋回复复制",
+        "description": "Feature overview title"
+    },
+    "featureOverviewCopyQuestionReplyDescription": {
+        "message": "同时带走提问和回答，并标明双方，方便分享完整上下文。",
+        "description": "Feature overview description"
+    },
+    "featureOverviewCopyQuestionReplyEntry": {
+        "message": "消息工具栏 → 悬停复制 → 提问＋回复",
+        "description": "Feature overview entry"
+    },
+    "featureOverviewCopyImageTitle": {
+        "message": "回复图片复制",
+        "description": "Feature overview title"
+    },
+    "featureOverviewCopyImageDescription": {
+        "message": "把当前回复变成图片，方便直接粘贴到聊天或文档。",
+        "description": "Feature overview description"
+    },
+    "featureOverviewCopyImageEntry": {
+        "message": "消息工具栏 → 悬停复制 → 复制为 PNG",
+        "description": "Feature overview entry"
+    },
+    "featureOverviewCopySelectionTitle": {
+        "message": "选区 Markdown 复制",
+        "description": "Feature overview title"
+    },
+    "featureOverviewCopySelectionDescription": {
+        "message": "只复制需要的段落并保留格式；公式按完整公式复制，部分代码选区保留实际片段。",
+        "description": "Feature overview description"
+    },
+    "featureOverviewCopySelectionEntry": {
+        "message": "回复或阅读器选区 → 复制",
+        "description": "Feature overview entry"
+    },
+    "featureOverviewCopySelectionNote": {
+        "message": "官网快捷键可改为 Cmd/Ctrl＋C 或关闭；阅读器中使用 Cmd/Ctrl＋C。",
+        "description": "Feature overview usage note"
+    },
+    "featureOverviewExportFormatsTitle": {
+        "message": "消息导出",
+        "description": "Feature overview title"
+    },
+    "featureOverviewExportFormatsDescription": {
+        "message": "把一条或多条回复保存为 Markdown、PDF 或 PNG；多张图片可打包为 ZIP，生成时可查看进度或取消。",
+        "description": "Feature overview description"
+    },
+    "featureOverviewExportFormatsEntry": {
+        "message": "消息工具栏或目录预览 → 导出",
+        "description": "Feature overview entry"
+    },
+    "featureOverviewExportFormatsNote": {
+        "message": "PDF 使用浏览器打印窗口，选择“保存为 PDF”。",
+        "description": "Feature overview usage note"
+    },
+    "featureOverviewExportImageSettingsTitle": {
+        "message": "图片导出设置",
+        "description": "Feature overview title"
+    },
+    "featureOverviewExportImageSettingsDescription": {
+        "message": "按分享场景选择手机、平板、桌面或自定义宽度，并调整图片清晰度。",
+        "description": "Feature overview description"
+    },
+    "featureOverviewExportImageSettingsEntry": {
+        "message": "设置 → 复制与导出 → 消息图片",
+        "description": "Feature overview entry"
+    },
+    "featureOverviewSectionInputTitle": {
+        "message": "输入与提示词",
+        "description": "Feature overview group title"
+    },
+    "featureOverviewSectionInputSummary": {
+        "message": "输入辅助和可复用提示词。",
+        "description": "Feature overview group introduction"
+    },
+    "featureOverviewInputNewlineTitle": {
+        "message": "Enter 换行",
+        "description": "Feature overview title"
+    },
+    "featureOverviewInputNewlineDescription": {
+        "message": "写长提问时用 Enter 换行，使用发送按钮或 Cmd/Ctrl＋Enter 发送。",
+        "description": "Feature overview description"
+    },
+    "featureOverviewInputNewlineEntry": {
+        "message": "设置 → 输入与提示词 → 输入增强",
+        "description": "Feature overview entry"
+    },
+    "featureOverviewInputBoldTitle": {
+        "message": "粗体快捷键",
+        "description": "Feature overview title"
+    },
+    "featureOverviewInputBoldDescription": {
+        "message": "为选中的文字添加或移除可见的粗体标记，快速强调重点。",
+        "description": "Feature overview description"
+    },
+    "featureOverviewInputBoldEntry": {
+        "message": "ChatGPT 输入框 → Cmd/Ctrl＋B",
+        "description": "Feature overview entry"
+    },
+    "featureOverviewInputListsTitle": {
+        "message": "列表输入辅助",
+        "description": "Feature overview title"
+    },
+    "featureOverviewInputListsDescription": {
+        "message": "续写、插入、拆分或删除列表条目时自动调整编号，空条目可退出列表。",
+        "description": "Feature overview description"
+    },
+    "featureOverviewInputListsEntry": {
+        "message": "ChatGPT 输入框；设置 → 输入与提示词 → 输入增强",
+        "description": "Feature overview entry"
+    },
+    "featureOverviewInputPromptLibraryTitle": {
+        "message": "提示词管理",
+        "description": "Feature overview title"
+    },
+    "featureOverviewInputPromptLibraryDescription": {
+        "message": "保存经常使用的指令，设置触发词，并搜索、编辑、排序、停用或删除。",
+        "description": "Feature overview description"
+    },
+    "featureOverviewInputPromptLibraryEntry": {
+        "message": "ChatGPT 页面工具栏或设置 → 输入与提示词 → 提示词",
+        "description": "Feature overview entry"
+    },
+    "featureOverviewInputPromptTriggerTitle": {
+        "message": "提示词快捷调用",
+        "description": "Feature overview title"
+    },
+    "featureOverviewInputPromptTriggerDescription": {
+        "message": "输入反斜杠和触发词即可调用常用指令，不必反复输入长提示词。",
+        "description": "Feature overview description"
+    },
+    "featureOverviewInputPromptTriggerEntry": {
+        "message": "ChatGPT 输入框或阅读器发送框 → \\触发词",
+        "description": "Feature overview entry"
+    },
+    "featureOverviewInputPromptCursorTitle": {
+        "message": "提示词光标标记",
+        "description": "Feature overview title"
+    },
+    "featureOverviewInputPromptCursorDescription": {
+        "message": "插入提示词后光标直接停在需要填写的地方，方便接着补充内容。",
+        "description": "Feature overview description"
+    },
+    "featureOverviewInputPromptCursorEntry": {
+        "message": "提示词编辑 → 插入光标",
+        "description": "Feature overview entry"
+    },
+    "featureOverviewInputPromptCursorNote": {
+        "message": "光标标记使用 {{cursor}}。",
+        "description": "Feature overview usage note"
+    },
+    "featureOverviewInputPromptNotesTitle": {
+        "message": "提示词与注释插入",
+        "description": "Feature overview title"
+    },
+    "featureOverviewInputPromptNotesDescription": {
+        "message": "将选中的提示词和当前对话注释一起放入草稿，方便接着修改或追问。",
+        "description": "Feature overview description"
+    },
+    "featureOverviewInputPromptNotesEntry": {
+        "message": "输入框的提示词候选 → 右方向键",
+        "description": "Feature overview entry"
+    },
+    "featureOverviewSectionFormulaTitle": {
+        "message": "公式",
+        "description": "Feature overview group title"
+    },
+    "featureOverviewSectionFormulaSummary": {
+        "message": "公式输入、预览、复制和导出。",
+        "description": "Feature overview group introduction"
+    },
+    "featureOverviewFormulaSourceTitle": {
+        "message": "公式源码复制",
+        "description": "Feature overview title"
+    },
+    "featureOverviewFormulaSourceDescription": {
+        "message": "取出单个公式的 LaTeX 源码，粘贴后可以继续编辑。",
+        "description": "Feature overview description"
+    },
+    "featureOverviewFormulaSourceEntry": {
+        "message": "回复中的公式 → 点击复制",
+        "description": "Feature overview entry"
+    },
+    "featureOverviewFormulaFormatsTitle": {
+        "message": "公式复制格式",
+        "description": "Feature overview title"
+    },
+    "featureOverviewFormulaFormatsDescription": {
+        "message": "分别指定单个公式和整段 Markdown 的输出格式，适配不同编辑器。",
+        "description": "Feature overview description"
+    },
+    "featureOverviewFormulaFormatsEntry": {
+        "message": "设置 → 复制与导出 → 公式",
+        "description": "Feature overview entry"
+    },
+    "featureOverviewFormulaSuggestionsTitle": {
+        "message": "公式命令补全",
+        "description": "Feature overview title"
+    },
+    "featureOverviewFormulaSuggestionsDescription": {
+        "message": "输入公式时调用常见 LaTeX 片段，并用 Tab 切换需要填写的位置。",
+        "description": "Feature overview description"
+    },
+    "featureOverviewFormulaSuggestionsEntry": {
+        "message": "ChatGPT 输入框的公式内 → 反斜杠命令",
+        "description": "Feature overview entry"
+    },
+    "featureOverviewFormulaPreviewTitle": {
+        "message": "公式预览",
+        "description": "Feature overview title"
+    },
+    "featureOverviewFormulaPreviewDescription": {
+        "message": "草稿还没发送，就能查看光标所在公式的效果，及时发现写法问题。",
+        "description": "Feature overview description"
+    },
+    "featureOverviewFormulaPreviewEntry": {
+        "message": "ChatGPT 输入框 → 公式；设置 → 输入与提示词 → 公式辅助",
+        "description": "Feature overview entry"
+    },
+    "featureOverviewFormulaAssetsTitle": {
+        "message": "公式导出",
+        "description": "Feature overview title"
+    },
+    "featureOverviewFormulaAssetsDescription": {
+        "message": "把单个公式复制为 PNG、SVG 或 MathML，或保存 PNG、SVG；回复和输入预览分别配置。",
+        "description": "Feature overview description"
+    },
+    "featureOverviewFormulaAssetsEntry": {
+        "message": "回复公式或输入公式预览 → 导出操作；设置 → 按钮 → 公式",
+        "description": "Feature overview entry"
+    },
+    "featureOverviewFormulaAssetsNote": {
+        "message": "回复中的图片按钮需先开启；SVG 和 MathML 需要可用的公式源码。",
+        "description": "Feature overview usage note"
+    },
+    "featureOverviewSectionLibraryTitle": {
+        "message": "书签与资料库",
+        "description": "Feature overview group title"
+    },
+    "featureOverviewSectionLibrarySummary": {
+        "message": "回复收藏、资料查找和文件夹整理。",
+        "description": "Feature overview group introduction"
+    },
+    "featureOverviewLibrarySaveReplyTitle": {
+        "message": "消息书签",
+        "description": "Feature overview title"
+    },
+    "featureOverviewLibrarySaveReplyDescription": {
+        "message": "保存回复和对应提问，之后在资料库阅读、复制，或返回原对话。",
+        "description": "Feature overview description"
+    },
+    "featureOverviewLibrarySaveReplyEntry": {
+        "message": "消息工具栏或阅读器 → 书签",
+        "description": "Feature overview entry"
+    },
+    "featureOverviewLibrarySavePageTitle": {
+        "message": "页面书签",
+        "description": "Feature overview title"
+    },
+    "featureOverviewLibrarySavePageDescription": {
+        "message": "保存对话的名称和链接，以后快速打开原对话。",
+        "description": "Feature overview description"
+    },
+    "featureOverviewLibrarySavePageEntry": {
+        "message": "ChatGPT 页面工具栏 → 收藏当前页面",
+        "description": "Feature overview entry"
+    },
+    "featureOverviewLibrarySavePageNote": {
+        "message": "页面书签只保存名称和链接，不保存整个对话正文。",
+        "description": "Feature overview usage note"
+    },
+    "featureOverviewLibrarySearchTitle": {
+        "message": "资料搜索与排序",
+        "description": "Feature overview title"
+    },
+    "featureOverviewLibrarySearchDescription": {
+        "message": "分别查找书签、注释和高亮；书签还能按名称、保存时间或页面／消息类型整理。",
+        "description": "Feature overview description"
+    },
+    "featureOverviewLibrarySearchEntry": {
+        "message": "管理面板 → 资料库",
+        "description": "Feature overview entry"
+    },
+    "featureOverviewLibraryFoldersTitle": {
+        "message": "书签文件夹",
+        "description": "Feature overview title"
+    },
+    "featureOverviewLibraryFoldersDescription": {
+        "message": "按主题归类收藏，修改文件夹和书签名称，或移动到其他文件夹。",
+        "description": "Feature overview description"
+    },
+    "featureOverviewLibraryFoldersEntry": {
+        "message": "资料库 → 书签 → 文件夹",
+        "description": "Feature overview entry"
+    },
+    "featureOverviewLibraryBatchTitle": {
+        "message": "书签批量管理",
+        "description": "Feature overview title"
+    },
+    "featureOverviewLibraryBatchDescription": {
+        "message": "选择本页或全部筛选结果，一次移动、删除或导出多条书签。",
+        "description": "Feature overview description"
+    },
+    "featureOverviewLibraryBatchEntry": {
+        "message": "资料库 → 书签 → 管理",
+        "description": "Feature overview entry"
+    },
+    "featureOverviewLibrarySummariesTitle": {
+        "message": "书签摘要",
+        "description": "Feature overview title"
+    },
+    "featureOverviewLibrarySummariesDescription": {
+        "message": "节省保存空间，分别保留提问和回复的首尾内容；完整正文仍可去原对话查看。",
+        "description": "Feature overview description"
+    },
+    "featureOverviewLibrarySummariesEntry": {
+        "message": "设置 → 数据与备份 → 资料库 → 书签只保存内容摘要",
+        "description": "Feature overview entry"
+    },
+    "featureOverviewLibrarySummariesNote": {
+        "message": "超过 500 个字符的内容，各保留开头 250 和结尾 250 个字符。",
+        "description": "Feature overview usage note"
+    },
+    "featureOverviewSectionMarksTitle": {
+        "message": "注释与高亮",
+        "description": "Feature overview group title"
+    },
+    "featureOverviewSectionMarksSummary": {
+        "message": "原文标记、意见整理和后续追问。",
+        "description": "Feature overview group introduction"
+    },
+    "featureOverviewMarksAddNoteTitle": {
+        "message": "原文注释",
+        "description": "Feature overview title"
+    },
+    "featureOverviewMarksAddNoteDescription": {
+        "message": "对选中的原文写下意见，保留自己的想法和对应内容，方便后续修改。",
+        "description": "Feature overview description"
+    },
+    "featureOverviewMarksAddNoteEntry": {
+        "message": "回复或阅读器选区 → 注释",
+        "description": "Feature overview entry"
+    },
+    "featureOverviewMarksSaveAnnotationsTitle": {
+        "message": "注释保存",
+        "description": "Feature overview title"
+    },
+    "featureOverviewMarksSaveAnnotationsDescription": {
+        "message": "让之后新建的注释在刷新后仍能查看，官网页面和阅读器共用已保存的注释。",
+        "description": "Feature overview description"
+    },
+    "featureOverviewMarksSaveAnnotationsEntry": {
+        "message": "阅读器设置 → 保存新建的注释",
+        "description": "Feature overview entry"
+    },
+    "featureOverviewMarksSaveAnnotationsNote": {
+        "message": "默认关闭。关闭时新注释仅留在当前页面；已经保存的注释不受影响。",
+        "description": "Feature overview usage note"
+    },
+    "featureOverviewMarksHighlightTitle": {
+        "message": "三色高亮",
+        "description": "Feature overview title"
+    },
+    "featureOverviewMarksHighlightDescription": {
+        "message": "用雾蓝、奶油黄或浅珊瑚红标出重点，高亮会自动保存，之后可以更改颜色。",
+        "description": "Feature overview description"
+    },
+    "featureOverviewMarksHighlightEntry": {
+        "message": "回复或阅读器选区 → 三色色块",
+        "description": "Feature overview entry"
+    },
+    "featureOverviewMarksHighlightNote": {
+        "message": "支持普通文字和完整行内代码、公式；代码块、表格等内容不显示高亮色块。",
+        "description": "Feature overview usage note"
+    },
+    "featureOverviewMarksNotesManageTitle": {
+        "message": "注释与高亮管理",
+        "description": "Feature overview title"
+    },
+    "featureOverviewMarksNotesManageDescription": {
+        "message": "集中查找、编辑或删除标记，打开原对话；高亮支持批量改色，当前对话注释可插入输入框。",
+        "description": "Feature overview description"
+    },
+    "featureOverviewMarksNotesManageEntry": {
+        "message": "资料库 → 注释／高亮",
+        "description": "Feature overview entry"
+    },
+    "featureOverviewMarksNotesOutputTitle": {
+        "message": "注释复制与插入",
+        "description": "Feature overview title"
+    },
+    "featureOverviewMarksNotesOutputDescription": {
+        "message": "把原文与注释整理成一次追问，可带上提示词，预览后复制或放入发送草稿。",
+        "description": "Feature overview description"
+    },
+    "featureOverviewMarksNotesOutputEntry": {
+        "message": "阅读器 → 复制注释／发送 → 插入注释；当前对话注释管理",
+        "description": "Feature overview entry"
+    },
+    "featureOverviewMarksNotesTemplateTitle": {
+        "message": "注释模板",
+        "description": "Feature overview title"
+    },
+    "featureOverviewMarksNotesTemplateDescription": {
+        "message": "自定义原文、注释和提示词的排列方式，并按创建时间或正文位置整理注释。",
+        "description": "Feature overview description"
+    },
+    "featureOverviewMarksNotesTemplateEntry": {
+        "message": "阅读器设置或资料库注释详情 → 复制模板",
+        "description": "Feature overview entry"
+    },
+    "featureOverviewMarksOrganizeTitle": {
+        "message": "对话归档",
+        "description": "Feature overview title"
+    },
+    "featureOverviewMarksOrganizeDescription": {
+        "message": "给对话自定义名称，把注释和高亮按对话放入文件夹，新增内容沿用归属。",
+        "description": "Feature overview description"
+    },
+    "featureOverviewMarksOrganizeEntry": {
+        "message": "资料库 → 注释／高亮 → 对话管理",
+        "description": "Feature overview entry"
+    },
+    "featureOverviewSectionSettingsBackupTitle": {
+        "message": "个性设置与备份",
+        "description": "Feature overview group title"
+    },
+    "featureOverviewSectionSettingsBackupSummary": {
+        "message": "界面偏好、资料备份和设置迁移。",
+        "description": "Feature overview group introduction"
+    },
+    "featureOverviewSettingsAppearanceTitle": {
+        "message": "外观与布局",
+        "description": "Feature overview title"
+    },
+    "featureOverviewSettingsAppearanceDescription": {
+        "message": "选择浅色、深色或跟随页面，设置主色和字号，以及官网正文与输入框宽度。",
+        "description": "Feature overview description"
+    },
+    "featureOverviewSettingsAppearanceEntry": {
+        "message": "设置 → 外观与布局",
+        "description": "Feature overview entry"
+    },
+    "featureOverviewSettingsButtonsTitle": {
+        "message": "按钮显示与固定",
+        "description": "Feature overview title"
+    },
+    "featureOverviewSettingsButtonsDescription": {
+        "message": "按使用习惯保留页面、消息、公式、选区和目录按钮，并固定常用动作。",
+        "description": "Feature overview description"
+    },
+    "featureOverviewSettingsButtonsEntry": {
+        "message": "设置 → 按钮",
+        "description": "Feature overview entry"
+    },
+    "featureOverviewSettingsContentRulesTitle": {
+        "message": "内容保留规则",
+        "description": "Feature overview title"
+    },
+    "featureOverviewSettingsContentRulesDescription": {
+        "message": "统一控制阅读器、整条回复复制和消息导出中是否保留链接与代码块。",
+        "description": "Feature overview description"
+    },
+    "featureOverviewSettingsContentRulesEntry": {
+        "message": "设置 → 阅读与消息 → 内容保留规则",
+        "description": "Feature overview entry"
+    },
+    "featureOverviewSettingsContentRulesNote": {
+        "message": "默认去掉链接目标、保留代码块；不改变已保存的书签或明确选中的片段。",
+        "description": "Feature overview usage note"
+    },
+    "featureOverviewBackupLocalTitle": {
+        "message": "资料库文件备份",
+        "description": "Feature overview title"
+    },
+    "featureOverviewBackupLocalDescription": {
+        "message": "将书签、已保存的注释、高亮和文件夹带走；导入时先查看合并结果。",
+        "description": "Feature overview description"
+    },
+    "featureOverviewBackupLocalEntry": {
+        "message": "设置 → 数据与备份 → 本地备份；资料库 → 导入",
+        "description": "Feature overview entry"
+    },
+    "featureOverviewBackupLocalNote": {
+        "message": "不包含未保存的临时注释、摘录区、提示词或设置。",
+        "description": "Feature overview usage note"
+    },
+    "featureOverviewBackupDriveTitle": {
+        "message": "Google Drive 备份",
+        "description": "Feature overview title"
+    },
+    "featureOverviewBackupDriveDescription": {
+        "message": "手动保存资料库备份，选择历史备份预览恢复，或管理不再需要的备份文件。",
+        "description": "Feature overview description"
+    },
+    "featureOverviewBackupDriveEntry": {
+        "message": "设置 → 数据与备份 → 云端备份",
+        "description": "Feature overview entry"
+    },
+    "featureOverviewBackupDriveNote": {
+        "message": "实验性功能；只有点击“立即备份”才上传，不是自动同步。",
+        "description": "Feature overview usage note"
+    },
+    "featureOverviewBackupSettingsTransferTitle": {
+        "message": "设置导入与导出",
+        "description": "Feature overview title"
+    },
+    "featureOverviewBackupSettingsTransferDescription": {
+        "message": "换设备时沿用设置偏好，导入前查看差异并选择分类；不满意时可恢复导入前的配置。",
+        "description": "Feature overview description"
+    },
+    "featureOverviewBackupSettingsTransferEntry": {
+        "message": "设置 → 数据与备份 → 配置文件",
+        "description": "Feature overview entry"
+    },
+    "featureOverviewBackupSettingsTransferNote": {
+        "message": "配置文件只包含设置，不含资料库、提示词、账号凭据或自定义注释模板。",
+        "description": "Feature overview usage note"
+    },
+    "featureOverviewFunctionLabel": {
+        "message": "功能",
+        "description": "Feature overview table column header"
+    },
+    "featureOverviewEntryColumnLabel": {
+        "message": "说明",
+        "description": "Feature overview table column header"
     }
 }

@@ -3,13 +3,13 @@ import { MessageToolbar } from '@/ui/content/MessageToolbar';
 import { setLocale } from '@/ui/content/components/i18n';
 
 const mounted: MessageToolbar[] = [];
-function mount(onClick = vi.fn(async () => ({ ok: true as const }))) {
-    const toolbar = new MessageToolbar('light', [{ id: 'copy', label: 'Copy', icon: '<svg/>', onClick }], { collapsible: true, showStats: true });
+function mount(onClick = vi.fn(async () => ({ ok: true as const })), pinnedActions: readonly string[] = []) {
+    const toolbar = new MessageToolbar('light', [{ id: 'copy', label: 'Copy', icon: '<svg/>', onClick }], { collapsible: true, showStats: true, pinnedActions });
     mounted.push(toolbar); document.body.append(toolbar.getElement());
     const shadow = toolbar.getElement().shadowRoot!;
     return { toolbar, shadow, toggle: shadow.querySelector<HTMLButtonElement>('[data-action="toggle-capsule"]')!, action: shadow.querySelector<HTMLButtonElement>('[data-action="copy"]')! };
 }
-afterEach(() => { mounted.splice(0).forEach(toolbar => { toolbar.dispose(); toolbar.getElement().remove(); }); });
+afterEach(() => { mounted.splice(0).forEach(toolbar => { toolbar.dispose(); toolbar.getElement().remove(); }); vi.useRealTimers(); });
 
 describe('message capsule entry', () => {
     it('opens on hover and closes after the pointer leaves without requiring a click', async () => {
@@ -18,6 +18,8 @@ describe('message capsule entry', () => {
         const drawer = shadow.querySelector<HTMLElement>('.capsule-actions')!;
 
         bar.dispatchEvent(new MouseEvent('mouseenter'));
+        expect(toggle.getAttribute('aria-expanded')).toBe('false');
+        toggle.dispatchEvent(new MouseEvent('mouseenter'));
         expect(toggle.getAttribute('aria-expanded')).toBe('true');
         expect(drawer.hasAttribute('inert')).toBe(false);
 
@@ -99,6 +101,34 @@ describe('message capsule entry', () => {
 });
 
 describe('message action pins', () => {
+    it('keeps pinned hover and focus independent while preserving its tooltip and click action', async () => {
+        vi.useFakeTimers();
+        const onClick = vi.fn(async () => ({ ok: true as const }));
+        const { shadow, toggle, action } = mount(onClick, ['copy']);
+        const bar = shadow.querySelector<HTMLElement>('.bar')!;
+        const drawer = shadow.querySelector<HTMLElement>('.capsule-actions')!;
+        vi.spyOn(action, 'getBoundingClientRect').mockReturnValue({ x: 100, y: 100, left: 100, top: 100, width: 24, height: 24, right: 124, bottom: 124, toJSON: () => ({}) } as DOMRect);
+
+        bar.dispatchEvent(new MouseEvent('mouseenter'));
+        action.dispatchEvent(new Event('pointerover', { bubbles: true, composed: true }));
+        action.dispatchEvent(new MouseEvent('mouseenter'));
+        action.focus();
+        await vi.advanceTimersByTimeAsync(150);
+        expect(toggle.getAttribute('aria-expanded')).toBe('false');
+        expect(drawer.inert).toBe(true);
+        expect(action.closest('.capsule-pinned')).toBeTruthy();
+        expect(document.querySelector('.aimd-tooltip')?.textContent).toBe('Copy');
+
+        action.dispatchEvent(new MouseEvent('pointerdown', { bubbles: true, composed: true }));
+        action.click();
+        await Promise.resolve();
+        expect(onClick).toHaveBeenCalledOnce();
+        expect(toggle.getAttribute('aria-expanded')).toBe('false');
+        toggle.dispatchEvent(new MouseEvent('mouseenter'));
+        expect(toggle.getAttribute('aria-expanded')).toBe('true');
+        expect(shadow.querySelectorAll('[data-action="copy"]')).toHaveLength(1);
+    });
+
     it('uses the same pinned button once in collapsed and expanded states and keeps it clickable outside the inert drawer', async () => {
         const onClick=vi.fn(async()=>undefined);
         const toolbar=new MessageToolbar('light',[{id:'copy',label:'Copy',icon:'<svg/>',onClick},{id:'reader',label:'Reader',icon:'<svg/>',onClick:async()=>undefined}],{collapsible:true,pinnedActions:['copy'],showStats:true,showTimestamp:false});

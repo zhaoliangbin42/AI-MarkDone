@@ -309,7 +309,7 @@ export class PromptWorkflow {
             this.statusMessage = '';
         } catch (error) {
             this.dataState = 'error';
-            this.statusMessage = error instanceof Error ? error.message : 'Prompt Library could not be loaded.';
+            this.statusMessage = error instanceof Error ? error.message : 'Prompts could not be loaded.';
         }
     }
 

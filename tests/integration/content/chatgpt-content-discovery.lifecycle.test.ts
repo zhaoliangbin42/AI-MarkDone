@@ -1,5 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
+import type { ConversationSurfaceFrameV1 } from '@/contracts/conversationSurface';
 import { ChatGPTAdapter } from '@/drivers/content/adapters/sites/chatgpt';
 import { DOMContentSurfaceAdapter } from '@/drivers/content/adapters/ContentSurfaceAdapter';
 import { ChatGPTConversationContentRuntime } from '@/runtimes/content/ChatGPTConversationContentRuntime';
@@ -27,6 +28,23 @@ function roundHtml(index: number, answer: string, options: { action?: boolean; u
                     ? '<div class="z-0 flex"><button data-testid="copy-turn-action-button">Copy</button></div>'
                     : ''}
             </section>
+        </div>
+    `;
+}
+
+function searchUnitRoundHtml(index: number, windowIndex: number): string {
+    const turnKey = `fallback-turn-${windowIndex}`;
+    return `
+        <div data-turn-key="user-${index}">
+            <div data-content-search-turn-key="${turnKey}">
+                <div data-chatgpt-search-unit-key="${turnKey}:0:user" data-chatgpt-search-message-ids="user-${index}">Question ${index}</div>
+                <div class="group flex flex-col pb-2 pt-2">
+                    <div data-chatgpt-search-unit-key="${turnKey}:2:assistant" data-chatgpt-search-message-ids="assistant-${index} assistant-${index}">
+                        <div data-markdown-text-style="assistant-message">Answer ${index}</div>
+                    </div>
+                    <div class="turn-action-controls"><button aria-label="复制">Copy</button></div>
+                </div>
+            </div>
         </div>
     `;
 }
@@ -311,6 +329,319 @@ describe('ChatGPT DOM content discovery lifecycle', () => {
                 'Answer 1',
                 'Answer 2',
             ]);
+        } finally {
+            harness.dispose();
+        }
+    });
+
+    it('reconciles an exact topology identity before its completed body becomes eligible', async () => {
+        const main = document.querySelector('main')!;
+        main.innerHTML = `
+            <div data-turn-key="fallback-turn-0">
+                <div data-chatgpt-search-unit-key="fallback-turn-0:2:assistant" data-chatgpt-search-message-ids="assistant-3 assistant-3"></div>
+            </div>
+        ` + [4, 5, 6].map(searchUnitRoundHtml).join('');
+        const harness = createRuntime('topology-before-body');
+
+        try {
+            harness.runtime.init();
+            await settle();
+            expect(harness.runtime.source.read().snapshot?.turns.map((turn) => turn.identity.assistantMessageId)).toEqual([
+                'assistant-4', 'assistant-5', 'assistant-6',
+            ]);
+            expect(harness.runtime.surface.readFrame().obtainedTurns.map((entry) => entry.turn.identity.assistantMessageId)).toEqual([
+                'assistant-4', 'assistant-5', 'assistant-6',
+            ]);
+            expect(harness.runtime.readDiscoveryDiagnostics().repository.turnCount).toBe(3);
+
+            main.innerHTML = [2, 3, 4].map(searchUnitRoundHtml).join('');
+            await settle();
+            const snapshot = harness.runtime.source.read().snapshot;
+            expect(snapshot?.turns.map((turn) => turn.identity.assistantMessageId)).toEqual([
+                'assistant-2', 'assistant-3', 'assistant-4', 'assistant-5', 'assistant-6',
+            ]);
+            expect(snapshot?.turns.find((turn) => turn.identity.assistantMessageId === 'assistant-3')?.assistantMarkdown).toBe('Answer 3');
+            expect(harness.runtime.readDiscoveryDiagnostics().repository.turnCount).toBe(5);
+            expect(harness.runtime.surface.readFrame().snapshot?.contentToken).toBe(snapshot?.contentToken);
+            expect(harness.runtime.surface.readFrame().obtainedTurns.map((entry) => entry.turn.identity.assistantMessageId)).toEqual([
+                'assistant-2', 'assistant-3', 'assistant-4', 'assistant-5', 'assistant-6',
+            ]);
+        } finally {
+            harness.dispose();
+        }
+    });
+
+    it('obtains a completed native assistant-only search unit before its real prompt remounts', async () => {
+        const main = document.querySelector('main')!;
+        main.innerHTML = [4, 5, 6].map(searchUnitRoundHtml).join('');
+        const harness = createRuntime('native-assistant-only-history');
+
+        try {
+            harness.runtime.init();
+            await settle();
+            main.innerHTML = searchUnitRoundHtml(3, 0) + searchUnitRoundHtml(4, 1);
+            main.querySelector('[data-chatgpt-search-message-ids="user-3"]')!.remove();
+            await settle();
+
+            const assistantOnlySnapshot = harness.runtime.source.read().snapshot;
+            expect(assistantOnlySnapshot?.turns.map((turn) => turn.identity.assistantMessageId)).toEqual([
+                'assistant-3', 'assistant-4', 'assistant-5', 'assistant-6',
+            ]);
+            const assistantOnly = assistantOnlySnapshot!.turns[0]!;
+            expect(assistantOnly).toMatchObject({
+                identity: { userMessageId: null, assistantMessageId: 'assistant-3' },
+                userText: '', assistantMarkdown: 'Answer 3',
+            });
+
+            main.innerHTML = [2, 3, 4].map(searchUnitRoundHtml).join('');
+            await settle();
+            const completeSnapshot = harness.runtime.source.read().snapshot;
+            expect(completeSnapshot?.turns.map((turn) => turn.identity.assistantMessageId)).toEqual([
+                'assistant-2', 'assistant-3', 'assistant-4', 'assistant-5', 'assistant-6',
+            ]);
+            expect(completeSnapshot?.turns.find((turn) => turn.identity.assistantMessageId === 'assistant-3')).toMatchObject({
+                identity: { turnId: assistantOnly.identity.turnId, userMessageId: 'user-3' },
+                userText: 'Question 3', assistantMarkdown: 'Answer 3',
+            });
+            expect(harness.runtime.readDiscoveryDiagnostics().repository.turnCount).toBe(5);
+            expect(harness.runtime.surface.readFrame().snapshot?.contentToken).toBe(completeSnapshot?.contentToken);
+        } finally {
+            harness.dispose();
+        }
+    });
+
+    it('retains disjoint hydrated history and corrects its order when reverse-scroll windows reconnect', async () => {
+        const main = document.querySelector<HTMLElement>('main')!;
+        main.style.overflowY = 'auto';
+        main.style.display = 'flex';
+        main.style.flexDirection = 'column-reverse';
+        Object.defineProperties(main, {
+            scrollHeight: { configurable: true, value: 4_000 },
+            clientHeight: { configurable: true, value: 600 },
+        });
+        main.innerHTML = [4, 5, 6].map(searchUnitRoundHtml).join('');
+        const harness = createRuntime('disjoint-reverse-history');
+
+        try {
+            harness.runtime.init();
+            await settle();
+            expect(harness.adapter.getConversationScrollRoot()).toBe(main);
+
+            main.scrollTop = -1_800;
+            main.innerHTML = [1, 2].map(searchUnitRoundHtml).join('');
+            await settle();
+            expect(harness.runtime.source.read().snapshot?.turns.map((turn) => turn.identity.assistantMessageId)).toEqual([
+                'assistant-1', 'assistant-2', 'assistant-4', 'assistant-5', 'assistant-6',
+            ]);
+
+            main.innerHTML = [2, 3].map(searchUnitRoundHtml).join('');
+            await settle();
+            expect(harness.runtime.source.read().snapshot?.turns).toHaveLength(6);
+            main.innerHTML = [3, 4].map(searchUnitRoundHtml).join('');
+            await settle();
+
+            const snapshot = harness.runtime.source.read().snapshot;
+            expect(snapshot?.turns.map((turn) => turn.identity.assistantMessageId)).toEqual([
+                'assistant-1', 'assistant-2', 'assistant-3', 'assistant-4', 'assistant-5', 'assistant-6',
+            ]);
+            expect(snapshot?.turns.map((turn) => turn.assistantMarkdown)).toEqual([
+                'Answer 1', 'Answer 2', 'Answer 3', 'Answer 4', 'Answer 5', 'Answer 6',
+            ]);
+            expect(harness.runtime.readDiscoveryDiagnostics().repository.turnCount).toBe(6);
+            expect(harness.runtime.surface.readFrame().snapshot?.contentToken).toBe(snapshot?.contentToken);
+            expect(main.scrollTop).toBe(-1_800);
+        } finally {
+            harness.dispose();
+        }
+    });
+
+    it('retains a disjoint new tail near the latest end of a normal scroll root', async () => {
+        const main = document.querySelector<HTMLElement>('main')!;
+        main.style.overflowY = 'auto';
+        main.style.display = 'flex';
+        main.style.flexDirection = 'column';
+        Object.defineProperties(main, {
+            scrollHeight: { configurable: true, value: 4_000 },
+            clientHeight: { configurable: true, value: 600 },
+        });
+        main.scrollTop = 3_400;
+        main.innerHTML = [4, 5, 6].map(searchUnitRoundHtml).join('');
+        const harness = createRuntime('disjoint-normal-tail');
+
+        try {
+            harness.runtime.init();
+            await settle();
+            expect(harness.adapter.getConversationScrollRoot()).toBe(main);
+            main.innerHTML = searchUnitRoundHtml(7, 0);
+            await settle();
+
+            expect(harness.runtime.source.read().snapshot?.turns.map((turn) => turn.identity.assistantMessageId)).toEqual([
+                'assistant-4', 'assistant-5', 'assistant-6', 'assistant-7',
+            ]);
+            expect(harness.runtime.source.read().snapshot?.turns[3]?.assistantMarkdown).toBe('Answer 7');
+            expect(harness.runtime.readDiscoveryDiagnostics().repository.turnCount).toBe(4);
+            expect(harness.runtime.surface.readFrame().obtainedTurns).toHaveLength(4);
+            expect(main.scrollTop).toBe(3_400);
+        } finally {
+            harness.dispose();
+        }
+    });
+
+    it('fills the shared Surface pool from rolling historical hydration windows without requesting or scrolling', async () => {
+        const main = document.querySelector('main')!;
+        const scrollIntoView = vi.fn();
+        const originalScrollIntoView = Object.getOwnPropertyDescriptor(HTMLElement.prototype, 'scrollIntoView');
+        Object.defineProperty(HTMLElement.prototype, 'scrollIntoView', {
+            configurable: true, writable: true, value: scrollIntoView,
+        });
+        const mountWindow = (indices: readonly number[]) => {
+            main.innerHTML = indices.map(searchUnitRoundHtml).join('');
+        };
+        mountWindow([4, 5, 6]);
+        main.insertAdjacentHTML('afterbegin', '<div data-turn-key="fallback-turn-0"></div>');
+        const harness = createRuntime('rolling-hydration');
+        const fetchSpy = vi.spyOn(globalThis, 'fetch');
+        const xhrSendSpy = vi.spyOn(XMLHttpRequest.prototype, 'send');
+        const scrollToSpy = vi.spyOn(window, 'scrollTo');
+        const scrollBySpy = vi.spyOn(window, 'scrollBy');
+        const bridgeRequest = vi.fn();
+        window.addEventListener('aimd:chatgpt-conversation-bridge:request', bridgeRequest);
+        const publishedFrames: ConversationSurfaceFrameV1[] = [];
+        const unsubscribe = harness.runtime.surface.subscribeFrame((frame) => {
+            if (frame.snapshot) publishedFrames.push(frame);
+        });
+        const assertPoolFrameConsistency = () => {
+            const snapshot = harness.runtime.source.read().snapshot;
+            expect(harness.runtime.readDiscoveryDiagnostics().repository.turnCount).toBe(snapshot?.turns.length ?? 0);
+            expect(harness.runtime.surface.readFrame().snapshot?.contentToken).toBe(snapshot?.contentToken);
+        };
+
+        try {
+            harness.runtime.init();
+            await settle();
+            expect(harness.runtime.source.read().snapshot?.turns.map((turn) => turn.identity.assistantMessageId)).toEqual([
+                'assistant-4', 'assistant-5', 'assistant-6',
+            ]);
+            assertPoolFrameConsistency();
+            const initialTurnIds = new Map(harness.runtime.source.read().snapshot?.turns.map((turn) => (
+                [turn.identity.assistantMessageId, turn.identity.turnId]
+            )));
+
+            mountWindow([2, 3, 4]);
+            await settle();
+            assertPoolFrameConsistency();
+            expect(harness.runtime.source.read().snapshot?.turns.map((turn) => turn.identity.assistantMessageId)).toEqual([
+                'assistant-2', 'assistant-3', 'assistant-4', 'assistant-5', 'assistant-6',
+            ]);
+            const assistantFour = main.querySelector<HTMLElement>(
+                '[data-chatgpt-search-message-ids="assistant-4 assistant-4"] [data-markdown-text-style]',
+            )!;
+            assistantFour.textContent = 'Answer 4 hydrated';
+            await settle();
+            const recapturedFour = harness.runtime.source.read().snapshot?.turns.find((turn) => (
+                turn.identity.assistantMessageId === 'assistant-4'
+            ));
+            expect(recapturedFour?.assistantMarkdown).toBe('Answer 4 hydrated');
+            expect(recapturedFour?.identity.turnId).toBe(initialTurnIds.get('assistant-4'));
+            assertPoolFrameConsistency();
+
+            mountWindow([1, 2]);
+            await settle();
+            assertPoolFrameConsistency();
+            mountWindow([6, 7]);
+            await settle();
+            assertPoolFrameConsistency();
+
+            const snapshot = harness.runtime.source.read().snapshot;
+            const finalIds = Array.from({ length: 7 }, (_, index) => `assistant-${index + 1}`);
+            expect(snapshot?.turns.map((turn) => turn.identity.assistantMessageId)).toEqual(finalIds);
+            expect(snapshot?.turns.map((turn) => turn.ordinal)).toEqual([1, 2, 3, 4, 5, 6, 7]);
+            expect(snapshot?.turns.map((turn) => turn.assistantMarkdown)).toEqual(
+                Array.from({ length: 7 }, (_, index) => index === 3 ? 'Answer 4 hydrated' : `Answer ${index + 1}`),
+            );
+            expect(new Set(snapshot?.turns.map((turn) => turn.identity.turnId)).size).toBe(7);
+            for (const [assistantMessageId, turnId] of initialTurnIds) {
+                expect(snapshot?.turns.find((turn) => turn.identity.assistantMessageId === assistantMessageId)?.identity.turnId).toBe(turnId);
+            }
+            expect(snapshot?.historyStatus).toBe('partial');
+            const frame = harness.runtime.surface.readFrame();
+            expect(frame.snapshot?.contentToken).toBe(snapshot?.contentToken);
+            expect(frame.obtainedTurns.filter((entry) => entry.materialization).map((entry) => (
+                entry.turn.identity.assistantMessageId
+            ))).toEqual(['assistant-6', 'assistant-7']);
+            for (const published of publishedFrames) {
+                expect(published.contentToken).toBe(published.snapshot!.contentToken);
+                expect(published.obtainedTurns.map((entry) => entry.turn.identity.assistantMessageId)).toEqual(
+                    published.snapshot!.turns.map((turn) => turn.identity.assistantMessageId),
+                );
+            }
+            expect(publishedFrames.map((published) => (
+                published.snapshot!.turns.map((turn) => turn.identity.assistantMessageId)
+            ))).toContainEqual(finalIds);
+            expect(bridgeRequest).toHaveBeenCalledTimes(1);
+            expect(fetchSpy).not.toHaveBeenCalled();
+            expect(xhrSendSpy).not.toHaveBeenCalled();
+            expect(scrollIntoView).not.toHaveBeenCalled();
+            expect(scrollToSpy).not.toHaveBeenCalled();
+            expect(scrollBySpy).not.toHaveBeenCalled();
+        } finally {
+            unsubscribe();
+            window.removeEventListener('aimd:chatgpt-conversation-bridge:request', bridgeRequest);
+            fetchSpy.mockRestore();
+            xhrSendSpy.mockRestore();
+            scrollToSpy.mockRestore();
+            scrollBySpy.mockRestore();
+            if (originalScrollIntoView) {
+                Object.defineProperty(HTMLElement.prototype, 'scrollIntoView', originalScrollIntoView);
+            } else {
+                Reflect.deleteProperty(HTMLElement.prototype, 'scrollIntoView');
+            }
+            harness.dispose();
+        }
+    });
+
+    it('keeps one exact message entity while a provisional modern outer marker becomes a real slot', async () => {
+        const main = document.querySelector('main')!;
+        const modernRound = (outerKey: string, windowIndex: number) => searchUnitRoundHtml(1, windowIndex)
+            .replace('data-turn-key="user-1"', `data-turn-key="${outerKey}"`);
+        main.innerHTML = modernRound('fallback-turn-0', 0);
+        const harness = createRuntime('provisional-modern-owner');
+
+        try {
+            harness.runtime.init();
+            await settle();
+            const initial = harness.runtime.source.read().snapshot;
+            expect(initial?.turns).toMatchObject([{
+                identity: { userMessageId: 'user-1', assistantMessageId: 'assistant-1' },
+                userText: 'Question 1', assistantMarkdown: 'Answer 1',
+            }]);
+            expect(initial?.turns).toHaveLength(1);
+            const turnId = initial!.turns[0]!.identity.turnId;
+
+            const owner = main.querySelector<HTMLElement>('[data-turn-key]')!;
+            owner.setAttribute('data-turn-key', 'opaque-stable-slot');
+            owner.querySelector('[data-content-search-turn-key]')!.setAttribute('data-content-search-turn-key', 'fallback-turn-17');
+            for (const unit of owner.querySelectorAll('[data-chatgpt-search-unit-key]')) {
+                unit.setAttribute('data-chatgpt-search-unit-key', unit.getAttribute('data-chatgpt-search-unit-key')!
+                    .replace('fallback-turn-0:', 'fallback-turn-17:'));
+            }
+            await settle();
+            expect(harness.runtime.source.read().snapshot?.contentToken).toBe(initial?.contentToken);
+
+            main.innerHTML = modernRound('opaque-stable-slot', 41);
+            await settle();
+            expect(harness.runtime.source.read().snapshot?.contentToken).toBe(initial?.contentToken);
+            expect(harness.runtime.surface.readFrame().obtainedTurns[0]?.materialization?.anchorElement.isConnected).toBe(true);
+
+            main.querySelector<HTMLElement>('[data-markdown-text-style="assistant-message"]')!.textContent = 'Updated answer';
+            await settle();
+            const current = harness.runtime.source.read().snapshot;
+            expect(current?.turns).toHaveLength(1);
+            expect(current?.turns[0]?.identity.turnId).toBe(turnId);
+            expect(current?.turns[0]?.assistantMarkdown).toBe('Updated answer');
+            expect(harness.runtime.readDiscoveryDiagnostics().repository.turnCount).toBe(1);
+            expect(harness.runtime.readDiscoveryDiagnostics().hostMonitor.admissionRejections?.['identity-conflict'] ?? 0).toBe(0);
+            expect(harness.runtime.surface.readFrame().snapshot?.contentToken).toBe(current?.contentToken);
         } finally {
             harness.dispose();
         }

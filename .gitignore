@@ -55,6 +55,8 @@ mocks/components/*
 !mocks/components/host-integrated-controls/**
 !mocks/components/bookmarks-workspace/
 !mocks/components/bookmarks-workspace/**
+!mocks/components/send-position-restore/
+!mocks/components/send-position-restore/**
 !mocks/components/buttons-settings/
 !mocks/components/buttons-settings/**
 !mocks/pages/

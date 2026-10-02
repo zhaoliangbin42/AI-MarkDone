@@ -117,7 +117,7 @@ If any of these sound familiar, **AI-MarkDone** is built exactly for you.
 - **One-click save**: Bookmark any important message instantly.
 - **Organize**: Use folders to keep projects and topics separate.
 - **Preview + jump**: Preview a bookmark and jump back to its original chat position, with improved ChatGPT positioning for both saving and navigation.
-- **Built-in info pages**: Check Changelog, FAQ, and About directly inside the bookmarks panel.
+- **Built-in info pages**: Open Feature overview, Changelog, FAQ, About the author, and Feedback from the management panel.
 
 ### ☁️ Google Drive Backup (Experimental)
 - **Optional cloud backup**: Save your bookmarks, persistent highlights, annotations, and folders to your own Google Drive.

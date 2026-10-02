@@ -70,7 +70,8 @@ describe('bookmarks content parser', () => {
     it('parses about markdown into title, lead, and sections', () => {
         const zh = parseBookmarksDoc(loadBookmarksDoc('about', 'zh_CN'));
 
-        expect(zh.title).toBe('关于我');
+        expect(zh.title).toBe('关于作者');
+        expect(parseBookmarksDoc(loadBookmarksDoc('about', 'en')).title).toBe('About the author');
         expect(zh.leadBlocks[0]).toEqual(
             expect.objectContaining({
                 type: 'paragraph',
@@ -97,13 +98,31 @@ describe('bookmarks content parser', () => {
 
         expect(en.title).toBe('FAQ');
         expect(en.leadBlocks).toEqual([]);
-        expect(en.items).toHaveLength(16);
+        expect(en.items).toHaveLength(17);
         expect(en.items[0]?.question).toContain('Which platforms does this extension support');
         expect(en.items[0]?.blocks[0]).toEqual(
             expect.objectContaining({
                 type: 'paragraph',
             }),
         );
+    });
+
+    it('keeps current bilingual guidance aligned with the panel and available workflows', () => {
+        const zh = loadBookmarksDoc('faq', 'zh_CN');
+        const en = loadBookmarksDoc('faq', 'en');
+        expect(parseFaqDoc(zh).items).toHaveLength(parseFaqDoc(en).items.length);
+        expect(zh).toContain('功能全览');
+        expect(en).toContain('Feature overview');
+        expect(zh).toContain('关闭按钮旁的“全屏”');
+        expect(en).toContain('Full screen beside Close');
+        expect(zh).toContain('Markdown、PDF 或 PNG');
+        expect(en).toContain('Markdown, PDF, or PNG');
+        expect(zh).toContain('提问和回复分别保留开头 250 与结尾 250');
+        expect(en).toContain('questions and replies longer than 500 characters each');
+        expect(zh).toContain('阅读器设置中的“保存新建的注释”默认关闭');
+        expect(zh).toContain('原 ChatGPT 标签页保持打开');
+        expect(zh).not.toMatch(/批注|Prompt|独立窗口 Reader|标记与注释|按钮与快捷键|阅读与导航/);
+        expect(en).not.toMatch(/detached Reader|Buttons & shortcuts|Reading & navigation/);
     });
 
     it('parses standalone static markdown images as image blocks', () => {

@@ -63,13 +63,13 @@ describe('readerMarkdownCopy formula formatting', () => {
     });
 });
 
-describe('Prompt and reply copy', () => {
-    it('preserves Prompt text while formatting and cleaning only the reply', async () => {
+describe('Question and reply copy', () => {
+    it('preserves question text while formatting and cleaning only the reply', async () => {
         const { copyReaderPromptReplyToClipboard } = await import('@/services/reader/readerMarkdownCopy');
         setCanonicalMarkdownCopyFormulaFormat('latex-brackets');
         const prompt = 'Please keep $x$ and [my link](https://example.com) exactly.';
         expect(await copyReaderPromptReplyToClipboard({id:'pair',userPrompt:prompt,content:'$y$\n\n```js\nanswer()\n```'}, {preserveLinks:false,includeCodeBlocks:false})).toBe(true);
-        expect(copyTextToClipboard).toHaveBeenLastCalledWith(`## User Prompt\n\n${prompt}\n\n## AI Reply\n\n\\(y\\)`);
+        expect(copyTextToClipboard).toHaveBeenLastCalledWith(`## Question\n\n${prompt}\n\n## AI Reply\n\n\\(y\\)`);
     });
     it('does not write an incomplete or reconstructed pair', async () => {
         const { copyReaderPromptReplyToClipboard } = await import('@/services/reader/readerMarkdownCopy');

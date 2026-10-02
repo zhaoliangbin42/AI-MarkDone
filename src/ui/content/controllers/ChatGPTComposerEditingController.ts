@@ -687,8 +687,8 @@ export class ChatGPTComposerEditingController {
     }
 
     private triggerSend(input: ComposerInput): void {
-        if (document.activeElement !== input) input.focus();
         armChatGPTSendPositionRestore();
+        if (document.activeElement !== input) input.focus();
         this.isTriggeringSend = true;
         try {
             input.dispatchEvent(new KeyboardEvent('keydown', {

@@ -33,19 +33,17 @@ export type ChatGPTResolvedDomTurnIdentity = Readonly<{
 export type ChatGPTDomHostSlotRef = Readonly<{
     id: string;
     element: HTMLElement;
+    identity: Readonly<{ userMessageId: string | null; assistantMessageId: string }> | null;
 }>;
 
 /** Resolve the one typed identity shared by host capture and materialization. */
 export function resolveChatGPTDomRoundIdentity(
     round: ChatGPTDomRoundRef,
 ): ChatGPTResolvedDomTurnIdentity | null {
-    const userTurnId = round.identity.roundId?.trim() ?? '';
-    const assistantTurnId = round.identity.assistantTurnId?.trim() ?? '';
     const userMessageId = round.identity.userMessageId?.trim() ?? '';
     const assistantMessageId = round.identity.assistantMessageId?.trim() ?? '';
     if (!userMessageId || !assistantMessageId) return null;
-    const turnId = userTurnId || assistantTurnId
-        || `chatgpt-turn:${userMessageId}:${assistantMessageId}`;
+    const turnId = stableSemanticTurnId(round, userMessageId, assistantMessageId);
     return turnId ? Object.freeze({ turnId, userMessageId, assistantMessageId }) : null;
 }
 
@@ -53,9 +51,9 @@ export function resolveChatGPTDomRoundIdentity(
  * Resolve the identity available for a mounted assistant surface.
  *
  * Virtualized ChatGPT windows can keep the assistant turn mounted while its
- * preceding user turn is temporarily detached. That surface is sufficient
- * for an already-cached message's toolbar, geometry, and materialization, but
- * it is intentionally not sufficient to create a new semantic content turn.
+ * preceding user turn is temporarily detached. A completed body can retain
+ * its stable assistant identity; the absent prompt stays nullable until its
+ * real user node remounts.
  */
 export type ChatGPTDomRoundProjectionIdentity = Readonly<{
     turnId: string;
@@ -71,10 +69,16 @@ export function resolveChatGPTDomRoundProjectionIdentity(
         || '';
     if (!assistantMessageId) return null;
     const userMessageId = round.identity.userMessageId?.trim() || null;
-    const turnId = round.identity.roundId?.trim()
-        || round.identity.assistantTurnId?.trim()
-        || `chatgpt-turn:${assistantMessageId}`;
+    const turnId = stableSemanticTurnId(round, userMessageId, assistantMessageId);
     return Object.freeze({ turnId, userMessageId, assistantMessageId });
+}
+
+function stableSemanticTurnId(round: ChatGPTDomRoundRef, userMessageId: string | null, assistantMessageId: string): string {
+    const explicit = [round.identity.roundId, round.identity.assistantTurnId]
+        .map(id => id?.trim()).find(id => id && !id.startsWith('fallback-turn-'));
+    // Search keys are window-local display coordinates and may be reused
+    // after hydration. Keep them on the DOM ref, never in semantic identity.
+    return explicit || userMessageId || `chatgpt-turn:${assistantMessageId}`;
 }
 
 const ROLE_SELECTOR = '[data-message-author-role]';
@@ -165,13 +169,36 @@ export function collectChatGPTDomHostSlots(adapter: SiteAdapter): readonly ChatG
     const seen = new Set<string>();
     const slots: ChatGPTDomHostSlotRef[] = [];
     for (const element of collectChatGPTDomTurnSlots(adapter)) {
-        const id = readElementId(element, 'data-turn-id-container')
-            || readElementId(element, 'data-turn-key');
-        if (!id || id === 'client-created-root' || seen.has(id)) continue;
+        const identity = readOwnerMessageIdentity(element);
+        const id = [readElementId(element, 'data-turn-id-container'), readElementId(element, 'data-turn-key')]
+            .find(value => value && value !== 'client-created-root' && !value.startsWith('fallback-turn-'))
+            || (identity ? `chatgpt-message-slot:${identity.userMessageId || identity.assistantMessageId}` : null);
+        if (!id || seen.has(id)) continue;
         seen.add(id);
-        slots.push(Object.freeze({ id, element }));
+        slots.push(Object.freeze({ id, element, identity }));
     }
     return Object.freeze(slots);
+}
+
+function readOwnerMessageIdentity(owner: HTMLElement): ChatGPTDomHostSlotRef['identity'] {
+    const ids = { user: new Set<string>(), assistant: new Set<string>() };
+    const selector = '[data-message-author-role], [data-chatgpt-search-unit-key]';
+    const nodes = Array.from(owner.querySelectorAll<HTMLElement>(selector));
+    if (owner.matches(selector)) nodes.push(owner);
+    for (const node of nodes) {
+        const role = node.getAttribute('data-message-author-role')
+            || node.getAttribute('data-chatgpt-search-unit-key')?.split(':').pop();
+        if (role !== 'user' && role !== 'assistant') continue;
+        const tokens = ['data-message-id', 'data-chatgpt-search-message-ids']
+            .flatMap(attribute => readElementId(node, attribute)?.split(/\s+/) ?? []);
+        if (!tokens.length || new Set(tokens).size !== 1) return null;
+        ids[role].add(tokens[0]!);
+    }
+    if (ids.user.size > 1 || ids.assistant.size > 1) return null;
+    // Only this owner's exact role nodes prove a logical position. A nearby
+    // prompt or a window-local display number cannot establish ownership.
+    const assistantMessageId = [...ids.assistant][0];
+    return assistantMessageId ? Object.freeze({ userMessageId: [...ids.user][0] || null, assistantMessageId }) : null;
 }
 
 /** Bind one mounted round to the exact outer slot that currently contains it. */
@@ -598,13 +625,27 @@ function collectSearchUnitRoundRefs(adapter: SiteAdapter, root: ParentNode): Cha
         };
         const users = units.filter((unit) => inRound(unit, 'user'));
         const assistants = units.filter((unit) => inRound(unit, 'assistant'));
-        if (users.length !== 1 || assistants.length !== 1) continue;
-        const user = users[0]!;
+        if (users.length > 1 || assistants.length !== 1) continue;
         const assistant = assistants[0]!;
         if (assistant.closest('[data-message-author-role]')) continue;
+        // Native units must prove one exact message identity; the adapter's
+        // DOM-position fallback cannot repair contradictory search tokens.
+        const assistantIds = assistant.getAttribute('data-chatgpt-search-message-ids')?.trim().split(/\s+/).filter(Boolean);
+        const assistantMessageId = assistantIds?.[0];
+        if (!assistantMessageId || assistantIds!.some(id => id !== assistantMessageId)) continue;
+        const explicitAssistantId = assistant.getAttribute('data-message-id')?.trim();
+        if (explicitAssistantId && explicitAssistantId !== assistantMessageId) continue;
+        if (users.length === 0) {
+            rounds.push({
+                ...createAssistantOnlyRoundRef(adapter, assistant, rounds.length),
+                id: assistantMessageId,
+                identity: { roundId, userMessageId: null, assistantMessageId, assistantTurnId: null },
+            });
+            continue;
+        }
+        const user = users[0]!;
         const userMessageId = user.getAttribute('data-chatgpt-search-message-ids')?.trim();
-        const assistantMessageId = adapter.getMessageId(assistant);
-        if (!userMessageId || !assistantMessageId || /\s/.test(userMessageId)) continue;
+        if (!userMessageId || /\s/.test(userMessageId)) continue;
         rounds.push({
             id: assistantMessageId,
             identity: { roundId, userMessageId, assistantMessageId, assistantTurnId: null },

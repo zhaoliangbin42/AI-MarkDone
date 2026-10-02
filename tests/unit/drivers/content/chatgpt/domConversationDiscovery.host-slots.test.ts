@@ -86,4 +86,93 @@ describe('ChatGPT persistent host-slot seam', () => {
             'assistant-slot-1', 'user-2',
         ]);
     });
+
+    it('derives one logical position from exact modern IDs with repeated identical assistant tokens', () => {
+        document.querySelector('#host-slots')!.innerHTML = `
+            <div data-turn-key="fallback-turn-0">
+                <div data-content-search-turn-key="fallback-turn-0">
+                    <div data-chatgpt-search-unit-key="fallback-turn-0:0:user" data-chatgpt-search-message-ids="user-1">Question 1</div>
+                    <div data-chatgpt-search-unit-key="fallback-turn-0:2:assistant" data-chatgpt-search-message-ids="assistant-1 assistant-1">
+                        <div data-markdown-text-style="assistant-message">Answer 1</div>
+                    </div>
+                </div>
+            </div>`;
+        const slots = collectChatGPTDomHostSlots(adapter);
+        const [round] = collectChatGPTDomRoundRefs(adapter);
+
+        expect(slots.map((slot) => slot.id)).toEqual(['chatgpt-message-slot:user-1']);
+        expect(resolveChatGPTDomRoundHostSlotId(round!, slots)).toBe('chatgpt-message-slot:user-1');
+    });
+
+    it.each([
+        ['nested message', '<div data-turn-key="fallback-turn-0"><div data-message-author-role="assistant" data-message-id="assistant-1"></div></div>'],
+        ['owner itself', '<div data-turn-key="fallback-turn-0" data-message-author-role="assistant" data-message-id="assistant-1"></div>'],
+    ])('derives an assistant-only position from an exact identity on the %s', (_name, html) => {
+        document.querySelector('#host-slots')!.innerHTML = html;
+
+        expect(collectChatGPTDomHostSlots(adapter).map((slot) => slot.id)).toEqual([
+            'chatgpt-message-slot:assistant-1',
+        ]);
+    });
+
+    it.each([
+        ['distinct search tokens', '<div data-chatgpt-search-unit-key="fallback-turn-0:2:assistant" data-chatgpt-search-message-ids="assistant-1 assistant-2"></div>'],
+        ['distinct assistant nodes', '<div data-message-author-role="assistant" data-message-id="assistant-1"></div><div data-message-author-role="assistant" data-message-id="assistant-2"></div>'],
+        ['distinct user nodes', '<div data-message-author-role="user" data-message-id="user-1"></div><div data-message-author-role="user" data-message-id="user-2"></div>'],
+        ['conflicting exact attributes', '<div data-message-author-role="assistant" data-message-id="assistant-1" data-chatgpt-search-unit-key="fallback-turn-0:2:assistant" data-chatgpt-search-message-ids="assistant-2"></div>'],
+    ])('does not derive ownership from %s', (_name, contents) => {
+        document.querySelector('#host-slots')!.innerHTML = `<div data-turn-key="fallback-turn-0">${contents}</div>`;
+
+        expect(collectChatGPTDomHostSlots(adapter)).toEqual([]);
+    });
+
+    it('uses a real second outer attribute when the first one is only a provisional display key', () => {
+        document.querySelector('#host-slots')!.innerHTML = `
+            <div data-turn-id-container="fallback-turn-0" data-turn-key="stable-slot"></div>
+        `;
+
+        expect(collectChatGPTDomHostSlots(adapter).map((slot) => slot.id)).toEqual(['stable-slot']);
+    });
+
+    it('does not create a provisional assistant position from an exact user identity alone', () => {
+        document.querySelector('#host-slots')!.innerHTML = `
+            <div data-turn-key="fallback-turn-0">
+                <div data-chatgpt-search-unit-key="fallback-turn-0:0:user" data-chatgpt-search-message-ids="user-1">Question 1</div>
+            </div>`;
+
+        expect(collectChatGPTDomHostSlots(adapter)).toEqual([]);
+    });
+
+    it('discovers a native assistant-only search unit using its exact message identity', () => {
+        document.querySelector('#host-slots')!.innerHTML = `
+            <div data-turn-key="fallback-turn-0">
+                <div data-content-search-turn-key="fallback-turn-0">
+                    <div data-chatgpt-search-unit-key="fallback-turn-0:2:assistant" data-chatgpt-search-message-ids="assistant-1 assistant-1">
+                        <div data-markdown-text-style="assistant-message">Answer 1</div>
+                    </div>
+                </div>
+            </div>`;
+
+        const rounds = collectChatGPTDomRoundRefs(adapter);
+        expect(rounds).toHaveLength(1);
+        expect(rounds[0]).toMatchObject({
+            id: 'assistant-1', source: 'assistant-only',
+            identity: { userMessageId: null, assistantMessageId: 'assistant-1' },
+        });
+        expect(resolveChatGPTDomRoundHostSlotId(rounds[0]!, collectChatGPTDomHostSlots(adapter))).toBe('chatgpt-message-slot:assistant-1');
+    });
+
+    it('does not replace conflicting native assistant tokens with a synthetic identity', () => {
+        document.querySelector('#host-slots')!.innerHTML = `
+            <div data-turn-key="stable-slot">
+                <div data-content-search-turn-key="fallback-turn-0">
+                    <div data-chatgpt-search-unit-key="fallback-turn-0:0:user" data-chatgpt-search-message-ids="user-1">Question 1</div>
+                    <div data-chatgpt-search-unit-key="fallback-turn-0:2:assistant" data-chatgpt-search-message-ids="assistant-1 assistant-2">
+                        <div data-markdown-text-style="assistant-message">Answer 1</div>
+                    </div>
+                </div>
+            </div>`;
+
+        expect(collectChatGPTDomRoundRefs(adapter)).toEqual([]);
+    });
 });

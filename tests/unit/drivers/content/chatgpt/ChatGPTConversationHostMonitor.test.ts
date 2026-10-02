@@ -76,7 +76,7 @@ function compiler(): RenderedContentCompilerV2 {
 }
 
 function createHarness(id: string, settleDelayMs = 20) {
-    const currentDocument = documentRef(id);
+    let currentDocument = documentRef(id);
     const adapter = new ChatGPTAdapter();
     const repository = new ConversationContentRepository({
         resolveDocument: () => currentDocument,
@@ -95,6 +95,9 @@ function createHarness(id: string, settleDelayMs = 20) {
         repository,
         renderedCompiler,
         monitor,
+        setDocument(id: string) {
+            currentDocument = documentRef(id);
+        },
         dispose() {
             monitor.dispose();
             repository.dispose();
@@ -278,6 +281,49 @@ describe('ChatGPTConversationHostMonitor DOM readiness', () => {
         }
     });
 
+    it('keeps a rejected capture retryable across remounts until a connecting topology admits it', async () => {
+        const main = document.querySelector('main')!;
+        main.innerHTML = roundHtml(1, 'Answer 1');
+        const harness = createHarness('rejected-remount');
+
+        try {
+            harness.monitor.init();
+            await settle();
+            main.innerHTML = roundHtml(3, 'Answer 3');
+            await settle();
+
+            expect(harness.repository.read().snapshot?.turns.map((turn) => turn.identity.assistantMessageId)).toEqual([
+                'assistant-1',
+            ]);
+            expect(harness.monitor.readDiagnosticsFacts().dirtyAssistantCount).toBe(1);
+            const refusedCaptureCount = vi.mocked(harness.renderedCompiler.compile).mock.calls.length;
+            await settle(5_000);
+            expect(harness.renderedCompiler.compile).toHaveBeenCalledTimes(refusedCaptureCount);
+
+            main.innerHTML = '';
+            await settle();
+            main.innerHTML = roundHtml(3, 'Answer 3');
+            await settle();
+            expect(harness.monitor.readDiagnosticsFacts().dirtyAssistantCount).toBe(1);
+
+            main.innerHTML = roundHtml(1, 'Answer 1') + roundHtml(2, 'Answer 2') + roundHtml(3, 'Answer 3');
+            await settle();
+            expect(harness.repository.read().snapshot?.turns.map((turn) => turn.identity.assistantMessageId)).toEqual([
+                'assistant-1', 'assistant-2', 'assistant-3',
+            ]);
+            expect(harness.monitor.readDiagnosticsFacts().dirtyAssistantCount).toBe(0);
+            const token = harness.repository.read().snapshot?.contentToken;
+            const captureCount = vi.mocked(harness.renderedCompiler.compile).mock.calls.length;
+
+            main.innerHTML = roundHtml(1, 'Answer 1') + roundHtml(2, 'Answer 2') + roundHtml(3, 'Answer 3');
+            await settle();
+            expect(harness.renderedCompiler.compile).toHaveBeenCalledTimes(captureCount);
+            expect(harness.repository.read().snapshot?.contentToken).toBe(token);
+        } finally {
+            harness.dispose();
+        }
+    });
+
     it('recompiles an assistant-only capture when its user prompt remounts', async () => {
         const main = document.querySelector('main')!;
         main.innerHTML = assistantOnlyHtml(1, 'Answer 1');
@@ -293,6 +339,53 @@ describe('ChatGPTConversationHostMonitor DOM readiness', () => {
 
             expect(harness.renderedCompiler.compile).toHaveBeenCalledTimes(2);
             expect(harness.repository.read().snapshot?.turns[0]?.userText).toBe('Question 1');
+        } finally {
+            harness.dispose();
+        }
+    });
+
+    it('fills the real prompt once when an exact assistant entity outlives its provisional outer marker', async () => {
+        const main = document.querySelector('main')!;
+        const assistant = `
+            <section data-turn="assistant">
+                <div data-message-author-role="assistant" data-message-id="assistant-1">
+                    <div class="markdown prose">Answer 1</div>
+                </div>
+                <div class="z-0 flex"><button data-testid="copy-turn-action-button">Copy</button></div>
+            </section>
+        `;
+        main.innerHTML = `<div data-turn-key="fallback-turn-0">${assistant}</div>`;
+        const harness = createHarness('provisional-assistant-owner');
+
+        try {
+            harness.monitor.init();
+            await settle();
+            const initial = harness.repository.read().snapshot;
+            expect(initial?.turns).toMatchObject([{
+                identity: { userMessageId: null, assistantMessageId: 'assistant-1' },
+                userText: '', assistantMarkdown: 'Answer 1',
+            }]);
+            expect(initial?.turns).toHaveLength(1);
+            const turnId = initial!.turns[0]!.identity.turnId;
+
+            main.innerHTML = `<div data-turn-key="opaque-stable-slot">
+                <section data-turn="user">
+                    <div data-message-author-role="user" data-message-id="user-1">
+                        <div class="whitespace-pre-wrap">Question 1</div>
+                    </div>
+                </section>
+                ${assistant}
+            </div>`;
+            await settle();
+
+            const current = harness.repository.read().snapshot;
+            expect(current?.turns).toHaveLength(1);
+            expect(current?.turns[0]).toMatchObject({
+                identity: { turnId, userMessageId: 'user-1', assistantMessageId: 'assistant-1' },
+                userText: 'Question 1', assistantMarkdown: 'Answer 1',
+            });
+            expect(harness.repository.readDiagnosticsFacts().turnCount).toBe(1);
+            expect(harness.monitor.readDiagnosticsFacts().admissionRejections?.['identity-conflict'] ?? 0).toBe(0);
         } finally {
             harness.dispose();
         }
@@ -352,6 +445,33 @@ describe('ChatGPTConversationHostMonitor DOM readiness', () => {
         }
     });
 
+    it('preserves transient overlap before coalesced body capture sees a disjoint historical window', async () => {
+        const main = document.querySelector('main')!;
+        main.innerHTML = [4, 5, 6].map((index) => roundHtml(index, `Answer ${index}`)).join('');
+        const harness = createHarness('transient-overlap');
+
+        try {
+            harness.monitor.init();
+            await settle();
+            expect(harness.renderedCompiler.compile).toHaveBeenCalledTimes(3);
+
+            main.innerHTML = [2, 3, 4].map((index) => roundHtml(index, `Answer ${index}`)).join('');
+            await Promise.resolve();
+            expect(harness.renderedCompiler.compile).toHaveBeenCalledTimes(3);
+            main.innerHTML = [1, 2, 3].map((index) => roundHtml(index, `Answer ${index}`)).join('');
+            await settle();
+
+            expect(harness.repository.read().snapshot?.turns.map((turn) => turn.identity.assistantMessageId)).toEqual([
+                'assistant-1', 'assistant-2', 'assistant-3', 'assistant-4', 'assistant-5', 'assistant-6',
+            ]);
+            expect(harness.repository.read().snapshot?.turns.map((turn) => turn.assistantMarkdown)).toEqual([
+                'Answer 1', 'Answer 2', 'Answer 3', 'Answer 4', 'Answer 5', 'Answer 6',
+            ]);
+        } finally {
+            harness.dispose();
+        }
+    });
+
     it('fills a previously empty historical host slot at its original position', async () => {
         const main = document.querySelector('main')!;
         main.innerHTML = `
@@ -401,25 +521,27 @@ describe('ChatGPTConversationHostMonitor DOM readiness', () => {
         const main = document.querySelector('main')!;
         main.innerHTML = roundHtml(1, 'Answer 1');
         const harness = createHarness('empty-slot-only');
-        const ingest = vi.spyOn(harness.repository, 'ingestHostBatch');
+        const admission = vi.spyOn(harness.repository, 'admitHostBatch');
 
         try {
             harness.monitor.init();
             await settle();
             expect(harness.renderedCompiler.compile).toHaveBeenCalledTimes(1);
-            ingest.mockClear();
+            admission.mockClear();
 
             main.insertAdjacentHTML('afterbegin', '<div data-turn-id-container="historical-empty-slot"></div>');
             await settle();
 
             expect(harness.renderedCompiler.compile).toHaveBeenCalledTimes(1);
-            expect(ingest).toHaveBeenCalledTimes(1);
-            expect(ingest.mock.calls[0]?.[0]).toEqual([]);
-            expect(ingest.mock.calls[0]?.[1]).toEqual([
+            expect(admission).toHaveBeenCalledWith([], [
                 'historical-empty-slot',
                 'user-slot-1',
                 'assistant-slot-1',
-            ]);
+            ], [{ hostSlotId: 'assistant-slot-1', assistantMessageId: 'assistant-1', userMessageId: null }], undefined);
+            expect(admission.mock.calls.every(([observations]) => observations.length === 0)).toBe(true);
+            expect(admission.mock.results.every((result) => (
+                result.type === 'return' && result.value.admittedAssistantMessageIds.length === 0
+            ))).toBe(true);
         } finally {
             harness.dispose();
         }
@@ -497,6 +619,146 @@ describe('ChatGPTConversationHostMonitor DOM readiness', () => {
             await settle();
             expect(harness.repository.read().snapshot?.turns).toHaveLength(3);
         } finally {
+            harness.dispose();
+        }
+    });
+
+    it('does not bind an obsolete assistant clone when its connected owner changes identity during compilation', async () => {
+        const main = document.querySelector('main')!;
+        main.innerHTML = roundHtml(1, 'Obsolete answer');
+        const harness = createHarness('owner-identity-change');
+        let releaseCompilation!: () => void;
+        const blockedCompilation = new Promise<void>((resolve) => { releaseCompilation = resolve; });
+        const delegate = compiler().compile;
+        vi.mocked(harness.renderedCompiler.compile).mockImplementationOnce(async (request) => {
+            await blockedCompilation;
+            return delegate(request);
+        });
+
+        try {
+            harness.monitor.init();
+            await settle();
+            expect(harness.renderedCompiler.compile).toHaveBeenCalledTimes(1);
+            expect(harness.repository.read().snapshot).toBeNull();
+
+            const owner = main.querySelector<HTMLElement>('[data-message-author-role="assistant"]')!;
+            owner.setAttribute('data-message-id', 'assistant-2');
+            owner.querySelector<HTMLElement>('.markdown.prose')!.textContent = 'Replacement answer';
+            await Promise.resolve();
+            expect(owner.isConnected).toBe(true);
+            releaseCompilation();
+            await settle(60);
+
+            expect(harness.repository.read().snapshot?.turns).toMatchObject([{
+                identity: { assistantMessageId: 'assistant-2' },
+                assistantMarkdown: 'Replacement answer',
+            }]);
+            expect(harness.repository.read().snapshot?.turns).toHaveLength(1);
+        } finally {
+            releaseCompilation();
+            harness.dispose();
+        }
+    });
+
+    it('does not bind an obsolete detached clone when the connected host slot contains a replacement message', async () => {
+        const main = document.querySelector('main')!;
+        main.innerHTML = roundHtml(1, 'Obsolete answer');
+        const harness = createHarness('slot-owner-replacement');
+        let releaseCompilation!: () => void;
+        const blockedCompilation = new Promise<void>((resolve) => { releaseCompilation = resolve; });
+        const delegate = compiler().compile;
+        vi.mocked(harness.renderedCompiler.compile).mockImplementationOnce(async (request) => {
+            await blockedCompilation;
+            return delegate(request);
+        });
+
+        try {
+            harness.monitor.init();
+            await settle();
+            expect(harness.renderedCompiler.compile).toHaveBeenCalledTimes(1);
+            expect(harness.repository.read().snapshot).toBeNull();
+
+            const slot = main.querySelector<HTMLElement>('[data-turn-id-container="assistant-slot-1"]')!;
+            const originalMessage = slot.querySelector<HTMLElement>('[data-message-author-role="assistant"]')!;
+            const replacement = document.createElement('div');
+            replacement.setAttribute('data-message-author-role', 'assistant');
+            replacement.setAttribute('data-message-id', 'assistant-2');
+            replacement.innerHTML = '<div class="markdown prose">Replacement answer</div>';
+            originalMessage.replaceWith(replacement);
+            await Promise.resolve();
+            expect(originalMessage.isConnected).toBe(false);
+            expect(slot.isConnected).toBe(true);
+            releaseCompilation();
+            await settle(60);
+
+            expect(harness.repository.read().snapshot?.turns).toMatchObject([{
+                identity: { assistantMessageId: 'assistant-2' },
+                assistantMarkdown: 'Replacement answer',
+            }]);
+            expect(harness.repository.read().snapshot?.turns).toHaveLength(1);
+        } finally {
+            releaseCompilation();
+            harness.dispose();
+        }
+    });
+
+    it('fences a compiled observation when its document changes before compilation finishes', async () => {
+        const main = document.querySelector('main')!;
+        main.innerHTML = roundHtml(1, 'Answer from A');
+        const harness = createHarness('route-a');
+        let releaseCompilation!: () => void;
+        const blockedCompilation = new Promise<void>((resolve) => { releaseCompilation = resolve; });
+        const delegate = compiler().compile;
+        vi.mocked(harness.renderedCompiler.compile).mockImplementationOnce(async (request) => {
+            await blockedCompilation;
+            return delegate(request);
+        });
+
+        try {
+            harness.monitor.init();
+            await settle();
+            expect(harness.renderedCompiler.compile).toHaveBeenCalledTimes(1);
+            expect(harness.repository.read().snapshot).toBeNull();
+
+            harness.setDocument('route-b');
+            main.innerHTML = roundHtml(2, 'Answer from B');
+            harness.monitor.notifyRouteChanged(true);
+            releaseCompilation();
+            await settle(60);
+
+            expect(harness.repository.read().document?.key).toBe(documentRef('route-b').key);
+            expect(harness.repository.read().snapshot?.turns.map((turn) => turn.assistantMarkdown)).toEqual([
+                'Answer from B',
+            ]);
+        } finally {
+            releaseCompilation();
+            harness.dispose();
+        }
+    });
+
+    it('does not admit a compiled observation after the monitor is disposed', async () => {
+        document.querySelector('main')!.innerHTML = roundHtml(1, 'Late answer');
+        const harness = createHarness('dispose-inflight');
+        let releaseCompilation!: () => void;
+        const blockedCompilation = new Promise<void>((resolve) => { releaseCompilation = resolve; });
+        const delegate = compiler().compile;
+        vi.mocked(harness.renderedCompiler.compile).mockImplementationOnce(async (request) => {
+            await blockedCompilation;
+            return delegate(request);
+        });
+
+        try {
+            harness.monitor.init();
+            await settle();
+            expect(harness.renderedCompiler.compile).toHaveBeenCalledTimes(1);
+            harness.monitor.dispose();
+            releaseCompilation();
+            await settle();
+
+            expect(harness.repository.read().snapshot).toBeNull();
+            expect(harness.monitor.readDiagnosticsFacts().dirtyAssistantCount).toBe(0);
+        } finally {
+            releaseCompilation();
             harness.dispose();
         }
     });

@@ -165,11 +165,31 @@ function clickPromptReplyHoverAction(): void {
 }
 
 describe('MessageToolbarOrchestrator Surface-driven official toolbar lifecycle', () => {
+    it('opens the message drawer only from More when a pinned action is hovered in the official row', async () => {
+        renderTurn();
+        const { orchestrator } = createHarness();
+        orchestrator.setBehaviorFlags({ pinnedMessageControls: ['reader'] });
+        orchestrator.init();
+        await vi.waitFor(() => expect(toolbarHosts()).toHaveLength(1));
+        const shadow = toolbarHosts()[0].shadowRoot!;
+        const pinned = shadow.querySelector<HTMLButtonElement>('.capsule-pinned [data-action="reader"]')!;
+        const toggle = shadow.querySelector<HTMLButtonElement>('[data-action="toggle-capsule"]')!;
+        expect(pinned).toBeTruthy();
+        shadow.querySelector('.bar')!.dispatchEvent(new MouseEvent('mouseenter'));
+        pinned.dispatchEvent(new MouseEvent('mouseenter'));
+        pinned.focus();
+        expect(toggle.getAttribute('aria-expanded')).toBe('false');
+        expect(pinned.closest('.capsule-pinned')).toBeTruthy();
+        toggle.dispatchEvent(new MouseEvent('mouseenter'));
+        expect(toggle.getAttribute('aria-expanded')).toBe('true');
+        expect(shadow.querySelectorAll('[data-action="reader"]')).toHaveLength(1);
+    });
+
     it('copies the typed matching Prompt and reply through the actual toolbar trigger when the Prompt is offscreen', async () => {
         vi.mocked(copyTextToClipboard).mockClear();renderTurn();document.querySelector('[data-message-author-role="user"]')!.closest('article')!.remove();
         const {orchestrator,adapter}=createHarness();vi.spyOn(adapter,'getMarkdownParserAdapter').mockReturnValue(new ChatGPTAdapter().getMarkdownParserAdapter());orchestrator.init();await vi.waitFor(()=>expect(toolbarHosts()).toHaveLength(1));
         clickPromptReplyHoverAction();
-        await vi.waitFor(()=>expect(copyTextToClipboard).toHaveBeenCalledOnce());expect(copyTextToClipboard).toHaveBeenCalledWith('## User Prompt\n\nPrompt\n\n## AI Reply\n\nFirst complete answer');
+        await vi.waitFor(()=>expect(copyTextToClipboard).toHaveBeenCalledOnce());expect(copyTextToClipboard).toHaveBeenCalledWith('## Question\n\nPrompt\n\n## AI Reply\n\nFirst complete answer');
     });
     it('refuses to copy if the paired Prompt changes during preparation',async()=>{
         vi.mocked(copyTextToClipboard).mockClear();vi.mocked(showToast).mockClear();renderTurn();const {orchestrator,source}=createHarness();orchestrator.init();await vi.waitFor(()=>expect(toolbarHosts()).toHaveLength(1));

@@ -257,8 +257,8 @@ export class ReaderCommentPopover {
         const appearance = params.appearance;
         ensureStyle(params.shadow, getCommentPopoverCss(), { id: 'aimd-reader-comment-popover-style', cache: 'shared' });
         const labels = {
-            addTitle: params.labels?.addTitle ?? 'Add comment',
-            editTitle: params.labels?.editTitle ?? 'Edit comment',
+            addTitle: params.labels?.addTitle ?? 'Add annotation',
+            editTitle: params.labels?.editTitle ?? 'Edit annotation',
             close: params.labels?.close ?? 'Close',
             selectedSource: params.labels?.selectedSource ?? 'Selected content',
             placeholder: params.labels?.placeholder ?? 'Write your annotation...',

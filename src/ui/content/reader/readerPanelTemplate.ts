@@ -82,7 +82,7 @@ function renderOutlineMarkup(params: {
     const { outlineItems, activeOutlineId, getLabel } = params;
     if (outlineItems.length < 2) return '';
 
-    const label = getLabel('readerOutlineLabel', 'Markdown outline');
+    const label = getLabel('readerOutlineLabel', 'Heading outline');
     const items = outlineItems.map((item) => {
         const level = Math.max(1, Math.min(6, Math.round(item.level)));
         const itemLabel = getLabel('readerOutlineGoToHeading', `Go to heading ${item.text}`, item.text);
@@ -113,9 +113,9 @@ function renderStickyMarkup(params: {
     const { enabled, open, widthPx, blocks, getLabel } = params;
     if (!enabled) return '';
 
-    const title = getLabel('readerStickyTitle', 'Sticky');
-    const empty = getLabel('readerStickyEmpty', 'Select important content and click Stick.');
-    const deleteLabel = getLabel('readerStickyDelete', 'Delete sticky block');
+    const title = getLabel('readerStickyTitle', 'Excerpt tray');
+    const empty = getLabel('readerStickyEmpty', 'Select important content and choose Keep excerpt.');
+    const deleteLabel = getLabel('readerStickyDelete', 'Remove excerpt');
     const dragLabel = getLabel('readerStickyDrag', 'Drag to reorder');
 
     const body = blocks.length > 0
@@ -161,7 +161,7 @@ export function getReaderPanelHtml(params: {
         ? getLabel('exitFullscreen', 'Exit fullscreen')
         : getLabel('toggleFullscreen', 'Toggle fullscreen');
     const settingsLabel = getLabel('readerSettingsLabel', 'Reader settings');
-    const userMessageLabel = getLabel('readerUserMessageLabel', 'User message');
+    const userMessageLabel = getLabel('readerUserMessageLabel', 'Question');
     const assistantMessageLabel = getLabel('readerAssistantMessageLabel', 'AI response');
     const closeLabel = getLabel('btnClose', 'Close panel');
     const previousLabel = getLabel('previousMessage', 'Previous message');
@@ -219,7 +219,7 @@ export function getReaderPanelHtml(params: {
   </div>
   <div class="panel-footer reader-footer">
     <div class="reader-footer__left">
-      ${state.stickyEnabled ? `<button class="icon-btn reader-sticky-footer-toggle" type="button" data-action="reader-sticky-toggle" data-active="${state.stickyOpen ? '1' : '0'}" aria-label="${escapeHtml(state.stickyOpen ? getLabel('readerStickyCollapse', 'Hide sticky workspace') : getLabel('readerStickyExpand', 'Show sticky workspace'))}" title="${escapeHtml(state.stickyOpen ? getLabel('readerStickyCollapse', 'Hide sticky workspace') : getLabel('readerStickyExpand', 'Show sticky workspace'))}">${iconMarkup(panelLeftIcon)}</button>` : ''}
+      ${state.stickyEnabled ? `<button class="icon-btn reader-sticky-footer-toggle" type="button" data-action="reader-sticky-toggle" data-active="${state.stickyOpen ? '1' : '0'}" aria-label="${escapeHtml(state.stickyOpen ? getLabel('readerStickyCollapse', 'Hide excerpt tray') : getLabel('readerStickyExpand', 'Show excerpt tray'))}" title="${escapeHtml(state.stickyOpen ? getLabel('readerStickyCollapse', 'Hide excerpt tray') : getLabel('readerStickyExpand', 'Show excerpt tray'))}">${iconMarkup(panelLeftIcon)}</button>` : ''}
       <div class="reader-footer__actions" data-role="footer-left-actions"></div>
     </div>
     <div class="reader-footer__center">

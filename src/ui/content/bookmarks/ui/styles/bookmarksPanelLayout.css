@@ -288,6 +288,7 @@
   background: color-mix(in srgb, var(--aimd-bg-primary) 98%, transparent);
 }
 .settings-panel,
+.features-panel,
 .changelog-panel,
 .about-panel,
 .mappamory-panel,

@@ -674,8 +674,8 @@ export class ChatGPTPageAnnotationController {
         saveShortcut: string;
     } {
         return {
-            addTitle: this.getLabel('readerCommentAddTitle', 'Add comment'),
-            editTitle: this.getLabel('readerCommentEditTitle', 'Edit comment'),
+            addTitle: this.getLabel('readerCommentAddTitle', 'Add annotation'),
+            editTitle: this.getLabel('readerCommentEditTitle', 'Edit annotation'),
             close: this.getLabel('btnClose', 'Close'),
             selectedSource: this.getLabel('readerCommentSelectedSource', 'Selected content'),
             placeholder: this.getLabel('readerCommentPlaceholder', 'Write your annotation...'),

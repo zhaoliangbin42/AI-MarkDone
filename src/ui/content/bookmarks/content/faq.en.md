@@ -2,20 +2,27 @@
 
 ## Which platforms does this extension support?
 
-New features target ChatGPT, including its in-page and detached Reader. Previously saved bookmarks from other platforms remain available.
+New features target ChatGPT, including the in-page Reader and separate reader. Previously saved bookmarks from other platforms remain available.
 
 ## Where do I find each feature?
 
-- Library and Settings: click the extension icon
+- Library and Settings: click the extension icon to open the management panel
+- Feature overview: below the Settings categories, browse grouped features, entry points, and shortcuts
 - Copy, bookmark, Reader and export: expand the capsule below an assistant reply
 - Annotation and highlight: select text, then choose the annotation button or a color
 - Formula copy: click a formula
-- Message navigation: open the lower-right page controls
+- Message navigation: use the previous/next buttons at the lower right of the page
 - Backup: Settings → Data & backup
+
+## Can the management panel fill the screen?
+
+Yes. Choose Full screen beside Close at the lower right to expand the panel; choose Exit full screen to restore its window. This keeps the current category, search, and selection.
 
 ## Why use Reader?
 
-Reader provides a focused reading surface with fullscreen, message switching, source Markdown copy, annotations, and send controls.
+Reader makes long replies easier to read, with full screen or window modes, a heading outline, page navigation, Markdown copying, annotations, and follow-up questions. Copy or wrap individual code blocks, and keep important passages in the excerpt tray on the left for comparison.
+
+Excerpts last for the current page session and clear after a refresh. Open a separate reader from the page’s lower-right controls; refresh its content manually, and keep the original ChatGPT tab open for sending and locating replies.
 
 ## What are annotations for?
 
@@ -23,25 +30,33 @@ Select a passage and add a note. You can then copy the selected text and notes t
 
 ## Can I customize annotation templates?
 
-Open Settings → Highlights & annotations. Prompts provide reusable instructions; the copy template controls the order and format of each passage and note.
+Open the annotation copy template from Reader’s upper-right settings, or Library → Annotations → Details → Templates. The template controls the order and format of each passage and note.
+
+Prompts are reusable instructions managed under Settings → Writing & prompts. When copying annotations, choose a prompt and place it before or after the notes.
 
 ## Are annotations and highlights saved?
 
-Highlights are always saved in the current browser profile. Annotation persistence follows the existing “Keep annotations” setting; turning it off does not delete previously saved annotations.
+Highlights are always saved in the current browser profile. Save new annotations is off by default in Reader settings: when off, new notes last only for this page session; when on, they remain after a refresh. Previously saved annotations stay available.
 
 Browse annotations and highlights by conversation in Library, or open their source pages.
 
 ## Can I copy just part of a reply as Markdown?
 
-Select text on the ChatGPT page or in Reader and choose Copy. Mixed text, formulas, code and lists retain their Markdown structure.
+Select text on the ChatGPT page or in Reader and choose Copy. Text, formulas, code, and lists keep their Markdown formatting; selected formulas copy as complete formulas, while partial code selections copy only the selected text.
+
+ChatGPT’s default shortcut is Cmd/Ctrl + Shift + C; change it to Cmd/Ctrl + C or turn it off in Settings → Advanced. Reader uses Cmd/Ctrl + C.
 
 ## How do I copy a formula?
 
-Click it in the original reply. Inline formulas use `$...$` and display formulas use `$$...$$` by default. Change delimiters and formula image actions under Settings → Copy & export.
+Click it in the original reply. Inline formulas use `$...$` and display formulas use `$$...$$` by default. Set separate formats for single formulas and whole-message Markdown under Settings → Copy & export.
+
+Enable image actions under Settings → Buttons → Formula to copy PNG, SVG, or MathML, or save PNG or SVG. SVG and MathML require available formula source. The input formula preview also offers these actions.
 
 ## What can bookmarks save?
 
-Bookmarks save a page link or a message. Message bookmarks include saved content for previewing and copying. Folders organize bookmarks into up to four levels.
+Bookmarks save a conversation link or a reply. Page bookmarks keep a name and link; message bookmarks save the question and reply for reading and copying. Folders organize bookmarks into up to four levels.
+
+With Save only bookmark excerpts enabled, questions and replies longer than 500 characters each keep 250 from the start and 250 from the end. Open the original conversation for the full text.
 
 ## How do I manage many bookmarks?
 
@@ -51,15 +66,15 @@ Choose a folder on the left, or search. Lists show 20 items per page. Use the ro
 
 ## How does export work?
 
-Choose Export, select messages, then choose Markdown or PDF. Markdown stays editable; PDF preserves a document layout. Batch export is supported.
+Open Export below a reply or in a directory preview, select messages, and choose Markdown, PDF, or PNG. Markdown stays editable; PDF uses the browser’s print dialog with Save as PDF; PNG creates long images, and multiple images can be packed in a ZIP. Batch selection is supported, with progress and cancellation during image generation.
 
 ## Can I hide buttons or change the theme?
 
-Use Settings → Buttons & shortcuts. Theme, font size and accent color are under Appearance & layout. Theme can follow the page or use light or dark mode. Search finds controls across all eight categories.
+Use Settings → Buttons to configure page, reply, formula, selection, and directory buttons, and keep common page or reply actions visible. Theme, font size, and accent color are under Appearance & layout. Follow the page or use light or dark mode, and choose a preset or custom accent color. Search finds controls across all eight categories.
 
 ## Where does Google Drive backup save my data?
 
-The experimental backup flow stores your saved bookmarks, highlights, annotations, and their folders in your own Drive under `AI-MarkDone/Backups/bookmarks`. It excludes unsaved annotations, extension settings and OAuth credentials. A full local Library export contains the same saved items. Older bookmark-only files still import and affect bookmarks alone.
+The experimental backup flow stores your saved bookmarks, highlights, annotations, and their folders in your own Drive under `AI-MarkDone/Backups/bookmarks`. It excludes unsaved annotations, excerpts, prompts, extension settings, and OAuth credentials. A full local Library export contains the same saved items. Older bookmark-only files still import and affect bookmarks alone.
 
 Backup verifies the uploaded snapshot. Restore shows a merge preview: local-only items remain, duplicates are skipped, and conflicts keep the local copy by default. This is not real-time synchronization.
 
@@ -67,7 +82,9 @@ Manage cloud files or test the connection under Data & backup. Trashing a Drive 
 
 ## How do message navigation and the directory work?
 
-Open the lower-right controls for previous/next navigation. Left and Right arrow keys also navigate when you are not typing, if enabled. Configure the directory, official navigation visibility and jump behavior under Reading & navigation.
+Use the page’s lower-right previous/next buttons. Left and right arrow keys also navigate when you are not typing, if enabled.
+
+Enable the directory under Settings → Reading & messages, choose compact previews or an expanded list, and adjust summaries, preview length, and right spacing. Regular messages join the directory as they load; unloaded history may be missing. Official navigation visibility is in the same category; navigation shortcuts and jump distance are under Advanced.
 
 ## What does the character count include?
 

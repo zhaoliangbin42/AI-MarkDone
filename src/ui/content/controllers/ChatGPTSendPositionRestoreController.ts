@@ -13,11 +13,12 @@ type RestoreAnchor = {
 type RestoreSession = {
     root: HTMLElement;
     savedTop: number;
+    savedScrollExtent: number;
+    reversed: boolean;
     anchor: RestoreAnchor | null;
     observer: MutationObserver | null;
     rafId: number | null;
     timeoutId: number | null;
-    restoreCount: number;
     scrollTarget: EventTarget;
 };
 
@@ -25,7 +26,6 @@ const ACTIVE_ATTR = 'data-aimd-chatgpt-send-restore-active';
 const STYLE_ID = 'aimd-chatgpt-send-restore-style';
 const BOTTOM_THRESHOLD_PX = 160;
 const RESTORE_TOLERANCE_PX = 2;
-const MAX_RESTORE_ATTEMPTS = 20;
 const TTL_MS = 90_000;
 
 export class ChatGPTSendPositionRestoreController {
@@ -75,7 +75,7 @@ export class ChatGPTSendPositionRestoreController {
         document.addEventListener('submit', this.onSubmitCapture, { capture: true });
         document.addEventListener('wheel', this.onUserAbort, { capture: true, passive: true });
         document.addEventListener('touchmove', this.onUserAbort, { capture: true, passive: true });
-        document.addEventListener('pointerdown', this.onUserAbort, { capture: true });
+        document.addEventListener('pointerdown', this.onPointerDownCapture, { capture: true });
     }
 
     private unbindEvents(): void {
@@ -88,7 +88,7 @@ export class ChatGPTSendPositionRestoreController {
         document.removeEventListener('submit', this.onSubmitCapture, { capture: true } as any);
         document.removeEventListener('wheel', this.onUserAbort, { capture: true } as any);
         document.removeEventListener('touchmove', this.onUserAbort, { capture: true } as any);
-        document.removeEventListener('pointerdown', this.onUserAbort, { capture: true } as any);
+        document.removeEventListener('pointerdown', this.onPointerDownCapture, { capture: true } as any);
     }
 
     private setActiveAttribute(value: 'true' | 'false'): void {
@@ -108,6 +108,14 @@ export class ChatGPTSendPositionRestoreController {
         this.release();
     };
 
+    private onPointerDownCapture = (event: PointerEvent): void => {
+        const target = event.target instanceof Element ? event.target : null;
+        const button = target?.closest('button, [role="button"]') ?? null;
+        // Focus may scroll the host before click; capture the send gesture first.
+        if (button && this.isSendButton(button)) this.arm();
+        else this.release();
+    };
+
     private onClickCapture = (event: MouseEvent): void => {
         const target = event.target instanceof Element ? event.target : null;
         const button = target?.closest('button, [role="button"]') ?? null;
@@ -123,18 +131,21 @@ export class ChatGPTSendPositionRestoreController {
     private arm(): void {
         if (!this.enabled) return;
         const root = this.findScrollRoot();
+        // Enter, click, submit and Reader before-send can describe the same send.
+        if (this.session?.root === root) return;
+        this.release();
         if (!root || this.distanceToBottom(root) <= BOTTOM_THRESHOLD_PX) return;
 
-        this.release();
         const scrollTarget = this.getScrollEventTarget(root);
         this.session = {
             root,
             savedTop: root.scrollTop,
+            savedScrollExtent: Math.max(0, root.scrollHeight - root.clientHeight),
+            reversed: window.getComputedStyle(root).flexDirection === 'column-reverse',
             anchor: this.captureAnchor(root),
             observer: null,
             rafId: null,
             timeoutId: window.setTimeout(() => this.release(), TTL_MS),
-            restoreCount: 0,
             scrollTarget,
         };
         this.setActiveAttribute('true');
@@ -183,19 +194,17 @@ export class ChatGPTSendPositionRestoreController {
         if (Math.abs(session.root.scrollTop - targetTop) <= RESTORE_TOLERANCE_PX) return;
         // The browser clamps both normal and column-reverse scroll ranges.
         session.root.scrollTop = targetTop;
-        session.restoreCount += 1;
-        if (session.restoreCount >= MAX_RESTORE_ATTEMPTS) this.release();
     }
 
     private resolveRestoreTop(session: RestoreSession): number {
         const anchor = session.anchor;
-        if (anchor?.el.isConnected) {
-            const delta = anchor.el.getBoundingClientRect().top - anchor.top;
-            if (Math.abs(delta) > RESTORE_TOLERANCE_PX) {
-                return session.root.scrollTop + delta;
-            }
+        if (anchor?.el.isConnected && session.root.contains(anchor.el)) {
+            const rect = anchor.el.getBoundingClientRect();
+            if (rect.height > 0) return session.root.scrollTop + rect.top - anchor.top;
         }
-        return session.savedTop;
+        // Reverse layouts move old content when a new reply extends the bottom.
+        const growth = Math.max(0, session.root.scrollHeight - session.root.clientHeight) - session.savedScrollExtent;
+        return session.savedTop - (session.reversed ? growth : 0);
     }
 
     private captureAnchor(root: HTMLElement): RestoreAnchor | null {
@@ -258,12 +267,14 @@ export class ChatGPTSendPositionRestoreController {
 
     private isSendEnter(event: KeyboardEvent): boolean {
         return event.key === 'Enter'
-            && !this.enterKeyNewlineEnabled
+            // Input Enhancement emits a native-style Enter after explicitly arming.
+            && (!this.enterKeyNewlineEnabled || Boolean(this.session && !event.isTrusted))
             && !event.shiftKey
             && !event.metaKey
             && !event.ctrlKey
             && !event.altKey
             && !event.isComposing
+            && event.keyCode !== 229
             && event.target instanceof Element
             && this.hasComposer(event.target);
     }
@@ -274,6 +285,7 @@ export class ChatGPTSendPositionRestoreController {
     }
 
     private isSendButton(button: Element): boolean {
+        if (button.matches(':disabled, [aria-disabled="true"]')) return false;
         if (button.getAttribute('data-testid') === 'send-button') return true;
         if (button.matches('button[data-testid*="send" i], button[aria-label*="send" i], button[aria-label*="发送"], .composer-submit-button-color')) return true;
         if (button instanceof HTMLButtonElement && button.type === 'submit') return Boolean(button.closest('form')?.querySelector('#prompt-textarea, textarea, [contenteditable="true"], [contenteditable=""]'));
