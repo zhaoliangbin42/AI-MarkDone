@@ -16,7 +16,7 @@ New features target ChatGPT, including the in-page Reader and separate reader. P
 
 ## Can the management panel fill the screen?
 
-Yes. Choose Full screen beside Close at the lower right to expand the panel; choose Exit full screen to restore its window. This keeps the current category, search, and selection.
+Yes. Choose Full screen beside Close at the management panel’s upper right to expand the panel; choose Exit full screen to restore its window. This keeps the current category, search, and selection.
 
 ## Why use Reader?
 

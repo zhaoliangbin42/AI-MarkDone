@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [6.1.0] - 2026-10-02
+
 ### Added
 - Added a searchable Feature overview with grouped function names and explanations, including entry points and useful shortcuts.
 - Added full-screen mode beside Close in the management panel's top-right corner, without a separate title bar.

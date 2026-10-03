@@ -1,5 +1,41 @@
 # Release Notes
 
+## v6.1.0 (2026-10-02)
+
+### 中文发布文案
+
+朋友们好！啪的一下，很快啊，6.1.0 版本就要跟大家见面了。之前修复了目录条功能之后，很多朋友的反馈都非常正面，因为这是一个高频需求。这次我又加固了一下目录条，希望之前遇到目录条 bug 的朋友再反馈一下，看看问题有没有解决。另外，这次也做了很多大的更新。首先是工具条和右下角的那一排按钮，之前是全展开的，现在把它们收进去了。不过，在使用过程中发现，一些高频按钮可能多了一层入口，会导致效率降低。所以，这次将这些按钮全部改成了可以自定义常驻状态，顺便对设置页也做了一次大幅升级。
+
+另外，目前插件已经有大量功能了。不过，这些功能我都希望以最简洁、最符合使用直觉的方式呈现，但有一些可能确实不太容易被发现，所以这次还增加了一个功能全览页面。举个例子，比如说理工科学生可能经常需要写公式。那么，目前已经支持在输入框中输入公式时直接预览，并且在预览框里直接导出为 PNG 或 SVG 等格式，这样就能省去使用外部渲染工具的步骤。这种功能其实藏得挺深的，而且用户也不太容易发现，所以我希望这个功能全览页面能够帮到你，让你更全面地了解这个插件所支持的能力。
+
+这次的具体升级如下：
+
+1. 进一步大幅升级了设置页面，将所有可感知的按钮放在一个统一模块中管理，并增加了预览窗，可以直观地看到按钮开启／关闭、Pin／Unpin 状态对最终呈现效果的影响。
+2. 增加了更多的颜色主题，并且可以自定义颜色（感谢小红书用户 @Cindy）。
+3. 升级了输入框中的输入体验。之前是鼠标放在公式块里就会出现预览，现在改成只有光标进入公式块时才会出现预览，避免影响阅读。
+4. 在输入框输入公式时，公式预览支持直接导出为图片，并升级了公式预览的体验。
+5. 阅读器增加了 Markdown 清洗相关选项，用户可以很方便地选择不同的呈现效果（感谢 QQ 用户 @重量级知识分子）。
+6. 增加了开关，用于控制注释、高亮等悬浮按钮的启用与关闭（感谢 QQ 用户 @1）。
+7. 修复了发送消息后页面没有正确停留在当前位置的问题（感谢小红书用户 @123321）。
+8. 调整了一下上一条／下一条消息切换按钮的位置，现在在右下角纵向放置。
+
+### English
+
+Hello, friends! Just like that, 6.1.0 is about to arrive. After the earlier fix for the message directory, many of you shared very positive feedback—this is something people use often. This time, I have strengthened the directory again. If you previously ran into a directory bug, please let me know whether the problem is now resolved. There are also several big updates. First, the message toolbar and the row of buttons at the lower-right of the page used to be fully expanded, and are now tucked away. During use, however, I found that adding an extra step for frequently used buttons could slow things down. You can now choose which of these buttons stay visible, and Settings has received a major upgrade.
+
+The extension now has many features. I want to present them in the simplest, most intuitive way, but some are still easy to miss. That is why this update also adds a Feature overview page. For example, science and engineering students often need to write formulas. You can already preview formulas while typing in the input, then export PNG or SVG directly from that preview, without going through an external rendering tool. Features like this are tucked away and can be hard to discover. I hope Feature overview helps you get to know more of what the extension can do.
+
+Here are the specific updates:
+
+1. Further upgraded Settings, bringing the visible buttons into one place for management. Previews show how enabling, disabling, pinning, or unpinning buttons changes the result.
+2. Added more color themes and custom colors. Thanks to Xiaohongshu user @Cindy.
+3. Improved the input experience. Formula previews now appear when the text cursor enters a formula, rather than when the mouse hovers over it, so they do not interrupt reading.
+4. Added direct image export from input formula previews and improved the preview experience.
+5. Added Markdown cleanup options to Reader, making it easier to choose how content is presented. Thanks to QQ user @重量级知识分子.
+6. Added switches for enabling or disabling floating annotation and highlight buttons. Thanks to QQ user @1.
+7. Fixed the page losing its reading position after sending a message. Thanks to Xiaohongshu user @123321.
+8. Repositioned the previous/next message buttons in a vertical stack at the lower-right of the page.
+
 ## v6.0.0 (2026-09-25)
 
 AI-MarkDone 6.0.0 refreshes most of the extension interface and adapts to ChatGPT’s September 24 website update. It adds persistent color highlights, shared page/Reader annotations, searchable Settings, and a redesigned Library. Local Library files and Google Drive backups now include saved bookmarks, highlights, annotations, and folders, while older bookmark-only files remain readable.

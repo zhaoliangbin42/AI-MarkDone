@@ -6,13 +6,14 @@ import { loadBookmarksDoc } from '@/ui/content/bookmarks/content/loader';
 describe('bookmarks content parser', () => {
     it('parses changelog markdown for both locales', () => {
         const zh = parseChangelogDoc(loadBookmarksDoc('changelog', 'zh_CN'));
-        expect(zh.entries[0]?.version).toBe('6.0.0');
-        expect(zh.entries[1]?.version).toBe('5.4.1');
-        zh.entries = zh.entries.filter(entry => entry.version !== '6.0.0' && entry.version !== '5.4.1');
+        expect(zh.entries[0]?.version).toBe('6.1.0');
+        expect(zh.entries[0]?.leadBlocks[0]).toEqual(expect.objectContaining({ text: expect.stringContaining('啪的一下，很快啊') }));
+        expect(zh.entries[1]?.version).toBe('6.0.0');
+        zh.entries = zh.entries.filter(entry => !['6.1.0', '6.0.0', '5.4.1'].includes(entry.version));
         const en = parseChangelogDoc(loadBookmarksDoc('changelog', 'en'));
-        expect(en.entries[0]?.version).toBe('6.0.0');
-        expect(en.entries[1]?.version).toBe('5.4.1');
-        en.entries = en.entries.filter(entry => entry.version !== '6.0.0' && entry.version !== '5.4.1');
+        expect(en.entries[0]?.version).toBe('6.1.0');
+        expect(en.entries[1]?.version).toBe('6.0.0');
+        en.entries = en.entries.filter(entry => !['6.1.0', '6.0.0', '5.4.1'].includes(entry.version));
 
         expect(zh.title).toBe('更新日志');
         expect(en.title).toBe('Changelog');

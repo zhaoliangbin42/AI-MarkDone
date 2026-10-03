@@ -8,180 +8,93 @@
     <a href="./LICENSE">
       <img src="https://img.shields.io/github/license/zhaoliangbin42/AI-MarkDone?label=License" alt="License">
     </a>
-    <img src="https://img.shields.io/badge/Version-6.0.0-10A37F" alt="Version 6.0.0">
-    </br>
+    <img src="https://img.shields.io/badge/Version-6.1.0-10A37F" alt="Version 6.1.0">
+    <br>
     <img src="https://img.shields.io/badge/Browsers-Chrome%20%7C%20Firefox-10A37F" alt="Browsers">
     <img src="https://img.shields.io/badge/Primary%20Platform-ChatGPT-10A37F" alt="Primary Platform">
     <a href="https://github.com/zhaoliangbin42/AI-MarkDone">
       <img src="https://img.shields.io/github/stars/zhaoliangbin42/AI-MarkDone?style=social" alt="GitHub stars">
     </a>
   </p>
-  <p><strong>Read, save, export. Stay in flow.</strong></p>
-  <p><em>ChatGPT message navigation, Reader, bookmarks, persistent highlights and annotations, full Library backup, and Markdown, PDF, and PNG export.</em></p>
-  <p><strong>The full conversation, without the endless scroll.</strong></p>
-  <p>Open a long conversation and click “Refresh message navigation” in the lower-right corner to load the full conversation history, show the complete message directory, and use Reader and export with the entire conversation.</p>
+  <p><strong>Read, save, export. Keep the conversation going.</strong></p>
+  <p>Message navigation, Separate reader, formula assistance, prompts, bookmarks and annotations.</p>
 
   [Official website](https://zhaoliangbin42.github.io/ai-markdone/en/) | [中文文档](./README.zh.md) | English
 </div>
 
-AI-MarkDone is an open-source ChatGPT browser extension for loading and navigating long conversations, research reading, source-aware copying, bookmarks, Markdown export, PDF export, and PNG image sharing. It helps users turn ChatGPT outputs into reusable knowledge without leaving the conversation page.
+AI-MarkDone is an open-source browser extension for ChatGPT. Find replies with the message directory, read long answers in Reader, organize highlights, annotations and bookmarks, then copy or export the content to your notes.
 
-ChatGPT may load older messages incrementally in long conversations, forcing you to scroll and wait before they become available. Open the conversation, click “Refresh message navigation” in the lower-right corner, and load the full conversation history at once. The directory, Reader, and export can then use the complete conversation.
-
-**Use it for:** ChatGPT reading mode, message navigation, Markdown copy, LaTeX formula copy, formula PNG/SVG export, message bookmarks, optional Google Drive backup, Deep Research cleanup, PDF export, and shareable PNG snapshots.
-
----
-
-<p align="center">
-  <img src="imgs/Top.png" style="max-width:600px;width:100%;" />
-</p>
-
----
-
-## 🤔 Is This For You?
-
-- **ChatGPT threads are hard to navigate?** Incremental loading can make older messages slower to revisit.
-- **Scroll fatigue?** You keep losing the exact paragraph you need.
-- **Need a conversation map?** You want a live outline that previews messages and jumps back to the right turn quickly.
-- **Need a stable view?** You want to read and keep chatting without losing context.
-- **Need real deliverables?** Clean Markdown for Obsidian/Typora, a beautiful PDF, or a PNG image you can share.
-- **Knowledge keeps disappearing?** You want a bookmark system that actually helps you organize.
-- **Deep Research looks like a dump?** You want AI output cleaned up so it is readable and reusable.
-
-If any of these sound familiar, **AI-MarkDone** is built exactly for you.
-
----
-
-## 🔎 Search-Friendly Summary
-
-| Need | What AI-MarkDone Provides |
-| :--- | :--- |
-| ChatGPT long conversation loading | Load the full conversation history on demand and avoid repeatedly scrolling for older messages |
-| ChatGPT long conversation navigation | Optional right-side directory rail, lower-right previous/next controls, optional Left/Right arrow-key navigation, and direct jumps to conversation messages |
-| ChatGPT reading mode | A stable Reader view with Markdown rendering and keyboard navigation |
-| Copy ChatGPT answers to Markdown | Source-aware Markdown copy for formulas, code blocks, tables, images, and selected passages |
-| Export ChatGPT messages | Markdown, PDF, PNG, and ZIP workflows for reusable deliverables |
-| Save important AI answers | Message bookmarks with folders, previews, and return-to-source navigation |
-| Prepare research notes | Deep Research cleanup, formula assets, annotations, and structured follow-up input |
-
----
+Version 6.1.0 brings customizable toolbars and refreshed Settings. Pin the buttons you use often, explore less obvious features in Feature overview, and preview or export formulas as you type.
 
 ## Interface
 
-<p align="center">
-  <img src="imgs/Toolbar.png" style="max-width:800px;width:100%;" />
-</p>
-<p align="center">
-  <img src="imgs/Reading.png" style="max-width:800px;width:100%;" />
-</p>
-<p align="center">
-  <img src="imgs/Bookmark.png" style="max-width:800px;width:100%;" />
-</p>
+<p align="center"><img src="imgs/FeatureOverview.png" alt="Feature overview: grouped features, purposes and entry points" style="max-width:900px;width:100%;" /></p>
+<p align="center"><img src="imgs/Reader.png" alt="Reader" style="max-width:800px;width:100%;" /></p>
 
----
+## Core features
 
-## ✨ Core Features
+### Message directory and navigation
+- Enable the message directory under Settings → Reading & messages to find replies by question summary and hover over entries to preview them.
+- As you browse older messages, newly loaded replies join the directory.
+- Use the lower-right previous/next buttons or arrow keys to move between replies; arrow keys keep their normal cursor behavior while typing.
+- Automatically restore your reading position after sending so you can keep reading earlier content.
 
-### ⚡ ChatGPT Message Navigation
-- **Full-thread loading on demand**: Click “Refresh message navigation” in the lower-right corner to load the full conversation history.
-- **Complete message directory**: See the full conversation in the right-side directory and jump directly to any message.
-- **Less repetitive scrolling**: Avoid scrolling through a long conversation again and again just to make older messages appear.
-- **Optional directory rail**: Use the AI-MarkDone right-side conversation rail when ChatGPT does not provide one, or when you prefer the plugin rail.
-- **Official rail hiding**: When the AI-MarkDone rail is enabled, ChatGPT's official conversation rail is hidden by default to avoid duplicate navigation.
-- **Lower-right controls**: Refresh message navigation or move to the previous or next ChatGPT message without opening the directory rail.
-- **Optional arrow keys**: Use `Left` / `Right` to move between messages when you are not typing; the setting can be turned off from ChatGPT Settings.
-- **Direct jump**: Directory navigation, Reader locate, and ChatGPT message bookmarks use the same target-navigation path.
-- **Shared conversation content**: The directory, Reader, and export use the same complete message collection after full-thread loading.
+### Reader and Separate reader
+- Open Reader below a reply to read headings, lists, tables, code and formulas.
+- Use the Heading outline to navigate long replies; reading positions are remembered during the page session.
+- Keep selected passages in the Excerpt tray for comparison, or prepare your next question while reading.
+- When scrolling a long ChatGPT conversation slows down, open Separate reader from the website's lower-right toolbar and read in another tab.
+- Choose how links and code blocks appear in Reader, whole-reply copying and message exports.
 
-### 📚 Reading Mode (Focus View)
-- **Stable context**: A dedicated reader that renders full Markdown syntax.
-- **Fast navigation**: Use `Left` / `Right` arrow keys to jump between messages, and `Up` / `Down` to scroll the current Reader message.
-- **Source-aware copy**: Copy formulas, code blocks, tables, images, and other closed Markdown units as source directly inside Reader.
-- **Partial source selection**: Select only the part you need; Reader maps closed units back to their original Markdown boundaries and rebuilds the copied result in selection order.
-- **Dynamic Annotation**: Mark exact passages, leave revision notes, and compile them into structured follow-up input.
-- **Annotation cleanup**: Delete annotations when they are no longer needed.
-- **Annotation insertion**: Insert compiled annotations into the Reader send box with your chosen prompt, without manually copying and pasting.
-- **Keep chatting**: Send messages from Reading Mode without losing your place.
+### Copy and export
+- Copy a reply or selection as Markdown with headings, lists, tables, code and formulas for further editing.
+- Partial code selections keep the selected text; formulas are copied as complete formulas.
+- Hover over Copy to copy PNG above or the matching question and reply together below.
+- Select one or several replies and save Markdown or PNG, or use the browser print dialog to save PDF; multiple PNGs can be packed into a ZIP.
+- Adjust image width and resolution for sharing, and clean up Deep Research content for notes or documents.
 
-### 📦 Export & Copy (Markdown + PDF + PNG)
-- **Clean Markdown**: Copy standard Markdown, ready for Obsidian, Typora, or VS Code.
-- **Beautiful PDF**: Export a print-ready PDF when you need something shareable.
-- **Copy as PNG**: Turn the current message into a shareable image directly from the hover toolbar.
-- **Formula assets**: Copy a single formula as Office-compatible MathML, or copy/save it as PNG or SVG from the formula hover actions.
-- **Batch PNG export**: Export selected messages as one PNG each; multiple messages are packed together as a ZIP.
-- **Full-conversation export**: After full-thread loading, export the complete conversation instead of waiting for messages to appear one by one.
-- **Image settings**: Configure PNG width and image scale from Settings to fit the target sharing platform.
-- **Deep Research cleanup**: Restore messy Deep Research outputs into readable Markdown.
+### Writing and formulas
+- Use Enter for a new line and Cmd/Ctrl + Enter to send, with bold shortcuts and numbered/bulleted list assistance.
+- Preview a formula when the text cursor enters it; type a backslash for LaTeX snippets and use Tab to move between placeholders.
+- Copy or export PNG, SVG or MathML from formula previews, and click reply formulas to copy their LaTeX source.
 
-### 🔖 Bookmarks That Actually Help
-- **One-click save**: Bookmark any important message instantly.
-- **Organize**: Use folders to keep projects and topics separate.
-- **Preview + jump**: Preview a bookmark and jump back to its original chat position, with improved ChatGPT positioning for both saving and navigation.
-- **Built-in info pages**: Open Feature overview, Changelog, FAQ, About the author, and Feedback from the management panel.
+### Prompts, annotations and highlights
+- Save reusable prompts and call them with a backslash and trigger word in ChatGPT or Reader's send box.
+- Set a cursor marker for the next text to fill in, or insert a prompt with current-conversation annotations into your draft.
+- Annotate selected passages or mark them with three highlight colors. Search, edit and organize them in Library.
+- Highlights save automatically; enable Save new annotations to keep annotations after a refresh.
+- Use annotation templates to combine source passages, notes and prompts, then copy or insert them for a follow-up question.
 
-### ☁️ Google Drive Backup (Experimental)
-- **Optional cloud backup**: Save your bookmarks, persistent highlights, annotations, and folders to your own Google Drive.
-- **Safe restore**: Preview a safe merge first; local conflicts stay unchanged. Older bookmark-only backups remain readable.
-- **Local copy**: Export and import the same Library data as a local file. Older bookmark files still import.
-- **User-owned data**: AI-MarkDone does not collect your Google account, token, or password on its own server.
+### Bookmarks and backup
+- Save a reply with its question or bookmark a conversation link; organize material with folders, search and batch actions.
+- Read a saved message bookmark, copy its content or return to the original conversation.
+- Export Library to a local file or connect Google Drive (experimental) for manual backups, with a merge preview before importing or restoring.
+- Import and export preference files to use familiar settings in another browser.
 
-### 🧮 One-Click LaTeX Copy
-- **Click-to-copy**: Copy LaTeX from inline (`$...$`) and block (`$$...$$`) formulas.
-- **No selection hassle**: Grab exactly one formula without breaking the text.
-- **Image-ready formulas**: Hover a formula to copy or save it as PNG/SVG while keeping normal click-to-copy source behavior.
-- **Formula settings**: Choose whether formula clicks copy Markdown and which PNG/SVG copy or save actions appear on hover.
+### Make it yours
+- Light, dark and page-matched appearance, several accent colors and custom color values.
+- Manage button visibility and pins under Settings → Buttons, with previews showing the result.
+- Search across eight Settings categories and find purposes, entry points and shortcuts in Feature overview.
 
-### 📊 Word Count
-- **Real-time stats**: Words and characters for the current message, minus code noise.
+## Browsers and platforms
 
----
+Chrome (MV3) and Firefox (MV2) are supported. The main features are for ChatGPT; Gemini, Claude and DeepSeek provide formula copying and export.
 
-## 🌐 Browser Support
+## Installation
 
-| Browser | Status |
-| :--- | :--- |
-| **Chrome** | ✅ Fully supported, MV3 build |
-| **Firefox** | ✅ Supported, MV2 build |
+### Chrome
 
-## 🤖 AI Platform Direction
+Install from the [Chrome Web Store](https://chromewebstore.google.com/detail/ai-markdone/bmdhdihdbhjbkfaaainidcjbgidkbeoh) and receive updates through the store.
 
-| Platform | Status |
-| :--- | :--- |
-| **ChatGPT** | ✅ Supported |
-| **Gemini** | Formula recognition only |
-| **Claude** | Formula recognition only |
-| **DeepSeek** | Formula recognition only |
+For manual installation:
+1. Download AI-MarkDone-v6.1.0-chrome.zip from [GitHub Releases](https://github.com/zhaoliangbin42/AI-MarkDone/releases) and extract it.
+2. Open chrome://extensions/ and enable Developer mode.
+3. Choose Load unpacked and select the extracted folder containing manifest.json.
+4. Refresh ChatGPT.
 
-AI-MarkDone's full runtime is focused on ChatGPT. Gemini, Claude, and DeepSeek keep formula-level support for click-to-copy LaTeX and enabled formula asset actions. Existing saved bookmarks and backups from these platforms remain visible and exportable in the bookmarks library.
+### Firefox
 
----
-
-## 🚀 Installation
-
-### 🏬 Chrome Web Store (Recommended)
-
-👉 **[Install from Chrome Web Store](https://chromewebstore.google.com/detail/ai-markdone/bmdhdihdbhjbkfaaainidcjbgidkbeoh)**
-
-Secure, verified, and auto-updated.
-
-### 📦 Manual Installation (Developer Mode)
-
-1. Download the latest ZIP file from [GitHub Releases](https://github.com/zhaoliangbin42/AI-MarkDone/releases).
-2. Unzip the file.
-3. Open Chrome and go to `chrome://extensions/`.
-4. Enable **Developer Mode** in the top right corner.
-5. Click **Load unpacked** and select the unzipped extension folder that contains `manifest.json`.
-6. Refresh your ChatGPT page and enjoy.
-
-### 🧩 Firefox
-
-Firefox is built from the same source code with a browser-specific manifest and adapter:
-
-```bash
-npm run build:firefox
-```
-
----
+The Firefox package is AI-MarkDone-v6.1.0-firefox.zip. For development, extract it, open about:debugging#/runtime/this-firefox, choose Load Temporary Add-on, and select manifest.json.
 
 ## 💻 Development & Contribution
 
@@ -208,13 +121,12 @@ npm run build
 
 ## 📅 Changelog (Latest)
 
-### 6.0.0
-- Refreshed the Library, Settings, message toolbar, page controls, and AI-MarkDone logo.
-- Organized Settings into searchable categories and moved Input Enhancement options there.
-- Added persistent color highlights and page annotations, managed together across the ChatGPT page and Reader.
-- Expanded local Library import/export and Google Drive backup to include bookmarks, highlights, annotations, and folders.
-- Improved Directory navigation and previews, and added timestamps beside message character counts.
-- This is a broad update; some details will continue to improve. Feedback on Settings categories and everyday use is welcome.
+### 6.1.0
+- Strengthened the message directory as older replies load.
+- Added toolbar pins and categorized, searchable Settings with button previews.
+- Added Feature overview, more accent colors and custom colors.
+- Formula previews follow the text cursor and export PNG/SVG directly.
+- Added content and floating-button options, and fixed reading-position restoration after sending.
 
 [Full Changelog](./CHANGELOG.md)
 [Release Notes](./RELEASE_NOTES.md)
@@ -238,7 +150,7 @@ If this extension saves you time, consider buying me a coffee to support future 
 
 ## 🙏 Acknowledgements
 
-Built with [Tailwind CSS](https://tailwindcss.com/). Thanks to the Tailwind team.
+Thanks to all contributors, everyone who sends feedback, and the open-source projects used by AI-MarkDone.
 
 ## ⭐ Star History
 

@@ -87,10 +87,10 @@ describe('ReaderPanel presentation', () => {
         vi.mocked(bookmarksClient.getChangelogNotice).mockResolvedValueOnce({
             ok: true,
             data: {
-                pendingVersion: '6.0.0',
+                pendingVersion: '6.1.0',
                 lastShownVersion: null,
                 reason: 'update',
-                previousVersion: '5.4.1',
+                previousVersion: '6.0.0',
             },
         } as any);
         const panel = new ReaderPanel();
@@ -105,17 +105,17 @@ describe('ReaderPanel presentation', () => {
             const shadow = host.shadowRoot as ShadowRoot;
             const modal = shadow.querySelector<HTMLElement>('.mock-modal');
 
-            expect(modal?.querySelector('.mock-modal__title-copy strong')?.textContent).toBe("What's new in AI-MarkDone 6.0.0");
-            expect(modal?.textContent).toContain('2026-09-25');
-            expect(modal?.textContent).toContain('three highlight colors');
-            expect(modal?.textContent).toContain('Input Enhancement options have moved into Settings');
+            expect(modal?.querySelector('.mock-modal__title-copy strong')?.textContent).toBe("What's new in AI-MarkDone 6.1.0");
+            expect(modal?.textContent).toContain('2026-10-02');
+            expect(modal?.textContent).toContain('Feature overview');
+            expect(modal?.textContent).toContain('Formula previews now appear when the text cursor');
             expect(Array.from(modal?.querySelectorAll<HTMLButtonElement>('.mock-modal__button') ?? []).map((button) => button.textContent)).toEqual(['OK']);
 
             const okButton = modal?.querySelector<HTMLButtonElement>('.mock-modal__button');
             okButton?.click();
             await Promise.resolve();
 
-            expect(bookmarksClient.ackChangelogNotice).toHaveBeenCalledWith('6.0.0');
+            expect(bookmarksClient.ackChangelogNotice).toHaveBeenCalledWith('6.1.0');
         } finally {
             panel.hide();
         }
@@ -195,7 +195,7 @@ describe('ReaderPanel presentation', () => {
             expect(headerMeta).toBeTruthy();
             expect(headerTitle?.textContent).toBeTruthy();
             expect(pageCounter?.textContent).toBe('1/1');
-            expect(userSection?.textContent).toContain('User');
+            expect(userSection?.textContent).toContain('Question');
             expect(userSection?.textContent).toContain(longPrompt);
             expect(assistantSection?.textContent).toContain('AI');
             expect(markdownRoot?.textContent).toContain('md1');
