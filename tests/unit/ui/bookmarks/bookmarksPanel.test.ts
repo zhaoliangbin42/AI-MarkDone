@@ -222,6 +222,7 @@ describe('BookmarksPanel', () => {
     });
 
     it('activates the new changelog, about, and faq panels inside the formal bookmarks panel shell', async () => {
+        vi.stubGlobal('chrome', {});
         await setLocale('en');
         const snapshot = {
             vm: {
@@ -501,6 +502,7 @@ describe('BookmarksPanel', () => {
         expect(refreshedSponsorActiveTab?.textContent).toContain('@匿名（Danke!）');
         expect(refreshedSponsorActiveTab?.textContent).toContain('@。（特别喜欢那个目录条功能，请你喝瓶水）');
 
+        feedbackTabButton!.dispatchEvent(new MouseEvent('pointerdown', { bubbles: true, composed: true }));
         feedbackTabButton!.click();
 
         const refreshedFeedbackActiveTab = shadow.querySelector<HTMLElement>('.feedback-panel');
@@ -525,7 +527,7 @@ describe('BookmarksPanel', () => {
         expect(refreshedFeedbackActiveTab?.textContent).not.toContain('Email remains available for private feedback');
         expect(refreshedFeedbackActiveTab?.querySelector('.support-contact-card')).toBeTruthy();
         expect(refreshedFeedbackActiveTab?.querySelector('.about-website-card')).toBeTruthy();
-        expect(feedbackEmailCta?.href).toBe('mailto:zhaoliangbin42@gmail.com?subject=AI-MarkDone%20Feedback');
+        expect(new URL(feedbackEmailCta!.href).searchParams.get('subject')).toBe('AI-MarkDone | Chrome Feedback');
         expect(feedbackWebsiteCta?.href).toBe('https://zhaoliangbin42.github.io/ai-markdone/en/');
         expect(feedbackWebsiteCta?.target).toBe('_blank');
         expect(feedbackWebsiteCta?.rel).toContain('noopener');

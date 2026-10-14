@@ -1,5 +1,15 @@
 # Architecture Current State (As-Is)
 
+> **Compact controls and feedback cleanup (2026-10-14)**
+>
+> Page controls and their Settings previews share one size/style owner; the native
+> Keyboard guidance does not alter Input Enhancement preferences or key handling.
+> Feedback subjects reuse `browserInfo.target`; unused About/Feedback visibility
+> parameters are removed after verifying all existing callers use the visible default.
+> No discovery, navigation, export, storage or messaging contract changes.
+> See [feature behavior](../FEATURES.md), [design](../design.md), and
+> [browser cleanup boundaries](BROWSER_COMPATIBILITY.md).
+
 > **Verified mark identity through loading and history growth (2026-10-12)**
 >
 > Toolbar bookmark confirmation re-reads the unique assistant ID and requires

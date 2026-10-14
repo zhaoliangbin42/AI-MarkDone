@@ -1299,6 +1299,10 @@
         "message": "Send with the button or Cmd/Ctrl + Enter.",
         "description": "Enter key enhancement description"
     },
+    "chatgptInputEnhancementEnterNativeHint": {
+        "message": "The latest ChatGPT website supports this natively. Configure the shortcut for sending messages in Settings → Keyboard. This extension’s Enter-to-newline feature will be phased out.",
+        "description": "Native ChatGPT keyboard settings and planned Enter-to-newline retirement"
+    },
     "chatgptInputEnhancementListsLabel": {
         "message": "Continue lists while typing",
         "description": "List enhancement master label"

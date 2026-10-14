@@ -148,7 +148,7 @@ If a phase misses a threshold, work stays in that phase. The implementation may 
 - The real Settings → Buttons & Entrypoints control disabled the message toolbar to 0 hosts and restored it to exactly 200 with zero duplicates. This exercised storage/protocol propagation and the full runtime disable/re-enable lifecycle rather than calling the orchestrator directly.
 - Switching the host document from light to dark and back propagated `data-aimd-theme` to the page, all sampled message toolbars, and the lower-right stepper while retaining 200/200 reliability. Bookmarks opened, closed, and reopened through the real lower-right trigger after the route change; Reader also mounted through a real per-message trigger. The browser console reported zero errors and warnings.
 - Final automated closeout passed 1,234/1,234 core tests, 36/36 smoke tests, 120/120 acceptance tests, TypeScript checking, and complete Chrome/Firefox/Safari WebExtension builds with every entry-format, facade-export, resource, and bundle-size gate green.
-- The automated browser fixture deliberately avoids a live ChatGPT account and network content. Safari parity here means source/manifest/build/module verification; signed Safari wrapper and real Safari hardware remain release-stage checks under the existing Safari runbook, not performance-program blockers.
+- The automated browser fixture deliberately avoids a live ChatGPT account and network content.
 
 ### Multi-segment ownership correction — 2026-07-12
 

@@ -2345,19 +2345,17 @@ function readerPage(): PageSpec {
       <article class="reader-thread">
         <section class="reader-message-block">
           <div class="reader-message-label">USER MESSAGE</div>
-          <p class="reader-message-text">我现在准备上架一个插件在Safari上，现在审核员给了我回复，你解释一下下面审核员的回复。并且说明一下这个插件是因为什么原因而被拒绝。
-Hello,
-
-We noticed this is your first app submission and want to congratulate you on joining the Apple Developer Program. We look f</p>
+          <p class="reader-message-text">请帮我整理这次 ChatGPT 对话中的实验结果，保留公式、表格和需要进一步核对的结论。
+Please organize the experiment notes into observations, calculations, and next steps. Keep the source evidence beside each conclusion.</p>
           <div class="reader-ellipsis-line">...</div>
-          <p class="reader-message-text">eview Notes to confirm you've suppressed this functionality, and resubmit the app for review.</p>
+          <p class="reader-message-text">先核对数据来源，再确认推导过程与结论是否对应。</p>
           <div class="reader-ellipsis-line">...</div>
-          <p class="reader-message-text">- Consult with fellow developers and Apple engineers on the Apple Developer Forums.
-- Provide feedback on this message and your review experience by completing a short survey.</p>
+          <p class="reader-message-text">- Check the original data and calculation steps.
+- Record unresolved questions before drafting the final summary.</p>
         </section>
         <section class="reader-message-block" data-kind="assistant">
           <div class="reader-message-label">AI RESPONSE</div>
-          <p class="reader-message-text">你的这个 Safari 插件被拒，实际是因为两个独立的问题。分别对应 Apple 审核指南中的外部支付/捐赠入口，以及中国大陆区分发合规。</p>
+          <p class="reader-message-text">可以先把观察结果、计算依据和待核对的问题分开，再整理成简洁的实验总结。</p>
         </section>
       </article>
     </div>

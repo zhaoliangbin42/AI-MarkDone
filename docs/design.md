@@ -1,5 +1,15 @@
 # AI-MarkDone Design Reference
 
+## Compact page controls and inline guidance (2026-10-14)
+
+The lower-right page-control family uses 24px buttons and 16px glyphs, derived
+from existing tokens in `pageControlsCss.ts`. Runtime and both Buttons settings
+previews consume that same CSS; previews must not override sizes or button chrome.
+Drawer expansion, pins, tooltips and focus behavior keep their existing contracts.
+Enter-to-newline shows the same localized native Keyboard-settings/retirement note
+beneath the option in Settings and the page popover. The note is plain supporting
+text associated with the checkbox, with no modal or change to keyboard behavior.
+
 ## Rich-content output controls (2026-10-08)
 
 Save Messages uses the existing modal, token system and selection contract.

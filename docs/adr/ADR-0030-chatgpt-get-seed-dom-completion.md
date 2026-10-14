@@ -62,6 +62,6 @@ order.
   existing DOM path; they cannot produce a second source or overwrite a DOM
   body.
 - Chrome and Firefox manifests regain a document-start bootstrap and bridge
-  resource. Safari remains on its existing DOM-only boundary.
+  resource.
 - Diagnostics and snapshots expose `get` internally; no new user-facing status
   copy is introduced.

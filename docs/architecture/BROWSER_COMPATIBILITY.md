@@ -1,6 +1,6 @@
 # Browser Compatibility (Chrome MV3 / Firefox MV2)
 
-本文档是 AI-MarkDone 的浏览器兼容性权威说明。当前正式支持范围只有 Chrome MV3 与 Firefox MV2。2026-10-12 决定永久停止 Safari 适配；6.2.0 删除专用 manifest、构建/打包脚本、资源裁剪和界面功能开关。后续设计、测试、发版与反馈修复均只面向 Chrome / Firefox；历史记录保留，不代表当前支持。
+本文档是 AI-MarkDone 的浏览器兼容性权威说明。正式目标为 Chrome MV3 和 Firefox MV2；2026-10-12 起永久停止 Safari 适配、构建、验证和分发。清理记录见 [6.2.0 发布审查](../reviews/2026-10-12-6.2.0-release-readiness.md)。
 
 ---
 
@@ -119,3 +119,23 @@ Content runtime 共享同一份 TypeScript 源码，但浏览器对部分 Web AP
 - Chrome-like `adoptedStyleSheets: CSSStyleSheet[]` 时，共享样式缓存应继续跨 ShadowRoot 复用同一个 `CSSStyleSheet`。
 - 延迟扫描与公式增量处理应覆盖 Firefox receiver binding 场景，确保 idle callback 和 cancel callback 均以 `window` 作为 `this`。
 - ChatGPT snapshot bridge 应覆盖 object detail 与 JSON string detail 两条 transport，确保 Firefox 不因 content/page 隔离边界丢失 snapshot。
+
+
+## Retired-target cleanup boundaries (2026-10-14)
+
+Production code and build configuration contain no Safari-specific branch. The
+unused About/Feedback card-hiding parameters are removed; existing callers always
+showed those cards, so their content, order and actions remain unchanged. Keep
+Chromium's WebKit-prefixed CSS and real user-agent samples, unsupported-origin
+rejection tests, and ignore patterns for legacy local outputs: they do not enable
+Safari support. Dated changelogs, release records and benchmark measurements are
+historical evidence. Active guidance must not require a retired wrapper or runbook.
+Feedback subjects use the shared Chrome/Firefox detector; unknown environments
+retain the generic subject without inventing a browser or attaching conversation data.
+
+
+Verification: 330 files / 2719 core checks, 63 final focused checks, both production
+builds and entry/boundary checks pass. Production-component replay confirms both
+browser subjects, unchanged email copying and card visibility; Firefox identity
+is emulated in Chromium. The installed Chrome link had the generic subject before
+this edit, so an older Safari-titled mail's origin is not claimed as reproduced.

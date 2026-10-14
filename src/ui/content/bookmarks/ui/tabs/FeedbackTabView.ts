@@ -4,7 +4,6 @@ import { t } from '../../../components/i18n';
 
 export type FeedbackTabViewActions = {
     getAssetUrl: (assetPath: string) => string;
-    showCommunityCards?: boolean;
 };
 
 function tr(key: string, fallback: string): string {
@@ -143,9 +142,7 @@ export class FeedbackTabView {
         `;
 
         shell.appendChild(hero);
-        if (actions.showCommunityCards !== false) {
-            shell.appendChild(createCommunityGroupCard(actions));
-        }
+        shell.appendChild(createCommunityGroupCard(actions));
         shell.append(createSupportContactCard(), createWebsiteCard());
         this.root.replaceChildren(shell);
     }

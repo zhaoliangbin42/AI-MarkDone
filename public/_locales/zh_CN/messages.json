@@ -1299,6 +1299,10 @@
         "message": "发送请使用发送按钮或 Cmd/Ctrl + Enter。",
         "description": "Enter 换行能力说明"
     },
+    "chatgptInputEnhancementEnterNativeHint": {
+        "message": "最新版 ChatGPT 网页已支持此功能，可在「设置 → Keyboard」中设置发送消息的快捷键。本插件的回车换行功能后续将逐步下架。",
+        "description": "Native ChatGPT keyboard settings and planned Enter-to-newline retirement"
+    },
     "chatgptInputEnhancementListsLabel": {
         "message": "输入时自动续写列表",
         "description": "列表增强总开关标签"

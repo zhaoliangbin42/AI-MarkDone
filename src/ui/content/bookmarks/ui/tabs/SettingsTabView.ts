@@ -809,6 +809,7 @@ export class SettingsTabView {
             const ref = this.createToggle(staging, label, description); ref.input.dataset.role = role;
             ref.input.addEventListener('change', () => { write(ref.input.checked); this.syncToggle(ref.input); });
             this.extraSync.push(() => { ref.input.checked = read(); this.syncToggle(ref.input); }); add(category, ref.root);
+            return ref;
         };
         const select = (category: SettingsCategoryId, role: string, label: string, options: Array<{value: string; label: string}>, read: () => string, write: (value: string) => void) => {
             const ref = this.createSelect(staging, label, '', options, role); ref.trigger.dataset.role = role;
@@ -838,10 +839,20 @@ export class SettingsTabView {
             ['boldShortcut', t('chatgptInputEnhancementBoldLabel'), t('chatgptInputEnhancementBoldDesc')],
             ['formulaSuggestions', t('chatgptInputEnhancementFormulaSuggestionsLabel'), t('settingsInputFormulaSuggestionsDesc')],
             ['formulaPreview', t('chatgptInputEnhancementFormulaPreviewLabel'), t('settingsInputFormulaPreviewDesc')],
-        ] as const) toggle('input', `settings-input-${field}`, label, description, () => this.settings.chatgptBehavior.inputEnhancement[field], value => {
-            const inputEnhancement = { ...this.settings.chatgptBehavior.inputEnhancement, [field]: value };
-            this.settings.chatgptBehavior.inputEnhancement = inputEnhancement; void this.actions.setChatGptBehaviorSettings?.({ inputEnhancement });
-        });
+        ] as const) {
+            const ref = toggle('input', `settings-input-${field}`, label, description, () => this.settings.chatgptBehavior.inputEnhancement[field], value => {
+                const inputEnhancement = { ...this.settings.chatgptBehavior.inputEnhancement, [field]: value };
+                this.settings.chatgptBehavior.inputEnhancement = inputEnhancement; void this.actions.setChatGptBehaviorSettings?.({ inputEnhancement });
+            });
+            if (field === 'enterKeyNewline') {
+                const hint = document.createElement('p');
+                hint.id = 'aimd-settings-enter-native-hint';
+                hint.dataset.role = 'enter-native-hint';
+                hint.textContent = t('chatgptInputEnhancementEnterNativeHint');
+                ref.root.querySelector('.settings-item-info')?.append(hint);
+                ref.input.setAttribute('aria-describedby', hint.id);
+            }
+        }
         for (const [field, label] of [['enabled', t('chatgptInputEnhancementListsLabel')], ['ordered', t('chatgptInputEnhancementOrderedListLabel')], ['unordered', t('chatgptInputEnhancementUnorderedListLabel')]] as const) {
             toggle('input', `settings-input-lists-${field}`, label, '', () => this.settings.chatgptBehavior.inputEnhancement.lists[field], value => {
                 const previous = this.settings.chatgptBehavior.inputEnhancement;

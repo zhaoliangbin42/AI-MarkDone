@@ -7,6 +7,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+- Identify Chrome or Firefox in feedback email subjects while keeping the same contact address and copy-email action.
+- Reduce the lower-right page controls and icons to leave more room for ChatGPT’s own buttons.
+- Explain ChatGPT’s native Settings → Keyboard alternative beneath Enter-to-newline, ahead of its gradual retirement.
+
 ## [6.2.0] - 2026-10-13
 
 ### Added

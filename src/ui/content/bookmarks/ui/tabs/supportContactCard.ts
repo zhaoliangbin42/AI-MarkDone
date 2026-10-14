@@ -1,9 +1,9 @@
 import { copyIcon, externalLinkIcon } from '../../../../../assets/icons';
 import { copyTextToClipboard } from '../../../../../drivers/content/clipboard/clipboard';
 import { t } from '../../../components/i18n';
+import { browserInfo } from '../../../../../drivers/shared/browser';
 
 const SUPPORT_EMAIL = 'zhaoliangbin42@gmail.com';
-const SUPPORT_MAILTO = `mailto:${SUPPORT_EMAIL}?subject=AI-MarkDone%20Feedback`;
 
 function tr(key: string, fallback: string): string {
     const value = t(key);
@@ -43,7 +43,10 @@ export function createSupportContactCard(): HTMLElement {
 
     const emailLink = document.createElement('a');
     emailLink.className = 'support-contact-card__button support-contact-card__button--email';
-    emailLink.href = SUPPORT_MAILTO;
+    const target = browserInfo.target;
+    const browserName = target === 'chrome' ? 'Chrome' : target === 'firefox' ? 'Firefox' : '';
+    const subject = browserName ? `AI-MarkDone | ${browserName} Feedback` : 'AI-MarkDone Feedback';
+    emailLink.href = `mailto:${SUPPORT_EMAIL}?subject=${encodeURIComponent(subject)}`;
     emailLink.textContent = tr('supportContactEmail', 'Email Feedback');
     emailLink.insertAdjacentHTML('afterbegin', `<span class="support-contact-card__button-icon" aria-hidden="true">${externalLinkIcon}</span>`);
 

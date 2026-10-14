@@ -20,6 +20,7 @@ header { margin-bottom: var(--aimd-space-2); font-weight: var(--aimd-font-semibo
 header button { font: inherit; color: var(--aimd-text-secondary); background: var(--aimd-button-icon-bg); border: none; border-radius: var(--aimd-radius-full); width: var(--aimd-size-control-icon-panel); height: var(--aimd-size-control-icon-panel); cursor: pointer; }
 h3 { font-size: var(--aimd-text-xs); color: var(--aimd-text-secondary); margin: var(--aimd-space-3) 0 var(--aimd-space-1); }
 label { font-size: var(--aimd-text-sm); padding-block: var(--aimd-space-2); cursor: pointer; }
+.input-enhancement__hint { margin: 0 0 var(--aimd-space-2); color: var(--aimd-text-secondary); font-size: var(--aimd-text-xs); line-height: var(--aimd-leading-normal); overflow-wrap: anywhere; }
 input { accent-color: var(--aimd-interactive-primary); width: var(--aimd-space-4); height: var(--aimd-space-4); flex: none; }
 :focus-visible { outline: 2px solid var(--aimd-focus-ring); outline-offset: 2px; }
 label:has(input:disabled) { opacity: .5; cursor: default; }
@@ -89,6 +90,13 @@ export class InputEnhancementPopover {
         toggle('chatgptInputEnhancementMasterLabel', enabled, (next, value) => { next.available = true; next.enabled = value; });
         heading('settingsGroupEditing');
         toggle('chatgptInputEnhancementEnterLabel', this.settings.enterKeyNewline, (next, value) => { next.enterKeyNewline = value; }, !enabled);
+        const enterHint = document.createElement('p');
+        enterHint.className = 'input-enhancement__hint';
+        enterHint.id = 'aimd-input-enter-native-hint';
+        enterHint.dataset.role = 'enter-native-hint';
+        enterHint.textContent = t('chatgptInputEnhancementEnterNativeHint');
+        this.panel.append(enterHint);
+        this.panel.querySelector<HTMLInputElement>('[data-role="chatgptInputEnhancementEnterLabel"]')?.setAttribute('aria-describedby', enterHint.id);
         toggle('chatgptInputEnhancementBoldLabel', this.settings.boldShortcut, (next, value) => { next.boldShortcut = value; }, !enabled);
         heading('chatgptInputEnhancementListsLabel');
         for (const [key, label] of [['enabled', 'chatgptInputEnhancementListsLabel'], ['ordered', 'chatgptInputEnhancementOrderedListLabel'], ['unordered', 'chatgptInputEnhancementUnorderedListLabel']] as const) {

@@ -2,6 +2,21 @@
 
 This document defines the **current executable test and verification gates** for day-to-day development. Use this file for what we must run now, not for future-state testing architecture.
 
+### Compact controls and feedback regression (2026-10-14)
+
+- Check 24px page-control targets and 16px glyphs on the real controller and both
+  expanded/collapsed Buttons previews. Keep drawer/pin/focus behavior; cover desktop,
+  390px and 320px viewports, both locales/themes, and wait for entry animation to finish.
+- Both Enter-to-newline entrypoints must show the inline Keyboard guidance without
+  changing their settings write path. Keep text readable and surfaces within the viewport.
+- Enter through Settings → Feedback to verify Chrome/Firefox email subjects, the
+  original recipient, unchanged copy-email action and visible community/social cards.
+  Unknown browser identity retains the generic subject; do not add conversation data.
+- Latest evidence: 330 files / 2719 core checks, 63 final cleanup checks, 102 focused
+  compact-control checks and both builds passed. The production-component replay
+  covers both browser identities; Firefox identity is emulated, not a native run.
+  Installed Chrome must be reloaded before claiming acceptance of this branch.
+
 ### Shared surface material upgrade (2026-10-08)
 
 The same material owner must be exercised through Prompt manager/editor,

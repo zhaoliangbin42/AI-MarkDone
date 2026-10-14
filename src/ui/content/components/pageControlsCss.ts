@@ -1,8 +1,8 @@
 /** Shared page-control appearance for side-effect-free settings previews. */
 export function getChatGPTPageControlsCss(): string { return `.aimd-chatgpt-message-stepper {
-  --_page-control-size: var(--aimd-size-control-icon-toolbar);
+  --_page-control-size: calc(var(--aimd-size-control-glyph-panel) + var(--aimd-space-2));
   --_page-control-gap: calc(var(--aimd-space-1) / 2);
-  --_page-control-glyph: calc(var(--aimd-size-control-glyph-panel) + var(--aimd-space-1) / 2);
+  --_page-control-glyph: var(--aimd-size-control-glyph-panel);
   position: fixed;
   right: var(--aimd-space-2);
   bottom: calc(var(--aimd-space-3) / 2);

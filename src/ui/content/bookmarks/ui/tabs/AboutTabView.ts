@@ -5,7 +5,6 @@ import { renderInfoBlocks } from './renderInfoBlocks';
 
 export type AboutTabViewActions = {
     getAssetUrl: (assetPath: string) => string;
-    showSocialFollowCard?: boolean;
 };
 
 function tr(key: string, fallback: string): string {
@@ -106,21 +105,19 @@ export class AboutTabView {
         }
 
         shell.append(hero, profileCard, infoSections);
-        if (actions.showSocialFollowCard !== false) {
-            const socialFollow = document.createElement('section');
-            socialFollow.className = 'social-follow-card';
-            socialFollow.innerHTML = `
-              <div class="sponsor-section-head">
-                <div class="sponsor-section-copy">
-                  <div class="sponsor-section-label">${t('findMeOnXiaohongshu')}</div>
-                </div>
-              </div>
-              <div class="social-follow-card__frame">
-                <img src="${actions.getAssetUrl('icons/xiaohongshu_card.png')}" alt="Xiaohongshu account card" class="social-follow-card__image">
-              </div>
-            `;
-            shell.appendChild(socialFollow);
-        }
+        const socialFollow = document.createElement('section');
+        socialFollow.className = 'social-follow-card';
+        socialFollow.innerHTML = `
+          <div class="sponsor-section-head">
+            <div class="sponsor-section-copy">
+              <div class="sponsor-section-label">${t('findMeOnXiaohongshu')}</div>
+            </div>
+          </div>
+          <div class="social-follow-card__frame">
+            <img src="${actions.getAssetUrl('icons/xiaohongshu_card.png')}" alt="Xiaohongshu account card" class="social-follow-card__image">
+          </div>
+        `;
+        shell.appendChild(socialFollow);
         this.root.replaceChildren(shell);
     }
 
