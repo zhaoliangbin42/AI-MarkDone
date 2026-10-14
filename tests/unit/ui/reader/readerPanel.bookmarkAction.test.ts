@@ -24,6 +24,7 @@ import { MessageToolbarOrchestrator } from '@/ui/content/controllers/MessageTool
 import { ChatGPTConversationReaderBinding } from '@/ui/content/controllers/ChatGPTConversationReaderBinding';
 import { bookmarkSaveDialog } from '@/ui/content/bookmarks/save/bookmarkSaveDialogSingleton';
 import { ReaderPanel } from '@/ui/content/reader/ReaderPanel';
+import { SurfaceFocusLifecycle } from '@/ui/content/components/surfaceFocusLifecycle';
 import { clearReaderCommentScope, saveReaderComment } from '@/services/reader/commentSession';
 import type { ConversationNavigationResultV1 } from '@/contracts/conversationNavigation';
 import { createConversationContentSource } from '../../../helpers/chatgptContentFixtures';
@@ -311,6 +312,37 @@ describe('ReaderPanel bookmark action injection', () => {
             expect(input.value).toBe('Keep these unsaved edits');
         },
     );
+
+    it('keeps the fallback link focused when the annotation window initial focus finishes late', async () => {
+        const queuedFocus: Array<() => void> = [];
+        const schedule = SurfaceFocusLifecycle.prototype.scheduleInitialFocus;
+        vi.spyOn(SurfaceFocusLifecycle.prototype, 'scheduleInitialFocus').mockImplementation(function (params) {
+            queuedFocus.push(() => schedule.call(this, { ...params, delayMs: 0 }));
+        });
+        const navigate = vi.fn(async (): Promise<ConversationNavigationResultV1> => ({ ok: false, reason: 'slot-missing' }));
+        const { panel, shadow, locate } = await openRealReader(navigate);
+        saveReaderComment('reader-panel-comments-v1', {
+            id: 'late-focus-annotation', itemId: panel.getItemsSnapshot()[0]!.id,
+            quoteText: 'Hi', sourceMarkdown: 'Hi', comment: 'Saved annotation',
+            selectors: { textQuote: { exact: 'Hi', prefix: '', suffix: '' }, textPosition: { start: 0, end: 2 }, domRange: null, atomicRefs: [] },
+            createdAt: 1, updatedAt: 1,
+        });
+        expect(await panel.focusAnnotation('late-focus-annotation', 'a1')).toBe(true);
+        const input = shadow.querySelector<HTMLTextAreaElement>('.reader-comment-popover [data-role="input"]')!;
+        input.value = 'Unsaved text stays here';
+        input.dispatchEvent(new Event('input', { bubbles: true }));
+        locate.dispatchEvent(new MouseEvent('pointerdown', { bubbles: true, composed: true }));
+        locate.click();
+        await vi.waitFor(() => expect(locate.disabled).toBe(false));
+        const link = document.querySelector<HTMLAnchorElement>('.aimd-toast a')!;
+        link.focus();
+        expect(queuedFocus.length).toBeGreaterThan(0);
+        queuedFocus.forEach(run => run());
+        await new Promise(resolve => window.setTimeout(resolve, 0));
+        expect(document.activeElement).toBe(link);
+        expect(input.value).toBe('Unsaved text stays here');
+        expect(panel.isShowingConversationReader()).toBe(true);
+    });
 
     it('closes the Reader only after a real footer locate click succeeds', async () => {
         let finishLocate!: (result: ConversationNavigationResultV1) => void;

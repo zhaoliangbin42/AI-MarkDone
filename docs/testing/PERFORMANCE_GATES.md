@@ -12,6 +12,32 @@ to reproduce an older result.
 
 ## Measurement protocol
 
+### Formula copy deadline regression (2026-10-14)
+
+- Functional fixtures must not depend on real CPU scheduling to finish within
+  the synchronous 64ms copy budget. The large-formula compaction fixture fixes
+  its clock; a separate real keyboard → host copy → final extension copy test
+  charges 65ms for an unnecessary formula-descendant scan. Before the fix that
+  path publishes host visual text instead of TeX; after the fix it retains the
+  authoritative Markdown without visiting that subtree.
+- Closed rendered math is one opaque atom. Candidate collection skips its
+  generated descendants, and a fully covered non-collapsed formula range proves
+  coverage through endpoints without walking visual text. Partial selection,
+  ancestor structure, source validation, parser ownership and the copy event
+  order remain unchanged.
+- Keep the 64ms time limit and 5000-node parser limit unchanged. Regression
+  checks also prove 5100 generated nodes compact to a small source fragment,
+  actual source extraction exceeding 64ms still fails open, and a collapsed
+  caret in an empty formula never becomes a selected atom. Performance claims
+  still require real-browser measurement; controlled-clock functional tests
+  establish correctness, not a browser timing result.
+- Browser automation can special-case Cmd/Ctrl+C into an untrusted `copy`
+  without `keydown`. That is not the configured Markdown shortcut intent.
+  Record event order and `isTrusted`; use full-sequence runtime replay for the
+  automation check and a correctly focused native/local paste path for system
+  clipboard claims. Never weaken shortcut ownership to satisfy a copy-only
+  convenience API.
+
 - Build first with `npm run build`.
 - Run `npm run perf:chatgpt` three times on the same machine without interacting with the benchmark browser window.
 - Use the median of the three runs for timing, long-task, and heap comparisons.

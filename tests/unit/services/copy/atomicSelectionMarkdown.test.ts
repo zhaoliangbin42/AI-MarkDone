@@ -10,6 +10,33 @@ afterEach(() => {
 });
 
 describe('buildPageAtomicSelectionMarkdown', () => {
+    it('budgets a formula by its compact source, not thousands of generated visual nodes', () => {
+        const root = document.createElement('div');
+        root.innerHTML = '<span class="katex" data-latex-source="x+y"><span class="katex-html">x+y</span></span>';
+        const formula = root.firstElementChild!;
+        for (let index = 0; index < 5_100; index += 1) formula.appendChild(document.createElement('span'));
+        const range = document.createRange();
+        range.selectNodeContents(formula);
+        vi.spyOn(performance, 'now').mockReturnValue(0);
+        expect(buildPageAtomicSelectionMarkdown({ adapter: new ChatGPTAdapter(), range, root, maxNodeCount: 4 }))
+            .toBe('$x+y$');
+    });
+
+    it('still fails open if authoritative formula extraction itself exhausts the unchanged time budget', () => {
+        const root = document.createElement('div');
+        root.innerHTML = '<span class="katex" data-latex-source="x+y"><span class="katex-html">x+y</span></span>';
+        const range = document.createRange();
+        range.selectNodeContents(root.firstElementChild!);
+        const adapter = new ChatGPTAdapter();
+        let elapsed = 0;
+        vi.spyOn(performance, 'now').mockImplementation(() => elapsed);
+        vi.spyOn(adapter.getMarkdownParserAdapter()!, 'extractLatex').mockImplementation(() => {
+            elapsed += 65;
+            return { latex: 'x+y', isBlock: false };
+        });
+        expect(buildPageAtomicSelectionMarkdown({ adapter, range, root })).toBeNull();
+    });
+
     it('copies a partial code block literally, preserving whitespace and formula-like source', () => {
         const root = document.createElement('div');
         root.innerHTML = '<pre><code><span>prefix</span><span>  $x$\n</span><span>suffix</span></code></pre>';

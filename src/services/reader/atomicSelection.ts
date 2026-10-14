@@ -401,7 +401,11 @@ function collectStrictCandidateElements(range: Range, root: HTMLElement): HTMLEl
     const commonElement = getElementForNode(range.commonAncestorContainer);
     if (commonElement && root.contains(commonElement)) {
         addCandidate(commonElement);
-        commonElement.querySelectorAll<HTMLElement>(RENDERED_ATOMIC_UNIT_SELECTOR).forEach(addCandidate);
+        const kind = resolveRenderedAtomicUnitKind(commonElement);
+        // Rendered math is one opaque unit; generated descendants are not independent atoms.
+        if (kind !== 'inline-math' && kind !== 'display-math') {
+            commonElement.querySelectorAll<HTMLElement>(RENDERED_ATOMIC_UNIT_SELECTOR).forEach(addCandidate);
+        }
     }
     for (const endpoint of [range.startContainer, range.endContainer]) {
         let current = getElementForNode(endpoint);
@@ -444,8 +448,12 @@ function rangeCoversStrictUnit(range: Range, unit: RenderedAtomicUnit): boolean 
         return rangeCoversNode(range, unit.element);
     }
     if (unit.kind === 'inline-math' || unit.kind === 'display-math') {
+        if (rangeCoversNode(range, unit.element) || (
+            !range.collapsed && range.startContainer === unit.element && range.startOffset === 0
+            && range.endContainer === unit.element && range.endOffset === unit.element.childNodes.length
+        )) return true;
         const visualRoot = unit.element.querySelector<HTMLElement>('.katex-html') ?? unit.element;
-        return rangeCoversSemanticText(range, visualRoot) || rangeCoversNode(range, unit.element);
+        return rangeCoversSemanticText(range, visualRoot);
     }
     if (unit.kind === 'code-block') {
         const codeRoot = unit.element.querySelector<HTMLElement>('code, .cm-content, [data-lexical-editor="true"]') ?? unit.element;

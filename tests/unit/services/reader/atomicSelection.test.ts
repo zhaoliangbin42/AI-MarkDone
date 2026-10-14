@@ -18,6 +18,15 @@ function buildSelectionStub(range: Range, composedRange?: StaticRange): Selectio
 }
 
 describe('atomicSelection', () => {
+    it('does not recognize a collapsed caret inside an empty formula as a selected atom', () => {
+        const root = document.createElement('div');
+        root.innerHTML = '<span class="katex" data-latex-source="x+y"></span>';
+        const range = document.createRange();
+        range.setStart(root.firstElementChild!, 0);
+        range.collapse(true);
+        expect(resolveStrictRenderedAtomicUnits(range, root)).toEqual([]);
+    });
+
     it('resolves page-rendered units with the same selection semantics as Reader', () => {
         const root = document.createElement('div');
         root.innerHTML = '<h2>Heading</h2><p>Before <code>answer</code> after</p>';

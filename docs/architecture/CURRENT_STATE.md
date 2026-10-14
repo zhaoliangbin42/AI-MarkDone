@@ -1,5 +1,14 @@
 # Architecture Current State (As-Is)
 
+> **Closed formula copy (2026-10-14 follow-up)**
+>
+> Strict atomic selection treats rendered math as opaque. Once a non-collapsed
+> Range fully covers the formula contents/node, endpoint proof avoids scanning
+> generated descendants or collecting visual text. Formula TeX still comes from
+> the existing parser Adapter and copy serializer; the 64ms / 5000-node bounds,
+> partial-selection semantics and final window copy ownership are unchanged.
+> See [performance regression gates](../testing/PERFORMANCE_GATES.md).
+
 > **Shared message navigation (2026-10-14)**
 >
 > Directory, Stepper, bookmarks, in-page Reader and detached Reader all enter

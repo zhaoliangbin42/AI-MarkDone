@@ -14,6 +14,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Explain ChatGPT’s native Settings → Keyboard alternative beneath Enter-to-newline, ahead of its gradual retirement.
 
 ### Fixed
+- Keep Reader fallback links accessible by keyboard while annotation windows open.
+- Improve Markdown copying for complex rendered formulas.
 - Keep directory, bookmark and Reader navigation on the same verified message target as history loads or positions change. Interrupted and timed-out requests no longer jump later.
 - Offer an explicit new-tab link when a message cannot be located, without refreshing the current page. Keep the in-page Reader open until location succeeds.
 

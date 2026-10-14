@@ -719,7 +719,44 @@ describe('ChatGPTAtomicSelectionController', () => {
         expect(copiedText).toBe('$$\n\\frac{x}{y}\n$$');
     });
 
+    it('copies authoritative formula Markdown when scanning its rendered descendants would exhaust the copy budget', () => {
+        const message = mountMessage('<p><span class="katex" data-latex-source="\\frac{x}{y}"><span class="katex-html" aria-hidden="true">x / y</span></span></p>');
+        const formula = message.querySelector<HTMLElement>('.katex')!;
+        for (let index = 0; index < 5_100; index += 1) formula.appendChild(document.createElement('span'));
+        const range = document.createRange();
+        range.selectNodeContents(formula);
+        selectRange(range);
+        const controller = createController();
+        controller.init();
+        let elapsed = 0;
+        vi.spyOn(performance, 'now').mockImplementation(() => elapsed);
+        const query = formula.querySelectorAll.bind(formula);
+        vi.spyOn(formula, 'querySelectorAll').mockImplementation((selector: string) => {
+            const result = query(selector);
+            elapsed += 65;
+            return result;
+        });
+        const hostCopy = (event: Event) => {
+            const clipboardEvent = event as ClipboardEvent;
+            clipboardEvent.clipboardData?.setData('text/plain', 'x / y');
+            event.preventDefault();
+        };
+        document.addEventListener('copy', hostCopy);
+        try {
+            controller.setMarkdownCopyShortcut('mod-c');
+            dispatchKeyboardCopy();
+            const handled = dispatchCopy(formula);
+            expect(handled.readText()).toBe('$\\frac{x}{y}$');
+            expect(handled.readData('text/html')).toBeUndefined();
+        } finally {
+            document.removeEventListener('copy', hostCopy);
+            controller.dispose();
+        }
+    });
+
     it('writes canonical Markdown instead of host visual text for a large rendered formula', () => {
+        // This asserts node compaction; the separate cost-injection test covers the copy deadline.
+        vi.spyOn(performance, 'now').mockReturnValue(0);
         const message = mountMessage(`
             <p>
                 <span class="katex" data-latex-source="\\frac{x}{y}">

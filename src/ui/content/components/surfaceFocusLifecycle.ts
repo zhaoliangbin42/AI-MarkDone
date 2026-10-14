@@ -1,4 +1,5 @@
 import { getSurfaceOpenDuration } from './motionLifecycle';
+import { TRANSIENT_ROOT_ATTR } from './transientUi';
 
 function findFocusable(root: ParentNode | null | undefined): HTMLElement | null {
     if (!root) return null;
@@ -38,10 +39,15 @@ export class SurfaceFocusLifecycle {
 
         const delayMs = params.delayMs ?? getSurfaceOpenDuration(surface);
         this.focusTimer = window.setTimeout(() => {
+            this.focusTimer = null;
             if (!surface.isConnected) return;
+            let active = surface.ownerDocument.activeElement;
+            while (active?.shadowRoot?.activeElement) active = active.shadowRoot.activeElement;
+            // A newer transient action owns focus; a delayed opening must not reclaim it.
+            if (active instanceof HTMLElement && active.closest(`[${TRANSIENT_ROOT_ATTR}]`)
+                && !surface.contains(active)) return;
             const target = findPreferredFocusable(surface, params.selectors ?? []) ?? findFocusable(surface);
             target?.focus?.({ preventScroll: true } as FocusOptions);
-            this.focusTimer = null;
         }, delayMs);
     }
 

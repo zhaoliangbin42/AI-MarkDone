@@ -114,6 +114,103 @@ or publish a version. Final logs and the earlier parallel attempt are preserved
 under `navigation-upgrade-2026-10-14/automated/` in the task visualization
 directory. Production was frozen before the final core/acceptance/build runs.
 
-Installed Chrome requires an extension reload before acceptance of these
-changes can be claimed; native Firefox acceptance is outside this task's
-requested scope. No main merge, push, tag or release is part of this checkpoint.
+At this initial checkpoint, installed Chrome still required an extension reload;
+the follow-up below supersedes that navigation-acceptance gap. Native Firefox
+acceptance is outside this task's requested scope. No main merge, push, tag or
+release is part of either checkpoint.
+
+## Installed Chrome follow-up (2026-10-14)
+
+The user reloaded the unpacked extension. A dedicated Chrome tab loaded scripts
+whose debugger SHA256 matched the built `9fead384` files (`content.js` and
+`content-features.js`), so these observations are installed-extension evidence,
+not component-fixture claims. Existing bookmarks were used; no user record,
+setting or conversation message was created, edited or deleted.
+
+| Real trigger | Observed result |
+| --- | --- |
+| Library → existing message bookmark → Open conversation | One user-initiated document navigation carried the saved assistant `messageId`. ChatGPT removed the query after loading; the exact saved ID appeared once in the destination DOM. |
+| Long conversation → early Directory target → host Scroll to bottom → early target again | Obtained entries remained in the pool while the chosen assistant was absent from DOM. Activating its Directory entry hydrated the exact ID and landed it at about 154 CSS px, with no failure toast or document navigation. |
+| Message toolbar → Reader → earlier item → Locate | Reader content matched the native assistant; location succeeded and the Reader closed after completion, with no document navigation. |
+| Latest-message Reader → historical item absent from DOM → Locate | The actual document overflow lock was `hidden` while the target was absent. Navigation hydrated the exact historical ID, landed it at about 154 CSS px, then closed Reader and restored overflow. No document navigation occurred. |
+
+One initial locator-driven mouse click during rail hover expansion focused an
+adjacent button; that attempt is excluded from target-navigation acceptance.
+Subsequent observations recorded the activated button and used a fresh native
+AX target or keyboard Enter. They prove navigation for the actual selected ID,
+not an assumed mouse coordinate.
+
+Evidence is under `chrome-navigation-acceptance-2026-10-14/` in the task
+visualization directory: `navigation-baseline.json`, `reader-unmounted.json`,
+`directory-unmounted.jpg` and `reader-unmounted.jpg`. These artifacts contain
+the before/after mounted state, exact IDs, geometry and top-level navigation
+events. They do not claim every conversation/branch or native Firefox passed.
+
+### Parallel gate investigation and fixes
+
+The original formula failure was reproducible through a real configured
+keyboard copy, an intervening host clipboard write and the final extension copy
+listener. Charging 65ms to the original formula-descendant scan deterministically
+reproduced host visual text instead of TeX. Closed math now skips generated
+candidate descendants and proves full non-collapsed coverage by endpoints;
+TeX extraction, serializer and the 64ms / 5000-node bounds remain unchanged.
+The functional compaction fixture uses a fixed clock; independent regressions
+still enforce actual extraction timeout and reject an empty collapsed caret.
+
+The default parallel gate also exposed delayed annotation-window initial focus
+stealing the fallback link's focus. A controlled real Reader trigger regression
+reproduced it, separate from the formula diagnosis. Shared initial focus now
+defers to a newer transient root, including focus within Shadow DOM; it still
+performs normal initial focus in its own surface. IME composition focus and
+unsaved text retention are covered without adding an observer or listener.
+
+### Final follow-up verification
+
+| Gate | Result |
+| --- | --- |
+| Focused formula, Reader and keyboard suites | 7 files / 105 checks passed |
+| `npm run release:verify` with its default parallel acceptance | Passed: smoke 8 / 63, acceptance 34 / 497, then both browser builds and entry/boundary checks |
+| `npm run test:core -- --maxWorkers=1` | 333 files / 2894 checks passed |
+| `git diff --check` | Passed |
+
+Production and tests stayed frozen throughout these final gates. The prior
+formula failure, controlled reproductions, the intermediate empty-formula red
+case and the later focus failure remain in their original logs; none is
+relabeled as a passing run. Final logs are saved in the task visualization
+directory under `chrome-navigation-acceptance-2026-10-14/automated/`.
+
+The user reloaded the final build. A fresh Chrome diagnostic tab's loaded
+`content.js` SHA256 matched the final built file:
+`0f9fb109b0e195123a80ca2ac025a948962abff304bba948a3f5c5e384862bd2`.
+The navigation code is unchanged from the installed navigation cases above.
+
+The saved UI preferences were Cmd/Ctrl+C and Markdown dollar delimiters; they
+were read without modification. The selection's Copy Markdown button produced
+`$(R,\theta)$`, confirmed by pasting into a script-free local input. The browser
+tool's shortcut convenience path was separately observed to emit only an
+untrusted synthetic `copy`, without the preceding `keydown`; its native TeX
+fallback is not evidence of a product shortcut failure. Replaying the complete
+keydown→copy sequence in the installed Chrome runtime produced the configured
+dollar-delimited TeX. This is explicitly **synthetic event replay**, not physical
+keyboard sign-off. Do not change shortcut ownership to hijack context-menu or
+copy-only events just to make that tooling path pass.
+
+Evidence: `formula-copy.json`, `copy-final-window-data.json`,
+`complete-keyboard-copy-replay.json` and the event/snapshot traces in that
+directory. After reload, raw CDP became unavailable on one reused page; a fresh
+diagnostic tab supplied the loaded-script hash and public DOM event traces.
+No private React state, credentials or conversation API were read.
+
+A native clipboard experiment initially selected an original tab sharing the
+same conversation URL and pasted only the known test formula into its empty
+composer. That test text was removed and **no message was sent**. Subsequent
+native checks used a uniquely marked test URL and checked the actual window
+before input. System TextEdit launch also blocked for an unusually long time;
+its test document was finally saved to the local evidence directory as
+`native-clipboard-verification.rtf`, and the temporary iCloud `Untitled.rtf`
+was verified absent. Its paste is not counted as a successful keyboard test.
+The editor was quit, all agent-created browser tabs were closed, the localhost
+server was stopped, and all temporary DOM attributes/listeners/breakpoints
+were removed. Saved bookmarks, settings and conversation messages were not
+changed. A browser-session clipboard reset is not a claim that every system
+clipboard format was restored.

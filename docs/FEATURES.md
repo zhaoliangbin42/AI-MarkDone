@@ -8,6 +8,11 @@
 - 失败保持当前页，可主动选择“在新标签页打开消息”；不自动刷新。网页 Reader 成功后才关闭，失败保留未保存编辑。跨页 intent 结束即消费，不在后续内容更新时重新抢滚动。
 - [实现与验证记录](plans/2026-10-14-message-navigation.md) 区分真实官网调研、组件回放和扩展重载后的安装验收。
 
+### 2026-10-14 formula copy follow-up
+
+- 已完整选中的公式按单个原子识别，不扫描内部生成的 KaTeX 节点或重读整棵视觉文本树；仍由同一 Adapter 提取可信 TeX，经原 Markdown 管线输出。
+- 部分公式选择、外层 Markdown 结构、无源码拒绝和复制事件顺序不变；64ms / 5000 节点预算不放宽。功能回归使用可控时钟，大公式并发失败用真实快捷键/官网覆盖事件及可控扫描成本复现。
+
 ### 2026-10-08 ChatGPT rich-content implementation
 
 - ChatGPT retains supported rendered visual blocks as revision-bound rich

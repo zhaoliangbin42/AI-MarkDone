@@ -2,6 +2,30 @@
 
 This document defines the **current executable test and verification gates** for day-to-day development. Use this file for what we must run now, not for future-state testing architecture.
 
+### Installed Chrome and parallel-gate follow-up (2026-10-14)
+
+- Installed navigation acceptance now includes an existing cross-conversation
+  bookmark, a Directory target absent from DOM and a Reader target absent from
+  DOM while the real page scroll lock is active. Match the loaded script hash,
+  activated button/assistant identity, final geometry and top-level navigation
+  events. Use fresh native AX/keyboard activation if rail hover moves the mouse
+  target; never count a neighboring button click as target navigation success.
+- Formula copy correctness uses controlled-clock compaction plus a real keyboard
+  → host clipboard write → final extension write regression with a 65ms scan
+  cost. Closed math avoids the generated subtree; budget exhaustion in actual
+  source extraction still fails open and collapsed empty math remains unselected.
+- Reader fallback keyboard tests must also delay the actual annotation initial
+  focus until after the fallback action gains focus. Shared focus lifecycle
+  respects the newer transient root, including Shadow DOM and IME composition,
+  while retaining normal initial focus inside its own surface.
+- Current evidence and gate results are in the
+  [follow-up record](../plans/2026-10-14-message-navigation.md#installed-chrome-follow-up-2026-10-14).
+- Final evidence: 7 / 105 focused, 333 / 2894 full core, default parallel
+  `release:verify` (smoke 8 / 63, acceptance 34 / 497, both builds) and diff check
+  passed. The loaded final Chrome content script hash was verified. Copy-button
+  output and full-sequence event replay passed; the tool's copy-only synthetic
+  shortcut and physical keyboard sign-off are recorded separately.
+
 ### Shared navigation regression (2026-10-14)
 
 - Bookmarks, Directory, Stepper and both Readers must enter the same navigation
