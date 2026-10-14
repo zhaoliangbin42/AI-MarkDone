@@ -13,6 +13,7 @@ const panelSetPromptManagerController = vi.fn();
 const panelGetCommentExportContext = vi.fn(() => null);
 const panelShow = vi.fn(async () => undefined);
 const panelReplaceItems = vi.fn(async () => undefined);
+const showConversationNavigationFailure = vi.fn();
 const bookmarkSaveDialogOpen = vi.fn(async () => ({ ok: true, title: 'Saved title', folderPath: 'Saved/Folder' }));
 const bookmarkSaveDialogSetAppearance = vi.fn();
 let settingsSnapshotListener: ((snapshot: { settings: any }) => void) | null = null;
@@ -96,6 +97,10 @@ vi.mock('@/ui/content/reader/ReaderPanel', () => ({
     ReaderPanel: readerPanelCtor,
 }));
 
+vi.mock('@/ui/content/components/conversationNavigationFeedback', () => ({
+    showConversationNavigationFailure,
+}));
+
 vi.mock('@/ui/content/bookmarks/save/bookmarkSaveDialogSingleton', () => ({
     bookmarkSaveDialog: {
         open: bookmarkSaveDialogOpen,
@@ -117,6 +122,72 @@ afterEach(() => {
 });
 
 describe('detached reader runtime entry', () => {
+    async function loadLocateAction(result: unknown) {
+        const { DEFAULT_SETTINGS } = await import('@/core/settings/types');
+        const sourceUrl = 'https://chatgpt.com/g/project-id/c/bound-12345678';
+        const session = {
+            sessionId: 'session-1', sourceTabId: 10, readerTabId: 11, sourceUrl,
+            snapshot: {
+                items: [{ id: 'assistant-1', userPrompt: 'Prompt', content: 'Answer', meta: { position: 4, assistantMessageId: 'assistant-1' } }],
+                startIndex: 0, sourceUrl, theme: 'light' as const, createdAt: 1, updatedAt: 1,
+            },
+        };
+        window.location.hash = '#sessionId=session-1';
+        sendExtRequest.mockImplementation(async (request: any) => {
+            if (request.type === 'settings:getAll') return { ok: true, data: { settings: structuredClone(DEFAULT_SETTINGS) } };
+            if (request.type === 'readerSession:get') return { ok: true, data: { session } };
+            if (request.type === 'readerSession:locate') return result;
+            if (request.type === 'bookmarks:list') return { ok: true, data: { bookmarks: [] } };
+            if (request.type === 'bookmarks:positions') return { ok: true, data: { positions: [] } };
+            return { ok: true, data: {} };
+        });
+        await import('@/runtimes/reader/entry');
+        await vi.waitFor(() => expect(panelShow).toHaveBeenCalledOnce());
+        const item = panelShow.mock.calls[0][0][0];
+        const action = panelShow.mock.calls[0][3].actions.find((candidate: any) => candidate.id === 'locate');
+        const notify = vi.fn();
+        const context = { item, index: 0, items: [item], notify, rerender: vi.fn() };
+        return { action, context, sourceUrl };
+    }
+
+    it('reports locate success only for a positive source outcome and allows the full navigation budget', async () => {
+        const { action, context } = await loadLocateAction({ ok: true, data: { located: true } });
+
+        await action.onClick(context);
+
+        const locateCall = sendExtRequest.mock.calls.find(([request]) => request.type === 'readerSession:locate')!;
+        expect(locateCall[0]).toMatchObject({ type: 'readerSession:locate', payload: {
+            sessionId: 'session-1', position: 4, messageId: 'assistant-1',
+        } });
+        expect(locateCall[1]).toEqual({ timeoutMs: 20_000 });
+        expect(locateCall[1].timeoutMs).toBeGreaterThan(15_000);
+        expect(context.notify).toHaveBeenCalledExactlyOnceWith('detachedReaderLocated');
+        expect(showConversationNavigationFailure).not.toHaveBeenCalled();
+    });
+
+    it.each([false, undefined, 'true', 1])('does not treat a routed protocol success with located=%s as a successful locate', async (located) => {
+        const { action, context } = await loadLocateAction({ ok: true, data: { located } });
+
+        await action.onClick(context);
+
+        expect(context.notify).not.toHaveBeenCalled();
+        expect(showConversationNavigationFailure).not.toHaveBeenCalled();
+    });
+
+    it('shows the shared failure fallback in Reader when the locate transport cannot reach its source', async () => {
+        const { action, context, sourceUrl } = await loadLocateAction({
+            ok: false, errorCode: 'TIMEOUT', message: 'Runtime request timed out',
+            failure: { kind: 'transport', code: 'TIMEOUT', message: 'Runtime request timed out', delivery: 'unknown' },
+        });
+
+        await action.onClick(context);
+
+        expect(showConversationNavigationFailure).toHaveBeenCalledExactlyOnceWith(
+            { ok: false, reason: 'source-unavailable' }, sourceUrl, 'assistant-1',
+        );
+        expect(context.notify).not.toHaveBeenCalled();
+    });
+
     it('marks an identified bookmark by message ID when its stored ordinal changed', async () => {
         const { DEFAULT_SETTINGS } = await import('@/core/settings/types');
         const url = 'https://chatgpt.com/c/12345678-1234-1234-1234-123456789abc';

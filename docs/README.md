@@ -25,6 +25,9 @@
 
 ### Refactor And Closeout Records
 
+- [Shared message navigation](plans/2026-10-14-message-navigation.md)
+  - host message-link evidence, common navigation/fallback contract and validation boundaries
+
 - [README reference review](reviews/2026-10-12-readme-reference-review.md)
   - mature extension references, bilingual landing-page structure and screenshot provenance
 

@@ -62,7 +62,7 @@ function createFixture(sourceReadyInitially = false) {
     const navigation = new ConversationNavigationCoordinator({
         source: runtime.source,
         execute: (target, options, source) => navigateChatGPTDirectoryTarget(adapter, target, {
-            surface: runtime.surface, source, signal: options.signal, timeoutMs: options.timeoutMs,
+            surface: runtime.surface, source, signal: options.signal, timeoutMs: options.timeoutMs, deadlineMs: options.deadlineMs,
             seekStepPx: 3000, alignmentTimeoutMs: 1500,
         }),
     });
@@ -270,6 +270,13 @@ describe('ChatGPT directory feedback through production composition', () => {
             main.querySelector('[data-turn-id-container="assistant-slot-4"]')!.appendChild(template.content.querySelector('[data-turn="assistant"]')!);
         } });
         const fixture = createFixture(true);
+        // JSDOM's fixture origin is not the production host; bind the real
+        // conversation URL for the safe explicit fallback link.
+        const readFrame = fixture.runtime.surface.readFrame.bind(fixture.runtime.surface);
+        vi.spyOn(fixture.runtime.surface, 'readFrame').mockImplementation(() => {
+            const frame = readFrame();
+            return frame.document ? { ...frame, document: { ...frame.document, canonicalUrl: `https://chatgpt.com/c/${CONVERSATION_ID}` } } : frame;
+        });
         try {
             fixture.init();
             await settle();
@@ -278,6 +285,7 @@ describe('ChatGPT directory feedback through production composition', () => {
             const button = document.getElementById('aimd-chatgpt-directory-rail')!.shadowRoot!
                 .querySelector<HTMLButtonElement>('.rail__item[data-position="4"]')!;
             expect(button.getAttribute('aria-label')).toBe('#4 Question 4');
+            button.dispatchEvent(new MouseEvent('pointerdown', { bubbles: true, composed: true }));
             button.click();
             await settle(hydration === 'exact' ? 2000 : 16_000);
             expect(fixture.navigate).toHaveBeenCalledOnce();
@@ -292,6 +300,9 @@ describe('ChatGPT directory feedback through production composition', () => {
                 expect(exact.materialization?.jumpAnchorElement.getBoundingClientRect().top).toBe(0);
             } else {
                 expect(receipt).toEqual({ ok: false, reason: 'hydration-timeout' });
+                const fallback = document.querySelector<HTMLAnchorElement>('#aimd-toast-viewport a')!;
+                expect(new URL(fallback.href).searchParams.get('messageId')).toBe('assistant-4');
+                expect(fallback.target).toBe('_blank');
                 expect(fixture.runtime.surface.readFrame().obtainedTurns.find(({ turn }) => turn.identity.assistantMessageId === 'assistant-4')?.materialization).toBeNull();
             }
         } finally {

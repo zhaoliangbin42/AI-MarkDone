@@ -173,6 +173,7 @@ function buildConversationReaderItem(
         ...(turn.assistantRichBlocks !== undefined ? { richBlocks: turn.assistantRichBlocks } : {}),
         meta: {
             platformId: document.platformId,
+            documentKey: document.key,
             messageId: turn.identity.assistantMessageId,
             roundId: turn.identity.turnId,
             userMessageId: turn.identity.userMessageId,
@@ -355,7 +356,7 @@ export function readCurrentReaderContent(
     if (adapter.getPlatformId?.() === 'chatgpt') {
         return readCurrentConversationContent(startMessageElement, options);
     }
-    return collectDomFallbackReaderContent(adapter, startMessageElement);
+    return collectDomFallbackReaderContent(adapter, startMessageElement, options);
 }
 
 async function collectChatGPTSnapshotReaderContent(
@@ -373,12 +374,18 @@ async function collectChatGPTSnapshotReaderContent(
 function collectDomFallbackReaderContent(
     adapter: SiteAdapter,
     startMessageElement: HTMLElement | null,
+    options: ReaderContentSourceOptions,
 ): ReaderContentSourceResult {
     const fallbackStart = getFallbackStartElement(adapter, startMessageElement);
     if (!fallbackStart) return { items: [], startIndex: 0, metadataSource: 'dom' };
 
+    const collected = collectReaderItems(adapter, fallbackStart);
+    const document = getConversationContentSource(options)?.read().document;
+    if (document?.platformId === adapter.getPlatformId()) {
+        for (const item of collected.items) item.meta = { ...item.meta, documentKey: document.key };
+    }
     return {
-        ...collectReaderItems(adapter, fallbackStart),
+        ...collected,
         metadataSource: 'dom',
     };
 }
@@ -389,7 +396,7 @@ export async function collectFreshReaderContent(
     options: ReaderContentSourceOptions,
 ): Promise<ReaderContentSourceResult> {
     if (adapter.getPlatformId?.() !== 'chatgpt') {
-        return collectDomFallbackReaderContent(adapter, startMessageElement);
+        return collectDomFallbackReaderContent(adapter, startMessageElement, options);
     }
     return collectChatGPTSnapshotReaderContent(adapter, startMessageElement, options);
 }

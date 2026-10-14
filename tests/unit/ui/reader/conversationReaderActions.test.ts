@@ -28,6 +28,38 @@ describe('conversation reader actions', () => {
         expect(withSend.map((action) => action.id)).toEqual(['send', 'locate']);
     });
 
+    it('keeps the Reader open until locate succeeds and preserves it on failure', async () => {
+        const afterLocate = vi.fn();
+        let finish: (value: { ok: boolean }) => void = () => undefined;
+        const locate = vi.fn(() => new Promise<{ ok: boolean }>(resolve => { finish = resolve; }));
+        const options = { locate: { afterLocate, locate } };
+        const action = createConversationReaderActions(options).find(action => action.id === 'locate')!;
+        const ctx = { item: { id: 'item', userPrompt: 'Q', content: 'A', meta: { position: 1, assistantMessageId: 'assistant-1' } }, index: 0, items: [], notify: vi.fn(), rerender: vi.fn() };
+        const first = action.onClick(ctx);
+        expect(afterLocate).not.toHaveBeenCalled();
+        expect(locate).toHaveBeenLastCalledWith({ position: 1, messageId: 'assistant-1' });
+        finish({ ok: false }); await first;
+        expect(afterLocate).not.toHaveBeenCalled();
+        const second = action.onClick(ctx); finish({ ok: true }); await second;
+        expect(afterLocate).toHaveBeenCalledOnce();
+    });
+
+    it('carries the clicked Reader item document and source URL into locate', async () => {
+        const locate = vi.fn(async () => ({ ok: false, handled: true }));
+        const action = createConversationReaderActions({ locate: { locate } }).find(candidate => candidate.id === 'locate')!;
+        await action.onClick({
+            item: { id: 'assistant-1', userPrompt: 'Q', content: 'A', meta: {
+                position: 2, assistantMessageId: 'assistant-1', documentKey: 'chatgpt:conversation:current-item',
+                url: 'https://chatgpt.com/c/current-item',
+            } },
+            index: 0, items: [], notify: vi.fn(), rerender: vi.fn(),
+        });
+        expect(locate).toHaveBeenCalledExactlyOnceWith({
+            position: 2, messageId: 'assistant-1', documentKey: 'chatgpt:conversation:current-item',
+            sourceUrl: 'https://chatgpt.com/c/current-item',
+        });
+    });
+
     it('disables and guards the bookmark action when the current Reader item is not bookmarkable', async () => {
         const notify = vi.fn();
         const toggle = vi.fn(async () => ({ ok: true as const, bookmarked: true, message: 'saved' }));

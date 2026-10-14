@@ -1,6 +1,7 @@
 import { describe, expect, it, vi } from 'vitest';
 import { richSvgBlock } from '../../../helpers/richContentFixtures';
 import { buildChatGPTReaderContent } from '@/services/reader/chatgptReaderItems';
+import * as domReaderItems from '@/services/reader/collectReaderItems';
 
 import {
     createConversationDocumentKeyV1,
@@ -110,6 +111,7 @@ describe('Reader Content Port V1 projection', () => {
             userPrompt: 'Question',
             content: '**Answer**',
             meta: {
+                documentKey,
                 assistantMessageId: 'assistant-1',
                 roundId: 'turn-1',
                 sourceQuality: 'source-backed',
@@ -120,6 +122,49 @@ describe('Reader Content Port V1 projection', () => {
             title: 'V1 conversation',
         });
         expect(result.sourceRevision?.contentToken).toBe('conversation-content-v1:abc12345');
+    });
+
+    it('keeps the original page document key on projected items after the source changes', () => {
+        const initial = createState();
+        if (!initial.snapshot) throw new Error('Expected snapshot');
+        const pageDocument = {
+            ...initial.document,
+            key: 'chatgpt:page:reader-a',
+            identityKind: 'page' as const,
+            conversationId: null,
+        };
+        const source = createSource({
+            kind: 'ready', document: pageDocument,
+            snapshot: { ...initial.snapshot, document: pageDocument },
+        });
+        const projected = readCurrentReaderContent({ getPlatformId: () => 'chatgpt' } as any, null, {
+            conversationContentSource: source, pageUrl: 'https://chatgpt.com/',
+        });
+        source.setState(createState());
+        const current = readCurrentReaderContent({ getPlatformId: () => 'chatgpt' } as any, null, {
+            conversationContentSource: source, pageUrl: 'https://chatgpt.com/c/conversation-v1',
+        });
+
+        expect(projected.items[0]?.meta?.documentKey).toBe('chatgpt:page:reader-a');
+        expect(current.items[0]?.meta?.documentKey).toBe(documentKey);
+        expect(projected.items[0]?.meta).not.toBe(current.items[0]?.meta);
+    });
+
+    it.each([true, false])('binds DOM fallback only to an available source document (known=%s)', known => {
+        const item = { id: 'dom-message', userPrompt: 'Question', content: 'Answer', meta: { messageId: 'assistant-1' } };
+        vi.spyOn(domReaderItems, 'collectReaderItems').mockReturnValue({ items: [item], startIndex: 0 });
+        const sourceDocument = {
+            key: 'legacy:page:reader-a', platformId: 'legacy', identityKind: 'page' as const,
+            conversationId: null,
+        };
+        const source = createSource({ kind: 'syncing', document: sourceDocument, snapshot: null });
+        const result = readCurrentReaderContent({ getPlatformId: () => 'legacy' } as any, document.createElement('article'), {
+            conversationContentSource: known ? source : null,
+            pageUrl: 'https://chatgpt.com/c/conversation-v1',
+        });
+
+        expect(result.metadataSource).toBe('dom');
+        expect(result.items[0]?.meta?.documentKey).toBe(known ? sourceDocument.key : undefined);
     });
 
     it('keeps reconstructed content visible but labels it as degraded for mutating consumers', () => {

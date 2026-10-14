@@ -184,6 +184,20 @@ describe('protocol', () => {
         expect(isExtRequest({ ...base, type: 'readerSession:releaseAssets', payload: { version: 1, sessionId: 'reader_1', leaseId: 'lease-1' } })).toBe(true);
     });
 
+    it('accepts detached locate with an omitted or non-empty document key', () => {
+        const base = { v: PROTOCOL_VERSION, id: createRequestId(), type: 'readerSession:locate', payload: {
+            sessionId: 'reader_1', position: 1, messageId: 'assistant-1',
+        } };
+        expect(isExtRequest(base)).toBe(true);
+        expect(isExtRequest({ ...base, payload: { ...base.payload, documentKey: 'chatgpt:conversation:bound-12345678' } })).toBe(true);
+    });
+
+    it.each(['', '   ', '\n\t', null, 42, true, {}, []])('rejects an invalid optional detached locate document key: %j', (documentKey) => {
+        expect(isExtRequest({ v: PROTOCOL_VERSION, id: createRequestId(), type: 'readerSession:locate', payload: {
+            sessionId: 'reader_1', position: 1, messageId: 'assistant-1', documentKey,
+        } })).toBe(false);
+    });
+
     it('validates annotation CRUD and navigation messages', () => {
         const annotation = {
             id: 'a1',

@@ -12,13 +12,11 @@ import {
 import { AppearanceScope } from '../../../style/appearanceScope';
 import type { Theme } from '../../../core/types/theme';
 import { subscribeLocaleChange, t } from '../components/i18n';
-import {
-    navigateChatGPTDirectoryTarget,
-    type ChatGPTRoundPosition,
-} from '../chatgptDirectory/navigation';
+import type { ChatGPTRoundPosition } from '../chatgptDirectory/navigation';
 import { ChatGPTActivePositionTracker } from './ChatGPTActivePositionTracker';
 import { TooltipDelegate, showEphemeralTooltip } from '../../../utils/tooltip';
-import type { ConversationNavigationPortV1 } from '../../../contracts/conversationNavigation';
+import type { ConversationNavigationPortV1, ConversationNavigationResultV1 } from '../../../contracts/conversationNavigation';
+import { showConversationNavigationFailure } from '../components/conversationNavigationFeedback';
 import {
     AIMD_CONVERSATION_SURFACE_CONSUMER_ATTRIBUTE,
     type ConversationSurfacePortV1,
@@ -105,6 +103,7 @@ export class ChatGPTMessageStepperController {
     private refreshAnimationFrame: number | null = null;
     private navigationLockUntil = 0;
     private navigationRequestId = 0;
+    private activeNavigation: AbortController | null = null;
 
     constructor(
         private readonly adapter: SiteAdapter,
@@ -186,6 +185,8 @@ export class ChatGPTMessageStepperController {
         this.activePosition = 0;
         this.navigationLockUntil = 0;
         this.navigationRequestId += 1;
+        this.activeNavigation?.abort();
+        this.activeNavigation = null;
         this.pageBookmarkRequestId += 1;
         this.pageBookmarkStatusUrl = null;
         this.pageBookmarkState = 'unknown';
@@ -507,37 +508,42 @@ export class ChatGPTMessageStepperController {
         if (activeIndex < 0) return false;
         const target = this.rounds[activeIndex + delta];
         if (!target) return false;
+        this.activeNavigation?.abort();
+        const controller = new AbortController();
+        this.activeNavigation = controller;
+        const frame = this.surface.readFrame();
+        const assistantMessageId = (target.assistantMessageId ?? target.messageId)?.trim() || null;
         const requestId = this.navigationRequestId + 1;
         this.navigationRequestId = requestId;
         this.activePosition = target.position;
         this.navigationLockUntil = Date.now() + NAVIGATION_SETTLE_MS;
         this.syncButtons();
-        const navigation = this.options.navigation
+        const navigation: Promise<ConversationNavigationResultV1> = this.options.navigation && assistantMessageId
             ? this.options.navigation.navigate({
                 position: target.position,
-                messageId: target.messageId,
+                messageId: assistantMessageId,
                 roundId: target.roundId,
                 userMessageId: target.userMessageId,
-                assistantMessageId: target.assistantMessageId,
+                assistantMessageId,
+                documentKey: frame.document?.key,
                 source: 'stepper',
-            }, { timeoutMs: 15_000, align: 'start' }).then((result) => ({ ok: result.ok }))
-            : navigateChatGPTDirectoryTarget(this.adapter, {
-                position: target.position,
-                messageId: target.messageId,
-                roundId: target.roundId,
-                userMessageId: target.userMessageId,
-                assistantMessageId: target.assistantMessageId,
-            }, { surface: this.surface }).then((result) => ({ ok: result.ok }));
+            }, { timeoutMs: 15_000, align: 'start', signal: controller.signal })
+            : Promise.resolve({ ok: false, reason: 'source-unavailable' });
         void navigation.then((result) => {
-            if (requestId !== this.navigationRequestId) return;
+            if (requestId !== this.navigationRequestId || controller.signal.aborted) return;
             if (!result.ok) {
                 this.navigationLockUntil = 0;
                 this.refreshState();
+                if (this.surface.readFrame().document?.key === frame.document?.key) {
+                    showConversationNavigationFailure(result, frame.document?.canonicalUrl ?? '', assistantMessageId);
+                }
                 return;
             }
-            this.activePosition = target.position;
+            this.activePosition = result.target.position;
             this.navigationLockUntil = Date.now() + NAVIGATION_SETTLE_MS;
             this.syncButtons();
+        }).finally(() => {
+            if (this.activeNavigation === controller) this.activeNavigation = null;
         });
         return true;
     }

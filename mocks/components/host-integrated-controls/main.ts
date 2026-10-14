@@ -8,6 +8,7 @@ import { AppearanceScope } from '../../../src/style/appearanceScope';
 import { ensurePageTokens } from '../../../src/style/pageTokens';
 import { ensureStyle } from '../../../src/style/shadow';
 import { showToast } from '../../../src/utils/toast';
+import { showConversationNavigationFailure } from '../../../src/ui/content/components/conversationNavigationFeedback';
 import { MessageToolbar } from '../../../src/ui/content/MessageToolbar';
 import { ChatGPTDirectoryRail } from '../../../src/ui/content/chatgptDirectory/ChatGPTDirectoryRail';
 import { TaskProgressPanel } from '../../../src/ui/content/components/TaskProgressPanel';
@@ -20,6 +21,7 @@ import {
 } from '../visualHarnessBridge';
 
 ensurePageTokens();
+const navigationFailureFixture = new URLSearchParams(location.search).has('navigation-failure');
 history.replaceState({}, '', '/c/12345678-abcd-4abc-8def-1234567890ab');
 
 const copy = {
@@ -232,7 +234,8 @@ async function prepareForAudit(): Promise<void> {
 
     const directoryItem = directory.getElement().shadowRoot?.querySelector<HTMLElement>('[data-position="3"]');
     directoryItem?.dispatchEvent(new PointerEvent('pointerover', { bubbles: true, composed: true }));
-    showToast({ text: copy[variant.locale].toast, tone: 'success', durationMs: 60_000 });
+    if (navigationFailureFixture) showNavigationFailure();
+    else showToast({ text: copy[variant.locale].toast, tone: 'success', durationMs: 60_000 });
     const toast = document.querySelector<HTMLElement>('.aimd-toast');
     if (toast) {
         // The harness disables finite animations before capture; pin the real Toast in its visible state.
@@ -242,12 +245,28 @@ async function prepareForAudit(): Promise<void> {
     await new Promise<void>((resolve) => requestAnimationFrame(() => requestAnimationFrame(() => resolve())));
 }
 
+function showNavigationFailure(): void {
+    showConversationNavigationFailure(
+        { ok: false, reason: 'hydration-timeout' },
+        'https://chatgpt.com/c/12345678-abcd-4abc-8def-1234567890ab',
+        'assistant-1',
+    );
+}
+
 await applyVariant(variant);
 
 const themeToggle = document.createElement('button');
 themeToggle.textContent = 'Toggle light / dark';
 themeToggle.addEventListener('click', () => void applyVariant({ ...variant, theme: variant.theme === 'light' ? 'dark' : 'light' }));
 document.querySelector('.page')?.prepend(themeToggle);
+
+if (navigationFailureFixture) {
+    const failureTrigger = document.createElement('button');
+    failureTrigger.dataset.role = 'navigation-failure-trigger';
+    failureTrigger.textContent = 'Show navigation failure';
+    failureTrigger.addEventListener('click', showNavigationFailure);
+    themeToggle.after(failureTrigger);
+}
 
 installVisualHarnessBridge({
     applyVariant,

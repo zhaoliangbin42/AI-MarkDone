@@ -16,8 +16,8 @@ import {
     type AppearanceSnapshot,
 } from '../../../style/appearance';
 import { AIMD_VIEWPORT_RESIZE_IDLE_EVENT } from './ViewportResizeSuspendController';
-import { subscribeLocaleChange, t } from '../components/i18n';
-import { showToast } from '../../../utils/toast';
+import { subscribeLocaleChange } from '../components/i18n';
+import { showConversationNavigationFailure } from '../components/conversationNavigationFeedback';
 import type { ConversationNavigationPortV1 } from '../../../contracts/conversationNavigation';
 import type {
     ConversationSurfaceFrameV1,
@@ -448,7 +448,7 @@ export class ChatGPTDirectoryController {
             if (matches.length !== 1) {
                 this.renderedContentToken = null;
                 this.reconcile();
-                showToast({ text: t('chatgptDirectoryNavigationFailed'), tone: 'error' });
+                showConversationNavigationFailure({ ok: false, reason: matches.length > 1 ? 'identity-conflict' : 'source-unavailable' }, frame.document?.canonicalUrl ?? window.location.href);
                 return;
             }
             const entry = matches[0]!;
@@ -463,25 +463,13 @@ export class ChatGPTDirectoryController {
                     source: 'directory',
                 }, { align: 'start', signal, timeoutMs: 15_000 });
                 if (!result.ok && result.reason !== 'cancelled' && !signal.aborted) {
-                    showToast({ text: t('chatgptDirectoryNavigationFailed'), tone: 'error' });
+                    showConversationNavigationFailure(result, frame.document?.canonicalUrl ?? window.location.href, entry.turn.identity.assistantMessageId);
                 }
                 return;
             }
-            const located = await this.surface.materialization.locate(entry.target, signal);
-            if (located === 'cancelled' || signal.aborted) return;
-            if (located === 'located' && !signal.aborted) {
-                const current = this.surface.readFrame().obtainedTurns.find((candidate) => (
-                    candidate.turn.identity.assistantMessageId === entry.turn.identity.assistantMessageId
-                ));
-                const anchor = current?.materialization?.jumpAnchorElement;
-                if (anchor && typeof anchor.scrollIntoView === 'function') {
-                    anchor.scrollIntoView({ behavior: 'auto', block: 'start' });
-                    return;
-                }
-            }
-            if (!signal.aborted) showToast({ text: t('chatgptDirectoryNavigationFailed'), tone: 'error' });
+            if (!signal.aborted) showConversationNavigationFailure({ ok: false, reason: 'source-unavailable' }, frame.document?.canonicalUrl ?? window.location.href, entry.turn.identity.assistantMessageId);
         } catch {
-            if (!signal.aborted) showToast({ text: t('chatgptDirectoryNavigationFailed'), tone: 'error' });
+            if (!signal.aborted) showConversationNavigationFailure({ ok: false, reason: 'source-unavailable' }, window.location.href);
         } finally {
             if (this.activeLocateAbortController === locateController) {
                 this.activeLocateAbortController = null;

@@ -13,6 +13,7 @@ import { backgroundStorageQueue } from '../../../drivers/background/storage/asyn
 import { localStoragePort } from '../../../drivers/background/storage/localStoragePort';
 import { browser, browserCompat } from '../../../drivers/shared/browser';
 import { isChatGPTPageUrl } from '../../../contracts/chatgptHosts';
+import { buildChatGPTMessageUrl } from '../../../contracts/chatgptMessageUrl';
 import { handleAnnotationDraftRequest } from './annotationDrafts';
 import { decodeHighlightBundle, highlightStorageKey } from '../../../contracts/highlights';
 
@@ -68,7 +69,9 @@ function intentKey(tabId: number): string {
 function conversationIdFromUrl(url: string): string | null {
     if (!isChatGPTPageUrl(url)) return null;
     try {
-        const path = new URL(url).pathname;
+        const parsed = new URL(url);
+        if (parsed.username || parsed.password) return null;
+        const path = parsed.pathname;
         return path.match(/(?:^|\/)(?:c|conversation)\/([^/?#]+)/i)?.[1] ?? null;
     } catch {
         return null;
@@ -218,11 +221,8 @@ export async function handleReaderAnnotationRequest(request: ExtRequest): Promis
                     assistantMessageId = (await readBundle(document)).annotations
                         .find(record => record.id === annotationId)?.target.assistantMessageId;
                 }
-                const targetUrl = new URL(lastKnownUrl);
+                const targetUrl = new URL(buildChatGPTMessageUrl(lastKnownUrl, assistantMessageId) ?? lastKnownUrl);
                 targetUrl.hash = '';
-                // Ask the host to materialize this reply itself; no extension
-                // conversation fetch or whole-history scan is needed.
-                if (assistantMessageId) targetUrl.searchParams.set('message', assistantMessageId);
                 const tabId = await createTab(targetUrl.toString());
                 if (tabId === null) return { response: err(request.id, request.type, 'SOURCE_UNAVAILABLE', 'Could not open the conversation tab') };
                 // Opening the source succeeded; focus persistence is best-effort.

@@ -127,6 +127,14 @@
         "message": "关闭",
         "description": "Message for btnClose"
     },
+    "conversationNavigationFailed": {
+        "message": "未能在当前页面定位这条消息。",
+        "description": "Shown when conversation message navigation fails"
+    },
+    "conversationNavigationOpenMessage": {
+        "message": "在新标签页打开消息",
+        "description": "Explicit action to open the message on ChatGPT after navigation fails"
+    },
     "btnDelete": {
         "message": "删除",
         "description": "Message for btnDelete"

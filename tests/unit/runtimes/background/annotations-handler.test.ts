@@ -50,7 +50,7 @@ describe('reader annotation background handler', () => {
     });
 
     it.each(['annotation', 'highlight'])('opens the exact stored reply and retains its %s identity until content focus', async (kind) => {
-        const storedDocument = { ...document, lastKnownUrl: 'https://chatgpt.com/c/conv-1?branch=one#settings' };
+        const storedDocument = { ...document, conversationId: 'conv-12345678', lastKnownUrl: 'https://chatgpt.com/g/project-id/c/conv-12345678?branch=one&message=old&messageId=old&historySearchQuery=quote&selectedTextQuery=selection&selectedTextOccurrence=2#settings' };
         const navigationId = kind === 'annotation' ? annotation.id : 'highlight:highlight-1';
         const store = kind === 'annotation'
             ? { [readerAnnotationStorageKey(storedDocument)]: { schemaVersion: 1, document: storedDocument, annotations: [annotation] } }
@@ -59,8 +59,43 @@ describe('reader annotation background handler', () => {
         vi.stubGlobal('browser', { runtime: { getManifest: () => ({ manifest_version: 3 }) }, tabs, storage: { local: createArea(store), session: createArea({}) } });
         const { handleReaderAnnotationRequest: handle, consumeReaderAnnotationNavigationIntent: consume } = await import('@/runtimes/background/handlers/annotations');
         expect((await handle(req('annotations:navigate', { document: storedDocument, annotationId: navigationId })))?.response.ok).toBe(true);
-        expect(tabs.create).toHaveBeenCalledWith({ url: 'https://chatgpt.com/c/conv-1?branch=one&message=assistant-1' }, expect.any(Function));
-        expect(await consume(77, 'https://chatgpt.com/c/conv-1')).toMatchObject({ annotationId: navigationId, assistantMessageId: 'assistant-1' });
+        expect(tabs.create).toHaveBeenCalledWith({ url: 'https://chatgpt.com/g/project-id/c/conv-12345678?branch=one&messageId=assistant-1' }, expect.any(Function));
+        expect(await consume(77, 'https://chatgpt.com/g/project-id/c/conv-12345678')).toMatchObject({ annotationId: navigationId, assistantMessageId: 'assistant-1' });
+        expect(store[Object.keys(store)[0]]).toEqual(kind === 'annotation'
+            ? { schemaVersion: 1, document: storedDocument, annotations: [annotation] }
+            : { schemaVersion: 1, document: storedDocument, highlights: [{ ...annotation, id: 'highlight-1', color: 'blue' }] });
+    });
+
+    it('canonicalizes a legacy stored source URL when opening a reliable message', async () => {
+        const storedDocument = { ...document, conversationId: 'conv-12345678', lastKnownUrl: 'https://chat.openai.com/c/conv-12345678?model=auto#latest' };
+        const store = { [readerAnnotationStorageKey(storedDocument)]: { schemaVersion: 1, document: storedDocument, annotations: [annotation] } };
+        const tabs = { create: vi.fn((_options, callback) => callback({ id: 77 })) };
+        vi.stubGlobal('browser', { runtime: { getManifest: () => ({ manifest_version: 3 }) }, tabs, storage: { local: createArea(store) } });
+        const { handleReaderAnnotationRequest: handle } = await import('@/runtimes/background/handlers/annotations');
+        expect((await handle(req('annotations:navigate', { document: storedDocument, annotationId: annotation.id })))?.response.ok).toBe(true);
+        expect(tabs.create).toHaveBeenCalledWith({ url: 'https://chatgpt.com/c/conv-12345678?model=auto&messageId=assistant-1' }, expect.any(Function));
+    });
+
+    it.each([undefined, 'fallback-turn-0'])('opens the source normally without a reliable stored message ID: %s', async (assistantMessageId) => {
+        const storedDocument = { ...document, conversationId: 'conv-12345678', lastKnownUrl: 'https://chatgpt.com/c/conv-12345678?branch=one#latest' };
+        const store = assistantMessageId
+            ? { [readerAnnotationStorageKey(storedDocument)]: { schemaVersion: 1, document: storedDocument, annotations: [{ ...annotation, target: { ...annotation.target, assistantMessageId } }] } }
+            : {};
+        const tabs = { create: vi.fn((_options, callback) => callback({ id: 77 })) };
+        vi.stubGlobal('browser', { runtime: { getManifest: () => ({ manifest_version: 3 }) }, tabs, storage: { local: createArea(store) } });
+        const { handleReaderAnnotationRequest: handle } = await import('@/runtimes/background/handlers/annotations');
+        expect((await handle(req('annotations:navigate', { document: storedDocument, annotationId: annotation.id })))?.response.ok).toBe(true);
+        expect(tabs.create).toHaveBeenCalledWith({ url: 'https://chatgpt.com/c/conv-12345678?branch=one' }, expect.any(Function));
+    });
+
+    it('does not open a credential-bearing stored source URL', async () => {
+        const storedDocument = { ...document, conversationId: 'conv-12345678', lastKnownUrl: 'https://user:password@chatgpt.com/c/conv-12345678' };
+        const store = { [readerAnnotationStorageKey(storedDocument)]: { schemaVersion: 1, document: storedDocument, annotations: [annotation] } };
+        const tabs = { create: vi.fn((_options, callback) => callback({ id: 77 })) };
+        vi.stubGlobal('browser', { runtime: { getManifest: () => ({ manifest_version: 3 }) }, tabs, storage: { local: createArea(store) } });
+        const { handleReaderAnnotationRequest: handle } = await import('@/runtimes/background/handlers/annotations');
+        expect((await handle(req('annotations:navigate', { document: storedDocument, annotationId: annotation.id })))?.response.ok).toBe(true);
+        expect(tabs.create).toHaveBeenCalledWith({ url: 'https://chatgpt.com/c/conv-12345678?messageId=assistant-1' }, expect.any(Function));
     });
 
     it('fills a missing stored conversation title on save and preserves it on later untitled saves', async () => {

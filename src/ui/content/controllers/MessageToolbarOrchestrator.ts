@@ -9,7 +9,10 @@ import {
 } from '../../../core/settings/export';
 import type { SiteAdapter } from '../../../drivers/content/adapters/base';
 import type { ChatGPTConversationRound } from '../../../drivers/content/chatgpt/types';
+import { getChatGPTConversationId } from '../../../contracts/chatgptConversationId';
+import { createConversationDocumentKeyV1 } from '../../../contracts/conversationContent';
 import { scrollToBookmarkTargetWithRetry } from '../../../drivers/content/bookmarks/navigation';
+import { showConversationNavigationFailure } from '../components/conversationNavigationFeedback';
 import { discoverMessageElements } from '../../../drivers/content/injection/messageDiscovery';
 import { RouteWatcher } from '../../../drivers/content/injection/routeWatcher';
 import { ScanScheduler } from '../../../drivers/content/injection/scanScheduler';
@@ -758,6 +761,8 @@ export class MessageToolbarOrchestrator {
         messageElement: HTMLElement | null,
         conversationTarget: ConversationTargetV1 | null = null,
     ): ReaderPanelAction[] {
+        const readerDocumentKey = conversationTarget?.documentKey ?? this.conversationContentSource?.read().document?.key;
+        const readerUrl = this.getAvailableBookmarkUrl() ?? window.location.href;
         return createConversationReaderActions({
             refresh: {
                 refresh: (ctx) => this.refreshConversationReader(messageElement, ctx, conversationTarget),
@@ -787,13 +792,17 @@ export class MessageToolbarOrchestrator {
                 }
                 : null,
             locate: {
-                beforeLocate: () => {
+                afterLocate: () => {
                     this.readerPanel.hide();
                 },
-                    locate: async ({ position, messageId }) => {
-                        const result = this.adapter.getPlatformId() === 'chatgpt'
+                locate: async ({ position, messageId, documentKey, sourceUrl }) => {
+                    const conversationId = sourceUrl ? getChatGPTConversationId(sourceUrl) : null;
+                    const targetDocumentKey = documentKey ?? (conversationId
+                        ? createConversationDocumentKeyV1('chatgpt', conversationId) : readerDocumentKey);
+                    const result = this.adapter.getPlatformId() === 'chatgpt'
                         ? this.conversationNavigation
                             ? await this.conversationNavigation.navigate({
+                                documentKey: targetDocumentKey,
                                 position,
                                 messageId,
                                 assistantMessageId: messageId,
@@ -805,6 +814,16 @@ export class MessageToolbarOrchestrator {
                             { position, messageId },
                             { timeoutMs: 2500, intervalMs: 200 }
                         );
+                    if (this.adapter.getPlatformId() === 'chatgpt' && !result.ok) {
+                        // Route text can lead the content pool; a fallback link must match the captured document.
+                        const feedbackUrl = [sourceUrl, readerUrl].find(url => {
+                            if (!url || !targetDocumentKey) return Boolean(url);
+                            const id = getChatGPTConversationId(url);
+                            return id && createConversationDocumentKeyV1('chatgpt', id) === targetDocumentKey;
+                        }) ?? '';
+                        showConversationNavigationFailure('reason' in result ? result : { ok: false, reason: 'source-unavailable' }, feedbackUrl, messageId);
+                        return { ok: false, handled: true };
+                    }
                     return { ok: result.ok };
                 },
             },

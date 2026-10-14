@@ -5,6 +5,8 @@ import { SiteAdapter, type ConversationGroupRef, type ThemeDetector } from '@/dr
 import { ChatGPTAdapter } from '@/drivers/content/adapters/sites/chatgpt';
 import { ChatGPTDirectoryController } from '@/ui/content/controllers/ChatGPTDirectoryController';
 import { ChatGPTDirectoryRail } from '@/ui/content/chatgptDirectory/ChatGPTDirectoryRail';
+import { navigateChatGPTDirectoryTarget } from '@/ui/content/chatgptDirectory/navigation';
+import { ConversationNavigationCoordinator } from '@/services/content/ConversationNavigationCoordinator';
 import { AIMD_VIEWPORT_RESIZE_IDLE_EVENT } from '@/ui/content/controllers/ViewportResizeSuspendController';
 import { setLocale } from '@/ui/content/components/i18n';
 import { ChatGPTConversationSurface } from '@/drivers/content/chatgpt/ChatGPTConversationSurface';
@@ -250,7 +252,16 @@ function createDirectoryController(
         : baseSurface;
     const controller = new ChatGPTDirectoryController(adapter, bookmarksState, {
         surface,
-        navigation: contentOptions.navigation,
+        navigation: contentOptions.navigation === undefined
+            ? new ConversationNavigationCoordinator({
+                source,
+                execute: (target, options, origin) => navigateChatGPTDirectoryTarget(adapter, target, {
+                    ...options,
+                    source: origin,
+                    surface,
+                }),
+            })
+            : contentOptions.navigation,
     });
     directoryControllers.add(controller);
     return controller;
@@ -331,12 +342,13 @@ describe('ChatGPTDirectoryController', () => {
 
         const railRoot = document.getElementById('aimd-chatgpt-directory-rail')?.shadowRoot;
         const items = Array.from(railRoot?.querySelectorAll<HTMLButtonElement>('.rail__item') ?? []);
+        items[0]?.dispatchEvent(new MouseEvent('pointerdown', { bubbles: true, composed: true }));
         items[0]?.click();
         await Promise.resolve();
         await vi.advanceTimersByTimeAsync(1000);
 
         expect(anchor.scrollIntoView).toHaveBeenCalledWith({ behavior: 'auto', block: 'start' });
-        expect(navigationMocks.highlightNavigationTarget).not.toHaveBeenCalled();
+        expect(navigationMocks.highlightNavigationTarget).toHaveBeenCalledWith(anchor);
         expect(navigationMocks.scrollToBookmarkTargetWithRetry).not.toHaveBeenCalled();
     });
 
@@ -430,54 +442,76 @@ describe('ChatGPTDirectoryController', () => {
 
         const railRoot = document.getElementById('aimd-chatgpt-directory-rail')?.shadowRoot;
         const items = Array.from(railRoot?.querySelectorAll<HTMLButtonElement>('.rail__item') ?? []);
+        items[1]?.dispatchEvent(new MouseEvent('pointerdown', { bubbles: true, composed: true }));
         items[1]?.click();
         await Promise.resolve();
         await vi.advanceTimersByTimeAsync(1200);
 
         expect(targetSlot.scrollIntoView).toHaveBeenCalledTimes(1);
         expect(targetAnchorScroll).toHaveBeenCalledWith({ behavior: 'auto', block: 'start' });
-        expect(navigationMocks.highlightNavigationTarget).not.toHaveBeenCalled();
+        expect(navigationMocks.highlightNavigationTarget).toHaveBeenCalledWith(document.getElementById('user-2'));
         expect(navigationMocks.scrollToBookmarkTargetWithRetry).not.toHaveBeenCalled();
     });
 
     it('cancels an earlier directory locate when the user selects another item', async () => {
         const adapter = new ChatGPTTestAdapter();
-        const locateSignals: AbortSignal[] = [];
-        const materialization = {
-            read: vi.fn(() => ({ materializationToken: 'test', contentToken: 'content', entries: [] })),
-            subscribe: vi.fn(() => () => undefined),
-            resolveElement: vi.fn(() => null),
-            locate: vi.fn((_target: unknown, signal?: AbortSignal) => new Promise<'unavailable' | 'cancelled'>((resolve) => {
-                if (!signal) {
-                    resolve('unavailable');
-                    return;
-                }
-                locateSignals.push(signal);
-                if (locateSignals.length === 1) {
-                    signal.addEventListener('abort', () => resolve('cancelled'), { once: true });
-                    return;
-                }
-                resolve('unavailable');
-            })),
-        } as any;
         const engine = { subscribe: vi.fn(() => () => undefined) } as any;
-        const controller = createDirectoryController(adapter, engine, null, {
-            materialization,
-        });
+        const controller = createDirectoryController(adapter, engine);
+        const navigate = vi.spyOn((controller as any).navigation as ConversationNavigationCoordinator, 'navigate');
+        const firstAnchor = document.getElementById('user-1')!;
+        const secondAnchor = document.getElementById('user-2')!;
+        firstAnchor.scrollIntoView = vi.fn();
+        secondAnchor.scrollIntoView = vi.fn();
 
         (controller as any).ensureRail();
         setCanonicalSnapshot(adapter, buildSnapshot());
         (controller as any).render();
         const items = Array.from(document.getElementById('aimd-chatgpt-directory-rail')?.shadowRoot?.querySelectorAll<HTMLButtonElement>('.rail__item') ?? []);
 
+        items[0]?.dispatchEvent(new MouseEvent('pointerdown', { bubbles: true, composed: true }));
         items[0]?.click();
-        await Promise.resolve();
+        await vi.advanceTimersByTimeAsync(0);
+        items[1]?.dispatchEvent(new MouseEvent('pointerdown', { bubbles: true, composed: true }));
         items[1]?.click();
-        await Promise.resolve();
+        await vi.advanceTimersByTimeAsync(1000);
 
-        expect(materialization.locate).toHaveBeenCalledTimes(2);
-        expect(locateSignals[0]?.aborted).toBe(true);
+        expect(navigate).toHaveBeenCalledTimes(2);
+        expect(navigate.mock.calls[0]![1]?.signal?.aborted).toBe(true);
+        expect(firstAnchor.scrollIntoView).toHaveBeenCalledOnce();
+        expect(secondAnchor.scrollIntoView).toHaveBeenCalledOnce();
+        expect(navigationMocks.highlightNavigationTarget).toHaveBeenCalledExactlyOnceWith(secondAnchor);
+        expect(navigationMocks.showToast).not.toHaveBeenCalled();
         controller.dispose();
+    });
+
+    it('does not locate, scroll or refresh after a rail click without the shared navigation port', async () => {
+        const adapter = new ChatGPTTestAdapter();
+        const controller = createDirectoryController(adapter, { subscribe: vi.fn(() => () => undefined) }, null, { navigation: null });
+        (controller as any).ensureRail();
+        setCanonicalSnapshot(adapter, buildSnapshot());
+        controller.render();
+        const surface = (controller as any).surface as ConversationSurfacePortV1;
+        const locate = vi.spyOn(surface.materialization, 'locate');
+        const refresh = vi.spyOn(surface, 'refreshSurface');
+        const anchor = document.getElementById('user-1')!;
+        anchor.scrollIntoView = vi.fn();
+        const originalUrl = window.location.href;
+        const button = document.getElementById('aimd-chatgpt-directory-rail')!.shadowRoot!
+            .querySelector<HTMLButtonElement>('.rail__item')!;
+        button.dispatchEvent(new MouseEvent('pointerdown', { bubbles: true, composed: true }));
+        button.click();
+        await vi.advanceTimersByTimeAsync(1000);
+
+        expect(locate).not.toHaveBeenCalled();
+        expect(refresh).not.toHaveBeenCalled();
+        expect(anchor.scrollIntoView).not.toHaveBeenCalled();
+        expect(navigationMocks.scrollToBookmarkTargetWithRetry).not.toHaveBeenCalled();
+        expect(navigationMocks.highlightNavigationTarget).not.toHaveBeenCalled();
+        expect(window.location.href).toBe(originalUrl);
+        expect(navigationMocks.showToast).toHaveBeenCalledWith(expect.objectContaining({
+            tone: 'error',
+            action: expect.objectContaining({ href: `https://chatgpt.com/c/${DEFAULT_CONVERSATION_ID}?messageId=a1` }),
+        }));
     });
 
     it('fails closed instead of treating a DOM window as a complete conversation', () => {

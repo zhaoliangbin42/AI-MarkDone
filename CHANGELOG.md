@@ -8,9 +8,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Changed
+- Open saved ChatGPT messages with a direct message link when switching conversations; existing bookmarks and backups stay compatible.
 - Identify Chrome or Firefox in feedback email subjects while keeping the same contact address and copy-email action.
 - Reduce the lower-right page controls and icons to leave more room for ChatGPT’s own buttons.
 - Explain ChatGPT’s native Settings → Keyboard alternative beneath Enter-to-newline, ahead of its gradual retirement.
+
+### Fixed
+- Keep directory, bookmark and Reader navigation on the same verified message target as history loads or positions change. Interrupted and timed-out requests no longer jump later.
+- Offer an explicit new-tab link when a message cannot be located, without refreshing the current page. Keep the in-page Reader open until location succeeds.
 
 ## [6.2.0] - 2026-10-13
 

@@ -28,8 +28,8 @@ export type ConversationReaderSendPort = {
 };
 
 export type ConversationReaderLocatePort = {
-    beforeLocate?: () => void;
-    locate: (target: { position: number; messageId: string | null }) => Promise<{ ok: boolean; message?: string }>;
+    afterLocate?: () => void;
+    locate: (target: { position: number; messageId: string | null; documentKey?: string; sourceUrl?: string }) => Promise<{ ok: boolean; message?: string; handled?: boolean }>;
 };
 
 export type ConversationReaderRefreshPort = {
@@ -122,16 +122,25 @@ export function createConversationReaderActions(options: {
         onClick: async (ctx) => {
             const meta = (ctx.item.meta || {}) as Record<string, unknown>;
             const position = Number(meta.position ?? 0);
-            const messageId = typeof meta.messageId === 'string' ? meta.messageId : null;
+            const messageId = typeof meta.messageId === 'string' && meta.messageId.trim() ? meta.messageId
+                : typeof meta.assistantMessageId === 'string' && meta.assistantMessageId.trim() ? meta.assistantMessageId : null;
             if (!position && !messageId) {
                 ctx.notify(t('positionNotAvailable'));
                 return;
             }
 
-            options.locate.beforeLocate?.();
-            const result = await options.locate.locate({ position, messageId });
-            if (!result.ok) ctx.notify(result.message || t('positionNotAvailable'));
-            else if (result.message) ctx.notify(result.message);
+            const documentKey = typeof meta.documentKey === 'string' && meta.documentKey.trim() ? meta.documentKey : undefined;
+            const sourceUrl = typeof meta.url === 'string' && meta.url.trim() ? meta.url : undefined;
+            const result = await options.locate.locate({
+                position,
+                messageId,
+                ...(documentKey ? { documentKey } : {}),
+                ...(sourceUrl ? { sourceUrl } : {}),
+            });
+            if (result.ok) {
+                options.locate.afterLocate?.();
+                if (result.message) ctx.notify(result.message);
+            } else if (!result.handled) ctx.notify(result.message || t('positionNotAvailable'));
         },
     });
 

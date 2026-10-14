@@ -592,6 +592,26 @@ describe('ChatGPT directory navigation', () => {
         expect(anchor.scrollIntoView).toHaveBeenCalledTimes(2);
     });
 
+    it('preserves a stable post-scroll anchor offset when the adapter cannot identify the scroll root', async () => {
+        const { navigateChatGPTDirectoryTarget } = await import('@/ui/content/chatgptDirectory/navigation');
+        const adapter = new ChatGPTNavigationTestAdapter();
+        const anchor = buildMaterializedRoundDom();
+        publishCanonicalRounds(adapter, ['a1']);
+        let top = 1200;
+        anchor.getBoundingClientRect = vi.fn(() => ({
+            top, bottom: top + 40, left: 0, right: 100, x: 0, y: top,
+            width: 100, height: 40, toJSON: () => ({}),
+        }));
+        anchor.scrollIntoView = vi.fn(() => { top = 52; });
+        const pending = navigateChatGPTDirectoryTarget(adapter, { position: 1 }, {
+            surface: getSurface(adapter), alignmentTimeoutMs: 240, alignmentQuietMs: 40,
+        });
+        await vi.advanceTimersByTimeAsync(260);
+
+        expect(await pending).toEqual({ ok: true });
+        expect(anchor.scrollIntoView).toHaveBeenCalledOnce();
+    });
+
     it('does not keep realigning after the user starts navigating manually', async () => {
         const { navigateChatGPTDirectoryTarget } = await import('@/ui/content/chatgptDirectory/navigation');
         const adapter = new ChatGPTNavigationTestAdapter();
@@ -629,8 +649,51 @@ describe('ChatGPT directory navigation', () => {
         await vi.advanceTimersByTimeAsync(260);
         const result = await resultPromise;
 
-        expect(result).toEqual({ ok: true });
+        expect(result).toEqual({ ok: false, message: 'Navigation cancelled', reason: 'cancelled' });
         expect(anchor.scrollIntoView).toHaveBeenCalledTimes(1);
+    });
+
+    it('rejects an alignment when the conversation changes while its old anchor stays connected', async () => {
+        const { navigateChatGPTDirectoryTarget } = await import('@/ui/content/chatgptDirectory/navigation');
+        const adapter = new ChatGPTNavigationTestAdapter();
+        const anchor = buildMaterializedRoundDom();
+        publishCanonicalRounds(adapter, ['a1']);
+        anchor.scrollIntoView = vi.fn();
+        const pending = navigateChatGPTDirectoryTarget(adapter, { position: 1, assistantMessageId: 'a1' }, {
+            surface: getSurface(adapter), alignmentTimeoutMs: 240, alignmentQuietMs: 40,
+        });
+        await vi.advanceTimersByTimeAsync(20);
+        publishDifferentProjection(adapter);
+        await vi.advanceTimersByTimeAsync(260);
+
+        expect(await pending).toMatchObject({ ok: false, message: 'Conversation changed' });
+        expect(anchor.scrollIntoView).toHaveBeenCalledOnce();
+        expect(navigationMocks.highlightNavigationTarget).not.toHaveBeenCalled();
+    });
+
+    it('does not restart the navigation timeout after a slow target hydration', async () => {
+        const { navigateChatGPTDirectoryTarget } = await import('@/ui/content/chatgptDirectory/navigation');
+        const adapter = new ChatGPTNavigationTestAdapter();
+        const slots = mountVirtualizedTurnSlots(2, [1]);
+        setCanonicalSnapshot(adapter, buildCanonicalSnapshot(2));
+        const targetSlot = slots.userSlots.get(2)!;
+        targetSlot.scrollIntoView = vi.fn(() => {
+            window.setTimeout(() => {
+                const anchor = slots.hydrateRound(2);
+                anchor.scrollIntoView = vi.fn();
+                getSurface(adapter).refreshSurface();
+            }, 80);
+        });
+        const pending = navigateChatGPTDirectoryTarget(adapter, { position: 2 }, {
+            surface: getSurface(adapter), timeoutMs: 100, alignmentTimeoutMs: 240, alignmentQuietMs: 40,
+        });
+        let settled = false;
+        void pending.then(() => { settled = true; });
+        await vi.advanceTimersByTimeAsync(101);
+
+        expect(settled).toBe(true);
+        expect(await pending).toMatchObject({ ok: false });
+        expect(navigationMocks.highlightNavigationTarget).not.toHaveBeenCalled();
     });
 
     it('stops an old alignment when a newer Directory click aborts its signal', async () => {
@@ -649,7 +712,7 @@ describe('ChatGPT directory navigation', () => {
         controller.abort();
         await vi.advanceTimersByTimeAsync(260);
 
-        expect(await resultPromise).toEqual({ ok: false, message: 'Navigation cancelled' });
+        expect(await resultPromise).toEqual({ ok: false, message: 'Navigation cancelled', reason: 'cancelled' });
         expect(anchor.scrollIntoView).toHaveBeenCalledOnce();
     });
 
@@ -1430,7 +1493,7 @@ describe('ChatGPT directory navigation', () => {
         window.setTimeout(() => publishDifferentProjection(adapter), 10);
         await vi.advanceTimersByTimeAsync(60);
 
-        await expect(resultPromise).resolves.toEqual({ ok: false, message: 'Conversation changed' });
+        await expect(resultPromise).resolves.toEqual({ ok: false, message: 'Conversation changed', reason: 'stale-target' });
     });
 
     it('fails closed when bounded materialization never exposes the exact identity', async () => {

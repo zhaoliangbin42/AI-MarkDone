@@ -26,6 +26,181 @@ function acquiredWhileSyncingState(): ConversationContentStateV1 {
 }
 
 describe('ConversationNavigationCoordinator', () => {
+    it('converts a rejected host executor into a typed failure and releases the request', async () => {
+        const source = createConversationContentSource({
+            conversationId: 'conversation-1', rounds: [{ assistantMessageId: 'assistant-1' }],
+        });
+        const execute = vi.fn().mockRejectedValueOnce(new Error('Host anchor removed')).mockResolvedValue({ ok: true });
+        const navigation = new ConversationNavigationCoordinator({ source, execute });
+        await expect(navigation.navigate({ position: 1, assistantMessageId: 'assistant-1', source: 'reader' }))
+            .resolves.toEqual({ ok: false, reason: 'source-unavailable' });
+        await expect(navigation.navigate({ position: 1, assistantMessageId: 'assistant-1', source: 'reader' }))
+            .resolves.toMatchObject({ ok: true });
+        expect(execute).toHaveBeenCalledTimes(2);
+    });
+
+    it('follows a Reader assistant identity after its displayed position changes', async () => {
+        const source = createConversationContentSource({
+            conversationId: '12345678-1234-1234-1234-123456789abc',
+            rounds: [
+                { id: 'round-1', assistantMessageId: 'assistant-1', assistantContent: 'First' },
+                { id: 'round-2', assistantMessageId: 'assistant-2', assistantContent: 'Second' },
+            ],
+        });
+        const execute = vi.fn(async () => ({ ok: true as const }));
+        const navigation = new ConversationNavigationCoordinator({ source, execute });
+
+        const result = await navigation.navigate({ position: 1, assistantMessageId: 'assistant-2', source: 'reader' });
+
+        expect(result).toMatchObject({ ok: true, target: { position: 2, assistantMessageId: 'assistant-2' } });
+    });
+
+    it('rejects contradictory real identities even when an assistant ID is unique', async () => {
+        const source = createConversationContentSource({
+            conversationId: '12345678-1234-1234-1234-123456789abc',
+            rounds: [
+                { id: 'round-1', userMessageId: 'user-1', assistantMessageId: 'assistant-1', assistantContent: 'First' },
+                { id: 'round-2', userMessageId: 'user-2', assistantMessageId: 'assistant-2', assistantContent: 'Second' },
+            ],
+        });
+        const execute = vi.fn(async () => ({ ok: true as const }));
+        const navigation = new ConversationNavigationCoordinator({ source, execute });
+
+        const result = await navigation.navigate({
+            position: 1, assistantMessageId: 'assistant-2', userMessageId: 'user-1', source: 'directory',
+        });
+
+        expect(result).toEqual({ ok: false, reason: 'identity-conflict' });
+        expect(execute).not.toHaveBeenCalled();
+    });
+
+    it('shares one timeout across source readiness and an executor that does not settle', async () => {
+        vi.useFakeTimers();
+        try {
+            const source = createConversationContentSource({ kind: 'idle', document: null, snapshot: null });
+            const execute = vi.fn((_target: unknown, _options: { signal?: AbortSignal }) => new Promise<{ ok: true }>(() => undefined));
+            const navigation = new ConversationNavigationCoordinator({ source, execute });
+            const pending = navigation.navigate({ position: 1, assistantMessageId: 'assistant-1', source: 'reader' }, { timeoutMs: 100 });
+            let settled = false;
+            void pending.then(() => { settled = true; });
+            await vi.advanceTimersByTimeAsync(80);
+            source.publish(acquiredWhileSyncingState());
+            await vi.advanceTimersByTimeAsync(21);
+
+            expect(execute).toHaveBeenCalledOnce();
+            expect(settled).toBe(true);
+            expect(execute.mock.calls[0]![1].signal?.aborted).toBe(true);
+            expect(await pending).toEqual({ ok: false, reason: 'hydration-timeout' });
+        } finally {
+            vi.useRealTimers();
+        }
+    });
+
+    it('cancels a source wait when the user takes over before the target is acquired', async () => {
+        vi.useFakeTimers();
+        try {
+            const source = createConversationContentSource({ kind: 'idle', document: null, snapshot: null });
+            const execute = vi.fn(async () => ({ ok: true as const }));
+            const navigation = new ConversationNavigationCoordinator({ source, execute });
+            const pending = navigation.navigate({ position: 1, assistantMessageId: 'assistant-1', source: 'reader' }, { timeoutMs: 100 });
+            document.dispatchEvent(new WheelEvent('wheel'));
+            source.publish(acquiredWhileSyncingState());
+            await vi.advanceTimersByTimeAsync(0);
+
+            expect(await pending).toEqual({ ok: false, reason: 'cancelled' });
+            expect(execute).not.toHaveBeenCalled();
+        } finally {
+            vi.useRealTimers();
+        }
+    });
+
+    it('rejects a late executor success after the conversation changes', async () => {
+        const source = createConversationContentSource(acquiredWhileSyncingState());
+        let finish!: (result: { ok: true }) => void;
+        const execute = vi.fn(() => new Promise<{ ok: true }>(resolve => { finish = resolve; }));
+        const navigation = new ConversationNavigationCoordinator({ source, execute });
+        const pending = navigation.navigate({ position: 1, assistantMessageId: 'assistant-1', source: 'reader' });
+        await vi.waitFor(() => expect(execute).toHaveBeenCalledOnce());
+        source.publish({
+            conversationId: 'another-conversation',
+            rounds: [{ id: 'other', assistantMessageId: 'assistant-1', assistantContent: 'Other' }],
+        });
+        finish({ ok: true });
+
+        expect(await pending).toEqual({ ok: false, reason: 'stale-target' });
+    });
+
+    it('waits for an initially unavailable document when the caller supplies its document key', async () => {
+        const source = createConversationContentSource({ kind: 'idle', document: null, snapshot: null });
+        const execute = vi.fn(async () => ({ ok: true as const }));
+        const navigation = new ConversationNavigationCoordinator({ source, execute });
+        const pending = navigation.navigate({
+            position: 1, assistantMessageId: 'assistant-1', source: 'reader',
+            documentKey: 'chatgpt:conversation:12345678-1234-1234-1234-123456789abc',
+        });
+        source.publish(acquiredWhileSyncingState());
+
+        expect(await pending).toMatchObject({ ok: true });
+    });
+
+    it('accepts the exact assistant when multiple replies share its user identity', async () => {
+        const source = createConversationContentSource({
+            conversationId: '12345678-1234-1234-1234-123456789abc',
+            rounds: [
+                { id: 'round-1', userMessageId: 'shared-user', assistantMessageId: 'assistant-1', assistantContent: 'First' },
+                { id: 'round-2', userMessageId: 'shared-user', assistantMessageId: 'assistant-2', assistantContent: 'Second' },
+            ],
+        });
+        const execute = vi.fn(async () => ({ ok: true as const }));
+        const navigation = new ConversationNavigationCoordinator({ source, execute });
+
+        const result = await navigation.navigate({
+            position: 2, assistantMessageId: 'assistant-2', userMessageId: 'shared-user', source: 'reader',
+        });
+
+        expect(result).toMatchObject({ ok: true, target: { assistantMessageId: 'assistant-2' } });
+    });
+
+    it('rejects duplicate assistant identities published before an executor returns success', async () => {
+        const source = createConversationContentSource(acquiredWhileSyncingState());
+        const execute = vi.fn(async () => {
+            const snapshot = source.read().snapshot!;
+            source.publish({
+                ...snapshot,
+                contentToken: 'duplicate',
+                turns: [...snapshot.turns, { ...snapshot.turns[0]!, key: 'another-turn', ordinal: 2 }],
+            });
+            return { ok: true as const };
+        });
+        const navigation = new ConversationNavigationCoordinator({ source, execute });
+
+        expect(await navigation.navigate({ position: 1, assistantMessageId: 'assistant-1', source: 'reader' }))
+            .toEqual({ ok: false, reason: 'identity-conflict' });
+    });
+
+    it('prefers a typed executor reason to legacy error wording', async () => {
+        const source = createConversationContentSource(acquiredWhileSyncingState());
+        const execute = vi.fn(async () => ({ ok: false as const, message: 'Not available', reason: 'stale-target' as const }));
+        const navigation = new ConversationNavigationCoordinator({ source, execute });
+
+        expect(await navigation.navigate({ position: 1, assistantMessageId: 'assistant-1', source: 'reader' }))
+            .toEqual({ ok: false, reason: 'stale-target' });
+    });
+
+    it('does not coalesce a Reader request with a bookmark request to the same message', async () => {
+        const source = createConversationContentSource(acquiredWhileSyncingState());
+        const execute = vi.fn(async () => ({ ok: true as const }));
+        const navigation = new ConversationNavigationCoordinator({ source, execute });
+        const target = { position: 1, assistantMessageId: 'assistant-1' };
+        const reader = navigation.navigate({ ...target, source: 'reader' });
+        const bookmark = navigation.navigate({ ...target, source: 'bookmark' });
+
+        expect(reader).not.toBe(bookmark);
+        expect(await reader).toEqual({ ok: false, reason: 'cancelled' });
+        expect(await bookmark).toMatchObject({ ok: true });
+        expect(execute).toHaveBeenCalledWith(expect.anything(), expect.anything(), 'bookmark');
+    });
+
     it('resolves identity to the current canonical position and executes once', async () => {
         const source = createConversationContentSource({
             conversationId: '12345678-1234-1234-1234-123456789abc',

@@ -7,7 +7,7 @@ import {
     type RuntimeClientResult,
 } from '../../../drivers/shared/clients/clientResult';
 import type { SiteAdapter } from '../../../drivers/content/adapters/base';
-import type { ConversationContentSourceV1 } from '../../../contracts/conversationContent';
+import { createConversationDocumentKeyV1, type ConversationContentSourceV1 } from '../../../contracts/conversationContent';
 import type { ConversationNavigationPortV1 } from '../../../contracts/conversationNavigation';
 import type { DiscoveryDiagnosticsSnapshotV1 } from '../../../contracts/conversationDiscoveryDiagnostics';
 import { PathUtils } from '../../../core/bookmarks/path';
@@ -24,7 +24,8 @@ import {
     scrollToBookmarkTargetWithRetry,
     setPendingNavigation,
 } from '../../../drivers/content/bookmarks/navigation';
-import { withChatGPTMessageNavigationTrigger } from '../../../drivers/content/chatgpt/chatgptRoute';
+import { buildChatGPTMessageUrl } from '../../../contracts/chatgptMessageUrl';
+import { showConversationNavigationFailure } from '../components/conversationNavigationFeedback';
 import { getChatGPTConversationId } from '../../../contracts/chatgptConversationId';
 import {
     resolveConversationBookmarkPositions,
@@ -729,20 +730,28 @@ export class BookmarksPanelController {
             if (this.navigation && sameConversation) {
                 this.setStatus('Navigating…');
                 const result = await this.navigation.navigate({
+                    documentKey: createConversationDocumentKeyV1('chatgpt', getChatGPTConversationId(target)!),
                     position: bookmark.position,
                     messageId: bookmark.messageId ?? null,
                     assistantMessageId: bookmark.messageId ?? null,
                     source: 'bookmark',
                 }, { timeoutMs: 15_000, align: 'start' });
-                if (!result.ok) this.setStatus(t('bookmarkUnreliableLocation'));
+                if (!result.ok && result.reason !== 'cancelled' && result.reason !== 'stale-target') {
+                    this.setStatus(t('bookmarkUnreliableLocation'));
+                    showConversationNavigationFailure(result, target, bookmark.messageId);
+                }
                 return;
             }
-            setPendingNavigation({
-                url: target,
-                position: bookmark.position,
-                messageId: bookmark.messageId ?? null,
-            });
-            window.location.assign(withChatGPTMessageNavigationTrigger(target));
+            if (sameConversation) {
+                this.setStatus(t('bookmarkUnreliableLocation'));
+                showConversationNavigationFailure({ ok: false, reason: 'source-unavailable' }, target, bookmark.messageId);
+                return;
+            }
+            const messageUrl = buildChatGPTMessageUrl(target, bookmark.messageId);
+            if (messageUrl) setPendingNavigation({ url: target, position: bookmark.position, messageId: bookmark.messageId });
+            // Opening a different conversation is the user's explicit action.
+            // A same-page failure must never enter this full-navigation path.
+            window.location.assign(messageUrl ?? target);
             return;
         }
         if (isSamePageUrl(current, target)) {

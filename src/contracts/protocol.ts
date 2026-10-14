@@ -212,6 +212,7 @@ export type ReaderSessionSerializableItem = {
     richBlocks?: readonly RichBlockV1[];
     meta?: {
         platformId?: string;
+        documentKey?: string;
         messageId?: string | null;
         roundId?: string | null;
         userMessageId?: string | null;
@@ -272,6 +273,7 @@ export type ReaderSessionSendPayload = { sessionId: string; text: string };
 export type ReaderSessionLocatePayload = {
     sessionId: string;
     position?: number;
+    documentKey?: string;
     messageId?: string | null;
 };
 
@@ -585,7 +587,8 @@ export function isExtRequest(value: unknown): value is ExtRequest {
             return typeof sessionPayload.text === 'string';
         }
         if (type === 'readerSession:locate') {
-            return sessionPayload.position === undefined || typeof sessionPayload.position === 'number' || typeof sessionPayload.messageId === 'string' || sessionPayload.messageId === null;
+            return (sessionPayload.position === undefined || typeof sessionPayload.position === 'number' || typeof sessionPayload.messageId === 'string' || sessionPayload.messageId === null)
+                && (sessionPayload.documentKey === undefined || (typeof sessionPayload.documentKey === 'string' && sessionPayload.documentKey.trim().length > 0));
         }
         return true;
     }

@@ -13,6 +13,7 @@ export type ConversationNavigationSourceV1 =
     | 'stepper';
 
 export type ConversationNavigationInputV1 = Readonly<{
+    /** Last known display position; a unique assistant identity takes precedence. */
     position: number;
     messageId?: string | null;
     roundId?: string | null;
@@ -30,6 +31,14 @@ export type ConversationCanonicalTargetV1 = Readonly<{
     assistantMessageId: string;
 }>;
 
+export type ConversationNavigationFailureReasonV1 =
+    | 'cancelled'
+    | 'stale-target'
+    | 'identity-conflict'
+    | 'slot-missing'
+    | 'hydration-timeout'
+    | 'source-unavailable';
+
 export type ConversationNavigationResultV1 =
     | Readonly<{
         ok: true;
@@ -39,19 +48,15 @@ export type ConversationNavigationResultV1 =
     }>
     | Readonly<{
         ok: false;
-        reason:
-            | 'cancelled'
-            | 'stale-target'
-            | 'identity-conflict'
-            | 'slot-missing'
-            | 'hydration-timeout'
-            | 'source-unavailable';
+        reason: ConversationNavigationFailureReasonV1;
     }>;
 
 export type ConversationNavigationOptionsV1 = Readonly<{
     align?: 'start' | 'center';
     signal?: AbortSignal;
     timeoutMs?: number;
+    /** Absolute Date.now() deadline shared by source, hydration and alignment. */
+    deadlineMs?: number;
 }>;
 
 export interface ConversationNavigationPortV1 {

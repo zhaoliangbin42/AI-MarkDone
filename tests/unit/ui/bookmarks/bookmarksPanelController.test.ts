@@ -215,6 +215,7 @@ describe('BookmarksPanelController', () => {
             expect(assign).not.toHaveBeenCalled();
             expect(conversationNavigationMock.navigate).toHaveBeenCalledWith(
                 {
+                    documentKey: 'chatgpt:conversation:12345678-1234-1234-1234-123456789abc',
                     position: 50,
                     messageId: 'payload-a50',
                     assistantMessageId: 'payload-a50',
@@ -225,6 +226,76 @@ describe('BookmarksPanelController', () => {
         } finally {
             Object.defineProperty(window, 'location', { configurable: true, value: originalLocation });
         }
+    });
+
+    it('rejects a previous source conversation when the URL already matches the bookmark target', async () => {
+        const { BookmarksPanelController } = await import('@/ui/content/bookmarks/BookmarksPanelController');
+        const { ConversationNavigationCoordinator } = await import('@/services/content/ConversationNavigationCoordinator');
+        const { createConversationContentSource } = await import('../../../helpers/chatgptContentFixtures');
+        const url = 'https://chatgpt.com/c/target-conversation';
+        const source = createConversationContentSource({
+            conversationId: 'previous-conversation',
+            rounds: [{ id: 'round-1', assistantMessageId: 'shared-assistant', assistantContent: 'Previous answer' }],
+        });
+        const execute = vi.fn(async () => ({ ok: true as const }));
+        const navigation = new ConversationNavigationCoordinator({ source, execute });
+        const navigate = vi.spyOn(navigation, 'navigate');
+        const assign = vi.fn();
+        const originalLocation = window.location;
+        document.body.replaceChildren();
+        Object.defineProperty(window, 'location', { configurable: true, value: { href: url, origin: 'https://chatgpt.com', assign } });
+        try {
+            const controller = new BookmarksPanelController({ getPlatformId: () => 'chatgpt' } as any, { navigation });
+            await controller.goToBookmark({
+                url, urlWithoutProtocol: url.slice(8), position: 1, messageId: 'shared-assistant',
+                timestamp: 1, title: 'Saved', platform: 'ChatGPT', folderPath: 'Import',
+            });
+
+            expect(navigate).toHaveBeenCalledWith(expect.objectContaining({
+                documentKey: 'chatgpt:conversation:target-conversation',
+            }), expect.anything());
+            expect(await navigate.mock.results[0]!.value).toEqual({ ok: false, reason: 'stale-target' });
+            expect(execute).not.toHaveBeenCalled();
+            expect(assign).not.toHaveBeenCalled();
+            expect(document.querySelector('.aimd-toast')).toBeNull();
+        } finally {
+            navigation.cancelActive();
+            Object.defineProperty(window, 'location', { configurable: true, value: originalLocation });
+            document.body.replaceChildren();
+        }
+    });
+
+    it.each([true, false])('opens another conversation with the saved message ID, reliable ID: %s', async (withId) => {
+        const { BookmarksPanelController } = await import('@/ui/content/bookmarks/BookmarksPanelController');
+        const url = 'https://chatgpt.com/c/aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa';
+        const assign = vi.fn(); const originalLocation = window.location;
+        Object.defineProperty(window, 'location', { configurable: true, value: { href: 'https://chatgpt.com/c/bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb', origin: 'https://chatgpt.com', assign } });
+        try {
+            const controller = new BookmarksPanelController({ getPlatformId: () => 'chatgpt' } as any, { navigation: conversationNavigationMock });
+            const bookmark = { url, urlWithoutProtocol: url.slice(8), position: 8, messageId: withId ? 'assistant-8' : null, timestamp: 1, title: 'Saved', platform: 'ChatGPT', folderPath: 'Import' };
+            await controller.goToBookmark(bookmark);
+            expect(assign).toHaveBeenCalledOnce();
+            const opened = new URL(assign.mock.calls[0]![0]);
+            expect(opened.searchParams.get('messageId')).toBe(withId ? 'assistant-8' : null);
+            expect(opened.searchParams.has('message')).toBe(false);
+            expect(bookmark.url).toBe(url);
+        } finally { Object.defineProperty(window, 'location', { configurable: true, value: originalLocation }); }
+    });
+
+    it('offers an explicit new-tab fallback instead of refreshing a same-conversation bookmark without a port', async () => {
+        const { BookmarksPanelController } = await import('@/ui/content/bookmarks/BookmarksPanelController');
+        document.body.replaceChildren();
+        const url = 'https://chatgpt.com/c/aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa';
+        const assign = vi.fn(); const originalLocation = window.location;
+        Object.defineProperty(window, 'location', { configurable: true, value: { href: url, origin: 'https://chatgpt.com', assign } });
+        try {
+            const controller = new BookmarksPanelController({ getPlatformId: () => 'chatgpt' } as any);
+            await controller.goToBookmark({ url, urlWithoutProtocol: url.slice(8), position: 8, messageId: 'assistant-8', timestamp: 1, title: 'Saved', platform: 'ChatGPT', folderPath: 'Import' });
+            expect(assign).not.toHaveBeenCalled();
+            const fallback = document.querySelector<HTMLAnchorElement>('#aimd-toast-viewport a')!;
+            expect(new URL(fallback.href).searchParams.get('messageId')).toBe('assistant-8');
+            expect(fallback.target).toBe('_blank');
+        } finally { document.body.replaceChildren(); Object.defineProperty(window, 'location', { configurable: true, value: originalLocation }); }
     });
 
     it('uses conversation identity across project routes and never jumps for an ID-less bookmark', async () => {

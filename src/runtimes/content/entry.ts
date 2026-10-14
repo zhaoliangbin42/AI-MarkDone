@@ -12,6 +12,7 @@ import { PROTOCOL_VERSION, createRequestId, isExtRequest, type ExtRequest, type 
 import { logger } from '../../core/logger';
 import { createConversationDocumentKeyV1 } from '../../contracts/conversationContent';
 import { showToast } from '../../utils/toast';
+import { showConversationNavigationFailure } from '../../ui/content/components/conversationNavigationFeedback';
 import { ensurePageTokens } from '../../style/pageTokens';
 import { MessageToolbarOrchestrator } from '../../ui/content/controllers/MessageToolbarOrchestrator';
 import { BookmarksPanelController } from '../../ui/content/bookmarks/BookmarksPanelController';
@@ -165,6 +166,7 @@ if (adapter) {
             execute: (target, options, source) => navigateChatGPTDirectoryTarget(adapter, target, {
                 source,
                 timeoutMs: options.timeoutMs,
+                deadlineMs: options.deadlineMs,
                 signal: options.signal,
                 seekStepPx: chatGptNavigationSeekStepPx,
                 alignmentTimeoutMs: Math.min(options.timeoutMs ?? 15000, 1500),
@@ -176,7 +178,10 @@ if (adapter) {
         ? new ConversationPendingNavigationRestorer({
             navigation: conversationNavigation,
             source: conversationContentSource!,
-            onUnavailable: () => bookmarksController.setPanelStatus(t('bookmarkUnreliableLocation')),
+            onUnavailable: (result, pending) => {
+                bookmarksController.setPanelStatus(t('bookmarkUnreliableLocation'));
+                showConversationNavigationFailure('reason' in result ? result : { ok: false, reason: 'source-unavailable' }, pending.url, pending.messageId);
+            },
         })
         : null;
     if (chatGptConversationContentRuntime && typeof chatGptConversationContentRuntime.setNavigationPort === 'function') {
@@ -903,6 +908,7 @@ if (adapter) {
                     ? conversationNavigation
                         ? await conversationNavigation.navigate({
                             position,
+                            documentKey: request.payload.documentKey,
                             messageId: request.payload.messageId ?? null,
                             assistantMessageId: request.payload.messageId ?? null,
                             source: 'reader',
@@ -912,16 +918,8 @@ if (adapter) {
                         position,
                         messageId: request.payload.messageId ?? null,
                     }, { timeoutMs: 2500, intervalMs: 200 });
-                if (!result.ok) {
-                    return {
-                        v: PROTOCOL_VERSION,
-                        id: request.id,
-                        ok: false,
-                        type: request.type,
-                        error: { code: 'NOT_FOUND', message: 'Message position not found' },
-                    };
-                }
-                return { v: PROTOCOL_VERSION, id: request.id, ok: true, type: request.type, data: { located: true } };
+                if (adapter.getPlatformId() === 'chatgpt' && !result.ok) showConversationNavigationFailure('reason' in result ? result : { ok: false, reason: 'source-unavailable' }, window.location.href, request.payload.messageId);
+                return { v: PROTOCOL_VERSION, id: request.id, ok: true, type: request.type, data: { located: result.ok } };
             }
         } catch (error) {
             return {

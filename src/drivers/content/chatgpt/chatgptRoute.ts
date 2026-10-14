@@ -1,5 +1,6 @@
 import { getChatGPTConversationId } from '../../../contracts/chatgptConversationId';
 export { getChatGPTConversationId } from '../../../contracts/chatgptConversationId';
+export { buildChatGPTMessageUrl } from '../../../contracts/chatgptMessageUrl';
 
 export function isChatGPTConversationPage(url: string): boolean {
     return getChatGPTConversationId(url) !== null;

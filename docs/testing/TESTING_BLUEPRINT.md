@@ -122,13 +122,14 @@ The discovery refactor has a dedicated contract and lifecycle layer in addition 
 - Page Monitor and Host Monitor coverage proves initialization, delayed official action-row hydration, generation end, root replacement and relevant content mutation all reach one short page-level reconciliation. Each coalesced capture reads one deduplicated outer-slot sequence excluding nested repeated markers and `client-created-root`; structure/identity observations preserve transient overlap topology while expensive body work stays coalesced; content-only changes do not add topology scans. User-message body hydration from empty to non-empty is a content signal and updates the same assistant identity without waiting for an unrelated history load. Streaming content is not compiled; empty slots are not cloned or converted; an unchanged complete pair removed and structurally remounted under the same stable assistant ID is not compiled again; an assistant-only capture recompiles when its user prompt remounts; changed eligible DOM still updates the same identity. Refused admission remains dirty with no self-polling, only acknowledged complete pairs skip remount recompilation, and a changed connected owner invalidates its old in-flight clone without discarding unrelated obtained clones. Extension-owned and unrelated mutations are ignored. Deep Research iframe hydration continues through its verified Adapter anchor.
 - Runtime composition coverage proves History navigation, `pageshow`, document `resume` and visible-page wake switch or refresh the correct tab-local conversation pool. A→B fences stale compilation, B→A restores A, and no consumer refresh, polling loop, bridge or retry ladder creates another acquisition path.
 - Surface and consumer-boundary tests prove accumulated-content consumers receive one Frame, while Toolbar and current-message actions consume the typed PageIndex message seam without a second observer, route watcher or accumulated store. DOM remounts do not change semantic tokens; an assistant-only virtualized remount rebinds without duplicating a toolbar; Directory visibility/items/geometry remain unchanged in this phase; pending local content does not rewrite React-owned nodes; and current-message DOM access cannot become a second multi-message discovery path. Governance also requires the retired Discovery Coordinator, Conversation Index, standalone Materialization implementation, and source-only V2 integration harness/tests to remain absent.
-- Same-page navigation tests enter through the shared Directory/Bookmark/Reader navigation seam and cover exact stable IDs, outer-slot deduplication, initial latest-window navigation, target-above/target-below direction, batch-load overshoot and step reduction, dynamic scroll-root geometry, configurable 1000–5000px stride values in 400px increments, bounded stalls/deadlines, user cancellation, projection changes, and exact-anchor stabilization. These tests must prove that navigation may cause ordinary page hydration only after an explicit user action and never adds a content observer, network acquisition path, placeholder count, or second pool. Message-navigation tests enter through the real lower-right action and ChatGPT bookmark path, assert empty `message` URL construction only when a route reload is necessary, and prove both paths share the same coordinator/executor without a page-entry slot sweep.
+- Same-page navigation tests enter through the shared Directory/Bookmark/Reader navigation seam and cover exact stable IDs, outer-slot deduplication, initial latest-window navigation, target-above/target-below direction, batch-load overshoot and step reduction, dynamic scroll-root geometry, configurable 1000–5000px stride values in 400px increments, bounded stalls/deadlines, user cancellation, projection changes, and exact-anchor stabilization. These tests must prove that navigation may cause ordinary page hydration only after an explicit user action and never adds a content observer, network acquisition path, placeholder count, or second pool. Message-navigation tests enter through real Directory, lower-right arrows, bookmark and Reader actions, assert cross-conversation `messageId` links and no automatic same-page refresh, and prove all consumers share one coordinator/executor/deadline without a page-entry slot sweep. Cover route-before-source switching, document binding, cancelled/expired pending intent consumption and Reader unsaved-state retention; actionable feedback must remain keyboard reachable while the Reader is open.
 - Installed Chrome MV3 and Firefox MV2 tests remain separate acceptance evidence; unit/integration green is not a substitute for real host verification.
 
 ### 3.0 Message navigation and DOM correction (2026-08-26)
 
-ChatGPT's content path uses the 5.3 GET seed plus the empty `?message=` query
-for the official navigation skeleton. Tests must prove that a valid bridge graph publishes
+ChatGPT's content path uses the 5.3 GET seed and mounted DOM correction.
+The legacy empty `?message=` query is an explicit manual refresh action; current
+hosts need not provide its former rail. Tests must prove that a valid bridge graph publishes
 usable `get` turns, missing source data preserves DOM `partial`, the official
 navigation skeleton is detected structurally, same-ID DOM correction wins
 without changing slot order, and a new slot or route change returns the pool
@@ -136,9 +137,11 @@ to truthful `get`/`partial` state. This path reuses PageIndex, Host Monitor and
 Conversation Surface; it must not add a second observer, active conversation
 request, polling loop, per-message timer, or page-entry slot sweep.
 
-The lower-right message-navigation action and ChatGPT message bookmark Go path
-use the same URL helper only when a route reload is necessary. Same-page
-bookmarks enter the shared NavigationCoordinator directly. The removed
+Cross-conversation ChatGPT bookmark and Library mark links use the pure
+`messageId` URL helper; the manual lower-right refresh action retains its separate
+legacy route helper. Same-page bookmarks and both Readers enter the shared
+NavigationCoordinator with a captured document key. No failure refreshes the
+current page, guesses a stored ordinal or silently retries after timeout. The removed
 top-scroll controller and its setting have no active gate; word count,
 current-message copy, Copy PNG and formula actions remain mounted-DOM
 consumers.

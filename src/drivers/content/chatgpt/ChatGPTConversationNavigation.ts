@@ -1,5 +1,5 @@
 import type { SiteAdapter } from '../adapters/base';
-import type { ConversationNavigationSourceV1 } from '../../../contracts/conversationNavigation';
+import type { ConversationNavigationFailureReasonV1, ConversationNavigationSourceV1 } from '../../../contracts/conversationNavigation';
 import type {
     ConversationObtainedSurfaceTurnV1,
     ConversationSurfaceMaterializationV1,
@@ -14,12 +14,14 @@ export type ChatGPTCanonicalNavigationTarget = {
     roundId?: string | null;
     userMessageId?: string | null;
     assistantMessageId?: string | null;
+    documentKey?: string | null;
 };
 
 export type ChatGPTMaterializationOptions = {
     surface: ConversationSurfacePortV1;
     source?: ConversationNavigationSourceV1;
     timeoutMs?: number;
+    deadlineMs?: number;
     signal?: AbortSignal;
     seekStepPx?: number;
 };
@@ -35,7 +37,7 @@ export type ChatGPTNavigationRound = Readonly<{
 
 export type ChatGPTMaterializationResult =
     | { ok: true; anchor: HTMLElement; round: ChatGPTNavigationRound }
-    | { ok: false; message: string };
+    | { ok: false; message: string; reason?: ConversationNavigationFailureReasonV1 };
 
 type NavigationRelation = -1 | 1;
 
@@ -70,6 +72,8 @@ function hasExplicitIdentity(target: ChatGPTCanonicalNavigationTarget): boolean 
 }
 
 function matchesTargetIdentity(round: ChatGPTNavigationRound, target: ChatGPTCanonicalNavigationTarget): boolean {
+    const assistantId = normalizeIdentity(target.assistantMessageId ?? target.messageId);
+    if (assistantId) return round.assistantMessageId === assistantId;
     const expectedRoundId = normalizeIdentity(target.roundId);
     const expectedUserMessageId = normalizeIdentity(target.userMessageId);
     const expectedAssistantMessageId = normalizeIdentity(target.assistantMessageId);
@@ -90,9 +94,20 @@ export function resolveChatGPTCanonicalTarget(
     target: ChatGPTCanonicalNavigationTarget,
 ): ChatGPTNavigationRound | null {
     const rounds = readNavigationRounds(surface);
+    if (target.documentKey && surface.readFrame().document?.key !== target.documentKey) return null;
+    const assistantId = normalizeIdentity(target.assistantMessageId ?? target.messageId);
+    if (normalizeIdentity(target.assistantMessageId) && normalizeIdentity(target.messageId) && normalizeIdentity(target.messageId) !== assistantId) return null;
     if (hasExplicitIdentity(target)) {
         const matches = rounds.filter((round) => matchesTargetIdentity(round, target));
-        return matches.length === 1 ? matches[0]! : null;
+        if (matches.length !== 1) return null;
+        const match = matches[0]!;
+        const roundId = normalizeIdentity(target.roundId);
+        const userMessageId = normalizeIdentity(target.userMessageId);
+        if (assistantId && rounds.some(round => (
+            (roundId && roundId !== match.roundId && round.roundId === roundId)
+            || (userMessageId && userMessageId !== match.userMessageId && round.userMessageId === userMessageId)
+        ))) return null;
+        return match;
     }
     const matches = rounds.filter((round) => round.position === target.position);
     return matches.length === 1 ? matches[0]! : null;
@@ -344,24 +359,27 @@ export async function materializeChatGPTConversationTarget(
     options: ChatGPTMaterializationOptions,
 ): Promise<ChatGPTMaterializationResult> {
     const { surface } = options;
+    if (options.signal?.aborted) return { ok: false, message: 'Navigation cancelled', reason: 'cancelled' };
+    if (options.deadlineMs !== undefined && options.deadlineMs <= Date.now()) {
+        return { ok: false, message: 'Conversation hydration timeout', reason: 'hydration-timeout' };
+    }
     const readRounds = () => readNavigationRounds(surface);
     const assistantMessageId = normalizeIdentity(target.assistantMessageId ?? target.messageId);
-    const pageControlTarget = (options.source === 'directory' || options.source === 'stepper') && assistantMessageId
-        ? { position: target.position, assistantMessageId }
-        : target;
-    const canonicalTarget = resolveChatGPTCanonicalTarget(surface, pageControlTarget);
+    const canonicalTarget = resolveChatGPTCanonicalTarget(surface, target);
     if (!canonicalTarget) return { ok: false, message: 'Canonical target unavailable' };
-    const exactTarget = pageControlTarget === target
-        ? toExactTarget(canonicalTarget)
-        : { position: canonicalTarget.position, assistantMessageId: canonicalTarget.assistantMessageId };
+    const exactTarget = assistantMessageId
+        ? { position: canonicalTarget.position, assistantMessageId: canonicalTarget.assistantMessageId, documentKey: surface.readFrame().document?.key }
+        : toExactTarget(canonicalTarget);
     const mountedAnchor = canonicalTarget.materialization?.jumpAnchorElement;
     if (mountedAnchor instanceof HTMLElement && mountedAnchor.isConnected) {
         return { ok: true, anchor: mountedAnchor, round: canonicalTarget };
     }
 
-    const timeoutMs = Math.max(1, Math.min(15_000, options.timeoutMs ?? 15_000));
+    const timeoutMs = Math.max(0, Math.min(15_000, options.timeoutMs ?? 15_000, (options.deadlineMs ?? Infinity) - Date.now()));
     const projectionAtStart = surface.readFrame().projectionId;
-    const conversationBoundaryChanged = () => surface.readFrame().projectionId !== projectionAtStart;
+    const documentAtStart = surface.readFrame().document?.key;
+    const conversationBoundaryChanged = () => surface.readFrame().projectionId !== projectionAtStart
+        || surface.readFrame().document?.key !== documentAtStart;
     let abortedByUser = false;
     let cancelPending: (() => void) | null = null;
     const abortForUser = () => {
@@ -411,7 +429,7 @@ export async function materializeChatGPTConversationTarget(
                 resolve(result);
             };
             cancelPending = () => finish({ ok: false, message: 'Navigation cancelled' });
-            routeChangedPending = () => finish({ ok: false, message: 'Conversation changed' });
+            routeChangedPending = () => finish({ ok: false, message: 'Conversation changed', reason: 'stale-target' });
             const onSignalAbort = () => finish({ ok: false, message: 'Navigation cancelled' });
             window.addEventListener('popstate', routeChanged);
             window.addEventListener('hashchange', routeChanged);
@@ -501,7 +519,7 @@ export async function materializeChatGPTConversationTarget(
                     return;
                 }
                 if (conversationBoundaryChanged()) {
-                    finish({ ok: false, message: 'Conversation changed' });
+                    finish({ ok: false, message: 'Conversation changed', reason: 'stale-target' });
                     return;
                 }
                 const currentTarget = resolveChatGPTCanonicalTarget(surface, exactTarget);

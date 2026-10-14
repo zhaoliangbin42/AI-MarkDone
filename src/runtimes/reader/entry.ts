@@ -12,6 +12,7 @@ import type { UserThemeOverrides } from '../../style/tokens';
 import { ReaderPanel } from '../../ui/content/reader/ReaderPanel';
 import { createConversationReaderActions } from '../../ui/content/reader/conversationReaderActions';
 import { setLocale, t } from '../../ui/content/components/i18n';
+import { showConversationNavigationFailure } from '../../ui/content/components/conversationNavigationFeedback';
 import { SendPopover } from '../../ui/content/sending/SendPopover';
 import { createDetachedReaderSendPort } from '../../ui/content/sending/detachedReaderSendPort';
 import { createPromptLibraryClient } from '../../drivers/content/prompts/promptLibraryClient';
@@ -407,15 +408,19 @@ async function run(): Promise<void> {
             },
             locate: {
                 locate: async ({ position, messageId }) => {
-                    const response = await requestRuntimeClient({
+                    const response = await requestRuntimeClient<{ located: boolean }>({
                         v: PROTOCOL_VERSION,
                         id: createRequestId(),
                         type: 'readerSession:locate',
                         payload: { sessionId, position, messageId },
-                    }, { timeoutMs: 12000 });
-                    return response.ok
+                    }, { timeoutMs: 20_000 });
+                    if (!response.ok) {
+                        showConversationNavigationFailure({ ok: false, reason: 'source-unavailable' }, session?.snapshot.sourceUrl ?? '', messageId);
+                        return { ok: false, handled: true };
+                    }
+                    return response.data?.located === true
                         ? { ok: true, message: t('detachedReaderLocated') }
-                        : { ok: false, message: response.message };
+                        : { ok: false, handled: true };
                 },
             },
         });

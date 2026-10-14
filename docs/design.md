@@ -440,6 +440,7 @@ Motion:
 - Tooltip and toast styling comes only from feedback tokens: `--aimd-tooltip-*` and `--aimd-toast-*`.
 - Standard label tooltips render at the page feedback layer to avoid being clipped by Shadow DOM hosts or host-page controls; preview tooltips may stay inside their owning ShadowRoot.
 - Toasts render at the top center of the viewport, replace the previous toast, default to 3 seconds, and must not block page interaction.
+- A navigation failure with a proven message URL may use the same toast owner with a native new-tab link and an explicit Close button. Actionable feedback persists until link activation, dismissal or replacement; it does not steal focus. Its viewport participates in the existing transient-root boundary so Reader keyboard scopes do not trap focus away from the link. Keyboard access, safe `noopener noreferrer` links, focus restoration and narrow-screen wrapping are mandatory. Cancelled/stale navigation is quiet; the in-page Reader stays open until locate succeeds.
 
 ### 7.10 Shared Chrome Ownership
 

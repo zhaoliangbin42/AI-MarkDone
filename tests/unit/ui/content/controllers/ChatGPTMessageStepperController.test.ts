@@ -7,7 +7,16 @@ import { setLocale } from '@/ui/content/components/i18n';
 const navigationMocks = vi.hoisted(() => ({
     collectChatGPTRoundPositions: vi.fn(),
     navigateChatGPTDirectoryTarget: vi.fn(async () => ({ ok: true })),
+    navigate: vi.fn<(input: any, options: any) => Promise<any>>(),
+    showToast: vi.fn(),
+    renderToast: null as ((params: any) => void) | null,
 }));
+
+vi.mock('@/utils/toast', async importOriginal => {
+    const original = await importOriginal<typeof import('@/utils/toast')>();
+    navigationMocks.renderToast = original.showToast;
+    return { ...original, showToast: navigationMocks.showToast };
+});
 
 vi.mock('@/ui/content/chatgptDirectory/navigation', async (importOriginal) => ({
     ...await importOriginal<typeof import('@/ui/content/chatgptDirectory/navigation')>(),
@@ -19,7 +28,12 @@ let activeSurface: any;
 
 class ChatGPTMessageStepperController extends ProductionChatGPTMessageStepperController {
     constructor(adapter: any, options: any = {}) {
-        super(adapter, { surface: activeSurface, onNavigationControlsReady: (previous: HTMLButtonElement, next: HTMLButtonElement) => document.body.append(previous, next), ...options });
+        super(adapter, {
+            surface: activeSurface,
+            navigation: { navigate: navigationMocks.navigate, cancelActive: vi.fn() },
+            onNavigationControlsReady: (previous: HTMLButtonElement, next: HTMLButtonElement) => document.body.append(previous, next),
+            ...options,
+        });
     }
 }
 
@@ -60,7 +74,13 @@ function createNavigationTarget(position: number) {
         roundId: `round-${position}`,
         userMessageId: `user-${position}`,
         assistantMessageId: `message-${position}`,
+        documentKey: 'chatgpt:conversation:12345678-1234-1234-1234-123456789abc',
+        source: 'stepper',
     };
+}
+
+function sharedNavigationOptions() {
+    return { timeoutMs: 15_000, align: 'start', signal: expect.any(AbortSignal) };
 }
 
 function setConversationUrl(): void {
@@ -107,6 +127,10 @@ describe('ChatGPTMessageStepperController', () => {
         setConversationUrl();
         navigationMocks.collectChatGPTRoundPositions.mockReset();
         navigationMocks.navigateChatGPTDirectoryTarget.mockClear();
+        navigationMocks.navigate.mockReset().mockImplementation(async input => ({
+            ok: true, phase: 'hydrated', resolvedBy: 'identity', target: input,
+        }));
+        navigationMocks.showToast.mockReset().mockImplementation(params => navigationMocks.renderToast?.(params));
         surfaceListener = null;
         unsubscribeSurface = vi.fn();
         surface.subscribeFrame.mockClear();
@@ -128,6 +152,113 @@ describe('ChatGPTMessageStepperController', () => {
     afterEach(() => {
         for (const controller of controllers.splice(0)) controller.dispose();
         document.body.innerHTML = '';
+    });
+
+    it('offers a canonical message link after a real arrow click fails through the shared port', async () => {
+        navigationMocks.navigate.mockResolvedValueOnce({ ok: false, reason: 'hydration-timeout' } as any);
+        const controller = new ChatGPTMessageStepperController(adapter, {
+            navigation: { navigate: navigationMocks.navigate, cancelActive: vi.fn() },
+        });
+        controllers.push(controller);
+        controller.init();
+        const next = document.querySelector<HTMLButtonElement>('[data-action="next-message"]')!;
+        next.dispatchEvent(new MouseEvent('pointerdown', { bubbles: true, composed: true }));
+        next.click();
+        await vi.waitFor(() => expect(navigationMocks.showToast).toHaveBeenCalledOnce());
+
+        expect(navigationMocks.navigate).toHaveBeenCalledWith(expect.objectContaining({
+            assistantMessageId: 'message-3', documentKey: surfaceDocument.key, source: 'stepper',
+        }), expect.objectContaining({ signal: expect.any(AbortSignal) }));
+        expect(navigationMocks.showToast).toHaveBeenCalledWith(expect.objectContaining({
+            action: expect.objectContaining({ href: `${surfaceDocument.canonicalUrl}?messageId=message-3` }),
+        }));
+        expect(document.querySelector<HTMLAnchorElement>('.aimd-toast a')?.href)
+            .toBe(`${surfaceDocument.canonicalUrl}?messageId=message-3`);
+        expect(navigationMocks.navigateChatGPTDirectoryTarget).not.toHaveBeenCalled();
+    });
+
+    it('does not invoke a second navigation driver when the shared port is unavailable', async () => {
+        const controller = new ChatGPTMessageStepperController(adapter, { navigation: null });
+        controllers.push(controller);
+        controller.init();
+        const next = document.querySelector<HTMLButtonElement>('[data-action="next-message"]')!;
+        next.dispatchEvent(new MouseEvent('pointerdown', { bubbles: true, composed: true }));
+        next.click();
+        await Promise.resolve();
+
+        expect(navigationMocks.navigateChatGPTDirectoryTarget).not.toHaveBeenCalled();
+        expect(navigationMocks.navigate).not.toHaveBeenCalled();
+        expect(navigationMocks.showToast).toHaveBeenCalledOnce();
+    });
+
+    it.each(['cancelled', 'stale-target'])('keeps a real arrow click quiet when navigation returns %s', async reason => {
+        navigationMocks.navigate.mockResolvedValueOnce({ ok: false, reason } as any);
+        const controller = new ChatGPTMessageStepperController(adapter, {
+            navigation: { navigate: navigationMocks.navigate, cancelActive: vi.fn() },
+        });
+        controllers.push(controller);
+        controller.init();
+        const next = document.querySelector<HTMLButtonElement>('[data-action="next-message"]')!;
+        next.dispatchEvent(new MouseEvent('pointerdown', { bubbles: true, composed: true }));
+        next.click();
+        await Promise.resolve();
+        await Promise.resolve();
+
+        expect(navigationMocks.navigate).toHaveBeenCalledOnce();
+        expect(navigationMocks.showToast).not.toHaveBeenCalled();
+    });
+
+    it('aborts the previous arrow request and suppresses its late failure after another arrow click', async () => {
+        let finish!: (value: any) => void;
+        navigationMocks.navigate.mockImplementationOnce(() => new Promise(resolve => { finish = resolve; }));
+        const controller = new ChatGPTMessageStepperController(adapter, {
+            navigation: { navigate: navigationMocks.navigate, cancelActive: vi.fn() },
+        });
+        controllers.push(controller);
+        controller.init();
+        const next = document.querySelector<HTMLButtonElement>('[data-action="next-message"]')!;
+        next.dispatchEvent(new MouseEvent('pointerdown', { bubbles: true, composed: true }));
+        next.click();
+        const firstSignal = (navigationMocks.navigate.mock.calls[0] as any)[1].signal as AbortSignal;
+        const previous = document.querySelector<HTMLButtonElement>('[data-action="previous-message"]')!;
+        previous.dispatchEvent(new MouseEvent('pointerdown', { bubbles: true, composed: true }));
+        previous.click();
+        finish({ ok: false, reason: 'hydration-timeout' });
+        await Promise.resolve();
+        await Promise.resolve();
+
+        expect(firstSignal?.aborted).toBe(true);
+        expect(navigationMocks.navigate).toHaveBeenCalledTimes(2);
+        expect(navigationMocks.showToast).not.toHaveBeenCalled();
+    });
+
+    it('does not navigate by position or offer a message link when the target has no reliable ID', async () => {
+        const rounds = navigationMocks.collectChatGPTRoundPositions();
+        navigationMocks.collectChatGPTRoundPositions.mockReturnValue(rounds.map((round: any) => round.position === 3
+            ? { ...round, messageId: null, assistantMessageId: null } : round));
+        const controller = new ChatGPTMessageStepperController(adapter);
+        controllers.push(controller);
+        controller.init();
+        const next = document.querySelector<HTMLButtonElement>('[data-action="next-message"]')!;
+        next.dispatchEvent(new MouseEvent('pointerdown', { bubbles: true, composed: true }));
+        next.click();
+        await Promise.resolve();
+
+        expect(navigationMocks.navigate).not.toHaveBeenCalled();
+        expect(navigationMocks.navigateChatGPTDirectoryTarget).not.toHaveBeenCalled();
+        expect(navigationMocks.showToast).toHaveBeenCalledWith(expect.not.objectContaining({ action: expect.anything() }));
+    });
+
+    it('aborts an outstanding arrow navigation on disposal', async () => {
+        navigationMocks.navigate.mockImplementationOnce(() => new Promise(() => undefined));
+        const controller = new ChatGPTMessageStepperController(adapter);
+        controllers.push(controller);
+        controller.init();
+        document.querySelector<HTMLButtonElement>('[data-action="next-message"]')!.click();
+        const signal = navigationMocks.navigate.mock.calls[0]![1].signal as AbortSignal;
+        controller.dispose();
+
+        expect(signal.aborted).toBe(true);
     });
 
     it('shows the shared tooltip when a page control is hovered', async () => {
@@ -302,14 +433,13 @@ describe('ChatGPTMessageStepperController', () => {
 
         previous.click();
         await Promise.resolve();
-        expect(navigationMocks.navigateChatGPTDirectoryTarget).toHaveBeenLastCalledWith(
-            adapter,
+        expect(navigationMocks.navigate).toHaveBeenLastCalledWith(
             createNavigationTarget(1),
-            { surface },
+            sharedNavigationOptions(),
         );
 
         controller.dispose();
-        navigationMocks.navigateChatGPTDirectoryTarget.mockClear();
+        navigationMocks.navigate.mockClear();
         const nextController = new ChatGPTMessageStepperController(adapter);
         controllers.push(nextController);
         nextController.init();
@@ -317,10 +447,9 @@ describe('ChatGPTMessageStepperController', () => {
         const nextOnly = document.querySelector<HTMLButtonElement>('[data-action="next-message"]')!;
         nextOnly.click();
         await Promise.resolve();
-        expect(navigationMocks.navigateChatGPTDirectoryTarget).toHaveBeenLastCalledWith(
-            adapter,
+        expect(navigationMocks.navigate).toHaveBeenLastCalledWith(
             createNavigationTarget(3),
-            { surface },
+            sharedNavigationOptions(),
         );
     });
 
@@ -528,7 +657,7 @@ describe('ChatGPTMessageStepperController', () => {
 
         previous.click();
         await Promise.resolve();
-        expect(navigationMocks.navigateChatGPTDirectoryTarget).not.toHaveBeenCalled();
+        expect(navigationMocks.navigate).not.toHaveBeenCalled();
     });
 
     it('keeps the lower-right page controls visible when no message rounds are present', async () => {
@@ -757,10 +886,9 @@ describe('ChatGPTMessageStepperController', () => {
         await Promise.resolve();
 
         expect(event.defaultPrevented).toBe(true);
-        expect(navigationMocks.navigateChatGPTDirectoryTarget).toHaveBeenCalledWith(
-            adapter,
+        expect(navigationMocks.navigate).toHaveBeenCalledWith(
             createNavigationTarget(3),
-            { surface },
+            sharedNavigationOptions(),
         );
     });
 
@@ -780,17 +908,15 @@ describe('ChatGPTMessageStepperController', () => {
         document.dispatchEvent(new KeyboardEvent('keydown', { key: 'ArrowRight', bubbles: true, cancelable: true }));
         await Promise.resolve();
 
-        expect(navigationMocks.navigateChatGPTDirectoryTarget).toHaveBeenNthCalledWith(
+        expect(navigationMocks.navigate).toHaveBeenNthCalledWith(
             1,
-            adapter,
             createNavigationTarget(3),
-            { surface },
+            sharedNavigationOptions(),
         );
-        expect(navigationMocks.navigateChatGPTDirectoryTarget).toHaveBeenNthCalledWith(
+        expect(navigationMocks.navigate).toHaveBeenNthCalledWith(
             2,
-            adapter,
             createNavigationTarget(4),
-            { surface },
+            sharedNavigationOptions(),
         );
     });
 
@@ -809,7 +935,7 @@ describe('ChatGPTMessageStepperController', () => {
         editable.dispatchEvent(new KeyboardEvent('keydown', { key: 'ArrowLeft', bubbles: true, cancelable: true }));
         await Promise.resolve();
 
-        expect(navigationMocks.navigateChatGPTDirectoryTarget).not.toHaveBeenCalled();
+        expect(navigationMocks.navigate).not.toHaveBeenCalled();
     });
 
     it('lets settings disable keyboard navigation without disabling the visible buttons', async () => {
@@ -820,14 +946,13 @@ describe('ChatGPTMessageStepperController', () => {
 
         document.dispatchEvent(new KeyboardEvent('keydown', { key: 'ArrowRight', bubbles: true, cancelable: true }));
         await Promise.resolve();
-        expect(navigationMocks.navigateChatGPTDirectoryTarget).not.toHaveBeenCalled();
+        expect(navigationMocks.navigate).not.toHaveBeenCalled();
 
         document.querySelector<HTMLButtonElement>('[data-action="next-message"]')?.click();
         await Promise.resolve();
-        expect(navigationMocks.navigateChatGPTDirectoryTarget).toHaveBeenCalledWith(
-            adapter,
+        expect(navigationMocks.navigate).toHaveBeenCalledWith(
             createNavigationTarget(3),
-            { surface },
+            sharedNavigationOptions(),
         );
     });
 
@@ -851,10 +976,9 @@ describe('ChatGPTMessageStepperController', () => {
         document.dispatchEvent(new KeyboardEvent('keydown', { key: 'ArrowRight', bubbles: true, cancelable: true }));
         await Promise.resolve();
 
-        expect(navigationMocks.navigateChatGPTDirectoryTarget).toHaveBeenCalledWith(
-            adapter,
+        expect(navigationMocks.navigate).toHaveBeenCalledWith(
             createNavigationTarget(3),
-            { surface },
+            sharedNavigationOptions(),
         );
 
         controller.setVisible(true);

@@ -1,3 +1,6 @@
+import { getChatGPTConversationId } from '../../../contracts/chatgptConversationId';
+import { createConversationDocumentKeyV1, isConversationDocumentRefV1 } from '../../../contracts/conversationContent';
+import { isChatGPTPageUrl } from '../../../contracts/chatgptHosts';
 import {
     PROTOCOL_VERSION,
     createRequestId,
@@ -24,6 +27,25 @@ type ReaderSessionRecord = {
 };
 
 type ReaderSessionStore = Record<string, ReaderSessionRecord>;
+
+function getReaderSourceDocumentKey(record: ReaderSessionRecord): string | null {
+    const conversationId = getChatGPTConversationId(record.sourceUrl);
+    if (conversationId) return createConversationDocumentKeyV1('chatgpt', conversationId);
+    if (!isChatGPTPageUrl(record.sourceUrl)) return null;
+    const sourceUrl = new URL(record.sourceUrl);
+    if (sourceUrl.protocol !== 'https:' || sourceUrl.username || sourceUrl.password || sourceUrl.port) return null;
+
+    const annotationDocument = record.snapshot.annotationDocument;
+    if (annotationDocument && annotationDocument.platform !== 'chatgpt') return null;
+    const keys = new Set([
+        annotationDocument?.conversationId,
+        ...record.snapshot.items.map(item => item.meta?.documentKey),
+    ].filter(key => key !== undefined));
+    if (keys.size !== 1) return null;
+    const key = [...keys][0];
+    return isConversationDocumentRefV1({ key, platformId: 'chatgpt', identityKind: 'page', conversationId: null })
+        ? key! : null;
+}
 
 function ok(request: ExtRequest, data?: unknown): ExtResponse {
     return { v: PROTOCOL_VERSION, id: request.id, ok: true, type: request.type, data };
@@ -282,6 +304,11 @@ export async function handleReaderSessionRequest(request: ExtRequest, sender: an
     }
 
     let forwarded: ExtRequest = { ...request, id: createRequestId() } as ExtRequest;
+    if (request.type === 'readerSession:locate') {
+        const documentKey = getReaderSourceDocumentKey(record);
+        if (!documentKey) return { response: errorResponse(request, 'SOURCE_UNAVAILABLE', 'Reader source conversation is unavailable') };
+        forwarded = { ...request, id: createRequestId(), payload: { ...request.payload, documentKey } };
+    }
     if (request.type === 'readerSession:assets') {
         const matches = record.snapshot.items.filter(item => item.id === request.payload.itemId);
         if (matches.length !== 1 || !isRichBlocksV1(matches[0]!.richBlocks ?? [])

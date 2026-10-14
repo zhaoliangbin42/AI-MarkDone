@@ -1343,8 +1343,11 @@ describe('content runtime entry', () => {
                 assistantMessageId: 'payload-a50',
                 source: 'bookmark',
             },
-            { timeoutMs: 15000, align: 'start' },
+            expect.objectContaining({ timeoutMs: expect.any(Number), deadlineMs: expect.any(Number), signal: expect.any(AbortSignal), align: 'start' }),
         );
+        const options = conversationNavigationNavigate.mock.calls[0]?.[1];
+        expect(options?.timeoutMs).toBeGreaterThan(0);
+        expect(options?.timeoutMs).toBeLessThanOrEqual(15_000);
         expect(scrollToBookmarkTargetWithRetry).not.toHaveBeenCalled();
     });
 
@@ -2174,6 +2177,27 @@ describe('content runtime entry', () => {
             type: 'annotations:focus',
             error: expect.objectContaining({ code: 'SOURCE_UNAVAILABLE' }),
         }));
+    });
+
+    it.each([true, false])('reports the shared detached Reader locate outcome (%s) separately from transport success', async (located) => {
+        adapterPlatformId = 'chatgpt';
+        conversationNavigationNavigate.mockResolvedValueOnce(located
+            ? { ok: true as const }
+            : { ok: false, reason: 'stale-target' } as any);
+        vi.resetModules();
+        await import('@/runtimes/content/entry');
+        const sendResponse = vi.fn();
+        (runtimeMessageListener as any)!({ v: 1, id: 'bound-reader-locate', type: 'readerSession:locate', payload: {
+            sessionId: 'session-1', position: 5, messageId: 'assistant-5', documentKey: 'chatgpt:conversation:original',
+        } }, { id: 'extension-id' }, sendResponse);
+        await vi.waitFor(() => expect(sendResponse).toHaveBeenCalled());
+        expect(conversationNavigationNavigate).toHaveBeenCalledWith({
+            position: 5, messageId: 'assistant-5', assistantMessageId: 'assistant-5',
+            documentKey: 'chatgpt:conversation:original', source: 'reader',
+        }, { timeoutMs: 15_000, align: 'start' });
+        expect(sendResponse).toHaveBeenCalledWith(expect.objectContaining({ ok: true, data: { located } }));
+        expect(readerPanelHide).not.toHaveBeenCalled();
+        expect(scrollToBookmarkTargetWithRetry).not.toHaveBeenCalled();
     });
 
     it('writes detached reader draft updates back to the source composer', async () => {

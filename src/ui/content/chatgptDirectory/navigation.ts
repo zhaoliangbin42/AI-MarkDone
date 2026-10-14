@@ -9,6 +9,7 @@ import {
     type ChatGPTMaterializationOptions,
 } from '../../../drivers/content/chatgpt/ChatGPTConversationNavigation';
 import type { ConversationSurfacePortV1 } from '../../../contracts/conversationSurface';
+import type { ConversationNavigationFailureReasonV1 } from '../../../contracts/conversationNavigation';
 
 export type ChatGPTRoundPosition = {
     position: number;
@@ -47,8 +48,8 @@ type AlignmentDebugEvent = {
 };
 
 type AlignmentResult =
-    | { ok: true; anchor: HTMLElement }
-    | { ok: false; message: string };
+    | { ok: true; anchor: HTMLElement; expectedTop: number }
+    | { ok: false; message: string; reason?: ConversationNavigationFailureReasonV1 };
 
 const DEFAULT_ALIGNMENT_TIMEOUT_MS = 900;
 const DEFAULT_ALIGNMENT_QUIET_MS = 80;
@@ -182,23 +183,46 @@ export async function navigateChatGPTDirectoryTarget(
     adapter: SiteAdapter,
     target: ChatGPTNavigationTarget,
     options: ChatGPTNavigationOptions,
-): Promise<ScrollResult> {
+): Promise<ScrollResult & { reason?: ConversationNavigationFailureReasonV1 }> {
+    const initialFrame = options.surface.readFrame();
+    options = {
+        ...options,
+        deadlineMs: Math.min(options.deadlineMs ?? Infinity, Date.now() + Math.max(1, Math.min(15_000, options.timeoutMs ?? 15_000))),
+    };
     const materialized = await materializeChatGPTConversationTarget(adapter, target, options);
     if (!materialized.ok) return materialized;
-    const exactTarget: ChatGPTNavigationTarget = options.source === 'directory' || options.source === 'stepper'
-        ? { position: materialized.round.position, assistantMessageId: materialized.round.assistantMessageId }
-        : {
-            position: materialized.round.position,
-            messageId: materialized.round.messageId,
-            roundId: materialized.round.roundId,
-            userMessageId: materialized.round.userMessageId,
-            assistantMessageId: materialized.round.assistantMessageId,
-        };
+    const conversationChanged = () => {
+        const frame = options.surface.readFrame();
+        return frame.document?.key !== initialFrame.document?.key || frame.projectionId !== initialFrame.projectionId;
+    };
+    if (conversationChanged()) return { ok: false, message: 'Conversation changed', reason: 'stale-target' };
+    const exactTarget: ChatGPTNavigationTarget = {
+        position: materialized.round.position,
+        assistantMessageId: materialized.round.assistantMessageId,
+        documentKey: initialFrame.document?.key,
+    };
     const anchor = materialized.anchor;
     if (anchor && typeof anchor.scrollIntoView === 'function') {
         const alignment = await scrollChatGPTAnchorWithAlignment(adapter, exactTarget, anchor, options);
         if (!alignment.ok) return alignment;
-        window.setTimeout(() => highlightNavigationTarget(alignment.anchor), 40);
+        if (options.signal?.aborted) return { ok: false, message: 'Navigation cancelled', reason: 'cancelled' };
+        if (options.deadlineMs !== undefined && Date.now() >= options.deadlineMs) {
+            return { ok: false, message: 'Conversation hydration timeout', reason: 'hydration-timeout' };
+        }
+        if (conversationChanged()) return { ok: false, message: 'Conversation changed', reason: 'stale-target' };
+        if (!alignment.anchor.isConnected || getAnchorForTarget(exactTarget, options.surface) !== alignment.anchor) {
+            return { ok: false, message: 'Navigation target was disconnected', reason: 'stale-target' };
+        }
+        if ((options.alignmentTimeoutMs ?? DEFAULT_ALIGNMENT_TIMEOUT_MS) > 0
+            && Math.abs(getAnchorTop(alignment.anchor) - getExpectedAnchorTop(adapter, alignment.anchor, alignment.expectedTop)) > (options.alignmentTolerancePx ?? DEFAULT_ALIGNMENT_TOLERANCE_PX)) {
+            return { ok: false, message: 'Navigation target did not stabilize', reason: 'slot-missing' };
+        }
+        window.setTimeout(() => {
+            if (!options.signal?.aborted && !conversationChanged()
+                && alignment.anchor.isConnected && getAnchorForTarget(exactTarget, options.surface) === alignment.anchor) {
+                highlightNavigationTarget(alignment.anchor);
+            }
+        }, 40);
         return { ok: true };
     }
     return { ok: false, message: 'Materialized target has no scroll anchor' };
@@ -210,7 +234,7 @@ async function scrollChatGPTAnchorWithAlignment(
     initialAnchor: HTMLElement,
     options: ChatGPTNavigationOptions,
 ): Promise<AlignmentResult> {
-    const timeoutMs = Math.max(0, options?.alignmentTimeoutMs ?? DEFAULT_ALIGNMENT_TIMEOUT_MS);
+    const timeoutMs = Math.max(0, Math.min(options?.alignmentTimeoutMs ?? DEFAULT_ALIGNMENT_TIMEOUT_MS, (options.deadlineMs ?? Infinity) - Date.now()));
     const quietMs = Math.max(16, options?.alignmentQuietMs ?? DEFAULT_ALIGNMENT_QUIET_MS);
     const tolerancePx = Math.max(0, options?.alignmentTolerancePx ?? DEFAULT_ALIGNMENT_TOLERANCE_PX);
     const maxAttempts = Math.max(1, options?.maxAlignmentAttempts ?? DEFAULT_MAX_ALIGNMENT_ATTEMPTS);
@@ -219,31 +243,44 @@ async function scrollChatGPTAnchorWithAlignment(
     let anchor = initialAnchor;
     let attempts = 1;
     let aborted = false;
-    let signalAborted = false;
     let mutationCount = 0;
     let resizeCount = 0;
     const abortForUser = () => {
         aborted = true;
     };
     const abortForSignal = () => {
-        signalAborted = true;
         aborted = true;
     };
     const userAbortEvents: Array<keyof DocumentEventMap> = ['pointerdown', 'keydown', 'wheel', 'touchstart'];
 
     let mutationObserver: MutationObserver | null = null;
     let resizeObserver: ResizeObserver | null = null;
+    const frameAtStart = options.surface.readFrame();
+    const boundaryFailure = (): AlignmentResult | null => {
+        if (options.signal?.aborted) {
+            const reason = options.signal.reason === 'hydration-timeout' || options.signal.reason === 'stale-target'
+                ? options.signal.reason : 'cancelled';
+            return { ok: false, message: reason === 'stale-target' ? 'Conversation changed' : reason === 'hydration-timeout' ? 'Conversation hydration timeout' : 'Navigation cancelled', reason };
+        }
+        const frame = options.surface.readFrame();
+        if (frame.document?.key !== frameAtStart.document?.key || frame.projectionId !== frameAtStart.projectionId) {
+            return { ok: false, message: 'Conversation changed', reason: 'stale-target' };
+        }
+        if (aborted) return { ok: false, message: 'Navigation cancelled', reason: 'cancelled' };
+        if (options.deadlineMs !== undefined && Date.now() >= options.deadlineMs) {
+            return { ok: false, message: 'Conversation hydration timeout', reason: 'hydration-timeout' };
+        }
+        const matches = frame.obtainedTurns.filter(entry => entry.turn.identity.assistantMessageId === target.assistantMessageId);
+        if (matches.length > 1) return { ok: false, message: 'Navigation identity conflict', reason: 'identity-conflict' };
+        if (!getAnchorForTarget(target, options.surface)?.isConnected) {
+            return { ok: false, message: 'Navigation target was disconnected', reason: 'stale-target' };
+        }
+        return null;
+    };
 
-    if (options.signal?.aborted) return { ok: false, message: 'Navigation cancelled' };
-    scrollAnchor(anchor);
-    if (options.signal?.aborted) return { ok: false, message: 'Navigation cancelled' };
-    const targetTop = getAnchorTop(anchor);
-    debugEvents.push({ stage: 'scroll', position: target.position, attempt: attempts, top: targetTop });
-
-    if (timeoutMs <= 0) {
-        flushNavigationDebug(debugEvents);
-        return { ok: true, anchor };
-    }
+    const initialFailure = boundaryFailure();
+    if (initialFailure) return initialFailure;
+    anchor = getAnchorForTarget(target, options.surface)!;
 
     options.signal?.addEventListener('abort', abortForSignal, { once: true });
     if (options.signal?.aborted) abortForSignal();
@@ -252,6 +289,12 @@ async function scrollChatGPTAnchorWithAlignment(
     }
 
     try {
+        scrollAnchor(anchor);
+        const afterScrollFailure = boundaryFailure();
+        if (afterScrollFailure) return afterScrollFailure;
+        const targetTop = getAnchorTop(anchor);
+        debugEvents.push({ stage: 'scroll', position: target.position, attempt: attempts, top: targetTop });
+        if (timeoutMs <= 0) return { ok: true, anchor, expectedTop: getExpectedAnchorTop(adapter, anchor, targetTop) };
         if (diagnosticsEnabled) {
             const observerRoot = adapter.getObserverContainer?.() ?? document.body;
             if (observerRoot) {
@@ -274,8 +317,9 @@ async function scrollChatGPTAnchorWithAlignment(
         const startedAt = Date.now();
         let stableMeasurements = 0;
         while (!aborted && Date.now() - startedAt < timeoutMs) {
-            await sleep(quietMs);
-            if (aborted) break;
+            await sleep(Math.min(quietMs, timeoutMs - (Date.now() - startedAt)));
+            const failure = boundaryFailure();
+            if (failure) return failure;
 
             const nextAnchor = getAnchorForTarget(target, options.surface);
             if (nextAnchor && nextAnchor !== anchor) {
@@ -298,7 +342,8 @@ async function scrollChatGPTAnchorWithAlignment(
             }
 
             const currentTop = getAnchorTop(anchor);
-            const delta = currentTop - getExpectedAnchorTop(adapter, anchor, targetTop);
+            const expectedTop = getExpectedAnchorTop(adapter, anchor, targetTop);
+            const delta = currentTop - expectedTop;
             debugEvents.push({
                 stage: 'measure',
                 position: target.position,
@@ -311,7 +356,7 @@ async function scrollChatGPTAnchorWithAlignment(
             if (Math.abs(delta) <= tolerancePx) {
                 stableMeasurements += 1;
                 if (stableMeasurements >= 2) {
-                    return { ok: true, anchor };
+                    return { ok: true, anchor, expectedTop };
                 }
                 continue;
             }
@@ -349,8 +394,8 @@ async function scrollChatGPTAnchorWithAlignment(
         flushNavigationDebug(debugEvents);
     }
 
-    if (signalAborted) return { ok: false, message: 'Navigation cancelled' };
-    if (aborted) return { ok: true, anchor };
+    const failure = boundaryFailure();
+    if (failure) return failure;
     if (!anchor.isConnected) return { ok: false, message: 'Navigation target was disconnected' };
     return { ok: false, message: 'Navigation target did not stabilize' };
 }

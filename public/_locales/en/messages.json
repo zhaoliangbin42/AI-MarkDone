@@ -127,6 +127,14 @@
         "message": "Close",
         "description": "Message for btnClose"
     },
+    "conversationNavigationFailed": {
+        "message": "Could not locate this message on the page.",
+        "description": "Shown when conversation message navigation fails"
+    },
+    "conversationNavigationOpenMessage": {
+        "message": "Open message in new tab",
+        "description": "Explicit action to open the message on ChatGPT after navigation fails"
+    },
     "btnDelete": {
         "message": "Delete",
         "description": "Message for btnDelete"

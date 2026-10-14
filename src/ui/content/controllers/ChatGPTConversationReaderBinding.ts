@@ -27,6 +27,7 @@ type ChatGPTConversationReaderBindingOptions = {
 function normalizedIdentity(item: ReaderItem): string {
     const meta = item.meta ?? {};
     return [
+        meta.documentKey,
         meta.position,
         meta.roundId,
         meta.userMessageId,

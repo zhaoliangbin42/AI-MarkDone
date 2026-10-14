@@ -43,6 +43,7 @@ function buildReaderItem(position: number): ReaderItem {
         content: `Answer ${position}`,
         meta: {
             platformId: 'chatgpt',
+            documentKey: 'chatgpt:conversation:conv-1',
             position,
             roundId: `round-${position}`,
             userMessageId: `user-${position}`,
@@ -77,6 +78,37 @@ function createSource(initialState: any) {
 }
 
 describe('ChatGPTConversationReaderBinding', () => {
+    it('upgrades a legacy item document identity once and ignores host query cleanup', async () => {
+        const source = createSource(buildState(1));
+        const legacy = buildReaderItem(1);
+        delete legacy.meta!.documentKey;
+        let currentItems = [legacy];
+        let pageUrl = 'https://chatgpt.com/c/conv-1?messageId=assistant-1';
+        const readerPanel = {
+            isShowingConversationReader: vi.fn(() => true),
+            getItemsSnapshot: vi.fn(() => [...currentItems]),
+            appendItem: vi.fn(),
+            replaceItems: vi.fn(async (items: ReaderItem[]) => { currentItems = items; }),
+            hide: vi.fn(),
+        } as any;
+        const binding = new ChatGPTConversationReaderBinding({
+            adapter: { getPlatformId: () => 'chatgpt' } as any,
+            source: source.source, readerPanel, pageUrl: () => pageUrl,
+        });
+        binding.init();
+        await vi.waitFor(() => expect(readerPanel.replaceItems).toHaveBeenCalledOnce());
+        expect(currentItems[0]?.meta?.documentKey).toBe('chatgpt:conversation:conv-1');
+
+        source.publish(buildState(1));
+        pageUrl = 'https://chatgpt.com/c/conv-1';
+        source.publish(buildState(1));
+        await Promise.resolve();
+
+        expect(readerPanel.replaceItems).toHaveBeenCalledOnce();
+        expect(readerPanel.appendItem).not.toHaveBeenCalled();
+        binding.dispose();
+    });
+
     it.each(['replace', 'remove'])('refreshes the open Reader when only preserved source links %s', async (change) => {
         const baseline = readyConversationState(buildState(1).snapshot);
         const state = { ...baseline, snapshot: {

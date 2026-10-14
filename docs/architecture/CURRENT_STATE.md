@@ -1,5 +1,34 @@
 # Architecture Current State (As-Is)
 
+> **Shared message navigation (2026-10-14)**
+>
+> Directory, Stepper, bookmarks, in-page Reader and detached Reader all enter
+> `ConversationNavigationPortV1` → `ConversationNavigationCoordinator` → the
+> existing ChatGPT materialization/alignment executor. A unique assistant ID
+> takes precedence over a changed ordinal or provisional turn/user label for
+> every consumer; known contradictory identities still fail closed.
+> Source wait, materialization and final alignment share one cancellable deadline
+> of at most 15 seconds. User input, replacement requests and source/projection
+> changes withdraw old work. Success requires current identity, a connected exact
+> anchor and a verified landing; cancellation is never success.
+>
+> Cross-conversation bookmarks and Library marks derive `?messageId=<id>` through
+> the pure `chatgptMessageUrl` contract, leaving stored records and backup formats
+> unchanged. Pending bookmark restoration waits for both route and content pool,
+> binds the target document, consumes every terminal intent and never restarts on
+> a later source revision. Detached locate is bound by background to the saved
+> session's source document, including its trusted page-scoped snapshot identity.
+> Reader item `meta.documentKey` follows item replacement and page→canonical
+> promotion; navigation cannot retain an obsolete action closure's identity.
+> The in-page Reader closes only after successful locate.
+>
+> Navigation failure preserves the current page and can present an explicit
+> new-tab message link through shared feedback; stale/cancelled work is quiet and
+> identity conflicts never offer a guessed target. There is no automatic refresh,
+> private React/virtualizer access, or new discovery source. The existing explicit
+> Refresh message navigation control remains user-initiated and separate.
+> See [the implementation record](../plans/2026-10-14-message-navigation.md).
+
 > **Compact controls and feedback cleanup (2026-10-14)**
 >
 > Page controls and their Settings previews share one size/style owner; the native
@@ -23,7 +52,7 @@
 > cannot select a different repeated paragraph. Library highlights reuse the
 > existing `highlight:<id>` anchor namespace and annotation navigation transport.
 > Background reads the stored mark's assistant ID and asks the host to load it
-> through `?message=<id>`. Content reuses the existing navigation coordinator's
+> through `?messageId=<id>`. Content reuses the existing navigation coordinator's
 > bounded source/materialization wait before Reader focus; no discovery observer,
 > polling or conversation request is added. Page annotation/highlight reveal
 > centers the proven range geometry in the current scroll root and preserves
@@ -180,8 +209,9 @@
 > display keys can be renumbered. The Repository and
 > the single `ChatGPTPageIndex` are joined by
 > `ChatGPTConversationSurface` for Directory, Reader and multi-message Export.
-> The explicit `?message=` reload creates ChatGPT's official navigation
-> skeleton but does not start an automatic whole-history DOM sweep. Toolbar and
+> The legacy explicit `?message=` reload remains a manual control; current host
+> versions need not expose its former navigation skeleton. It never starts a
+> whole-history DOM sweep. Toolbar and
 > current-message actions use mounted PageIndex facts and current DOM directly,
 > without waiting for source or full-history admission. Formula actions remain
 > DOM-local. See [ADR-0024](../adr/ADR-0024-chatgpt-dom-authoritative-content-pool.md),
@@ -214,15 +244,16 @@
 > **Message navigation update (2026-08-26)**
 >
 > Normal ChatGPT entry remains partial and does not reload automatically. The
-> lower-right trigger and cross-conversation message bookmarks may reload with
-> an empty `message` query to create the official navigation skeleton, but the
-> runtime no longer iterates every slot or scrolls the page during entry. GET
+> lower-right manual refresh trigger retains its empty `message` query.
+> Cross-conversation bookmarks now derive a real `messageId` link; same-page
+> fallback never refreshes. The runtime does not iterate every slot or scroll
+> the page during ordinary entry. GET
 > remains the usable source seed; mounted DOM observations correct bodies and
 > order opportunistically. Directory clicks, same-page bookmarks, stepper
 > navigation and post-route bookmark restoration all enter the same
 > `ConversationNavigationCoordinator` and target materialization executor.
-> Position-only bookmark fallback remains fail-closed until an independently
-> proven `complete` snapshot exists. Current-message copy, word count, Copy PNG
+> Position-only bookmark fallback remains fail-closed, including a complete
+> snapshot. Current-message copy, word count, Copy PNG
 > and formula actions remain DOM-local.
 
 > **Page lifecycle wake boundary (2026-08-21)**
@@ -385,7 +416,7 @@
   - `ChatGPTDirectoryRail` hover accordion 与 compact preview 只能属于 rail UI 热路径：已渲染条目和轮次可在组件内缓存，鼠标移动时只允许更新旧/新 hover 邻近范围内的少量视觉状态，并复用已存在的 page-root preview style；rail host 与 preview 直接挂在 `document.body`，使用 fixed positioning，不依赖 ChatGPT 内容元素；body 尚未创建时才使用 documentElement 作为早期 fallback，后续 refresh 迁移回 body，不注册常驻 portal observer。不得在 hover 时全量扫描 `.rail__item`、按轮次线性查找 preview 内容、重写 token style、读取 layout rect 定位 preview，或触发目录发现、snapshot、Reader、toolbar、bookmark、resize suspend 等下层链路。Previous/Next 的 DOM 控件在 rail 底部同一行展示，状态与导航仍由 Stepper controller 持有；rail 复用控件且不新增导航算法。
   - `ViewportResizeSuspendController` 是 ChatGPT content runtime 的轻量 viewport 宽度拖拽保护层：它只消费浏览器 `window.resize` 信号和宽度变化阈值，不依赖 ChatGPT DOM/mutation；宽度变化超过 8px 时立即通过页面级 `data-aimd-viewport-resizing` 标记让 ChatGPT action-row toolbar chrome 暂时隐藏并暂停子树渲染，停止 resize 1 秒后派发一次恢复事件。该链路只影响插件 chrome 的临时可见性，不卸载 DOM、不重建 toolbar record、不折叠 action-row toolbar 布局、不改变 snapshot、Reader、Save Messages 或书签语义。
   - `ChatGPTDirectoryRail` 的滚动与展开样式归组件 Shadow DOM 持有；长目录仍由 rail 内部列表滚动，但原生滚动条必须视觉隐藏，不保留额外滚动槽。expanded 条目必须用明确的 grid 列分配编号、可收缩文案和右侧短线，避免 hover/active 状态被裁切。expanded label 的可见宽度应优先由 CSS intrinsic sizing 与字符宽度预算表达，而不是固定像素宽度、一次性宽度 token 或 JS 测量补偿。
-  - `ChatGPTConversationNavigation` 是 ChatGPT 同页定位的 driver interface：Reader locate、Bookmark Go、跨页 pending navigation、directory 与 stepper 都提交 typed identity。已挂载目标直接使用 Conversation Surface anchor；未挂载目标只允许有界、可取消、projection-safe 的 materialization seek，并在精确 identity 命中后成功。URL 文本本身不决定取消边界；Surface projection 变化才 fence 旧任务。无 ID 时 Directory/Stepper 仍可进行本页已获得消息导航，但 Bookmark Go/跨页定位仍要求既有 canonical identity。`src/ui/content/chatgptDirectory/navigation.ts` 只负责命中后的视觉对齐；识别到目标所属的滚动容器时，以容器顶部及 CSS scroll padding/margin 验证落点并在首次滚动停短时重试，无法识别容器则保留原有稳定位置判定；用户主动滚动、触摸、指针或键盘导航会中止短生命周期 re-align。
+  - `ChatGPTConversationNavigation` 是 ChatGPT 同页定位的 driver interface：Reader locate、Bookmark Go、跨页 pending navigation、directory 与 stepper 都提交 typed identity。已挂载目标直接使用 Conversation Surface anchor；未挂载目标只允许有界、可取消、projection-safe 的 materialization seek，并在精确 identity 命中后成功。URL 文本本身不决定内容身份；document/projection 变化、用户操作和替换请求 fence 旧任务。所有入口均按唯一 assistant ID 定位，旧序号仅作显示提示。source wait、materialization 与 alignment 共用至多 15 秒 deadline。失败只提供显式新标签链接，不自动刷新；Reader 成功后才关闭。`src/ui/content/chatgptDirectory/navigation.ts` 只负责命中后的视觉对齐；识别到目标所属的滚动容器时，以容器顶部及 CSS scroll padding/margin 验证落点并在首次滚动停短时重试，无法识别容器则保留原有稳定位置判定；用户主动滚动、触摸、指针或键盘导航会中止短生命周期 re-align。
   - `ChatGPTSendPositionRestoreController` 是 ChatGPT-only page-behavior 层能力，由 `chatgptBehavior.restorePositionAfterSend` 默认开启地控制。它只负责发送后的阅读位置恢复，不进入正文发现链路；仅在用户主动发送前记录主滚动容器、scrollTop 与顶部附近 turn anchor，发送后用短生命周期 MutationObserver / scroll listener / rAF 合并做 instant restore。关闭时没有 observer/rAF/额外 scroll listener；开启但未发送时只有少量 capture 事件监听；发送 pointerdown 和输入增强 before-focus arm 先记录视觉锚点；同一滚动根后续 click/submit/before-send 不重新记录或续期。仍连接、属于原滚动容器且具有非零布局高度的锚点使用当前 top 差值（包括零差值）计算恢复位置，避免反向覆盖官网已有的水合滚动补偿；锚点不存在或不满足这些几何条件时回退：普通布局使用 savedTop，column-reverse 使用 savedTop 减去发送后可滚动范围的变化量（当前范围减去发送前范围）。armed 后会在用户 wheel/touch、非发送 pointer/keyboard、官方滚到底部、Reader locate、Bookmark Go 或 90 秒超时时释放；成功恢复不计次数，不在第 20 次提前结束。输入增强在已有发送会话里派发的 synthetic Enter 保留会话；IME/修饰键和关闭开关仍按原边界处理。
   - 跨消息 Reader 与 Save Messages 导出通过 `readerContentSource` 共享唯一累积 `ReaderItem[]` 投影。消息工具栏的当前消息 Copy Markdown / Copy PNG、单消息 Reader、词数和空池时的单消息导出直接读取点击时仍挂载的对应消息 DOM，不等待 Repository 发布；若 pool 已有累积内容，Reader/Save Messages 仍优先使用 pool。`collectFreshReaderContent()` 保留为兼容名称，只委托无副作用的当前读取。显式 Reader Refresh 只冲刷已观察的本地 DOM 工作，不发起网络请求，也不重新扫描隐藏历史。`pageshow`、`resume` 和 visible 恢复只触发一次当前 DOM 重扫。书签事务继续额外要求 canonical conversation ID 与 pool-proven position。
   - ChatGPT 当前消息 Copy Markdown 与 Copy PNG 只共享同一事务中尚未完成的 Reader item promise；完成后移除，下一次显式动作重新读取当前挂载正文与图块。Legacy adapter 保留既有 resolved cache 行为。该 identity 只用于异步事务校验，不进入书签、导出或存储 schema。Token 变化或 route/document replacement 清空 promise；DOM mutation 只能使当前元素映射失效，不能绕过 cache 创造第二正文来源。普通入口不主动 refresh；Route/dispose 同样清空，禁止跨 token 返回旧正文。
@@ -528,7 +559,7 @@ flowchart TD
 - Directory 点击在当前 Surface 中按 turn/assistant identity 重新读取 ordinal，避免历史补齐后、rail 延迟重绘前的旧序号误拒绝。仅 `directory` / `stepper` 来源允许在其他 round 缺少 user identity 时定位目标自身的唯一 typed host slot；按序号校准仍要求完整身份，Reader / Bookmark 与未标记来源保持原有校验和滚动行为。
 - Directory / Stepper 向旧消息寻址并到达当前滚动顶部时，最多等待 1.2 秒供 ChatGPT 补载历史；期间仍只依靠已有 Surface 更新和短暂定时复查，不引入额外内容发现或网络请求。等待无进展即按原失败结果结束，Reader / Bookmark 保持原有边界行为。
 - Directory rail 必须把 `window.innerWidth - document.documentElement.clientWidth` 测得的 classic scrollbar 宽度与 `chatgptDirectory.rightInsetPx` 用户边距相加后作为 right offset；默认用户边距为 0px，用于在 overlay scrollbar 或浏览器滚动条视觉入侵时手动兜底。该设置只调整 rail/preview 的右侧定位，不改变条目长度、目录发现、active following 或导航模型。
-  - 右下角 page-control cluster 由独立 `ChatGPTMessageStepperController` 持有，不属于 directory rail；它承载管理面板入口、当前页面收藏、独立阅读器、Prompts、刷新消息导航和 Input Enhancement；Previous/Next DOM 控件复用同一 controller 并独立停靠在右下角品牌按钮上方。管理面板入口使用 AI-MarkDone 品牌 Logo、固定在页面底部，并替代 ChatGPT header 注入入口；刷新消息导航按钮通过空 `?message=` 参数刷新当前会话并创建官方导航骨架，不启动全量 DOM discovery；页面收藏与消息书签的其他安全边界保持不变。`chatgptBehavior.showPageBookmarkControl` 只控制页面收藏按钮；`chatgptBehavior.showDetachedReaderControl` 只控制 Split View；`chatgptBehavior.showPromptControl` 只控制 Prompts；`chatgptBehavior.showMessageStepper` 只控制右下角 Previous/Next 按钮显示，设置入口位于 Buttons 的 Directory 分组；`chatgptBehavior.enableArrowKeyMessageNavigation` 只控制左右方向键监听。
+  - 右下角 page-control cluster 由独立 `ChatGPTMessageStepperController` 持有，不属于 directory rail；它承载管理面板入口、当前页面收藏、独立阅读器、Prompts、刷新消息导航和 Input Enhancement；Previous/Next DOM 控件复用同一 controller 并独立停靠在右下角品牌按钮上方。管理面板入口使用 AI-MarkDone 品牌 Logo、固定在页面底部，并替代 ChatGPT header 注入入口；刷新消息导航按钮保留空 `?message=` 参数的用户显式刷新兼容入口，不保证当前宿主提供旧官方导航骨架，不启动全量 DOM discovery；页面收藏与消息书签的其他安全边界保持不变。`chatgptBehavior.showPageBookmarkControl` 只控制页面收藏按钮；`chatgptBehavior.showDetachedReaderControl` 只控制 Split View；`chatgptBehavior.showPromptControl` 只控制 Prompts；`chatgptBehavior.showMessageStepper` 只控制右下角 Previous/Next 按钮显示，设置入口位于 Buttons 的 Directory 分组；`chatgptBehavior.enableArrowKeyMessageNavigation` 只控制左右方向键监听。
 - Rail hover preview 与 accordion 的历史约束保留：只能更新 UI 层缓存和邻近 marker 状态，preview 内容从 rail 内轮次缓存读取，preview 位置保持固定 page-root surface，避免 hover 期间触发 layout measurement 或 portal style 重写。
 - 浏览器 viewport 宽度变化超过 8px 时，页面级 resize suspend 会立即保护 action-row message toolbar chrome，并临时隐藏 directory rail、directory preview 与 lower-right message stepper；停止 resize 1 秒后恢复。
 

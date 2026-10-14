@@ -6,6 +6,7 @@ import { getConversationHistoryStatusV1 } from '../../contracts/conversationCont
 import type {
     ConversationCanonicalTargetV1,
     ConversationNavigationInputV1,
+    ConversationNavigationFailureReasonV1,
     ConversationNavigationOptionsV1,
     ConversationNavigationPortV1,
     ConversationNavigationResultV1,
@@ -15,7 +16,7 @@ export type ConversationNavigationExecutorV1 = (
     target: ConversationCanonicalTargetV1,
     options: ConversationNavigationOptionsV1,
     source: ConversationNavigationInputV1['source'],
-) => Promise<Readonly<{ ok: true } | { ok: false; message: string }>>;
+) => Promise<Readonly<{ ok: true } | { ok: false; message: string; reason?: ConversationNavigationFailureReasonV1 }>>;
 
 export type ConversationNavigationCoordinatorOptionsV1 = Readonly<{
     source: ConversationContentSourceV1;
@@ -42,7 +43,7 @@ function isCompleteSnapshot(snapshot: ConversationSnapshotV1): boolean {
 
 function targetKey(input: ConversationNavigationInputV1): string {
     return [
-        input.source === 'directory' || input.source === 'stepper' ? 'page-control' : '',
+        input.source,
         input.documentKey ?? '',
         input.position,
         input.messageId ?? '',
@@ -62,10 +63,8 @@ function readIdentityMatches(
     input: ConversationNavigationInputV1,
 ): ConversationSnapshotV1['turns'] {
     const expectedAssistantMessageId = normalize(input.assistantMessageId ?? input.messageId);
-    const pageControlIdentity = (input.source === 'directory' || input.source === 'stepper')
-        && Boolean(expectedAssistantMessageId);
-    const expectedRoundId = pageControlIdentity ? null : normalize(input.roundId);
-    const expectedUserMessageId = pageControlIdentity ? null : normalize(input.userMessageId);
+    const expectedRoundId = expectedAssistantMessageId ? null : normalize(input.roundId);
+    const expectedUserMessageId = expectedAssistantMessageId ? null : normalize(input.userMessageId);
     return snapshot.turns.filter((turn) => (
         (!expectedRoundId || turn.identity.turnId === expectedRoundId)
         && (!expectedUserMessageId || turn.identity.userMessageId === expectedUserMessageId)
@@ -99,9 +98,14 @@ function tryResolve(
     reason: 'stale-target' | 'identity-conflict' | 'source-unavailable';
 }> {
     const snapshot = state.snapshot;
-    if (!snapshot || !state.document) return { kind: 'wait' };
-    if (input.documentKey && input.documentKey !== state.document.key) {
+    if (input.documentKey && state.document && input.documentKey !== state.document.key) {
         return { kind: 'failed', reason: 'stale-target' };
+    }
+    if (!snapshot || !state.document) return { kind: 'wait' };
+    if (snapshot.document.key !== state.document.key) return { kind: 'failed', reason: 'stale-target' };
+    const assistantId = normalize(input.assistantMessageId ?? input.messageId);
+    if (normalize(input.assistantMessageId) && normalize(input.messageId) && normalize(input.messageId) !== assistantId) {
+        return { kind: 'failed', reason: 'identity-conflict' };
     }
 
     const hasIdentity = Boolean(
@@ -113,9 +117,14 @@ function tryResolve(
     if (identityMatches.length > 1) return { kind: 'failed', reason: 'identity-conflict' };
     if (identityMatches.length === 1) {
         const turn = identityMatches[0]!;
-        const pageControlIdentity = (input.source === 'directory' || input.source === 'stepper')
-            && Boolean(normalize(input.assistantMessageId ?? input.messageId));
-        if (input.source !== 'bookmark' && !pageControlIdentity && Number.isFinite(input.position) && input.position > 0 && Math.round(input.position) !== turn.ordinal) {
+        const roundId = normalize(input.roundId);
+        const userMessageId = normalize(input.userMessageId);
+        // Provisional turn/user labels may change; another known turn is a real conflict.
+        if (assistantId && snapshot.turns.some(candidate => (
+            (roundId && roundId !== turn.identity.turnId && candidate.identity.turnId === roundId)
+            || (userMessageId && userMessageId !== turn.identity.userMessageId && candidate.identity.userMessageId === userMessageId)
+        ))) return { kind: 'failed', reason: 'identity-conflict' };
+        if (!assistantId && input.source !== 'bookmark' && Number.isFinite(input.position) && input.position > 0 && Math.round(input.position) !== turn.ordinal) {
             return { kind: 'failed', reason: 'identity-conflict' };
         }
         return {
@@ -131,10 +140,16 @@ function tryResolve(
 
 function linkAbortSignal(source: AbortSignal | undefined, target: AbortController): () => void {
     if (!source) return () => undefined;
-    const abort = () => target.abort();
-    if (source.aborted) target.abort();
+    const abort = () => target.abort('cancelled');
+    if (source.aborted) abort();
     source.addEventListener('abort', abort, { once: true });
     return () => source.removeEventListener('abort', abort);
+}
+
+function abortReason(signal: AbortSignal): 'cancelled' | 'hydration-timeout' | 'stale-target' {
+    return signal.reason === 'hydration-timeout' || signal.reason === 'stale-target'
+        ? signal.reason
+        : 'cancelled';
 }
 
 export class ConversationNavigationCoordinator implements ConversationNavigationPortV1 {
@@ -158,9 +173,43 @@ export class ConversationNavigationCoordinator implements ConversationNavigation
         const controller = new AbortController();
         const unlink = linkAbortSignal(options.signal, controller);
         const timeoutMs = Math.max(1, Math.min(MAX_TIMEOUT_MS, options.timeoutMs ?? DEFAULT_TIMEOUT_MS));
-        const promise = this.run(input, { ...options, signal: controller.signal, timeoutMs })
+        const deadlineMs = Math.min(Date.now() + timeoutMs, options.deadlineMs ?? Infinity);
+        const abortForUser = () => controller.abort('cancelled');
+        const userEvents: Array<keyof DocumentEventMap> = ['pointerdown', 'keydown', 'wheel', 'touchstart'];
+        for (const event of userEvents) document.addEventListener(event, abortForUser, { capture: true, passive: true });
+        const initialState = this.options.source.read();
+        let documentKey = input.documentKey ?? initialState.document?.key;
+        let observedDocument = Boolean(initialState.document);
+        let projectionId = initialState.snapshot?.projectionId;
+        const unsubscribeBoundary = this.options.source.subscribe(state => {
+            if (documentKey && (observedDocument || state.document) && state.document?.key !== documentKey) controller.abort('stale-target');
+            if (projectionId && state.snapshot?.projectionId && state.snapshot.projectionId !== projectionId) controller.abort('stale-target');
+            observedDocument ||= Boolean(state.document);
+            documentKey ??= state.document?.key;
+            projectionId ??= state.snapshot?.projectionId;
+        });
+        if (deadlineMs <= Date.now()) controller.abort('hydration-timeout');
+        const timeoutId = window.setTimeout(() => controller.abort('hydration-timeout'), Math.max(0, deadlineMs - Date.now()));
+        let onAbort: () => void = () => undefined;
+        const interrupted = new Promise<ConversationNavigationResultV1>(resolve => {
+            onAbort = () => resolve({ ok: false, reason: abortReason(controller.signal) });
+            controller.signal.addEventListener('abort', onAbort, { once: true });
+            if (controller.signal.aborted) onAbort();
+        });
+        const promise = Promise.race([
+            this.run(input, { ...options, signal: controller.signal, timeoutMs, deadlineMs }),
+            interrupted,
+        ])
+            .catch((): ConversationNavigationResultV1 => ({
+                ok: false,
+                reason: controller.signal.aborted ? abortReason(controller.signal) : 'source-unavailable',
+            }))
             .finally(() => {
                 unlink();
+                unsubscribeBoundary();
+                window.clearTimeout(timeoutId);
+                controller.signal.removeEventListener('abort', onAbort);
+                for (const event of userEvents) document.removeEventListener(event, abortForUser, { capture: true });
                 if (this.active?.controller === controller) this.active = null;
             });
         this.active = { key, controller, promise };
@@ -168,7 +217,7 @@ export class ConversationNavigationCoordinator implements ConversationNavigation
     }
 
     cancelActive(): void {
-        this.active?.controller.abort();
+        this.active?.controller.abort('cancelled');
         this.active = null;
     }
 
@@ -178,26 +227,33 @@ export class ConversationNavigationCoordinator implements ConversationNavigation
     ): Promise<ConversationNavigationResultV1> {
         const resolved = await this.waitForTarget(input, options);
         if (resolved.kind !== 'resolved') return { ok: false, reason: resolved.reason };
-        if (options.signal.aborted) return { ok: false, reason: 'cancelled' };
+        if (options.signal.aborted) return { ok: false, reason: abortReason(options.signal) };
 
         const execution = await this.options.execute(resolved.value.target, options, input.source);
-        if (options.signal.aborted) return { ok: false, reason: 'cancelled' };
+        if (options.signal.aborted) return { ok: false, reason: abortReason(options.signal) };
         if (!execution.ok) {
+            if (execution.reason) return { ok: false, reason: execution.reason };
             if (execution.message === 'Navigation cancelled') {
                 return { ok: false, reason: 'cancelled' };
             }
             if (execution.message.includes('timeout')) return { ok: false, reason: 'hydration-timeout' };
             if (execution.message.includes('conflict')) return { ok: false, reason: 'identity-conflict' };
-            if (execution.message.includes('stale') || execution.message.includes('route')) {
+            if (execution.message.includes('stale') || execution.message.includes('route') || execution.message === 'Conversation changed') {
                 return { ok: false, reason: 'stale-target' };
             }
             return { ok: false, reason: 'slot-missing' };
         }
+        const verified = tryResolve(this.options.source.read(), {
+            ...input,
+            assistantMessageId: resolved.value.target.assistantMessageId,
+            documentKey: resolved.value.target.documentKey,
+        });
+        if (verified.kind !== 'resolved') return { ok: false, reason: verified.kind === 'failed' ? verified.reason : 'stale-target' };
         return {
             ok: true,
             phase: 'hydrated',
             resolvedBy: resolved.value.resolvedBy,
-            target: resolved.value.target,
+            target: verified.value.target,
         };
     }
 
@@ -213,7 +269,6 @@ export class ConversationNavigationCoordinator implements ConversationNavigation
     }>> {
         return new Promise((resolve) => {
             let settled = false;
-            let timeoutId = 0;
             let unsubscribe: () => void = () => undefined;
             const finish = (result: Readonly<{
                 kind: 'resolved';
@@ -224,12 +279,11 @@ export class ConversationNavigationCoordinator implements ConversationNavigation
             }>) => {
                 if (settled) return;
                 settled = true;
-                window.clearTimeout(timeoutId);
                 unsubscribe();
                 options.signal.removeEventListener('abort', onAbort);
                 resolve(result);
             };
-            const onAbort = () => finish({ kind: 'failed', reason: 'cancelled' });
+            const onAbort = () => finish({ kind: 'failed', reason: abortReason(options.signal) });
             const check = () => {
                 if (options.signal.aborted) return onAbort();
                 const result = tryResolve(this.options.source.read(), input);
@@ -238,10 +292,10 @@ export class ConversationNavigationCoordinator implements ConversationNavigation
                     return finish(result);
                 }
             };
-            unsubscribe = this.options.source.subscribe(check);
             options.signal.addEventListener('abort', onAbort, { once: true });
-            timeoutId = window.setTimeout(() => finish({ kind: 'failed', reason: 'hydration-timeout' }), options.timeoutMs);
-            check();
+            unsubscribe = this.options.source.subscribe(check);
+            if (settled) unsubscribe();
+            else check();
         });
     }
 }

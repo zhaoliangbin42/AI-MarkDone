@@ -332,7 +332,7 @@ describe('reader session background handler', () => {
     it('activates the source tab before locate without closing the detached reader tab', async () => {
         const { handleReaderSessionRequest } = await loadHandler();
         const create = await handleReaderSessionRequest(
-            request('readerSession:create', { snapshot: snapshot('locate') }),
+            request('readerSession:create', { snapshot: snapshot('locate-12345678') }),
             { tab: { id: 88 } },
         );
 
@@ -346,10 +346,115 @@ describe('reader session background handler', () => {
         expect(tabs.update).toHaveBeenCalledWith(88, { active: true }, expect.any(Function));
         expect(tabs.sendMessage).toHaveBeenCalledWith(
             88,
-            expect.objectContaining({ type: 'readerSession:locate', payload: expect.objectContaining({ messageId: 'locate-message' }) }),
+            expect.objectContaining({ type: 'readerSession:locate', payload: expect.objectContaining({ messageId: 'locate-message', documentKey: 'chatgpt:conversation:locate-12345678' }) }),
             expect.any(Function),
         );
         expect(tabs.remove).not.toHaveBeenCalled();
+    });
+
+    it('overrides a caller document key with the conversation bound to the session source URL', async () => {
+        const { handleReaderSessionRequest } = await loadHandler();
+        const captured = snapshot('bound-12345678');
+        captured.sourceUrl = 'https://chat.openai.com/g/project-id/c/bound-12345678?model=auto';
+        const create = await handleReaderSessionRequest(request('readerSession:create', { snapshot: captured }), { tab: { id: 88 } });
+        const sessionId = (create!.response.data as { sessionId: string }).sessionId;
+        const locate = request('readerSession:locate', {
+            sessionId, position: 4, messageId: 'bound-message', documentKey: 'chatgpt:conversation:forged-12345678',
+        });
+
+        const response = await handleReaderSessionRequest(locate, { tab: { id: 500 } });
+
+        expect(response?.response.ok).toBe(true);
+        expect(tabs.sendMessage).toHaveBeenCalledExactlyOnceWith(88, expect.objectContaining({
+            type: 'readerSession:locate',
+            payload: { sessionId, position: 4, messageId: 'bound-message', documentKey: 'chatgpt:conversation:bound-12345678' },
+        }), expect.any(Function));
+        expect((locate as Extract<ExtRequest, { type: 'readerSession:locate' }>).payload.documentKey)
+            .toBe('chatgpt:conversation:forged-12345678');
+        expect((storageData[STORAGE_KEY] as Record<string, { sourceUrl: string }>)[sessionId]!.sourceUrl)
+            .toBe(captured.sourceUrl);
+    });
+
+    it('preserves a failed locate outcome inside a successful routed protocol response', async () => {
+        const { handleReaderSessionRequest } = await loadHandler();
+        const create = await handleReaderSessionRequest(request('readerSession:create', { snapshot: snapshot('bound-12345678') }), { tab: { id: 88 } });
+        const sessionId = (create!.response.data as { sessionId: string }).sessionId;
+        tabs.sendMessage.mockImplementationOnce((_tabId, forwarded, callback) => callback({
+            v: PROTOCOL_VERSION, id: forwarded.id, type: forwarded.type, ok: true, data: { located: false },
+        }));
+        const locate = request('readerSession:locate', { sessionId, position: 1, messageId: 'bound-message' });
+
+        const response = await handleReaderSessionRequest(locate, { tab: { id: 500 } });
+
+        expect(response?.response).toMatchObject({ id: locate.id, type: 'readerSession:locate', ok: true, data: { located: false } });
+    });
+
+    it.each(['annotation', 'items', 'both'] as const)('keeps page-scoped detached locate bound to trusted %s snapshot identity', async (binding) => {
+        const { handleReaderSessionRequest } = await loadHandler();
+        const captured = { ...snapshot('page-scope'), sourceUrl: 'https://chatgpt.com/' };
+        const pageKey = 'chatgpt:page:source-epoch';
+        if (binding !== 'items') captured.annotationDocument = { platform: 'chatgpt', conversationId: pageKey, lastKnownUrl: captured.sourceUrl };
+        if (binding !== 'annotation') captured.items[0]!.meta = { ...captured.items[0]!.meta, documentKey: pageKey };
+        const create = await handleReaderSessionRequest(request('readerSession:create', { snapshot: captured }), { tab: { id: 88 } });
+        const sessionId = (create!.response.data as { sessionId: string }).sessionId;
+
+        const response = await handleReaderSessionRequest(request('readerSession:locate', {
+            sessionId, messageId: 'page-scope-message', documentKey: 'chatgpt:page:forged-reader-epoch',
+        }), { tab: { id: 500 } });
+
+        expect(response?.response.ok).toBe(true);
+        expect(tabs.sendMessage).toHaveBeenCalledExactlyOnceWith(88, expect.objectContaining({
+            type: 'readerSession:locate', payload: { sessionId, messageId: 'page-scope-message', documentKey: pageKey },
+        }), expect.any(Function));
+    });
+
+    it.each([
+        'https://evil.example/',
+        'https://evil.chatgpt.com/',
+        'https://user:password@chatgpt.com/',
+        'http://localhost:3000/',
+    ])('does not bind an unofficial source URL using a stored page key: %s', async (sourceUrl) => {
+        const { handleReaderSessionRequest } = await loadHandler();
+        const captured = { ...snapshot('page-scope'), sourceUrl, annotationDocument: {
+            platform: 'chatgpt' as const, conversationId: 'chatgpt:page:source-epoch',
+        } };
+        const create = await handleReaderSessionRequest(request('readerSession:create', { snapshot: captured }), { tab: { id: 88 } });
+        const sessionId = (create!.response.data as { sessionId: string }).sessionId;
+
+        const response = await handleReaderSessionRequest(request('readerSession:locate', { sessionId, messageId: 'page-scope-message' }), { tab: { id: 500 } });
+
+        expect(response?.response).toMatchObject({ ok: false, error: { code: 'SOURCE_UNAVAILABLE' } });
+        expect(tabs.sendMessage).not.toHaveBeenCalled();
+    });
+
+    it.each(['missing', 'conflicting', 'empty'] as const)('does not trust a caller page key when the saved snapshot binding is %s', async (binding) => {
+        const { handleReaderSessionRequest } = await loadHandler();
+        const captured = { ...snapshot('page-scope'), sourceUrl: 'https://chatgpt.com/' };
+        if (binding !== 'missing') captured.annotationDocument = { platform: 'chatgpt', conversationId: binding === 'empty' ? 'chatgpt:page:' : 'chatgpt:page:source-epoch' };
+        if (binding === 'conflicting') captured.items[0]!.meta = { ...captured.items[0]!.meta, documentKey: 'chatgpt:page:different-epoch' };
+        const create = await handleReaderSessionRequest(request('readerSession:create', { snapshot: captured }), { tab: { id: 88 } });
+        const sessionId = (create!.response.data as { sessionId: string }).sessionId;
+
+        const response = await handleReaderSessionRequest(request('readerSession:locate', {
+            sessionId, messageId: 'page-scope-message', documentKey: 'chatgpt:page:caller-epoch',
+        }), { tab: { id: 500 } });
+
+        expect(response?.response).toMatchObject({ ok: false, error: { code: 'SOURCE_UNAVAILABLE' } });
+        expect(tabs.sendMessage).not.toHaveBeenCalled();
+    });
+
+    it.each(['https://evil.example/c/bound-12345678', 'https://chatgpt.com/', 'https://chatgpt.com/c/short'])('rejects an unverifiable bound source URL instead of trusting a caller document key: %s', async (sourceUrl) => {
+        const { handleReaderSessionRequest } = await loadHandler();
+        const captured = { ...snapshot('bound-12345678'), sourceUrl };
+        const create = await handleReaderSessionRequest(request('readerSession:create', { snapshot: captured }), { tab: { id: 88 } });
+        const sessionId = (create!.response.data as { sessionId: string }).sessionId;
+
+        const response = await handleReaderSessionRequest(request('readerSession:locate', {
+            sessionId, position: 1, messageId: 'bound-message', documentKey: 'chatgpt:conversation:bound-12345678',
+        }), { tab: { id: 500 } });
+
+        expect(response?.response).toMatchObject({ ok: false, error: { code: 'SOURCE_UNAVAILABLE' } });
+        expect(tabs.sendMessage).not.toHaveBeenCalled();
     });
 
     it('rejects close requests from tabs outside the session binding', async () => {

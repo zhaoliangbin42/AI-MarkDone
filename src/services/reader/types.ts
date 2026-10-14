@@ -12,6 +12,7 @@ export type ContentProvider = string | (() => string) | (() => Promise<string>);
 
 export type ReaderItemMeta = {
     platformId?: string;
+    documentKey?: string;
     messageId?: string | null;
     roundId?: string | null;
     userMessageId?: string | null;

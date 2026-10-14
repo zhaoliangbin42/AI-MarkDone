@@ -2,6 +2,39 @@
 
 This document defines the **current executable test and verification gates** for day-to-day development. Use this file for what we must run now, not for future-state testing architecture.
 
+### Shared navigation regression (2026-10-14)
+
+- Bookmarks, Directory, Stepper and both Readers must enter the same navigation
+  port; missing ports fail safely without direct driver fallback or page refresh.
+- Cover changed ordinals/provisional labels, duplicate/conflicting identity,
+  detached/disconnected anchors, late hydration, document/projection changes,
+  repeated clicks and user takeover. Source wait + hydration + alignment share
+  one 15-second deadline; a hung executor cannot keep the request alive.
+- Reader item identity must survive session cloning and update through real
+  ReaderBinding on cached conversation replacement or page→canonical promotion,
+  including unchanged message text/IDs. URL query cleanup alone must not redraw
+  the body. Failure links cannot mix a captured document with another route URL.
+- Pending bookmark restoration must wait for both route and source document,
+  cancel on user input, consume terminal intents, preserve replacements and
+  never restart after timeout on a later source revision.
+- Safe `messageId` URL tests include current/legacy/project paths, stale query
+  cleanup, synthetic/no-ID records and encoding; stored data/backup formats stay
+  unchanged. Detached Reader document binding comes from saved session source,
+  never a caller key. Only `located === true` means successful navigation.
+- Real Directory/arrow/Reader/bookmark trigger tests must exercise failure and
+  success. Reader locate failure keeps its unsaved comment and selection. Shared
+  feedback stays actionable, keyboard reachable and within 320px viewports;
+  link activation opens a new tab, not the current page.
+- Run focused navigation suites, smoke, acceptance, full core with one worker,
+  then both builds. Component browser replay and live host-link research do not
+  prove installed-extension acceptance after source changes; record that boundary
+  in [the implementation record](../plans/2026-10-14-message-navigation.md).
+- Final frozen-source evidence: core 332 files / 2886 checks, smoke 8 / 63,
+  single-worker acceptance 34 / 495 and both builds passed. The earlier default
+  parallel acceptance attempt failed its existing large-formula copy case;
+  its log and the serial rerun are retained separately. Do not report that
+  default parallel release command as green or infer installed acceptance.
+
 ### Compact controls and feedback regression (2026-10-14)
 
 - Check 24px page-control targets and 16px glyphs on the real controller and both
@@ -57,8 +90,9 @@ The active gate follows [ADR-0024](../adr/ADR-0024-chatgpt-dom-authoritative-con
 and [ADR-0030](../adr/ADR-0030-chatgpt-get-seed-dom-completion.md). Chrome and
 Firefox first use the bounded 5.3 document-start bridge seed when available;
 the normal DOM-only path remains `partial`, while a validated source seed is
-`get`. The explicit `?message=` path only proves official navigation skeleton
-detection; it must not start a whole-history slot sweep or force page scrolling.
+`get`. The legacy explicit `?message=` fixture covers structural skeleton
+detection, not a guarantee that the current host mounts that rail. It must not
+start a whole-history slot sweep or force page scrolling.
 Tests must prove the official action row is the readiness trigger, DOM is the
 only assistant body authority, and one PageIndex observer plus one page-level
 debounce drives the pool. Startup-existing and arbitrarily delayed action rows,
