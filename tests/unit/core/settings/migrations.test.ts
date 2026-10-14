@@ -311,7 +311,7 @@ describe('settings migrations', () => {
         const clamped = loadAndNormalize({
             version: 4,
             chatgptBehavior: {
-                pageWidthScale: 237,
+                pageWidthScale: 537,
             },
         } as any);
 
@@ -371,7 +371,9 @@ describe('settings migrations', () => {
             showPageSelectionToolbar: true,
             navigationSeekStepPx: 3_000,
         });
-        expect(clamped.chatgptBehavior.pageWidthScale).toBe(200);
+        expect(clamped.chatgptBehavior.pageWidthScale).toBe(500);
+        expect(loadAndNormalize({ version: 4, chatgptBehavior: { pageWidthScale: 237 } } as any).chatgptBehavior.pageWidthScale).toBe(235);
+        expect(loadAndNormalize({ version: 4, chatgptBehavior: { pageWidthScale: 500 } } as any).chatgptBehavior.pageWidthScale).toBe(500);
     });
 
     it('normalizes persisted input enhancement fields independently', () => {

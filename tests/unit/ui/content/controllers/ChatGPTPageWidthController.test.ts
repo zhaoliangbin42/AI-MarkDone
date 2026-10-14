@@ -69,6 +69,22 @@ describe('ChatGPTPageWidthController', () => {
         expect(css).not.toContain('calc(');
     });
 
+    it('supports 500% for both conversation and composer, clamping larger inputs', () => {
+        appendConversationNode('768px');
+        appendComposerWidthNode('768px');
+        const controller = new ChatGPTPageWidthController();
+
+        controller.setScale(500);
+        const css = document.getElementById('aimd-chatgpt-page-width-style')?.textContent ?? '';
+        expect(css).toContain('[class*="max-w-(--thread-content-max-width)"]');
+        expect(css).toContain('.text-token-text-primary > div > div');
+        expect(css).toContain('max-width: 3840px');
+
+        controller.setScale(600);
+        const clampedCss = document.getElementById('aimd-chatgpt-page-width-style')?.textContent ?? '';
+        expect(clampedCss).toContain('max-width: 3840px');
+    });
+
     it('keeps the width rule effective when the page root flag is lost', () => {
         appendConversationNode('768px');
         const controller = new ChatGPTPageWidthController();

@@ -306,7 +306,7 @@ describe('SettingsTabView', () => {
         const slider = view.getElement().querySelector<HTMLInputElement>('[data-role="settings-chatgpt-page-width-scale"]')!;
         expect(slider.type).toBe('range');
         expect(slider.min).toBe('100');
-        expect(slider.max).toBe('200');
+        expect(slider.max).toBe('500');
         expect(slider.step).toBe('5');
         expect(slider.value).toBe('100');
 
@@ -315,6 +315,11 @@ describe('SettingsTabView', () => {
 
         expect(onSetChatGptBehaviorSettings).toHaveBeenCalledWith({ pageWidthScale: 145 });
         expect(slider.value).toBe('145');
+
+        slider.value = '500';
+        slider.dispatchEvent(new Event('change', { bubbles: true }));
+        expect(onSetChatGptBehaviorSettings).toHaveBeenCalledWith({ pageWidthScale: 500 });
+        expect(slider.value).toBe('500');
     });
 
     it('removes the retired fast-top control and keeps navigation seek speed scoped to behavior', () => {

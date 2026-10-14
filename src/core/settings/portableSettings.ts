@@ -66,7 +66,7 @@ export const PORTABLE_SETTINGS_FIELDS: Readonly<Record<string, FieldRule>> = Obj
     ...Object.fromEntries(['enabled', 'ordered', 'unordered'].map(field => [`chatgptBehavior.inputEnhancement.lists.${field}`, bool])),
     ...Object.fromEntries(['showMessageStepper', 'showPageBookmarkControl', 'showDetachedReaderControl', 'showPromptControl', 'showInputEnhancementControl', 'showRefreshNavigationControl', 'showComposerInputEnhancementControl', 'showComposerAnnotationControl', 'promptAutocomplete', 'enableArrowKeyMessageNavigation', 'pageAnnotationsEnabled', 'showPageSelectionToolbar'].map(field => [`chatgptBehavior.${field}`, bool])),
     'chatgptBehavior.pinnedPageControls': { kind: 'actions', values: PAGE_CONTROL_ACTIONS },
-    'chatgptBehavior.pageWidthScale': number(100, 200, 5),
+    'chatgptBehavior.pageWidthScale': number(100, 500, 5),
     'chatgptBehavior.navigationSeekStepPx': number(1000, 5000, 400),
     'appearance.themeMode': choice('auto', 'light', 'dark'),
     'appearance.fontSizePx': number(12, 20, 1),

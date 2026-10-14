@@ -7,6 +7,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+- Increase the maximum ChatGPT page width adjustment from 200% to 500%, keeping the default at 100% and the step size at 5%.
+
 ## [6.2.0] - 2026-10-13
 
 ### Added

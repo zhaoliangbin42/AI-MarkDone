@@ -21,6 +21,14 @@ describe('portable settings', () => {
         expect(output).not.toContain('gemini');
         expect(output).toContain('markdown-dollar');
     });
+    it('roundtrips a 500% ChatGPT page width and rejects out-of-range imports', () => {
+        const current = structuredClone(DEFAULT_SETTINGS);
+        current.chatgptBehavior.pageWidthScale = 500;
+        const parsed = parseSettingsFile(JSON.stringify(createSettingsFile(current, '6.2.0')));
+        const restored = mergePortableSettings(DEFAULT_SETTINGS, parsed.file.settings, Object.keys(parsed.file.settings));
+        expect(restored.chatgptBehavior.pageWidthScale).toBe(500);
+        expect(() => parseSettingsFile(file({ chatgptBehavior: { pageWidthScale: 505 } }))).toThrow('SETTINGS_FILE_INVALID');
+    });
     it('roundtrips every supported default without changing excluded preferences', () => {
         const current = structuredClone(DEFAULT_SETTINGS);
         const parsed = parseSettingsFile(JSON.stringify(createSettingsFile(current, '6.0.0')));
