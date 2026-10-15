@@ -17,7 +17,7 @@ export function createSelectionHighlightRecord(params: {
     if (!fragments) return null;
     const quoteText = fragments.map(fragment => fragment.quoteText).join('\n\n');
     // This is a readable text excerpt, not the Copy action's Markdown projection.
-    const sourceMarkdown = quoteText.replace(/[\\`*_\[\]<>#$]/g, '\\$&');
+    const sourceMarkdown = fragments.map(fragment => fragment.formula ? fragment.quoteText : fragment.quoteText.replace(/[\\`*_\[\]<>#$]/g, '\\$&')).join('\n\n');
     const now = Date.now();
     return { record: {
         id: params.id, itemId: params.itemId, quoteText, sourceMarkdown, comment: '',

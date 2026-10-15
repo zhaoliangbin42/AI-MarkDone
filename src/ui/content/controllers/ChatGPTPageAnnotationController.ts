@@ -81,6 +81,7 @@ type AnchorCacheEntry = {
     root: HTMLElement;
     range: Range | null;
     ranges?: Range[];
+    units?: readonly { element: HTMLElement }[];
     layout: ReaderCommentResolvedAnchor | null;
     layoutEpoch: number;
     revision?: number;
@@ -503,7 +504,7 @@ export class ChatGPTPageAnnotationController {
                     const snapshot = this.resolveActionSnapshot();
                     return snapshot && this.isSnapshotCurrent(snapshot) ? createPageCommentRecord({ id, itemId, comment: '', range: snapshot.range, root: snapshot.root, sourceMarkdown: snapshot.canonicalMarkdown }) : null;
                 } });
-            if (!selection) { this.reportSelectionUnavailable(); return; }
+            if (!selection) { showToast({ text: this.getLabel('highlightSelectionUnavailable', 'Could not safely save this highlight. Adjust the selection and try again.'), tone: 'error' }); return; }
             await this.highlights.create(createHighlightRecord(selection.record, target, color, selection.fragments));
             this.closeToolbar();
         } catch (error) { this.showHighlightError(error, 'highlightSaveFailed', 'Could not save highlight'); }
@@ -751,7 +752,8 @@ export class ChatGPTPageAnnotationController {
                 const cached = this.anchorCache.get(record.id);
                 const currentRoot = this.resolveAnnotationRoot(record, entriesByAssistant);
                 if (cached && (cached.root !== currentRoot || !cached.range || !cached.root.contains(cached.range.commonAncestorContainer)
-                    || cached.ranges?.some(range => !cached.root.contains(range.startContainer) || !cached.root.contains(range.endContainer)))) this.anchorCache.delete(record.id);
+                    || cached.ranges?.some(range => !cached.root.contains(range.startContainer) || !cached.root.contains(range.endContainer))
+                    || cached.units?.some(unit => !cached.root.contains(unit.element)))) this.anchorCache.delete(record.id);
             }
             const resolved = this.resolveRecordAnchor(record, entriesByAssistant);
             if (!resolved) continue;
@@ -870,7 +872,7 @@ export class ChatGPTPageAnnotationController {
             ) {
                 return { root: cached.root, layout: cached.layout };
             }
-            const layout = resolveSelectionLayout({ root: cached.root, range: cached.range, ranges: cached.ranges, selectedUnits: [] });
+            const layout = resolveSelectionLayout({ root: cached.root, range: cached.range, ranges: cached.ranges, selectedUnits: cached.units ?? [] });
             cached.layout = layout.unionRect ? layout : null;
             cached.layoutEpoch = this.markerLayoutEpoch;
             cached.revision = record.revision;
@@ -891,6 +893,7 @@ export class ChatGPTPageAnnotationController {
             root,
             range: resolved.range,
             ranges: resolved.ranges,
+            units: resolved.units,
             layout: resolved.unionRect ? resolved : null,
             layoutEpoch: this.markerLayoutEpoch,
             revision: record.revision,

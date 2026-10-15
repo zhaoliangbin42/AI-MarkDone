@@ -3,7 +3,8 @@ import { isReaderAnnotationDocument, isReaderAnnotationRecord, normalizeReaderAn
 export type HighlightColor = 'blue' | 'yellow' | 'red';
 export const HIGHLIGHT_COLORS: readonly HighlightColor[] = ['blue', 'yellow', 'red'];
 export const MAX_HIGHLIGHT_FRAGMENTS = 128;
-export type HighlightTextFragment = { quoteText: string; selectors: ReaderAnnotationSelectors };
+export const MAX_HIGHLIGHT_FORMULA_LENGTH = 100_000;
+export type HighlightTextFragment = { quoteText: string; selectors: ReaderAnnotationSelectors; formula?: { latex: string; display: boolean } };
 export type HighlightRecord = Omit<ReaderAnnotationRecord, 'comment' | 'lastKnownAnchorState'> & { color: HighlightColor; fragments?: HighlightTextFragment[] };
 export type HighlightEntry = { document: ReaderAnnotationDocument; highlight: HighlightRecord };
 export type HighlightBundle = { schemaVersion: 1; document: ReaderAnnotationDocument; highlights: HighlightRecord[] };
@@ -16,6 +17,9 @@ export function isHighlightRecord(value: unknown): value is HighlightRecord {
         && (record.fragments === undefined || (Array.isArray(record.fragments) && record.fragments.length > 0
             && record.fragments.length <= MAX_HIGHLIGHT_FRAGMENTS && record.fragments.every(fragment => fragment
                 && typeof fragment.quoteText === 'string' && fragment.quoteText.trim().length > 0
+                && (fragment.formula === undefined || (!!fragment.formula && typeof fragment.formula.latex === 'string'
+                    && fragment.formula.latex.trim().length > 0 && fragment.formula.latex.length <= MAX_HIGHLIGHT_FORMULA_LENGTH
+                    && typeof fragment.formula.display === 'boolean'))
                 && isReaderAnnotationRecord({ ...record, quoteText: fragment.quoteText, selectors: fragment.selectors, comment: '', lastKnownAnchorState: 'anchored' }))));
 }
 export function isHighlightEntry(value: unknown): value is HighlightEntry {
@@ -34,6 +38,8 @@ export function sameHighlightSelection(a: HighlightRecord, b: HighlightRecord): 
         && sameTextSelector(a.selectors, b.selectors)
         && (a.fragments?.length ?? 0) === (b.fragments?.length ?? 0)
         && (a.fragments ?? []).every((fragment, index) => fragment.quoteText === b.fragments![index]!.quoteText
+            && fragment.formula?.latex === b.fragments![index]!.formula?.latex
+            && fragment.formula?.display === b.fragments![index]!.formula?.display
             && sameTextSelector(fragment.selectors, b.fragments![index]!.selectors));
 }
 function sameTextSelector(a: ReaderAnnotationSelectors, b: ReaderAnnotationSelectors): boolean {

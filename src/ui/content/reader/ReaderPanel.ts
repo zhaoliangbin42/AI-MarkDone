@@ -2178,7 +2178,7 @@ export class ReaderPanel {
                     const id = `highlight-${crypto.randomUUID()}`;
                     const captured = createSelectionHighlightRecord({ id, itemId: item.id, range: selection.range, root,
                         legacyRecord: () => createReaderCommentRecord({ id, itemId: item.id, comment: '', range: selection.range, root, selectedUnits: selection.selectedUnits }) });
-                    if (!captured) { this.notify(t('pageAnnotationSelectionUnavailable')); return; }
+                    if (!captured) { this.notify(t('highlightSelectionUnavailable')); return; }
                     await this.highlights.create(createHighlightRecord(captured.record, target, color, captured.fragments));
                     if (this.getCurrentItem()?.id === item.id) { this.commentSelectionSnapshot = null; this.syncTransientCommentUi(); }
                 } catch { this.notify(t('highlightSaveFailed')); }

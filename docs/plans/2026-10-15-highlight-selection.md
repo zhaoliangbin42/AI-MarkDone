@@ -111,3 +111,47 @@ Screenshots and logs live in the task artifact directory
 `final-reader-to-page.jpg`, `final-signoff.json` and the final core/release logs.
 Temporary debugger breakpoints were removed. No source code changed after the
 frozen final gates. Firefox build parity passed; Firefox native UI was not tested.
+
+## Supported-subset follow-up
+
+User correction: the presence of an unsupported block must not suppress colors
+for supported selected content. Investigation found partial math/inline-code
+whole-selection rejection, whitespace-only admission and capture-limit-driven
+button hiding. Three initial tests failed before implementation; an additional
+test reproduced complete math disappearing when selected alongside a visual.
+
+Decisions:
+
+- Page and Reader share one cheap bounded availability policy and one complete
+  explicit-action capture policy. Supported content offers colors even if other
+  content is omitted. Save limits remain; failures explain retry and never
+  silently trim a selected group.
+- Partial inline code is ordinary selected text. Partial math is omitted without
+  expanding to unselected glyphs; prose on either side remains eligible.
+- New complete source-bearing formulas use an optional formula fragment, whether
+  standalone or mixed. Authoritative source and adjacent ordinary text prove
+  identity across renderer glyph/wrapper changes. Duplicate/changed formulas fail
+  closed. This leaves the old text-index axis and all existing records unchanged.
+- Formula rectangles use the existing atomic-unit geometry; text rectangles keep
+  their independent ranges. Existing copy and annotation policies are untouched.
+- Keep the existing single background writer, record IDs, grouped color/revision,
+  backup routes, settings and browser targets. No observer or content pool added.
+
+Follow-up automated verification passed:
+
+- Targeted service, real page/Reader trigger, copy, storage/backup and i18n
+  regressions: 10 files / 166 tests; the added atomic-paint geometry regression
+  then passed with the 18-test anchoring file.
+- Frozen full core: 334 files / 2924 tests, 2026-10-15 21:57:19, 225.55 seconds.
+- `release:verify`: smoke 8 / 63, concurrent acceptance 34 / 497 and both builds.
+- Final `npm run build` after all test edits passed Chrome/Firefox entry-format
+  and single-pool boundary checks; diff check passed. Source/test fingerprint:
+  `767244686e3b8aee8d193ae7c6b7b7adb24c512a8f4e0d33bf3f8776e7e4c85e`.
+- Chrome content hash: `cc8b4fb7f1cf350bc9bcd9f73629401f0c300ae0523f43ce90d46c2aecf40096`;
+  background hash: `df9987ae14539a8649c07e63cebba75509f8f8f597b70c621c961da5d700fd2a`.
+  Logs are in the task artifact directory `highlight-supported-subset-2026-10-15`.
+
+Baseline installed Chrome evidence above belongs to commit `8fe06e56`; this
+follow-up was verified through automated production-trigger/renderer checks and
+builds, not a freshly reloaded installed Chrome. No source changes followed the
+frozen full-core run. Existing stored records require no migration.

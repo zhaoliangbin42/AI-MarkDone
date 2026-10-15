@@ -7,8 +7,33 @@ import {
     resolveSelectionLayout,
 } from '@/services/reader/commentAnchoring';
 import type { SelectedAtomicUnit } from '@/services/reader/atomicSelection';
+import { captureHighlightTextFragments, readHighlightSelection } from '@/services/reader/highlightSelection';
 
 describe('commentAnchoring', () => {
+    it('paints mixed formula fragments as whole units without painting skipped graphics or glyph descendants', () => {
+        const root = document.createElement('div'); document.body.append(root);
+        root.innerHTML = '<p>Before</p><span class="katex" data-latex-source="x+y"><span class="katex-html">x+y</span></span><canvas>plot</canvas><p>After</p>';
+        const range = document.createRange(); range.selectNodeContents(root);
+        const record = createPageCommentRecord({ id: 'formula-mixed', itemId: 'reply', comment: '', range, root, sourceMarkdown: 'Before $x+y$ After' });
+        record.highlightFragments = captureHighlightTextFragments(root, readHighlightSelection(range, root)!.ranges)!;
+        const formula = root.querySelector<HTMLElement>('.katex')!;
+        Object.assign(formula, { getBoundingClientRect: () => ({ left: 100, top: 30, width: 80, height: 25, right: 180, bottom: 55 }) });
+        const original = Object.getOwnPropertyDescriptor(Range.prototype, 'getClientRects');
+        const measured: string[] = [];
+        Object.defineProperty(Range.prototype, 'getClientRects', { configurable: true, value: function(this: Range) {
+            measured.push(this.toString());
+            return [{ left: 0, top: this.toString() === 'After' ? 80 : 0, width: 40, height: 20, right: 40, bottom: this.toString() === 'After' ? 100 : 20 }];
+        } });
+        try {
+            const resolved = resolveReaderCommentAnchor(root, record);
+            expect(measured).toEqual(['Before', 'After']);
+            expect(resolved.units.map(unit => unit.element)).toEqual([formula]);
+            expect(resolved.rects).toContainEqual({ left: 100, top: 30, width: 80, height: 25 });
+            expect(resolved.rects).toHaveLength(3);
+        } finally {
+            if (original) Object.defineProperty(Range.prototype, 'getClientRects', original); else delete (Range.prototype as any).getClientRects;
+        }
+    });
     it('does not bridge a small omitted icon gap between independent highlight ranges', () => {
         const root = document.createElement('div'); root.innerHTML = '<span>before</span><svg></svg><span>after</span>'; document.body.append(root);
         const ranges = Array.from(root.querySelectorAll('span')).map((span, index) => {

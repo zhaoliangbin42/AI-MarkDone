@@ -249,6 +249,43 @@ describe('ChatGPTPageAnnotationController', () => {
         } finally { controller.dispose(); vi.unstubAllGlobals(); document.title = ''; }
     });
 
+    it.each(['partial-formula', 'partial-inline-code', 'complete-formula-and-canvas'])('saves only supported selected parts through the page swatch: %s', async mode => {
+        const html = mode === 'partial-inline-code' ? '<p><code>answer</code></p>'
+            : '<p>Before <span class="katex" data-latex-source="x+y"><span class="katex-html">x+y</span></span></p><canvas>plot</canvas><p>After</p>';
+        const message = mountMessage(html); const root = message.querySelector('.markdown.prose') as HTMLElement;
+        const range = document.createRange();
+        if (mode === 'partial-inline-code') { range.setStart(root.querySelector('code')!.firstChild!, 1); range.setEnd(root.querySelector('code')!.firstChild!, 4); }
+        else if (mode === 'partial-formula') { range.setStart(root.querySelector('p')!.firstChild!, 0); range.setEnd(root.querySelector('.katex-html')!.firstChild!, 1); }
+        else range.selectNodeContents(root);
+        selectRange(range); mockGeometry(root, root.querySelector('p')!, range);
+        const controller = new ChatGPTPageAnnotationController(new ChatGPTAdapter(), { contentSource: createContentSource('unrelated answer'), materialization: createMaterialization(message), surfaceAdapter: createEvidenceSurfaceAdapter(message) });
+        controller.init();
+        try {
+            dispatchPointerUp(320, 240); await flushSelectionFrame();
+            const swatch = selectionToolbarHost()!.querySelector<HTMLButtonElement>('[data-color="blue"]')!;
+            expect(swatch).toBeTruthy();
+            swatch.dispatchEvent(new MouseEvent('pointerdown', { bubbles: true, composed: true, cancelable: true, button: 0 })); swatch.click();
+            await vi.waitFor(() => expect(highlightClientMock.create).toHaveBeenCalledOnce());
+            expect(highlightClientMock.create.mock.calls[0]![1].fragments.map((part: any) => part.quoteText)).toEqual(mode === 'partial-inline-code' ? ['nsw'] : mode === 'partial-formula' ? ['Before'] : ['Before', '$x+y$', 'After']);
+        } finally { controller.dispose(); }
+    });
+
+    it('keeps the swatch visible for eligible text but refuses an oversized save without writing a partial mark', async () => {
+        const message = mountMessage('<table><tr>' + '<td>cell</td>'.repeat(129) + '</tr></table>');
+        const root = message.querySelector('.markdown.prose') as HTMLElement;
+        const range = document.createRange(); range.selectNodeContents(root); selectRange(range); mockGeometry(root, root.querySelector('td')!, range);
+        const controller = new ChatGPTPageAnnotationController(new ChatGPTAdapter(), { contentSource: createContentSource('unrelated answer'), materialization: createMaterialization(message), surfaceAdapter: createEvidenceSurfaceAdapter(message) });
+        controller.init();
+        try {
+            dispatchPointerUp(320, 240); await flushSelectionFrame();
+            const swatch = selectionToolbarHost()!.querySelector<HTMLButtonElement>('[data-color="blue"]')!;
+            expect(swatch).toBeTruthy();
+            swatch.dispatchEvent(new MouseEvent('pointerdown', { bubbles: true, composed: true, cancelable: true, button: 0 })); swatch.click();
+            await vi.waitFor(() => expect(document.querySelector('.aimd-toast')?.textContent).toContain('Adjust the selection'));
+            expect(highlightClientMock.create).not.toHaveBeenCalled();
+        } finally { controller.dispose(); }
+    });
+
     it('saves table and surrounding prose from the visible swatch while skipping an opaque block', async () => {
         const message = mountMessage('<p>Before</p><canvas>Not text</canvas><table><tr><td>Cell A</td><td>Cell B</td></tr></table><p>After</p>');
         const root = message.querySelector('.markdown.prose') as HTMLElement;

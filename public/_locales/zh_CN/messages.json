@@ -3791,6 +3791,10 @@
         "message": "高亮保存失败，请重试。",
         "description": "Library and highlight interface"
     },
+    "highlightSelectionUnavailable": {
+        "message": "无法准确保存这次高亮，请调整选区后重试。",
+        "description": "高亮选区超限或无法准确确认时的提示"
+    },
     "highlightDeleteFailed": {
         "message": "删除高亮失败，请重试。",
         "description": "Page highlight actions"

@@ -1,6 +1,6 @@
 import { resolveRenderedAtomicUnitKind, type SelectedAtomicUnit } from './atomicSelection';
 import { buildAtomicSelectionExport } from './atomicExport';
-import { resolveHighlightTextFragments, type HighlightSkipElement } from './highlightSelection';
+import { resolveHighlightFragments, type HighlightSkipElement } from './highlightSelection';
 import type {
     ReaderCommentAtomicRef,
     ReaderCommentDomPoint,
@@ -553,8 +553,8 @@ export function createPageCommentRecord(params: {
 
 export function resolveReaderCommentAnchor(root: HTMLElement, record: ReaderCommentRecord, skip?: HighlightSkipElement): ReaderCommentResolvedAnchor {
     if (record.highlightFragments) {
-        const ranges = resolveHighlightTextFragments(root, record.highlightFragments, skip);
-        return ranges ? resolveSelectionLayout({ root, range: ranges[0]!, ranges, selectedUnits: [] })
+        const selection = resolveHighlightFragments(root, record.highlightFragments, skip);
+        return selection ? resolveSelectionLayout({ root, range: selection.ranges[0]!, ranges: selection.textRanges, selectedUnits: selection.units })
             : { range: null, units: [], rects: [], unionRect: null };
     }
     const selector = record.selectors.textQuote;

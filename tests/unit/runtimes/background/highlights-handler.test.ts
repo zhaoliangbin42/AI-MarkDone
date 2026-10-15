@@ -88,4 +88,16 @@ describe('independent highlights storage', () => {
         expect((await handle(req('highlights:update', { document, highlight: { ...segmented, fragments: undefined }, expectedRevision: 2 })))?.response)
             .toMatchObject({ ok: false, error: { code: 'INVALID_REQUEST' } });
     });
+    it('validates and preserves optional formula source anchors without accepting retargeted recolors', async () => {
+        const { handleHighlightRequest: handle } = await import('@/runtimes/background/handlers/highlights');
+        const fragment = { quoteText: '$x+y$', formula: { latex: 'x+y', display: false }, selectors: { ...highlight.selectors, textQuote: { exact: 'x+y', prefix: '', suffix: '' }, textPosition: { start: 0, end: 0 } } };
+        const segmented = { ...highlight, fragments: [fragment] };
+        expect(isExtRequest(req('highlights:create', { document, highlight: segmented }))).toBe(true);
+        expect(isExtRequest(req('highlights:create', { document, highlight: { ...highlight, fragments: [{ ...fragment, formula: { latex: '', display: false } }] } }))).toBe(false);
+        await handle(req('highlights:create', { document, highlight: segmented }));
+        expect((await handle(req('highlights:update', { document, highlight: { ...segmented, color: 'red' }, expectedRevision: 1 })))?.response)
+            .toMatchObject({ ok: true, data: { highlight: { fragments: [fragment], revision: 2 } } });
+        expect((await handle(req('highlights:update', { document, highlight: { ...segmented, fragments: [{ ...fragment, formula: { latex: 'x-y', display: false } }] }, expectedRevision: 2 })))?.response)
+            .toMatchObject({ ok: false, error: { code: 'INVALID_REQUEST' } });
+    });
 });

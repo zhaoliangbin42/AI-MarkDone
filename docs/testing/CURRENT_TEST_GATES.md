@@ -4,6 +4,17 @@ This document defines the **current executable test and verification gates** for
 
 ### Highlight persistence and mixed selections (2026-10-15)
 
+- Supported-subset follow-up: test both partial-formula endpoints, partial inline
+  code, complete source-bearing math with unsupported content, math-only supported
+  subsets, whitespace-only selections and visible colors before capture limits.
+  Real page/Reader trigger tests must verify the persisted subset. Oversized
+  saves must not write truncated records. Cover TeX-based restoration across glyph
+  changes, duplicate formula rejection, optional-field validation/backup and old
+  text-only fragments. Copy regressions remain mandatory; its atom policy does
+  not change with highlight admission. Follow-up verification passed 334 files /
+  2924 full-core tests and default `release:verify`; the later increment's installed
+  Chrome reload was not repeated. Details are tracked in the plan.
+
 - Recolor through Chrome storage key reordering; retain identity, source selectors
   and revision conflicts. Optional fragments must validate and survive complete
   Library/Drive backup/restore without migrating existing marks.

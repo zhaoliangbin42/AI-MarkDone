@@ -268,6 +268,13 @@ export function hasPartialRenderedInlineUnitSelection(range: Range, root: HTMLEl
     });
 }
 
+/** Reuse the copy atom's visible-coverage proof without changing copy policy. */
+export function isCompleteRenderedFormulaSelected(range: Range, element: HTMLElement): boolean {
+    const kind = resolveRenderedAtomicUnitKind(element);
+    return (kind === 'inline-math' || kind === 'display-math')
+        && rangeCoversStrictUnit(range, { element, kind, mode: resolveRenderedAtomicUnitMode(element, kind) });
+}
+
 /**
  * Resolves unannotated page-rendered units using the same selection semantics
  * as Reader. This is a visual/materialization helper only; it does not create

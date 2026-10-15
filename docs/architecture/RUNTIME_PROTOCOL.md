@@ -427,6 +427,15 @@ partition behavior must pass actual Chrome/Firefox installation acceptance.
   Library/Drive snapshot path. Absent fragments retain legacy anchor semantics;
   no bundle, bookmark or annotation migration runs. Invalid fragments reject the
   record/bundle instead of being silently dropped.
+- A fragment may additionally carry `formula: { latex, display }`. The LaTeX
+  string must be nonempty and at most `MAX_HIGHLIGHT_FORMULA_LENGTH`; display is
+  boolean. Its exact selector is authoritative TeX, and surrounding context
+  remains on the existing ordinary-text axis (its text-position interval is
+  zero-width). Restoring requires unique source/mode/context agreement. Text-only
+  fragments retain their existing meaning. Formula fields are immutable on
+  recolor and preserved by the same Library backup; no schema migration or new
+  protocol family is introduced. Partial glyph selections never expand into a
+  complete saved formula.
 - `highlights:remove` requires `{ document, highlightId, expectedRevision }` and acknowledges `{ deleted: true, highlightId }`. Missing entries return `NOT_FOUND` rather than successful removal.
 - The independent `aimd:highlights:document:v1:` bundle namespace uses the existing storage port and write queue. Invalid bundles return `SNAPSHOT_CORRUPTED` and are never replaced by empty bundles. Quota failures remain errors. Bookmark and annotation record schemas and migration behavior are unchanged; complete Library transfer now includes durable highlight bundles.
 - Highlight clients validate returned entries and deletion acknowledgements before view state changes. `storage.onChanged` drives cross-entry refresh; each view rejects obsolete asynchronous reads.

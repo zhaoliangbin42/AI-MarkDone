@@ -31,7 +31,8 @@ function payload(): LibraryExportPayloadV4 {
 describe('complete Library cloud snapshot', () => {
     it('retains optional text fragments in the snapshot and restore plan without migrating legacy marks', async () => {
         const source = payload();
-        source.highlights[0]!.highlights[0]!.fragments = [{ quoteText: 'selected text', selectors: record.selectors }];
+        source.highlights[0]!.highlights[0]!.fragments = [{ quoteText: 'selected text', selectors: record.selectors },
+            { quoteText: '$x+y$', formula: { latex: 'x+y', display: false }, selectors: { ...record.selectors, textQuote: { exact: 'x+y', prefix: '', suffix: '' }, textPosition: { start: 13, end: 13 } } }];
         const snapshot = await createLibraryCloudBackupSnapshot(source);
         const restored = await validateCloudBackupSnapshot(JSON.parse(JSON.stringify(snapshot)));
         const plan = buildLibraryRestorePlan(payload(), restored.payload, 'replaceLocal');

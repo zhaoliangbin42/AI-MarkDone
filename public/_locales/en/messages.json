@@ -3791,6 +3791,10 @@
         "message": "Could not save the highlight. Try again.",
         "description": "Library and highlight interface"
     },
+    "highlightSelectionUnavailable": {
+        "message": "Could not safely save this highlight. Adjust the selection and try again.",
+        "description": "Highlight capture exceeded safe limits or could not prove the selected ranges"
+    },
     "highlightDeleteFailed": {
         "message": "Could not delete the highlight. Try again.",
         "description": "Page highlight actions"
