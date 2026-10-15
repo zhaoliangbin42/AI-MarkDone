@@ -612,7 +612,7 @@ flowchart TD
 **ChatGPT page annotation boundary（2026-08）**
 
 - `ChatGPTPageAnnotationController` 是 ChatGPT-only 页面级注释入口，复用 `ContentSurfaceAdapter → SurfaceProjection` 的 canonical Markdown（与局部复制共享 `buildPageMarkdownSelectionSnapshot`，严格同源），并通过 `PageAnnotationStore` + `readerAnnotationsClient` 与 Reader 注释共用同一 `storage.local` bundle 与 `persistAnnotations` 开关语义。
-- 页面选区工具条复用原 page annotation overlay；复制与注释保持可用，只有纯正文选区显示三色色块。代码、公式、表格、编辑区域与页面控件相交的选区不能保存高亮，页面和 Reader 共用这条资格规则。工具条按实际按钮宽度定位；注释框仍复用 `ReaderCommentPopover`，保存入口重用 snapshot 校验。
+- 页面选区工具条复用原 page annotation overlay。复制与注释保留源码规则；高亮复用相同的 selection owner 和 verified message identity，但表格/混合选区通过共享 `highlightSelection` / `highlightRecord` 保存可标注文字分段。装饰图标、代码块及外壳、编辑器、图表、图片和不透明富块跳过；host 特殊块边界由 adapter 使用既有 rich-block 分类提供，不抓取资产。单独的完整公式与行内代码保留原路径。工具条按实际按钮宽度定位；注释框仍复用 `ReaderCommentPopover`。
 - 注入节点带 `AIMD_CONVERSATION_SURFACE_CONSUMER_ATTRIBUTE`，由 `contentSource`/`materialization` 订阅 + rAF 节流 resize 对账重建，不新增全局 MutationObserver；重锚经 domRange→textPosition→textQuote 回退，`unanchored` 记录不静默误绑。
 - 注释与高亮矩形以 per-message 零高度 host 就地绘制，随页面滚动；高亮按会话/助手消息分配到已挂载 root。引用等宿主控件的矩形不参与正文高亮；有标记的 root 由单个 `ResizeObserver` 在重排时触发合帧重测。右侧窄色块与注释按钮共用避让槽位，空间不足时不覆盖正文；点击色块会突出对应高亮，并通过现有高亮存储接口改色或删除。颜色先按更新时间覆盖，再与文字合成（浅色 multiply、深色 screen）。同一 materialization/布局版本不重复解析，未挂载消息不扫描正文；Reader 沿用自己的选区入口和重绘生命周期。
 - 当前会话有注释且注释功能启用时，输入框注释入口挂在官方加号按钮旁，兼容旧 `composer-plus-btn` 与新版 `data-composer-navigation-target="add-context"`；没有注释时隐藏。点击后继续使用原注释管理弹窗选择插入，不改插入及删除语义。
@@ -649,6 +649,7 @@ flowchart TD
 ### 高亮与资料库投影（2026-09-12）
 
 - `contracts/highlights.ts` 定义独立记录；`handlers/highlights.ts` 复用 storage port 和后台串行队列，以每会话 bundle 保存，CRUD 校验修订，损坏 bundle 不被空值覆盖。`highlightsClient` 验证成功 payload。
+- 2026-10-15：锚点比较按字段值而非 JSON 键顺序，兼容 Chrome storage 往返。新混合高亮可在原记录内保存 1–128 个 `fragments`；每段保存引用与上下文，在过滤特殊块和空白后的同消息文字轴唯一匹配，绘制只使用恢复后的文字节点矩形。任一段失配/歧义则不猜位置，记录仍保留。旧记录、注释与书签格式无迁移；Library/Drive 保留可选字段。页面 anchor cache 保存所有文字 Range，并在 materialization 变化时使分段缓存失效。没有第二套内容池、Observer、存储 owner 或复制链路。实现与验收见 [高亮记录](../plans/2026-10-15-highlight-selection.md)。
 - `ui/content/highlights/HighlightSession.ts` 是视图内存投影，拥有加载代次与 storage 订阅；其位置属于 UI，服务层不依赖 runtime client。页面和 Reader 复用已有 selection / commentAnchoring，存储协议与注释不混用。
 - `LibraryMarksView` 按类型加载原数据，合并原页面/Reader 内存注释。书签仍由原 controller/service 处理；书签、注释、高亮以类型、会话身份和记录 ID 区分，不写 aggregate library。
 - 组织目录读取与原始资料读取并行且独立处理失败；目录不可用时保留来源资料及已读名称，回到全部范围并暂停目录写入。按网页缓存一次展示标题解析，单次列表投影不为每条标记重复查询宿主标题。`SettingsCatalog` 的分类激活显式请求 shell 切回设置内容，不能只更新选中样式。

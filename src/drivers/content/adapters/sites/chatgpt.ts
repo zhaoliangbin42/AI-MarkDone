@@ -10,7 +10,7 @@ import {
     type ChatGPTDomRoundRef,
 } from '../../chatgpt/domConversationDiscovery';
 import { isChatGPTPageUrl } from '../../../../contracts/chatgptHosts';
-import { normalizeChatGPTRichBlocks } from '../../chatgpt/chatgptRichContent';
+import { normalizeChatGPTRichBlocks, isChatGPTOpaqueRichBlock } from '../../chatgpt/chatgptRichContent';
 import type { RichBlockV1 } from '../../../../contracts/richContent';
 import { hasConsistentChatGPTMessageContentIdentity } from '../../chatgpt/chatgptMessageContentIdentity';
 import { resolveChatGPTActiveSurface } from '../../chatgpt/chatgptActiveSurface';
@@ -37,6 +37,7 @@ const detector: ThemeDetector = {
 };
 
 export class ChatGPTAdapter extends SiteAdapter {
+    isHighlightExcludedElement(element: Element): boolean { return isChatGPTOpaqueRichBlock(element); }
     private conversationGroupCache: {
         rounds: ChatGPTDomRoundRef[];
         groups: ConversationGroupRef[];

@@ -139,7 +139,7 @@
 | Capability | Shipped behavior | Acceptance boundary |
 |---|---|---|
 | ChatGPT annotation persistence | “持久化注释”开启时，verified ChatGPT conversation 的新注释写入 extension profile-local `storage.local`；关闭只影响未来新建，已有 durable 注释始终展示并继续持久化编辑/删除；官网 Reader 与 detached Reader 共用 durable 记录 | 仅支持 `chatgpt.com` / `chat.openai.com`；document identity 为 verified `conversationId`，不按 URL、host 或 workspace 分区；开关默认关闭，关闭期间新建注释只保留在当前页面 runtime 且不自动迁移；Gemini、Claude、DeepSeek 保持现有内存行为。 |
-| ChatGPT page selection | 助手回复选区 → 复制、注释、雾蓝、奶油黄、浅珊瑚红，按主题显示圆角胶囊 | 复用唯一选区协调器和当前 snapshot 校验；跨行、跨普通段落文字保存为一条带范围锚点的高亮，选区源码保留段落分隔。允许完整的行内代码、行内公式与行间公式；围栏代码、表格、嵌入内容和编辑控件不提供高亮色块。注释开关只控制注释按钮、标记与 chip，关闭时高亮仍可用。选区工具条开关控制整个弹窗，不影响已存标记恢复。注释沿用原持久化偏好；高亮独立、始终持久化。 |
+| ChatGPT page selection | 助手回复选区 → 复制、注释、雾蓝、奶油黄、浅珊瑚红，按主题显示圆角胶囊 | 复用唯一选区协调器。普通连续选区保留原锚点与源码规则；页面与 Reader 的表格/混合高亮共用分段文字捕获与恢复，仍保存为一个 ID/颜色/修订。跳过装饰图标、围栏代码及其控件、图表、图片、嵌入和不透明特殊块，不因这些块拒绝两侧正文；纯特殊块不提供色块。每段须在相同助手消息内由原文与上下文唯一证明，任一段失配/歧义则保留记录但不猜位置。分段摘录为转义纯文字，不修改复制/注释源码链路。原有完整公式与行内代码路径保持。注释开关只控制注释按钮、标记与 chip；高亮独立且始终持久化，旧记录无迁移。 |
 | Annotation manager | 资料库 → 注释；Reader 和页面的原注释管理入口继续可用 | 保留编辑、删除、复制、当前会话插入及模板配置入口。资料库还合并当前页面与 Reader 的内存注释；读取失败单独显示，原页链接不依赖定位成功。 |
 | Exact source navigation | 同会话直接定位；跨会话创建新 ChatGPT tab，验证 conversation/message identity 后自动打开 Reader 并聚焦注释 | 只能命中 exact assistant message 与注释；无法唯一重锚时保留并标记 `unanchored`，不得静默迁移到相似文本。 |
 | Local storage boundary | Background 作为 durable 记录的唯一写入方，每 conversation 一个 versioned bundle，不建立第二个持久化 index | 已进入 bundle 的记录支持刷新、扩展 reload、浏览器重启恢复且不受当前开关影响；扩展卸载或清除扩展数据后本地注释消失。当前不做实时云同步；已持久化注释可经完整资料库文件及手动 Google Drive 备份导入/恢复。 |

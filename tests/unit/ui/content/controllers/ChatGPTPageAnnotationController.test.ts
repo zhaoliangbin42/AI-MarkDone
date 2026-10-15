@@ -249,6 +249,26 @@ describe('ChatGPTPageAnnotationController', () => {
         } finally { controller.dispose(); vi.unstubAllGlobals(); document.title = ''; }
     });
 
+    it('saves table and surrounding prose from the visible swatch while skipping an opaque block', async () => {
+        const message = mountMessage('<p>Before</p><canvas>Not text</canvas><table><tr><td>Cell A</td><td>Cell B</td></tr></table><p>After</p>');
+        const root = message.querySelector('.markdown.prose') as HTMLElement;
+        const range = document.createRange(); range.selectNodeContents(root); selectRange(range);
+        mockGeometry(root, root.querySelector('p')!, range);
+        const controller = new ChatGPTPageAnnotationController(new ChatGPTAdapter(), {
+            contentSource: createContentSource('unrelated answer'), materialization: createMaterialization(message), surfaceAdapter: createEvidenceSurfaceAdapter(message),
+        });
+        controller.init();
+        try {
+            dispatchPointerUp(320, 240); await flushSelectionFrame();
+            const swatch = selectionToolbarHost()!.querySelector<HTMLButtonElement>('[data-color="blue"]')!;
+            swatch.dispatchEvent(new MouseEvent('pointerdown', { bubbles: true, composed: true, cancelable: true, button: 0 })); swatch.click();
+            await vi.waitFor(() => expect(highlightClientMock.create).toHaveBeenCalledOnce());
+            const saved = highlightClientMock.create.mock.calls[0]![1];
+            expect(saved.fragments.map((part: any) => part.quoteText)).toEqual(['Before', 'Cell A', 'Cell B', 'After']);
+            expect(saved.sourceMarkdown).not.toContain('Not text');
+        } finally { controller.dispose(); }
+    });
+
     it('saves a cross-paragraph highlight and reanchors its single record after a content remount', async () => {
         const message = mountMessage('<p>First line</p><p>Second line</p>');
         const root = message.querySelector('.markdown.prose') as HTMLElement;

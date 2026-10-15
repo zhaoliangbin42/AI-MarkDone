@@ -107,6 +107,9 @@ export abstract class SiteAdapter {
      */
     getHeavySubtreeRefs?(_bodyEls: HTMLElement[]): HTMLElement[];
 
+    /** Cheap opaque boundaries for text highlights; no source extraction or asset work. */
+    isHighlightExcludedElement?(_element: Element): boolean;
+
     /**
      * Platform-specific injection strategy for a per-message toolbar host element.
      *

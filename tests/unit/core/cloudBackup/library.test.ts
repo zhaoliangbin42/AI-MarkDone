@@ -29,6 +29,15 @@ function payload(): LibraryExportPayloadV4 {
 }
 
 describe('complete Library cloud snapshot', () => {
+    it('retains optional text fragments in the snapshot and restore plan without migrating legacy marks', async () => {
+        const source = payload();
+        source.highlights[0]!.highlights[0]!.fragments = [{ quoteText: 'selected text', selectors: record.selectors }];
+        const snapshot = await createLibraryCloudBackupSnapshot(source);
+        const restored = await validateCloudBackupSnapshot(JSON.parse(JSON.stringify(snapshot)));
+        const plan = buildLibraryRestorePlan(payload(), restored.payload, 'replaceLocal');
+        expect(plan.highlightsToWrite[0]!.highlights[0]!.fragments).toEqual(source.highlights[0]!.highlights[0]!.fragments);
+        expect(payload().highlights[0]!.highlights[0]!.fragments).toBeUndefined();
+    });
     it('validates all Library domains and hashes them as one version 3 payload', async () => {
         const source = payload();
         const snapshot = await createLibraryCloudBackupSnapshot(source, new Date('2026-09-25T00:00:00.000Z'));

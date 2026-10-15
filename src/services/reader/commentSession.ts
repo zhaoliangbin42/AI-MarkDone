@@ -1,4 +1,5 @@
 import type { ReaderAtomicUnitKind } from '../renderer/renderMarkdown';
+import type { HighlightTextFragment } from '../../contracts/highlights';
 import type { ReaderCommentSortMode } from '../../core/settings/readerCommentExport';
 import type {
     ReaderAnnotationDocument,
@@ -42,6 +43,7 @@ export type ReaderCommentSelectors = {
 };
 
 export type ReaderCommentRecord = {
+    highlightFragments?: HighlightTextFragment[];
     id: string;
     itemId: string;
     quoteText: string;

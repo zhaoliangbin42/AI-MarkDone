@@ -9,6 +9,15 @@ import {
 import type { SelectedAtomicUnit } from '@/services/reader/atomicSelection';
 
 describe('commentAnchoring', () => {
+    it('does not bridge a small omitted icon gap between independent highlight ranges', () => {
+        const root = document.createElement('div'); root.innerHTML = '<span>before</span><svg></svg><span>after</span>'; document.body.append(root);
+        const ranges = Array.from(root.querySelectorAll('span')).map((span, index) => {
+            const range = document.createRange(); range.selectNodeContents(span);
+            Object.assign(range, { getClientRects: () => [{ left: index * 15, top: 0, width: 10, height: 10, right: index * 15 + 10, bottom: 10 }] });
+            return range;
+        });
+        expect(resolveSelectionLayout({ root, range: ranges[0]!, ranges, selectedUnits: [] }).rects).toHaveLength(2);
+    });
     it.each(['page-to-reader', 'reader-to-page'])('keeps a unique exact passage through layout whitespace changes (%s)', (direction) => {
         const paragraphs = ['<p>Earlier context.</p>', '<p>Chosen passage.</p>', '<p>Following context.</p>'];
         document.body.innerHTML = '<div id="root"></div>';

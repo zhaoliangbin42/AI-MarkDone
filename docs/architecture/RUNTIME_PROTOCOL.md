@@ -418,6 +418,15 @@ partition behavior must pass actual Chrome/Firefox installation acceptance.
 - `highlights:list` accepts an optional ChatGPT annotation document and returns `{ entries: [{ document, highlight }] }`.
 - `highlights:create` accepts `{ document, highlight }` and returns the canonical entry. A repeat for the same assistant identity and text selectors recolors the existing record; an identical-color retry is idempotent.
 - `highlights:update` requires `{ document, highlight, expectedRevision }`. The target/selectors cannot change; stale revisions return `CONFLICT`.
+- Selector equality compares field values, never JSON property order: Chrome
+  storage may reorder keys during a round trip. Optional `fragments` carries
+  1–128 `{ quoteText, selectors }` entries on the existing highlight record.
+  Their exact quotes/context use the shared whitespace-independent eligible-text
+  axis, excluding opaque blocks and controls. All fragments belong to the parent
+  assistant identity, are immutable during recoloring and survive the existing
+  Library/Drive snapshot path. Absent fragments retain legacy anchor semantics;
+  no bundle, bookmark or annotation migration runs. Invalid fragments reject the
+  record/bundle instead of being silently dropped.
 - `highlights:remove` requires `{ document, highlightId, expectedRevision }` and acknowledges `{ deleted: true, highlightId }`. Missing entries return `NOT_FOUND` rather than successful removal.
 - The independent `aimd:highlights:document:v1:` bundle namespace uses the existing storage port and write queue. Invalid bundles return `SNAPSHOT_CORRUPTED` and are never replaced by empty bundles. Quota failures remain errors. Bookmark and annotation record schemas and migration behavior are unchanged; complete Library transfer now includes durable highlight bundles.
 - Highlight clients validate returned entries and deletion acknowledgements before view state changes. `storage.onChanged` drives cross-entry refresh; each view rejects obsolete asynchronous reads.

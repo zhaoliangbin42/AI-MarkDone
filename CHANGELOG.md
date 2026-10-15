@@ -8,12 +8,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Changed
+- Highlight text across table cells and mixed layouts, skipping unsupported visual blocks and controls. Thanks to email user @qds19100.
 - Open saved ChatGPT messages with a direct message link when switching conversations; existing bookmarks and backups stay compatible.
 - Identify Chrome or Firefox in feedback email subjects while keeping the same contact address and copy-email action.
 - Reduce the lower-right page controls and icons to leave more room for ChatGPT’s own buttons.
 - Explain ChatGPT’s native Settings → Keyboard alternative beneath Enter-to-newline, ahead of its gradual retirement.
 
 ### Fixed
+- Change saved highlight colors without deleting and selecting the text again. Thanks to email user @qds19100.
+- Keep decorative icons from disabling highlights for surrounding text.
 - Keep Reader fallback links accessible by keyboard while annotation windows open.
 - Improve Markdown copying for complex rendered formulas.
 - Keep directory, bookmark and Reader navigation on the same verified message target as history loads or positions change. Interrupted and timed-out requests no longer jump later.

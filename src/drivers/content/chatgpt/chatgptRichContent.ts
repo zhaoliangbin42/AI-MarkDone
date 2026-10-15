@@ -97,6 +97,11 @@ function classifyKind(element: Element): RichBlockKindV1 | null {
     return null;
 }
 
+/** Selection only needs opaque boundaries, never SVG sources or asset capture. */
+export function isChatGPTOpaqueRichBlock(element: Element): boolean {
+    return classifyKind(element) !== null;
+}
+
 /** Scoped attribute invalidation shares the same exclusions as extraction. */
 export function isChatGPTRichVisualMutationTarget(element: Element): boolean {
     if (element.closest(VISUAL_MUTATION_EXCLUDED_OWNER)) return false;

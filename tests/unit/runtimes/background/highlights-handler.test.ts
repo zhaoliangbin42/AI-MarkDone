@@ -18,6 +18,17 @@ beforeEach(() => {
     }}});
 });
 describe('independent highlights storage', () => {
+    it('recolors the same selection after Chrome storage reorders object keys', async () => {
+        const reorder = (value: any): any => Array.isArray(value) ? value.map(reorder)
+            : value && typeof value === 'object'
+                ? Object.fromEntries(Object.keys(value).sort().map(key => [key, reorder(value[key])])) : value;
+        set.mockImplementation(async (patch: Record<string, unknown>) => { Object.assign(store, reorder(patch)); });
+        const { handleHighlightRequest: handle } = await import('@/runtimes/background/handlers/highlights');
+        await handle(req('highlights:create', { document, highlight }));
+        expect((await handle(req('highlights:update', {
+            document, highlight: { ...highlight, color: 'red' }, expectedRevision: 1,
+        })))?.response).toMatchObject({ ok: true, data: { highlight: { id: 'h1', color: 'red', revision: 2 } } });
+    });
     it('fills titles on identical-color saves without revising the mark and preserves them on untitled recolors', async () => {
         const { handleHighlightRequest: handle } = await import('@/runtimes/background/handlers/highlights');
         await handle(req('highlights:create', { document: { ...document, title: null }, highlight }));
@@ -62,5 +73,19 @@ describe('independent highlights storage', () => {
         expect(isExtRequest(req('highlights:create',{document,highlight:{...highlight,color:'green'}}))).toBe(false);
         expect(isExtRequest(req('highlights:create',{document:{...document,platform:'other'},highlight}))).toBe(false);
         expect(isExtRequest(req('highlights:update',{document,highlight,expectedRevision:0}))).toBe(false);
+        expect(isExtRequest(req('highlights:create',{document,highlight:{...highlight,fragments:[]}}))).toBe(false);
+        expect(isExtRequest(req('highlights:create',{document,highlight:{...highlight,fragments:[{quoteText:'Quote',selectors:highlight.selectors}]}}))).toBe(true);
+        expect(isExtRequest(req('highlights:create',{document,highlight:{...highlight,fragments:[{quoteText:'Quote',selectors:null}]}}))).toBe(false);
+    });
+    it('preserves fragment anchors through save, list and recolor, and rejects changing them', async () => {
+        const { handleHighlightRequest: handle } = await import('@/runtimes/background/handlers/highlights');
+        const segmented = { ...highlight, fragments: [{ quoteText: 'Quote', selectors: highlight.selectors }] };
+        await handle(req('highlights:create', { document, highlight: segmented }));
+        const response = (await handle(req('highlights:list', { document })))?.response;
+        expect(response).toMatchObject({ ok: true, data: { entries: [{ highlight: { fragments: segmented.fragments } }] } });
+        expect((await handle(req('highlights:update', { document, highlight: { ...segmented, color: 'red' }, expectedRevision: 1 })))?.response)
+            .toMatchObject({ ok: true, data: { highlight: { revision: 2, fragments: segmented.fragments } } });
+        expect((await handle(req('highlights:update', { document, highlight: { ...segmented, fragments: undefined }, expectedRevision: 2 })))?.response)
+            .toMatchObject({ ok: false, error: { code: 'INVALID_REQUEST' } });
     });
 });

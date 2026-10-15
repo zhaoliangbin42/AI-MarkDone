@@ -25,6 +25,9 @@
 
 ### Refactor And Closeout Records
 
+- [Highlight recoloring and mixed selections](plans/2026-10-15-highlight-selection.md)
+  - storage-order regression, shared text fragments, persistence and Chrome acceptance
+
 - [Shared message navigation](plans/2026-10-14-message-navigation.md)
   - host message-link evidence, common navigation/fallback contract and validation boundaries
 

@@ -58,6 +58,7 @@ import { t } from '../components/i18n';
 import { getRuntimeFailurePresentation } from '../components/runtimeFailurePresentation';
 import { RuntimeClientRequestError } from '../../../drivers/shared/clients/clientResult';
 import { isHighlightableTextSelection } from '../../../services/reader/highlightSelection';
+import { createSelectionHighlightRecord } from '../../../services/reader/highlightRecord';
 
 const ID_PREFIX = 'comment-';
 
@@ -79,6 +80,7 @@ type TurnMeta = {
 type AnchorCacheEntry = {
     root: HTMLElement;
     range: Range | null;
+    ranges?: Range[];
     layout: ReaderCommentResolvedAnchor | null;
     layoutEpoch: number;
     revision?: number;
@@ -393,7 +395,7 @@ export class ChatGPTPageAnnotationController {
     }
 
     private renderToolbar(frame: ChatGPTPageSelectionFrame): boolean {
-        const canHighlight = this.selectionToolbarActions.highlight && isHighlightableTextSelection(frame.location.range, frame.location.root);
+        const canHighlight = this.selectionToolbarActions.highlight && isHighlightableTextSelection(frame.location.range, frame.location.root, element => this.adapter.isHighlightExcludedElement?.(element) ?? false);
         if (!this.selectionToolbarActions.copy && !(this.selectionToolbarActions.annotation && this.annotationsEnabled) && !canHighlight) {
             this.ensureOverlay().renderToolbar(null);
             return false;
@@ -486,14 +488,23 @@ export class ChatGPTPageAnnotationController {
 
     private async saveHighlight(color: HighlightColor): Promise<void> {
         if (this.highlightSaving) return;
-        const snapshot = this.resolveActionSnapshot();
-        const target = snapshot ? this.resolveTarget(snapshot.evidence) : null;
-        if (!snapshot || !target || !this.isSnapshotCurrent(snapshot)
-            || !isHighlightableTextSelection(snapshot.range, snapshot.root)) { this.reportSelectionUnavailable(); return; }
+        const frame = this.selectionCoordinator.refreshNow() ?? (this.toolbarActionActive ? this.lastFrame : null);
+        const context = this.markdownResolver.materialize(frame);
+        const target = context ? this.resolveTarget(context.evidence) : null;
+        if (!context || !target || !context.root.isConnected
+            || !context.root.contains(context.range.startContainer) || !context.root.contains(context.range.endContainer)) { this.reportSelectionUnavailable(); return; }
         this.highlightSaving = true;
         try {
-            const record = createPageCommentRecord({ id: `highlight-${crypto.randomUUID()}`, itemId: this.itemIdForEvidence(snapshot.evidence), comment: '', range: snapshot.range, root: snapshot.root, sourceMarkdown: snapshot.canonicalMarkdown });
-            await this.highlights.create(createHighlightRecord(record, target, color));
+            const id = `highlight-${crypto.randomUUID()}`;
+            const itemId = this.itemIdForEvidence(context.evidence);
+            const selection = createSelectionHighlightRecord({ id, itemId, range: context.range, root: context.root,
+                skip: element => this.adapter.isHighlightExcludedElement?.(element) ?? false,
+                legacyRecord: () => {
+                    const snapshot = this.resolveActionSnapshot();
+                    return snapshot && this.isSnapshotCurrent(snapshot) ? createPageCommentRecord({ id, itemId, comment: '', range: snapshot.range, root: snapshot.root, sourceMarkdown: snapshot.canonicalMarkdown }) : null;
+                } });
+            if (!selection) { this.reportSelectionUnavailable(); return; }
+            await this.highlights.create(createHighlightRecord(selection.record, target, color, selection.fragments));
             this.closeToolbar();
         } catch (error) { this.showHighlightError(error, 'highlightSaveFailed', 'Could not save highlight'); }
         finally { this.highlightSaving = false; }
@@ -739,7 +750,8 @@ export class ChatGPTPageAnnotationController {
                 if (!messageId || !entriesByAssistant.has(messageId)) { this.anchorCache.delete(record.id); continue; }
                 const cached = this.anchorCache.get(record.id);
                 const currentRoot = this.resolveAnnotationRoot(record, entriesByAssistant);
-                if (cached && (cached.root !== currentRoot || !cached.range || !cached.root.contains(cached.range.commonAncestorContainer))) this.anchorCache.delete(record.id);
+                if (cached && (cached.root !== currentRoot || !cached.range || !cached.root.contains(cached.range.commonAncestorContainer)
+                    || cached.ranges?.some(range => !cached.root.contains(range.startContainer) || !cached.root.contains(range.endContainer)))) this.anchorCache.delete(record.id);
             }
             const resolved = this.resolveRecordAnchor(record, entriesByAssistant);
             if (!resolved) continue;
@@ -858,7 +870,7 @@ export class ChatGPTPageAnnotationController {
             ) {
                 return { root: cached.root, layout: cached.layout };
             }
-            const layout = resolveSelectionLayout({ root: cached.root, range: cached.range, selectedUnits: [] });
+            const layout = resolveSelectionLayout({ root: cached.root, range: cached.range, ranges: cached.ranges, selectedUnits: [] });
             cached.layout = layout.unionRect ? layout : null;
             cached.layoutEpoch = this.markerLayoutEpoch;
             cached.revision = record.revision;
@@ -874,10 +886,11 @@ export class ChatGPTPageAnnotationController {
             this.markAnchorState(record, 'unanchored');
             return null;
         }
-        const resolved = resolveReaderCommentAnchor(root, record);
+        const resolved = resolveReaderCommentAnchor(root, record, element => this.adapter.isHighlightExcludedElement?.(element) ?? false);
         this.anchorCache.set(record.id, {
             root,
             range: resolved.range,
+            ranges: resolved.ranges,
             layout: resolved.unionRect ? resolved : null,
             layoutEpoch: this.markerLayoutEpoch,
             revision: record.revision,
@@ -1132,6 +1145,8 @@ export class ChatGPTPageAnnotationController {
                 void this.syncDocument();
             } else if (materializationToken !== this.lastMaterializationToken) {
                 this.lastMaterializationToken = materializationToken;
+                // Fragment geometry depends on every retained text node, not only the first Range.
+                for (const record of this.highlights.list()) if (record.fragments) this.anchorCache.delete(`highlight:${record.id}`);
                 this.closeHighlightActions();
                 this.annotationRootCache = new WeakMap<HTMLElement, HTMLElement>();
                 this.markerLayoutEpoch += 1;

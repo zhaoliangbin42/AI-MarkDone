@@ -39,6 +39,7 @@ import {
 } from '../../../services/reader/atomicSelection';
 import { buildAtomicSelectionExport } from '../../../services/reader/atomicExport';
 import { isHighlightableTextSelection } from '../../../services/reader/highlightSelection';
+import { createSelectionHighlightRecord } from '../../../services/reader/highlightRecord';
 import {
     createReaderCommentRecord,
     resolveReaderCommentAnchor,
@@ -2174,8 +2175,11 @@ export class ReaderPanel {
                 this.highlightSaving = true;
                 group.querySelectorAll<HTMLButtonElement>('button').forEach(button => { button.disabled = true; });
                 try {
-                    const record = createReaderCommentRecord({id: `highlight-${crypto.randomUUID()}`, itemId: item.id, comment: '', range: selection.range, root, selectedUnits: selection.selectedUnits});
-                    await this.highlights.create(createHighlightRecord(record, target, color));
+                    const id = `highlight-${crypto.randomUUID()}`;
+                    const captured = createSelectionHighlightRecord({ id, itemId: item.id, range: selection.range, root,
+                        legacyRecord: () => createReaderCommentRecord({ id, itemId: item.id, comment: '', range: selection.range, root, selectedUnits: selection.selectedUnits }) });
+                    if (!captured) { this.notify(t('pageAnnotationSelectionUnavailable')); return; }
+                    await this.highlights.create(createHighlightRecord(captured.record, target, color, captured.fragments));
                     if (this.getCurrentItem()?.id === item.id) { this.commentSelectionSnapshot = null; this.syncTransientCommentUi(); }
                 } catch { this.notify(t('highlightSaveFailed')); }
                 finally { this.highlightSaving = false; group.querySelectorAll<HTMLButtonElement>('button').forEach(button => { button.disabled = false; }); }

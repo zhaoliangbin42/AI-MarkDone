@@ -1,5 +1,6 @@
 import { resolveRenderedAtomicUnitKind, type SelectedAtomicUnit } from './atomicSelection';
 import { buildAtomicSelectionExport } from './atomicExport';
+import { resolveHighlightTextFragments, type HighlightSkipElement } from './highlightSelection';
 import type {
     ReaderCommentAtomicRef,
     ReaderCommentDomPoint,
@@ -19,6 +20,7 @@ export type ReaderCommentRect = {
 
 export type ReaderCommentResolvedAnchor = {
     range: Range | null;
+    ranges?: Range[];
     units: readonly { element: HTMLElement }[];
     rects: ReaderCommentRect[];
     unionRect: ReaderCommentRect | null;
@@ -418,6 +420,7 @@ function resolveTextQuoteRange(root: HTMLElement, selector: ReaderCommentTextQuo
 export function resolveSelectionLayout(params: {
     root: HTMLElement;
     range: Range | null;
+    ranges?: readonly Range[];
     selectedUnits: readonly { element: HTMLElement }[];
 }): ReaderCommentResolvedAnchor {
     const { root, range, selectedUnits } = params;
@@ -425,8 +428,8 @@ export function resolveSelectionLayout(params: {
     const textRects: ReaderCommentRect[] = [];
     const unitRects: ReaderCommentRect[] = [];
 
-    if (range) {
-        excludeControlRects(range, root, collectRangeClientRects(range)).forEach((clientRect) => {
+    for (const textRange of params.ranges ?? (range ? [range] : [])) {
+        excludeControlRects(textRange, root, collectRangeClientRects(textRange)).forEach((clientRect) => {
             const relative = toRelativeRect(containerRect, clientRect);
             if (relative) textRects.push(relative);
         });
@@ -437,12 +440,15 @@ export function resolveSelectionLayout(params: {
         if (relative) unitRects.push(relative);
     });
 
-    const normalized = mergeRects(dedupeRects([
+    const textAndUnitRects = dedupeRects([
         ...filterTextRectsAgainstUnits(textRects, unitRects),
         ...unitRects,
-    ]));
+    ]);
+    // Independent highlight ranges must never bridge an omitted icon or cell gap.
+    const normalized = params.ranges ? textAndUnitRects : mergeRects(textAndUnitRects);
     return {
         range,
+        ...(params.ranges ? { ranges: [...params.ranges] } : {}),
         units: selectedUnits,
         rects: normalized,
         unionRect: buildUnionRect(normalized),
@@ -545,7 +551,12 @@ export function createPageCommentRecord(params: {
     };
 }
 
-export function resolveReaderCommentAnchor(root: HTMLElement, record: ReaderCommentRecord): ReaderCommentResolvedAnchor {
+export function resolveReaderCommentAnchor(root: HTMLElement, record: ReaderCommentRecord, skip?: HighlightSkipElement): ReaderCommentResolvedAnchor {
+    if (record.highlightFragments) {
+        const ranges = resolveHighlightTextFragments(root, record.highlightFragments, skip);
+        return ranges ? resolveSelectionLayout({ root, range: ranges[0]!, ranges, selectedUnits: [] })
+            : { range: null, units: [], rects: [], unionRect: null };
+    }
     const selector = record.selectors.textQuote;
     let currentText: string | undefined;
     const matchesQuote = (range: Range | null): boolean => {

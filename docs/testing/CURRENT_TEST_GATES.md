@@ -2,6 +2,27 @@
 
 This document defines the **current executable test and verification gates** for day-to-day development. Use this file for what we must run now, not for future-state testing architecture.
 
+### Highlight persistence and mixed selections (2026-10-15)
+
+- Recolor through Chrome storage key reordering; retain identity, source selectors
+  and revision conflicts. Optional fragments must validate and survive complete
+  Library/Drive backup/restore without migrating existing marks.
+- Enter through actual page and Reader selection swatches, including pointerdown
+  before click. Cover table cells, prose around opaque blocks, decorative SVG,
+  code wrapper labels, whitespace/wrapper changes, repeated quotes, missing text,
+  cross-root selections and fragment limits. Restore text-node rectangles only;
+  do not fill table/visual bounding boxes or connect omitted blocks.
+- Keep Copy/annotation/formula suites separate and unchanged. Chrome acceptance
+  must use the reloaded extension and verify new/existing marks, recolor, refresh,
+  mixed text, skipped blocks and Reader restoration. Execution evidence belongs
+  in [the highlight plan](../plans/2026-10-15-highlight-selection.md).
+- Final automated evidence: 334 files / 2906 core tests, default smoke 8 / 63,
+  concurrent acceptance 34 / 497, both builds and diff check passed. Installed
+  Chrome acceptance also passed on the verified final script: recoloring,
+  decorative icons, partial table text, skipped code/SVG, textual rich fallback,
+  page/Reader round trip and six-mark fresh-page persistence. Evidence is tracked
+  separately in the plan; never infer browser acceptance from automated gates.
+
 ### Installed Chrome and parallel-gate follow-up (2026-10-14)
 
 - Installed navigation acceptance now includes an existing cross-conversation

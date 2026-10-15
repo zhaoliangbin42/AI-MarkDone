@@ -1,14 +1,14 @@
 import { readMarkDocumentTitle } from '../../../drivers/content/chatgpt/readMarkDocumentTitle';
-import type { HighlightColor, HighlightRecord } from '../../../contracts/highlights';
+import type { HighlightColor, HighlightRecord, HighlightTextFragment } from '../../../contracts/highlights';
 import { readerAnnotationDocumentKey, type ReaderAnnotationDocument, type ReaderAnnotationTarget } from '../../../contracts/readerAnnotations';
 import { highlightsClient } from '../../../drivers/shared/clients/highlightsClient';
 import { fromReaderAnnotationRecord, type ReaderCommentRecord } from '../../../services/reader/commentSession';
 
 export function highlightAnchor(record: HighlightRecord): ReaderCommentRecord {
-    return fromReaderAnnotationRecord({...record, id: `highlight:${record.id}`, comment: '', lastKnownAnchorState: 'anchored'});
+    return { ...fromReaderAnnotationRecord({...record, id: `highlight:${record.id}`, comment: '', lastKnownAnchorState: 'anchored'}), highlightFragments: record.fragments };
 }
-export function createHighlightRecord(record: ReaderCommentRecord, target: ReaderAnnotationTarget, color: HighlightColor): HighlightRecord {
-    return {id: record.id, itemId: record.itemId, target, quoteText: record.quoteText, sourceMarkdown: record.sourceMarkdown, selectors: record.selectors, color, createdAt: record.createdAt, updatedAt: record.updatedAt, revision: 1};
+export function createHighlightRecord(record: ReaderCommentRecord, target: ReaderAnnotationTarget, color: HighlightColor, fragments?: HighlightTextFragment[]): HighlightRecord {
+    return {id: record.id, itemId: record.itemId, target, quoteText: record.quoteText, sourceMarkdown: record.sourceMarkdown, selectors: record.selectors, color, createdAt: record.createdAt, updatedAt: record.updatedAt, revision: 1, ...(fragments ? { fragments } : {})};
 }
 
 /** A view projection only. Background storage remains the single durable owner. */
