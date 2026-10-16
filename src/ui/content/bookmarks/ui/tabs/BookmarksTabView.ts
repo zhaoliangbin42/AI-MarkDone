@@ -121,8 +121,9 @@ export class BookmarksTabView {
         query.placeholder = t('searchBookmarksPlaceholder');
         query.addEventListener('input', (event) => {
             event.stopPropagation();
+            const value = query.value;
             this.controller.clearSelection();
-            this.controller.setQuery(query.value);
+            this.controller.setQuery(value);
         });
         search.appendChild(query);
 
@@ -314,7 +315,8 @@ export class BookmarksTabView {
         for (const type of ['annotations','highlights']) this.navigation.querySelector(`[data-action="library-${type}"]`)?.setAttribute('data-active', String(this.activeMarkType === type));
         this.refs.query.placeholder = t('searchBookmarksPlaceholder');
 
-        if (document.activeElement !== this.refs.query) {
+        // In Shadow DOM the document's active element is the host, not this input.
+        if ((this.refs.query.getRootNode() as Document | ShadowRoot).activeElement !== this.refs.query) {
             this.refs.query.value = snap.vm.query;
         }
 

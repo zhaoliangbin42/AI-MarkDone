@@ -2,6 +2,17 @@
 
 This document defines the **current executable test and verification gates** for day-to-day development. Use this file for what we must run now, not for future-state testing architecture.
 
+### Library search input (2026-10-16)
+
+- Enter through the actual Bookmarks view input listener in a connected Shadow
+  Root. Selection clearing must synchronously redraw before query submission.
+  Preserve English, Chinese composition input, clearing and the focused input.
+- Reproducer failed before the fix for both English and Chinese. Focused View /
+  Panel tests passed (2 files / 53 tests), followed by full core (334 / 2927) and
+  Chrome/Firefox builds. Installed Chrome acceptance remains pending; the separate
+  composer-renderer investigation must not be counted as resolved by these gates.
+- [Investigation and acceptance record](../plans/2026-10-16-composer-preview-and-bookmark-search.md).
+
 ### Highlight persistence and mixed selections (2026-10-15)
 
 - Supported-subset follow-up: test both partial-formula endpoints, partial inline

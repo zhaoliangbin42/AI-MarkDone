@@ -493,6 +493,7 @@ flowchart TD
 - content UI 负责意图触发与界面交互
 - `BookmarksPanel` 现在主要承担 shell / overlay lifecycle / tab orchestration
 - `BookmarksTabView`、`SettingsTabView`、`FeedbackTabView`、`MappamoryTabView`、`SponsorTabView` 是 bookmarks family 的主内容真相；`SponsorTabView` 只进入 Chrome/Firefox target surface
+- Library 搜索输入先捕获本次事件值，再执行会同步重绘的 selection/query callbacks；重绘通过输入自身 Document/ShadowRoot 的 `activeElement` 判断焦点，不能用顶层 `document.activeElement` 覆盖仍在编辑的草稿。搜索模型与存储格式保持不变。
 - bookmarks 信息页职责已经拆开：`FeedbackTabView` 是设置分类下方信息组内的反馈入口，Chrome/Firefox 提供完整不裁切的 QQ 与小红书群聊邀请图、邀请有效期说明，以及关注小红书账号后从账号加入群聊的 fallback；`AboutTabView` 持有个人介绍、项目背景与 About 小红书入口；`MappamoryTabView` 独立持有好友迹的双语产品介绍、公开能力、App Store/官网入口与宣传图；`SponsorTabView` 持有付款二维码、GitHub 支持入口与感谢赞助名单
 - 书签树渲染与 virtualization 已收口到 `LibraryBookmarkPresentation`
 - `src/ui/content/overlay/OverlaySession.ts` 现在是通用 overlay session wrapper，负责组合 overlay host、keyboard scope、input boundary 与 modal slot

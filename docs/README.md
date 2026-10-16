@@ -25,6 +25,9 @@
 
 ### Refactor And Closeout Records
 
+- [Composer preview and Library search investigation](plans/2026-10-16-composer-preview-and-bookmark-search.md)
+  - repaired Shadow DOM search input; installed formula renderer investigation remains open
+
 - [Highlight recoloring and mixed selections](plans/2026-10-15-highlight-selection.md)
   - storage-order regression, shared text fragments, persistence and Chrome acceptance
 

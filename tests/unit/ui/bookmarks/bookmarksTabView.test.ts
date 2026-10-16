@@ -48,6 +48,21 @@ const settle = async () => { for (let i = 0; i < 16; i++) await Promise.resolve(
 
 describe('BookmarksTabView library presentation', () => {
     afterEach(() => document.body.replaceChildren());
+    it.each(['notes', '拼音', ''])('retains search input through a synchronous selection-clear redraw in Shadow DOM: %s', (value) => {
+        const f = fixture();
+        const host = document.createElement('div'); document.body.append(host);
+        const shadow = host.attachShadow({ mode: 'open' }); shadow.append(f.nav, f.root);
+        f.controller.clearSelection.mockImplementation(() => { f.snapshot.selectedKeys.clear(); f.view.update(f.snapshot); });
+        f.controller.setQuery.mockImplementation(query => { f.snapshot.vm.query = query; f.view.update(f.snapshot); });
+        const query = f.root.querySelector<HTMLInputElement>('[data-role="bookmark-query"]')!;
+        query.focus();
+        expect(document.activeElement).toBe(host);
+        query.value = value;
+        query.dispatchEvent(new InputEvent('input', { bubbles: true, composed: true, data: value, isComposing: value === '拼音' }));
+        expect(f.controller.setQuery).toHaveBeenCalledWith(value);
+        expect(query.value).toBe(value);
+        expect(shadow.activeElement).toBe(query);
+    });
     it('shows all bookmark controls inline beside the heading without a More menu', () => {
         const f = fixture();
         const heading = f.root.querySelector('.library-heading')!;

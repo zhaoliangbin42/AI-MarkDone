@@ -15,6 +15,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Explain ChatGPT’s native Settings → Keyboard alternative beneath Enter-to-newline, ahead of its gradual retirement.
 
 ### Fixed
+- Keep Library search text intact while typing, including Chinese input, when selection changes refresh the panel.
 - Keep highlight colors available for supported content beside partial formulas. Empty selections no longer offer colors, and unsafe saves explain how to retry without silently dropping selected parts.
 - Change saved highlight colors without deleting and selecting the text again. Thanks to email user @qds19100.
 - Keep decorative icons from disabling highlights for surrounding text.
