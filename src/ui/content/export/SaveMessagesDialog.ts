@@ -32,7 +32,8 @@ import {
 } from '../../../services/reader/readerContentSource';
 import type { ReaderItem } from '../../../services/reader/types';
 import { getSaveMessagesDialogCss } from './saveMessagesDialogCss';
-import { xIcon, fileCodeIcon, fileTextIcon, imageIcon } from '../../../assets/icons';
+import { xIcon } from '../../../assets/icons';
+import { createBookmarksInlineSelectControl, type BookmarksInlineSelectRef } from '../bookmarks/ui/components/BookmarksInlineSelect';
 import { OverlaySession } from '../overlay/OverlaySession';
 import { TooltipDelegate } from '../../../utils/tooltip';
 import { createIcon } from '../components/Icon';
@@ -63,6 +64,7 @@ type State = {
 
 export class SaveMessagesDialog {
     private overlaySession: OverlaySession | null = null;
+    private exportSelects: BookmarksInlineSelectRef[] = [];
     private adapter: SiteAdapter | null = null;
     private turns: ChatTurn[] = [];
     private contentCleanup: ContentCleanupSettings = DEFAULT_CONTENT_CLEANUP_SETTINGS;
@@ -213,6 +215,7 @@ export class SaveMessagesDialog {
     }
 
     private finishClose(): void {
+        this.exportSelects = [];
         this.tooltipDelegate?.disconnect();
         this.tooltipDelegate = null;
         this.unsubscribeLocale?.();
@@ -262,12 +265,16 @@ export class SaveMessagesDialog {
     private render(): void {
         if (!this.overlaySession || this.closing) return;
 
+        this.exportSelects.forEach(control => control.close());
+        this.exportSelects = [];
+
         const { element: backdrop, isNew: isNewBackdrop } = ensureBackdropElement(this.overlaySession.backdropRoot, 'panel-stage__overlay');
         const { element: panel, isNew: isNewPanel } = ensureStableElementFromHtml<HTMLElement>(
             this.overlaySession.surfaceRoot,
             '.panel-window--save',
             this.getHtml(),
         );
+        this.mountExportSelects(panel);
         this.overlaySession.syncSurfaceMotion({ surface: panel, backdrop });
         this.overlaySession.syncKeyboardScope({
             root: this.overlaySession.host,
@@ -287,8 +294,49 @@ export class SaveMessagesDialog {
         this.tooltipDelegate?.refresh(this.overlaySession.shadow);
     }
 
+    private mountExportSelects(panel: HTMLElement): void {
+        const mount = (
+            role: string,
+            label: string,
+            value: string,
+            options: Array<{ value: string; label: string }>,
+            action: 'set-format' | 'set-visuals',
+            valueKey: 'format' | 'visuals',
+        ): void => {
+            const slot = panel.querySelector<HTMLElement>(`[data-role="${role}"]`);
+            if (!slot) return;
+            const control = createBookmarksInlineSelectControl({
+                options,
+                menuName: role,
+                onBeforeOpen: () => this.exportSelects.forEach(select => select.close()),
+            });
+            control.setValue(value);
+            control.trigger.disabled = this.state.saving;
+            control.trigger.setAttribute('aria-label', `${label}: ${control.triggerLabel.textContent}`);
+            control.menu.setAttribute('aria-label', label);
+            control.menu.querySelectorAll<HTMLButtonElement>('button').forEach(button => {
+                button.dataset.action = action;
+                button.dataset[valueKey] = button.dataset.value;
+                button.disabled = this.state.saving;
+            });
+            slot.replaceChildren(control.root);
+            this.exportSelects.push(control);
+        };
+        mount('export-format-control', this.getLabel('formatLabel', 'Format'), this.state.format, [
+            { value: 'markdown', label: this.getLabel('formatMarkdown', 'Markdown') },
+            { value: 'markdown-zip', label: this.getLabel('formatMarkdownZip', 'Markdown offline bundle (ZIP)') },
+            { value: 'pdf', label: this.getLabel('formatPdf', 'PDF') },
+            { value: 'png', label: this.getLabel('formatPng', 'PNG') },
+        ], 'set-format', 'format');
+        mount('export-visuals-control', this.getLabel('messageExportRichLabel', 'Charts and rich content'), this.state.visuals, [
+            { value: 'include', label: this.getLabel('messageExportRichInclude', 'Include images') },
+            { value: 'placeholder', label: this.getLabel('messageExportRichPlaceholder', 'Use text placeholders') },
+        ], 'set-visuals', 'visuals');
+    }
+
     private async handleClick(event: Event): Promise<void> {
         const target = event.target as HTMLElement | null;
+        if (!target?.closest('.settings-select-shell')) this.exportSelects.forEach(control => control.close());
         const actionEl = target?.closest<HTMLElement>('[data-action]');
         if (!actionEl) {
             const chip = target?.closest<HTMLElement>('.message-chip');
@@ -468,10 +516,6 @@ export class SaveMessagesDialog {
         const closeLabel = this.getLabel('btnClose', 'Close panel');
         const selectMessagesLabel = this.getLabel('selectMessagesLabel', 'Select messages');
         const formatLabel = this.getLabel('formatLabel', 'Format');
-        const markdownLabel = this.getLabel('formatMarkdown', 'Markdown');
-        const zipLabel = this.getLabel('formatMarkdownZip', 'Markdown offline bundle (ZIP)');
-        const pdfLabel = this.getLabel('formatPdf', 'PDF');
-        const pngLabel = this.getLabel('formatPng', 'PNG');
         const selectAllLabel = this.getLabel('selectAll', 'Select all');
         const deselectAllLabel = this.getLabel('deselectAll', 'Deselect all');
         const invertSelectionLabel = this.getLabel('invertSelection', 'Invert selection');
@@ -498,27 +542,35 @@ export class SaveMessagesDialog {
     </div>
   </div>
   <div class="dialog-body workflow-dialog__body">
-    <div class="section-label">${escapeHtml(selectMessagesLabel)}</div>
+    <section class="export-section" aria-label="${escapeHtml(selectMessagesLabel)}">
+    <div class="export-section-heading">
+      <h3>${escapeHtml(selectMessagesLabel)}</h3>
+      <div class="counter">${escapeHtml(countLabel)}</div>
+    </div>
+    <div class="settings-card message-selection">
     <div class="message-grid">
       ${this.turns.map((turn, index) => {
           const active = this.state.selected.has(index) ? '1' : '0';
-          return `<button class="message-chip aimd-material-choice" data-action="toggle-turn" data-index="${index}" data-active="${active}" aria-pressed="${active === '1'}" ${disabled} data-tooltip="${escapeHtml(turn.user)}" data-tooltip-title="${index + 1}" data-tooltip-variant="preview">${index + 1}</button>`;
+          return `<button class="message-chip" data-action="toggle-turn" data-index="${index}" data-active="${active}" aria-pressed="${active === '1'}" ${disabled} data-tooltip="${escapeHtml(turn.user)}" data-tooltip-title="${index + 1}" data-tooltip-variant="preview">${index + 1}</button>`;
       }).join('')}
     </div>
-    <div class="section-label">${escapeHtml(formatLabel)}</div>
-    <div class="segmented format-options aimd-material-segmented" role="group" aria-label="${escapeHtml(formatLabel)}">
-      <button class="aimd-material-choice" data-action="set-format" data-format="markdown" data-active="${this.state.format === 'markdown' ? '1' : '0'}" aria-pressed="${this.state.format === 'markdown'}" ${disabled} aria-label="${escapeHtml(markdownLabel)}">${iconMarkup(fileCodeIcon)}<span>${escapeHtml(markdownLabel)}</span></button>
-      <button class="aimd-material-choice" data-action="set-format" data-format="markdown-zip" data-active="${this.state.format === 'markdown-zip' ? '1' : '0'}" aria-pressed="${this.state.format === 'markdown-zip'}" ${disabled} aria-label="${escapeHtml(zipLabel)}">${iconMarkup(fileCodeIcon)}<span>${escapeHtml(zipLabel)}</span></button>
-      <button class="aimd-material-choice" data-action="set-format" data-format="pdf" data-active="${this.state.format === 'pdf' ? '1' : '0'}" aria-pressed="${this.state.format === 'pdf'}" ${disabled} aria-label="${escapeHtml(pdfLabel)}">${iconMarkup(fileTextIcon)}<span>${escapeHtml(pdfLabel)}</span></button>
-      <button class="aimd-material-choice" data-action="set-format" data-format="png" data-active="${this.state.format === 'png' ? '1' : '0'}" aria-pressed="${this.state.format === 'png'}" ${disabled} aria-label="${escapeHtml(pngLabel)}">${iconMarkup(imageIcon)}<span>${escapeHtml(pngLabel)}</span></button>
+    <div class="button-row">
+      <button class="secondary-btn secondary-btn--compact secondary-btn--ghost" data-action="select-all-turns" ${disabled}>${escapeHtml(selectAllLabel)}</button>
+      <button class="secondary-btn secondary-btn--compact secondary-btn--ghost" data-action="invert-turns" ${disabled}>${escapeHtml(invertSelectionLabel)}</button>
+      <button class="secondary-btn secondary-btn--compact secondary-btn--ghost" data-action="deselect-all-turns" ${disabled}>${escapeHtml(deselectAllLabel)}</button>
     </div>
-    ${showVisuals ? `<div class="rich-content-options" data-role="rich-content-options">
-      <div class="section-label">${escapeHtml(this.getLabel('messageExportRichLabel', 'Charts and rich content'))}</div>
-      <div class="segmented aimd-material-segmented" role="group" aria-label="${escapeHtml(this.getLabel('messageExportRichLabel', 'Charts and rich content'))}">
-        <button class="aimd-material-choice" data-action="set-visuals" data-visuals="include" data-active="${this.state.visuals === 'include' ? '1' : '0'}" aria-pressed="${this.state.visuals === 'include'}" ${disabled}>${escapeHtml(this.getLabel('messageExportRichInclude', 'Include images'))}</button>
-        <button class="aimd-material-choice" data-action="set-visuals" data-visuals="placeholder" data-active="${this.state.visuals === 'placeholder' ? '1' : '0'}" aria-pressed="${this.state.visuals === 'placeholder'}" ${disabled}>${escapeHtml(this.getLabel('messageExportRichPlaceholder', 'Use text placeholders'))}</button>
+    </div>
+    </section>
+    <div class="settings-card export-options">
+      <div class="settings-row settings-item">
+        <div class="settings-label"><strong>${escapeHtml(formatLabel)}</strong></div>
+        <div data-role="export-format-control"></div>
       </div>
-    </div>` : ''}
+      ${showVisuals ? `<div class="settings-row settings-item" data-role="rich-content-options">
+        <div class="settings-label"><strong>${escapeHtml(this.getLabel('messageExportRichLabel', 'Charts and rich content'))}</strong></div>
+        <div data-role="export-visuals-control"></div>
+      </div>` : ''}
+    </div>
     ${this.state.resultText ? `<div class="export-result workflow-dialog__status" data-role="export-result" role="status" aria-live="polite">${escapeHtml(this.state.resultText)}</div>` : ''}
     ${showProgress ? `
     <div class="progress-panel">
@@ -538,13 +590,7 @@ export class SaveMessagesDialog {
     </div>` : ''}
   </div>
   <div class="panel-footer panel-footer--between">
-    <div class="button-row">
-      <button class="secondary-btn secondary-btn--compact" data-action="select-all-turns" ${disabled}>${escapeHtml(selectAllLabel)}</button>
-      <button class="secondary-btn secondary-btn--compact" data-action="invert-turns" ${disabled}>${escapeHtml(invertSelectionLabel)}</button>
-      <button class="secondary-btn secondary-btn--compact secondary-btn--ghost" data-action="deselect-all-turns" ${disabled}>${escapeHtml(deselectAllLabel)}</button>
-    </div>
     <div class="footer-cluster workflow-dialog__actions">
-      <div class="counter">${escapeHtml(countLabel)}</div>
       ${showCancel ? `<button class="secondary-btn secondary-btn--compact secondary-btn--ghost" data-action="${this.state.format === 'png' ? 'cancel-png-export' : 'cancel-export'}">${escapeHtml(cancelLabel)}</button>` : ''}
       <button class="secondary-btn secondary-btn--compact secondary-btn--primary" data-action="save-turns" ${this.state.selected.size === 0 || this.state.saving ? 'disabled' : ''}>${escapeHtml(saveLabel)}</button>
     </div>

@@ -8,6 +8,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Changed
+- Rebuilt the message export dialog with flat Settings-style groups and dropdowns for format and rich content, keeping message-selection actions together.
 - Highlight supported text and complete formulas across table cells and mixed layouts, skipping unsupported visual blocks and controls. Partial inline code can also be marked. Thanks to email user @qds19100.
 - Open saved ChatGPT messages with a direct message link when switching conversations; existing bookmarks and backups stay compatible.
 - Identify Chrome or Firefox in feedback email subjects while keeping the same contact address and copy-email action.

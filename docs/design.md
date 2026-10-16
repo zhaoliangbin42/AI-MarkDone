@@ -1,5 +1,14 @@
 # AI-MarkDone Design Reference
 
+## Message export layout (2026-10-16)
+
+Save Messages follows Settings' flat grouped rows and reuses its inline select
+control for format and rich-content preferences. Message selection and its bulk
+actions stay together above the output options. Avoid recessed segmented trays,
+two-column format tiles, and inset or raised shadows on this dialog's controls;
+its scoped flat treatment leaves other surfaces' shared materials unchanged.
+The body remains the sole scroll owner, with the primary save action in the footer.
+
 ## Compact page controls and inline guidance (2026-10-14)
 
 The lower-right page-control family uses 24px buttons and 16px glyphs, derived
