@@ -6,9 +6,47 @@ vi.mock('@/drivers/shared/clients/highlightsClient', () => ({ highlightsClient: 
     create: vi.fn(async (document, highlight) => { const entry = { document, highlight }; saved.entries = [entry]; return entry; }),
 } }));
 import { ReaderPanel } from '@/ui/content/reader/ReaderPanel';
+import { DEFAULT_SETTINGS } from '@/core/settings/types';
+import { getDefaultShortcutBindings, getShortcutPlatform } from '@/core/shortcuts';
 
 afterEach(() => { vi.restoreAllMocks(); document.querySelector('#aimd-reader-panel-host')?.remove(); saved.entries = []; });
 describe('Reader mixed highlights', () => {
+    it.each([['selection.highlight.blue', 'blue'], ['selection.highlight.yellow', 'yellow'], ['selection.highlight.red', 'red'], ['selection.highlight', 'yellow']] as const)('executes the %s default from the real Reader keyboard path as %s', async (id, color) => {
+        const original = Object.getOwnPropertyDescriptor(Range.prototype, 'getClientRects');
+        Object.defineProperty(Range.prototype, 'getClientRects', { configurable: true, value: () => [{ left: 10, top: 20, width: 80, height: 18, right: 90, bottom: 38 }] });
+        const panel = new ReaderPanel();
+        panel.setReaderSettings({ ...DEFAULT_SETTINGS.reader, selectionToolbar: { copy: false, annotation: false, highlight: false } });
+        panel.setShortcutSettings({ enabled: true, overrides: {}, disabled: [] });
+        try {
+            await panel.show([{ id: 'a1', userPrompt: 'Q', content: 'Before $x+y$ after', meta: { platformId: 'chatgpt', assistantMessageId: 'a1' } }], 0, 'light', { annotationDocument: { platform: 'chatgpt', conversationId: 'shortcut-test' } });
+            const shadow = document.querySelector('#aimd-reader-panel-host')!.shadowRoot!;
+            const root = shadow.querySelector<HTMLElement>('.reader-markdown')!;
+            const range = document.createRange(); range.selectNodeContents(root);
+            vi.spyOn(window, 'getSelection').mockReturnValue({ rangeCount: 1, getRangeAt: () => range, getComposedRanges: () => [{ startContainer: range.startContainer, startOffset: range.startOffset, endContainer: range.endContainer, endOffset: range.endOffset }], toString: () => range.toString() } as unknown as Selection);
+            const platform = getShortcutPlatform(navigator.platform);
+            const binding = getDefaultShortcutBindings(platform)[id]!;
+            const dispatch = (patch: KeyboardEventInit = {}) => {
+                const event = new KeyboardEvent('keydown', { key: binding.code.replace(/^Key/, ''), code: binding.code,
+                    ctrlKey: platform === 'mac' ? Boolean(binding.control) : binding.primary || Boolean(binding.control),
+                    metaKey: platform === 'mac' && binding.primary, altKey: binding.alt, shiftKey: binding.shift,
+                    bubbles: true, composed: true, cancelable: true, ...patch });
+                root.dispatchEvent(event); return event;
+            };
+            expect(dispatch({ isComposing: true }).defaultPrevented).toBe(false);
+            expect(dispatch({ repeat: true }).defaultPrevented).toBe(false);
+            panel.setShortcutSettings({ enabled: false, overrides: {}, disabled: [] });
+            expect(dispatch().defaultPrevented).toBe(false);
+            panel.setShortcutSettings({ enabled: true, overrides: {}, disabled: [] });
+            expect(dispatch().defaultPrevented).toBe(true);
+            await vi.waitFor(() => expect(saved.entries).toHaveLength(1));
+            expect(saved.entries[0]!.highlight.color).toBe(color);
+            expect(saved.entries[0]!.highlight.target.assistantMessageId).toBe('a1');
+            expect(saved.entries[0]!.highlight.sourceMarkdown).toContain('$x+y$');
+        } finally {
+            panel.hide();
+            if (original) Object.defineProperty(Range.prototype, 'getClientRects', original); else delete (Range.prototype as any).getClientRects;
+        }
+    });
     it.each(['partial-formula', 'partial-inline-code', 'complete-formula-and-code'])('uses the same supported-subset policy in Reader: %s', async mode => {
         const original = Object.getOwnPropertyDescriptor(Range.prototype, 'getClientRects');
         Object.defineProperty(Range.prototype, 'getClientRects', { configurable: true, value: () => [{ left: 10, top: 20, width: 80, height: 18, right: 90, bottom: 38 }] });

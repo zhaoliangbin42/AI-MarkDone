@@ -15,6 +15,15 @@ type InternalScope = {
 };
 
 const scopeStack: InternalScope[] = [];
+export const DIALOG_KEYBOARD_SCOPE_ATTRIBUTE = 'data-aimd-keyboard-scope';
+
+export function getTopDialogKeyboardScopeRoot(): HTMLElement | null {
+    return [...scopeStack].reverse().find(scope => scope.root.isConnected)?.root ?? null;
+}
+
+export function isTopDialogKeyboardScope(root: HTMLElement): boolean {
+    return getTopDialogKeyboardScopeRoot() === root;
+}
 
 function isTopMost(scope: InternalScope): boolean {
     return scopeStack.length > 0 && scopeStack[scopeStack.length - 1] === scope;
@@ -75,6 +84,11 @@ export function attachDialogKeyboardScope(opts: {
 
     const internalScope: InternalScope = { root: opts.root, ensureFocusInside };
     scopeStack.push(internalScope);
+    // Classic content and lazy UI are separate module graphs; DOM ownership also
+    // fences page shortcuts while a lazy Reader or modal owns the keyboard.
+    const scopeToken = crypto.randomUUID();
+    const markers = (opts.root.getAttribute(DIALOG_KEYBOARD_SCOPE_ATTRIBUTE) ?? '').split(' ').filter(Boolean);
+    opts.root.setAttribute(DIALOG_KEYBOARD_SCOPE_ATTRIBUTE, [...markers, scopeToken].join(' '));
 
     const onKeyDown = (e: KeyboardEvent) => {
         if (!isTopMost(internalScope)) return;
@@ -173,6 +187,9 @@ export function attachDialogKeyboardScope(opts: {
             }
             const idx = scopeStack.indexOf(internalScope);
             if (idx >= 0) scopeStack.splice(idx, 1);
+            const remaining = (opts.root.getAttribute(DIALOG_KEYBOARD_SCOPE_ATTRIBUTE) ?? '').split(' ').filter(token => token && token !== scopeToken);
+            if (remaining.length) opts.root.setAttribute(DIALOG_KEYBOARD_SCOPE_ATTRIBUTE, remaining.join(' '));
+            else opts.root.removeAttribute(DIALOG_KEYBOARD_SCOPE_ATTRIBUTE);
         },
     };
 }

@@ -1308,8 +1308,8 @@
         "description": "Enter 换行能力说明"
     },
     "chatgptInputEnhancementEnterNativeHint": {
-        "message": "最新版 ChatGPT 网页已支持此功能，可在「设置 → Keyboard」中设置发送消息的快捷键。本插件的回车换行功能后续将逐步下架。",
-        "description": "Native ChatGPT keyboard settings and planned Enter-to-newline retirement"
+        "message": "ChatGPT 也支持回车换行：点击左下角头像，进入「设置 → 键盘」，把“发送消息”改为 Ctrl/⌘ + Enter。设置好后，就可以关闭这里的“Enter 换行”。",
+        "description": "Guide to using ChatGPT's native Enter-to-newline setting instead of the extension feature"
     },
     "chatgptInputEnhancementListsLabel": {
         "message": "输入时自动续写列表",
@@ -1464,7 +1464,7 @@
         "description": "Message for chatgptPromptAutocompleteLabel"
     },
     "chatgptPromptAutocompleteDesc": {
-        "message": "在 ChatGPT 或阅读器输入框键入 \\ 时显示匹配的提示词；关闭后仍可手动打开提示词列表。",
+        "message": "在 ChatGPT 或阅读器输入框键入 \\ 时显示匹配的提示词；关闭后仍可用快捷键打开候选，或手动打开提示词库。",
         "description": "Message for chatgptPromptAutocompleteDesc"
     },
     "chatgptShowMessageStepperLabel": {
@@ -3684,7 +3684,7 @@
         "description": "Settings center label."
     },
     "settingsCategoryControls": {
-        "message": "按钮",
+        "message": "按钮与快捷键",
         "description": "Settings center label."
     },
     "settingsCategoryData": {
@@ -5598,5 +5598,190 @@
     "chatgptDirectoryNavigationFailed": {
         "message": "未能定位这条回复，请滚动对话后重试。",
         "description": "Feedback when a message directory jump cannot locate the reply"
+    },
+    "promptManualAutocompleteHint": {
+        "message": "输入标题或触发词筛选；↑ ↓ 选择，Enter/Tab 插入，Esc 关闭。",
+        "description": "Hint for manually opened prompt candidates"
+    },
+    "promptAutocompleteEmptyLibrary": {
+        "message": "暂无已启用的提示词，可前往提示词库添加。",
+        "description": "Empty manual prompt candidate library"
+    },
+    "promptAutocompleteNoMatches": {
+        "message": "没有匹配的提示词，可修改搜索内容或打开提示词库。",
+        "description": "No manual prompt candidates match the current query"
+    },
+    "promptAutocompleteOpenLibrary": {
+        "message": "打开提示词库",
+        "description": "Explicit action from empty candidates to prompt management"
+    },
+    "promptAutocompleteLoadFailed": {
+        "message": "提示词加载失败，可打开提示词库重试。",
+        "description": "Prompt candidate load failure distinct from an empty library"
+    },
+    "keyboardButtonsTab": {
+        "message": "按钮"
+    },
+    "keyboardTab": {
+        "message": "快捷键"
+    },
+    "keyboardEnabled": {
+        "message": "启用快捷键"
+    },
+    "keyboardEnabledDesc": {
+        "message": "按当前场景生效，输入文字时暂停阅读操作。"
+    },
+    "keyboardDisabledDesc": {
+        "message": "快捷键已关闭，绑定仍保留；自动联想由独立开关控制。"
+    },
+    "keyboardResetAll": {
+        "message": "恢复全部默认"
+    },
+    "keyboardResetAllTitle": {
+        "message": "恢复全部快捷键默认值？"
+    },
+    "keyboardResetAllDesc": {
+        "message": "恢复预设按键、清除自定义组合并开启快捷键。没有预设的功能恢复为未设置。自动联想保持当前开关状态。"
+    },
+    "keyboardRestore": {
+        "message": "恢复默认"
+    },
+    "keyboardRecord": {
+        "message": "录入快捷键"
+    },
+    "keyboardUnset": {
+        "message": "未设置"
+    },
+    "keyboardEnable": {
+        "message": "启用"
+    },
+    "keyboardDisable": {
+        "message": "停用"
+    },
+    "keyboardReset": {
+        "message": "重置"
+    },
+    "keyboardResetCommand": {
+        "message": "恢复“$1”的默认值"
+    },
+    "keyboardStopped": {
+        "message": "已停用"
+    },
+    "keyboardGroupSelection": {
+        "message": "选区操作"
+    },
+    "keyboardGroupNavigation": {
+        "message": "阅读与消息"
+    },
+    "keyboardGroupComposer": {
+        "message": "输入与提示词"
+    },
+    "keyboardScopeSelection": {
+        "message": "正文有选区时 · ChatGPT 页面与 Reader"
+    },
+    "keyboardScopeNavigation": {
+        "message": "阅读消息时 · 输入文字时暂停"
+    },
+    "keyboardScopeComposer": {
+        "message": "在 ChatGPT 输入框或 Reader 发送框中"
+    },
+    "keyboardCommandCopy": {
+        "message": "复制所选 Markdown"
+    },
+    "keyboardCommandAnnotate": {
+        "message": "添加注释"
+    },
+    "keyboardCommandHighlight": {
+        "message": "默认色高亮"
+    },
+    "keyboardCommandHighlightBlue": {
+        "message": "蓝色高亮"
+    },
+    "keyboardCommandHighlightYellow": {
+        "message": "黄色高亮"
+    },
+    "keyboardCommandHighlightRed": {
+        "message": "红色高亮"
+    },
+    "keyboardCommandSuggestions": {
+        "message": "打开提示词候选"
+    },
+    "keyboardCommandLibrary": {
+        "message": "打开提示词库"
+    },
+    "keyboardCommandPrevious": {
+        "message": "上一条消息"
+    },
+    "keyboardCommandNext": {
+        "message": "下一条消息"
+    },
+    "keyboardAutomaticHeading": {
+        "message": "自动联想"
+    },
+    "keyboardAutomatic": {
+        "message": "输入反斜杠时联想提示词"
+    },
+    "keyboardAutomaticDesc": {
+        "message": "关闭后不再自动弹出，仍可用快捷键主动打开候选或提示词库。"
+    },
+    "keyboardNoMatches": {
+        "message": "没有找到匹配的功能或组合键。"
+    },
+    "keyboardExternalConflicts": {
+        "message": "检查覆盖插件内冲突和已知保留按键，无法完整检测系统、浏览器及其他扩展的占用。"
+    },
+    "keyboardRecordHint": {
+        "message": "按下组合键，松开后确认。Esc 取消，Tab 切换焦点。"
+    },
+    "keyboardReserved": {
+        "message": "这组按键用于浏览器、系统或文字编辑操作，请选择其他组合。"
+    },
+    "keyboardModifierRequired": {
+        "message": "请加入修饰键，避免影响正常输入。裸方向键仅供消息导航使用。"
+    },
+    "keyboardInvalid": {
+        "message": "请选择有效的按键组合，并在输入法组字完成后录入。"
+    },
+    "keyboardConflict": {
+        "message": "与“$1”的生效范围或跨平台按键重叠。替换后将停用原绑定，并保留原组合。"
+    },
+    "keyboardNoConflict": {
+        "message": "插件内无冲突，保存后生效。"
+    },
+    "keyboardCaptureLabel": {
+        "message": "快捷键录入区域"
+    },
+    "keyboardPressKeys": {
+        "message": "在这里按下组合键"
+    },
+    "keyboardReplaceSave": {
+        "message": "替换并保存"
+    },
+    "keyboardSave": {
+        "message": "保存快捷键"
+    },
+    "keyboardClear": {
+        "message": "清除绑定"
+    },
+    "keyboardSaved": {
+        "message": "快捷键已保存。"
+    },
+    "keyboardResetDone": {
+        "message": "快捷键已恢复默认。"
+    },
+    "keyboardEnabledCommand": {
+        "message": "此快捷键已启用。"
+    },
+    "keyboardDisabledCommand": {
+        "message": "快捷键已停用，原组合已保留。"
+    },
+    "keyboardCustomBindings": {
+        "message": "自定义快捷键组合"
+    },
+    "keyboardDisabledBindings": {
+        "message": "已停用的快捷键"
+    },
+    "keyboardPlatformUnavailable": {
+        "message": "当前系统不可用"
     }
 }

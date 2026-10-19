@@ -1308,8 +1308,8 @@
         "description": "Enter key enhancement description"
     },
     "chatgptInputEnhancementEnterNativeHint": {
-        "message": "The latest ChatGPT website supports this natively. Configure the shortcut for sending messages in Settings → Keyboard. This extension’s Enter-to-newline feature will be phased out.",
-        "description": "Native ChatGPT keyboard settings and planned Enter-to-newline retirement"
+        "message": "ChatGPT can do this too: click your avatar in the lower-left corner, open Settings → Keyboard, and change Send message to Cmd/Ctrl + Enter. Once set, you can turn off Enter inserts a new line here.",
+        "description": "Guide to using ChatGPT's native Enter-to-newline setting instead of the extension feature"
     },
     "chatgptInputEnhancementListsLabel": {
         "message": "Continue lists while typing",
@@ -1464,7 +1464,7 @@
         "description": "Message for chatgptPromptAutocompleteLabel"
     },
     "chatgptPromptAutocompleteDesc": {
-        "message": "Type \\ in the ChatGPT or Reader input box to see matching saved prompts. You can still open the prompt list manually.",
+        "message": "Type \\ in the ChatGPT or Reader input box to see matching saved prompts. When off, shortcuts can still open candidates, and the prompt library remains available.",
         "description": "Message for chatgptPromptAutocompleteDesc"
     },
     "chatgptShowMessageStepperLabel": {
@@ -3684,7 +3684,7 @@
         "description": "Settings center label."
     },
     "settingsCategoryControls": {
-        "message": "Buttons",
+        "message": "Buttons & shortcuts",
         "description": "Settings center label."
     },
     "settingsCategoryData": {
@@ -5598,5 +5598,190 @@
     "chatgptDirectoryNavigationFailed": {
         "message": "Could not locate this reply. Scroll through the conversation and try again.",
         "description": "Feedback when a message directory jump cannot locate the reply"
+    },
+    "promptManualAutocompleteHint": {
+        "message": "Type a title or trigger to filter; ↑ ↓ select, Enter/Tab insert, Esc close.",
+        "description": "Hint for manually opened prompt candidates"
+    },
+    "promptAutocompleteEmptyLibrary": {
+        "message": "No enabled prompts yet. Add one in your prompt library.",
+        "description": "Empty manual prompt candidate library"
+    },
+    "promptAutocompleteNoMatches": {
+        "message": "No matching prompts. Change your search or open the library.",
+        "description": "No manual prompt candidates match the current query"
+    },
+    "promptAutocompleteOpenLibrary": {
+        "message": "Open prompt library",
+        "description": "Explicit action from empty candidates to prompt management"
+    },
+    "promptAutocompleteLoadFailed": {
+        "message": "Prompts could not be loaded. Open the library to retry.",
+        "description": "Prompt candidate load failure distinct from an empty library"
+    },
+    "keyboardButtonsTab": {
+        "message": "Buttons"
+    },
+    "keyboardTab": {
+        "message": "Keyboard shortcuts"
+    },
+    "keyboardEnabled": {
+        "message": "Enable keyboard shortcuts"
+    },
+    "keyboardEnabledDesc": {
+        "message": "Shortcuts follow the current context. Reading commands pause while you type."
+    },
+    "keyboardDisabledDesc": {
+        "message": "Shortcuts are off. Your bindings are preserved; automatic suggestions have a separate switch."
+    },
+    "keyboardResetAll": {
+        "message": "Restore all defaults"
+    },
+    "keyboardResetAllTitle": {
+        "message": "Restore all shortcut defaults?"
+    },
+    "keyboardResetAllDesc": {
+        "message": "Restore preset keys, clear custom keys, and enable shortcuts. Commands without a preset return to unassigned. Automatic suggestions keep their current setting."
+    },
+    "keyboardRestore": {
+        "message": "Restore defaults"
+    },
+    "keyboardRecord": {
+        "message": "Record shortcut"
+    },
+    "keyboardUnset": {
+        "message": "Unassigned"
+    },
+    "keyboardEnable": {
+        "message": "Enable"
+    },
+    "keyboardDisable": {
+        "message": "Disable"
+    },
+    "keyboardReset": {
+        "message": "Reset"
+    },
+    "keyboardResetCommand": {
+        "message": "Restore default for $1"
+    },
+    "keyboardStopped": {
+        "message": "Disabled"
+    },
+    "keyboardGroupSelection": {
+        "message": "Selection"
+    },
+    "keyboardGroupNavigation": {
+        "message": "Reading and messages"
+    },
+    "keyboardGroupComposer": {
+        "message": "Input and prompts"
+    },
+    "keyboardScopeSelection": {
+        "message": "Body text selected · ChatGPT and Reader"
+    },
+    "keyboardScopeNavigation": {
+        "message": "Reading messages · Paused while typing"
+    },
+    "keyboardScopeComposer": {
+        "message": "ChatGPT composer or Reader send box"
+    },
+    "keyboardCommandCopy": {
+        "message": "Copy selected Markdown"
+    },
+    "keyboardCommandAnnotate": {
+        "message": "Add annotation"
+    },
+    "keyboardCommandHighlight": {
+        "message": "Highlight in default color"
+    },
+    "keyboardCommandHighlightBlue": {
+        "message": "Highlight in blue"
+    },
+    "keyboardCommandHighlightYellow": {
+        "message": "Highlight in yellow"
+    },
+    "keyboardCommandHighlightRed": {
+        "message": "Highlight in red"
+    },
+    "keyboardCommandSuggestions": {
+        "message": "Open prompt suggestions"
+    },
+    "keyboardCommandLibrary": {
+        "message": "Open prompt library"
+    },
+    "keyboardCommandPrevious": {
+        "message": "Previous message"
+    },
+    "keyboardCommandNext": {
+        "message": "Next message"
+    },
+    "keyboardAutomaticHeading": {
+        "message": "Automatic suggestions"
+    },
+    "keyboardAutomatic": {
+        "message": "Suggest prompts after a backslash"
+    },
+    "keyboardAutomaticDesc": {
+        "message": "Turn off automatic suggestions without affecting shortcuts that open suggestions or the prompt library."
+    },
+    "keyboardNoMatches": {
+        "message": "No matching commands or shortcuts."
+    },
+    "keyboardExternalConflicts": {
+        "message": "Checks cover this extension and known reserved keys. System, browser, and other extension conflicts cannot be fully detected."
+    },
+    "keyboardRecordHint": {
+        "message": "Press a combination, then release to confirm. Esc cancels; Tab moves focus."
+    },
+    "keyboardReserved": {
+        "message": "This combination is reserved for browser, system, or text editing actions. Choose another."
+    },
+    "keyboardModifierRequired": {
+        "message": "Add a modifier key to avoid interfering with typing. Bare arrows are available only for message navigation."
+    },
+    "keyboardInvalid": {
+        "message": "Choose a supported key combination outside input method composition."
+    },
+    "keyboardConflict": {
+        "message": "Overlaps with $1 in scope or across platforms. Saving will disable those bindings and preserve their keys."
+    },
+    "keyboardNoConflict": {
+        "message": "No conflicts within this extension. Save to apply."
+    },
+    "keyboardCaptureLabel": {
+        "message": "Shortcut recording area"
+    },
+    "keyboardPressKeys": {
+        "message": "Press a key combination here"
+    },
+    "keyboardReplaceSave": {
+        "message": "Replace and save"
+    },
+    "keyboardSave": {
+        "message": "Save shortcut"
+    },
+    "keyboardClear": {
+        "message": "Clear binding"
+    },
+    "keyboardSaved": {
+        "message": "Shortcut saved."
+    },
+    "keyboardResetDone": {
+        "message": "Default shortcut restored."
+    },
+    "keyboardEnabledCommand": {
+        "message": "Shortcut enabled."
+    },
+    "keyboardDisabledCommand": {
+        "message": "Shortcut disabled. Its key combination is preserved."
+    },
+    "keyboardCustomBindings": {
+        "message": "Custom shortcut bindings"
+    },
+    "keyboardDisabledBindings": {
+        "message": "Disabled shortcuts"
+    },
+    "keyboardPlatformUnavailable": {
+        "message": "Unavailable on this system"
     }
 }

@@ -1,5 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { DEFAULT_SETTINGS } from '@/core/settings/types';
+import { getEffectiveBinding, withShortcutBinding } from '@/core/shortcuts';
 
 let storageListener: ((changes: any, areaName: string) => void) | null = null;
 const sendExtRequest = vi.fn(async (request: any) => ({
@@ -33,6 +34,19 @@ describe('SettingsClient', () => {
     beforeEach(() => {
         storageListener = null;
         sendExtRequest.mockClear();
+    });
+
+    it('hydrates v6 shortcut preferences and applies live sync changes without resetting overrides', async () => {
+        const { SettingsClient } = await import('@/drivers/content/settings/settingsClient');
+        const client = new SettingsClient();
+        await client.init();
+        const next = structuredClone(DEFAULT_SETTINGS);
+        next.shortcuts = withShortcutBinding(next.shortcuts, 'selection.annotate', { code: 'KeyM', primary: true, shift: true, alt: false });
+        storageListener?.({ app_settings: { newValue: next } }, 'sync');
+        expect(client.getCached()?.version).toBe(6);
+        expect(getEffectiveBinding(client.getCached()!.shortcuts, 'selection.annotate')?.code).toBe('KeyM');
+        storageListener?.({ app_settings: { newValue: { version: 7 } } }, 'sync');
+        expect(getEffectiveBinding(client.getCached()!.shortcuts, 'selection.annotate')?.code).toBe('KeyM');
     });
 
     it('accepts current settings updates from storage change events', async () => {
@@ -86,7 +100,7 @@ describe('SettingsClient', () => {
         }, 'sync');
 
         const latest = listener.mock.calls.at(-1)?.[0]?.settings;
-        expect(latest.version).toBe(5);
+        expect(latest.version).toBe(6);
         expect(latest.formula.clickCopyMarkdown).toBe(true);
         expect(latest.formula.assetActions).toEqual({
             copyPng: false,
@@ -119,7 +133,7 @@ describe('SettingsClient', () => {
 
         const settings = await client.refresh();
 
-        expect(settings?.version).toBe(5);
+        expect(settings?.version).toBe(6);
         expect(settings?.formula.clickCopyMarkdown).toBe(false);
         expect(settings?.formula.assetActions.copyPng).toBe(false);
         expect(settings?.formula.assetFontSizePx).toBe(36);

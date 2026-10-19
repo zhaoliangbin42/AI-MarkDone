@@ -748,8 +748,8 @@ describe('content runtime entry', () => {
 
     it('keeps atomic selection active while switching the Markdown copy shortcut live', async () => {
         const { DEFAULT_SETTINGS } = await import('@/core/settings/types');
-        const settings = structuredClone(DEFAULT_SETTINGS) as any;
-        settings.chatgptBehavior.atomicMarkdownCopyShortcut = 'none';
+        const { planSetCategory } = await import('@/services/settings/settingsService');
+        const settings = planSetCategory(DEFAULT_SETTINGS, 'chatgptBehavior', { atomicMarkdownCopyShortcut: 'none' }).next;
         settingsGetCached.mockReturnValue(settings);
 
         vi.resetModules();
@@ -762,25 +762,13 @@ describe('content runtime entry', () => {
         expect(atomicSelectionSetMarkdownCopyShortcut).toHaveBeenLastCalledWith('none');
 
         settingsSubscriber!({
-            settings: {
-                ...settings,
-                chatgptBehavior: {
-                    ...settings.chatgptBehavior,
-                    atomicMarkdownCopyShortcut: 'mod-c',
-                },
-            },
+            settings: planSetCategory(settings, 'chatgptBehavior', { atomicMarkdownCopyShortcut: 'mod-c' }).next,
         });
         expect(atomicSelectionInit).toHaveBeenCalledTimes(1);
         expect(atomicSelectionSetMarkdownCopyShortcut).toHaveBeenLastCalledWith('mod-c');
 
         settingsSubscriber!({
-            settings: {
-                ...settings,
-                chatgptBehavior: {
-                    ...settings.chatgptBehavior,
-                    atomicMarkdownCopyShortcut: 'none',
-                },
-            },
+            settings,
         });
         expect(atomicSelectionInit).toHaveBeenCalledTimes(1);
         expect(atomicSelectionDispose).not.toHaveBeenCalled();

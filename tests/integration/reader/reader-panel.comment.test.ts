@@ -1,6 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { DEFAULT_SETTINGS, type AppSettings } from '@/core/settings/types';
+import { getDefaultShortcutBindings, getShortcutPlatform, type ShortcutCommandId } from '@/core/shortcuts';
 import { resolveReaderCommentAnchor } from '@/services/reader/commentAnchoring';
 import { clearReaderCommentScope, listReaderComments, saveReaderComment, type ReaderCommentRecord } from '@/services/reader/commentSession';
 import { ReaderPanel } from '@/ui/content/reader/ReaderPanel';
@@ -9,7 +10,7 @@ import { createAppearanceSnapshot } from '@/style/appearance';
 const scopeId = 'reader-panel-comments-v1';
 
 function setClipboardMock() {
-    const writeText = vi.fn(async () => undefined);
+    const writeText = vi.fn(async (_text: string) => undefined);
     Object.defineProperty(navigator, 'clipboard', {
         value: { writeText },
         configurable: true,
@@ -90,6 +91,46 @@ function seedComment(overrides: Partial<ReaderCommentRecord>): ReaderCommentReco
 describe('ReaderPanel comments', () => {
     beforeEach(() => {
         clearReaderCommentScope(scopeId);
+    });
+
+    it('uses real keydown to copy and annotate a fresh selection even when toolbar actions are hidden', async () => {
+        const { writeText } = setClipboardMock();
+        const panel = new ReaderPanel();
+        panel.setReaderSettings({ ...DEFAULT_SETTINGS.reader, selectionToolbar: { copy: false, annotation: false, highlight: false } });
+        panel.setShortcutSettings({ enabled: true, overrides: {}, disabled: [] });
+        await panel.show([{ id: 'a', userPrompt: 'Question', content: 'Selected **text**' }], 0, 'light');
+        const host = document.querySelector<HTMLElement>('#aimd-reader-panel-host')!;
+        const shadow = host.shadowRoot!;
+        const root = shadow.querySelector<HTMLElement>('.reader-markdown')!;
+        const range = document.createRange(); range.selectNodeContents(root);
+        installLayoutMocks(range, root, []);
+        const spy = vi.spyOn(window, 'getSelection').mockReturnValue(createSelection(range));
+        const sendDefault = (id: ShortcutCommandId) => {
+            const platform = getShortcutPlatform(navigator.platform);
+            const binding = getDefaultShortcutBindings(platform)[id]!;
+            const event = new KeyboardEvent('keydown', {
+                key: binding.code.replace(/^Key/, ''), code: binding.code,
+                ctrlKey: platform === 'mac' ? Boolean(binding.control) : Boolean(binding.primary || binding.control),
+                metaKey: platform === 'mac' && binding.primary, altKey: binding.alt, shiftKey: binding.shift,
+                bubbles: true, composed: true, cancelable: true,
+            });
+            root.dispatchEvent(event);
+            return event;
+        };
+        try {
+            expect(sendDefault('selection.copyMarkdown').defaultPrevented).toBe(true);
+            await vi.waitFor(() => expect(writeText).toHaveBeenCalledWith('Selected text'));
+            expect(shadow.querySelectorAll('.reader-comment-action__button')).toHaveLength(0);
+            expect(sendDefault('selection.annotate').defaultPrevented).toBe(true);
+            expect(shadow.querySelector('.reader-comment-popover__input')).toBeTruthy();
+            // The annotation editor owns its keyboard scope and remains editable.
+            const input = shadow.querySelector<HTMLTextAreaElement>('.reader-comment-popover__input')!;
+            input.value = 'note';
+            const copy = new KeyboardEvent('keydown', { key: 'C', code: 'KeyC', ctrlKey: true, shiftKey: true, bubbles: true, composed: true, cancelable: true });
+            input.dispatchEvent(copy);
+            expect(copy.defaultPrevented).toBe(false);
+            expect(writeText).toHaveBeenCalledTimes(1);
+        } finally { spy.mockRestore(); panel.hide(); }
     });
 
     it('runs one persistent comment pass after content rendering', async () => {

@@ -32,6 +32,31 @@ describe('background settings handler', () => {
         delete (globalThis as any).chrome;
     });
 
+    it('persists v6 shortcut categories and leaves settings intact after a rejected conflict', async () => {
+        const sync = mockSyncStorage();
+        (globalThis as any).browser = { runtime: { getManifest: () => ({ manifest_version: 3 }) }, storage: { sync } };
+        const { handleSettingsRequest } = await import('../../../../src/runtimes/background/handlers/settings');
+        const custom = { code: 'KeyM', primary: true, shift: true, alt: false };
+        const saved = await handleSettingsRequest({ v: PROTOCOL_VERSION, id: 'shortcut-write', type: 'settings:setCategory', payload: { category: 'shortcuts', value: { overrides: { 'selection.annotate': custom } } } } as any);
+        expect(saved?.response.ok).toBe(true);
+        const original = structuredClone(sync.state[LEGACY_STORAGE_KEYS.appSettingsKey]);
+        const rejected = await handleSettingsRequest({ v: PROTOCOL_VERSION, id: 'shortcut-conflict', type: 'settings:setCategory', payload: { category: 'shortcuts', value: { overrides: { 'selection.annotate': custom, 'selection.highlight': custom } } } } as any);
+        expect(rejected?.response).toMatchObject({ ok: false, error: { code: 'INVALID_REQUEST' } });
+        expect(sync.set).toHaveBeenCalledTimes(1);
+        expect(sync.state[LEGACY_STORAGE_KEYS.appSettingsKey]).toEqual(original);
+        const fetched = await handleSettingsRequest({ v: PROTOCOL_VERSION, id: 'shortcut-read', type: 'settings:getAll' } as any);
+        expect(fetched?.response).toMatchObject({ ok: true, data: { settings: { version: 6, shortcuts: { overrides: { 'selection.annotate': custom } } }, capabilities: { settingsVersion: 6 } } });
+    });
+
+    it('checks sync quota before writing shortcut preferences', async () => {
+        const sync = Object.assign(mockSyncStorage(), { QUOTA_BYTES_PER_ITEM: 20 });
+        (globalThis as any).browser = { runtime: { getManifest: () => ({ manifest_version: 2 }) }, storage: { sync } };
+        const { handleSettingsRequest } = await import('../../../../src/runtimes/background/handlers/settings');
+        const result = await handleSettingsRequest({ v: PROTOCOL_VERSION, id: 'shortcut-quota', type: 'settings:setCategory', payload: { category: 'shortcuts', value: { enabled: false } } } as any);
+        expect(result?.response).toMatchObject({ ok: false, error: { code: 'QUOTA_EXCEEDED' } });
+        expect(sync.set).not.toHaveBeenCalled();
+    });
+
     it('returns default settings when storage is empty', async () => {
         const sync = mockSyncStorage();
         (globalThis as any).browser = { runtime: { getManifest: () => ({ manifest_version: 3 }) }, storage: { sync } };
@@ -41,7 +66,7 @@ describe('background settings handler', () => {
         const res = await handleSettingsRequest({ v: PROTOCOL_VERSION, id: 'req_1', type: 'settings:getAll' } as any);
         expect(res?.response.ok).toBe(true);
         const settings = (res?.response as any).data.settings;
-        expect(settings.version).toBe(5);
+        expect(settings.version).toBe(6);
     });
 
     it('sets and gets a category', async () => {

@@ -15,10 +15,12 @@ export type PromptSurfaceView = {
     editPrompt: PromptRecord | null;
     statusMessage: string;
     dataState?: PromptDataState;
+    manualAutocomplete?: boolean;
 };
 
 export type PromptSurfaceAction =
     | { type: 'close' }
+    | { type: 'open-library' }
     | { type: 'search'; query: string }
     | { type: 'add' }
     | { type: 'edit'; promptId: string }
@@ -99,12 +101,28 @@ export class PromptSurfaceRenderer {
         this.root.querySelector<HTMLInputElement>('[data-role="prompt-search"]')?.focus();
     }
 
-    syncAutocompleteSelection(selectedIndex: number): void {
+    syncAutocompleteSelection(selectedIndex: number, ensureVisible = false): void {
+        let selected: HTMLButtonElement | null = null;
         this.root.querySelectorAll<HTMLButtonElement>('[data-role="prompt-suggestion"]').forEach((row) => {
             const active = Number(row.dataset.index) === selectedIndex;
             row.classList.toggle('is-active', active);
             row.setAttribute('aria-selected', active ? 'true' : 'false');
+            if (active) selected = row;
         });
+        const list = this.root.querySelector<HTMLElement>('.prompt-list');
+        if (!ensureVisible || !selected || !list || list.clientHeight <= 0) return;
+        const bounds = list.getBoundingClientRect();
+        const rowBounds = (selected as HTMLElement).getBoundingClientRect();
+        // Scroll this list explicitly: scrollIntoView can also move ChatGPT or
+        // the Reader beneath an anchored candidate surface.
+        const visibleTop = bounds.top + list.clientTop;
+        const visibleBottom = visibleTop + list.clientHeight;
+        const oversized = rowBounds.bottom - rowBounds.top > list.clientHeight;
+        const adjustment = oversized || rowBounds.top < visibleTop ? rowBounds.top - visibleTop
+            : rowBounds.bottom > visibleBottom ? rowBounds.bottom - visibleBottom : 0;
+        // A row taller than the viewport cannot fit both edges. Anchor its top
+        // once, leaving the rest available to normal internal scrolling.
+        if (Math.abs(adjustment) > 0.5) list.scrollTop = Math.max(0, Math.min(list.scrollHeight - list.clientHeight, list.scrollTop + adjustment));
     }
 
     getManagerRowIdAt(clientY: number): string | null {
@@ -151,13 +169,31 @@ export class PromptSurfaceRenderer {
             onSelect: (index) => this.options.onAction({ type: 'select', index }),
         });
         list.classList.add('prompt-list');
+        if (view.manualAutocomplete && view.suggestions.length < 1) {
+            const empty = document.createElement('div');
+            empty.className = 'prompt-candidate-empty';
+            empty.setAttribute('role', 'status');
+            empty.setAttribute('aria-live', 'polite');
+            const message = document.createElement('p');
+            message.textContent = t(view.dataState === 'error' ? 'promptAutocompleteLoadFailed'
+                : view.prompts.some(prompt => prompt.enabled) ? 'promptAutocompleteNoMatches' : 'promptAutocompleteEmptyLibrary');
+            const open = document.createElement('button');
+            open.type = 'button';
+            open.className = 'secondary-btn aimd-material-button aimd-material-button--quiet';
+            open.dataset.action = 'open-prompt-library';
+            open.textContent = t('promptAutocompleteOpenLibrary');
+            empty.append(message, open);
+            list.append(empty);
+        }
         const hint = document.createElement('p');
         hint.className = 'prompt-autocomplete-hint aimd-material-chrome';
         hint.dataset.role = 'prompt-autocomplete-hint';
-        const hintKey = 'promptAutocompleteKeyboardHint';
+        const hintKey = view.manualAutocomplete ? 'promptManualAutocompleteHint' : 'promptAutocompleteKeyboardHint';
         const localizedHint = t(hintKey);
         hint.textContent = localizedHint === hintKey
-            ? String.raw`Type \ + a trigger; ↑ ↓ select, Enter/Tab insert, → insert Prompt + current annotations when available, Esc close.`
+            ? view.manualAutocomplete
+                ? 'Type a title or trigger to filter; ↑ ↓ select, Enter/Tab insert, Esc close.'
+                : String.raw`Type \ + a trigger; ↑ ↓ select, Enter/Tab insert, → insert Prompt + current annotations when available, Esc close.`
             : localizedHint;
         this.root.appendChild(hint);
     }
@@ -282,6 +318,7 @@ export class PromptSurfaceRenderer {
         if (!action) return;
         const promptId = actionElement.dataset.promptId ?? '';
         if (action === 'close-prompts') this.options.onAction({ type: 'close' });
+        else if (action === 'open-prompt-library') this.options.onAction({ type: 'open-library' });
         else if (action === 'add-prompt') this.options.onAction({ type: 'add' });
         else if (action === 'edit-prompt' && promptId) this.options.onAction({ type: 'edit', promptId });
         else if (action === 'delete-prompt' && promptId) this.options.onAction({ type: 'delete', promptId });

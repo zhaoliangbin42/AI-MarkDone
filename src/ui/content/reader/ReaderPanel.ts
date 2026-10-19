@@ -1,4 +1,7 @@
 import { normalizeSelectionToolbarActions } from '../../../core/settings/selectionToolbar';
+import { SHORTCUT_COMMAND_IDS, chordMatchesEvent, getEffectiveBinding, normalizeShortcutSettings, type ShortcutCommandId, type ShortcutSettings } from '../../../core/shortcuts';
+import type { HighlightColor } from '../../../contracts/highlights';
+import { getShortcutPlatform, isShortcutEventEligible } from '../shortcuts/shortcutEventScope';
 import { readMarkDocumentTitle } from '../../../drivers/content/chatgpt/readMarkDocumentTitle';
 import type { Theme } from '../../../core/types/theme';
 import { pinIcon } from '../../../assets/icons';
@@ -182,6 +185,7 @@ export class ReaderPanel {
     private readonly settingsPopover = new ReaderSettingsPopover();
     private readonly commentPromptPicker = new CommentPromptPickerPopover();
     private selectionToolbarActions = normalizeSelectionToolbarActions(undefined);
+    private shortcutSettings: ShortcutSettings = normalizeShortcutSettings(undefined);
     private settingsController: ReaderPanelSettingsController | null = null;
     private promptManagerController: ReaderPanelPromptManagerController | null = null;
     private onKeyDown: ((e: KeyboardEvent) => void) | null = null;
@@ -368,6 +372,33 @@ export class ReaderPanel {
 
     setPromptManagerController(controller: ReaderPanelPromptManagerController | null): void {
         this.promptManagerController = controller;
+    }
+
+    setShortcutSettings(settings: ShortcutSettings): void {
+        this.shortcutSettings = normalizeShortcutSettings(settings);
+    }
+
+    tryExecuteSelectionShortcut(commandId: ShortcutCommandId): boolean {
+        if (!commandId.startsWith('selection.') || !this.state.visible || this.closing || !this.overlaySession) return false;
+        // Capture now rather than borrowing the last toolbar snapshot. A keyboard
+        // action must also work when selection buttons are hidden or never shown.
+        this.syncAtomicSelection(false);
+        const selection = this.commentSelectionSnapshot;
+        const root = this.getMarkdownRoot();
+        if (!selection || !root || (!selection.hasSelection && selection.selectedUnits.length < 1)) return false;
+        if (commandId === 'selection.copyMarkdown') {
+            if (!this.materializeSelectionExport(selection).trim()) return false;
+            void this.copySelection(selection, root);
+            return true;
+        }
+        if (commandId === 'selection.annotate') return this.annotateSelection(selection, root.getBoundingClientRect());
+        const color: HighlightColor = commandId === 'selection.highlight.blue' ? 'blue'
+            : commandId === 'selection.highlight.red' ? 'red' : 'yellow';
+        const item = this.getCurrentItem();
+        if (!item || !this.annotationDocument || !this.getAnnotationTarget(item) || this.highlightSaving
+            || !isHighlightableTextSelection(selection.range, root)) return false;
+        void this.highlightSelection(selection, color);
+        return true;
     }
 
     setReaderSettings(settings: AppSettings['reader']): void {
@@ -615,22 +646,30 @@ export class ReaderPanel {
         session.surfaceRoot.addEventListener('dragend', this.onSurfaceDragEnd);
 
         this.onKeyDown = (event: KeyboardEvent) => {
-            if (event.defaultPrevented) return;
-            if (event.key === 'ArrowLeft') {
+            if (!isShortcutEventEligible(event, { owner: session.host })) return;
+            const platform = getShortcutPlatform();
+            for (const id of SHORTCUT_COMMAND_IDS) {
+                const binding = getEffectiveBinding(this.shortcutSettings, id, platform);
+                if (!binding || !chordMatchesEvent(binding, event, platform)) continue;
+                if (id.startsWith('selection.')) {
+                    // Preserve the existing native copy-event path for Mod+C.
+                    if (id === 'selection.copyMarkdown' && binding.code === 'KeyC' && !binding.shift && !binding.alt) return;
+                    if (!this.tryExecuteSelectionShortcut(id)) return;
+                } else if (id === 'navigation.previous' || id === 'navigation.next') {
+                    const nextIndex = this.workflow.index + (id === 'navigation.previous' ? -1 : 1);
+                    if (nextIndex < 0 || nextIndex >= this.workflow.items.length) return;
+                    void this.go(id === 'navigation.previous' ? -1 : 1);
+                } else continue;
                 event.preventDefault();
-                void this.go(-1);
+                event.stopPropagation();
                 return;
             }
-            if (event.key === 'ArrowRight') {
-                event.preventDefault();
-                void this.go(1);
-                return;
-            }
-            if (event.key === 'ArrowUp' || event.key === 'ArrowDown') {
+            if (!event.altKey && !event.ctrlKey && !event.metaKey && !event.shiftKey
+                && (event.key === 'ArrowUp' || event.key === 'ArrowDown')) {
                 this.scrollReaderBodyByKeyboard(event);
             }
         };
-        session.host.addEventListener('keydown', this.onKeyDown);
+        session.host.addEventListener('keydown', this.onKeyDown, true);
 
         this.onSelectionChange = () => this.scheduleAtomicSelectionSync();
         this.onPointerUp = () => {
@@ -662,7 +701,7 @@ export class ReaderPanel {
         this.highlights.dispose();
         this.persistentCommentsLoaded = false;
         if (this.overlaySession?.host && this.onKeyDown) {
-            this.overlaySession.host.removeEventListener('keydown', this.onKeyDown);
+            this.overlaySession.host.removeEventListener('keydown', this.onKeyDown, true);
         }
         this.onKeyDown = null;
         if (this.overlaySession?.surfaceRoot && this.onSurfacePointerDown) {
@@ -2101,16 +2140,7 @@ export class ReaderPanel {
         copyButton.setAttribute('aria-label', this.getLabel('btnCopyText', 'Copy markdown'));
         copyButton.setAttribute('title', this.getLabel('btnCopyText', 'Copy markdown'));
         copyButton.innerHTML = createIcon(copyIcon).outerHTML;
-        copyButton.addEventListener('click', async () => {
-            const sourceMarkdown = this.materializeSelectionExport(selection);
-            if (!sourceMarkdown.trim()) return;
-            const ok = await copyCanonicalMarkdownToClipboard(sourceMarkdown);
-            showEphemeralTooltip({
-                root: this.overlaySession?.shadow ?? this.host.document,
-                anchor: copyButton,
-                text: this.getLabel(ok ? 'btnCopied' : 'copyFailed', ok ? 'Copied!' : 'Copy failed'),
-            });
-        });
+        copyButton.addEventListener('click', () => { void this.copySelection(selection, copyButton); });
 
         const commentButton = this.host.document.createElement('button');
         commentButton.className = 'icon-btn reader-comment-action__button';
@@ -2119,71 +2149,11 @@ export class ReaderPanel {
         commentButton.setAttribute('aria-label', this.getLabel('readerCommentAction', 'Annotate'));
         commentButton.setAttribute('title', this.getLabel('readerCommentAction', 'Annotate'));
         commentButton.innerHTML = createIcon(messageSquareTextIcon).outerHTML;
-        commentButton.addEventListener('click', () => {
-            const sourceMarkdown = this.materializeSelectionExport(selection);
-            if (!sourceMarkdown.trim()) return;
-            const markdownRoot = this.getMarkdownRoot();
-            const shell = this.overlaySession?.surfaceRoot.querySelector<HTMLElement>('.panel-window--reader');
-            if (!markdownRoot || !shell || !this.overlaySession) return;
-            const frozenSelection: ReaderCommentSelectionSnapshot = {
-                range: selection.range.cloneRange(),
-                selectedUnits: [...selection.selectedUnits],
-                selectedText: selection.selectedText,
-                sourceMarkdown,
-                hasSelection: selection.hasSelection,
-            };
-            if (!item) return;
-            const document = this.annotationDocument;
-            const record = createReaderCommentRecord({ id: `comment-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
-                itemId: item.id, comment: '', range: frozenSelection.range, root: markdownRoot, selectedUnits: frozenSelection.selectedUnits });
-            record.target = target ?? undefined;
-            this.openCommentPopover({
-                mode: 'create',
-                anchorRect: commentButton.getBoundingClientRect(),
-                initialText: '',
-                selectedSource: sourceMarkdown,
-                sessionOnly: !this.annotationDocument || !this.persistAnnotations || !target,
-                onSave: (value) => {
-                    if (readerAnnotationDocumentKeyOrNull(document) !== readerAnnotationDocumentKeyOrNull(this.annotationDocument)) throw new Error(this.getLabel('pageAnnotationSelectionUnavailable', 'Selection unavailable. Select text again and try.'));
-                    const next = { ...record, comment: value };
-                    if (!this.annotationDocument || !this.persistAnnotations) {
-                        saveReaderComment(READER_COMMENT_SCOPE_ID, next);
-                        this.activeCommentId = record.id;
-                        this.syncCommentUi();
-                        this.syncCommentControls();
-                        return;
-                    }
-                    return this.persistNewComment(next, document).catch((error) => {
-                        this.notify(error instanceof Error ? error.message : this.getLabel('readerCommentPersistenceUnavailable', 'Annotation could not be saved.'));
-                        throw error;
-                    });
-                },
-                onCancel: () => {
-                    this.activeCommentId = null;
-                    this.syncCommentUi();
-                },
-            });
-        });
+        commentButton.addEventListener('click', () => { this.annotateSelection(selection, commentButton.getBoundingClientRect()); });
         if (this.selectionToolbarActions.copy) group.append(copyButton);
         if (this.selectionToolbarActions.annotation) group.append(commentButton);
         if (showHighlights && item && target) {
-            group.append(createHighlightSwatches({ document: this.host.document, onSelect: async color => {
-                if (this.highlightSaving) return;
-                const root = this.getMarkdownRoot();
-                if (!root || this.getCurrentItem()?.id !== item.id
-                    || !isHighlightableTextSelection(selection.range, root)) { this.notify(t('pageAnnotationSelectionUnavailable')); return; }
-                this.highlightSaving = true;
-                group.querySelectorAll<HTMLButtonElement>('button').forEach(button => { button.disabled = true; });
-                try {
-                    const id = `highlight-${crypto.randomUUID()}`;
-                    const captured = createSelectionHighlightRecord({ id, itemId: item.id, range: selection.range, root,
-                        legacyRecord: () => createReaderCommentRecord({ id, itemId: item.id, comment: '', range: selection.range, root, selectedUnits: selection.selectedUnits }) });
-                    if (!captured) { this.notify(t('highlightSelectionUnavailable')); return; }
-                    await this.highlights.create(createHighlightRecord(captured.record, target, color, captured.fragments));
-                    if (this.getCurrentItem()?.id === item.id) { this.commentSelectionSnapshot = null; this.syncTransientCommentUi(); }
-                } catch { this.notify(t('highlightSaveFailed')); }
-                finally { this.highlightSaving = false; group.querySelectorAll<HTMLButtonElement>('button').forEach(button => { button.disabled = false; }); }
-            } }));
+            group.append(createHighlightSwatches({ document: this.host.document, onSelect: color => this.highlightSelection(selection, color, group) }));
         }
         if (showStickyAction) {
             const stickButton = this.host.document.createElement('button');
@@ -2201,6 +2171,88 @@ export class ReaderPanel {
         }
 
         return group;
+    }
+
+    private async copySelection(selection: ReaderCommentSelectionSnapshot, anchor: HTMLElement): Promise<void> {
+        const sourceMarkdown = this.materializeSelectionExport(selection);
+        if (!sourceMarkdown.trim()) return;
+        const ok = await copyCanonicalMarkdownToClipboard(sourceMarkdown);
+        showEphemeralTooltip({
+            root: this.overlaySession?.shadow ?? this.host.document,
+            anchor,
+            text: this.getLabel(ok ? 'btnCopied' : 'copyFailed', ok ? 'Copied!' : 'Copy failed'),
+        });
+    }
+
+    private annotateSelection(selection: ReaderCommentSelectionSnapshot, anchorRect: DOMRect): boolean {
+        const sourceMarkdown = this.materializeSelectionExport(selection);
+        const markdownRoot = this.getMarkdownRoot();
+        const item = this.getCurrentItem();
+        if (!sourceMarkdown.trim() || !markdownRoot || !item || !this.overlaySession) return false;
+        const target = this.getAnnotationTarget(item);
+        const document = this.annotationDocument;
+        const frozenSelection: ReaderCommentSelectionSnapshot = {
+            ...selection, range: selection.range.cloneRange(), selectedUnits: [...selection.selectedUnits], sourceMarkdown,
+        };
+        const record = createReaderCommentRecord({
+            id: `comment-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+            itemId: item.id, comment: '', range: frozenSelection.range, root: markdownRoot, selectedUnits: frozenSelection.selectedUnits,
+        });
+        record.target = target ?? undefined;
+        this.openCommentPopover({
+            mode: 'create', anchorRect, initialText: '', selectedSource: sourceMarkdown,
+            sessionOnly: !document || !this.persistAnnotations || !target,
+            onSave: (value) => {
+                if (readerAnnotationDocumentKeyOrNull(document) !== readerAnnotationDocumentKeyOrNull(this.annotationDocument)) {
+                    throw new Error(this.getLabel('pageAnnotationSelectionUnavailable', 'Selection unavailable. Select text again and try.'));
+                }
+                const next = { ...record, comment: value };
+                if (!document || !this.persistAnnotations) {
+                    saveReaderComment(READER_COMMENT_SCOPE_ID, next);
+                    this.activeCommentId = record.id;
+                    this.syncCommentUi();
+                    this.syncCommentControls();
+                    return;
+                }
+                return this.persistNewComment(next, document).catch((error) => {
+                    this.notify(error instanceof Error ? error.message : this.getLabel('readerCommentPersistenceUnavailable', 'Annotation could not be saved.'));
+                    throw error;
+                });
+            },
+            onCancel: () => { this.activeCommentId = null; this.syncCommentUi(); },
+        });
+        return true;
+    }
+
+    private async highlightSelection(selection: ReaderCommentSelectionSnapshot, color: HighlightColor, group?: HTMLElement): Promise<void> {
+        if (this.highlightSaving) return;
+        const root = this.getMarkdownRoot();
+        const item = this.getCurrentItem();
+        const target = item ? this.getAnnotationTarget(item) : null;
+        const documentKey = readerAnnotationDocumentKeyOrNull(this.annotationDocument);
+        if (!root || !item || !target || !documentKey || !isHighlightableTextSelection(selection.range, root)) {
+            this.notify(t('pageAnnotationSelectionUnavailable'));
+            return;
+        }
+        this.highlightSaving = true;
+        group?.querySelectorAll<HTMLButtonElement>('button').forEach(button => { button.disabled = true; });
+        try {
+            const id = `highlight-${crypto.randomUUID()}`;
+            const captured = createSelectionHighlightRecord({
+                id, itemId: item.id, range: selection.range, root,
+                legacyRecord: () => createReaderCommentRecord({ id, itemId: item.id, comment: '', range: selection.range, root, selectedUnits: selection.selectedUnits }),
+            });
+            if (!captured) { this.notify(t('highlightSelectionUnavailable')); return; }
+            await this.highlights.create(createHighlightRecord(captured.record, target, color, captured.fragments));
+            if (this.getCurrentItem()?.id === item.id && readerAnnotationDocumentKeyOrNull(this.annotationDocument) === documentKey) {
+                this.commentSelectionSnapshot = null;
+                this.syncTransientCommentUi();
+            }
+        } catch { this.notify(t('highlightSaveFailed')); }
+        finally {
+            this.highlightSaving = false;
+            group?.querySelectorAll<HTMLButtonElement>('button').forEach(button => { button.disabled = false; });
+        }
     }
 
     private createCommentAnchor(

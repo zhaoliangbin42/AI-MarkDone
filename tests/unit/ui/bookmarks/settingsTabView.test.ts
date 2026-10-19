@@ -367,29 +367,17 @@ describe('SettingsTabView', () => {
         expect(onSetChatGptBehaviorSettings).toHaveBeenCalledWith({ restorePositionAfterSend: false });
     });
 
-    it('lets users choose the ChatGPT Markdown selection shortcut', () => {
-        const modal = { confirm: vi.fn(async () => true) } as any;
-        const onSetChatGptBehaviorSettings = vi.fn(async () => undefined);
-        const view = new SettingsTabView({
-            modal,
-            actions: { setChatGptBehaviorSettings: onSetChatGptBehaviorSettings },
-        });
-        view.setState({
-            settings: structuredClone(baseSettings),
-            storageUsage: null,
-        });
-
-        const select = view.getElement().querySelector<HTMLButtonElement>(
-            '[data-role="settings-chatgpt-atomic-markdown-copy-shortcut"]',
-        )!;
-        expect(select.textContent).toContain('chatgptAtomicMarkdownCopyModShiftC');
-
-        select.click();
-        view.getElement().querySelector<HTMLButtonElement>(
-            '[data-menu="chatgpt-atomic-markdown-copy-shortcut"][data-value="mod-c"]',
-        )!.click();
-
-        expect(onSetChatGptBehaviorSettings).toHaveBeenCalledWith({ atomicMarkdownCopyShortcut: 'mod-c' });
+    it('migrates legacy Markdown copy choices into the keyboard panel', () => {
+        const view = new SettingsTabView({ modal: { confirm: vi.fn(async () => true) } as any });
+        const settings = structuredClone(baseSettings); settings.chatgptBehavior.atomicMarkdownCopyShortcut = 'mod-c';
+        view.setState({ settings, storageUsage: null });
+        view.getNavigationElement().querySelector<HTMLButtonElement>('[data-category="controls"]')!.click();
+        view.getElement().querySelector<HTMLButtonElement>('[data-controls-tab="keyboard"]')!.click();
+        const shadow = view.getElement().querySelector('[data-role="settings-keyboard"]')!.shadowRoot!;
+        const binding = shadow.querySelector('[data-command="selection.copyMarkdown"] [data-action="record"]')!;
+        expect(binding.textContent).toContain('Ctrl'); expect(binding.textContent).toContain('C'); expect(binding.textContent).not.toContain('Shift');
+        expect(view.getElement().querySelector('[data-role="settings-chatgpt-atomic-markdown-copy-shortcut"]')).toBeNull();
+        view.destroy();
     });
 
     it('wires only input enhancement availability while preserving its detailed preferences', () => {
@@ -468,28 +456,17 @@ describe('SettingsTabView', () => {
         expect(onSetChatGptBehaviorSettings).toHaveBeenCalledWith({ showPageSelectionToolbar: false });
     });
 
-    it('wires ChatGPT arrow-key message navigation to the scoped behavior category', () => {
-        const modal = { confirm: vi.fn(async () => true) } as any;
-        const onSetChatGptBehaviorSettings = vi.fn(async () => undefined);
-
-        const view = new SettingsTabView({
-            modal,
-            actions: { setChatGptBehaviorSettings: onSetChatGptBehaviorSettings },
-        });
-        view.setState({
-            settings: structuredClone(baseSettings),
-            storageUsage: null,
-        });
-
-        const root = view.getElement();
-        const toggle = root.querySelector<HTMLInputElement>('[data-role="settings-chatgpt-arrow-key-message-navigation"]')!;
-
-        expect(toggle.checked).toBe(true);
-
-        toggle.checked = false;
-        toggle.dispatchEvent(new Event('change', { bubbles: true }));
-
-        expect(onSetChatGptBehaviorSettings).toHaveBeenCalledWith({ enableArrowKeyMessageNavigation: false });
+    it('preserves disabled legacy message navigation in the keyboard panel', () => {
+        const view = new SettingsTabView({ modal: { confirm: vi.fn(async () => true) } as any });
+        const settings = structuredClone(baseSettings); settings.chatgptBehavior.enableArrowKeyMessageNavigation = false;
+        view.setState({ settings, storageUsage: null });
+        view.getNavigationElement().querySelector<HTMLButtonElement>('[data-category="controls"]')!.click();
+        view.getElement().querySelector<HTMLButtonElement>('[data-controls-tab="keyboard"]')!.click();
+        const shadow = view.getElement().querySelector('[data-role="settings-keyboard"]')!.shadowRoot!;
+        expect(shadow.querySelector('[data-command="navigation.previous"] .keyboard-status-pill')).toBeTruthy();
+        expect(shadow.querySelector('[data-command="navigation.next"] .keyboard-status-pill')).toBeTruthy();
+        expect(view.getElement().querySelector('[data-role="settings-chatgpt-arrow-key-message-navigation"]')).toBeNull();
+        view.destroy();
     });
 
     it('lets users hide the lower-right ChatGPT message stepper buttons', async () => {

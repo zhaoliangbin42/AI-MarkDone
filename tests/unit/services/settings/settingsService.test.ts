@@ -10,8 +10,59 @@ import {
 import { DEFAULT_SETTINGS } from '@/core/settings/types';
 import { loadAndNormalize, planGetCategory, planReset, planSetCategory } from '@/services/settings/settingsService';
 import type { CommentTemplateSegment } from '@/services/reader/commentExport';
+import { getConfiguredBinding, getDefaultShortcutBindings, getEffectiveBinding, withShortcutBinding } from '@/core/shortcuts';
 
 describe('settingsService', () => {
+    it('persists shortcut overrides and resets to preset and empty defaults using a complete override map', () => {
+        const custom = { code: 'KeyM', primary: true, shift: true, alt: false };
+        const changed = planSetCategory(DEFAULT_SETTINGS, 'shortcuts', withShortcutBinding(DEFAULT_SETTINGS.shortcuts, 'selection.annotate', custom)).next;
+        expect(getEffectiveBinding(changed.shortcuts, 'selection.annotate')).toEqual(custom);
+        const reset = planSetCategory(changed, 'shortcuts', { overrides: {} }).next;
+        expect(getConfiguredBinding(reset.shortcuts, 'selection.annotate')).toEqual(getDefaultShortcutBindings()['selection.annotate']);
+        expect(getConfiguredBinding(reset.shortcuts, 'prompts.openLibrary')).toBeNull();
+        expect(reset.shortcuts.overrides).toEqual({});
+        expect(reset.shortcuts.enabled).toBe(true);
+    });
+    it('preserves unrelated shortcuts when old copy and navigation controls are written', () => {
+        const custom = { code: 'KeyM', primary: true, shift: true, alt: false };
+        const current = planSetCategory(DEFAULT_SETTINGS, 'shortcuts', withShortcutBinding(DEFAULT_SETTINGS.shortcuts, 'selection.annotate', custom)).next;
+        const legacy = planSetCategory(current, 'chatgptBehavior', { atomicMarkdownCopyShortcut: 'mod-c', enableArrowKeyMessageNavigation: false }).next;
+        expect(getEffectiveBinding(legacy.shortcuts, 'selection.copyMarkdown')).toEqual({ code: 'KeyC', primary: true, shift: false, alt: false });
+        expect(getEffectiveBinding(legacy.shortcuts, 'navigation.previous')).toBeNull();
+        expect(getEffectiveBinding(legacy.shortcuts, 'selection.annotate')).toEqual(custom);
+        expect(getEffectiveBinding(planSetCategory(legacy, 'chatgptBehavior', { enableArrowKeyMessageNavigation: true }).next.shortcuts, 'navigation.previous')?.code).toBe('ArrowLeft');
+    });
+    it('rejects conflicting and unbounded shortcut category writes without changing the current configuration', () => {
+        const current = structuredClone(DEFAULT_SETTINGS);
+        const binding = getDefaultShortcutBindings()['selection.annotate'];
+        expect(() => planSetCategory(current, 'shortcuts', { overrides: { 'selection.highlight': binding } })).toThrow('SHORTCUT_INVALID');
+        expect(() => planSetCategory(current, 'shortcuts', { overrides: { 'unknown.command': binding } })).toThrow('SHORTCUT_INVALID');
+        expect(current).toEqual(DEFAULT_SETTINGS);
+    });
+    it('synchronizes dormant legacy copy flags and returns isolated reset snapshots', () => {
+        const off = planSetCategory(DEFAULT_SETTINGS, 'shortcuts', { enabled: false }).next;
+        expect(off.chatgptBehavior.atomicMarkdownCopyShortcut).toBe('none');
+        expect(off.chatgptBehavior.enableArrowKeyMessageNavigation).toBe(false);
+        const on = planSetCategory(off, 'shortcuts', { enabled: true }).next;
+        expect(on.chatgptBehavior.atomicMarkdownCopyShortcut).toBe('mod-shift-c');
+        const reset = planReset().next;
+        reset.shortcuts.disabled.push('selection.annotate');
+        expect(DEFAULT_SETTINGS.shortcuts.disabled).toEqual([]);
+    });
+    it('keeps copy and custom navigation bindings when a full behavior snapshot is saved while shortcuts are off', () => {
+        const initial = loadAndNormalize({ version: 5, chatgptBehavior: { atomicMarkdownCopyShortcut: 'mod-c' } });
+        let configured = withShortcutBinding(initial.shortcuts, 'navigation.previous', { code: 'KeyM', primary: true, shift: true, alt: false });
+        configured = withShortcutBinding(configured, 'navigation.next', { code: 'KeyU', primary: true, shift: true, alt: false });
+        const current = planSetCategory(initial, 'shortcuts', configured).next;
+        const off = planSetCategory(current, 'shortcuts', { enabled: false }).next;
+        const edited = planSetCategory(off, 'chatgptBehavior', { ...off.chatgptBehavior, promptAutocomplete: false }).next;
+        expect(edited.shortcuts).toEqual(off.shortcuts);
+        const on = planSetCategory(edited, 'shortcuts', { enabled: true }).next;
+        expect(getEffectiveBinding(on.shortcuts, 'selection.copyMarkdown')).toEqual({ code: 'KeyC', primary: true, shift: false, alt: false });
+        expect(getEffectiveBinding(on.shortcuts, 'navigation.previous')?.code).toBe('KeyM');
+        expect(getEffectiveBinding(on.shortcuts, 'navigation.next')?.code).toBe('KeyU');
+        expect(on.chatgptBehavior.promptAutocomplete).toBe(false);
+    });
     it('adds shared content defaults and preserves sibling choices on writes', () => {
         const old = loadAndNormalize({ version: 5, reader: { renderCodeInReader: false } });
         expect(old.content).toEqual({ preserveLinks: false, includeCodeBlocks: true });
@@ -32,7 +83,7 @@ describe('settingsService', () => {
     it('uses v4 defaults with formula asset hover actions disabled', () => {
         const next = loadAndNormalize(null);
 
-        expect(next.version).toBe(5);
+        expect(next.version).toBe(6);
         expect(next.formula.clickCopyFormulaFormat).toBe('markdown-dollar');
         expect(next.formula.markdownCopyFormulaFormat).toBe('markdown-dollar');
         expect(next.formula.assetFontSizePx).toBe(36);
@@ -473,7 +524,7 @@ describe('settingsService', () => {
     it('resets to v4 defaults with formula asset hover actions disabled', () => {
         const next = planReset().next;
 
-        expect(next.version).toBe(5);
+        expect(next.version).toBe(6);
         expect(next.formula.clickCopyFormulaFormat).toBe('markdown-dollar');
         expect(next.formula.markdownCopyFormulaFormat).toBe('markdown-dollar');
         expect(next.formula.assetFontSizePx).toBe(36);

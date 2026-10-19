@@ -1,5 +1,31 @@
 # AI-MarkDone — Product Capabilities & Acceptance (Authoritative)
 
+### 2026-10-19 configurable keyboard shortcuts
+
+设置 → **按钮与快捷键 → 快捷键** 是选区、阅读导航及提示词命令的统一配置入口；“按钮”页签继续配置按钮显隐与固定项。快捷键调用既有功能接口，不依赖按钮是否可见。能力范围仍为 ChatGPT 页面、页面内 Reader 与独立 Reader；提示词候选和提示词库在官网输入框或 Reader 既有发送框中生效，不为 Reader 新增聊天输入框。
+
+| 命令 | macOS 默认 | Windows / Linux 默认 | 生效条件 |
+|---|---|---|---|
+| 蓝色 / 黄色 / 红色高亮 | `Ctrl+Shift+B/Y/R` | `Shift+B/Y/R` | 正文有可保存的有效选区；B=Blue、Y=Yellow、R=Red |
+| 默认色高亮 | `Ctrl+Shift+H` | `Shift+H` | 同上；H=Highlight，当前默认色为黄色 |
+| 添加注释 | `Ctrl+Shift+N` | `Shift+N` | 正文有可注释的有效选区；N=Note，C 留给复制 |
+| 主动打开提示词候选 | `Ctrl+Shift+P` | `Alt+Shift+P` | ChatGPT 输入框可用；P=Prompt，可独立于自动联想使用 |
+| 复制所选 Markdown | `Command+Shift+C` | `Ctrl+Shift+C` | 正文有可复制的有效选区 |
+| 上一条 / 下一条消息 | `←` / `→` | `←` / `→` | 阅读场景，编辑文字或操作插件弹层时暂停 |
+| 打开提示词库 | 未设置 | 未设置 | 用户可自行绑定；仅在 ChatGPT 输入框生效 |
+
+macOS 的 `Ctrl` 是实际 Control（`⌃`）；Windows/Linux 不使用已被浏览器占用的 Ctrl+Shift+B/R/P 等组合。只有正文有效选区命令允许 Shift+字母，所有输入控件、输入法组合及插件弹层均让行。`Primary` 在 macOS 为 Command，在其他桌面平台为 Ctrl。按键身份使用物理 `KeyboardEvent.code`，不依赖 Shift 或键盘布局生成的字符。宿主声明同字母 accesskey 时，Alt+Shift 提示词命令让行，不抢占页面访问键。
+
+- 设置版本 6 将旧 Markdown 复制偏好迁入同一命令：`mod-c` 保留为 `Primary+C`，`none` 保留为明确空绑定，`mod-shift-c` 沿用预设。旧导航关闭偏好迁为上一条、下一条命令均停用。保留旧设置字段的读写兼容，不重新开启用户已经关闭的复制或导航。
+- `shortcuts.overrides` 缺少某项表示使用预设，`null` 表示明确清除该项。单项重置删除覆盖与停用状态，恢复真正的默认值；默认为空的提示词库恢复为未设置。停用使用 `disabled` 保留原组合，再启用时重新检查冲突。
+- 新预设不覆盖自定义组合、明确空绑定或停用偏好；归一化先保留显式自定义，再安排未覆盖的预设。旧自定义占用新预设时，暂停新预设并保留用户原配置。
+- 插件内生效范围重叠或跨平台按键重叠构成冲突；替换通过一次设置保存完成新绑定与原绑定停用，原组合仍保留。单项重置与重新启用走同样的冲突检查。已知保留按键不可录入；检查无法枚举全部系统、浏览器与其他扩展占用。
+- 全局关闭快捷键保留所有组合和单项状态。反斜杠自动联想继续由 `chatgptBehavior.promptAutocomplete` 独立控制；关闭自动联想后，已启用的手动候选/提示词库命令仍可使用。恢复全部默认需要确认，只重置快捷键配置，不改变自动联想开关。
+- 手动候选包含所有已启用提示词，允许按标题或触发词继续过滤，不要求先输入反斜杠；自动反斜杠联想继续按触发词前缀匹配。候选靠近当前光标，优先上方，空间不足时翻转或缩短内部列表；不盖住光标，跟随输入框及可视视口滚动。方向键让当前项保持可见，Esc 关闭并保留草稿与输入焦点。空库、无匹配或加载失败显示明确状态，并保留进入提示词库的入口。
+- 录入等待组合释放后形成候选，IME 组字不录入、不执行；Esc 取消，Tab 离开，未完成录入在失焦或关闭时清理。保存期间禁止重复提交，失败保留旧绑定与候选；后台断开时使用现有重试入口恢复后继续保存。
+
+默认配置与冲突规则的代码源为 `src/core/shortcuts/index.ts`；实际触发继续复用正文选区、注释、高亮、消息导航与提示词的既有所有者。组件预览、自动检查、双浏览器构建与真实安装的 Chrome / Firefox / 独立 Reader 验收各自保留证据，不能互相替代。
+
 ### 2026-10-14 shared message navigation
 
 - Directory、前后箭头、书签、网页 Reader 和独立 Reader 统一走现有导航接口。真实 assistant message ID 是身份，序号只是提示；无法证明目标时不猜测、不误报成功。
@@ -80,7 +106,7 @@
 
 ### 2026-10-14 compact page controls and feedback cleanup
 
-- Lower-right page controls use a 24px button target and 16px glyph, shared with the Buttons settings preview; the drawer, pinning and keyboard behavior are unchanged. Input Enhancement's Enter-to-newline row in both Settings and the page popover shows a localized inline note directing users to ChatGPT Settings → Keyboard and announcing gradual retirement. This is a notice only: existing preferences and key handling are unchanged.
+- Lower-right page controls use a 24px button target and 16px glyph, shared with the Buttons settings preview; the drawer, pinning and keyboard behavior are unchanged. Input Enhancement's Enter-to-newline row in both Settings and the page popover explains the native alternative: avatar → Settings → Keyboard → change Send message to Cmd/Ctrl+Enter, then turn off the extension option if desired. This is guidance only: existing preferences and key handling are unchanged.
 - Feedback email subjects identify AI-MarkDone and the current Chrome/Firefox browser, using the shared browser detector. Unknown environments keep the generic subject; no conversation text, URL or email body is added automatically. The recipient and copy-email action are unchanged.
 - About and Feedback retain their existing social/community cards without the unused retired-browser visibility parameters. Current behavior and card order remain unchanged. Retired-target cleanup boundaries are defined in [BROWSER_COMPATIBILITY.md](architecture/BROWSER_COMPATIBILITY.md).
 

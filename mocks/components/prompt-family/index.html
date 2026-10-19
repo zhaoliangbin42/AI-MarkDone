@@ -36,6 +36,8 @@
         </div>
         <div class="controls">
           <button id="autocomplete-trigger" type="button">Show autocomplete</button>
+          <button id="manual-trigger" type="button">Open candidates without a backslash</button>
+          <label><input id="automatic-toggle" type="checkbox" checked /> Automatic backslash suggestions</label>
           <button id="manager-trigger" type="button">Open manager</button>
           <button id="editor-trigger" type="button">Open editor</button>
           <button id="error-trigger" type="button">Show load error</button>
@@ -43,7 +45,7 @@
       </header>
       <article class="case">
         <h2>Official composer fixture</h2>
-        <p>Narrow viewports exercise caret completion; wider viewports exercise the full manager.</p>
+        <p>Try the configured P shortcut here. Automatic backslash suggestions can be turned off independently.</p>
         <textarea id="composer" class="composer" aria-label="Prompt composer">\rewrite</textarea>
       </article>
     </main>

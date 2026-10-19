@@ -1,6 +1,8 @@
 import { PROTOCOL_VERSION, createRequestId, isReaderSessionRichContentWithinBudget, type ReaderSessionSnapshot } from '../../contracts/protocol';
 import { isReaderAnnotationDocument } from '../../contracts/readerAnnotations';
 import { DEFAULT_GLOBAL_FONT_SIZE_PX, DEFAULT_SETTINGS, type AppSettings } from '../../core/settings/types';
+import { chordMatchesEvent, getEffectiveBinding } from '../../core/shortcuts';
+import { getShortcutPlatform, isShortcutEventEligible } from '../../ui/content/shortcuts/shortcutEventScope';
 import { normalizeGlobalFontSizePx, normalizeThemeAccentColor } from '../../core/settings/migrations';
 import {
     createInvalidResponseClientFailure,
@@ -243,9 +245,27 @@ async function run(): Promise<void> {
         }));
     };
     sendPopover.setPromptAutocompleteController(promptManager);
+    promptManager.init();
     promptManager.setEnabled(Boolean(settings.chatgptBehavior?.promptAutocomplete ?? DEFAULT_SETTINGS.chatgptBehavior.promptAutocomplete));
     panel.setReaderSettings(settings.reader);
+    panel.setShortcutSettings(settings.shortcuts);
     panel.setContentCleanupSettings(settings.content);
+    const onPromptShortcut = (event: KeyboardEvent): void => {
+        if (!promptManager.hasKeyboardFocus(event)) return;
+        const host = document.getElementById('aimd-reader-panel-host');
+        if (!host || !isShortcutEventEligible(event, { owner: host, allowEditable: true })) return;
+        const platform = getShortcutPlatform();
+        if (chordMatchesEvent(getEffectiveBinding(settings.shortcuts, 'prompts.openSuggestions', platform), event, platform)) {
+            if (!promptManager.canOpenSuggestions(event)) return;
+            event.preventDefault();
+            event.stopPropagation();
+            void promptManager.openSuggestions();
+        } else if (chordMatchesEvent(getEffectiveBinding(settings.shortcuts, 'prompts.openLibrary', platform), event, platform)) {
+            event.preventDefault();
+            event.stopPropagation();
+            void promptManager.openManager();
+        }
+    };
     let readerSettingsWriteQueue: Promise<void> = Promise.resolve();
     panel.setReaderSettingsController({
         onChange: (patch) => {
@@ -278,13 +298,19 @@ async function run(): Promise<void> {
 
     let session = await getSession(sessionId);
     if (!session) {
+        promptManager.dispose();
         renderStatus(t('detachedReaderSessionExpired'));
         return;
     }
+    window.addEventListener('keydown', onPromptShortcut, true);
 
     const unsubscribeSettings = settingsClient.subscribe((snapshot) => {
         panel.setContentCleanupSettings(snapshot.settings.content);
         settings = snapshot.settings;
+        panel.setReaderSettings(settings.reader);
+        panel.setShortcutSettings(settings.shortcuts);
+        promptManager.setEnabled(settings.chatgptBehavior.promptAutocomplete);
+        setCanonicalMarkdownCopyFormulaFormat(settings.formula.markdownCopyFormulaFormat);
         const nextLocale = settings.language ?? DEFAULT_SETTINGS.language;
         if (nextLocale !== activeLocale) {
             activeLocale = nextLocale;
@@ -296,7 +322,11 @@ async function run(): Promise<void> {
     const disposeSettingsBackflow = (): void => {
         if (settingsDisposed) return;
         settingsDisposed = true;
+        const readerShadow = document.getElementById('aimd-reader-panel-host')?.shadowRoot;
+        if (readerShadow) sendPopover.close(readerShadow);
         panel.hide();
+        promptManager.dispose();
+        window.removeEventListener('keydown', onPromptShortcut, true);
         unsubscribeSettings();
         window.removeEventListener('pagehide', disposeSettingsBackflow);
     };

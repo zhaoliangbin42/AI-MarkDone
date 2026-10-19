@@ -72,6 +72,35 @@ describe('ReaderPanel (MVP)', () => {
         document.getElementById('aimd-toast-viewport')?.remove();
     });
 
+    it('preserves Reader arrow navigation and applies live rebindings without stealing editor keys', async () => {
+        const panel = new ReaderPanel();
+        const shortcuts = { enabled: true, overrides: {}, disabled: [] };
+        panel.setShortcutSettings(shortcuts);
+        await panel.show([{ id: 'a', userPrompt: 'Q1', content: 'First answer' }, { id: 'b', userPrompt: 'Q2', content: 'Second answer' }, { id: 'c', userPrompt: 'Q3', content: 'Third answer' }], 0, 'light');
+        const host = document.querySelector<HTMLElement>('#aimd-reader-panel-host')!;
+        const shadow = host.shadowRoot!;
+        const send = (code: string, modifiers: KeyboardEventInit = {}, target: HTMLElement = host) => {
+            const event = new KeyboardEvent('keydown', { key: code, code, bubbles: true, composed: true, cancelable: true, ...modifiers });
+            target.dispatchEvent(event); return event;
+        };
+        try {
+            expect(send('ArrowRight').defaultPrevented).toBe(true);
+            await vi.waitFor(() => expect(shadow.querySelector('.reader-markdown')?.textContent).toContain('Second answer'));
+            panel.setShortcutSettings({ ...shortcuts, overrides: { 'navigation.next': { code: 'KeyN', primary: false, shift: true, alt: true } } });
+            expect(send('ArrowRight').defaultPrevented).toBe(false);
+            expect(send('KeyN', { altKey: true, shiftKey: true }).defaultPrevented).toBe(true);
+            await vi.waitFor(() => expect(shadow.querySelector('.reader-markdown')?.textContent).toContain('Third answer'));
+            expect(send('KeyN', { altKey: true, shiftKey: true }).defaultPrevented).toBe(false);
+            expect(send('ArrowLeft').defaultPrevented).toBe(true);
+            await vi.waitFor(() => expect(shadow.querySelector('.reader-markdown')?.textContent).toContain('Second answer'));
+            const textarea = document.createElement('textarea'); shadow.append(textarea); textarea.focus();
+            expect(send('ArrowLeft', {}, textarea).defaultPrevented).toBe(false);
+            textarea.remove(); host.focus();
+            panel.setShortcutSettings({ ...shortcuts, enabled: false });
+            expect(send('ArrowLeft').defaultPrevented).toBe(false);
+        } finally { panel.hide(); }
+    });
+
     it('shows, paginates, and copies current page markdown', async () => {
         const { writeText } = setClipboardMock();
 
@@ -315,6 +344,7 @@ describe('ReaderPanel (MVP)', () => {
     it('intercepts copy inside the reader and writes markdown source for selected atomic units', async () => {
         setClipboardMock();
         const panel = new ReaderPanel();
+        panel.setShortcutSettings({ enabled: false, overrides: {}, disabled: [] });
 
         await panel.show(
             [{

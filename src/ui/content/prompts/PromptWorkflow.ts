@@ -16,6 +16,7 @@ export type PromptWorkflowState = Readonly<{
     editPrompt: PromptRecord | null;
     statusMessage: string;
     dataState: PromptDataState;
+    manualAutocomplete: boolean;
 }>;
 
 export type PromptAutocompleteRefreshResult = 'open' | 'close' | 'idle';
@@ -58,6 +59,7 @@ export class PromptWorkflow {
     private statusMessage = '';
     private dataState: PromptDataState = 'idle';
     private requestId = 0;
+    private manualContext: { start: number; prefix: string; suffix: string } | null = null;
 
     constructor(private readonly client: PromptLibraryClient) {}
 
@@ -72,6 +74,7 @@ export class PromptWorkflow {
             editPrompt: this.editPrompt,
             statusMessage: this.statusMessage,
             dataState: this.dataState,
+            manualAutocomplete: this.mode === 'autocomplete' && this.manualContext !== null,
         };
     }
 
@@ -83,14 +86,29 @@ export class PromptWorkflow {
         text: string;
         caret: number;
         formulaAuthoringEnabled: boolean;
+        automaticEnabled?: boolean;
     }): Promise<PromptAutocompleteRefreshResult> {
         if (this.mode === 'manager' || this.mode === 'edit') return 'idle';
+        // Every refresh invalidates an earlier read, including refreshes that
+        // leave the trigger. Otherwise a delayed library read can reopen it.
+        const currentRequest = ++this.requestId;
         if (input.formulaAuthoringEnabled && findMarkdownMathAt(input.text, input.caret, { includeOpen: true })) {
             this.dismissedTokenKey = null;
             return this.closeAutocompleteIfOpen();
         }
 
-        const token = findPromptTriggerToken(input.text, input.caret);
+        let manual = this.manualContext;
+        const manualQuery = manual && input.caret >= manual.start
+            && input.text.slice(0, manual.start) === manual.prefix
+            && input.text.slice(input.caret) === manual.suffix
+            ? input.text.slice(manual.start, input.caret) : null;
+        if (manual && manualQuery === null) {
+            this.manualContext = null;
+            manual = null;
+        }
+        const token = manual && manualQuery !== null
+            ? { start: manual.start, end: input.caret, token: manualQuery, query: manualQuery.toLowerCase() }
+            : input.automaticEnabled !== false ? findPromptTriggerToken(input.text, input.caret) : null;
         if (!token) {
             this.dismissedTokenKey = null;
             return this.closeAutocompleteIfOpen();
@@ -104,30 +122,51 @@ export class PromptWorkflow {
             this.dismissedTokenKey = null;
         }
 
-        const currentRequest = ++this.requestId;
         let prompts: PromptRecord[];
         try {
             prompts = await this.loadPrompts();
         } catch {
+            if (currentRequest !== this.requestId) return 'idle';
             this.dataState = 'error';
+            if (manual) {
+                this.mode = 'autocomplete';
+                this.activeToken = token;
+                this.suggestions = [];
+                this.selectedIndex = 0;
+                return 'open';
+            }
             return this.closeAutocompleteIfOpen();
         }
         if (currentRequest !== this.requestId) return 'idle';
-        const nextSuggestions = filterPromptRecords(
-            prompts.filter((prompt) => prompt.triggerText.trim()),
-            { query: token.query, match: 'trigger' },
-        );
-        if (nextSuggestions.length < 1) return this.closeAutocompleteIfOpen();
+        const query = token.query.trim();
+        const nextSuggestions = manual
+            ? filterPromptRecords(prompts).filter(prompt => !query || [prompt.title, prompt.triggerText].some(value => value.toLowerCase().includes(query)))
+            : filterPromptRecords(prompts.filter(prompt => prompt.triggerText.trim()), { query, match: 'trigger' });
+        if (nextSuggestions.length < 1 && !manual) return this.closeAutocompleteIfOpen();
 
         this.mode = 'autocomplete';
         this.activeToken = token;
         this.suggestions = nextSuggestions;
-        this.selectedIndex = Math.min(this.selectedIndex, nextSuggestions.length - 1);
+        this.selectedIndex = Math.max(0, Math.min(this.selectedIndex, nextSuggestions.length - 1));
         return 'open';
+    }
+
+    async openSuggestions(input: {
+        text: string;
+        caret: number;
+        formulaAuthoringEnabled: boolean;
+    }): Promise<PromptAutocompleteRefreshResult> {
+        if (this.mode === 'manager' || this.mode === 'edit') return 'idle';
+        const caret = Math.max(0, Math.min(input.text.length, input.caret));
+        this.dismissedTokenKey = null;
+        this.manualContext = { start: caret, prefix: input.text.slice(0, caret), suffix: input.text.slice(caret) };
+        return this.refreshAutocomplete({ ...input, caret, automaticEnabled: false });
     }
 
     async openManager(): Promise<void> {
         this.mode = 'manager';
+        this.requestId += 1;
+        this.manualContext = null;
         this.activeToken = null;
         this.dismissedTokenKey = null;
         this.suggestions = [];
@@ -145,6 +184,7 @@ export class PromptWorkflow {
     closeSurface(): void {
         this.requestId += 1;
         this.mode = null;
+        this.manualContext = null;
         this.suggestions = [];
         this.activeToken = null;
         this.selectedIndex = 0;
@@ -289,7 +329,10 @@ export class PromptWorkflow {
     }
 
     private closeAutocompleteIfOpen(): PromptAutocompleteRefreshResult {
-        if (this.mode !== 'autocomplete') return 'idle';
+        if (this.mode !== 'autocomplete') {
+            this.manualContext = null;
+            return 'idle';
+        }
         this.closeSurface();
         return 'close';
     }

@@ -5,6 +5,8 @@ import type { ConversationContentSourceV1 } from '@/contracts/conversationConten
 import type { ConversationMaterializationPortV1 } from '@/contracts/conversationMaterialization';
 import { setCanonicalMarkdownCopyFormulaFormat } from '@/services/copy/canonicalMarkdownCopy';
 import { ChatGPTAtomicSelectionController } from '@/ui/content/controllers/ChatGPTAtomicSelectionController';
+import { ChatGPTShortcutController } from '@/ui/content/shortcuts/ChatGPTShortcutController';
+import { normalizeShortcutSettings } from '@/core/shortcuts';
 
 const originalExecCommand = document.execCommand;
 
@@ -821,6 +823,20 @@ describe('ChatGPTAtomicSelectionController', () => {
         expect(document.querySelector('[data-aimd-page-atomic-state]')).toBeNull();
         expect(dispatchCopy().event.defaultPrevented).toBe(false);
         controller.dispose();
+    });
+
+    it('executes a custom physical Control+C on Mac without waiting for a native copy event', async()=>{
+        const message=mountMessage('<p>Before <strong>clean Markdown</strong> after.</p>');
+        const range=document.createRange();range.selectNodeContents(message.querySelector('.markdown.prose')!);selectRange(range);
+        const platform=vi.spyOn(navigator,'platform','get').mockReturnValue('MacIntel');
+        const originalClipboard=navigator.clipboard;const writeText=vi.fn(async()=>undefined);Object.defineProperty(navigator,'clipboard',{configurable:true,value:{writeText}});
+        const controller=createCanonicalSelectionController(message);controller.setMarkdownCopyShortcut('none');controller.setExternalKeyboardRouting(true);controller.init();
+        const keyboard=new ChatGPTShortcutController({copy:e=>controller.tryExecuteMarkdownShortcut(e),selection:()=>false,navigate:()=>false,prompts:null});
+        keyboard.setSettings(normalizeShortcutSettings({enabled:true,overrides:{'selection.copyMarkdown':{code:'KeyC',primary:false,control:true,shift:false,alt:false}},disabled:[]}));keyboard.setActive(true);keyboard.init();
+        try{
+            await flushSelectionFrame();const event=new KeyboardEvent('keydown',{key:'c',code:'KeyC',ctrlKey:true,bubbles:true,composed:true,cancelable:true});document.body.dispatchEvent(event);
+            expect(event.defaultPrevented).toBe(true);await vi.waitFor(()=>expect(writeText).toHaveBeenCalledWith('Before **clean Markdown** after.'));
+        }finally{keyboard.dispose();controller.dispose();platform.mockRestore();Object.defineProperty(navigator,'clipboard',{configurable:true,value:originalClipboard});}
     });
 
     it('uses the current Markdown formula format for the shifted shortcut', async () => {

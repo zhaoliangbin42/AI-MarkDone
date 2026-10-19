@@ -2,6 +2,43 @@
 
 This document defines the **current executable test and verification gates** for day-to-day development. Use this file for what we must run now, not for future-state testing architecture.
 
+### Configurable keyboard shortcuts (2026-10-19)
+
+- Run `tests/unit/core/shortcuts/`, the settings migration/portable/service and
+  background handler gates, and `tests/unit/ui/bookmarks/keyboardSettings*`.
+  Preserve old copy/navigation choices, default and empty resets, disabled
+  bindings, cross-platform conflicts, quotas and imported unsupported chords.
+- Defaults use B/Y/R/H/N/P with platform-specific modifiers. Cover preservation
+  of explicit overrides, empty and disabled choices when a new default conflicts;
+  implicit defaults must not displace user bindings. Reset/re-enable checks compare
+  both platforms' actual configured bindings, without converting a platform default
+  into a portable override. Windows Shift+letter commands require a body selection;
+  Alt+Shift composer commands yield to a matching host accesskey.
+- Open manual candidates with automatic suggestions disabled through the real
+  shortcut dispatcher. Cover empty/multiline drafts, middle carets, IME/selection
+  refusal, title/trigger search and triggerless enabled records. Empty/load-error
+  states stay visible and offer the separate library entry. Arrow keydown+keyup
+  preserves row identity and scrolls only the candidate list; Escape returns the
+  same draft/caret to the composer. Geometry must fit above or below the caret in
+  short visual viewports and follow native Shadow DOM composer scrolling.
+- Enter Settings through the real Panel and send the complete pointerdown,
+  pointerup and click sequence. Cover recording, replacement, failed writes,
+  the existing Retry button and retained candidates. Include focus changes,
+  missing main-key keyup, modifier release, IME, Escape, Tab and teardown.
+- Run `tests/unit/ui/content/shortcuts/ChatGPTShortcutController.test.ts`,
+  page annotation/atomic selection and both runtime entry tests. Reader coverage
+  includes `reader-highlight-selection`, `reader-panel.comment`,
+  `reader-panel` integration and `readerPanel.navigation`. Use real physical
+  `code` values, including shifted digits, and exercise the actual key trigger.
+  Hidden toolbar controls must not disable selection commands; active editors,
+  nested dialogs and separate classic/lazy module graphs must not double-handle.
+- Installed Chrome MV3 and Firefox MV2 checks require loading the new build and
+  reloading the source tab. Distinguish page selections, automatic-off/manual
+  prompt invocation, settings persistence and detached Reader launch from the
+  detached Reader keyboard matrix. A tool blocked from extension-origin pages
+  does not establish that the detached keyboard matrix passed; retain the
+  component and standalone-runtime evidence and name the remaining live gate.
+
 ### Library search input (2026-10-16)
 
 - Enter through the actual Bookmarks view input listener in a connected Shadow

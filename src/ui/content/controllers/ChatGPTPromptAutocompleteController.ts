@@ -4,7 +4,8 @@ import {
     replaceComposerTextRange,
     type ComposerTextRangeReplacement,
 } from '../../../drivers/content/sending/composerPort';
-import { getContenteditablePlainTextSelection } from '../../../core/sending/contenteditable';
+import { getContenteditablePlainTextSelection, setContenteditablePlainTextSelection } from '../../../core/sending/contenteditable';
+import { findMarkdownMathAt } from '../../../core/sending/markdownMath';
 import type { PromptRecord } from '../../../core/prompts/promptLibrary';
 import type { PromptTriggerToken } from '../../../core/prompts/slashTrigger';
 import type { PromptLibraryClient } from '../../../drivers/content/prompts/promptLibraryClient';
@@ -66,6 +67,7 @@ export class ChatGPTPromptAutocompleteController {
     private readonly bindingSource: ChatGPTComposerBindingSource;
     private unsubscribeBinding: (() => void) | null = null;
     private composing = false;
+    private heldCommitKey: { key: string; composer: ComposerInput } | null = null;
     private host: HTMLElement | null = null;
     private shadow: ShadowRoot | null = null;
     private root: HTMLElement | null = null;
@@ -98,8 +100,8 @@ export class ChatGPTPromptAutocompleteController {
         this.initialized = true;
         this.ensureLocaleSubscription();
         this.bindGlobalKeydown();
-        if (this.enabled) this.bindComposer();
-        if (this.enabled) this.unsubscribeBinding = this.bindingSource.subscribe(() => this.bindComposer());
+        this.bindComposer();
+        this.unsubscribeBinding = this.bindingSource.subscribe(() => this.bindComposer());
     }
 
     attachExternalComposer(input: ComposerInput): () => void {
@@ -108,14 +110,14 @@ export class ChatGPTPromptAutocompleteController {
             this.initialized = true;
             this.ensureLocaleSubscription();
             this.bindGlobalKeydown();
-            if (this.enabled) this.unsubscribeBinding = this.bindingSource.subscribe(() => this.bindComposer());
+            this.unsubscribeBinding = this.bindingSource.subscribe(() => this.bindComposer());
         }
-        if (this.enabled) this.bindComposer();
+        this.bindComposer();
         return () => {
             if (this.composerOverride !== input) return;
             if (this.workflow.state.mode === 'autocomplete') this.close();
             this.composerOverride = null;
-            if (this.enabled) this.bindComposer();
+            this.bindComposer();
         };
     }
 
@@ -123,14 +125,10 @@ export class ChatGPTPromptAutocompleteController {
         if (this.enabled === enabled) return;
         this.enabled = enabled;
         if (!enabled) {
-            if (this.workflow.state.mode === 'autocomplete') this.close();
-            this.detachComposer();
-            this.unsubscribeBinding?.();
-            this.unsubscribeBinding = null;
+            if (this.workflow.state.mode !== 'manager' && this.workflow.state.mode !== 'edit') this.close();
             return;
         }
         if (this.initialized) {
-            this.unsubscribeBinding = this.bindingSource.subscribe(() => this.bindComposer());
             this.bindComposer();
         }
     }
@@ -176,6 +174,44 @@ export class ChatGPTPromptAutocompleteController {
         this.renderer?.focusSearch();
     }
 
+    hasKeyboardFocus(event: KeyboardEvent): boolean {
+        return this.isEventFromActiveComposer(event);
+    }
+
+    canOpenSuggestions(event?: KeyboardEvent): boolean {
+        if (!this.initialized || this.composing || (event && (event.isComposing || event.keyCode === 229))) return false;
+        const mode = this.workflow.state.mode;
+        if (mode === 'manager' || mode === 'edit') return false;
+        const input = this.getComposerInput();
+        if (!input?.isConnected) return false;
+        if (event) {
+            if (!this.hasKeyboardFocus(event)) return false;
+        } else {
+            let active: Element | null = document.activeElement;
+            while (active?.shadowRoot?.activeElement) active = active.shadowRoot.activeElement;
+            if (active !== input && !(active && input.contains(active))) return false;
+        }
+        const read = readComposer(this.getActiveComposerAdapter());
+        const caret = this.getCaretRange();
+        return !!read.ok && !!caret && caret.start === caret.end
+            && !(this.formulaAuthoringEnabled && findMarkdownMathAt(read.text, caret.start, { includeOpen: true }));
+    }
+
+    async openSuggestions(): Promise<boolean> {
+        if (!this.canOpenSuggestions()) return false;
+        const read = readComposer(this.getActiveComposerAdapter());
+        const caret = this.getCaretRange();
+        const composer = this.getComposerInput();
+        if (!read.ok || !caret) return false;
+        const result = await this.workflow.openSuggestions({ text: read.text, caret: caret.start, formulaAuthoringEnabled: this.formulaAuthoringEnabled });
+        if (!this.isCurrentAutocompleteRequest(composer, read.text, caret.start)) {
+            if (result === 'open') this.close();
+            return false;
+        }
+        this.applyAutocompleteRefresh(result);
+        return result === 'open';
+    }
+
     close(): void {
         this.teardownSurface(true);
     }
@@ -187,31 +223,39 @@ export class ChatGPTPromptAutocompleteController {
         if (!next) return;
         this.composer = next;
         next.addEventListener('input', this.onComposerInput);
-        next.addEventListener('keyup', this.onComposerKeyUp);
+        next.addEventListener('keyup', this.onComposerKeyUp as EventListener);
         next.addEventListener('click', this.onComposerClick);
         next.addEventListener('keydown', this.onComposerKeyDownCapture as EventListener, { capture: true });
         next.addEventListener('compositionstart', this.onCompositionStart);
         next.addEventListener('compositionend', this.onCompositionEnd);
+        next.addEventListener('blur', this.clearHeldCommitKey);
     }
 
     private detachComposer(): void {
         if (!this.composer) return;
         this.composer.removeEventListener('input', this.onComposerInput);
-        this.composer.removeEventListener('keyup', this.onComposerKeyUp);
+        this.composer.removeEventListener('keyup', this.onComposerKeyUp as EventListener);
         this.composer.removeEventListener('click', this.onComposerClick);
         this.composer.removeEventListener('keydown', this.onComposerKeyDownCapture as EventListener, { capture: true } as any);
         this.composer.removeEventListener('compositionstart', this.onCompositionStart);
         this.composer.removeEventListener('compositionend', this.onCompositionEnd);
+        this.composer.removeEventListener('blur', this.clearHeldCommitKey);
+        this.clearHeldCommitKey();
         this.composer = null;
     }
 
 
     private bindGlobalKeydown(): void {
         window.addEventListener('keydown', this.onGlobalKeyDownCapture, true);
+        window.addEventListener('keyup', this.onGlobalKeyUpCapture, true);
+        window.addEventListener('blur', this.clearHeldCommitKey);
     }
 
     private detachGlobalKeydown(): void {
         window.removeEventListener('keydown', this.onGlobalKeyDownCapture, true);
+        window.removeEventListener('keyup', this.onGlobalKeyUpCapture, true);
+        window.removeEventListener('blur', this.clearHeldCommitKey);
+        this.clearHeldCommitKey();
     }
 
     private getComposerInput(): ComposerInput | null {
@@ -242,39 +286,60 @@ export class ChatGPTPromptAutocompleteController {
     }
 
     private onGlobalKeyDownCapture = (event: KeyboardEvent): void => {
-        if (!this.enabled || !this.isAutocompleteKeyEvent(event) || !this.isEventFromActiveComposer(event)) return;
+        const held = this.heldCommitKey;
+        // Accepting a suggestion closes its surface asynchronously. Keep owning
+        // that physical key press until release so repeated Enter cannot submit
+        // the newly inserted draft through the host after the menu disappears.
+        if (held && event.repeat && event.key === held.key && held.composer === this.getComposerInput()
+            && !this.composing && !event.isComposing && event.keyCode !== 229 && this.isEventFromActiveComposer(event)) {
+            event.preventDefault();
+            event.stopImmediatePropagation();
+            return;
+        }
+        if (!this.isAutocompleteKeyEvent(event) || !this.isEventFromActiveComposer(event)) return;
         this.handleAutocompleteKeydown(event);
     };
 
-    private onComposerInput = (): void => {
-        if (this.enabled && !this.composing) void this.refreshAutocomplete();
+    private onGlobalKeyUpCapture = (event: KeyboardEvent): void => {
+        if (this.heldCommitKey?.key === event.key) this.clearHeldCommitKey();
     };
 
-    private onComposerKeyUp = (): void => {
-        if (this.enabled && !this.composing) void this.refreshAutocomplete();
+    private clearHeldCommitKey = (): void => { this.heldCommitKey = null; };
+
+    private onComposerInput = (): void => {
+        if (!this.composing) void this.refreshAutocomplete();
+    };
+
+    private onComposerKeyUp = (event: KeyboardEvent): void => {
+        const state = this.workflow.state;
+        if (['Enter', 'Tab', 'Escape'].includes(event.key)
+            || (state.mode === 'autocomplete' && state.suggestions.length > 0 && ['ArrowUp', 'ArrowDown'].includes(event.key))) return;
+        if (!this.composing) void this.refreshAutocomplete();
     };
 
     private onComposerClick = (): void => {
-        if (this.enabled && !this.composing) void this.refreshAutocomplete();
+        if (!this.composing) void this.refreshAutocomplete();
     };
 
     private onCompositionStart = (): void => {
         this.composing = true;
+        this.clearHeldCommitKey();
     };
 
     private onCompositionEnd = (): void => {
         this.composing = false;
-        if (this.enabled) void this.refreshAutocomplete();
+        void this.refreshAutocomplete();
     };
 
     private onComposerKeyDownCapture = (event: KeyboardEvent): void => {
-        if (!this.enabled || !this.isAutocompleteKeyEvent(event)) return;
+        if (!this.isAutocompleteKeyEvent(event)) return;
         this.handleAutocompleteKeydown(event);
     };
 
     private isAutocompleteKeyEvent(event: KeyboardEvent): boolean {
         return !event.defaultPrevented
             && !event.isComposing
+            && !this.composing
             && event.keyCode !== 229
             && this.workflow.state.mode === 'autocomplete';
     }
@@ -293,8 +358,7 @@ export class ChatGPTPromptAutocompleteController {
         if (event.key === 'Escape') {
             event.preventDefault();
             event.stopPropagation();
-            this.workflow.dismissAutocomplete();
-            this.teardownSurface(false);
+            this.dismissAutocomplete();
             return;
         }
         if (event.key === 'ArrowDown' || event.key === 'ArrowUp') {
@@ -302,7 +366,7 @@ export class ChatGPTPromptAutocompleteController {
             event.preventDefault();
             event.stopPropagation();
             this.workflow.moveSelection(event.key === 'ArrowDown' ? 1 : -1);
-            this.render();
+            this.renderer?.syncAutocompleteSelection(this.workflow.state.selectedIndex, true);
             return;
         }
         if (event.key === 'ArrowRight' && !event.altKey && !event.ctrlKey && !event.metaKey && !event.shiftKey) {
@@ -318,16 +382,42 @@ export class ChatGPTPromptAutocompleteController {
             if (!composed.trim()) return;
             event.preventDefault();
             event.stopPropagation();
-            void this.insertPromptContent(prompt, composed, token);
+            this.holdCommitKey(event);
+            if (!event.repeat) void this.insertPromptContent(prompt, composed, token);
             return;
         }
         if (event.key !== 'Enter' && event.key !== 'Tab') return;
         const current = this.workflow.state;
         const prompt = current.suggestions[current.selectedIndex];
+        if (!prompt && current.manualAutocomplete && event.key === 'Enter') {
+            event.preventDefault();
+            event.stopPropagation();
+            this.holdCommitKey(event);
+            return;
+        }
         if (!prompt || !current.activeToken) return;
         event.preventDefault();
         event.stopPropagation();
-        void this.insertPrompt(prompt, current.activeToken);
+        this.holdCommitKey(event);
+        if (!event.repeat) void this.insertPrompt(prompt, current.activeToken);
+    }
+
+    private holdCommitKey(event: KeyboardEvent): void {
+        const composer = this.getComposerInput();
+        if (composer) this.heldCommitKey = { key: event.key, composer };
+    }
+
+    private dismissAutocomplete(): void {
+        const input = this.getComposerInput();
+        const token = this.workflow.state.activeToken;
+        const caret = this.getCaretRange() ?? (token ? { start: token.end, end: token.end } : null);
+        this.workflow.dismissAutocomplete();
+        this.teardownSurface(false);
+        if (!input?.isConnected) return;
+        input.focus({ preventScroll: true });
+        if (!caret) return;
+        if (input instanceof HTMLTextAreaElement || input instanceof HTMLInputElement) input.setSelectionRange(caret.start, caret.end);
+        else setContenteditablePlainTextSelection(input, caret.start, caret.end);
     }
 
     private getCaretRange(): { start: number; end: number } | null {
@@ -350,6 +440,7 @@ export class ChatGPTPromptAutocompleteController {
         if (!this.initialized || mode === 'manager' || mode === 'edit') return;
         const read = readComposer(this.getActiveComposerAdapter());
         const caret = this.getCaretRange();
+        const composer = this.getComposerInput();
         if (!read.ok || !caret || caret.start !== caret.end) {
             if (mode === 'autocomplete') this.close();
             return;
@@ -358,12 +449,28 @@ export class ChatGPTPromptAutocompleteController {
             text: read.text,
             caret: caret.start,
             formulaAuthoringEnabled: this.formulaAuthoringEnabled,
+            automaticEnabled: this.enabled,
         });
-        if (result === 'close') {
-            this.teardownSurface(false);
+        if (!this.isCurrentAutocompleteRequest(composer, read.text, caret.start)) {
+            if (result === 'open') this.close();
             return;
         }
-        if (result !== 'open') return;
+        this.applyAutocompleteRefresh(result);
+    }
+
+    private isCurrentAutocompleteRequest(composer: ComposerInput | null, text: string, caret: number): boolean {
+        const current = readComposer(this.getActiveComposerAdapter());
+        const selection = this.getCaretRange();
+        return this.initialized && composer === this.getComposerInput() && current.ok && current.text === text
+            && selection?.start === caret && selection.end === caret;
+    }
+
+    private applyAutocompleteRefresh(result: 'open' | 'close' | 'idle'): void {
+        if (result === 'close') {
+            if (this.workflow.state.mode === null) this.teardownSurface(false);
+            return;
+        }
+        if (result !== 'open' || this.workflow.state.mode !== 'autocomplete') return;
         this.ensureLocaleSubscription();
         this.ensureHost();
         this.host!.hidden = false;
@@ -437,6 +544,7 @@ export class ChatGPTPromptAutocompleteController {
             editPrompt: state.editPrompt,
             statusMessage: state.statusMessage,
             dataState: state.dataState,
+            manualAutocomplete: state.manualAutocomplete,
         };
     }
 
@@ -470,7 +578,13 @@ export class ChatGPTPromptAutocompleteController {
         const lifecycleMode = this.workflow.state.mode === 'autocomplete' ? 'autocomplete' : 'manager';
         const shouldOpen = this.surfaceLifecycleMode !== lifecycleMode || !this.root.dataset.motionState;
         this.surfaceLifecycleMode = lifecycleMode;
-        this.surfaceSession.syncPositioner(this.geometry.createPositioner(() => this.createGeometryLayout()));
+        this.surfaceSession.syncPositioner(this.geometry.createPositioner(
+            () => this.createGeometryLayout(),
+            () => {
+                const state = this.workflow.state;
+                if (state.mode === 'autocomplete') this.renderer?.syncAutocompleteSelection(state.selectedIndex, true);
+            },
+        ));
         this.surfaceSession.syncOutsideDismiss({
             eventTarget: document,
             roots: () => [this.host, this.getComposerInput()],
@@ -480,8 +594,7 @@ export class ChatGPTPromptAutocompleteController {
             root: this.host,
             onEscape: () => {
                 if (this.workflow.state.mode === 'autocomplete') {
-                    this.workflow.dismissAutocomplete();
-                    this.teardownSurface(false);
+                    this.dismissAutocomplete();
                     return;
                 }
                 this.close();
@@ -520,6 +633,8 @@ export class ChatGPTPromptAutocompleteController {
     private handleSurfaceAction(action: PromptSurfaceAction): void {
         if (action.type === 'close') {
             this.close();
+        } else if (action.type === 'open-library') {
+            void this.openManager(this.getComposerInput());
         } else if (action.type === 'search') {
             this.workflow.setManagerQuery(action.query);
             this.render();
@@ -590,6 +705,11 @@ export class ChatGPTPromptAutocompleteController {
     ): Promise<void> {
         const read = readComposer(this.getActiveComposerAdapter());
         if (!read.ok) return;
+        if (token) {
+            const caret = this.getCaretRange();
+            if (this.workflow.state.activeToken !== token || read.text.slice(token.start, token.end) !== token.token
+                || caret?.start !== token.end || caret.end !== token.end) return;
+        }
         const range = this.createReplacementRange(read.text, content, token);
         const result = await replaceComposerTextRange(this.getActiveComposerAdapter(), range, { focus: true });
         if (!result.ok) return;

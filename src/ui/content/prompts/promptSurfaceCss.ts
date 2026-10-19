@@ -17,7 +17,7 @@ ${COMPOSER_SUGGESTION_LIST_CSS}
   display: grid;
   overflow: hidden;
 }
-.prompt-popover--autocomplete { grid-template-rows: minmax(0, 1fr) auto; max-height: min(240px, calc(100vh - var(--aimd-space-4) * 2)); }
+.prompt-popover--autocomplete { grid-template-rows: minmax(0, 1fr) auto; max-height: min(240px, var(--_prompt-popover-max-height, calc(100vh - var(--aimd-space-4) * 2))); }
 .prompt-popover--manager { grid-template-rows: auto auto minmax(0, 1fr); }
 .prompt-popover--editor { grid-template-rows: auto minmax(0, 1fr) auto; }
 .prompt-manager-body { display: flex; flex-direction: column; min-height: 0; overflow: hidden; }
@@ -25,8 +25,9 @@ ${COMPOSER_SUGGESTION_LIST_CSS}
   display: grid;
   align-content: start;
   gap: var(--aimd-space-1);
-  max-height: min(360px, calc(100vh - var(--aimd-space-6) * 2));
+  min-height: 0;
   overflow: auto;
+  overscroll-behavior: contain;
   padding: var(--aimd-space-2);
 }
 .prompt-autocomplete-hint {
@@ -37,6 +38,15 @@ ${COMPOSER_SUGGESTION_LIST_CSS}
   font-size: var(--aimd-font-size-xs);
   line-height: var(--aimd-leading-normal);
 }
+.prompt-candidate-empty {
+  display: grid;
+  justify-items: start;
+  gap: var(--aimd-space-2);
+  padding: var(--aimd-space-3);
+  color: var(--aimd-text-secondary);
+  font-size: var(--aimd-font-size-sm);
+}
+.prompt-candidate-empty p { margin: 0; }
 .manager-list {
   flex: 1 1 auto;
   display: grid;

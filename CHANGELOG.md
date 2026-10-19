@@ -7,15 +7,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+- Configure keyboard shortcuts in Settings, with recording, conflict checks, per-command disable and clear controls, and restore-to-default actions. Existing copy and message-navigation preferences are preserved.
+- Use mnemonic B/Y/R highlight shortcuts, H for highlighting, N for notes and P for prompt candidates, with platform-specific modifiers. Automatic backslash suggestions can be disabled independently.
+
 ### Changed
 - Rebuilt the message export dialog with flat Settings-style groups and dropdowns for format and rich content, keeping message-selection actions together.
 - Highlight supported text and complete formulas across table cells and mixed layouts, skipping unsupported visual blocks and controls. Partial inline code can also be marked. Thanks to email user @qds19100.
 - Open saved ChatGPT messages with a direct message link when switching conversations; existing bookmarks and backups stay compatible.
 - Identify Chrome or Firefox in feedback email subjects while keeping the same contact address and copy-email action.
 - Reduce the lower-right page controls and icons to leave more room for ChatGPT’s own buttons.
-- Explain ChatGPT’s native Settings → Keyboard alternative beneath Enter-to-newline, ahead of its gradual retirement.
+- Explain how to enable ChatGPT’s native Enter-to-newline behavior through the avatar’s Settings → Keyboard menu, and when the extension option can be turned off.
 
 ### Fixed
+- Keep manually opened Prompt candidates near the caret, visible while scrolling and usable when automatic suggestions are off. Include title search and clear empty/loading-error states.
 - Keep Library search text intact while typing, including Chinese input, when selection changes refresh the panel.
 - Keep highlight colors available for supported content beside partial formulas. Empty selections no longer offer colors, and unsafe saves explain how to retry without silently dropping selected parts.
 - Change saved highlight colors without deleting and selecting the text again. Thanks to email user @qds19100.

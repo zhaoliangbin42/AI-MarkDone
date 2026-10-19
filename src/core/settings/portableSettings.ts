@@ -2,6 +2,7 @@ import { MESSAGE_CONTROL_ACTIONS, PAGE_CONTROL_ACTIONS, type AppSettings } from 
 import { normalizeAccentHex } from './appearance';
 import { FORMULA_SOURCE_FORMATS } from '../math/formulaSourceFormat';
 import type { SettingsFile, SettingsPreferenceChange } from '../../contracts/settingsTransfer';
+import { applyLegacyShortcutPreferences, isShortcutCommandId, isShortcutSettings, SHORTCUT_COMMAND_IDS, validateShortcutChord } from '../shortcuts';
 export type { SettingsFile, SettingsPreferenceChange } from '../../contracts/settingsTransfer';
 export const SETTINGS_FILE_FORMAT = 'ai-markdone-settings' as const;
 export const SETTINGS_FILE_VERSION = 1 as const;
@@ -23,6 +24,8 @@ type FieldRule = {
 } | {
     kind: 'actions';
     values: readonly string[];
+} | {
+    kind: 'shortcut-overrides';
 };
 const bool: FieldRule = { kind: 'boolean' };
 const choice = (...values: readonly unknown[]): FieldRule => ({ kind: 'enum', values });
@@ -31,6 +34,9 @@ const number = (min: number, max: number, step?: number): FieldRule => ({ kind: 
 // credentials, confirmation records and legacy Prompt migration inputs never
 // cross this boundary, even if future settings contain additional fields.
 export const PORTABLE_SETTINGS_FIELDS: Readonly<Record<string, FieldRule>> = Object.freeze({
+    'shortcuts.enabled': bool,
+    'shortcuts.overrides': { kind: 'shortcut-overrides' },
+    'shortcuts.disabled': { kind: 'actions', values: SHORTCUT_COMMAND_IDS },
     'platforms.chatgpt': bool,
     'behavior.showMessageToolbar': bool, 'behavior.showSaveMessages': bool,
     'behavior.showWordCount': bool, 'behavior.showMessageTimestamp': bool,
@@ -88,13 +94,14 @@ function writePath(target: PortableSettings, path: string, value: unknown): void
             current[key] = {};
         current = current[key] as PortableSettings;
     }
-    current[keys[keys.length - 1]] = Array.isArray(value) ? [...value] : value;
+    current[keys[keys.length - 1]] = structuredClone(value);
 }
 function valid(value: unknown, rule: FieldRule): boolean {
     switch (rule.kind) {
         case 'boolean': return typeof value === 'boolean';
         case 'color': return value === null || normalizeAccentHex(value) !== null;
         case 'enum': return rule.values.includes(value);
+        case 'shortcut-overrides': return isObject(value) && Object.entries(value).every(([id, binding]) => isShortcutCommandId(id) && (binding === null || validateShortcutChord(binding, id).valid));
         case 'actions': return Array.isArray(value) && value.length <= rule.values.length
             && value.every(action => typeof action === 'string' && rule.values.includes(action))
             && new Set(value).size === value.length;
@@ -175,6 +182,7 @@ export function parseSettingsFile(text: string, currentAppVersion?: string): {
         }
     };
     walk(input.settings);
+    if (isObject(settings.shortcuts) && !isShortcutSettings({ enabled: true, overrides: {}, disabled: [], ...settings.shortcuts })) throw new Error('SETTINGS_FILE_INVALID');
     if (count === 0)
         throw new Error('SETTINGS_FILE_EMPTY');
     return { file: { format: SETTINGS_FILE_FORMAT, formatVersion: SETTINGS_FILE_VERSION,
@@ -198,5 +206,9 @@ export function mergePortableSettings(current: AppSettings, imported: PortableSe
         if (categories.includes(change.path.split('.')[0]))
             writePath(next as unknown as PortableSettings, change.path, change.after);
     }
+    if (categories.includes('chatgptBehavior') && (!categories.includes('shortcuts') || !isObject(imported.shortcuts)) && isObject(imported.chatgptBehavior)) {
+        next.shortcuts = applyLegacyShortcutPreferences(next.shortcuts, imported.chatgptBehavior, current.chatgptBehavior);
+    }
+    if (!isShortcutSettings(next.shortcuts)) throw new Error('SETTINGS_FILE_INVALID');
     return next;
 }

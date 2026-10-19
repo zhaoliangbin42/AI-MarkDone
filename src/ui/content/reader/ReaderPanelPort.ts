@@ -1,5 +1,6 @@
 import type { Theme } from '../../../core/types/theme';
 import type { AppSettings } from '../../../core/settings/types';
+import type { ShortcutSettings } from '../../../core/shortcuts';
 import type { ReaderItem } from '../../../services/reader/types';
 import type { AppearanceSnapshot } from '../../../style/appearance';
 import type { ReaderCommentRecord } from '../../../services/reader/commentSession';
@@ -12,6 +13,7 @@ import type {
 } from './ReaderPanelContracts';
 
 export interface ReaderPanelPort {
+    setShortcutSettings?(settings: ShortcutSettings): void;
     getLibraryAnnotations?(): ReaderCommentRecord[];
     updateLibraryAnnotation?(record: ReaderCommentRecord): void;
     removeLibraryAnnotation?(record: ReaderCommentRecord): void;

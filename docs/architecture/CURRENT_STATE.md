@@ -355,6 +355,9 @@
 - `content-features.js` 是保留公开导出的 ES module facade；每个 facade 方法再按 Reader、Bookmarks、Save Messages、bookmark save、Copy PNG 或公式资产动作的实际触发分别加载对应 chunk。它与 detached `reader.js` 在同一个 Rollup graph 中构建，以共享 Markdown / Reader 依赖而不复制整套 renderer。
 - `content-features.js` 与 `content-feature-chunks/*.js` 只作为受控 web-accessible extension resources 暴露给受支持 host。chunk preload 必须用 `import.meta.url` 解析到扩展 origin，禁止退化为 ChatGPT host-origin 请求。
 - classic `content.js` 与 lazy `content-features.js` 属于独立 module graph，各自持有 i18n module state。content runtime 必须把当前 storage-backed locale 同步给 `ContentFeatureModuleLoader`；loader 在创建任何 Reader、Bookmarks、Settings、Save 或 Copy PNG surface 前等待 lazy graph 完成同一 locale 应用，不能只依赖设置变化后的局部 `setLocale()`。
+- 快捷键规则与默认值统一在纯 `src/core/shortcuts/*`；settings schema 6 的 `shortcuts` 保存总开关、用户覆盖与停用列表。缺省覆盖恢复平台默认，`null` 表示空绑定，单项停用保留原组合；旧复制和方向键偏好迁移保留。`ChatGPTShortcutController` 只负责页面分发，复制、注释/高亮与导航仍由既有 owner 执行；Reader 在自己的 document/selection 上执行同一命令，lazy port 缓存并重放最新配置。
+- 页面快捷键在编辑控件、输入法组合、录制器或已有弹层拥有键盘时让行。`attachDialogKeyboardScope` 在 light-DOM host 标记 `data-aimd-keyboard-scope`，卸载时按 token 移除，使 classic 页面 controller 也能识别 lazy Reader / modal 的键盘所有权，不依赖跨 module graph 共享内存栈。
+- 原生主修饰键 `C` 仍通过 `keydown → copy` 意图交给 Atomic Selection 的最终 clipboard writer；其他已绑定复制组合走显式用户手势下的 canonical Markdown 写入。调度器只有在功能 owner 确认可执行后才认领按键，不模拟按钮点击，也不新增选区监听、内容池或浏览器 `commands`。
 - `export-renderer.html` 是 authoritative TeX 公式资产的 extension-origin 渲染宿主，只在真实公式资产动作后按需创建。消息 PNG 在首次相关动作时加载 content feature chunk，并走 content-side 闭合 profile；Reader/export 的普通 feature chunk 可在 verified snapshot 后的受控 idle 预热中加载，但不创建 UI、不挂载 DOM、不预加载 export-renderer 或 MathJax capability。
   - 右下角真实 Bookmarks 按钮是当前自动化 trigger-path gate：无 verified snapshot 的合成基准必须证明启动、idle、streaming 与 toolbar recovery 阶段没有 feature module 请求；真实 ChatGPT 页面允许 verified snapshot 后的一次 Reader/export idle 预热。点击后 facade 导出可调用、面板可挂载，且没有 host-origin chunk 请求。
 

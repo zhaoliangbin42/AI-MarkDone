@@ -116,11 +116,11 @@ describe('settings file background authority', () => {
     });
 
     it('rejects future stored schemas without writing, resetting or exporting defaults',async()=>{
-        current[LEGACY_STORAGE_KEYS.appSettingsKey]={version:6,privatePreference:'keep'};const before=structuredClone(current);
+        current[LEGACY_STORAGE_KEYS.appSettingsKey]={version:7,privatePreference:'keep'};const before=structuredClone(current);
         for(const type of ['settings:getAll','settings:export','settings:setCategory','settings:reset'])expect(await request(type,{category:'language',value:'en'})).toMatchObject({ok:false,error:{code:'SCHEMA_UNSUPPORTED'}});expect(current).toEqual(before);expect(sync.set).not.toHaveBeenCalled();expect(local.set).not.toHaveBeenCalled();
     });
     it('declares runtime capabilities and rejects a newer exporter before any writes',async()=>{
-        expect(await request('settings:getAll')).toMatchObject({ok:true,data:{capabilities:{appVersion:'6.0.0',settingsVersion:5,settingsFileFormatVersion:1,buttonsPreferences:true}}});
+        expect(await request('settings:getAll')).toMatchObject({ok:true,data:{capabilities:{appVersion:'6.0.0',settingsVersion:6,settingsFileFormatVersion:1,buttonsPreferences:true}}});
         const file=JSON.parse(fileText);file.appVersion='6.1.0';expect(await request('settings:previewImport',{fileText:JSON.stringify(file)})).toMatchObject({ok:false,error:{code:'SCHEMA_UNSUPPORTED'}});expect(sync.set).not.toHaveBeenCalled();expect(local.set).not.toHaveBeenCalled();
     });
 

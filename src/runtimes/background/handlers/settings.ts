@@ -34,17 +34,19 @@ function toErrorCode(error: unknown): { code: ProtocolErrorCode; message: string
     if (message === 'CONFLICT') return { code: 'CONFLICT', message };
     if (/quota/i.test(message)) return { code: 'QUOTA_EXCEEDED', message: 'QUOTA_EXCEEDED' };
     if (message.startsWith('Invalid category:')) return { code: 'INVALID_REQUEST', message };
+    if (message === 'SHORTCUT_INVALID') return { code: 'INVALID_REQUEST', message };
     return { code: 'INTERNAL_ERROR', message };
 }
 
 async function loadStoredSettings(): Promise<unknown> {
     const raw = await syncStoragePort.get(LEGACY_STORAGE_KEYS.appSettingsKey);
     const stored=raw[LEGACY_STORAGE_KEYS.appSettingsKey];
-    if(stored!=null && (typeof stored!=='object'||Array.isArray(stored)||![1,2,3,4,5].includes((stored as {version:number}).version)))throw new Error('SETTINGS_SCHEMA_UNSUPPORTED');
+    if(stored!=null && (typeof stored!=='object'||Array.isArray(stored)||![1,2,3,4,5,6].includes((stored as {version:number}).version)))throw new Error('SETTINGS_SCHEMA_UNSUPPORTED');
     return stored;
 }
 
 async function persistSettings(next: unknown): Promise<void> {
+    await syncStoragePort.assertValueFits(LEGACY_STORAGE_KEYS.appSettingsKey, next);
     await syncStoragePort.set({ [LEGACY_STORAGE_KEYS.appSettingsKey]: next });
 }
 
@@ -109,7 +111,7 @@ export async function handleSettingsRequest(request: ExtRequest): Promise<Handle
                     const current = loadAndNormalize(await loadStoredSettings());
                     if (request.payload?.expectedFingerprint !== await fingerprintSettings(current)) throw new Error('CONFLICT');
                     const categories = request.payload?.categories;
-                    if (!Array.isArray(categories) || categories.length > 11 || categories.some(category => typeof category !== 'string' || !isTransferCategory(category))) {
+                    if (!Array.isArray(categories) || categories.length > 12 || categories.some(category => typeof category !== 'string' || !isTransferCategory(category))) {
                         return { response: err(request.id, request.type, 'INVALID_REQUEST', 'SETTINGS_CATEGORIES_INVALID') };
                     }
                     const next = mergePortableSettings(current, file.settings, categories);
@@ -129,7 +131,7 @@ export async function handleSettingsRequest(request: ExtRequest): Promise<Handle
         case 'settings:getAll': {
             const stored = await readInitializedSettings();
             const normalized = loadAndNormalize(stored);
-            return { response: ok(request.id, request.type, {...planGetAll(normalized),capabilities:{appVersion:browser.runtime.getManifest().version,settingsVersion:5,settingsFileFormatVersion:1,buttonsPreferences:true}}) };
+            return { response: ok(request.id, request.type, {...planGetAll(normalized),capabilities:{appVersion:browser.runtime.getManifest().version,settingsVersion:6,settingsFileFormatVersion:1,buttonsPreferences:true}}) };
         }
         case 'settings:getCategory': {
             const stored = await readInitializedSettings();
@@ -176,5 +178,5 @@ export async function handleSettingsRequest(request: ExtRequest): Promise<Handle
 }
 
 function isTransferCategory(value: string): boolean {
-    return ['platforms', 'behavior', 'reader', 'content', 'formula', 'export', 'chatgptDirectory', 'chatgptBehavior', 'appearance', 'bookmarks', 'language'].includes(value);
+    return ['shortcuts', 'platforms', 'behavior', 'reader', 'content', 'formula', 'export', 'chatgptDirectory', 'chatgptBehavior', 'appearance', 'bookmarks', 'language'].includes(value);
 }

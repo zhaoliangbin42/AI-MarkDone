@@ -69,21 +69,29 @@ export class PromptGeometryAdapter {
         this.positionNear(layout, layout.anchor ?? this.getComposer(), 'above');
     }
 
-    createPositioner(getLayout: () => PromptGeometryLayout | null): SurfacePositioner {
+    createPositioner(getLayout: () => PromptGeometryLayout | null, afterPosition?: () => void): SurfacePositioner {
         const onViewportChange = () => {
             const layout = getLayout();
-            if (layout) this.position(layout);
+            if (!layout) return;
+            this.position(layout);
+            afterPosition?.();
         };
         const visualViewport = window.visualViewport;
+        const composer = this.getComposer();
+        const onWindowScroll = (event: Event) => {
+            if (event.target !== composer) onViewportChange();
+        };
         window.addEventListener('resize', onViewportChange);
-        window.addEventListener('scroll', onViewportChange, { capture: true });
+        window.addEventListener('scroll', onWindowScroll, { capture: true });
+        composer?.addEventListener('scroll', onViewportChange, { passive: true });
         visualViewport?.addEventListener('resize', onViewportChange);
         visualViewport?.addEventListener('scroll', onViewportChange);
         return {
             update: onViewportChange,
             destroy: () => {
                 window.removeEventListener('resize', onViewportChange);
-                window.removeEventListener('scroll', onViewportChange, { capture: true } as any);
+                window.removeEventListener('scroll', onWindowScroll, { capture: true } as any);
+                composer?.removeEventListener('scroll', onViewportChange);
                 visualViewport?.removeEventListener('resize', onViewportChange);
                 visualViewport?.removeEventListener('scroll', onViewportChange);
             },
@@ -163,24 +171,29 @@ export class PromptGeometryAdapter {
 
     private positionAutocomplete(layout: PromptGeometryLayout): void {
         const geometry = this.applyPopoverGeometry(layout);
-        const caretRect = this.getCaretClientRect();
-        if (!caretRect) {
-            this.positionNear(layout, this.getComposer(), 'above');
-            return;
-        }
+        const caretRect = this.getCaretClientRect() ?? this.getComposer()?.getBoundingClientRect();
+        if (!caretRect) return this.positionNear(layout, null, 'above');
         const viewport = this.getViewportFrame();
+        const gutterX = Math.min(POPOVER_MARGIN_PX, viewport.width / 2);
+        const gutterY = Math.min(POPOVER_MARGIN_PX, viewport.height / 2);
+        const minLeft = viewport.left + gutterX;
+        const minTop = viewport.top + gutterY;
+        const maxBottom = viewport.bottom - gutterY;
+        const anchorTop = Math.max(minTop, Math.min(caretRect.top, maxBottom));
+        const anchorBottom = Math.max(minTop, Math.min(caretRect.bottom, maxBottom));
+        const aboveGap = Math.min(POPOVER_GAP_PX, Math.max(0, anchorTop - minTop));
+        const belowGap = Math.min(POPOVER_GAP_PX, Math.max(0, maxBottom - anchorBottom));
+        const aboveSpace = Math.max(0, anchorTop - aboveGap - minTop);
+        const belowSpace = Math.max(0, maxBottom - anchorBottom - belowGap);
         const measuredHeight = layout.root.getBoundingClientRect().height;
-        const height = measuredHeight > 0 ? measuredHeight : AUTOCOMPLETE_FALLBACK_HEIGHT_PX;
-        const minLeft = viewport.left + POPOVER_MARGIN_PX;
-        const minTop = viewport.top + POPOVER_MARGIN_PX;
-        const maxLeft = Math.max(minLeft, viewport.right - geometry.width - POPOVER_MARGIN_PX);
-        const left = Math.max(minLeft, Math.min(caretRect.left, maxLeft));
-        const aboveTop = caretRect.top - height - POPOVER_GAP_PX;
-        const belowTop = caretRect.bottom + POPOVER_GAP_PX;
-        const preferredTop = aboveTop >= minTop ? aboveTop : belowTop;
-        const maxTop = Math.max(minTop, viewport.bottom - height - POPOVER_MARGIN_PX);
-        layout.host.style.left = `${Math.max(minLeft, Math.min(left, maxLeft))}px`;
-        layout.host.style.top = `${Math.max(minTop, Math.min(preferredTop, maxTop))}px`;
+        const desiredHeight = Math.min(geometry.maxHeight, measuredHeight > 0 ? measuredHeight : AUTOCOMPLETE_FALLBACK_HEIGHT_PX);
+        const above = aboveSpace >= desiredHeight || (belowSpace < desiredHeight && aboveSpace >= belowSpace);
+        const maxHeight = Math.min(geometry.maxHeight, above ? aboveSpace : belowSpace);
+        layout.host.style.setProperty('--_prompt-popover-max-height', `${maxHeight}px`);
+        const height = Math.min(maxHeight, layout.root.getBoundingClientRect().height || desiredHeight);
+        const maxLeft = Math.max(minLeft, viewport.right - geometry.width - gutterX);
+        layout.host.style.left = `${Math.max(minLeft, Math.min(caretRect.left, maxLeft))}px`;
+        layout.host.style.top = `${above ? anchorTop - aboveGap - height : anchorBottom + belowGap}px`;
     }
 
     private positionNear(
@@ -218,7 +231,9 @@ export class PromptGeometryAdapter {
         const preferredWidth = layout.mode === 'autocomplete' ? AUTOCOMPLETE_WIDTH_PX : MANAGER_WIDTH_PX;
         const availableWidth = Math.max(0, viewport.width - (POPOVER_MARGIN_PX * 2));
         const width = Math.min(preferredWidth, availableWidth);
-        const viewportMaxHeight = Math.max(POPOVER_MIN_MAX_HEIGHT_PX, viewport.height - (POPOVER_MARGIN_PX * 2));
+        const viewportMaxHeight = layout.mode === 'autocomplete'
+            ? Math.max(0, viewport.height - (POPOVER_MARGIN_PX * 2))
+            : Math.max(POPOVER_MIN_MAX_HEIGHT_PX, viewport.height - (POPOVER_MARGIN_PX * 2));
         const maxHeight = layout.mode === 'autocomplete'
             ? viewportMaxHeight
             : Math.min(MANAGER_MAX_HEIGHT_PX, viewportMaxHeight);

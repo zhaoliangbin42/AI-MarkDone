@@ -2,6 +2,9 @@ import { parseAccentRgb, formatAccentRgb } from '../../../../../core/settings/ap
 import type { FormulaRenderOptions, FormulaSvgAsset } from '../../../../../services/math/formulaAssetRenderer';
 import type { AppearanceSnapshot } from '../../../../../style/appearance';
 import { ButtonsSettingsView } from './ButtonsSettingsView';
+import { KeyboardSettingsView } from './KeyboardSettingsView';
+import { getKeyboardSettingsTabsCss } from './keyboardSettingsCss';
+import { normalizeShortcutSettings, type ShortcutSettings } from '../../../../../core/shortcuts';
 import { SettingsTransferPanel, type SettingsTransferActions } from './SettingsTransferPanel';
 import { SettingsCatalog, type SettingsCategoryId } from './SettingsCatalog';
 import type { AppSettings } from '../../../../../core/settings/types';
@@ -98,6 +101,7 @@ export type SettingsTabViewActions = {
     setBookmarksSettings?: (patch: Partial<AppSettings['bookmarks']>) => Promise<boolean | void> | boolean | void;
     setPlatforms?: (patch: Partial<AppSettings['platforms']>) => Promise<boolean | void> | boolean | void;
     setBehaviorSettings?: (patch: Partial<AppSettings['behavior']>) => Promise<boolean | void> | boolean | void;
+    setShortcutSettings?: (settings: ShortcutSettings) => Promise<boolean | void> | boolean | void;
     setReaderSettings?: (patch: Partial<AppSettings['reader']>) => Promise<boolean | void> | boolean | void;
     setContentSettings?: (patch: Partial<AppSettings['content']>) => Promise<boolean | void> | boolean | void;
     setFormulaSettings?: (patch: Partial<AppSettings['formula']>) => Promise<boolean | void> | boolean | void;
@@ -218,6 +222,9 @@ export class SettingsTabView {
     private canConfigureButtons=true;private canTransferSettings=true;
     private readonly renderFormulaPreview:((options:FormulaRenderOptions)=>Promise<FormulaSvgAsset>)|undefined;
     private buttonsView: ButtonsSettingsView | null = null;
+    private keyboardView: KeyboardSettingsView | null = null;
+    private controlsRoot: HTMLElement | null = null;
+    private controlsTab: 'buttons' | 'keyboard' = 'buttons';
     private transferPanel: SettingsTransferPanel | null = null;
     private customAccentButton: HTMLButtonElement | null = null;
     private customAccentInput: HTMLInputElement | null = null;
@@ -240,7 +247,7 @@ export class SettingsTabView {
         this.root.className = 'aimd-settings';
         this.outsideDismissBoundary = installTransientOutsideDismissBoundary({
             eventTarget: document,
-            roots: () => this.selectRefs.map((selectRef) => selectRef.root),
+            roots: () => [...this.selectRefs.map(selectRef => selectRef.root), this.keyboardView?.root, this.runtimeNotice],
             onDismiss: () => this.dismissTransientUi(),
         });
 
@@ -692,7 +699,7 @@ export class SettingsTabView {
         this.extraSync.forEach(sync => sync());
     }
 
-    setAppearance(snapshot: AppearanceSnapshot): void { this.buttonsView?.setAppearance(snapshot); this.transferPanel?.setAppearance(snapshot); }
+    setAppearance(snapshot: AppearanceSnapshot): void { this.buttonsView?.setAppearance(snapshot); this.keyboardView?.setAppearance(snapshot); this.transferPanel?.setAppearance(snapshot); }
 
     getNavigationElement(): HTMLElement { return this.catalog!.navigation; }
 
@@ -706,10 +713,12 @@ export class SettingsTabView {
 
     dismissTransientUi(): void {
         this.closeSelectMenus();
+        this.keyboardView?.dismiss();
         this.readerCommentTemplateSettingsPopover.close();
     }
 
     consumeEscape(): boolean {
+        if (this.keyboardView?.consumeEscape()) return true;
         if (this.readerCommentTemplateSettingsPopover.isOpen()) {
             this.readerCommentTemplateSettingsPopover.close();
             return true;
@@ -732,6 +741,7 @@ export class SettingsTabView {
         this.settings = {
             ...DEFAULT_SETTINGS,
             ...params.settings,
+            shortcuts: normalizeShortcutSettings(params.settings.shortcuts, params.settings.chatgptBehavior),
             platforms: { ...DEFAULT_SETTINGS.platforms, ...params.settings.platforms },
             behavior: { ...DEFAULT_SETTINGS.behavior, ...params.settings.behavior, messageControls: { ...DEFAULT_SETTINGS.behavior.messageControls, ...params.settings.behavior?.messageControls } },
             formula: this.normalizeFormulaSettings(params.settings.formula),
@@ -765,6 +775,7 @@ export class SettingsTabView {
 
     destroy(): void {
         this.buttonsView?.dispose();
+        this.keyboardView?.dispose();
         this.transferPanel?.dispose();
         this.outsideDismissBoundary.detach();
         this.dismissTransientUi();
@@ -788,7 +799,6 @@ export class SettingsTabView {
         add('input', r.chatgptDirectory.inputEnhancement, r.chatgptDirectory.promptAutocomplete, r.reader.promptsButton);
         add('marks', r.chatgptDirectory.pageAnnotationsEnabled);
         add('export', r.formula.clickCopyMarkdown, r.formula.clickCopyFormulaFormat.root, r.formula.markdownCopyFormulaFormat.root, r.formula.assetFontSize.root, r.export.pngWidthPreset.trigger, r.export.pngPixelRatio.root);
-        add('advanced', r.chatgptDirectory.arrowKeyMessageNavigation, r.chatgptDirectory.atomicMarkdownCopyShortcut.root);
         this.buttonsView = new ButtonsSettingsView(async (category, patch) => {
             let saved: boolean | void;
             switch(category) {
@@ -801,7 +811,46 @@ export class SettingsTabView {
             if(saved===false)return false;
             await this.refresh(); return true;
         }, this.renderFormulaPreview);
-        groups.controls.push(this.buttonsView.root);
+        this.keyboardView = new KeyboardSettingsView({
+            save: async next => {
+                if (!this.actions.setShortcutSettings) return false;
+                const saved = await this.actions.setShortcutSettings(next);
+                if (saved === false) return false;
+                this.settings.shortcuts = next;
+                return true;
+            },
+            setAutomatic: async promptAutocomplete => {
+                if (!this.actions.setChatGptBehaviorSettings) return false;
+                const saved = await this.actions.setChatGptBehaviorSettings({ promptAutocomplete });
+                if (saved === false) return false;
+                this.settings.chatgptBehavior.promptAutocomplete = promptAutocomplete;
+                this.refs.chatgptDirectory.promptAutocomplete.checked = promptAutocomplete;
+                this.syncToggle(this.refs.chatgptDirectory.promptAutocomplete);
+                return true;
+            },
+        });
+        const controls = document.createElement('div'); controls.className = 'settings-controls';
+        this.controlsRoot = controls;
+        const tabsStyle = document.createElement('style'); tabsStyle.textContent = getKeyboardSettingsTabsCss();
+        const tabs = document.createElement('div'); tabs.className = 'settings-controls-tabs'; tabs.setAttribute('role', 'tablist'); tabs.setAttribute('aria-label', t('settingsCategoryControls'));
+        for (const id of ['buttons', 'keyboard'] as const) {
+            const tab = document.createElement('button'); tab.type = 'button'; tab.dataset.controlsTab = id;
+            tab.id = `aimd-settings-${id}-tab`; tab.setAttribute('role', 'tab'); tab.setAttribute('aria-controls', `aimd-settings-${id}-panel`);
+            tab.textContent = t(id === 'buttons' ? 'keyboardButtonsTab' : 'keyboardTab');
+            tab.addEventListener('click', () => this.selectControlsTab(id));
+            tab.addEventListener('keydown', event => {
+                if (!['ArrowLeft', 'ArrowRight', 'Home', 'End'].includes(event.key)) return;
+                event.preventDefault();
+                const next = event.key === 'Home' ? 'buttons' : event.key === 'End' ? 'keyboard' : this.controlsTab === 'buttons' ? 'keyboard' : 'buttons';
+                this.selectControlsTab(next); tabs.querySelector<HTMLButtonElement>(`[data-controls-tab="${next}"]`)?.focus();
+            });
+            tabs.append(tab);
+            const panel = id === 'buttons' ? this.buttonsView.root : this.keyboardView.root;
+            panel.id = `aimd-settings-${id}-panel`; panel.setAttribute('role', 'tabpanel'); panel.setAttribute('aria-labelledby', tab.id);
+        }
+        controls.append(tabsStyle, tabs, this.buttonsView.root, this.keyboardView.root);
+        groups.controls.push(controls);
+        this.selectControlsTab(this.controlsTab);
         if (this.actions.settingsTransfer) { this.transferPanel = new SettingsTransferPanel(this.actions.settingsTransfer, { showHeading: false }); groups.data.push(this.transferPanel.root); }
         add('data', r.behavior.saveContextOnly, ...this.root.querySelectorAll<HTMLElement>('.settings-data-card'));
         add('advanced', r.platforms.chatgpt, r.chatgptDirectory.navigationSeekStep.root, this.diagnosticsCopyButton);
@@ -907,13 +956,30 @@ export class SettingsTabView {
                 row.dataset.settingsGroup = `settingsGroup${key}`;
             }
         }
-        this.buttonsView.root.dataset.settingsGroup = '';
-        this.buttonsView.root.dataset.searchText = this.buttonsView.getSearchText();
-        this.catalog = new SettingsCatalog(groups, () => { this.dismissTransientUi(); this.scrollRoot.scrollTop = 0; this.buttonsView?.search(this.catalog?.search.value ?? ''); });
+        controls.dataset.settingsGroup = '';
+        controls.dataset.searchText = `${this.buttonsView.getSearchText()} ${this.keyboardView.getSearchText()}`;
+        this.catalog = new SettingsCatalog(groups, () => {
+            this.dismissTransientUi(); this.scrollRoot.scrollTop = 0;
+            const query = this.catalog?.search.value ?? '';
+            this.buttonsView?.search(query);
+            const matchesKeyboard = this.keyboardView?.search(query);
+            if (query && matchesKeyboard) this.selectControlsTab('keyboard');
+        });
         this.scrollRoot.replaceChildren(this.catalog.content);
         this.root.insertBefore(this.catalog.header, this.scrollRoot);
     }
 
+
+    private selectControlsTab(tab: 'buttons' | 'keyboard'): void {
+        this.controlsTab = tab;
+        if (tab !== 'keyboard') this.keyboardView?.dismiss();
+        if (this.buttonsView) this.buttonsView.root.hidden = tab !== 'buttons';
+        if (this.keyboardView) this.keyboardView.root.hidden = tab !== 'keyboard';
+        this.controlsRoot?.querySelectorAll<HTMLButtonElement>('[data-controls-tab]').forEach(button => {
+            const active = button.dataset.controlsTab === tab;
+            button.setAttribute('aria-selected', String(active)); button.tabIndex = active ? 0 : -1;
+        });
+    }
 
     private openContentCleanupSettings(): void {
         const selected = { ...this.settings.content };
@@ -996,6 +1062,8 @@ export class SettingsTabView {
     }
 
     private applyDataStateToDom(): void {
+        this.keyboardView?.setReadOnly(this.dataState.kind !== 'ready' || !this.canConfigureButtons);
+        this.keyboardView?.setCompatibilityNotice(!this.canConfigureButtons);
         this.buttonsView?.setReadOnly(this.dataState.kind !== 'ready'||!this.canConfigureButtons);
         this.buttonsView?.setCompatibilityNotice(!this.canConfigureButtons);
         this.transferPanel?.setReadOnly(this.dataState.kind !== 'ready'||!this.canTransferSettings);
@@ -1164,6 +1232,7 @@ export class SettingsTabView {
         this.refs.chatgptDirectory.promptAutocomplete.addEventListener('change', () => {
             const next = this.refs.chatgptDirectory.promptAutocomplete.checked;
             this.settings.chatgptBehavior.promptAutocomplete = next;
+            this.keyboardView?.setState(this.settings);
             void this.actions.setChatGptBehaviorSettings?.({ promptAutocomplete: next });
         });
         this.refs.chatgptDirectory.pageAnnotationsEnabled.addEventListener('change', () => {
@@ -1324,6 +1393,8 @@ export class SettingsTabView {
 
     private applySettingsToDom(): void {
         this.buttonsView?.setState(this.settings);
+        this.keyboardView?.setState(this.settings);
+        if (this.controlsRoot) this.controlsRoot.dataset.searchText = `${this.buttonsView?.getSearchText() ?? ''} ${this.keyboardView?.getSearchText() ?? ''}`;
         const s = this.settings;
         const usagePercent = this.formatPercent(this.storageUsage?.usedPercentage);
         this.refs.platforms.chatgpt.checked = Boolean(s.platforms.chatgpt);

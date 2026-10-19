@@ -8,6 +8,7 @@ const subscribeLocaleChange = vi.fn(() => undefined);
 const t = vi.fn((key: string) => key);
 const panelSetAppearance = vi.fn();
 const panelSetReaderSettings = vi.fn();
+const panelSetShortcutSettings = vi.fn();
 const panelSetReaderSettingsController = vi.fn();
 const panelSetPromptManagerController = vi.fn();
 const panelGetCommentExportContext = vi.fn(() => null);
@@ -40,6 +41,7 @@ const readerPanelCtor = vi.fn(function () {
     return {
         setAppearance: panelSetAppearance,
         setReaderSettings: panelSetReaderSettings,
+        setShortcutSettings: panelSetShortcutSettings,
         setContentCleanupSettings: vi.fn(),
         setReaderSettingsController: panelSetReaderSettingsController,
         setPromptManagerController: panelSetPromptManagerController,
@@ -808,8 +810,12 @@ describe('detached reader runtime entry', () => {
                 fontSizePx: 20,
                 accentColor: '#e11d48',
             },
+            shortcuts: { enabled: false, overrides: {}, disabled: [] },
+            chatgptBehavior: { ...settings.chatgptBehavior, promptAutocomplete: false },
         };
         settingsSnapshotListener?.({ settings: updatedSettings });
+        expect(panelSetReaderSettings).toHaveBeenLastCalledWith(updatedSettings.reader);
+        expect(panelSetShortcutSettings).toHaveBeenLastCalledWith(updatedSettings.shortcuts);
 
         await vi.waitFor(() => {
             expect(setLocale).toHaveBeenLastCalledWith('zh_CN');
@@ -1181,6 +1187,67 @@ describe('detached reader runtime entry', () => {
             type: 'readerSession:draft',
             payload: { sessionId: 'session-1', text: 'edited detached draft' },
         }), { timeoutMs: 4000 });
+    });
+
+    it('routes manual Prompt shortcuts in detached Reader with live disable, rebind, and pagehide cleanup', async () => {
+        const { DEFAULT_SETTINGS } = await import('@/core/settings/types');
+        const { getEffectiveBinding, getShortcutPlatform } = await import('@/core/shortcuts');
+        const settings = {
+            ...structuredClone(DEFAULT_SETTINGS), language: 'en',
+            chatgptBehavior: { ...DEFAULT_SETTINGS.chatgptBehavior, promptAutocomplete: false },
+            shortcuts: { enabled: true, overrides: {}, disabled: [] },
+        };
+        const session = {
+            sessionId: 'session-1', sourceTabId: 10, readerTabId: 11, sourceUrl: 'https://chatgpt.com/c/mock',
+            snapshot: { items: [{ id: 'item-1', userPrompt: 'Prompt', content: 'Answer' }], startIndex: 0, sourceUrl: 'https://chatgpt.com/c/mock', theme: 'light', createdAt: 1, updatedAt: 1 },
+        };
+        window.location.hash = '#sessionId=session-1';
+        sendExtRequest.mockImplementation(async (request: any) => {
+            if (request.type === 'settings:getAll') return { ok: true, data: { settings } };
+            if (request.type === 'readerSession:get') return { ok: true, data: { session } };
+            if (request.type === 'readerSession:draft') return { ok: true, data: { text: '' } };
+            if (request.type === 'prompts:list') return { ok: true, data: { prompts: [{ id: 'rewrite', title: 'Rewrite', content: 'Rewrite {{cursor}}', triggerText: 'rewrite', contexts: ['composer', 'readerComment'], favorite: false, enabled: true, createdAt: 1, updatedAt: 1, lastUsedAt: null }] } };
+            if (request.type === 'prompts:recordUse') return { ok: true, data: { recorded: true } };
+            if (request.type === 'bookmarks:positions') return { ok: true, data: { positions: [] } };
+            return { ok: true, data: {} };
+        });
+        await import('@/runtimes/reader/entry');
+        await vi.waitFor(() => expect(panelShow).toHaveBeenCalledOnce());
+        const host = document.createElement('div'); host.id = 'aimd-reader-panel-host'; document.body.append(host);
+        const shadow = host.attachShadow({ mode: 'open' });
+        const anchor = document.createElement('button'); shadow.append(anchor);
+        await panelShow.mock.calls[0][3].actions.find((action: any) => action.id === 'send').onClick({ shadow, anchorEl: anchor });
+        const input = shadow.querySelector<HTMLTextAreaElement>('[data-role="text"]')!;
+        input.focus(); input.value = '\\re'; input.setSelectionRange(3, 3);
+        input.dispatchEvent(new Event('input', { bubbles: true, composed: true }));
+        await Promise.resolve();
+        expect(sendExtRequest.mock.calls.some(([request]) => request.type === 'prompts:list')).toBe(false);
+        input.value = 'before after'; input.setSelectionRange(7, 7);
+        const platform = getShortcutPlatform(navigator.platform);
+        const defaultBinding = getEffectiveBinding(settings.shortcuts, 'prompts.openSuggestions', platform)!;
+        const key = (binding = defaultBinding) => {
+            const event = new KeyboardEvent('keydown', { key: binding.code.replace(/^Key/, '').toLowerCase(), code: binding.code,
+                ctrlKey: Boolean(binding.control) || (platform !== 'mac' && binding.primary), metaKey: platform === 'mac' && binding.primary,
+                shiftKey: binding.shift, altKey: binding.alt, bubbles: true, composed: true, cancelable: true });
+            input.dispatchEvent(event); return event;
+        };
+        expect(key().defaultPrevented).toBe(true);
+        await vi.waitFor(() => expect(document.getElementById('aimd-chatgpt-prompt-popover-host')).toBeTruthy());
+        input.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true, composed: true, cancelable: true }));
+        expect(document.getElementById('aimd-chatgpt-prompt-popover-host')).toBeNull();
+        settingsSnapshotListener?.({ settings: { ...settings, shortcuts: { ...settings.shortcuts, enabled: false } } });
+        expect(key().defaultPrevented).toBe(false);
+        const rebound = { ...settings, shortcuts: { enabled: true, overrides: { 'prompts.openSuggestions': { code: 'Digit7', primary: true, shift: true, alt: false } }, disabled: [] } };
+        const reboundBinding = rebound.shortcuts.overrides['prompts.openSuggestions'];
+        settingsSnapshotListener?.({ settings: rebound });
+        expect(key().defaultPrevented).toBe(false);
+        expect(key(reboundBinding).defaultPrevented).toBe(true);
+        await vi.waitFor(() => expect(document.getElementById('aimd-chatgpt-prompt-popover-host')).toBeTruthy());
+        input.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', bubbles: true, composed: true, cancelable: true }));
+        await vi.waitFor(() => expect(input.value).toBe('before Rewrite after'));
+        window.dispatchEvent(new Event('pagehide'));
+        expect(document.getElementById('aimd-chatgpt-prompt-popover-host')).toBeNull();
+        expect(key(reboundBinding).defaultPrevented).toBe(false);
     });
 
     it('renders bookmark actions in detached reader and toggles through the shared bookmarks protocol', async () => {

@@ -10,6 +10,8 @@ import { createHighlightRecord } from '@/ui/content/highlights/HighlightSession'
 import { RuntimeClientRequestError } from '@/drivers/shared/clients/clientResult';
 import * as clipboard from '@/drivers/content/clipboard/clipboard';
 import { setCanonicalMarkdownCopyFormulaFormat } from '@/services/copy/canonicalMarkdownCopy';
+import { ChatGPTShortcutController } from '@/ui/content/shortcuts/ChatGPTShortcutController';
+import { getDefaultShortcutBindings } from '@/core/shortcuts';
 
 const annotationClientMock = vi.hoisted(() => ({
     list: vi.fn(async () => ({ ok: true, data: { entries: [] } })),
@@ -224,6 +226,39 @@ describe('ChatGPTPageAnnotationController', () => {
         document.body.innerHTML = '';
         annotationClientMock.listeners.clear();
         annotationClientMock.list.mockResolvedValue({ ok: true, data: { entries: [] } });
+    });
+
+    it.each([['selection.highlight.blue','blue'],['selection.highlight.yellow','yellow'],['selection.highlight.red','red'],['selection.highlight','yellow']] as const)('saves %s through the real key trigger with selection buttons hidden', async (id,color) => {
+        const message=mountMessage('<p>before <strong>plain text</strong> after</p>');
+        const root=message.querySelector<HTMLElement>('.markdown.prose')!;const text=message.querySelector<HTMLElement>('strong')!;
+        const range=document.createRange();range.selectNodeContents(text);selectRange(range);mockGeometry(root,text,range);
+        const controller=new ChatGPTPageAnnotationController(new ChatGPTAdapter(),{contentSource:createContentSource('before **plain text** after'),materialization:createMaterialization(message),surfaceAdapter:createEvidenceSurfaceAdapter(message)});
+        const platform=vi.spyOn(navigator,'platform','get').mockReturnValue('Win32');
+        const keyboard=new ChatGPTShortcutController({copy:()=>false,selection:id=>controller.tryExecuteSelectionShortcut(id),navigate:()=>false,prompts:null});
+        controller.setReaderSettings({selectionToolbar:{copy:false,annotation:false,highlight:false}});controller.setEnabled(true);keyboard.setActive(true);keyboard.init();
+        try {
+            if(id==='selection.highlight'){controller.dispose();controller.setEnabled(true);}
+            await flushSelectionFrame();expect(selectionToolbarHost()).toBeNull();
+            const binding = getDefaultShortcutBindings()[id]!;
+            const event=new KeyboardEvent('keydown',{key:binding.code,code:binding.code,ctrlKey:binding.primary,altKey:binding.alt,shiftKey:binding.shift,bubbles:true,composed:true,cancelable:true});document.body.dispatchEvent(event);
+            expect(event.defaultPrevented).toBe(true);
+            await vi.waitFor(()=>expect(highlightClientMock.create).toHaveBeenCalledOnce());
+            expect(highlightClientMock.create).toHaveBeenCalledWith(expect.anything(),expect.objectContaining({color,quoteText:'plain text',target:expect.objectContaining({assistantMessageId:'assistant-1'})}));
+        }finally{keyboard.dispose();controller.dispose();platform.mockRestore();}
+    });
+
+    it('opens an annotation from the key trigger without depending on the selection toolbar', async()=>{
+        const message=mountMessage('<p>before <strong>plain text</strong> after</p>');const root=message.querySelector<HTMLElement>('.markdown.prose')!;const text=message.querySelector<HTMLElement>('strong')!;
+        const range=document.createRange();range.selectNodeContents(text);selectRange(range);mockGeometry(root,text,range);
+        const controller=new ChatGPTPageAnnotationController(new ChatGPTAdapter(),{contentSource:createContentSource('before **plain text** after'),materialization:createMaterialization(message),surfaceAdapter:createEvidenceSurfaceAdapter(message)});
+        const platform=vi.spyOn(navigator,'platform','get').mockReturnValue('Win32');
+        const keyboard=new ChatGPTShortcutController({copy:()=>false,selection:id=>controller.tryExecuteSelectionShortcut(id),navigate:()=>false,prompts:null});
+        controller.setSelectionToolbarEnabled(false);controller.setEnabled(true);keyboard.setActive(true);keyboard.init();
+        try{
+            await flushSelectionFrame();const binding = getDefaultShortcutBindings()['selection.annotate']!;
+            const event=new KeyboardEvent('keydown',{key:binding.code,code:binding.code,ctrlKey:binding.primary,altKey:binding.alt,shiftKey:binding.shift,bubbles:true,composed:true,cancelable:true});document.body.dispatchEvent(event);
+            expect(event.defaultPrevented).toBe(true);expect(selectionToolbarShadow().querySelector('textarea')).toBeTruthy();
+        }finally{keyboard.dispose();controller.dispose();platform.mockRestore();}
     });
 
     it('creates a persistent highlight through the selected-text swatch while annotations are disabled', async () => {

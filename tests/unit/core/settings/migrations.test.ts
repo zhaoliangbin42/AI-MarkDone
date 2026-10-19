@@ -142,7 +142,7 @@ describe('settings migrations', () => {
         };
 
         const next = loadAndNormalize(stored);
-        expect(next.version).toBe(5);
+        expect(next.version).toBe(6);
         expect(next.platforms).toEqual({ chatgpt: false, gemini: true, claude: false, deepseek: true });
         expect(next.chatgptDirectory).toEqual(DEFAULT_SETTINGS.chatgptDirectory);
         expect(next.chatgptBehavior.showMessageStepper).toBe(true);
@@ -410,7 +410,7 @@ describe('settings migrations', () => {
         };
 
         const next = loadAndNormalize(stored);
-        expect(next.version).toBe(5);
+        expect(next.version).toBe(6);
         expect(next).not.toHaveProperty('chatgpt');
         expect(next.behavior.showMessageToolbar).toBe(false);
         expect(next.behavior.showWordCount).toBe(false);
@@ -427,7 +427,7 @@ describe('settings migrations', () => {
         };
 
         const next = loadAndNormalize(stored);
-        expect(next.version).toBe(5);
+        expect(next.version).toBe(6);
         expect(next.behavior.saveContextOnly).toBe(true);
         expect(next.behavior._contextOnlyConfirmed).toBe(true);
         expect(next.formula.clickCopyMarkdown).toBe(true);
@@ -481,7 +481,7 @@ describe('settings migrations', () => {
             },
         } as any);
 
-        expect(next.version).toBe(5);
+        expect(next.version).toBe(6);
         expect(next.formula.clickCopyMarkdown).toBe(true);
         expect(next.formula.clickCopyFormulaFormat).toBe('raw');
         expect(next.formula.markdownCopyFormulaFormat).toBe('markdown-dollar');

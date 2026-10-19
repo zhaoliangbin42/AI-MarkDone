@@ -38,6 +38,7 @@ export type ProtocolErrorCode =
 export type BookmarksSortMode = 'time-desc' | 'time-asc' | 'alpha-asc' | 'alpha-desc';
 
 export type SettingsCategory =
+    | 'shortcuts'
     | 'platforms'
     | 'behavior'
     | 'reader'

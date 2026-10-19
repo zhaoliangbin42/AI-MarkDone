@@ -145,12 +145,12 @@ describe('ReaderPanel navigation', () => {
 
             expect(shadow.querySelector<HTMLElement>('.reader-header-page')?.textContent).toBe('2/3');
 
-            host.dispatchEvent(new KeyboardEvent('keydown', { key: 'ArrowRight', bubbles: true }));
+            host.dispatchEvent(new KeyboardEvent('keydown', { key: 'ArrowRight', code: 'ArrowRight', bubbles: true, composed: true, cancelable: true }));
             await Promise.resolve();
             await new Promise((resolve) => setTimeout(resolve, 0));
             expect(shadow.querySelector<HTMLElement>('.reader-header-page')?.textContent).toBe('3/3');
 
-            host.dispatchEvent(new KeyboardEvent('keydown', { key: 'ArrowLeft', bubbles: true }));
+            host.dispatchEvent(new KeyboardEvent('keydown', { key: 'ArrowLeft', code: 'ArrowLeft', bubbles: true, composed: true, cancelable: true }));
             await Promise.resolve();
             await new Promise((resolve) => setTimeout(resolve, 0));
             expect(shadow.querySelector<HTMLElement>('.reader-header-page')?.textContent).toBe('2/3');

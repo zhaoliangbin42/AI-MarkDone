@@ -34,6 +34,9 @@ import { ChatGPTAtomicSelectionController } from '../../ui/content/controllers/C
 import { ChatGPTPageAnnotationController } from '../../ui/content/controllers/ChatGPTPageAnnotationController';
 import { ChatGPTActivePositionTracker } from '../../ui/content/controllers/ChatGPTActivePositionTracker';
 import { ChatGPTComposerBindingSource } from '../../ui/content/controllers/ChatGPTComposerBindingSource';
+import { ChatGPTShortcutController } from '../../ui/content/shortcuts/ChatGPTShortcutController';
+import { getShortcutPlatform } from '../../ui/content/shortcuts/shortcutEventScope';
+import { getEffectiveBinding, normalizeShortcutSettings } from '../../core/shortcuts';
 import { DOMContentSurfaceAdapter } from '../../drivers/content/adapters/ContentSurfaceAdapter';
 import { ChatGPTPageSelectionCoordinator } from '../../ui/content/controllers/ChatGPTPageSelectionCoordinator';
 import { PageMarkdownSelectionResolver } from '../../ui/content/selectionMarkdownSnapshot';
@@ -365,6 +368,16 @@ if (adapter) {
             navigation: conversationNavigation,
         })
         : null;
+    chatGptAtomicSelection?.setExternalKeyboardRouting?.(true);
+    chatGptMessageStepper?.setExternalKeyboardRouting?.(true);
+    const chatGptShortcuts = adapter.getPlatformId() === 'chatgpt'
+        ? new ChatGPTShortcutController({
+            copy: event => chatGptAtomicSelection?.tryExecuteMarkdownShortcut?.(event) ?? false,
+            selection: command => chatGptPageAnnotation?.tryExecuteSelectionShortcut?.(command) ?? false,
+            navigate: delta => chatGptMessageStepper?.tryExecuteNavigationShortcut?.(delta) ?? false,
+            prompts: chatGptPromptAutocomplete,
+        })
+        : null;
     chatGptPromptAutocomplete?.setAnnotationComposer?.((userPrompt) => (
         chatGptPageAnnotation?.composeCurrentAnnotations(userPrompt) ?? ''
     ));
@@ -579,8 +592,11 @@ if (adapter) {
             chatGptComposerEditing?.init();
             chatGptPromptAutocomplete?.init();
             chatGptMessageStepper?.init();
+            chatGptShortcuts?.init();
+            chatGptShortcuts?.setActive(true);
             chatGptPageWidth?.init();
             syncChatGptBehaviorSettings(settingsClient.getCached()?.chatgptBehavior);
+            syncShortcutSettings(settingsClient.getCached()?.shortcuts, settingsClient.getCached()?.chatgptBehavior);
             chatGptConversationContentRuntime?.init();
             startContentFeaturePrewarm();
         }
@@ -617,7 +633,6 @@ if (adapter) {
         const effectiveInputEnhancement = resolveChatGPTInputEnhancement(inputEnhancement);
         chatGptMessageStepper?.setInputEnhancementEnabled?.(effectiveInputEnhancement.enabled);
         chatGptNavigationSeekStepPx = normalizeChatGPTNavigationSeekStepPx(next.navigationSeekStepPx);
-        chatGptAtomicSelection?.setMarkdownCopyShortcut(next.atomicMarkdownCopyShortcut);
         setAtomicSelectionEnabled(Boolean(runtimeEnabled));
         chatGptSendPositionRestore?.setEnabled(Boolean(next.restorePositionAfterSend));
         chatGptSendPositionRestore?.setEnterKeyNewlineEnabled(effectiveInputEnhancement.enterKeyNewline);
@@ -641,6 +656,18 @@ if (adapter) {
         chatGptPageAnnotation?.setSelectionToolbarEnabled(Boolean(next.showPageSelectionToolbar));
         chatGptPageAnnotation?.setEnabled(pageAnnotationEnabled);
         syncPageSelectionCoordinator();
+    };
+
+    const syncShortcutSettings = (settings: typeof DEFAULT_SETTINGS.shortcuts | undefined,
+        legacyBehavior?: typeof DEFAULT_SETTINGS.chatgptBehavior): void => {
+        const next = normalizeShortcutSettings(settings, legacyBehavior);
+        chatGptShortcuts?.setSettings(next);
+        chatGptShortcuts?.setActive(runtimeEnabled);
+        readerPanel.setShortcutSettings?.(next);
+        chatGptMessageStepper?.setShortcutSettings?.(next);
+        const copy = getEffectiveBinding(next, 'selection.copyMarkdown', getShortcutPlatform());
+        chatGptAtomicSelection?.setMarkdownCopyShortcut(copy?.code === 'KeyC' && copy.primary
+            && !copy.shift && !copy.alt && !copy.control ? 'mod-c' : 'none');
     };
 
     const applyAppearance = (nextSnapshot: AppearanceSnapshot) => {
@@ -680,6 +707,8 @@ if (adapter) {
     const disableRuntime = () => {
         if (!runtimeEnabled) return;
         runtimeEnabled = false;
+        chatGptShortcuts?.setActive(false);
+        chatGptShortcuts?.dispose();
         void readerRichAssets.dispose();
         writeDebugState({ RuntimeEnabled: runtimeEnabled });
         messageToolbars.dispose();
@@ -713,6 +742,7 @@ if (adapter) {
         chatGptPageAnnotation?.setReaderSettings(cachedSettings.reader);
     }
     readerPanel.setContentCleanupSettings(cachedSettings?.content ?? DEFAULT_SETTINGS.content);
+    syncShortcutSettings(cachedSettings?.shortcuts, cachedSettings?.chatgptBehavior);
     saveMessagesDialog.setContentCleanupSettings(cachedSettings?.content ?? DEFAULT_SETTINGS.content);
     messageToolbars.setContentCleanupSettings(cachedSettings?.content ?? DEFAULT_SETTINGS.content);
     const initialReaderSettings = cachedSettings?.reader ?? DEFAULT_SETTINGS.reader;
@@ -779,6 +809,7 @@ if (adapter) {
         if (nextRuntimeEnabled) enableRuntime();
         syncChatGptDirectorySettings(snap.settings.chatgptDirectory);
         syncChatGptBehaviorSettings(snap.settings.chatgptBehavior);
+        syncShortcutSettings(snap.settings.shortcuts, snap.settings.chatgptBehavior);
         if (!nextRuntimeEnabled) disableRuntime();
         syncFormulaSettings(snap.settings.formula);
         confirmedReaderSettings = snap.settings.reader;

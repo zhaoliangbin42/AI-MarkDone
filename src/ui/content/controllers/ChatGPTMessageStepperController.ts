@@ -1,6 +1,8 @@
 import { getChatGPTPageControlsCss } from '../components/pageControlsCss';
 import type { SiteAdapter } from '../../../drivers/content/adapters/base';
 import type { PageControlAction } from '../../../core/settings/types';
+import { getEffectiveBinding, formatShortcutChord, type ShortcutSettings } from '../../../core/shortcuts';
+import { getShortcutPlatform } from '../shortcuts/shortcutEventScope';
 import { textCursorIcon } from '../../../assets/workspaceIcons';
 import { createBrandIcon } from '../../../assets/icons';
 import { settingsIcon, bookmarkCheckIcon, bookmarkIcon, chevronRightIcon, promptIcon, refreshCwIcon, splitViewIcon } from '../../../assets/workspaceIcons';
@@ -65,6 +67,7 @@ function isExtensionSurfaceElement(node: EventTarget | null): boolean {
 export class ChatGPTMessageStepperController {
     private initialized = false;
     private keyboardEnabled = true;
+    private shortcutSettings: ShortcutSettings | null = null;
     private navigationVisibleEnabled = true;
     private pageBookmarkVisibleEnabled = true;
     private detachedReaderVisibleEnabled = true;
@@ -390,15 +393,20 @@ export class ChatGPTMessageStepperController {
     }
 
     private syncControlLabels(): void {
+        const navigationLabel = (id: 'navigation.previous' | 'navigation.next', key: string, fallback: string): string => {
+            const base = this.getLabel(key, fallback);
+            const binding = this.shortcutSettings && getEffectiveBinding(this.shortcutSettings, id, getShortcutPlatform());
+            return binding ? `${base} · ${formatShortcutChord(binding, getShortcutPlatform())}` : base;
+        };
         const labels: ReadonlyArray<[HTMLButtonElement | null, string]> = [
             [this.drawerTrigger, this.getLabel('tabSettings', 'Settings')],
             [this.detachedReaderButton, this.getLabel('chatgptPageControlSplitView', 'Open separate reader')],
             [this.inputEnhancementButton, this.getLabel('settingsInputEnhancementControl', 'Input enhancement')],
             [this.promptsButton, this.getLabel('chatgptPageControlPrompts', 'Prompts')],
             [this.messageNavigationButton, this.getLabel('chatgptRefreshMessageNavigation', 'Refresh message navigation')],
-            [this.previousButton, this.keyboardEnabled
+            [this.previousButton, this.shortcutSettings ? navigationLabel('navigation.previous', 'previousMessage', 'Previous message') : this.keyboardEnabled
                 ? this.getLabel('previousMessageShortcut', 'Previous message · ←') : this.getLabel('previousMessage', 'Previous message')],
-            [this.nextButton, this.keyboardEnabled
+            [this.nextButton, this.shortcutSettings ? navigationLabel('navigation.next', 'nextMessage', 'Next message') : this.keyboardEnabled
                 ? this.getLabel('nextMessageShortcut', 'Next message · →') : this.getLabel('nextMessage', 'Next message')],
         ];
         for (const [button, label] of labels) {
@@ -483,6 +491,7 @@ export class ChatGPTMessageStepperController {
     }
 
     private onKeyDownCapture = (event: KeyboardEvent): void => {
+        if (this.externalKeyboardRouting) return;
         if (!this.keyboardEnabled) return;
         if (event.key !== 'ArrowLeft' && event.key !== 'ArrowRight') return;
         if (event.defaultPrevented || event.isComposing) return;
@@ -492,6 +501,14 @@ export class ChatGPTMessageStepperController {
         if (!this.step(delta)) return;
         event.preventDefault();
     };
+
+    private externalKeyboardRouting = false;
+
+    setShortcutSettings(settings: ShortcutSettings): void { this.shortcutSettings = settings; this.syncControlLabels(); }
+
+    setExternalKeyboardRouting(enabled: boolean): void { this.externalKeyboardRouting = enabled; }
+
+    tryExecuteNavigationShortcut(delta: -1 | 1): boolean { return this.initialized && this.step(delta); }
 
     private shouldIgnoreKeyboardEvent(event: KeyboardEvent): boolean {
         const path = typeof event.composedPath === 'function' ? event.composedPath() : [];

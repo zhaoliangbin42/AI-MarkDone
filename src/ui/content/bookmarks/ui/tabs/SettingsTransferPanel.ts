@@ -1,3 +1,5 @@
+import { isShortcutCommandId, formatShortcutChord, getShortcutPlatform, type ShortcutChord } from '../../../../../core/shortcuts';
+import { SHORTCUT_COMMAND_LABELS } from './keyboardSettingsLabels';
 import type { SettingsFile, SettingsImportPreview } from '../../../../../contracts/settingsTransfer';
 import { MAX_SETTINGS_FILE_BYTES } from '../../../../../core/settings/portableSettings';
 import { AppearanceScope } from '../../../../../style/appearanceScope';
@@ -205,7 +207,7 @@ export class SettingsTransferPanel {
         }
         const categories = [...new Set(preview.changes.map(change => change.path.split('.')[0]))];
         const selected = new Set(categories);
-        const labels: Record<string, string> = { platforms: 'settingsCategoryAdvanced', behavior: 'settingsButtonsGroupMessage', reader: 'settingsCategoryReading', content: 'settingsContentCleanupTitle', formula: 'settingsButtonsGroupFormula', export: 'settingsCategoryExport', chatgptDirectory: 'settingsButtonsGroupDirectory', chatgptBehavior: 'settingsCategoryControls', appearance: 'settingsCategoryAppearance', bookmarks: 'settingsDefaultBookmarkSort', language: 'settingsLanguageLabel' };
+        const labels: Record<string, string> = { shortcuts: 'keyboardTab', platforms: 'settingsCategoryAdvanced', behavior: 'settingsButtonsGroupMessage', reader: 'settingsCategoryReading', content: 'settingsContentCleanupTitle', formula: 'settingsButtonsGroupFormula', export: 'settingsCategoryExport', chatgptDirectory: 'settingsButtonsGroupDirectory', chatgptBehavior: 'settingsCategoryControls', appearance: 'settingsCategoryAppearance', bookmarks: 'settingsDefaultBookmarkSort', language: 'settingsLanguageLabel' };
         for (const category of categories) {
             const block = document.createElement('section');
             block.className = 'settings-transfer__category aimd-material-card';
@@ -240,6 +242,12 @@ export class SettingsTransferPanel {
         this.details.append(actions);
     }
     private format(value: unknown, path: string): string {
+        if (path === 'shortcuts.disabled' && Array.isArray(value)) {
+            return value.filter(isShortcutCommandId).map(id => t(SHORTCUT_COMMAND_LABELS[id])).join(', ') || t('settingsValueNone');
+        }
+        if (path === 'shortcuts.overrides' && value && typeof value === 'object' && !Array.isArray(value)) {
+            return Object.entries(value).filter(([id]) => isShortcutCommandId(id)).map(([id, chord]) => `${t(SHORTCUT_COMMAND_LABELS[id as keyof typeof SHORTCUT_COMMAND_LABELS])}: ${chord ? formatShortcutChord(chord as ShortcutChord, getShortcutPlatform(navigator.platform)) : t('keyboardUnset')}`).join('; ') || t('settingsValueDefault');
+        }
         if (typeof value === 'boolean')
             return t(value ? 'settingsValueOn' : 'settingsValueOff');
         if (Array.isArray(value))
@@ -376,6 +384,9 @@ const PREFERENCE_LABELS: Record<string, string> = {
     "chatgptBehavior.pinnedPageControls": "settingsPreferenceChatgptBehaviorPinnedPageControls",
     "chatgptBehavior.pageWidthScale": "settingsPreferenceChatgptBehaviorPageWidthScale",
     "chatgptBehavior.navigationSeekStepPx": "settingsPreferenceChatgptBehaviorNavigationSeekStepPx",
+    "shortcuts.enabled": "keyboardEnabled",
+    "shortcuts.overrides": "keyboardCustomBindings",
+    "shortcuts.disabled": "keyboardDisabledBindings",
     "appearance.themeMode": "settingsPreferenceAppearanceThemeMode",
     "appearance.fontSizePx": "settingsPreferenceAppearanceFontSizePx",
     "appearance.accentColor": "settingsPreferenceAppearanceAccentColor",

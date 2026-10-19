@@ -71,7 +71,7 @@ export class ButtonsSettingsView {
         const layout = document.createElement('div');
         layout.className = 'layout';
         this.content.className = 'group-content';
-        this.navigation.setAttribute('aria-label', t('settingsCategoryControls'));
+        this.navigation.setAttribute('aria-label', t('keyboardButtonsTab'));
         this.notice.className = 'notice';
         this.notice.setAttribute('role', 'status');
         layout.append(this.navigation, this.content);

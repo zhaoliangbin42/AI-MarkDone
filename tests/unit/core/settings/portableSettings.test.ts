@@ -2,11 +2,64 @@ import { describe, expect, it } from 'vitest';
 import { DEFAULT_SETTINGS } from '../../../../src/core/settings/types';
 import { loadAndNormalize } from '../../../../src/core/settings/migrations';
 import { createSettingsFile, listSettingsChanges, MAX_SETTINGS_FILE_BYTES, mergePortableSettings, parseSettingsFile, projectPortableSettings } from '../../../../src/core/settings/portableSettings';
+import { getConfiguredBinding, getEffectiveBinding, withShortcutBinding } from '../../../../src/core/shortcuts';
+import { planSetCategory } from '../../../../src/services/settings/settingsService';
 
 function file(settings: unknown): string {
     return JSON.stringify({ format: 'ai-markdone-settings', formatVersion: 1, appVersion: '6.0.0', exportedAt: '2026-09-30T00:00:00.000Z', settings });
 }
 describe('portable settings', () => {
+    it('roundtrips disabled shortcuts and their original chords, with preset and empty defaults remaining implicit', () => {
+        const current = structuredClone(DEFAULT_SETTINGS);
+        current.shortcuts = withShortcutBinding(current.shortcuts, 'selection.annotate', { code: 'KeyM', primary: true, shift: true, alt: false });
+        current.shortcuts.disabled.push('selection.annotate');
+        const exported = createSettingsFile(current, '6.2.0');
+        const parsed = parseSettingsFile(JSON.stringify(exported));
+        const next = mergePortableSettings(DEFAULT_SETTINGS, parsed.file.settings, ['shortcuts']);
+        expect(next.shortcuts).toEqual(current.shortcuts);
+        expect(getConfiguredBinding(next.shortcuts, 'selection.annotate')?.code).toBe('KeyM');
+        expect(getEffectiveBinding(next.shortcuts, 'selection.annotate')).toBeNull();
+        expect(getConfiguredBinding(next.shortcuts, 'prompts.openLibrary')).toBeNull();
+        (exported.settings.shortcuts as typeof current.shortcuts).overrides['selection.annotate'] = null;
+        expect(current.shortcuts.overrides['selection.annotate']).not.toBeNull();
+    });
+    it.each([
+        { enabled: true, overrides: { 'unknown.command': null }, disabled: [] },
+        { enabled: true, overrides: { 'selection.annotate': { code: 'KeyM', primary: true, shift: true, alt: false, action: 'run' } }, disabled: [] },
+        { enabled: true, overrides: { 'selection.annotate': { code: 'KeyM', primary: 'true', shift: true, alt: false } }, disabled: [] },
+        { enabled: true, overrides: { 'selection.annotate': { code: 'KeyW', primary: true, shift: false, alt: false } }, disabled: [] },
+        { enabled: true, overrides: { 'selection.highlight': { code: 'KeyN', primary: false, shift: true, alt: false } }, disabled: [] },
+        { enabled: true, overrides: {}, disabled: ['selection.annotate', 'selection.annotate'] },
+    ])('rejects illegal shortcut imports atomically: %j', shortcuts => {
+        expect(() => parseSettingsFile(file({ language: 'en', shortcuts }))).toThrow('SETTINGS_FILE_INVALID');
+    });
+    it('rechecks partial shortcut imports against the existing effective configuration', () => {
+        const current = structuredClone(DEFAULT_SETTINGS);
+        current.shortcuts = withShortcutBinding(current.shortcuts, 'selection.annotate', { code: 'KeyM', primary: true, shift: true, alt: false });
+        current.shortcuts.disabled.push('selection.annotate');
+        current.shortcuts = withShortcutBinding(current.shortcuts, 'selection.highlight', { code: 'KeyM', primary: true, shift: true, alt: false });
+        const parsed = parseSettingsFile(file({ shortcuts: { disabled: [] } }));
+        expect(() => mergePortableSettings(current, parsed.file.settings, ['shortcuts'])).toThrow('SETTINGS_FILE_INVALID');
+        expect(current.shortcuts.disabled).toContain('selection.annotate');
+    });
+    it('imports old copy and arrow preferences into the canonical shortcut scheme', () => {
+        const parsed = parseSettingsFile(file({ chatgptBehavior: { atomicMarkdownCopyShortcut: 'none', enableArrowKeyMessageNavigation: false } }));
+        const next = mergePortableSettings(DEFAULT_SETTINGS, parsed.file.settings, ['chatgptBehavior']);
+        expect(getEffectiveBinding(next.shortcuts, 'selection.copyMarkdown')).toBeNull();
+        expect(getEffectiveBinding(next.shortcuts, 'navigation.next')).toBeNull();
+    });
+    it('does not convert unchanged legacy mirrors in an imported behavior snapshot into new shortcut edits', () => {
+        const initial = loadAndNormalize({ version: 5, chatgptBehavior: { atomicMarkdownCopyShortcut: 'mod-c' } });
+        const configured = planSetCategory(initial, 'shortcuts', withShortcutBinding(initial.shortcuts, 'navigation.next', { code: 'KeyM', primary: true, shift: true, alt: false })).next;
+        const off = planSetCategory(configured, 'shortcuts', { enabled: false }).next;
+        const portable = projectPortableSettings(off).chatgptBehavior as Record<string, unknown>;
+        const parsed = parseSettingsFile(file({ chatgptBehavior: { ...portable, promptAutocomplete: false } }));
+        const next = mergePortableSettings(off, parsed.file.settings, ['chatgptBehavior']);
+        expect(next.shortcuts).toEqual(off.shortcuts);
+        const on = planSetCategory(next, 'shortcuts', { enabled: true }).next;
+        expect(getEffectiveBinding(on.shortcuts, 'selection.copyMarkdown')?.shift).toBe(false);
+        expect(getEffectiveBinding(on.shortcuts, 'navigation.next')?.code).toBe('KeyM');
+    });
     it('exports constrained preferences only, excluding credentials, text and legacy migration input', () => {
         const current = structuredClone(DEFAULT_SETTINGS);
         Object.assign(current, { token: 'private', cloudBackup: { auth: 'private' } });

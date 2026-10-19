@@ -1,0 +1,32 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>AI-MarkDone · 快捷键设置</title>
+    <style>
+      body { margin: 0; font-family: system-ui, sans-serif; background: #f1f3f5; }
+      body[data-theme="dark"] { background: #181a20; }
+      main { min-height: 100vh; display: grid; place-items: center; }
+      .host-context { padding: 24px; max-width: 720px; }
+      .mock-conversation { display: none; }
+    </style>
+  </head>
+  <body>
+    <main>
+      <section class="host-context">
+        <h1 data-role="fixture-title">快捷键设置</h1>
+        <p data-role="fixture-description">点击右下角设置入口重新打开。生产组件演示，设置通过模拟后台保存。</p>
+        <div class="mock-conversation" data-role="conversation-root">
+          <article class="turn">
+            <div class="user-message" data-message-author-role="user">Plan a reusable interface architecture.</div>
+            <div class="assistant-message" data-message-id="assistant-1">
+              <div class="assistant-content">A compact architecture note for the fixture.</div>
+            </div>
+          </article>
+        </div>
+      </section>
+    </main>
+    <script type="module" src="./main.ts"></script>
+  </body>
+</html>

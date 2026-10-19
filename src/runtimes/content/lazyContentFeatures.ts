@@ -273,6 +273,7 @@ class LazyReaderPanel implements ReaderPanelPort {
     private appearance: AppearanceSnapshot = createAppearanceSnapshot('light');
     private readerSettings: AppSettings['reader'] | null = null;
     private contentCleanup: AppSettings['content'] | null = null;
+    private shortcutSettings: AppSettings['shortcuts'] | null = null;
     private settingsController: ReaderPanelSettingsController | null = null;
     private promptManagerController: ReaderPanelPromptManagerController | null = null;
 
@@ -283,6 +284,7 @@ class LazyReaderPanel implements ReaderPanelPort {
                 instance.setAppearance(this.appearance);
                 if (this.readerSettings) instance.setReaderSettings(this.readerSettings);
                 if (this.contentCleanup) instance.setContentCleanupSettings(this.contentCleanup);
+                if (this.shortcutSettings) instance.setShortcutSettings?.(this.shortcutSettings);
                 instance.setReaderSettingsController(this.settingsController);
                 instance.setPromptManagerController(this.promptManagerController);
             },
@@ -303,6 +305,11 @@ class LazyReaderPanel implements ReaderPanelPort {
     setContentCleanupSettings(settings: AppSettings['content']): void {
         this.contentCleanup = { ...settings };
         this.lazy.current?.setContentCleanupSettings(this.contentCleanup);
+    }
+
+    setShortcutSettings(settings: AppSettings['shortcuts']): void {
+        this.shortcutSettings = structuredClone(settings);
+        this.lazy.current?.setShortcutSettings?.(this.shortcutSettings);
     }
 
     setReaderSettingsController(controller: ReaderPanelSettingsController | null): void {

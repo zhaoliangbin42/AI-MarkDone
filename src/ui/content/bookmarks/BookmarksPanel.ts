@@ -160,8 +160,11 @@ export class BookmarksPanel {
             return;
         }
 
+        const withinKeyboardSettings = event.composedPath().some(entry => entry instanceof HTMLElement && entry.dataset.aimdRole === 'settings-keyboard');
+        const withinSettingsRecovery = event.composedPath().some(entry => entry instanceof HTMLElement && entry.dataset.action === 'settings-runtime-retry');
         this.bookmarksView?.dismissTransientUi?.();
-        this.settingsView?.dismissTransientUi?.();
+        // The persistent recorder owns its inline controls; replacing them here cancels the pending click.
+        if (!withinKeyboardSettings && !withinSettingsRecovery) this.settingsView?.dismissTransientUi?.();
         this.feedbackView?.dismissTransientUi?.();
     };
 
@@ -360,7 +363,7 @@ export class BookmarksPanel {
             return;
         }
         const capabilities=result.data.capabilities;
-        const matched=capabilities?.appVersion===buildVersion&&capabilities.settingsVersion===5;
+        const matched=capabilities?.appVersion===buildVersion&&capabilities.settingsVersion===DEFAULT_SETTINGS.version;
         this.settingsCapabilities={buttons:Boolean(matched&&capabilities?.buttonsPreferences),transfer:Boolean(matched&&capabilities?.settingsFileFormatVersion===1)};
         this.uiState.settings = mergeSettings(result.data.settings);
         this.controller.setSortMode(this.uiState.settings.bookmarks.sortMode);
@@ -438,6 +441,7 @@ export class BookmarksPanel {
                     messageControls: { ...current.behavior.messageControls, ...patch.messageControls },
                 },
             })),
+            setShortcutSettings: async shortcuts => await this.persistSettingsCategory('shortcuts', shortcuts, current => ({ ...current, shortcuts })),
             setReaderSettings: async (patch) => await this.persistSettingsCategory('reader', patch, (current) => ({
                 ...current,
                 reader: {

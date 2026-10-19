@@ -61,6 +61,8 @@ mocks/components/*
 !mocks/components/send-position-restore/**
 !mocks/components/buttons-settings/
 !mocks/components/buttons-settings/**
+!mocks/components/keyboard-settings-prototype/
+!mocks/components/keyboard-settings-prototype/**
 !mocks/pages/
 mocks/pages/*
 !mocks/pages/style-system/
@@ -130,3 +132,6 @@ tmp-Claude-All-sanitized.html
 
 # Note: .agent/ rules and workflows should be tracked. 
 # GEMINI.md and Agents.md should be tracked if they are project docs.
+
+!mocks/components/keyboard-settings/
+!mocks/components/keyboard-settings/**

@@ -102,8 +102,27 @@ export type ReaderSettingsInput = {
 
 import { HighlightSession, createHighlightRecord, highlightAnchor } from '../highlights/HighlightSession';
 import type { HighlightColor } from '../../../contracts/highlights';
+import type { ShortcutCommandId } from '../../../core/shortcuts';
 
 export class ChatGPTPageAnnotationController {
+    tryExecuteSelectionShortcut(command: ShortcutCommandId): boolean {
+        if (!this.initialized || !this.featureEnabled || this.mode === 'editing') return false;
+        if (command === 'selection.annotate') {
+            if (!this.annotationsEnabled) return false;
+            const snapshot = this.resolveActionSnapshot();
+            if (!snapshot || !this.isSnapshotCurrent(snapshot)) return false;
+            this.openCreateComment(snapshot);
+            return true;
+        }
+        if (!command.startsWith('selection.highlight') || this.highlightSaving) return false;
+        const frame = this.selectionCoordinator.refreshNow();
+        if (!frame || !isHighlightableTextSelection(frame.location.range, frame.location.root,
+            element => this.adapter.isHighlightExcludedElement?.(element) ?? false)) return false;
+        const color: HighlightColor = command === 'selection.highlight.blue' ? 'blue'
+            : command === 'selection.highlight.red' ? 'red' : 'yellow';
+        void this.saveHighlight(color);
+        return true;
+    }
     private initialized = false;
     private featureEnabled = false;
     private appearance: AppearanceSnapshot;
@@ -187,7 +206,7 @@ export class ChatGPTPageAnnotationController {
     }
 
     setEnabled(enabled: boolean): void {
-        if (enabled === this.featureEnabled) return;
+        if (enabled === this.featureEnabled && enabled === this.initialized) return;
         this.featureEnabled = enabled;
         if (enabled) this.init();
         else this.dispose();

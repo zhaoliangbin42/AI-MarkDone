@@ -9,6 +9,54 @@ const prompt: PromptRecord = {
 };
 
 describe('PromptSurfaceRenderer', () => {
+    it('keeps manual empty candidates distinct from the manager and exposes an explicit library action', () => {
+        const root = document.createElement('div');
+        const onAction = vi.fn();
+        const renderer = new PromptSurfaceRenderer(root, { onAction });
+        renderer.render({ mode: 'autocomplete', prompts: [], suggestions: [], selectedIndex: 0, managerQuery: '', editPrompt: null, statusMessage: '', manualAutocomplete: true });
+        expect(root.querySelector('[role="status"]')).toBeTruthy();
+        expect(root.querySelector('[data-role="prompt-search"]')).toBeNull();
+        root.querySelector<HTMLButtonElement>('[data-action="open-prompt-library"]')!.click();
+        expect(onAction).toHaveBeenCalledWith({ type: 'open-library' });
+        renderer.destroy();
+    });
+
+    it('updates active candidates in place and scrolls only their internal list', () => {
+        const root = document.createElement('div'); document.body.append(root);
+        const renderer = new PromptSurfaceRenderer(root, { onAction: vi.fn() });
+        renderer.render({ mode: 'autocomplete', prompts: [prompt], suggestions: Array.from({ length: 8 }, (_, index) => ({ ...prompt, id: String(index) })), selectedIndex: 0, managerQuery: '', editPrompt: null, statusMessage: '' });
+        const list = root.querySelector<HTMLElement>('.prompt-list')!;
+        const selected = list.querySelector<HTMLElement>('[data-index="7"]')!;
+        list.scrollTop = 40;
+        Object.defineProperties(list, { clientHeight: { configurable: true, value: 100 }, scrollHeight: { configurable: true, value: 480 } });
+        vi.spyOn(list, 'getBoundingClientRect').mockReturnValue({ top: 0, bottom: 100 } as DOMRect);
+        vi.spyOn(selected, 'getBoundingClientRect').mockReturnValue({ top: 360, bottom: 400 } as DOMRect);
+        const pageScroll = vi.spyOn(window, 'scrollTo');
+        renderer.syncAutocompleteSelection(7, true);
+        expect(root.querySelector('.prompt-list')).toBe(list);
+        expect(selected.getAttribute('aria-selected')).toBe('true');
+        expect(list.scrollTop).toBe(340);
+        expect(pageScroll).not.toHaveBeenCalled();
+        renderer.destroy(); root.remove();
+    });
+
+    it('aligns an oversized candidate to its top without alternating scroll positions', () => {
+        const root = document.createElement('div'); document.body.append(root);
+        const renderer = new PromptSurfaceRenderer(root, { onAction: vi.fn() });
+        renderer.render({ mode: 'autocomplete', prompts: [prompt], suggestions: [prompt], selectedIndex: 0, managerQuery: '', editPrompt: null, statusMessage: '' });
+        const list = root.querySelector<HTMLElement>('.prompt-list')!;
+        const row = list.querySelector<HTMLElement>('[data-index="0"]')!;
+        Object.defineProperties(list, { clientHeight: { configurable: true, value: 80 }, scrollHeight: { configurable: true, value: 1000 } });
+        vi.spyOn(list, 'getBoundingClientRect').mockReturnValue({ top: 0, bottom: 80 } as DOMRect);
+        vi.spyOn(row, 'getBoundingClientRect').mockImplementation(() => ({ top: 200 - list.scrollTop, bottom: 360 - list.scrollTop } as DOMRect));
+        renderer.syncAutocompleteSelection(0, true);
+        expect(list.scrollTop).toBe(200);
+        renderer.syncAutocompleteSelection(0, true);
+        renderer.syncAutocompleteSelection(0, true);
+        expect(list.scrollTop).toBe(200);
+        renderer.destroy(); root.remove();
+    });
+
     it('renders retry rather than a false empty state after manager load failure', () => {
         const root = document.createElement('div');
         const onAction = vi.fn();

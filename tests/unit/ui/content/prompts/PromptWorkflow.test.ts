@@ -29,6 +29,67 @@ function client(prompts: PromptRecord[]) {
 }
 
 describe('PromptWorkflow', () => {
+    it('searches manual candidates by title and trigger, including enabled prompts without triggers', async () => {
+        const records = [prompt({ id: 'title', title: '整理资料', triggerText: '' }), prompt({ id: 'trigger', title: 'Different', triggerText: '整理' }), prompt({ id: 'disabled', title: '整理 disabled', triggerText: '', enabled: false })];
+        const workflow = new PromptWorkflow(client(records));
+        expect(await workflow.openSuggestions({ text: '', caret: 0, formulaAuthoringEnabled: false })).toBe('open');
+        expect(workflow.state.suggestions.map(item => item.id)).toEqual(['title', 'trigger']);
+        expect(await workflow.refreshAutocomplete({ text: '整理', caret: 2, formulaAuthoringEnabled: false, automaticEnabled: false })).toBe('open');
+        expect(workflow.state.suggestions.map(item => item.id)).toEqual(['title', 'trigger']);
+        workflow.closeSurface();
+        expect(await workflow.refreshAutocomplete({ text: '\\整理', caret: 3, formulaAuthoringEnabled: false })).toBe('open');
+        expect(workflow.state.suggestions.map(item => item.id)).toEqual(['trigger']);
+    });
+
+    it('returns to automatic trigger-prefix matching when moving the caret outside the manual query range', async () => {
+        const workflow = new PromptWorkflow(client([
+            prompt({ id: 'title-only', title: 'Rewrite explanation', triggerText: 'polish' }),
+            prompt({ id: 'prefix', title: 'Different', triggerText: 'rewrite' }),
+            prompt({ id: 'contains', title: 'Other', triggerText: 'sprewrite' }),
+        ]));
+        const text = 'first \\rew';
+        expect(await workflow.openSuggestions({ text, caret: 0, formulaAuthoringEnabled: false })).toBe('open');
+        expect(workflow.state.manualAutocomplete).toBe(true);
+        expect(await workflow.refreshAutocomplete({ text, caret: text.length, formulaAuthoringEnabled: false, automaticEnabled: true })).toBe('open');
+        expect(workflow.state.manualAutocomplete).toBe(false);
+        expect(workflow.state.suggestions.map(item => item.id)).toEqual(['prefix']);
+        expect(workflow.state.activeToken?.token).toBe('\\rew');
+    });
+
+    it.each([{ records: [] }, { records: [prompt()] }])('keeps a dismissible manual candidate surface for an empty library or zero matches', async ({ records }) => {
+        const workflow = new PromptWorkflow(client(records));
+        expect(await workflow.openSuggestions({ text: '', caret: 0, formulaAuthoringEnabled: false })).toBe('open');
+        expect(await workflow.refreshAutocomplete({ text: 'no-match', caret: 8, formulaAuthoringEnabled: false, automaticEnabled: false })).toBe('open');
+        expect(workflow.state.mode).toBe('autocomplete');
+        expect(workflow.state.suggestions).toEqual([]);
+        workflow.dismissAutocomplete();
+        expect(workflow.state.mode).toBeNull();
+    });
+
+    it('opens manual suggestions at an empty caret range without inserting a trigger character', async () => {
+        const workflow = new PromptWorkflow(client([prompt(), prompt({ id: 'other', title: 'Summarize', triggerText: 'summarize' })]));
+        expect(await workflow.openSuggestions({ text: 'before after', caret: 7, formulaAuthoringEnabled: false })).toBe('open');
+        expect(workflow.state.activeToken).toEqual({ start: 7, end: 7, token: '', query: '' });
+        expect(workflow.state.suggestions).toHaveLength(2);
+        expect(await workflow.refreshAutocomplete({ text: 'before rewafter', caret: 10, formulaAuthoringEnabled: false, automaticEnabled: false })).toBe('open');
+        expect(workflow.state.activeToken).toEqual({ start: 7, end: 10, token: 'rew', query: 'rew' });
+        expect(workflow.state.suggestions.map(value => value.id)).toEqual(['rewrite']);
+        workflow.dismissAutocomplete();
+        expect(await workflow.refreshAutocomplete({ text: 'before rewafter', caret: 10, formulaAuthoringEnabled: false, automaticEnabled: false })).toBe('idle');
+    });
+
+    it('cancels an outstanding suggestion read when dismissed or when the composer leaves its trigger', async () => {
+        let finish!: (prompts: PromptRecord[]) => void;
+        const api = client([]);
+        api.listPrompts.mockImplementationOnce(() => new Promise(resolve => { finish = resolve; }));
+        const workflow = new PromptWorkflow(api);
+        const opening = workflow.openSuggestions({ text: '', caret: 0, formulaAuthoringEnabled: false });
+        workflow.closeSurface();
+        finish([prompt()]);
+        expect(await opening).toBe('idle');
+        expect(workflow.state.mode).toBeNull();
+    });
+
     it('keeps a manager load failure distinct from an empty prompt library', async () => {
         const api = client([]);
         api.listPrompts.mockRejectedValueOnce(new Error('Extension context invalidated.'));

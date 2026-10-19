@@ -24,6 +24,7 @@ import {
 } from '../../../services/reader/atomicSelection';
 import { showToast } from '../../../utils/toast';
 import { t } from '../components/i18n';
+import { getShortcutPlatform } from '../shortcuts/shortcutEventScope';
 
 const STYLE_ID = 'aimd-chatgpt-atomic-selection-style';
 const STATE_ATTRIBUTE = 'data-aimd-page-atomic-state';
@@ -107,11 +108,36 @@ export class ChatGPTAtomicSelectionController {
         this.pendingModCopy = false;
     }
 
+    private externalKeyboardRouting = false;
+
+    setExternalKeyboardRouting(enabled: boolean): void {
+        this.externalKeyboardRouting = enabled;
+        this.pendingModCopy = false;
+    }
+
+    tryExecuteMarkdownShortcut(event: KeyboardEvent): boolean {
+        if (!this.initialized || event.repeat) return false;
+        const nativeCopy = isPrimaryCopyKey(event) && !event.shiftKey
+            && (getShortcutPlatform() === 'mac' ? event.metaKey && !event.ctrlKey : event.ctrlKey && !event.metaKey);
+        const snapshot = this.resolveCurrentSelectionSnapshot();
+        if (!snapshot) {
+            if (!this.hasCanonicalSurfaceEvidence()) return false;
+            if (nativeCopy) this.pendingModCopy = true;
+            else { event.preventDefault(); this.showCopyFailure(); }
+            return true;
+        }
+        if (nativeCopy) { this.pendingModCopy = true; return true; }
+        event.preventDefault();
+        void this.handleMarkdownShortcut(snapshot);
+        return true;
+    }
+
     private readonly handleSelectionFrame = (frame: ChatGPTPageSelectionFrame | null): void => {
         this.syncSelection(frame);
     };
 
     private readonly handleKeyDown = (event: KeyboardEvent): void => {
+        if (this.externalKeyboardRouting) return;
         if (event.repeat || !isPrimaryCopyKey(event) || isEditableTarget(event.target)) return;
         const snapshot = this.resolveCurrentSelectionSnapshot();
         if (!snapshot) {

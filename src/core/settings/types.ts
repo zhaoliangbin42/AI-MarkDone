@@ -5,7 +5,7 @@
  * - `browser.storage.sync` key: `app_settings` (legacy)
  *
  * Principles:
- * - Backward compatible migrations (v1/v2/v3/v4 -> v5)
+ * - Backward compatible migrations (v1/v2/v3/v4/v5 -> v6)
  * - Merge with defaults to allow adding new fields safely
  */
 
@@ -17,8 +17,9 @@ import { DEFAULT_CONTENT_CLEANUP_SETTINGS, type ContentCleanupSettings } from '.
 import { createDefaultReaderCommentExportSettings } from './readerCommentExport';
 import type { FormulaSettings } from './formula';
 import { DEFAULT_FORMULA_SETTINGS } from './formula';
+import { normalizeShortcutSettings, type ShortcutSettings } from '../shortcuts';
 
-export type SettingsVersion = 5;
+export type SettingsVersion = 6;
 
 export type ChatGPTDirectoryMode = 'preview' | 'expanded';
 export type ChatGPTDirectoryPromptLabelMode = 'head' | 'headTail';
@@ -143,6 +144,7 @@ export type ThemeAccentColor = `#${string}`;
 
 export type AppSettings = {
     version: SettingsVersion;
+    shortcuts: ShortcutSettings;
     platforms: {
         chatgpt: boolean;
         gemini: boolean;
@@ -192,7 +194,8 @@ export type AppSettings = {
 export type SettingsCategory = Exclude<keyof AppSettings, 'version'>;
 
 export const DEFAULT_SETTINGS: AppSettings = {
-    version: 5,
+    version: 6,
+    shortcuts: normalizeShortcutSettings(undefined),
     platforms: { chatgpt: true, gemini: true, claude: true, deepseek: true },
     behavior: {
         showMessageToolbar: true,
@@ -261,6 +264,7 @@ export const DEFAULT_SETTINGS: AppSettings = {
 export function isSettingsCategory(value: unknown): value is SettingsCategory {
     return (
         value === 'platforms'
+        || value === 'shortcuts'
         || value === 'behavior'
         || value === 'reader'
         || value === 'content'

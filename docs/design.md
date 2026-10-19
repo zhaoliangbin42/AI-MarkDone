@@ -1,5 +1,20 @@
 # AI-MarkDone Design Reference
 
+## Keyboard shortcut settings (2026-10-19)
+
+Settings → Buttons & shortcuts retains the existing category and adds Buttons / Keyboard shortcuts tabs. Keep the flat grouped Settings rows, restrained separators, tokenized keycaps, clear focus rings and responsive stacking. The keyboard view owns an isolated ShadowRoot with the same appearance snapshot; the workspace body remains the scroll owner. The production-component fixture is `mocks/components/keyboard-settings`; the earlier `keyboard-settings-prototype` remains a design reference.
+
+Group commands by Selection, Reading and messages, and Input and prompts. Each row shows its command, scope, keycaps, disable/enable and reset. Search includes names, scopes and combinations. Clicking keycaps expands one inline recorder and focuses its capture area. Show modifier progress, retain the first non-modifier key, and confirm only after release. Esc cancels, Tab leaves recording, and IME composition cannot become a binding. Closing or changing categories clears the transient recorder. While persistence is pending, disable repeated actions; a failed write must keep the previous binding and candidate. A disconnected runtime pauses capture and uses the existing Settings Retry action; successful recovery makes the retained candidate editable again.
+
+Use mnemonic letters: B/Y/R for blue/yellow/red, H for Highlight, N for Note and P for Prompt. macOS uses actual Control+Shift; Windows/Linux use Shift+letter only for a valid non-editable body selection and Alt+Shift+P in the composer. Copy keeps Command+Shift+C on macOS and Ctrl+Shift+C elsewhere. Previous/Next keep bare Left/Right, and Prompt library starts unassigned. Existing custom bindings, empty bindings and disabled choices retain priority over new defaults. Bindings use physical `code`, independent of layout-generated characters. [Product capabilities](FEATURES.md) owns the complete default and migration contract.
+
+Keep clear, disable and reset distinct. Clear creates an empty binding; disable preserves the combination; reset restores the catalog default, including an empty default. Re-enabling and single-command reset check conflicts before mutation. An inline conflict message names the overlapping commands and offers one Replace and save action; that acknowledged save also disables the conflicting bindings while retaining their combinations. Known reserved keys block saving. Label a successful check as no conflict within the extension, without claiming complete detection of external key use.
+
+The shortcut master switch and backslash automatic-suggestion switch are independent. Disabling shortcuts preserves their bindings; manual prompt-opening shortcuts remain available when only automatic suggestions are off. Restore all defaults requires an inline confirmation and restores shortcut defaults and the shortcut master only. The automatic-suggestion switch retains its own setting. Do not duplicate the input settings preference or replace the Prompt editor's native candidate controls.
+
+Manual candidates open next to the current caret, preferably above it. Flip below or shrink the internally scrolling list when space is limited, without covering the caret or exceeding the visual viewport. Follow composer scrolling, including external Reader composers in Shadow DOM. Keep input focus and draft text on Escape. Manual filtering includes enabled Prompt titles and triggers; empty and failed results stay visible with an actionable library entry. Selection changes via Up/Down update rows in place and scroll only the candidate list.
+
+
 ## Message export layout (2026-10-16)
 
 Save Messages follows Settings' flat grouped rows and reuses its inline select
@@ -15,9 +30,11 @@ The lower-right page-control family uses 24px buttons and 16px glyphs, derived
 from existing tokens in `pageControlsCss.ts`. Runtime and both Buttons settings
 previews consume that same CSS; previews must not override sizes or button chrome.
 Drawer expansion, pins, tooltips and focus behavior keep their existing contracts.
-Enter-to-newline shows the same localized native Keyboard-settings/retirement note
+Enter-to-newline shows the same localized native Keyboard-settings guidance
 beneath the option in Settings and the page popover. The note is plain supporting
-text associated with the checkbox, with no modal or change to keyboard behavior.
+text associated with the checkbox: open the lower-left avatar, Settings → Keyboard,
+change Send message to Cmd/Ctrl+Enter, and optionally disable the extension feature.
+It adds no modal or change to keyboard behavior.
 
 ## Rich-content output controls (2026-10-08)
 

@@ -57,6 +57,7 @@ import {
 } from './formula';
 import { normalizeFormulaSourceFormat } from '../math/formulaSourceFormat';
 import { normalizeReaderCommentExportSettings } from './readerCommentExport';
+import { normalizeShortcutSettings } from '../shortcuts';
 
 function isRecord(value: unknown): value is Record<string, unknown> {
     return typeof value === 'object' && value !== null;
@@ -312,7 +313,7 @@ export function loadAndNormalize(stored: unknown): AppSettings {
     if (!isRecord(stored)) return { ...DEFAULT_SETTINGS };
 
     const version = (stored as any).version;
-    if (version === 5 || version === 4 || version === 3) return mergeWithDefaults(stored as AppSettings);
+    if (version === 6 || version === 5 || version === 4 || version === 3) return mergeWithDefaults(stored as AppSettings);
     if (version === 2) return migrateFromV2(stored);
     if (version === 1) return migrateFromV1(stored);
 
@@ -320,11 +321,12 @@ export function loadAndNormalize(stored: unknown): AppSettings {
 }
 
 /**
- * Merge stored settings with defaults (keeps v5 and tolerates older fields).
+ * Merge stored settings with defaults (keeps v6 and tolerates older fields).
  */
 export function mergeWithDefaults(stored: AppSettings): AppSettings {
     return {
         version: DEFAULT_SETTINGS.version,
+        shortcuts: normalizeShortcutSettings(stored.shortcuts, stored.chatgptBehavior),
         platforms: normalizePlatformSettings((stored as any).platforms),
         behavior: normalizeBehaviorSettings(stored.behavior),
         reader: {
@@ -355,7 +357,7 @@ export function mergeWithDefaults(stored: AppSettings): AppSettings {
 }
 
 /**
- * Migrate v1 -> v5
+ * Migrate v1 -> v6
  *
  * Legacy v1 layout:
  * - behavior.enableClickToCopy
@@ -371,6 +373,7 @@ export function migrateFromV1(v1: unknown): AppSettings {
 
     return {
         version: DEFAULT_SETTINGS.version,
+        shortcuts: normalizeShortcutSettings(undefined),
         platforms: normalizePlatformSettings(platforms),
         behavior: normalizeBehaviorSettings({
             enableClickToCopy: Boolean((behavior as any).enableClickToCopy ?? true),
@@ -403,7 +406,7 @@ export function migrateFromV1(v1: unknown): AppSettings {
 }
 
 /**
- * Migrate v2 -> v5
+ * Migrate v2 -> v6
  *
  * Legacy v2 layout:
  * - chatgpt folding settings under performance.chatgptFoldingMode / chatgptDefaultExpandedCount
@@ -417,6 +420,7 @@ export function migrateFromV2(v2: unknown): AppSettings {
 
     return {
         version: DEFAULT_SETTINGS.version,
+        shortcuts: normalizeShortcutSettings((rec as any).shortcuts, rec.chatgptBehavior),
         platforms: normalizePlatformSettings(platforms),
         behavior: normalizeBehaviorSettings(behavior),
         reader: {

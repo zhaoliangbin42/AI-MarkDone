@@ -6,6 +6,36 @@ function rect(left: number, top: number, width: number, height: number): DOMRect
 }
 
 describe('PromptGeometryAdapter', () => {
+    it.each([{ top: 0, height: 400, caretTop: 200 }, { top: 200, height: 160, caretTop: 280 }, { top: 0, height: 600, caretTop: 40 }])('fits candidates beside the caret without covering it in viewport $top/$height', frame => {
+        const visualViewport = new EventTarget() as VisualViewport;
+        Object.assign(visualViewport, { offsetLeft: 20, offsetTop: frame.top, width: 320, height: frame.height });
+        Object.defineProperty(window, 'visualViewport', { configurable: true, value: visualViewport });
+        const composer = document.createElement('textarea'), host = document.createElement('div'), root = document.createElement('div');
+        document.body.append(composer, host); host.append(root);
+        vi.spyOn(composer, 'getBoundingClientRect').mockReturnValue(rect(60, frame.caretTop, 260, 80));
+        vi.spyOn(root, 'getBoundingClientRect').mockImplementation(() => rect(0, 0, 288, Math.min(240, Number.parseFloat(host.style.getPropertyValue('--_prompt-popover-max-height')) || 240)));
+        const geometry = new PromptGeometryAdapter(() => composer);
+        geometry.position({ mode: 'autocomplete', host, root, anchor: composer, promptCount: 10, hasStatus: false });
+        const popupTop = Number.parseFloat(host.style.top), popupHeight = root.getBoundingClientRect().height;
+        expect(popupTop).toBeGreaterThanOrEqual(frame.top);
+        expect(popupTop + popupHeight).toBeLessThanOrEqual(frame.top + frame.height);
+        expect(popupTop + popupHeight <= frame.caretTop || popupTop >= frame.caretTop + 16).toBe(true);
+        expect(Number.parseFloat(host.style.left) + Number.parseFloat(host.style.width)).toBeLessThanOrEqual(340);
+    });
+
+    it('follows composer scroll inside a shadow root and removes that listener when destroyed', () => {
+        const host = document.createElement('div'); document.body.append(host);
+        const composer = document.createElement('textarea'); host.attachShadow({ mode: 'open' }).append(composer);
+        const geometry = new PromptGeometryAdapter(() => composer);
+        const readLayout = vi.fn(() => null);
+        const positioner = geometry.createPositioner(readLayout);
+        composer.dispatchEvent(new Event('scroll', { bubbles: false, composed: false }));
+        expect(readLayout).toHaveBeenCalledTimes(1);
+        positioner.destroy();
+        composer.dispatchEvent(new Event('scroll', { bubbles: false, composed: false }));
+        expect(readLayout).toHaveBeenCalledTimes(1);
+    });
+
     afterEach(() => {
         vi.restoreAllMocks();
         Object.defineProperty(window, 'visualViewport', { configurable: true, value: undefined });

@@ -17,6 +17,7 @@ import {
     normalizeReaderPanelSizeRatio,
 } from '../../core/settings/migrations';
 import { normalizeReaderCommentExportSettings } from '../../core/settings/readerCommentExport';
+import { applyLegacyShortcutPreferences, getEffectiveBinding, isShortcutSettings, normalizeShortcutSettings } from '../../core/shortcuts';
 
 export { loadAndNormalize } from '../../core/settings/migrations';
 
@@ -25,6 +26,17 @@ function isRecord(value: unknown): value is Record<string, unknown> {
 }
 
 type PlanResult = { next: AppSettings };
+
+function withLegacyShortcutFields(settings: AppSettings): AppSettings {
+    const copy = getEffectiveBinding(settings.shortcuts, 'selection.copyMarkdown');
+    const legacyCopy = copy?.code === 'KeyC' && copy.primary && !copy.alt && !copy.control
+        ? copy.shift ? 'mod-shift-c' : 'mod-c'
+        : 'none';
+    return { ...settings, chatgptBehavior: { ...settings.chatgptBehavior,
+        atomicMarkdownCopyShortcut: legacyCopy,
+        enableArrowKeyMessageNavigation: Boolean(getEffectiveBinding(settings.shortcuts, 'navigation.previous') && getEffectiveBinding(settings.shortcuts, 'navigation.next')),
+    } };
+}
 
 function normalizeLanguage(value: unknown): AppSettings['language'] {
     return value === 'auto' || value === 'en' || value === 'zh_CN' ? value : DEFAULT_SETTINGS.language;
@@ -43,6 +55,14 @@ export function planSetCategory(current: AppSettings, category: SettingsCategory
     }
 
     switch (category) {
+        case 'shortcuts': {
+            const patch = isRecord(value) ? value : {};
+            // Overrides are a complete map when present, so deleting a key can
+            // restore its default instead of resurrecting a previous override.
+            const shortcuts = { ...cur.shortcuts, ...patch };
+            if (!isShortcutSettings(shortcuts)) throw new Error('SHORTCUT_INVALID');
+            return { next: withLegacyShortcutFields({ ...cur, shortcuts: normalizeShortcutSettings(shortcuts) }) };
+        }
         case 'platforms': {
             const next: AppSettings = {
                 ...cur,
@@ -153,11 +173,13 @@ export function planSetCategory(current: AppSettings, category: SettingsCategory
             return { next };
         }
         case 'chatgptBehavior': {
+            const patch = isRecord(value) ? value : {};
             const next: AppSettings = {
                 ...cur,
+                shortcuts: applyLegacyShortcutPreferences(cur.shortcuts, patch, cur.chatgptBehavior),
                 chatgptBehavior: normalizeChatGPTBehaviorSettings({
                     ...cur.chatgptBehavior,
-                    ...(isRecord(value) ? value : {}),
+                    ...patch,
                 }),
             };
             return { next };
@@ -190,7 +212,7 @@ export function planSetCategory(current: AppSettings, category: SettingsCategory
 }
 
 export function planReset(): PlanResult {
-    return { next: { ...DEFAULT_SETTINGS } };
+    return { next: structuredClone(DEFAULT_SETTINGS) };
 }
 
 export function planGetCategory(settings: AppSettings, category: unknown): { category: SettingsCategory; value: unknown } {

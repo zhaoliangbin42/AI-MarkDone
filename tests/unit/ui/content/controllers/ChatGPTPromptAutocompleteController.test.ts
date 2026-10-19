@@ -4,6 +4,25 @@ import { createAppearanceSnapshot } from '@/style/appearance';
 import { parseContenteditableToPlainText, setContenteditablePlainTextSelection } from '@/core/sending/contenteditable';
 import type { PromptRecord } from '@/core/prompts/promptLibrary';
 import { setLocale } from '@/ui/content/components/i18n';
+import { ChatGPTShortcutController } from '@/ui/content/shortcuts/ChatGPTShortcutController';
+import { getEffectiveBinding, getShortcutPlatform } from '@/core/shortcuts';
+
+function bindManualShortcut(controller: ChatGPTPromptAutocompleteController) {
+    const settings = { enabled: true, overrides: {}, disabled: [] };
+    const shortcuts = new ChatGPTShortcutController({ copy: () => false, selection: () => false, navigate: () => false, prompts: controller });
+    shortcuts.setSettings(settings); shortcuts.setActive(true); shortcuts.init();
+    return {
+        press(input: HTMLElement) {
+            const platform = getShortcutPlatform(navigator.platform);
+            const binding = getEffectiveBinding(settings, 'prompts.openSuggestions', platform)!;
+            const event = new KeyboardEvent('keydown', { key: binding.code.replace(/^Key/, '').toLowerCase(), code: binding.code,
+                ctrlKey: Boolean(binding.control) || (platform !== 'mac' && binding.primary), metaKey: platform === 'mac' && binding.primary,
+                shiftKey: binding.shift, altKey: binding.alt, bubbles: true, composed: true, cancelable: true });
+            input.dispatchEvent(event); return event;
+        },
+        dispose: () => shortcuts.dispose(),
+    };
+}
 
 function createPrompt(patch: Partial<PromptRecord>): PromptRecord {
     return {
@@ -139,6 +158,155 @@ describe('ChatGPTPromptAutocompleteController', () => {
         vi.restoreAllMocks();
     });
 
+    it.each([{ text: '', caret: 0 }, { text: 'before after', caret: 7 }, { text: 'first line\nsecond line', caret: 11 }])('opens manual candidates through the real shortcut at caret $caret and inserts without losing surrounding text', async ({ text, caret }) => {
+        const composer = createTextareaComposer(text); composer.focus(); composer.setSelectionRange(caret, caret);
+        const client = { listPrompts: vi.fn(async () => [createPrompt({ title: '整理资料', triggerText: '', content: 'Inserted{{cursor}}' })]), recordUse: vi.fn(async () => undefined), savePrompt: vi.fn(), deletePrompt: vi.fn(), restoreDefaults: vi.fn() };
+        const controller = new ChatGPTPromptAutocompleteController({ getComposerInputElement: () => composer, getComposerKind: () => 'textarea' } as any, client);
+        controller.setEnabled(false); controller.init();
+        const shortcut = bindManualShortcut(controller);
+        try {
+            expect(shortcut.press(composer).defaultPrevented).toBe(true);
+            await tick();
+            const host = document.getElementById('aimd-chatgpt-prompt-popover-host')!;
+            expect(host.shadowRoot!.querySelector('[data-role="prompt-suggestion"]')?.textContent).toContain('整理资料');
+            expect(host.shadowRoot!.querySelector('[data-role="prompt-search"]')).toBeNull();
+            expect(composer.value).toBe(text);
+            composer.value = `${text.slice(0, caret)}整理${text.slice(caret)}`;
+            composer.setSelectionRange(caret + 2, caret + 2);
+            composer.dispatchEvent(new Event('input', { bubbles: true }));
+            await tick();
+            composer.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', bubbles: true, composed: true, cancelable: true }));
+            await tick();
+            expect(composer.value).toBe(`${text.slice(0, caret)}Inserted${text.slice(caret)}`);
+            expect(composer.selectionStart).toBe(caret + 8);
+            expect(document.activeElement).toBe(composer);
+            expect(document.getElementById('aimd-chatgpt-prompt-popover-host')).toBeNull();
+        } finally { shortcut.dispose(); controller.dispose(); }
+    });
+
+    it.each([{ text: '', caret: 0 }, { text: 'first line\nsecond line', caret: 13 }])('preserves a contenteditable draft and its middle caret through manual candidates and Escape at $caret', async ({ text, caret }) => {
+        const composer = createComposer(text); composer.focus(); setContenteditablePlainTextSelection(composer, caret, caret);
+        const client = { listPrompts: vi.fn(async () => [createPrompt({ triggerText: '', content: 'Inserted{{cursor}}' })]), recordUse: vi.fn(async () => undefined), savePrompt: vi.fn(), deletePrompt: vi.fn(), restoreDefaults: vi.fn() };
+        const controller = new ChatGPTPromptAutocompleteController({ getComposerInputElement: () => composer, getComposerKind: () => 'contenteditable' } as any, client);
+        controller.setEnabled(false); controller.init(); const shortcut = bindManualShortcut(controller);
+        try {
+            expect(shortcut.press(composer).defaultPrevented).toBe(true); await tick();
+            composer.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true, composed: true, cancelable: true }));
+            expect(document.activeElement).toBe(composer); expect(parseContenteditableToPlainText(composer)).toBe(text);
+            expect(shortcut.press(composer).defaultPrevented).toBe(true); await tick();
+            composer.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', bubbles: true, composed: true, cancelable: true })); await tick();
+            expect(parseContenteditableToPlainText(composer)).toBe(`${text.slice(0, caret)}Inserted${text.slice(caret)}`);
+            expect(document.activeElement).toBe(composer);
+        } finally { shortcut.dispose(); controller.dispose(); }
+    });
+
+    it('keeps zero-match candidates open, does not submit on Enter, and restores the draft and caret on Escape', async () => {
+        const composer = createTextareaComposer('before after'); composer.focus(); composer.setSelectionRange(7, 7);
+        const client = { listPrompts: vi.fn(async () => [createPrompt({})]), recordUse: vi.fn(), savePrompt: vi.fn(), deletePrompt: vi.fn(), restoreDefaults: vi.fn() };
+        const controller = new ChatGPTPromptAutocompleteController({ getComposerInputElement: () => composer, getComposerKind: () => 'textarea' } as any, client);
+        controller.setEnabled(false); controller.init(); const shortcut = bindManualShortcut(controller);
+        const send = vi.fn(); document.addEventListener('keydown', send);
+        try {
+            shortcut.press(composer); await tick();
+            composer.value = 'before no-matchafter'; composer.setSelectionRange(15, 15); composer.dispatchEvent(new Event('input', { bubbles: true })); await tick();
+            const host = document.getElementById('aimd-chatgpt-prompt-popover-host')!;
+            expect(host.shadowRoot!.querySelector('[role="status"]')).toBeTruthy();
+            const enter = new KeyboardEvent('keydown', { key: 'Enter', bubbles: true, composed: true, cancelable: true }); composer.dispatchEvent(enter);
+            expect(enter.defaultPrevented).toBe(true); expect(send).not.toHaveBeenCalled();
+            host.shadowRoot!.querySelector<HTMLButtonElement>('[data-action="open-prompt-library"]')!.focus();
+            host.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true, composed: true, cancelable: true }));
+            expect(document.getElementById('aimd-chatgpt-prompt-popover-host')).toBeNull();
+            expect(document.activeElement).toBe(composer); expect(composer.value).toBe('before no-matchafter'); expect(composer.selectionStart).toBe(15);
+            expect(client.recordUse).not.toHaveBeenCalled();
+        } finally { shortcut.dispose(); controller.dispose(); document.removeEventListener('keydown', send); }
+    });
+
+    it('opens the library only through the explicit empty-candidate action and restores its composer on Escape', async () => {
+        const composer = createTextareaComposer('draft'); composer.focus();
+        const client = { listPrompts: vi.fn(async () => []), recordUse: vi.fn(), savePrompt: vi.fn(), deletePrompt: vi.fn(), restoreDefaults: vi.fn() };
+        const controller = new ChatGPTPromptAutocompleteController({ getComposerInputElement: () => composer, getComposerKind: () => 'textarea' } as any, client);
+        controller.setEnabled(false); controller.init(); const shortcut = bindManualShortcut(controller);
+        try {
+            shortcut.press(composer); await tick();
+            let host = document.getElementById('aimd-chatgpt-prompt-popover-host')!;
+            expect(host.shadowRoot!.querySelector('[role="status"]')).toBeTruthy();
+            expect(host.shadowRoot!.querySelector('[data-role="prompt-search"]')).toBeNull();
+            host.shadowRoot!.querySelector<HTMLButtonElement>('[data-action="open-prompt-library"]')!.click(); await tick();
+            host = document.getElementById('aimd-chatgpt-prompt-popover-host')!;
+            const search = host.shadowRoot!.querySelector<HTMLInputElement>('[data-role="prompt-search"]')!;
+            expect(search).toBeTruthy(); search.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true, composed: true, cancelable: true }));
+            expect(document.activeElement).toBe(composer); expect(composer.value).toBe('draft');
+        } finally { shortcut.dispose(); controller.dispose(); }
+    });
+
+    it('keeps the same internally scrolling candidate list through real arrow keydown and keyup events', async () => {
+        const composer = createTextareaComposer(''); composer.focus();
+        const client = { listPrompts: vi.fn(async () => Array.from({ length: 8 }, (_, index) => createPrompt({ id: String(index), title: `Prompt ${index}` }))), recordUse: vi.fn(), savePrompt: vi.fn(), deletePrompt: vi.fn(), restoreDefaults: vi.fn() };
+        const controller = new ChatGPTPromptAutocompleteController({ getComposerInputElement: () => composer, getComposerKind: () => 'textarea' } as any, client);
+        controller.setEnabled(false); controller.init(); const shortcut = bindManualShortcut(controller);
+        try {
+            shortcut.press(composer); await tick();
+            const shadow = document.getElementById('aimd-chatgpt-prompt-popover-host')!.shadowRoot!;
+            const list = shadow.querySelector<HTMLElement>('.prompt-list')!;
+            const last = list.querySelector<HTMLElement>('[data-index="7"]')!;
+            Object.defineProperties(list, { clientHeight: { configurable: true, value: 100 }, scrollHeight: { configurable: true, value: 480 } });
+            vi.spyOn(list, 'getBoundingClientRect').mockReturnValue({ top: 0, bottom: 100 } as DOMRect);
+            vi.spyOn(last, 'getBoundingClientRect').mockReturnValue({ top: 360, bottom: 400 } as DOMRect);
+            const pageScroll = vi.spyOn(window, 'scrollTo');
+            for (let index = 0; index < 7; index += 1) {
+                composer.dispatchEvent(new KeyboardEvent('keydown', { key: 'ArrowDown', bubbles: true, composed: true, cancelable: true }));
+                composer.dispatchEvent(new KeyboardEvent('keyup', { key: 'ArrowDown', bubbles: true, composed: true }));
+                await tick();
+            }
+            expect(shadow.querySelector('.prompt-list')).toBe(list);
+            expect(last.getAttribute('aria-selected')).toBe('true'); expect(list.scrollTop).toBe(300);
+            expect(pageScroll).not.toHaveBeenCalled(); expect(document.activeElement).toBe(composer);
+        } finally { shortcut.dispose(); controller.dispose(); }
+    });
+
+    it('keeps the selected candidate visible when resizing reduces the internal list height', async () => {
+        const composer = createTextareaComposer(''); composer.focus();
+        const client = { listPrompts: vi.fn(async () => Array.from({ length: 12 }, (_, index) => createPrompt({ id: String(index) }))), recordUse: vi.fn(), savePrompt: vi.fn(), deletePrompt: vi.fn(), restoreDefaults: vi.fn() };
+        const controller = new ChatGPTPromptAutocompleteController({ getComposerInputElement: () => composer, getComposerKind: () => 'textarea' } as any, client);
+        controller.setEnabled(false); controller.init(); const shortcut = bindManualShortcut(controller);
+        try {
+            shortcut.press(composer); await tick();
+            const shadow = document.getElementById('aimd-chatgpt-prompt-popover-host')!.shadowRoot!;
+            const list = shadow.querySelector<HTMLElement>('.prompt-list')!;
+            let visibleHeight = 180;
+            Object.defineProperties(list, { clientHeight: { configurable: true, get: () => visibleHeight }, scrollHeight: { configurable: true, value: 480 } });
+            vi.spyOn(list, 'getBoundingClientRect').mockImplementation(() => ({ top: 0, bottom: visibleHeight } as DOMRect));
+            list.querySelectorAll<HTMLElement>('[data-role="prompt-suggestion"]').forEach((row, index) => {
+                vi.spyOn(row, 'getBoundingClientRect').mockImplementation(() => ({ top: index * 40 - list.scrollTop, bottom: (index + 1) * 40 - list.scrollTop } as DOMRect));
+            });
+            for (let index = 0; index < 9; index += 1) composer.dispatchEvent(new KeyboardEvent('keydown', { key: 'ArrowDown', bubbles: true, composed: true, cancelable: true }));
+            expect(list.scrollTop).toBe(220);
+            visibleHeight = 100; setViewport(390, 600);
+            const pageScroll = vi.spyOn(window, 'scrollTo');
+            window.dispatchEvent(new Event('resize'));
+            expect(shadow.querySelector('.prompt-list')).toBe(list);
+            expect(list.scrollTop).toBe(300);
+            const selected = list.querySelector<HTMLElement>('[aria-selected="true"]')!;
+            expect(selected.dataset.index).toBe('9');
+            expect(selected.getBoundingClientRect().bottom).toBeLessThanOrEqual(visibleHeight);
+            expect(pageScroll).not.toHaveBeenCalled(); expect(document.activeElement).toBe(composer);
+        } finally { shortcut.dispose(); controller.dispose(); }
+    });
+
+    it.each(['selection', 'composition', 'formula'])('does not claim the real manual shortcut during %s', async mode => {
+        const composer = createTextareaComposer(mode === 'formula' ? '$\\re' : 'draft'); composer.focus();
+        const client = { listPrompts: vi.fn(async () => [createPrompt({})]), recordUse: vi.fn(), savePrompt: vi.fn(), deletePrompt: vi.fn(), restoreDefaults: vi.fn() };
+        const controller = new ChatGPTPromptAutocompleteController({ getComposerInputElement: () => composer, getComposerKind: () => 'textarea' } as any, client);
+        controller.setEnabled(false); controller.init(); const shortcut = bindManualShortcut(controller);
+        try {
+            if (mode === 'selection') composer.setSelectionRange(0, 3);
+            if (mode === 'composition') composer.dispatchEvent(new CompositionEvent('compositionstart', { bubbles: true }));
+            if (mode === 'formula') controller.setFormulaAuthoringEnabled(true);
+            expect(shortcut.press(composer).defaultPrevented).toBe(false); await tick();
+            expect(client.listPrompts).not.toHaveBeenCalled(); expect(document.getElementById('aimd-chatgpt-prompt-popover-host')).toBeNull();
+        } finally { shortcut.dispose(); controller.dispose(); }
+    });
+
     it('does not mount the prompt popover when only theme overrides are synced', () => {
         const composer = createComposer('');
         const client = {
@@ -186,6 +354,98 @@ describe('ChatGPTPromptAutocompleteController', () => {
 
         expect(client.listPrompts).not.toHaveBeenCalled();
         expect(document.getElementById('aimd-chatgpt-prompt-popover-host')).toBeNull();
+        controller.dispose();
+    });
+
+    it('manually opens and accepts suggestions while automatic completion is disabled, preserving surrounding text', async () => {
+        const composer = createTextareaComposer('before after');
+        composer.focus();
+        composer.setSelectionRange(7, 7);
+        const client = {
+            listPrompts: vi.fn(async () => [createPrompt({ content: 'Rewrite {{cursor}}' })]),
+            recordUse: vi.fn(async () => undefined), savePrompt: vi.fn(), deletePrompt: vi.fn(), restoreDefaults: vi.fn(),
+        };
+        const controller = new ChatGPTPromptAutocompleteController({
+            getComposerInputElement: () => composer, getComposerKind: () => 'textarea',
+        } as any, client);
+        controller.setEnabled(false);
+        controller.init();
+        expect(controller.canOpenSuggestions()).toBe(true);
+        expect(await controller.openSuggestions()).toBe(true);
+        expect(composer.value).toBe('before after');
+        const event = new KeyboardEvent('keydown', { key: 'Enter', bubbles: true, composed: true, cancelable: true });
+        composer.dispatchEvent(event);
+        await tick();
+        expect(event.defaultPrevented).toBe(true);
+        expect(composer.value).toBe('before Rewrite after');
+        expect(composer.selectionStart).toBe(15);
+        expect(document.getElementById('aimd-chatgpt-prompt-popover-host')).toBeNull();
+        composer.dispatchEvent(new Event('input', { bubbles: true }));
+        await tick();
+        expect(document.getElementById('aimd-chatgpt-prompt-popover-host')).toBeNull();
+        controller.dispose();
+    });
+
+    it('does not manually open during composition, inside formula authoring, or for another focused input', async () => {
+        const composer = createTextareaComposer('$\\re');
+        composer.focus();
+        const client = { listPrompts: vi.fn(async () => [createPrompt({})]), recordUse: vi.fn(), savePrompt: vi.fn(), deletePrompt: vi.fn(), restoreDefaults: vi.fn() };
+        const controller = new ChatGPTPromptAutocompleteController({ getComposerInputElement: () => composer, getComposerKind: () => 'textarea' } as any, client);
+        controller.init();
+        controller.setFormulaAuthoringEnabled(true);
+        expect(controller.canOpenSuggestions()).toBe(false);
+        composer.value = '';
+        composer.dispatchEvent(new CompositionEvent('compositionstart', { bubbles: true }));
+        expect(await controller.openSuggestions()).toBe(false);
+        composer.dispatchEvent(new CompositionEvent('compositionend', { bubbles: true }));
+        const input = document.createElement('input'); document.body.append(input); input.focus();
+        expect(controller.canOpenSuggestions()).toBe(false);
+        expect(client.listPrompts).not.toHaveBeenCalled();
+        controller.dispose();
+    });
+
+    it.each(['Enter', 'Tab', 'ArrowRight'])('keeps accepted %s repeats away from the host until keyup', async (key) => {
+        const composer = createTextareaComposer(''); composer.focus();
+        const client = { listPrompts: vi.fn(async () => [createPrompt({ content: 'Inserted {{cursor}}' })]), recordUse: vi.fn(async () => undefined), savePrompt: vi.fn(), deletePrompt: vi.fn(), restoreDefaults: vi.fn() };
+        const controller = new ChatGPTPromptAutocompleteController({ getComposerInputElement: () => composer, getComposerKind: () => 'textarea' } as any, client);
+        controller.setEnabled(false); controller.init();
+        controller.setAnnotationComposer(content => content);
+        const hostKeydown = vi.fn(); document.addEventListener('keydown', hostKeydown);
+        const press = (repeat = false, isComposing = false) => {
+            const event = new KeyboardEvent('keydown', { key, code: key, repeat, isComposing, bubbles: true, composed: true, cancelable: true });
+            composer.dispatchEvent(event); return event;
+        };
+        try {
+            expect(await controller.openSuggestions()).toBe(true);
+            expect(press().defaultPrevented).toBe(true);
+            expect(press(true).defaultPrevented).toBe(true);
+            await tick();
+            expect(composer.value).toBe('Inserted ');
+            expect(document.getElementById('aimd-chatgpt-prompt-popover-host')).toBeNull();
+            expect(press(true).defaultPrevented).toBe(true);
+            expect(hostKeydown).not.toHaveBeenCalled();
+            expect(client.recordUse).toHaveBeenCalledTimes(1);
+            composer.dispatchEvent(new KeyboardEvent('keyup', { key, code: key, bubbles: true, composed: true }));
+            expect(press().defaultPrevented).toBe(false);
+            expect(hostKeydown).toHaveBeenCalledTimes(1);
+        } finally { controller.dispose(); document.removeEventListener('keydown', hostKeydown); }
+    });
+
+    it.each(['blur', 'dispose'])('clears the accepted-key guard on %s and leaves IME input alone', async cleanup => {
+        const composer = createTextareaComposer(''); composer.focus();
+        const client = { listPrompts: vi.fn(async () => [createPrompt({ content: 'Inserted' })]), recordUse: vi.fn(async () => undefined), savePrompt: vi.fn(), deletePrompt: vi.fn(), restoreDefaults: vi.fn() };
+        const controller = new ChatGPTPromptAutocompleteController({ getComposerInputElement: () => composer, getComposerKind: () => 'textarea' } as any, client);
+        controller.setEnabled(false); controller.init();
+        await controller.openSuggestions();
+        composer.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', bubbles: true, composed: true, cancelable: true }));
+        await tick();
+        const ime = new KeyboardEvent('keydown', { key: 'Enter', repeat: true, isComposing: true, bubbles: true, composed: true, cancelable: true });
+        composer.dispatchEvent(ime);
+        expect(ime.defaultPrevented).toBe(false);
+        if (cleanup === 'dispose') controller.dispose(); else window.dispatchEvent(new Event('blur'));
+        const repeat = new KeyboardEvent('keydown', { key: 'Enter', repeat: true, bubbles: true, composed: true, cancelable: true });
+        composer.dispatchEvent(repeat);
+        expect(repeat.defaultPrevented).toBe(false);
         controller.dispose();
     });
 
@@ -308,7 +568,7 @@ describe('ChatGPTPromptAutocompleteController', () => {
 
         const host = document.getElementById('aimd-chatgpt-prompt-popover-host')!;
         expect(host.style.left).toBe('100px');
-        expect(host.style.top).toBe('172px');
+        expect(host.style.top).toBe('296px');
         controller.dispose();
         restoreRange();
     });
