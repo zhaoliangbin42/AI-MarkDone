@@ -4,10 +4,10 @@ import type { AppearanceSnapshot } from '../../../style/appearance';
 import { ensureStyle } from '../../../style/shadow';
 import { createIcon } from '../components/Icon';
 import type { ModalHost } from '../components/ModalHost';
-import { TooltipDelegate } from '../../../utils/tooltip';
+import { getFlatWorkflowCss } from '../components/styles/flatWorkflowCss';
+import { t } from '../components/i18n';
 
 type ManagerView = 'current' | 'all';
-type AllViewMode = 'conversation' | 'timeline';
 
 type OpenParams = {
     shadow: ShadowRoot;
@@ -22,8 +22,6 @@ type OpenParams = {
         current: string;
         all: string;
         search: string;
-        byConversation: string;
-        timeline: string;
         empty: string;
         loading: string;
         error: string;
@@ -38,14 +36,10 @@ type OpenParams = {
         selectAll: string;
         invertSelection?: string;
         deleteSelected: string;
-        persistence: string;
-        persistenceTooltip: string;
     };
     onSelect: (entry: ReaderAnnotationListEntry) => void | Promise<void>;
     onDelete: (entry: ReaderAnnotationListEntry) => Promise<boolean>;
     onDeleteMany: (entries: ReaderAnnotationListEntry[]) => Promise<boolean>;
-    persistenceEnabled: boolean;
-    onPersistenceChange: (enabled: boolean) => Promise<void> | void;
 };
 
 function compact(value: string): string {
@@ -66,50 +60,39 @@ function formatDate(value: number): string {
 
 function getCss(): string {
     return `
-.mock-modal--reader-annotation-manager { --_modal-content-max-width: 880px; --_modal-content-max-height: 760px; border-color: var(--aimd-workspace-border); background: var(--aimd-workspace-card); box-shadow: var(--aimd-shadow-workspace), var(--aimd-workspace-edge-shadow); }
+${getFlatWorkflowCss()}
+.mock-modal--reader-annotation-manager { --_modal-content-max-width: 880px; --_modal-content-max-height: 760px; border-color: var(--aimd-workspace-border); background: var(--aimd-workspace-card); box-shadow: var(--aimd-shadow-workspace); }
 .mock-modal--reader-annotation-manager .mock-modal__head, .mock-modal--reader-annotation-manager .mock-modal__footer { background: var(--aimd-workspace-card); border-color: var(--aimd-workspace-border); }
 .mock-modal--reader-annotation-manager .mock-modal__title-copy strong { color: var(--aimd-text-primary); }
 .mock-modal--reader-annotation-manager .mock-modal__content { overflow: hidden; }
-.reader-annotation-manager { min-width: 0; min-height: 0; width: 100%; display: grid; grid-template-rows: auto minmax(0, 1fr); gap: var(--aimd-space-3); }
-.reader-annotation-manager__toolbar { min-width: 0; display: grid; gap: var(--aimd-space-3); }
+.reader-annotation-manager { min-width: 0; min-height: 0; width: 100%; display: grid; grid-template-rows: auto minmax(0, 1fr); gap: var(--aimd-space-4); }
+.reader-annotation-manager__toolbar { min-width: 0; display: grid; gap: var(--aimd-space-4); }
+.reader-annotation-manager__collection { min-width: 0; min-height: 0; display: grid; grid-template-rows: auto minmax(0, 1fr); gap: 0; }
+.reader-annotation-manager[data-bulk-mode="1"] .reader-annotation-manager__collection { gap: var(--aimd-space-3); }
 .reader-annotation-manager__toolbar-row { display: flex; flex-wrap: wrap; align-items: center; gap: var(--aimd-space-2); }
 .reader-annotation-manager__toolbar-row--primary { justify-content: space-between; }
+.reader-annotation-manager__options { min-width: 0; color: var(--aimd-text-secondary); font-size: var(--aimd-text-sm); }
+.reader-annotation-manager__options > summary { cursor: pointer; padding: var(--aimd-space-2) 0; }
+.reader-annotation-manager__options-content { display: grid; gap: var(--aimd-space-3); padding-top: var(--aimd-space-3); }
+.reader-annotation-manager [hidden] { display: none; }
 .reader-annotation-manager__toolbar-row--actions { justify-content: flex-start; }
 .reader-annotation-manager__bulk-actions { display: inline-flex; flex-wrap: wrap; align-items: center; gap: var(--aimd-space-2); }
 .reader-annotation-manager__action { min-height: var(--aimd-size-control-compact); }
 .reader-annotation-manager__select-all { display: inline-flex; align-items: center; gap: var(--aimd-space-2); min-height: var(--aimd-size-control-action-panel); color: var(--aimd-text-secondary); font-size: var(--aimd-text-sm); cursor: pointer; }
-.reader-annotation-manager__select-all input, .reader-annotation-manager__select { appearance: none; -webkit-appearance: none; width: 18px; height: 18px; margin: 0; border: 1px solid color-mix(in srgb, var(--aimd-text-secondary) 28%, transparent); border-radius: var(--aimd-radius-sm); background: var(--aimd-bg-primary); box-shadow: var(--aimd-shadow-xs); display: grid; place-items: center; cursor: pointer; transition: border-color var(--aimd-duration-fast) var(--aimd-ease-in-out), background var(--aimd-duration-fast) var(--aimd-ease-in-out), box-shadow var(--aimd-duration-fast) var(--aimd-ease-in-out); }
+.reader-annotation-manager__select-all input, .reader-annotation-manager__select { appearance: none; -webkit-appearance: none; width: var(--aimd-size-control-glyph-panel); height: var(--aimd-size-control-glyph-panel); margin: 0; border: 1px solid var(--aimd-border-default); border-radius: var(--aimd-radius-sm); background: var(--aimd-bg-primary); box-shadow: none; display: grid; place-items: center; cursor: pointer; transition: border-color var(--aimd-duration-fast) var(--aimd-ease-in-out), background var(--aimd-duration-fast) var(--aimd-ease-in-out); }
 .reader-annotation-manager__select-all input::before, .reader-annotation-manager__select::before { content: ""; width: 9px; height: 5px; border-left: 2px solid transparent; border-bottom: 2px solid transparent; transform: translateY(-1px) rotate(-45deg) scale(0); transform-origin: center; transition: transform var(--aimd-duration-fast) var(--aimd-ease-in-out), border-color var(--aimd-duration-fast) var(--aimd-ease-in-out); }
 .reader-annotation-manager__select-all input:checked, .reader-annotation-manager__select:checked { border-color: var(--aimd-interactive-primary); background: var(--aimd-interactive-primary); }
 .reader-annotation-manager__select-all input:checked::before, .reader-annotation-manager__select:checked::before { border-color: var(--aimd-text-on-primary); transform: translateY(-1px) rotate(-45deg) scale(1); }
 .reader-annotation-manager__select-all input:indeterminate::before { width: 9px; height: 2px; border: 0; border-radius: var(--aimd-radius-full); background: var(--aimd-interactive-primary); transform: scale(1); }
 .reader-annotation-manager__select-all input:focus-visible, .reader-annotation-manager__select:focus-visible { outline: none; border-color: var(--aimd-interactive-primary); box-shadow: var(--aimd-shadow-focus); }
-.reader-annotation-manager__persistence { display: inline-flex; align-items: center; gap: var(--aimd-space-2); min-height: var(--aimd-size-control-action-panel); margin-left: auto; padding: var(--aimd-space-1) var(--aimd-space-2); border: 1px solid var(--aimd-workspace-border); border-radius: var(--aimd-radius-lg); background: var(--aimd-workspace-surface); }
-.reader-annotation-manager__persistence:hover { border-color: var(--aimd-border-default); background: var(--aimd-surface-hover); }
-.reader-annotation-manager__persistence-copy { min-width: 0; color: var(--aimd-text-primary); font-size: var(--aimd-text-sm); font-weight: var(--aimd-font-medium); }
-.reader-annotation-manager__persistence-title { color: var(--aimd-text-primary); font-size: var(--aimd-text-sm); font-weight: var(--aimd-font-medium); }
-.reader-annotation-manager__persistence-help { all: unset; box-sizing: border-box; width: var(--aimd-size-control-compact); height: var(--aimd-size-control-compact); display: inline-flex; align-items: center; justify-content: center; border-radius: var(--aimd-radius-full); color: var(--aimd-text-secondary); font-size: var(--aimd-text-xs); font-weight: var(--aimd-font-semibold); cursor: help; }
-.reader-annotation-manager__persistence-help:hover, .reader-annotation-manager__persistence-help:focus-visible { color: var(--aimd-interactive-primary); background: var(--aimd-interactive-hover); }
-.reader-annotation-manager__persistence-help:focus-visible { outline: none; box-shadow: var(--aimd-shadow-focus); }
-.reader-annotation-manager__persistence .reader-settings-toggle { --_toggle-width: calc(var(--aimd-size-control-compact) + var(--aimd-space-3)); --_toggle-height: calc(var(--aimd-space-5) + var(--aimd-space-2)); --_toggle-knob: var(--aimd-space-5); --_toggle-inset: var(--aimd-space-1); position: relative; display: inline-flex; align-items: center; width: var(--_toggle-width); height: var(--_toggle-height); flex: 0 0 auto; }
-.reader-annotation-manager__persistence .reader-settings-toggle input { position: absolute; inset: 0; margin: 0; opacity: 0; cursor: pointer; }
-.reader-annotation-manager__persistence .reader-settings-toggle__track { position: relative; width: var(--_toggle-width); height: var(--_toggle-height); border-radius: var(--aimd-radius-full); background: var(--aimd-border-default); transition: background var(--aimd-duration-fast) var(--aimd-ease-in-out); }
-.reader-annotation-manager__persistence .reader-settings-toggle__track::after { content: ""; position: absolute; top: var(--_toggle-inset); left: var(--_toggle-inset); width: var(--_toggle-knob); height: var(--_toggle-knob); border-radius: var(--aimd-radius-full); background: var(--aimd-bg-primary); transition: transform var(--aimd-duration-fast) var(--aimd-ease-in-out); }
-.reader-annotation-manager__persistence input:checked + .reader-settings-toggle__track { background: var(--aimd-interactive-primary); }
-.reader-annotation-manager__persistence input:checked + .reader-settings-toggle__track::after { transform: translateX(calc(var(--_toggle-width) - var(--_toggle-knob) - (var(--_toggle-inset) * 2))); }
-.reader-annotation-manager__persistence input:focus-visible + .reader-settings-toggle__track { box-shadow: var(--aimd-shadow-focus); }
-.reader-annotation-manager__persistence-error { flex: 1 0 100%; color: var(--aimd-color-danger); font-size: var(--aimd-text-sm); line-height: var(--aimd-leading-normal); text-align: right; }
-.reader-annotation-manager__tabs, .reader-annotation-manager__modes { max-width: 100%; box-sizing: border-box; display: inline-flex; gap: var(--aimd-space-1); padding: var(--aimd-space-1); border: 1px solid var(--aimd-workspace-border); border-radius: var(--aimd-radius-xl); background: var(--aimd-workspace-surface); width: max-content; }
-.reader-annotation-manager__tab, .reader-annotation-manager__mode { all: unset; box-sizing: border-box; cursor: pointer; min-height: var(--aimd-size-control-compact); padding: 0 var(--aimd-space-3); border-radius: var(--aimd-radius-lg); color: var(--aimd-text-secondary); font-size: var(--aimd-text-sm); white-space: nowrap; transition: background var(--aimd-duration-fast) var(--aimd-ease-in-out), color var(--aimd-duration-fast) var(--aimd-ease-in-out); }
-.reader-annotation-manager__tab:hover, .reader-annotation-manager__mode:hover { background: var(--aimd-interactive-hover); color: var(--aimd-text-primary); }
-.reader-annotation-manager__tab:focus-visible, .reader-annotation-manager__mode:focus-visible { box-shadow: var(--aimd-shadow-focus); }
-.reader-annotation-manager__tab[data-active="1"], .reader-annotation-manager__mode[data-active="1"] { color: var(--aimd-interactive-primary); background: var(--aimd-interactive-selected); font-weight: var(--aimd-font-semibold); }
-.reader-annotation-manager__search { width: 100%; min-height: var(--aimd-size-control-compact); box-sizing: border-box; padding: 0 var(--aimd-space-3); border: 1px solid var(--aimd-workspace-border); border-radius: var(--aimd-radius-lg); background: var(--aimd-workspace-surface); box-shadow: var(--aimd-workspace-inset); color: var(--aimd-text-primary); font: inherit; transition: border-color var(--aimd-duration-fast) var(--aimd-ease-in-out), box-shadow var(--aimd-duration-fast) var(--aimd-ease-in-out); }
+.reader-annotation-manager__tabs { max-width: 100%; width: max-content; }
+.reader-annotation-manager__search { width: 100%; min-height: var(--aimd-size-control-action-panel); box-sizing: border-box; padding: 0 var(--aimd-space-3); border: 1px solid var(--aimd-workspace-border); border-radius: var(--aimd-radius-lg); background: var(--aimd-bg-primary); box-shadow: none; color: var(--aimd-text-primary); font: inherit; }
 .reader-annotation-manager__search:focus-visible { outline: none; border-color: var(--aimd-interactive-primary); box-shadow: var(--aimd-shadow-focus); }
 .reader-annotation-manager__items { min-height: 0; overflow: auto; overscroll-behavior: contain; scrollbar-gutter: stable; display: block; padding-right: var(--aimd-space-1); }
-.reader-annotation-manager__group { display: grid; gap: var(--aimd-space-1); }
-.reader-annotation-manager__group-title { padding: var(--aimd-space-2) var(--aimd-space-1); color: var(--aimd-text-secondary); font-size: var(--aimd-text-xs); font-weight: var(--aimd-font-semibold); text-wrap: balance; }
-.reader-annotation-manager__row { min-width: 0; display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: var(--aimd-space-3); padding: var(--aimd-space-3) var(--aimd-space-2); border-top: 1px solid var(--aimd-border-subtle); background: transparent; transition: background var(--aimd-duration-fast) var(--aimd-ease-in-out); }
+.reader-annotation-manager__group { display: grid; gap: 0; }
+.reader-annotation-manager__group + .reader-annotation-manager__group { margin-top: var(--aimd-space-5); }
+.reader-annotation-manager__group-title { padding: var(--aimd-space-3) var(--aimd-space-4); color: var(--aimd-text-secondary); font-size: var(--aimd-text-xs); font-weight: var(--aimd-font-semibold); overflow-wrap: anywhere; }
+.reader-annotation-manager__row { min-width: 0; display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: var(--aimd-space-3); padding: var(--aimd-space-4); border-top: 1px solid var(--aimd-border-subtle); background: transparent; transition: background var(--aimd-duration-fast) var(--aimd-ease-in-out); }
 .reader-annotation-manager__row:last-child { border-bottom: 1px solid var(--aimd-border-subtle); }
 .reader-annotation-manager__row:hover, .reader-annotation-manager__row:focus-within { background: var(--aimd-surface-hover); }
 .reader-annotation-manager__row[data-selected="1"] { background: var(--aimd-interactive-selected); }
@@ -117,13 +100,13 @@ function getCss(): string {
 .reader-annotation-manager__select { align-self: start; margin: var(--aimd-space-1); }
 .reader-annotation-manager__open { all: unset; min-width: 0; cursor: pointer; display: grid; gap: var(--aimd-space-2); border-radius: var(--aimd-radius-md); }
 .reader-annotation-manager__open:focus-visible { box-shadow: var(--aimd-shadow-focus); }
-.reader-annotation-manager__quote { min-width: 0; overflow: hidden; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; color: var(--aimd-text-primary); font-size: var(--aimd-text-sm); line-height: var(--aimd-leading-normal); border-left: 2px solid var(--aimd-interactive-primary); padding-left: var(--aimd-space-2); text-wrap: pretty; }
-.reader-annotation-manager__comment { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--aimd-text-secondary); font-size: var(--aimd-text-sm); }
+.reader-annotation-manager__quote { min-width: 0; overflow: hidden; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; color: var(--aimd-text-secondary); font-size: var(--aimd-text-sm); line-height: var(--aimd-leading-normal); border-left: 2px solid var(--aimd-border-default); padding-left: var(--aimd-space-3); text-wrap: pretty; }
+.reader-annotation-manager__comment { min-width: 0; overflow: hidden; display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow-wrap: anywhere; color: var(--aimd-text-primary); font-size: var(--aimd-text-sm); line-height: var(--aimd-leading-normal); }
 .reader-annotation-manager__meta { display: flex; flex-wrap: wrap; gap: var(--aimd-space-2); color: var(--aimd-text-tertiary); font-size: var(--aimd-text-xs); font-variant-numeric: tabular-nums; }
 .reader-annotation-manager__delete { align-self: start; color: var(--aimd-text-secondary); }
 .reader-annotation-manager__delete:hover, .reader-annotation-manager__delete:focus-visible { color: var(--aimd-color-danger); }
 .reader-annotation-manager__empty, .reader-annotation-manager__loading { padding: var(--aimd-space-6) var(--aimd-space-3); color: var(--aimd-text-secondary); text-align: center; font-size: var(--aimd-text-sm); }
-@media (max-width: 520px) { .reader-annotation-manager__toolbar-row--primary { align-items: stretch; } .reader-annotation-manager__tabs, .reader-annotation-manager__modes { width: 100%; } .reader-annotation-manager__tab, .reader-annotation-manager__mode { min-width: 0; flex: 1; padding-inline: var(--aimd-space-2); text-align: center; white-space: normal; line-height: var(--aimd-leading-normal); } .reader-annotation-manager__persistence { margin-left: 0; align-self: flex-end; } }
+@media (max-width: 520px) { .reader-annotation-manager__toolbar-row--primary { align-items: stretch; } .reader-annotation-manager__tabs { width: 100%; } .reader-annotation-manager__tab { min-width: 0; flex: 1; padding-inline: var(--aimd-space-2); text-align: center; white-space: normal; line-height: var(--aimd-leading-normal); } }
 `;
 }
 
@@ -132,15 +115,12 @@ export class ReaderAnnotationManagerPopover {
     private closeModal: (() => void) | null = null;
     private params: OpenParams | null = null;
     private view: ManagerView = 'current';
-    private allMode: AllViewMode = 'conversation';
     private query = '';
     private allEntries: ReaderAnnotationListEntry[] = [];
     private pendingSelection: ReaderAnnotationListEntry | null = null;
     private loadError = false;
     private bulkMode = false;
     private readonly selectedKeys = new Set<string>();
-    private persistenceEnabled = false;
-    private tooltipDelegate: TooltipDelegate | null = null;
 
     isOpen(): boolean { return Boolean(this.rootEl?.isConnected); }
 
@@ -150,29 +130,25 @@ export class ReaderAnnotationManagerPopover {
         this.close();
         this.params = params;
         this.view = 'current';
-        this.allMode = 'conversation';
         this.query = '';
         this.allEntries = [];
         this.pendingSelection = null;
         this.loadError = false;
         this.bulkMode = false;
         this.selectedKeys.clear();
-        this.persistenceEnabled = params.persistenceEnabled;
         ensureStyle(params.shadow, getCss(), { id: 'aimd-reader-annotation-manager-style', cache: 'shared' });
-        this.tooltipDelegate?.disconnect();
-        this.tooltipDelegate = new TooltipDelegate(params.shadow, { upgradeTitles: false });
 
         const body = document.createElement('div');
-        body.className = 'reader-annotation-manager';
+        body.className = 'reader-annotation-manager flat-workflow';
         body.dataset.aimdRole = 'reader-annotation-manager';
         const toolbar = document.createElement('div');
-        toolbar.className = 'reader-annotation-manager__toolbar';
+        toolbar.className = 'reader-annotation-manager__toolbar flat-workflow__toolbar';
         const tabs = document.createElement('div');
-        tabs.className = 'reader-annotation-manager__tabs';
+        tabs.className = 'reader-annotation-manager__tabs flat-workflow__tabs';
         for (const [view, label] of [['current', params.labels.current], ['all', params.labels.all]] as const) {
             const button = document.createElement('button');
             button.type = 'button';
-            button.className = 'reader-annotation-manager__tab';
+            button.className = 'reader-annotation-manager__tab flat-workflow__tab';
             button.dataset.view = view;
             button.textContent = label;
             button.addEventListener('click', () => { void this.setView(view); });
@@ -180,7 +156,7 @@ export class ReaderAnnotationManagerPopover {
         }
         const search = document.createElement('input');
         search.type = 'search';
-        search.className = 'reader-annotation-manager__search';
+        search.className = 'reader-annotation-manager__search flat-workflow__input';
         search.placeholder = params.labels.search;
         search.setAttribute('aria-label', params.labels.search);
         search.addEventListener('input', () => { this.query = search.value.trim().toLowerCase(); this.render(); });
@@ -193,66 +169,34 @@ export class ReaderAnnotationManagerPopover {
         bulkActions.className = 'reader-annotation-manager__bulk-actions';
         bulkActions.dataset.role = 'bulk-actions';
         actionsRow.appendChild(bulkActions);
-        const persistenceLabel = document.createElement('div');
-        persistenceLabel.className = 'reader-annotation-manager__persistence';
-        const persistenceCopy = document.createElement('span');
-        persistenceCopy.className = 'reader-annotation-manager__persistence-copy';
-        const persistenceText = document.createElement('span');
-        persistenceText.className = 'reader-annotation-manager__persistence-title';
-        persistenceText.textContent = params.labels.persistence;
-        persistenceCopy.append(persistenceText);
-        const persistenceHelp = document.createElement('button');
-        persistenceHelp.type = 'button';
-        persistenceHelp.className = 'reader-annotation-manager__persistence-help';
-        persistenceHelp.textContent = '?';
-        persistenceHelp.setAttribute('aria-label', params.labels.persistenceTooltip);
-        persistenceHelp.dataset.tooltip = params.labels.persistenceTooltip;
-        persistenceHelp.dataset.tooltipVariant = 'preview';
-        persistenceHelp.dataset.tooltipPlacement = 'bottom';
-        const persistenceControl = document.createElement('label');
-        persistenceControl.className = 'reader-settings-toggle';
-        const persistenceInput = document.createElement('input');
-        persistenceInput.type = 'checkbox';
-        persistenceInput.dataset.role = 'persistence-toggle';
-        persistenceInput.checked = this.persistenceEnabled;
-        persistenceInput.setAttribute('aria-label', params.labels.persistence);
-        const persistenceError = document.createElement('div');
-        persistenceError.className = 'reader-annotation-manager__persistence-error';
-        persistenceError.dataset.role = 'persistence-error';
-        persistenceError.setAttribute('role', 'alert');
-        persistenceError.setAttribute('aria-live', 'polite');
-        persistenceError.hidden = true;
-        persistenceInput.addEventListener('change', async () => {
-            const checked = persistenceInput.checked;
-            persistenceInput.disabled = true;
-            persistenceError.textContent = '';
-            persistenceError.hidden = true;
-            try {
-                await params.onPersistenceChange(checked);
-                this.persistenceEnabled = checked;
-                this.params = this.params ? { ...this.params, persistenceEnabled: checked } : this.params;
-                this.render();
-            } catch (error) {
-                persistenceInput.checked = this.persistenceEnabled;
-                persistenceError.textContent = error instanceof Error && error.message
-                    ? error.message
-                    : params.labels.error;
-                persistenceError.hidden = false;
-            } finally {
-                persistenceInput.disabled = false;
-            }
+        const options = document.createElement('details');
+        options.className = 'reader-annotation-manager__options';
+        const summary = document.createElement('summary');
+        const moreLabel = t('libraryMore');
+        summary.textContent = moreLabel === 'libraryMore' ? 'More' : moreLabel;
+        const optionsContent = document.createElement('div');
+        optionsContent.className = 'reader-annotation-manager__options-content';
+        const bulkEntry = document.createElement('button');
+        bulkEntry.type = 'button';
+        bulkEntry.className = 'mock-modal__button mock-modal__button--secondary reader-annotation-manager__action';
+        bulkEntry.dataset.role = 'bulk-entry';
+        bulkEntry.textContent = params.labels.bulkEdit;
+        bulkEntry.addEventListener('click', () => {
+            this.bulkMode = true;
+            options.open = false;
+            this.render();
         });
-        const persistenceTrack = document.createElement('span');
-        persistenceTrack.className = 'reader-settings-toggle__track';
-        persistenceControl.append(persistenceInput, persistenceTrack);
-        persistenceLabel.append(persistenceCopy, persistenceHelp, persistenceControl);
-        primaryRow.append(persistenceLabel, persistenceError);
-        toolbar.append(primaryRow, search, actionsRow);
+        optionsContent.appendChild(bulkEntry);
+        options.append(summary, optionsContent);
+        toolbar.append(primaryRow, search, options);
         body.appendChild(toolbar);
+        const collection = document.createElement('section');
+        collection.className = 'reader-annotation-manager__collection';
         const items = document.createElement('div');
-        items.className = 'reader-annotation-manager__items';
+        items.className = 'reader-annotation-manager__items flat-workflow__list';
         items.dataset.role = 'items';
-        body.appendChild(items);
+        collection.append(actionsRow, items);
+        body.appendChild(collection);
         this.rootEl = body;
         this.render();
 
@@ -277,8 +221,6 @@ export class ReaderAnnotationManagerPopover {
                 this.rootEl = null;
                 this.closeModal = null;
                 this.params = null;
-                this.tooltipDelegate?.disconnect();
-                this.tooltipDelegate = null;
                 if (selected) void params.onSelect(selected);
             },
         });
@@ -309,6 +251,10 @@ export class ReaderAnnotationManagerPopover {
         const actions = this.rootEl.querySelector<HTMLElement>('[data-role="bulk-actions"]');
         if (!actions) return;
         actions.replaceChildren();
+        actions.hidden = !this.bulkMode;
+        const bulkEntry = this.rootEl.querySelector<HTMLElement>('[data-role="bulk-entry"]');
+        if (bulkEntry) bulkEntry.hidden = this.bulkMode;
+        if (!this.bulkMode) return;
         const bulkButton = document.createElement('button');
         bulkButton.type = 'button';
         bulkButton.className = 'mock-modal__button mock-modal__button--secondary reader-annotation-manager__action';
@@ -320,7 +266,6 @@ export class ReaderAnnotationManagerPopover {
             this.render();
         });
         actions.appendChild(bulkButton);
-        if (!this.bulkMode) return;
         const selectAllLabel = document.createElement('label');
         selectAllLabel.className = 'reader-annotation-manager__select-all';
         const selectAll = document.createElement('input');
@@ -413,24 +358,6 @@ export class ReaderAnnotationManagerPopover {
         this.rootEl.querySelectorAll<HTMLButtonElement>('[data-view]').forEach((button) => {
             button.dataset.active = button.dataset.view === this.view ? '1' : '0';
         });
-        const toolbar = this.rootEl.querySelector<HTMLElement>('.reader-annotation-manager__toolbar');
-        const oldModes = toolbar?.querySelector('.reader-annotation-manager__modes');
-        oldModes?.remove();
-        if (this.view === 'all') {
-            const modes = document.createElement('div');
-            modes.className = 'reader-annotation-manager__modes';
-            for (const [mode, label] of [['conversation', this.params.labels.byConversation], ['timeline', this.params.labels.timeline]] as const) {
-                const button = document.createElement('button');
-                button.type = 'button';
-                button.className = 'reader-annotation-manager__mode';
-                button.dataset.mode = mode;
-                button.dataset.active = this.allMode === mode ? '1' : '0';
-                button.textContent = label;
-                button.addEventListener('click', () => { this.allMode = mode; this.render(); });
-                modes.appendChild(button);
-            }
-            toolbar?.appendChild(modes);
-        }
         const list = this.rootEl.querySelector<HTMLElement>('[data-role="items"]');
         if (!list) return;
         const filtered = this.getVisibleEntries();
@@ -442,7 +369,7 @@ export class ReaderAnnotationManagerPopover {
             list.innerHTML = `<div class="reader-annotation-manager__empty">${this.params.labels.empty}</div>`;
             return;
         }
-        if (this.view === 'all' && this.allMode === 'conversation') {
+        if (this.view === 'all') {
             const groups = new Map<string, ReaderAnnotationListEntry[]>();
             filtered.forEach((entry) => {
                 const key = entry.document.conversationId;
@@ -453,14 +380,11 @@ export class ReaderAnnotationManagerPopover {
             return;
         }
         const sorted = [...filtered].sort((left, right) => {
-            if (this.view === 'current') {
-                const replyDelta = (left.annotation.target.position ?? Number.POSITIVE_INFINITY) - (right.annotation.target.position ?? Number.POSITIVE_INFINITY);
-                if (replyDelta !== 0) return replyDelta;
-                const sourceDelta = (left.annotation.selectors.textPosition.start ?? Number.POSITIVE_INFINITY) - (right.annotation.selectors.textPosition.start ?? Number.POSITIVE_INFINITY);
-                if (sourceDelta !== 0) return sourceDelta;
-                return left.annotation.createdAt - right.annotation.createdAt;
-            }
-            return right.annotation.updatedAt - left.annotation.updatedAt;
+            const replyDelta = (left.annotation.target.position ?? Number.POSITIVE_INFINITY) - (right.annotation.target.position ?? Number.POSITIVE_INFINITY);
+            if (replyDelta !== 0) return replyDelta;
+            const sourceDelta = (left.annotation.selectors.textPosition.start ?? Number.POSITIVE_INFINITY) - (right.annotation.selectors.textPosition.start ?? Number.POSITIVE_INFINITY);
+            if (sourceDelta !== 0) return sourceDelta;
+            return left.annotation.createdAt - right.annotation.createdAt;
         });
         list.replaceChildren(...sorted.map((entry) => this.createRow(entry)));
     }
@@ -469,7 +393,7 @@ export class ReaderAnnotationManagerPopover {
         const group = document.createElement('section');
         group.className = 'reader-annotation-manager__group';
         const heading = document.createElement('div');
-        heading.className = 'reader-annotation-manager__group-title';
+        heading.className = 'reader-annotation-manager__group-title flat-workflow__section-title';
         heading.textContent = title;
         group.appendChild(heading);
         entries.sort((left, right) => {
@@ -484,7 +408,7 @@ export class ReaderAnnotationManagerPopover {
     private createRow(entry: ReaderAnnotationListEntry): HTMLElement {
         if (!this.params) return document.createElement('div');
         const row = document.createElement('article');
-        row.className = 'reader-annotation-manager__row';
+        row.className = 'reader-annotation-manager__row flat-workflow__item';
         row.dataset.bulk = this.bulkMode ? '1' : '0';
         row.dataset.selected = this.selectedKeys.has(this.entryKey(entry)) ? '1' : '0';
         if (this.bulkMode) {
@@ -514,7 +438,7 @@ export class ReaderAnnotationManagerPopover {
         const meta = document.createElement('span');
         meta.className = 'reader-annotation-manager__meta';
         meta.textContent = `${this.params.labels.reply} ${String(entry.annotation.target.position ?? '—')} · ${this.params.labels.updated} ${formatDate(entry.annotation.updatedAt)}${entry.annotation.lastKnownAnchorState === 'unanchored' ? ` · ${this.params.labels.unanchored}` : ''}`;
-        open.append(quote, comment, meta);
+        open.append(comment, quote, meta);
         open.addEventListener('click', () => {
             this.pendingSelection = entry;
             this.closeModal?.();

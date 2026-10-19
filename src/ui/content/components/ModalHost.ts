@@ -246,7 +246,7 @@ export class ModalHost {
         overlay.dataset.kind = params.kind;
 
         const dialog = markTransientRoot(document.createElement('div'));
-        dialog.className = ['mock-modal', params.dialogClassName].filter(Boolean).join(' ');
+        dialog.className = ['mock-modal', 'flat-workflow', params.dialogClassName].filter(Boolean).join(' ');
         dialog.dataset.kind = params.kind;
         dialog.setAttribute('role', 'dialog');
         dialog.setAttribute('aria-modal', 'true');
@@ -277,7 +277,7 @@ export class ModalHost {
         header.append(titleWrap, closeBtn);
 
         const content = document.createElement('div');
-        content.className = 'mock-modal__content';
+        content.className = 'mock-modal__content flat-workflow__body';
         if (params.message) {
             const msg = document.createElement('p');
             msg.className = 'mock-modal__message';

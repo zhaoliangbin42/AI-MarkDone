@@ -25,3 +25,15 @@ ChatGPT 页面注释已经复用 Reader 的注释记录、锚点和持久化边�
 ## Status
 
 Accepted — 2026-08. Implementation is limited to page annotation UI/controller, the existing Prompt autocomplete controller seam, and their focused tests. No platform or discovery contract changes.
+
+Amended — 2026-10-18: remove the combined “Insert and delete” action. Page
+insertion always keeps annotations; deletion remains a separate explicit action.
+The shared export builder, current-conversation insertion scope and composer
+append behavior remain unchanged. Reader copying now selects annotations in one
+window, starts with no selection, and permits copying without a Prompt. See
+`docs/FEATURES.md` and `docs/design.md` for the current workflow contract.
+
+The Reader copy window also exposes a separate confirmed Delete selected action.
+Copying retains the selection; deletion uses the displayed record versions and
+keeps failed or changed records selected for review and retry. Copying never
+triggers deletion automatically.

@@ -72,7 +72,7 @@ describe('PromptGeometryAdapter', () => {
         expect(geometry.managerPlacement).toEqual({ left: 56, top: 152 });
     });
 
-    it('owns panel and list drag listeners and returns one cleanup path', () => {
+    it('owns panel drag listeners and removes them on teardown', () => {
         Object.defineProperty(window, 'innerWidth', { configurable: true, value: 800 });
         Object.defineProperty(window, 'innerHeight', { configurable: true, value: 600 });
         const host = document.createElement('div');
@@ -86,21 +86,10 @@ describe('PromptGeometryAdapter', () => {
             mode: 'manager', host, root, promptCount: 2, hasStatus: false,
         });
         document.dispatchEvent(new MouseEvent('pointermove', { clientX: 400, clientY: 400 }));
-        document.dispatchEvent(new MouseEvent('pointerup'));
-        expect(geometry.managerPlacement).not.toBeNull();
-
-        const onTarget = vi.fn();
-        const onEnd = vi.fn();
-        geometry.startListDrag(new MouseEvent('pointerdown') as PointerEvent, {
-            sourceId: 'one',
-            getTargetIdAt: () => 'two',
-            onTarget,
-            onEnd,
-        });
-        document.dispatchEvent(new MouseEvent('pointermove', { clientY: 200 }));
-        document.dispatchEvent(new MouseEvent('pointerup'));
-        expect(onTarget).toHaveBeenCalledWith('two');
-        expect(onEnd).toHaveBeenCalledWith(true);
+        const placement = geometry.managerPlacement;
+        expect(placement).not.toBeNull();
         geometry.destroyTransient();
+        document.dispatchEvent(new MouseEvent('pointermove', { clientX: 700, clientY: 100 }));
+        expect(geometry.managerPlacement).toEqual(placement);
     });
 });

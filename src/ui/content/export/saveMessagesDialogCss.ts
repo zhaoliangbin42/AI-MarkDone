@@ -1,6 +1,7 @@
 import { getPanelChromeCss } from '../components/styles/panelChromeCss';
 import { getWorkflowDialogChromeCss } from '../components/styles/workflowDialogChromeCss';
 import { getSurfaceMaterialCss } from '../components/styles/surfaceMaterialCss';
+import { getFlatWorkflowCss } from '../components/styles/flatWorkflowCss';
 
 export function getSaveMessagesDialogCss(): string {
     return `
@@ -180,12 +181,6 @@ ${getWorkflowDialogChromeCss()}
 .settings-option-check { display: flex; flex: none; visibility: hidden; }
 .settings-select-option[data-selected="1"] .settings-option-check { visibility: visible; }
 
-/* This surface uses the flat Settings treatment; other dialogs keep their materials. */
-:host .panel-window--save .settings-select-trigger,
-:host .panel-window--save .secondary-btn,
-:host .panel-window--save .settings-select-trigger:is(:hover, :active),
-:host .panel-window--save .secondary-btn:is(:hover, :active) { box-shadow: none; }
-
 .export-result { color: var(--aimd-text-secondary); }
 .progress-panel,
 .progress-row { display: grid; gap: var(--aimd-space-2); }
@@ -218,5 +213,6 @@ ${getWorkflowDialogChromeCss()}
   .settings-row { grid-template-columns: minmax(0, 1fr); gap: var(--aimd-space-2); }
 }
 ${getSurfaceMaterialCss()}
+${getFlatWorkflowCss()}
 `;
 }

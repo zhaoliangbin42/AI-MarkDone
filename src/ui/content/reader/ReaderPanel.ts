@@ -53,7 +53,6 @@ import {
     buildCommentsExport,
     createDefaultReaderCommentExportSettings,
     normalizeReaderCommentExportSettings,
-    resolveReaderCommentExportPrompts,
     type ReaderCommentExportSettings,
     type ReaderCommentSortMode,
 } from '../../../services/reader/commentExport';
@@ -516,7 +515,7 @@ export class ReaderPanel {
         this.render(false);
         this.overlaySession?.syncKeyboardScope({
             root: this.overlaySession?.host ?? this.host.document.body,
-            onEscape: () => this.requestClose(),
+            onEscape: () => this.handleEscape(),
             stopPropagationAll: true,
             ignoreEscapeWhileComposing: true,
             trapTabWithin: this.overlaySession?.surfaceRoot.querySelector<HTMLElement>('.panel-window') ?? this.overlaySession?.host ?? undefined,
@@ -587,6 +586,16 @@ export class ReaderPanel {
             if (closeStarted) return;
         }
         this.unmount();
+    }
+
+    private handleEscape(): void {
+        if (this.overlaySession?.modalHost.isOpen()) {
+            this.overlaySession.modalHost.closeTop();
+        } else if (this.commentExportPopover.isOpen()) {
+            this.commentExportPopover.requestClose();
+        } else {
+            this.requestClose();
+        }
     }
 
     private requestClose(): void {
@@ -1388,7 +1397,7 @@ export class ReaderPanel {
         this.settingsPopover.reposition();
         this.overlaySession.syncKeyboardScope({
             root: this.overlaySession.host,
-            onEscape: () => this.requestClose(),
+            onEscape: () => this.handleEscape(),
             stopPropagationAll: true,
             ignoreEscapeWhileComposing: true,
             trapTabWithin: panel ?? this.overlaySession.host,
@@ -1888,15 +1897,15 @@ export class ReaderPanel {
         return this.workflow.currentItem;
     }
 
-    private async loadPersistentComments(document: ReaderAnnotationDocument): Promise<void> {
+    private async loadPersistentComments(document: ReaderAnnotationDocument): Promise<boolean> {
         const generation = ++this.annotationLoadGeneration;
         const result = await readerAnnotationsClient.list(document);
         if (generation !== this.annotationLoadGeneration
-            || readerAnnotationDocumentKeyOrNull(this.annotationDocument) !== readerAnnotationDocumentKey(document)) return;
+            || readerAnnotationDocumentKeyOrNull(this.annotationDocument) !== readerAnnotationDocumentKey(document)) return false;
         if (!result.ok) {
             this.persistentCommentsLoaded = true;
             this.notify(this.getLabel('readerCommentPersistenceUnavailable', 'Annotations could not be loaded.'));
-            return;
+            return false;
         }
         this.persistentComments.clear();
         for (const entry of result.data?.entries ?? []) {
@@ -1907,6 +1916,7 @@ export class ReaderPanel {
             this.persistentComments.set(record.itemId, bucket);
         }
         this.persistentCommentsLoaded = true;
+        return true;
     }
 
     private getAnnotationTarget(item: ReaderItem): ReaderAnnotationTarget | null {
@@ -1972,13 +1982,17 @@ export class ReaderPanel {
         if (readerAnnotationDocumentKeyOrNull(this.annotationDocument) === readerAnnotationDocumentKey(document)) this.setPersistentComment(fromReaderAnnotationRecord(result.data.annotation, document));
     }
 
-    private async persistRemovedComment(record: ReaderCommentRecord, document = this.annotationDocument): Promise<void> {
+    private async persistRemovedComment(
+        record: ReaderCommentRecord,
+        document = this.annotationDocument,
+        options: { allowMissing?: boolean } = {},
+    ): Promise<void> {
         if (!document || record.revision === undefined) {
             removeReaderComment(READER_COMMENT_SCOPE_ID, record.itemId, record.id);
             return;
         }
         const result = await readerAnnotationsClient.remove(document, record.id, record.revision);
-        if (!result.ok) throw new Error(result.message);
+        if (!result.ok && !(options.allowMissing && result.errorCode === 'NOT_FOUND')) throw new Error(result.message);
         if (readerAnnotationDocumentKeyOrNull(this.annotationDocument) === readerAnnotationDocumentKey(document)) this.removePersistentComment(record);
     }
 
@@ -2531,8 +2545,6 @@ export class ReaderPanel {
                 current: this.getLabel('readerCommentCurrentConversation', 'Current conversation'),
                 all: this.getLabel('readerCommentAllAnnotations', 'All annotations'),
                 search: this.getLabel('readerCommentSearch', 'Search annotations'),
-                byConversation: this.getLabel('readerCommentGroupByConversation', 'By conversation'),
-                timeline: this.getLabel('readerCommentTimeline', 'Timeline'),
                 empty: this.getLabel('readerCommentListEmpty', 'No annotations yet.'),
                 loading: this.getLabel('readerCommentListLoading', 'Loading annotations…'),
                 error: this.getLabel('readerCommentListError', 'Could not load annotations.'),
@@ -2547,22 +2559,9 @@ export class ReaderPanel {
                 selectAll: this.getLabel('readerCommentSelectAll', 'Select all'),
                 invertSelection: this.getLabel('invertSelection', 'Invert selection'),
                 deleteSelected: this.getLabel('readerCommentDeleteSelected', 'Delete selected'),
-                persistence: this.getLabel('readerAnnotationPersistenceLabel', 'Persist annotations'),
-                persistenceTooltip: this.getLabel('readerAnnotationPersistenceTooltip', 'When enabled, new annotations are saved locally and remain after you close the browser, but consider cleaning them up regularly.'),
             },
             onDelete: (entry) => this.removeAnnotationEntry(entry),
             onDeleteMany: (entries) => this.removeAnnotationEntries(entries),
-            persistenceEnabled: this.persistAnnotations,
-            onPersistenceChange: async (enabled) => {
-                const previous = this.persistAnnotations;
-                this.applyReaderSettingsPatch({ persistAnnotations: enabled });
-                try {
-                    await this.settingsController?.onChange({ persistAnnotations: enabled });
-                } catch (error) {
-                    this.setPersistAnnotations(previous);
-                    throw error;
-                }
-            },
             onSelect: async (entry) => {
                 if (readerAnnotationDocumentKey(entry.document) !== readerAnnotationDocumentKey(document)) {
                     const result = await readerAnnotationsClient.navigate(entry.document, entry.annotation.id);
@@ -2673,62 +2672,173 @@ export class ReaderPanel {
     }
 
     private async openCommentExportPopover(): Promise<void> {
-        if (!this.overlaySession) return;
-        const comments = this.getCurrentComments();
-        if (comments.length < 1) {
+        const session = this.overlaySession;
+        const itemId = this.getCurrentItem()?.id;
+        const document = this.annotationDocument;
+        const documentKey = readerAnnotationDocumentKeyOrNull(document);
+        if (!session || !itemId) return;
+        const isCurrent = () => this.overlaySession === session
+            && this.getCurrentItem()?.id === itemId
+            && readerAnnotationDocumentKeyOrNull(this.annotationDocument) === documentKey;
+        if (this.getCurrentComments().length < 1) {
             this.notify(this.getLabel('readerCommentCopyEmpty', 'No annotations to copy yet.'));
             return;
         }
 
         const prompts = await this.listReaderPrompts();
-        if (!this.overlaySession) return;
-        const container = this.overlaySession.surfaceRoot.querySelector<HTMLElement>('.panel-window--reader');
-        const pickerContainer = this.overlaySession.surfaceRoot;
-        const anchorButton = this.overlaySession.surfaceRoot.querySelector<HTMLElement>('[data-action="reader-copy-comments"]');
-        const shadow = this.overlaySession.shadow;
-        if (!container || !pickerContainer || !anchorButton) return;
-        this.commentPromptPicker.open({
+        if (!isCurrent()) return;
+        const container = session.surfaceRoot.querySelector<HTMLElement>('.panel-window--reader');
+        const shadow = session.shadow;
+        if (!container) return;
+        let selectedIds = new Set<string>();
+        let selectedPromptId = '';
+        let displayedComments = this.getCurrentComments().map((record) => ({ ...record }));
+        const annotationOptions = () => displayedComments.map((record) => ({
+            id: record.id,
+            comment: record.comment,
+            source: record.quoteText || record.sourceMarkdown,
+        }));
+        const compileSelection = () => {
+            if (!isCurrent()) {
+                this.commentExportPopover.close(shadow);
+                return '';
+            }
+            const selected = this.getCurrentComments().filter((record) => selectedIds.has(record.id));
+            if (selected.length < 1) return '';
+            return buildCommentsExport(selected, {
+                userPrompt: prompts.find((prompt) => prompt.id === selectedPromptId)?.content ?? '',
+                commentTemplate: this.commentExportSettings.template,
+                promptPosition: this.commentExportSettings.promptPosition,
+                sortMode: this.commentExportSettings.sortMode,
+            });
+        };
+        const refreshPreview = () => {
+            const preview = compileSelection();
+            this.commentExportPopover.update({ preview, canCopy: Boolean(preview.trim()) });
+        };
+        const refreshAnnotations = () => {
+            displayedComments = this.getCurrentComments().map((record) => ({ ...record }));
+            const preview = compileSelection();
+            this.commentExportPopover.update({
+                preview, canCopy: Boolean(preview.trim()), annotations: annotationOptions(),
+            });
+        };
+        const sameAnnotation = (left: ReaderCommentRecord, right: ReaderCommentRecord) => left.itemId === right.itemId
+            && left.revision === right.revision && left.updatedAt === right.updatedAt
+            && left.comment === right.comment && left.sourceMarkdown === right.sourceMarkdown
+            && left.quoteText === right.quoteText
+            && left.target?.assistantMessageId === right.target?.assistantMessageId;
+        this.commentExportPopover.open({
             shadow,
-            container: pickerContainer,
-            anchorEl: anchorButton,
-            placement: 'center',
+            container,
             theme: this.appearance.theme,
-            prompts,
-            labels: {
-                title: this.getLabel('readerCommentPromptPickerTitle', 'Choose prompt'),
-                close: this.getLabel('btnClose', 'Close'),
-                empty: this.getLabel('readerCommentPromptPickerEmpty', 'No prompts available.'),
+            preview: '',
+            canCopy: false,
+            annotationSelection: {
+                options: annotationOptions(),
+                label: this.getLabel('readerCommentCopySelect', 'Choose annotations to copy'),
+                selectAllLabel: this.getLabel('readerCommentSelectAll', 'Select all'),
+                copyLabel: (count) => this.getLabel('readerCommentCopySelectedCount', `Copy selected (${count})`, String(count)),
+                deleteLabel: (count) => this.getLabel('readerCommentDeleteSelectedCount', `Delete selected (${count})`, String(count)),
+                countLabel: (selected, total) => this.getLabel(
+                    'readerCommentCopySelectionCount', `${selected} of ${total} selected`, [String(selected), String(total)],
+                ),
+                onChange: (ids) => {
+                    selectedIds = new Set(ids);
+                    refreshPreview();
+                },
             },
-            onSelect: (promptId) => {
-                const resolvedPrompts = resolveReaderCommentExportPrompts({
-                    ...this.commentExportSettings,
-                    prompts,
-                }, promptId);
-                const compiledExport = buildCommentsExport(comments, resolvedPrompts);
-                this.commentExportPopover.open({
-                    shadow,
-                    container,
-                    theme: this.appearance.theme,
-                    preview: compiledExport,
-                    canCopy: Boolean(compiledExport.trim()),
-                    labels: {
-                        title: this.getLabel('readerCommentCopyComments', 'Copy annotations'),
-                        close: this.getLabel('btnClose', 'Close'),
-                        copy: this.getLabel('readerCommentCopyComments', 'Copy annotations'),
-                        copied: this.getLabel('btnCopied', 'Copied!'),
-                        empty: this.getLabel('readerCommentCopyEmpty', 'No annotations to copy yet.'),
-                    },
-                    onCopy: async () => {
-                        if (!compiledExport.trim()) {
-                            this.notify(this.getLabel('readerCommentCopyEmpty', 'No annotations to copy yet.'));
-                            return false;
-                        }
-                        const ok = await copyTextToClipboard(compiledExport);
-                        this.notify(this.getLabel(ok ? 'btnCopied' : 'copyFailed', ok ? 'Copied!' : 'Copy failed'));
-                        return ok;
-                    },
-                    onClose: () => this.syncCommentUi(),
+            promptSelection: {
+                options: prompts,
+                label: this.getLabel('readerCommentCopyOptionalPrompt', 'Add a Prompt (optional)'),
+                emptyLabel: this.getLabel('readerCommentCopyNoPrompt', 'No Prompt'),
+                onSelect: (promptId) => {
+                    selectedPromptId = promptId;
+                    refreshPreview();
+                },
+            },
+            labels: {
+                title: this.getLabel('readerCommentCopyComments', 'Copy annotations'),
+                close: this.getLabel('btnClose', 'Close'),
+                copy: this.getLabel('readerCommentCopySelected', 'Copy selected'),
+                copied: this.getLabel('btnCopied', 'Copied!'),
+                empty: this.getLabel('readerCommentCopySelect', 'Choose annotations to copy'),
+                preview: this.getLabel('readerCommentTemplatePreviewLabel', 'Preview'),
+            },
+            onCopy: async () => {
+                const compiledExport = compileSelection();
+                if (!compiledExport.trim()) {
+                    refreshPreview();
+                    return false;
+                }
+                this.commentExportPopover.update({ preview: compiledExport, canCopy: true });
+                const ok = await copyTextToClipboard(compiledExport);
+                this.notify(this.getLabel(ok ? 'btnCopied' : 'copyFailed', ok ? 'Copied!' : 'Copy failed'));
+                return ok;
+            },
+            onDelete: async (ids) => {
+                if (!isCurrent()) return [];
+                const requestedIds = new Set(ids);
+                const currentById = new Map(this.getCurrentComments().map((record) => [record.id, record]));
+                const targets = displayedComments
+                    .filter((record) => requestedIds.has(record.id) && currentById.has(record.id))
+                    .map((record) => ({ ...record }));
+                const removedIds = new Set(ids.filter((id) => !currentById.has(id)));
+                if (targets.some((record) => {
+                    const current = currentById.get(record.id);
+                    return current && !sameAnnotation(current, record);
+                })) {
+                    refreshAnnotations();
+                    this.notify(this.getLabel('readerCommentDeleteSelectionChanged', 'Some annotations changed. Review them before deleting again.'));
+                    return [...removedIds];
+                }
+                if (targets.length < 1) return [...removedIds];
+                const confirmed = await session.modalHost.confirm({
+                    kind: 'warning',
+                    title: this.getLabel('readerCommentDeleteSelectionTitle', `Delete ${targets.length} annotations?`, String(targets.length)),
+                    message: this.getLabel('readerCommentDeleteSelectionMessage', 'Only the selected annotations will be deleted. Source messages will be kept.'),
+                    confirmText: this.getLabel('btnDelete', 'Delete'),
+                    cancelText: this.getLabel('btnCancel', 'Cancel'),
+                    danger: true,
                 });
+                if (!confirmed || !isCurrent()) return [];
+                if (document && targets.some((record) => record.revision !== undefined)) {
+                    const loaded = await this.loadPersistentComments(document);
+                    if (!loaded || !isCurrent()) return [];
+                }
+                let failure = '';
+                for (const target of targets) {
+                    if (!isCurrent()) break;
+                    const current = this.getCurrentComments().find((record) => record.id === target.id);
+                    if (!current) {
+                        removedIds.add(target.id);
+                        continue;
+                    }
+                    if (!sameAnnotation(current, target)) {
+                        failure = this.getLabel('readerCommentDeleteSelectionChanged', 'Some annotations changed. Review them before deleting again.');
+                        continue;
+                    }
+                    try {
+                        await this.persistRemovedComment(target, document, { allowMissing: true });
+                        removedIds.add(target.id);
+                    } catch {
+                        failure = this.getLabel('readerCommentDeleteSelectionFailed', 'Some annotations could not be deleted. Try again.');
+                    }
+                }
+                if (failure && document && isCurrent()) {
+                    try {
+                        await this.loadPersistentComments(document);
+                    } catch {
+                        failure = this.getLabel('readerCommentDeleteSelectionFailed', 'Some annotations could not be deleted. Try again.');
+                    }
+                }
+                if (isCurrent()) {
+                    this.syncCommentUi();
+                    this.syncCommentControls();
+                    refreshAnnotations();
+                    this.notify(failure || this.getLabel('readerCommentDeleted', 'Annotation deleted'));
+                }
+                return [...removedIds];
             },
             onClose: () => this.syncCommentUi(),
         });

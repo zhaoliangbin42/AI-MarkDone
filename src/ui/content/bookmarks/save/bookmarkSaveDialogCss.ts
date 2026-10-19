@@ -4,6 +4,7 @@ import { getSurfaceMaterialCss } from '../../components/styles/surfaceMaterialCs
 import { getModalHostShellCss } from '../../components/styles/modalHostCss';
 import { getPanelChromeCss } from '../../components/styles/panelChromeCss';
 import { getWorkflowDialogChromeCss } from '../../components/styles/workflowDialogChromeCss';
+import { getFlatWorkflowCss } from '../../components/styles/flatWorkflowCss';
 
 export function getBookmarkSaveDialogCss(): string {
     return `
@@ -22,5 +23,5 @@ button, input, select, textarea {
 
 ${getPanelChromeCss()}
 ${getModalHostShellCss()}
-${getWorkflowDialogChromeCss()}` + layoutCss + workspaceMaterials + getSurfaceMaterialCss();
+${getWorkflowDialogChromeCss()}` + layoutCss + workspaceMaterials + getSurfaceMaterialCss() + getFlatWorkflowCss();
 }

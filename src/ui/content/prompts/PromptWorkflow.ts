@@ -300,30 +300,6 @@ export class PromptWorkflow {
         }
     }
 
-    reorder(sourceId: string, targetId: string): boolean {
-        const prompts = this.promptsCache ?? [];
-        const sourceIndex = prompts.findIndex((prompt) => prompt.id === sourceId);
-        const targetIndex = prompts.findIndex((prompt) => prompt.id === targetId);
-        if (sourceIndex < 0 || targetIndex < 0 || sourceIndex === targetIndex) return false;
-        const next = [...prompts];
-        const [prompt] = next.splice(sourceIndex, 1);
-        next.splice(targetIndex, 0, prompt!);
-        this.promptsCache = next;
-        return true;
-    }
-
-    async persistOrder(fallbackMessage: string): Promise<boolean> {
-        if (!this.promptsCache || !this.client.reorderPrompts) return false;
-        try {
-            this.promptsCache = await this.client.reorderPrompts(this.promptsCache.map((prompt) => prompt.id));
-            this.statusMessage = '';
-            return true;
-        } catch (error) {
-            this.statusMessage = error instanceof Error ? error.message : fallbackMessage;
-            return false;
-        }
-    }
-
     recordUse(id: string): void {
         void this.client.recordUse(id).catch(() => undefined);
     }

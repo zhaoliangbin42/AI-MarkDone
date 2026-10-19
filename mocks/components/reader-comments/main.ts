@@ -709,16 +709,14 @@ class ReaderCommentsMock {
             loadAll: async () => [...currentEntries, otherEntry],
             labels: zh ? {
                 title: '注释', close: '关闭', current: '当前会话', all: '全部注释', search: '搜索注释',
-                byConversation: '按会话', timeline: '时间线', empty: '还没有注释。', loading: '正在加载注释…', error: '无法加载注释。',
+                empty: '还没有注释。', loading: '正在加载注释…', error: '无法加载注释。',
                 quote: '所选内容', comment: '注释', updated: '更新于', reply: '回复', unanchored: '未定位', delete: '删除',
                 bulkEdit: '批量编辑', bulkCancel: '取消批量编辑', selectAll: '全选', deleteSelected: '删除所选',
-                persistence: '持久化注释', persistenceTooltip: '开启后，新注释会持久化保存，关闭浏览器也不会消失，但建议定期清理。',
             } : {
                 title: 'Annotations', close: 'Close', current: 'Current conversation', all: 'All annotations', search: 'Search annotations',
-                byConversation: 'By conversation', timeline: 'Timeline', empty: 'No annotations yet.', loading: 'Loading annotations…', error: 'Could not load annotations.',
+                empty: 'No annotations yet.', loading: 'Loading annotations…', error: 'Could not load annotations.',
                 quote: 'Selected content', comment: 'Annotation', updated: 'Updated', reply: 'Reply', unanchored: 'Not located', delete: 'Delete',
                 bulkEdit: 'Bulk edit', bulkCancel: 'Cancel bulk edit', selectAll: 'Select all', deleteSelected: 'Delete selected',
-                persistence: 'Persist annotations', persistenceTooltip: 'When enabled, new annotations are saved locally and remain after you close the browser, but consider cleaning them up regularly.',
             },
             onSelect: (entry) => {
                 if (entry.document.conversationId !== MOCK_ANNOTATION_DOCUMENT.conversationId) {
@@ -753,8 +751,6 @@ class ReaderCommentsMock {
                 this.renderComments();
                 return true;
             },
-            persistenceEnabled: false,
-            onPersistenceChange: () => undefined,
         });
     }
 

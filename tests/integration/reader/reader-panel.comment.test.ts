@@ -2,9 +2,13 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { DEFAULT_SETTINGS, type AppSettings } from '@/core/settings/types';
 import { getDefaultShortcutBindings, getShortcutPlatform, type ShortcutCommandId } from '@/core/shortcuts';
+import type { ReaderAnnotationDocument } from '@/contracts/readerAnnotations';
+import { readerAnnotationsClient } from '@/drivers/shared/clients/readerAnnotationsClient';
+import { createProtocolClientFailure } from '@/drivers/shared/clients/clientResult';
 import { resolveReaderCommentAnchor } from '@/services/reader/commentAnchoring';
-import { clearReaderCommentScope, listReaderComments, saveReaderComment, type ReaderCommentRecord } from '@/services/reader/commentSession';
+import { clearReaderCommentScope, listReaderComments, removeReaderComment, saveReaderComment, toReaderAnnotationRecord, type ReaderCommentRecord } from '@/services/reader/commentSession';
 import { ReaderPanel } from '@/ui/content/reader/ReaderPanel';
+import type { ReaderCommentExportPopover } from '@/ui/content/reader/ReaderCommentExportPopover';
 import { createAppearanceSnapshot } from '@/style/appearance';
 
 const scopeId = 'reader-panel-comments-v1';
@@ -69,8 +73,8 @@ function setReaderPromptProvider(panel: ReaderPanel, prompts: Array<{ id: string
     });
 }
 
-function seedComment(overrides: Partial<ReaderCommentRecord>): ReaderCommentRecord {
-    return saveReaderComment(scopeId, {
+function commentRecord(overrides: Partial<ReaderCommentRecord>): ReaderCommentRecord {
+    return {
         id: 'seed-comment',
         itemId: 'a',
         quoteText: 'seed quote',
@@ -85,7 +89,53 @@ function seedComment(overrides: Partial<ReaderCommentRecord>): ReaderCommentReco
         createdAt: 1,
         updatedAt: 1,
         ...overrides,
+    };
+}
+
+function seedComment(overrides: Partial<ReaderCommentRecord>): ReaderCommentRecord {
+    return saveReaderComment(scopeId, commentRecord(overrides));
+}
+
+function clickWithPointer(element: HTMLElement): void {
+    element.dispatchEvent(new MouseEvent('pointerdown', { bubbles: true, composed: true }));
+    element.click();
+}
+
+async function openCommentExportFromHeader(): Promise<{ shadow: ShadowRoot; exporting: HTMLElement }> {
+    const shadow = document.querySelector<HTMLElement>('#aimd-reader-panel-host')!.shadowRoot!;
+    clickWithPointer(shadow.querySelector<HTMLButtonElement>('[data-action="reader-copy-comments"]')!);
+    await vi.waitFor(() => expect(shadow.querySelector('.reader-comment-export')).toBeTruthy());
+    return { shadow, exporting: shadow.querySelector<HTMLElement>('.reader-comment-export')! };
+}
+
+function observeExportDeletes(panel: ReaderPanel) {
+    const popover = (panel as unknown as { commentExportPopover: ReaderCommentExportPopover }).commentExportPopover;
+    const open = popover.open.bind(popover);
+    const pending: Array<Promise<string[]>> = [];
+    const spy = vi.spyOn(popover, 'open').mockImplementation((params) => {
+        const onDelete = params.onDelete;
+        open({
+            ...params,
+            onDelete: onDelete ? (ids) => {
+                const result = onDelete(ids);
+                pending.push(result);
+                return result;
+            } : undefined,
+        });
     });
+    return { pending, restore: () => spy.mockRestore() };
+}
+
+async function answerAnnotationDeleteConfirmation(shadow: ShadowRoot, accept: boolean): Promise<void> {
+    await vi.waitFor(() => expect(shadow.querySelector('.mock-modal[data-kind="warning"]')).toBeTruthy());
+    const dialog = shadow.querySelector<HTMLElement>('.mock-modal[data-kind="warning"]')!;
+    const action = accept ? 'modal-confirm' : 'modal-cancel';
+    clickWithPointer(dialog.querySelector<HTMLButtonElement>(`.mock-modal__footer [data-action="${action}"]`)!);
+    finishAnnotationConfirmationClose(dialog);
+}
+
+function finishAnnotationConfirmationClose(dialog: HTMLElement): void {
+    dialog.dispatchEvent(new Event('animationend', { bubbles: true }));
 }
 
 describe('ReaderPanel comments', () => {
@@ -365,31 +415,31 @@ describe('ReaderPanel comments', () => {
         await Promise.resolve();
         await Promise.resolve();
         await Promise.resolve();
-        const picker = shadow.querySelector<HTMLElement>('.comment-prompt-picker')!;
-        expect(picker.classList.contains('aimd-material-surface')).toBe(true);
-        // Real-browser short-height coverage found auto grid tracks compressing both text rows.
-        const pickerCss = shadow.querySelector<HTMLStyleElement>('[data-aimd-style-id="aimd-comment-prompt-picker-style"]')!.textContent!;
-        const listRule = pickerCss.match(/\.comment-prompt-picker__list\s*\{([^}]*)\}/)![1];
-        const itemRule = pickerCss.match(/\.comment-prompt-picker__item\s*\{([^}]*)\}/)![1];
-        expect(listRule).toContain('grid-auto-rows: max-content;');
-        expect(listRule).toContain('align-content: start;');
-        expect(itemRule).toContain('grid-template-rows: max-content max-content;');
-        const promptChoice = shadow.querySelector<HTMLButtonElement>('.comment-prompt-picker__item[data-prompt-id="research-review"]')!;
-        expect(promptChoice.classList.contains('aimd-material-choice')).toBe(true);
-        promptChoice.dispatchEvent(new MouseEvent('pointerdown', { bubbles: true, composed: true }));
-        expect(picker.isConnected).toBe(true);
-        promptChoice.click();
-        await Promise.resolve();
-
-        const exportRoot = shadow.querySelector<HTMLElement>('.reader-comment-export');
+        const exportRoot = shadow.querySelector<HTMLElement>('.reader-comment-export')!;
         expect(exportRoot).toBeTruthy();
-        expect(exportRoot!.classList.contains('aimd-material-surface')).toBe(true);
-        expect(exportRoot!.querySelector('[data-role="preview"].aimd-material-field')).toBeTruthy();
-        expect(exportRoot!.querySelector('[data-role="userPrompt"]')).toBeNull();
-        expect(exportRoot!.querySelector('[data-role="commentTemplate"]')).toBeNull();
-        expect(exportRoot!.querySelector('[data-action="insert-selected-source"]')).toBeNull();
-        expect(exportRoot!.querySelector<HTMLElement>('[data-role="preview"]')?.textContent).toContain('Summarize these comments:');
+        expect(shadow.querySelector('.comment-prompt-picker')).toBeNull();
+        expect(exportRoot.classList.contains('flat-workflow')).toBe(true);
+        expect(exportRoot.querySelector('[data-role="userPrompt"]')).toBeNull();
+        expect(exportRoot.querySelector('[data-role="commentTemplate"]')).toBeNull();
+        expect(exportRoot.querySelector('[data-action="insert-selected-source"]')).toBeNull();
         const copyExport = exportRoot.querySelector<HTMLButtonElement>('[data-action="copy"]')!;
+        expect(copyExport.disabled).toBe(true);
+        const prompt = exportRoot.querySelector<HTMLSelectElement>('[data-role="prompt-select"]')!;
+        prompt.value = 'research-review';
+        prompt.dispatchEvent(new Event('change', { bubbles: true }));
+        expect(copyExport.disabled).toBe(true);
+        prompt.value = '';
+        prompt.dispatchEvent(new Event('change', { bubbles: true }));
+        const annotation = exportRoot.querySelector<HTMLInputElement>('[data-annotation-id]')!;
+        expect(annotation.checked).toBe(false);
+        annotation.click();
+        expect(copyExport.disabled).toBe(false);
+        expect(exportRoot.querySelector<HTMLElement>('[data-role="preview"]')?.textContent)
+            .not.toContain('Summarize these comments:');
+        prompt.closest('details')!.open = true;
+        prompt.value = 'research-review';
+        prompt.dispatchEvent(new Event('change', { bubbles: true }));
+        expect(exportRoot.querySelector<HTMLElement>('[data-role="preview"]')?.textContent).toContain('Summarize these comments:');
         copyExport.dispatchEvent(new MouseEvent('pointerdown', { bubbles: true, composed: true }));
         expect(exportRoot.isConnected).toBe(true);
         copyExport.click();
@@ -406,6 +456,17 @@ describe('ReaderPanel comments', () => {
                 'Summarize these comments:',
             ].join('\n'),
         );
+        prompt.value = '';
+        prompt.dispatchEvent(new Event('change', { bubbles: true }));
+        copyExport.click();
+        await Promise.resolve();
+        await Promise.resolve();
+        expect(writeText).toHaveBeenLastCalledWith([
+            '1. Regarding',
+            '   Before `code` and $x+y$ after',
+            '   My comment is:',
+            '   Needs clarification',
+        ].join('\n'));
         getSelectionSpy.mockRestore();
     });
 
@@ -459,7 +520,13 @@ describe('ReaderPanel comments', () => {
         getSelectionSpy.mockRestore();
     });
 
-    it('opens the prompt picker centered when copying annotations from the reader header', async () => {
+    it('copies only selected annotations from the current message without a Prompt and preserves complete source Markdown', async () => {
+        const { writeText } = setClipboardMock();
+        const fullSource = `[Full source](https://example.com/source) ${'unabridged evidence '.repeat(120)}\`source_end()\` $x+y$`;
+        seedComment({ id: 'first', quoteText: 'Short excerpt only', sourceMarkdown: fullSource, comment: 'First selected annotation' });
+        seedComment({ id: 'second', sourceMarkdown: 'Second source', comment: 'Second selected annotation', createdAt: 2 });
+        seedComment({ id: 'excluded', sourceMarkdown: 'Unselected source', comment: 'Unselected annotation', createdAt: 3 });
+        seedComment({ id: 'other-message', itemId: 'b', comment: 'Another message annotation' });
         const panel = new ReaderPanel();
         panel.setCommentExportSettings({
             prompts: [
@@ -471,70 +538,306 @@ describe('ReaderPanel comments', () => {
                 { type: 'token', key: 'user_comment' },
             ],
         });
-        setReaderPromptProvider(panel, [
-            { id: 'default', title: 'Default', content: 'Please review the following comments:' },
-        ]);
+        setReaderPromptProvider(panel, []);
 
         await panel.show(
-            [{ id: 'a', userPrompt: 'Q1', content: 'Before `code` and $x+y$ after' }],
+            [{ id: 'a', userPrompt: 'Q1', content: 'First response' }, { id: 'b', userPrompt: 'Q2', content: 'Second response' }],
             0,
             'light',
         );
 
         const host = document.querySelector('#aimd-reader-panel-host') as HTMLElement;
         const shadow = host.shadowRoot as ShadowRoot;
-        const markdownRoot = shadow.querySelector<HTMLElement>('.reader-markdown')!;
-        const paragraph = markdownRoot.querySelector('p')!;
-        const range = document.createRange();
-        range.setStart(paragraph.firstChild as Text, 0);
-        range.setEnd(paragraph.lastChild as Text, paragraph.lastChild?.textContent?.length ?? 0);
-        installLayoutMocks(range, markdownRoot, Array.from(markdownRoot.querySelectorAll<HTMLElement>('[data-aimd-unit-id]')));
-
-        const getSelectionSpy = vi.spyOn(window, 'getSelection').mockReturnValue(createSelection(range));
-        document.dispatchEvent(new Event('selectionchange'));
-        document.dispatchEvent(new Event('pointerup'));
+        const trigger = shadow.querySelector<HTMLButtonElement>('[data-action="reader-copy-comments"]')!;
+        trigger.dispatchEvent(new MouseEvent('pointerdown', { bubbles: true, composed: true }));
+        trigger.click();
+        await Promise.resolve();
+        await Promise.resolve();
         await Promise.resolve();
 
-        shadow.querySelectorAll<HTMLButtonElement>('.reader-comment-action__button')[1]!.click();
+        const exporting = shadow.querySelector<HTMLElement>('.reader-comment-export')!;
+        expect(exporting).toBeTruthy();
+        expect(exporting.querySelectorAll('[data-annotation-id]')).toHaveLength(3);
+        expect(exporting.querySelector('[data-annotation-id="other-message"]')).toBeNull();
+        expect(exporting.querySelector('[data-role="prompt-select"]')).toBeNull();
+        const copy = exporting.querySelector<HTMLButtonElement>('[data-action="copy"]')!;
+        const selectAll = exporting.querySelector<HTMLInputElement>('[data-role="select-all"]')!;
+        expect(copy.disabled).toBe(true);
+        expect(Array.from(exporting.querySelectorAll<HTMLInputElement>('[data-annotation-id]')).every(input => !input.checked)).toBe(true);
+        exporting.querySelector<HTMLInputElement>('[data-annotation-id="first"]')!.click();
+        exporting.querySelector<HTMLInputElement>('[data-annotation-id="second"]')!.click();
+        expect(selectAll.checked).toBe(false);
+        expect(selectAll.indeterminate).toBe(true);
+        expect(copy.disabled).toBe(false);
+        copy.click();
         await Promise.resolve();
-        const textarea = shadow.querySelector<HTMLTextAreaElement>('.reader-comment-popover__input')!;
-        textarea.value = 'Needs clarification';
-        textarea.dispatchEvent(new Event('input', { bubbles: true }));
-        shadow.querySelector<HTMLButtonElement>('.reader-comment-popover [data-action="save"]')!.click();
         await Promise.resolve();
 
-        Object.defineProperty(window, 'innerWidth', { value: 1280, configurable: true });
-        Object.defineProperty(window, 'innerHeight', { value: 720, configurable: true });
-        const rectSpy = vi.spyOn(HTMLElement.prototype, 'getBoundingClientRect').mockImplementation(function getRect(this: HTMLElement) {
-            if (this.classList.contains('comment-prompt-picker')) {
-                return { left: 0, top: 0, width: 420, height: 280, right: 420, bottom: 280, x: 0, y: 0, toJSON: () => ({}) } as DOMRect;
-            }
-            return {
-                left: 40,
-                top: 32,
-                width: 32,
-                height: 32,
-                right: 72,
-                bottom: 64,
-                x: 40,
-                y: 32,
-                toJSON: () => ({}),
-            } as DOMRect;
+        expect(writeText).toHaveBeenCalledOnce();
+        const copied = writeText.mock.calls[0]![0];
+        expect(copied).toContain(fullSource);
+        expect(copied).toContain('First selected annotation');
+        expect(copied).toContain('Second selected annotation');
+        expect(copied).not.toContain('Unselected annotation');
+        expect(copied).not.toContain('Another message annotation');
+        expect(copied).not.toContain('Please review the following comments:');
+        expect(listReaderComments(scopeId, 'a')).toHaveLength(3);
+        expect(exporting.querySelector<HTMLInputElement>('[data-annotation-id="first"]')?.checked).toBe(true);
+        expect(exporting.querySelector<HTMLInputElement>('[data-annotation-id="second"]')?.checked).toBe(true);
+        panel.hide();
+    });
+
+    it('keeps the copied selection in one window and deletes only confirmed selected annotations', async () => {
+        const { writeText } = setClipboardMock();
+        seedComment({ id: 'first', comment: 'First note' });
+        seedComment({ id: 'second', comment: 'Second note', createdAt: 2 });
+        seedComment({ id: 'unselected', comment: 'Keep unselected', createdAt: 3 });
+        seedComment({ id: 'other-message', itemId: 'b', comment: 'Keep another message' });
+        const panel = new ReaderPanel();
+        setReaderPromptProvider(panel, []);
+        const observed = observeExportDeletes(panel);
+        try {
+            await panel.show([
+                { id: 'a', userPrompt: 'Q1', content: 'First response' },
+                { id: 'b', userPrompt: 'Q2', content: 'Second response' },
+            ], 0, 'light');
+            const { shadow, exporting } = await openCommentExportFromHeader();
+            const first = exporting.querySelector<HTMLInputElement>('[data-annotation-id="first"]')!;
+            const second = exporting.querySelector<HTMLInputElement>('[data-annotation-id="second"]')!;
+            first.click();
+            second.click();
+            const copy = exporting.querySelector<HTMLButtonElement>('[data-action="copy"]')!;
+            const remove = exporting.querySelector<HTMLButtonElement>('[data-action="delete"]')!;
+            clickWithPointer(copy);
+            await vi.waitFor(() => expect(writeText).toHaveBeenCalledOnce());
+            await vi.waitFor(() => expect(remove.disabled).toBe(false));
+            expect(exporting.querySelector<HTMLInputElement>('[data-annotation-id="first"]')?.checked).toBe(true);
+            expect(exporting.querySelector<HTMLInputElement>('[data-annotation-id="second"]')?.checked).toBe(true);
+            expect(listReaderComments(scopeId, 'a')).toHaveLength(3);
+
+            clickWithPointer(remove);
+            await vi.waitFor(() => expect(observed.pending).toHaveLength(1));
+            await answerAnnotationDeleteConfirmation(shadow, false);
+            expect(await observed.pending[0]).toEqual([]);
+            await vi.waitFor(() => expect(remove.disabled).toBe(false));
+            expect(exporting.isConnected).toBe(true);
+            expect(exporting.querySelector<HTMLInputElement>('[data-annotation-id="first"]')?.checked).toBe(true);
+            expect(exporting.querySelector<HTMLInputElement>('[data-annotation-id="second"]')?.checked).toBe(true);
+            expect(listReaderComments(scopeId, 'a')).toHaveLength(3);
+
+            clickWithPointer(remove);
+            await answerAnnotationDeleteConfirmation(shadow, true);
+            expect(new Set(await observed.pending[1])).toEqual(new Set(['first', 'second']));
+            await vi.waitFor(() => expect(exporting.querySelector('[data-annotation-id="first"]')).toBeNull());
+            expect(exporting.querySelector('[data-annotation-id="second"]')).toBeNull();
+            expect(exporting.querySelector<HTMLInputElement>('[data-annotation-id="unselected"]')?.checked).toBe(false);
+            expect(exporting.isConnected).toBe(true);
+            expect(copy.disabled).toBe(true);
+            expect(remove.disabled).toBe(true);
+            expect(listReaderComments(scopeId, 'a').map((record) => record.id)).toEqual(['unselected']);
+            expect(listReaderComments(scopeId, 'b').map((record) => record.id)).toEqual(['other-message']);
+        } finally {
+            observed.restore();
+            panel.hide();
+        }
+    });
+
+    it.each(['header', 'host'] as const)('routes Escape from the Reader %s to its export window and then only to deletion confirmation', async (focus) => {
+        seedComment({ id: 'escape-export', comment: 'Keep this annotation' });
+        const panel = new ReaderPanel();
+        setReaderPromptProvider(panel, []);
+        const observed = observeExportDeletes(panel);
+        try {
+            await panel.show([{ id: 'a', userPrompt: 'Q1', content: 'Response' }], 0, 'light');
+            const host = document.querySelector<HTMLElement>('#aimd-reader-panel-host')!;
+            const { shadow } = await openCommentExportFromHeader();
+            const trigger = shadow.querySelector<HTMLButtonElement>('[data-action="reader-copy-comments"]')!;
+            const keyboardTarget = focus === 'header' ? trigger : host;
+            if (focus === 'host') host.tabIndex = -1;
+            keyboardTarget.focus();
+            expect(document.activeElement).toBe(host);
+            expect(shadow.activeElement).toBe(focus === 'header' ? trigger : null);
+            keyboardTarget.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true, composed: true, cancelable: true }));
+            await vi.waitFor(() => expect(shadow.querySelector('.reader-comment-export')).toBeNull());
+            expect(panel.isVisible()).toBe(true);
+            expect(document.querySelector('#aimd-reader-panel-host')).toBe(host);
+
+            const { exporting } = await openCommentExportFromHeader();
+            exporting.querySelector<HTMLInputElement>('[data-annotation-id="escape-export"]')!.click();
+            clickWithPointer(exporting.querySelector<HTMLButtonElement>('[data-action="delete"]')!);
+            await vi.waitFor(() => expect(shadow.querySelector('.mock-modal[data-kind="warning"]')).toBeTruthy());
+            const dialog = shadow.querySelector<HTMLElement>('.mock-modal[data-kind="warning"]')!;
+            keyboardTarget.focus();
+            expect(document.activeElement).toBe(host);
+            expect(shadow.activeElement).toBe(focus === 'header' ? trigger : null);
+            keyboardTarget.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true, composed: true, cancelable: true }));
+            finishAnnotationConfirmationClose(dialog);
+            expect(await observed.pending[0]).toEqual([]);
+            await vi.waitFor(() => expect(shadow.querySelector('.mock-modal[data-kind="warning"]')).toBeNull());
+            expect(exporting.isConnected).toBe(true);
+            expect(exporting.querySelector<HTMLInputElement>('[data-annotation-id="escape-export"]')?.checked).toBe(true);
+            expect(panel.isVisible()).toBe(true);
+            expect(document.querySelector('#aimd-reader-panel-host')).toBe(host);
+            expect(listReaderComments(scopeId, 'a').map((record) => record.id)).toEqual(['escape-export']);
+        } finally {
+            observed.restore();
+            panel.hide();
+        }
+    });
+
+    it('keeps revision conflicts selected while removing successful and already missing durable annotations', async () => {
+        const { writeText } = setClipboardMock();
+        const annotationDocument: ReaderAnnotationDocument = { platform: 'chatgpt', conversationId: 'delete-partial', title: 'Delete partial' };
+        const records = ['success', 'conflict', 'already-missing'].map((id, index) => commentRecord({
+            id, comment: `${id} annotation`, createdAt: index + 1, revision: 3,
+            target: { assistantMessageId: 'assistant-a', position: 0 },
+        }));
+        const remaining = new Map(records.map((record) => [record.id, {
+            document: annotationDocument,
+            annotation: toReaderAnnotationRecord(record, record.target!),
+        }]));
+        const list = vi.spyOn(readerAnnotationsClient, 'list').mockImplementation(async () => ({
+            ok: true, data: { entries: [...remaining.values()] },
+        }));
+        const remove = vi.spyOn(readerAnnotationsClient, 'remove').mockImplementation(async (_document, id) => {
+            if (id === 'conflict') return createProtocolClientFailure('CONFLICT', 'Annotation changed; reload it before deleting');
+            remaining.delete(id);
+            return id === 'already-missing'
+                ? createProtocolClientFailure('NOT_FOUND', 'Annotation not found')
+                : { ok: true, data: { deleted: true, annotationId: id } };
         });
+        const panel = new ReaderPanel();
+        setReaderPromptProvider(panel, []);
+        const observed = observeExportDeletes(panel);
+        try {
+            await panel.show([
+                { id: 'a', userPrompt: 'Q1', content: 'Source response', meta: { assistantMessageId: 'assistant-a' } },
+            ], 0, 'light', { annotationDocument });
+            const { shadow, exporting } = await openCommentExportFromHeader();
+            exporting.querySelector<HTMLInputElement>('[data-role="select-all"]')!.click();
+            clickWithPointer(exporting.querySelector<HTMLButtonElement>('[data-action="delete"]')!);
+            await answerAnnotationDeleteConfirmation(shadow, true);
+            expect(new Set(await observed.pending[0])).toEqual(new Set(['success', 'already-missing']));
+            await vi.waitFor(() => expect(exporting.querySelectorAll('[data-annotation-id]')).toHaveLength(1));
+            expect(exporting.querySelector<HTMLInputElement>('[data-annotation-id="conflict"]')?.checked).toBe(true);
+            expect(panel.getCommentExportContext()?.comments.map((record) => record.id)).toEqual(['conflict']);
+            for (const record of records) {
+                expect(remove).toHaveBeenCalledWith(expect.objectContaining({ conversationId: 'delete-partial' }), record.id, 3);
+            }
+            await vi.waitFor(() => expect(exporting.querySelector<HTMLButtonElement>('[data-action="copy"]')?.disabled).toBe(false));
+            clickWithPointer(exporting.querySelector<HTMLButtonElement>('[data-action="copy"]')!);
+            await vi.waitFor(() => expect(writeText).toHaveBeenCalledOnce());
+            expect(writeText.mock.calls[0]![0]).toContain('conflict annotation');
+            expect(writeText.mock.calls[0]![0]).not.toContain('success annotation');
+        } finally {
+            observed.restore();
+            panel.hide();
+            list.mockRestore();
+            remove.mockRestore();
+        }
+    });
 
-        shadow.querySelector<HTMLButtonElement>('[data-action="reader-copy-comments"]')!.click();
-        await Promise.resolve();
-        await Promise.resolve();
-        await Promise.resolve();
+    it.each(['unavailable', 'newer-revision'] as const)('retains durable selections when the confirmation read returns %s', async (scenario) => {
+        const annotationDocument: ReaderAnnotationDocument = { platform: 'chatgpt', conversationId: 'delete-fresh-read', title: 'Fresh read' };
+        const record = commentRecord({ id: 'fresh-read', revision: 3, target: { assistantMessageId: 'assistant-a', position: 0 } });
+        const original = { document: annotationDocument, annotation: toReaderAnnotationRecord(record, record.target!) };
+        const newer = { ...original, annotation: { ...original.annotation, comment: 'Edited in another window', revision: 4, updatedAt: 20 } };
+        const list = vi.spyOn(readerAnnotationsClient, 'list')
+            .mockResolvedValueOnce({ ok: true, data: { entries: [original] } })
+            .mockResolvedValue(scenario === 'unavailable'
+                ? createProtocolClientFailure('INTERNAL_ERROR', 'Storage unavailable')
+                : { ok: true, data: { entries: [newer] } });
+        const remove = vi.spyOn(readerAnnotationsClient, 'remove').mockResolvedValue({ ok: true, data: { deleted: true } });
+        const panel = new ReaderPanel();
+        setReaderPromptProvider(panel, []);
+        const observed = observeExportDeletes(panel);
+        try {
+            await panel.show([
+                { id: 'a', userPrompt: 'Q1', content: 'Response', meta: { assistantMessageId: 'assistant-a' } },
+            ], 0, 'light', { annotationDocument });
+            const { shadow, exporting } = await openCommentExportFromHeader();
+            exporting.querySelector<HTMLInputElement>('[data-annotation-id="fresh-read"]')!.click();
+            clickWithPointer(exporting.querySelector<HTMLButtonElement>('[data-action="delete"]')!);
+            await answerAnnotationDeleteConfirmation(shadow, true);
+            expect(await observed.pending[0]).toEqual([]);
+            expect(remove).not.toHaveBeenCalled();
+            expect(list.mock.calls.length).toBeGreaterThan(1);
+            expect(panel.getCommentExportContext()?.comments).toHaveLength(1);
+            await vi.waitFor(() => expect(exporting.querySelector<HTMLInputElement>('[data-annotation-id="fresh-read"]')?.checked).toBe(true));
+            if (scenario === 'newer-revision') {
+                expect(panel.getCommentExportContext()?.comments[0]?.revision).toBe(4);
+                expect(exporting.textContent).toContain('Edited in another window');
+            }
+        } finally {
+            observed.restore();
+            panel.hide();
+            list.mockRestore();
+            remove.mockRestore();
+        }
+    });
 
-        const pickerLayer = shadow.querySelector<HTMLElement>('.comment-prompt-picker-layer')!;
-        const picker = shadow.querySelector<HTMLElement>('.comment-prompt-picker')!;
-        expect(pickerLayer.parentElement).toBe(shadow.querySelector('[data-role="overlay-surface-root"]'));
-        expect(Number.parseFloat(picker.style.left)).toBe(430);
-        expect(Number.parseFloat(picker.style.top)).toBe(220);
+    it.each([
+        ['comment', 'before'], ['comment', 'during'], ['sourceMarkdown', 'during'],
+    ] as const)('rejects deleting an annotation whose %s changed %s confirmation', async (field, phase) => {
+        const original = seedComment({ id: 'changed', comment: 'Original annotation', sourceMarkdown: 'Original source' });
+        const panel = new ReaderPanel();
+        setReaderPromptProvider(panel, []);
+        const observed = observeExportDeletes(panel);
+        try {
+            await panel.show([{ id: 'a', userPrompt: 'Q1', content: 'Response' }], 0, 'light');
+            const { shadow, exporting } = await openCommentExportFromHeader();
+            exporting.querySelector<HTMLInputElement>('[data-annotation-id="changed"]')!.click();
+            const changed = { ...original, [field]: 'Changed while confirming', updatedAt: original.updatedAt + 1 };
+            if (phase === 'before') seedComment(changed);
+            clickWithPointer(exporting.querySelector<HTMLButtonElement>('[data-action="delete"]')!);
+            if (phase === 'during') {
+                await vi.waitFor(() => expect(shadow.querySelector('.mock-modal[data-kind="warning"]')).toBeTruthy());
+                seedComment(changed);
+                await answerAnnotationDeleteConfirmation(shadow, true);
+            } else {
+                expect(shadow.querySelector('.mock-modal[data-kind="warning"]')).toBeNull();
+            }
+            expect(await observed.pending[0]).toEqual([]);
+            expect(listReaderComments(scopeId, 'a')[0]?.[field]).toBe('Changed while confirming');
+            await vi.waitFor(() => expect(exporting.querySelector<HTMLInputElement>('[data-annotation-id="changed"]')?.checked).toBe(true));
+        } finally {
+            observed.restore();
+            panel.hide();
+        }
+    });
 
-        rectSpy.mockRestore();
-        getSelectionSpy.mockRestore();
+    it.each(['message', 'document'] as const)('rejects a pending deletion after the Reader %s changes', async (scope) => {
+        seedComment({ id: 'scope-note', comment: 'Keep original annotation' });
+        seedComment({ id: 'other-message', itemId: 'b', comment: 'Keep other message' });
+        const panel = new ReaderPanel();
+        setReaderPromptProvider(panel, []);
+        const observed = observeExportDeletes(panel);
+        const list = vi.spyOn(readerAnnotationsClient, 'list').mockResolvedValue({ ok: true, data: { entries: [] } });
+        try {
+            await panel.show([
+                { id: 'a', userPrompt: 'Q1', content: 'First response' },
+                { id: 'b', userPrompt: 'Q2', content: 'Second response' },
+            ], 0, 'light');
+            const { shadow, exporting } = await openCommentExportFromHeader();
+            exporting.querySelector<HTMLInputElement>('[data-annotation-id="scope-note"]')!.click();
+            clickWithPointer(exporting.querySelector<HTMLButtonElement>('[data-action="delete"]')!);
+            await vi.waitFor(() => expect(shadow.querySelector('.mock-modal[data-kind="warning"]')).toBeTruthy());
+            if (scope === 'message') {
+                clickWithPointer(shadow.querySelector<HTMLButtonElement>('[data-action="reader-next"]')!);
+            } else {
+                await panel.show([{ id: 'a', userPrompt: 'Changed conversation', content: 'New response' }], 0, 'light', {
+                    annotationDocument: { platform: 'chatgpt', conversationId: 'different-conversation', title: 'Different conversation' },
+                });
+            }
+            await answerAnnotationDeleteConfirmation(shadow, true);
+            expect(await observed.pending[0]).toEqual([]);
+            expect(listReaderComments(scopeId, 'a').map((record) => record.id)).toEqual(['scope-note']);
+            expect(listReaderComments(scopeId, 'b').map((record) => record.id)).toEqual(['other-message']);
+        } finally {
+            observed.restore();
+            panel.hide();
+            list.mockRestore();
+        }
     });
 
     it('lists annotations, switches to text-position order, and opens the selected annotation for editing', async () => {
@@ -735,14 +1038,12 @@ describe('ReaderPanel comments', () => {
         expect(deleteButton.closest('[role="button"]')).toBeNull();
     });
 
-    it('copies the same compiled text shown in the export popover even if settings change while it is open', async () => {
+    it('recompiles selected annotations from the latest records and output settings before copying', async () => {
         const { writeText } = setClipboardMock();
+        const original = seedComment({ id: 'live', sourceMarkdown: 'Original source', comment: 'Original note' });
         const panel = new ReaderPanel();
         panel.setCommentExportSettings({
-            prompts: [
-                { id: 'first', title: 'First', content: 'First prompt:' },
-                { id: 'second', title: 'Second', content: 'Second prompt:' },
-            ],
+            prompts: [{ id: 'first', title: 'First', content: 'First prompt:' }],
             template: [
                 { type: 'token', key: 'selected_source' },
                 { type: 'text', value: '\n' },
@@ -753,64 +1054,84 @@ describe('ReaderPanel comments', () => {
             { id: 'first', title: 'First', content: 'First prompt:' },
             { id: 'second', title: 'Second', content: 'Second prompt:' },
         ]);
-
-        await panel.show(
-            [{ id: 'a', userPrompt: 'Q1', content: 'Before `code` and $x+y$ after' }],
-            0,
-            'light',
-        );
-
-        const host = document.querySelector('#aimd-reader-panel-host') as HTMLElement;
-        const shadow = host.shadowRoot as ShadowRoot;
-        const markdownRoot = shadow.querySelector<HTMLElement>('.reader-markdown')!;
-        const paragraph = markdownRoot.querySelector('p')!;
-        const range = document.createRange();
-        range.setStart(paragraph.firstChild as Text, 0);
-        range.setEnd(paragraph.lastChild as Text, paragraph.lastChild?.textContent?.length ?? 0);
-        installLayoutMocks(range, markdownRoot, Array.from(markdownRoot.querySelectorAll<HTMLElement>('[data-aimd-unit-id]')));
-
-        const getSelectionSpy = vi.spyOn(window, 'getSelection').mockReturnValue(createSelection(range));
-        document.dispatchEvent(new Event('selectionchange'));
-        document.dispatchEvent(new Event('pointerup'));
-        await Promise.resolve();
-
-        shadow.querySelectorAll<HTMLButtonElement>('.reader-comment-action__button')[1]!.click();
-        await Promise.resolve();
-        const textarea = shadow.querySelector<HTMLTextAreaElement>('.reader-comment-popover__input')!;
-        textarea.value = 'Snapshot comment';
-        textarea.dispatchEvent(new Event('input', { bubbles: true }));
-        shadow.querySelector<HTMLButtonElement>('.reader-comment-popover [data-action="save"]')!.click();
-        await Promise.resolve();
-
+        await panel.show([{ id: 'a', userPrompt: 'Q1', content: 'Response' }], 0, 'light');
+        const shadow = document.querySelector<HTMLElement>('#aimd-reader-panel-host')!.shadowRoot!;
         shadow.querySelector<HTMLButtonElement>('[data-action="reader-copy-comments"]')!.click();
         await Promise.resolve();
         await Promise.resolve();
         await Promise.resolve();
-        shadow.querySelector<HTMLButtonElement>('.comment-prompt-picker__item[data-prompt-id="first"]')!.click();
-        await Promise.resolve();
+        const exporting = shadow.querySelector<HTMLElement>('.reader-comment-export')!;
+        exporting.querySelector<HTMLInputElement>('[data-annotation-id="live"]')!.click();
+        const prompt = exporting.querySelector<HTMLSelectElement>('[data-role="prompt-select"]')!;
+        prompt.value = 'first';
+        prompt.dispatchEvent(new Event('change', { bubbles: true }));
+        const initialPreview = exporting.querySelector<HTMLElement>('[data-role="preview"]')!.textContent!;
+        expect(initialPreview).toContain('Original note');
+        expect(initialPreview).toContain('First prompt:');
 
-        const exportRoot = shadow.querySelector<HTMLElement>('.reader-comment-export')!;
-        const previewText = exportRoot.querySelector<HTMLElement>('[data-role="preview"]')?.textContent ?? '';
-        expect(previewText).toContain('First prompt:');
-
+        saveReaderComment(scopeId, { ...original, comment: 'Latest note', updatedAt: 2 });
         panel.setCommentExportSettings({
-            prompts: [
-                { id: 'first', title: 'First', content: 'First prompt:' },
-                { id: 'second', title: 'Second', content: 'Second prompt:' },
-            ],
-            template: [
-                { type: 'text', value: 'Changed: ' },
-                { type: 'token', key: 'user_comment' },
-            ],
+            prompts: [{ id: 'first', title: 'First', content: 'First prompt:' }],
+            template: [{ type: 'text', value: 'Changed: ' }, { type: 'token', key: 'user_comment' }],
         });
-
-        exportRoot.querySelector<HTMLButtonElement>('[data-action="copy"]')!.click();
+        exporting.querySelector<HTMLButtonElement>('[data-action="copy"]')!.click();
         await Promise.resolve();
         await Promise.resolve();
 
-        expect(writeText).toHaveBeenCalledWith(previewText);
+        expect(writeText).toHaveBeenCalledWith('First prompt:\n\n1. Changed: Latest note');
+        expect(writeText).not.toHaveBeenCalledWith(initialPreview);
         expect(writeText).not.toHaveBeenCalledWith(expect.stringContaining('Second prompt:'));
-        getSelectionSpy.mockRestore();
+        expect(listReaderComments(scopeId, 'a')).toHaveLength(1);
+        panel.hide();
+    });
+
+    it('does not copy an annotation that was removed after it was selected', async () => {
+        const { writeText } = setClipboardMock();
+        seedComment({ id: 'removed', comment: 'Removed note' });
+        seedComment({ id: 'kept', comment: 'Unselected surviving note' });
+        const panel = new ReaderPanel();
+        setReaderPromptProvider(panel, []);
+        await panel.show([{ id: 'a', userPrompt: 'Q1', content: 'Response' }], 0, 'light');
+        const shadow = document.querySelector<HTMLElement>('#aimd-reader-panel-host')!.shadowRoot!;
+        shadow.querySelector<HTMLButtonElement>('[data-action="reader-copy-comments"]')!.click();
+        await Promise.resolve();
+        await Promise.resolve();
+        await Promise.resolve();
+        const exporting = shadow.querySelector<HTMLElement>('.reader-comment-export')!;
+        exporting.querySelector<HTMLInputElement>('[data-annotation-id="removed"]')!.click();
+        const copy = exporting.querySelector<HTMLButtonElement>('[data-action="copy"]')!;
+        expect(copy.disabled).toBe(false);
+        removeReaderComment(scopeId, 'a', 'removed');
+        copy.click();
+        await Promise.resolve();
+        await Promise.resolve();
+        expect(writeText).not.toHaveBeenCalled();
+        expect(copy.disabled).toBe(true);
+        expect(listReaderComments(scopeId, 'a').map(record => record.id)).toEqual(['kept']);
+        panel.hide();
+    });
+
+    it('ignores an asynchronous copy request when the Reader moves to another message before Prompts load', async () => {
+        seedComment({ id: 'first-message', comment: 'First message note' });
+        const panel = new ReaderPanel();
+        let resolvePrompts!: (prompts: Array<{ id: string; title: string; content: string }>) => void;
+        panel.setPromptManagerController({
+            onOpenManager: vi.fn(async () => undefined),
+            listReaderPrompts: () => new Promise<Array<{ id: string; title: string; content: string }>>(resolve => { resolvePrompts = resolve; }),
+        });
+        await panel.show([
+            { id: 'a', userPrompt: 'Q1', content: 'First response' },
+            { id: 'b', userPrompt: 'Q2', content: 'Second response' },
+        ], 0, 'light');
+        const shadow = document.querySelector<HTMLElement>('#aimd-reader-panel-host')!.shadowRoot!;
+        shadow.querySelector<HTMLButtonElement>('[data-action="reader-copy-comments"]')!.click();
+        shadow.querySelector<HTMLButtonElement>('[data-action="reader-next"]')!.click();
+        resolvePrompts([{ id: 'late', title: 'Late Prompt', content: 'Late instruction' }]);
+        await Promise.resolve();
+        await Promise.resolve();
+        await Promise.resolve();
+        expect(shadow.querySelector('.reader-comment-export')).toBeNull();
+        panel.hide();
     });
 
     it('still exposes prompt export context when there are no annotations yet', async () => {

@@ -1,4 +1,28 @@
 {
+    "promptTriggerHelp": {
+        "message": "Set a trigger to insert this Prompt by typing \\ followed by the trigger in ChatGPT.",
+        "description": "Explain optional Prompt trigger text"
+    },
+    "readerSettingsMore": {
+        "message": "More settings",
+        "description": "Simplified workflow controls"
+    },
+    "promptActionsLabel": {
+        "message": "Actions",
+        "description": "Simplified workflow controls"
+    },
+    "promptDisabled": {
+        "message": "Disabled",
+        "description": "Simplified workflow controls"
+    },
+    "promptOptionalSettings": {
+        "message": "Shortcuts and cursor position (optional)",
+        "description": "Simplified workflow controls"
+    },
+    "bookmarkSaveChangeFolder": {
+        "message": "Change folder",
+        "description": "Simplified workflow controls"
+    },
     "extName": {
         "message": "AI-MarkDone — Reader and export for ChatGPT",
         "description": "Message for extName"
@@ -446,14 +470,6 @@
     "readerCommentSearch": {
         "message": "Search annotations",
         "description": "Reader annotation manager search"
-    },
-    "readerCommentGroupByConversation": {
-        "message": "By conversation",
-        "description": "Reader annotation manager conversation grouping"
-    },
-    "readerCommentTimeline": {
-        "message": "Timeline",
-        "description": "Reader annotation manager timeline view"
     },
     "readerCommentBulkEdit": {
         "message": "Manage selection",
@@ -3303,6 +3319,26 @@
         "message": "No prompts",
         "description": "Empty state for prompt manager"
     },
+    "promptManualAutocompleteHint": {
+        "message": "Type a title or trigger to filter; ↑ ↓ select, Enter/Tab insert, Esc close.",
+        "description": "Hint for manually opened prompt candidates"
+    },
+    "promptAutocompleteEmptyLibrary": {
+        "message": "No enabled prompts yet. Add one in your prompt library.",
+        "description": "Empty manual prompt candidate library"
+    },
+    "promptAutocompleteNoMatches": {
+        "message": "No matching prompts. Change your search or open the library.",
+        "description": "No manual prompt candidates match the current query"
+    },
+    "promptAutocompleteOpenLibrary": {
+        "message": "Open prompt library",
+        "description": "Explicit action from empty candidates to prompt management"
+    },
+    "promptAutocompleteLoadFailed": {
+        "message": "Prompts could not be loaded. Open the library to retry.",
+        "description": "Prompt candidate load failure distinct from an empty library"
+    },
     "promptUntitled": {
         "message": "Untitled prompt",
         "description": "Fallback prompt title"
@@ -3462,18 +3498,6 @@
     "pageControls": {
         "message": "Page controls",
         "description": "Label for pageControls"
-    },
-    "pageAnnotationInsertAndDelete": {
-        "message": "Insert and delete",
-        "description": "Label for pageAnnotationInsertAndDelete"
-    },
-    "pageAnnotationInsertedAndDeleted": {
-        "message": "Annotations inserted and deleted",
-        "description": "Label for pageAnnotationInsertedAndDeleted"
-    },
-    "pageAnnotationInsertedDeleteFailed": {
-        "message": "Inserted. Some annotations could not be deleted and were kept.",
-        "description": "Label for pageAnnotationInsertedDeleteFailed"
     },
     "pageAnnotationInsert": {
         "message": "Insert to input",
@@ -5599,25 +5623,49 @@
         "message": "Could not locate this reply. Scroll through the conversation and try again.",
         "description": "Feedback when a message directory jump cannot locate the reply"
     },
-    "promptManualAutocompleteHint": {
-        "message": "Type a title or trigger to filter; ↑ ↓ select, Enter/Tab insert, Esc close.",
-        "description": "Hint for manually opened prompt candidates"
+    "readerCommentCopySelect": {
+        "message": "Choose annotations to copy",
+        "description": "Reader annotation copy selection"
     },
-    "promptAutocompleteEmptyLibrary": {
-        "message": "No enabled prompts yet. Add one in your prompt library.",
-        "description": "Empty manual prompt candidate library"
+    "readerCommentCopySelectionCount": {
+        "message": "$1 of $2 selected",
+        "description": "Reader annotation copy selection"
     },
-    "promptAutocompleteNoMatches": {
-        "message": "No matching prompts. Change your search or open the library.",
-        "description": "No manual prompt candidates match the current query"
+    "readerCommentCopyOptionalPrompt": {
+        "message": "Add a Prompt (optional)",
+        "description": "Reader annotation copy selection"
     },
-    "promptAutocompleteOpenLibrary": {
-        "message": "Open prompt library",
-        "description": "Explicit action from empty candidates to prompt management"
+    "readerCommentCopyNoPrompt": {
+        "message": "No Prompt",
+        "description": "Reader annotation copy selection"
     },
-    "promptAutocompleteLoadFailed": {
-        "message": "Prompts could not be loaded. Open the library to retry.",
-        "description": "Prompt candidate load failure distinct from an empty library"
+    "readerCommentCopySelected": {
+        "message": "Copy selected",
+        "description": "Reader annotation copy selection"
+    },
+    "readerCommentCopySelectedCount": {
+        "message": "Copy selected ($1)",
+        "description": "Selected annotation copy and delete workflow"
+    },
+    "readerCommentDeleteSelectedCount": {
+        "message": "Delete selected ($1)",
+        "description": "Selected annotation copy and delete workflow"
+    },
+    "readerCommentDeleteSelectionTitle": {
+        "message": "Delete $1 annotations?",
+        "description": "Selected annotation copy and delete workflow"
+    },
+    "readerCommentDeleteSelectionMessage": {
+        "message": "Only the selected annotations will be deleted. Source messages will be kept.",
+        "description": "Selected annotation copy and delete workflow"
+    },
+    "readerCommentDeleteSelectionChanged": {
+        "message": "Some annotations changed. Review them before deleting again.",
+        "description": "Selected annotation copy and delete workflow"
+    },
+    "readerCommentDeleteSelectionFailed": {
+        "message": "Some annotations could not be deleted. Try again.",
+        "description": "Selected annotation copy and delete workflow"
     },
     "keyboardButtonsTab": {
         "message": "Buttons"
@@ -5784,4 +5832,5 @@
     "keyboardPlatformUnavailable": {
         "message": "Unavailable on this system"
     }
+
 }

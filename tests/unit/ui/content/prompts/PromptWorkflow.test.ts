@@ -24,7 +24,6 @@ function client(prompts: PromptRecord[]) {
         savePrompt: vi.fn(async (next: PromptRecord) => next),
         deletePrompt: vi.fn(async () => undefined),
         restoreDefaults: vi.fn(async () => prompts),
-        reorderPrompts: vi.fn(async (ids: string[]) => ids.map((id) => prompts.find((item) => item.id === id)!)),
     };
 }
 
@@ -123,7 +122,7 @@ describe('PromptWorkflow', () => {
         expect(api.listPrompts).toHaveBeenCalledTimes(1);
     });
 
-    it('keeps manager CRUD, filtering, cache invalidation, and reorder state local to the workflow', async () => {
+    it('keeps manager filtering, editing, and enable updates local to the workflow', async () => {
         const records = [
             prompt({ id: 'one', title: 'One', triggerText: 'one' }),
             prompt({ id: 'two', title: 'Two', triggerText: 'two', enabled: false }),
@@ -141,10 +140,6 @@ describe('PromptWorkflow', () => {
 
         await workflow.toggleEnabled('two', true, 'Save failed');
         expect(api.savePrompt).toHaveBeenCalledWith(expect.objectContaining({ id: 'two', enabled: true }));
-
-        expect(workflow.reorder('two', 'one')).toBe(true);
-        await workflow.persistOrder('Save failed');
-        expect(api.reorderPrompts).toHaveBeenCalledWith(['two', 'one']);
     });
 
     it('owns editor validation and save failure status without leaking client errors to rendering', async () => {

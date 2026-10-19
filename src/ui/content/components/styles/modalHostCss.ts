@@ -2,6 +2,7 @@ import { getInputFieldCss } from './inputFieldCss';
 import { getSharedBackdropMotionCss } from './sharedBackdropMotionCss';
 import { getModalMotionCss } from './modalMotionCss';
 import { getSurfaceMaterialCss } from './surfaceMaterialCss';
+import { getFlatWorkflowCss } from './flatWorkflowCss';
 
 export function getModalHostShellCss(): string {
     return `
@@ -302,6 +303,7 @@ ${getInputFieldCss()}
   outline-offset: 2px;
 }
 ${getSurfaceMaterialCss()}
+${getFlatWorkflowCss()}
 `;
 }
 

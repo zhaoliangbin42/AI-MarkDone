@@ -1536,7 +1536,7 @@ describe('ChatGPTPromptAutocompleteController', () => {
         restoreRange();
     });
 
-    it('does not start panel dragging from header buttons or the prompt reorder handle', async () => {
+    it('does not start panel dragging from header buttons', async () => {
         setViewport(1000, 900);
         const restoreRange = installAutocompleteLayoutMock({
             popoverHeight: 300,
@@ -1553,7 +1553,6 @@ describe('ChatGPTPromptAutocompleteController', () => {
             savePrompt: vi.fn(),
             deletePrompt: vi.fn(),
             restoreDefaults: vi.fn(),
-            reorderPrompts: vi.fn(async (ids: string[]) => ids.map((id) => prompts.find((prompt) => prompt.id === id)!)),
         };
         const adapter = {
             getPlatformId: () => 'chatgpt',
@@ -1583,89 +1582,7 @@ describe('ChatGPTPromptAutocompleteController', () => {
         expect(host.style.left).toBe(initialLeft);
         expect(host.style.top).toBe(initialTop);
 
-        const rows = Array.from(shadow.querySelectorAll<HTMLElement>('.manager-row'));
-        rows.forEach((row, index) => {
-            Object.assign(row, {
-                getBoundingClientRect: () => rect(0, 100 + (index * 72), 520, 64),
-            });
-        });
-        rows[0]!.querySelector<HTMLButtonElement>('[data-action="reorder-prompt"]')!.dispatchEvent(new MouseEvent('pointerdown', {
-            bubbles: true,
-            clientX: 12,
-            clientY: 110,
-        }));
-        document.dispatchEvent(new MouseEvent('pointermove', {
-            bubbles: true,
-            clientX: 12,
-            clientY: 180,
-        }));
-        document.dispatchEvent(new MouseEvent('pointerup', {
-            bubbles: true,
-            clientX: 12,
-            clientY: 180,
-        }));
-        await tick();
-
-        expect(host.style.left).toBe(initialLeft);
-        expect(host.style.top).toBe(initialTop);
-        expect(client.reorderPrompts).toHaveBeenCalledWith(['second', 'first']);
         controller.dispose();
         restoreRange();
-    });
-
-    it('reorders prompts with the manager drag handle and persists the new order', async () => {
-        const composer = createComposer('');
-        const prompts = [
-            createPrompt({ id: 'first', title: 'First', triggerText: 'first' }),
-            createPrompt({ id: 'second', title: 'Second', triggerText: 'second' }),
-            createPrompt({ id: 'third', title: 'Third', triggerText: 'third' }),
-        ];
-        const client = {
-            listPrompts: vi.fn(async () => prompts),
-            recordUse: vi.fn(),
-            savePrompt: vi.fn(),
-            deletePrompt: vi.fn(),
-            restoreDefaults: vi.fn(),
-            reorderPrompts: vi.fn(async (ids: string[]) => ids.map((id) => prompts.find((prompt) => prompt.id === id)!)),
-        };
-        const adapter = {
-            getPlatformId: () => 'chatgpt',
-            getComposerInputElement: () => composer,
-            getComposerKind: () => 'contenteditable',
-        } as any;
-
-        const controller = new ChatGPTPromptAutocompleteController(adapter, client);
-        controller.init();
-        await controller.openManager();
-        await tick();
-
-        const host = document.getElementById('aimd-chatgpt-prompt-popover-host')!;
-        const shadow = host.shadowRoot!;
-        const rows = Array.from(shadow.querySelectorAll<HTMLElement>('.manager-row'));
-        rows.forEach((row, index) => {
-            Object.assign(row, {
-                getBoundingClientRect: () => rect(0, 100 + (index * 72), 520, 64),
-            });
-        });
-
-        rows[0]!.querySelector<HTMLButtonElement>('[data-action="reorder-prompt"]')!.dispatchEvent(new MouseEvent('pointerdown', {
-            bubbles: true,
-            clientX: 12,
-            clientY: 110,
-        }));
-        document.dispatchEvent(new MouseEvent('pointermove', {
-            bubbles: true,
-            clientX: 12,
-            clientY: 250,
-        }));
-        document.dispatchEvent(new MouseEvent('pointerup', {
-            bubbles: true,
-            clientX: 12,
-            clientY: 250,
-        }));
-        await tick();
-
-        expect(client.reorderPrompts).toHaveBeenCalledWith(['second', 'third', 'first']);
-        controller.dispose();
     });
 });

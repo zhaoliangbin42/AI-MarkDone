@@ -1103,7 +1103,6 @@ export class ChatGPTPageAnnotationController {
                 return true;
             },
             onInsertAll: (records) => this.insertAnnotations(records),
-            onInsertAndDelete: (records) => this.insertAnnotations(records, true),
         });
     }
 
@@ -1286,14 +1285,12 @@ export class ChatGPTPageAnnotationController {
 
     // ---------- composer insert ----------
 
-    private async insertAnnotations(records: ReaderCommentRecord[], deleteAfterInsert = false): Promise<void> {
+    private async insertAnnotations(records: ReaderCommentRecord[]): Promise<void> {
         if (records.length < 1) {
             showToast({ text: this.getLabel('readerCommentCopyEmpty', 'No annotations to copy yet.'), tone: 'error' });
             return;
         }
         const current = readComposer(this.adapter);
-        const document = this.store.getDocument();
-        const documentKey = document ? readerAnnotationDocumentKey(document) : null;
         if (!current.ok) {
             showToast({ text: this.getLabel('pageAnnotationInsertFailed', 'Could not insert annotations'), tone: 'error' });
             return;
@@ -1308,21 +1305,6 @@ export class ChatGPTPageAnnotationController {
             replacement: text,
             cursorIndex: current.text.length + text.length,
         });
-        if (result.ok && deleteAfterInsert) {
-            const currentDocument = this.store.getDocument();
-            // A route change must not delete records from the newly opened conversation.
-            const sameDocument = documentKey !== null && currentDocument !== null
-                && readerAnnotationDocumentKey(currentDocument) === documentKey;
-            const failed = sameDocument ? await this.store.removeMany(records) : records;
-            this.syncAnnotationSurface();
-            showToast({
-                text: failed.length
-                    ? this.getLabel('pageAnnotationInsertedDeleteFailed', 'Inserted. Some annotations could not be deleted and were kept.')
-                    : this.getLabel('pageAnnotationInsertedAndDeleted', 'Annotations inserted and deleted'),
-                tone: failed.length ? 'error' : 'success',
-            });
-            return;
-        }
         showToast({
             text: result.ok
                 ? this.getLabel('pageAnnotationInserted', 'Annotations inserted')

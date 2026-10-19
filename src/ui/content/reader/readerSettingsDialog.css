@@ -175,3 +175,55 @@
     min-height: calc(var(--aimd-size-control-action-panel) * 3);
   }
 }
+
+.panel-window--reader-settings.flat-workflow:not(.reader-settings-popover--template) .dialog-body--reader-settings {
+  padding: var(--aimd-space-4);
+  gap: 0;
+  background: var(--aimd-workspace-surface);
+}
+.panel-window--reader-settings.flat-workflow { container-type: inline-size; }
+.panel-window--reader-settings.flat-workflow .reader-settings-section-heading {
+  margin: var(--aimd-space-4) 0 var(--aimd-space-2);
+  font-size: var(--aimd-text-sm);
+  font-weight: var(--aimd-font-medium);
+}
+.panel-window--reader-settings.flat-workflow .reader-settings-section-heading:first-child { margin-top: 0; }
+.panel-window--reader-settings.flat-workflow .reader-settings-row {
+  padding: var(--aimd-space-3);
+  background: var(--aimd-workspace-card);
+  border-bottom-color: var(--aimd-border-subtle);
+}
+.panel-window--reader-settings.flat-workflow .reader-settings-section-heading + .reader-settings-row {
+  border-start-start-radius: var(--aimd-radius-xl);
+  border-start-end-radius: var(--aimd-radius-xl);
+}
+.panel-window--reader-settings.flat-workflow .reader-settings-row:has(+ .reader-settings-section-heading),
+.panel-window--reader-settings.flat-workflow .reader-settings-row:last-child {
+  border-end-start-radius: var(--aimd-radius-xl);
+  border-end-end-radius: var(--aimd-radius-xl);
+  border-bottom: 0;
+}
+.panel-window--reader-settings.flat-workflow .reader-settings-segmented { border: 0; }
+.reader-settings-options { margin-top: var(--aimd-space-4); min-width: 0; }
+.reader-settings-options > summary {
+  cursor: pointer;
+  padding-block: var(--aimd-space-3);
+  color: var(--aimd-text-secondary);
+  font-size: var(--aimd-text-sm);
+  font-weight: var(--aimd-font-medium);
+}
+.reader-settings-options > summary:focus-visible { outline: 2px solid var(--aimd-focus-ring); outline-offset: 2px; }
+.reader-settings-options__body { padding-top: var(--aimd-space-2); }
+.reader-settings-popover--template.flat-workflow .reader-settings-popover__field { align-self: start; }
+.reader-settings-popover--template.flat-workflow { width: min(680px, 100%); }
+.reader-settings-popover--template.flat-workflow .dialog-body { grid-template-columns: minmax(0, 1fr); }
+
+@container (max-width: 420px) {
+  .flat-workflow .reader-settings-row:not(:has(.reader-settings-toggle)) {
+    grid-template-columns: minmax(0, 1fr);
+    gap: var(--aimd-space-3);
+  }
+  .flat-workflow .reader-settings-row > :is(.reader-settings-segmented, .reader-settings-stepper, .secondary-btn) {
+    justify-self: start;
+  }
+}

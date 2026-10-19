@@ -5,6 +5,7 @@ import { bookOpenIcon } from '../../../src/assets/icons';
 import { DEFAULT_SETTINGS } from '../../../src/core/settings/types';
 import type { SiteAdapter } from '../../../src/drivers/content/adapters/base';
 import type { ReaderItem } from '../../../src/services/reader/types';
+import { saveReaderComment } from '../../../src/services/reader/commentSession';
 import { createAppearanceSnapshot } from '../../../src/style/appearance';
 import { ensurePageTokens } from '../../../src/style/pageTokens';
 import { MessageToolbar } from '../../../src/ui/content/MessageToolbar';
@@ -12,7 +13,6 @@ import { CommentPromptPickerPopover } from '../../../src/ui/content/components/C
 import { setLocale, t } from '../../../src/ui/content/components/i18n';
 import { ChatGPTMessageStepperController } from '../../../src/ui/content/controllers/ChatGPTMessageStepperController';
 import { ReaderPanel } from '../../../src/ui/content/reader/ReaderPanel';
-import { ReaderCommentExportPopover } from '../../../src/ui/content/reader/ReaderCommentExportPopover';
 import { createConversationReaderActions } from '../../../src/ui/content/reader/conversationReaderActions';
 import {
     installVisualHarnessBridge,
@@ -139,7 +139,6 @@ const adapter = {
 
 const panel = new ReaderPanel();
 const fixturePromptPicker = new CommentPromptPickerPopover();
-const fixtureCommentExport = new ReaderCommentExportPopover();
 let toolbar: MessageToolbar | null = null;
 let stepper: ChatGPTMessageStepperController | null = null;
 const fixtureParams = new URLSearchParams(window.location.search);
@@ -182,7 +181,6 @@ async function closeReader(): Promise<void> {
     if (!host) return;
     if (host.shadowRoot) {
         fixturePromptPicker.close(host.shadowRoot);
-        fixtureCommentExport.close(host.shadowRoot);
     }
     host.removeAttribute('data-aimd-role');
     panel.hide();
@@ -198,20 +196,38 @@ function openTransientFixture(host: HTMLElement): void {
     const anchor = container?.querySelector<HTMLElement>('[data-action="reader-copy-comments"]');
     if (!shadow || !container || !anchor || !container.parentElement) return;
     const zh = variant.locale === 'zh_CN';
-    const openExport = () => fixtureCommentExport.open({
-        shadow, container, theme: variant.theme,
-        preview: Array.from({ length: 12 }, (_, index) => zh
-            ? `## 注释 ${index + 1}\n\n> 长篇原文与完整注释会在预览区域内换行，并保留可访问的复制和关闭操作。\n\n这是用于窄屏及短高度验收的长篇注释。`
-            : `## Annotation ${index + 1}\n\n> Long source text and complete annotations wrap inside the preview while copy and close actions remain reachable.\n\nThis is a deliberately long annotation for narrow and short viewport review.`).join('\n\n'),
-        canCopy: true,
-        labels: {
-            title: zh ? '复制带有完整上下文和原文引用的注释' : 'Copy annotations with complete context and source references',
-            close: zh ? '关闭' : 'Close',
-            copy: zh ? '复制全部注释和原文引用' : 'Copy all annotations and source references',
-            copied: zh ? '已复制' : 'Copied!',
-        },
-        onCopy: async () => true,
-    });
+    const openExport = () => {
+        for (let index = 0; index < 12; index += 1) {
+            const source = zh
+                ? `原文 ${index + 1}：界面应该围绕当前任务组织，让常用操作清晰可见。`
+                : `Source ${index + 1}: organize the interface around the current task and keep everyday actions visible.`;
+            saveReaderComment('reader-panel-comments-v1', {
+                id: `copy-fixture-${index}`,
+                itemId: readerItems[0]!.id,
+                quoteText: source,
+                sourceMarkdown: `**${source}**`,
+                comment: zh ? `注释 ${index + 1}：减少操作步骤，同时保留完整的原文与笔记。` : `Annotation ${index + 1}: reduce steps while preserving the full source and note.`,
+                selectors: {
+                    textQuote: { exact: source, prefix: '', suffix: '' },
+                    textPosition: { start: index, end: index + 1 },
+                    domRange: null,
+                    atomicRefs: [],
+                },
+                createdAt: index + 1,
+                updatedAt: index + 1,
+            });
+        }
+        panel.setPromptManagerController({
+            onOpenManager: () => undefined,
+            listReaderPrompts: async () => fixtureParams.get('prompts') === 'empty' ? [] : [{
+                id: 'copy-review',
+                title: zh ? '整理阅读笔记' : 'Organize reading notes',
+                content: zh ? '请根据以下原文与注释整理阅读笔记。{{cursor}}' : 'Organize reading notes from these sources and annotations.{{cursor}}',
+            }],
+        });
+        (anchor as HTMLButtonElement).disabled = false;
+        anchor.click();
+    };
     if (transient === 'comment-export') openExport();
     if (transient === 'prompt-picker') fixturePromptPicker.open({
         shadow, container: container.parentElement, anchorEl: anchor, placement: 'center', theme: variant.theme,
@@ -329,7 +345,6 @@ window.addEventListener('pagehide', () => {
     const shadow = document.getElementById('aimd-reader-panel-host')?.shadowRoot;
     if (shadow) {
         fixturePromptPicker.close(shadow);
-        fixtureCommentExport.close(shadow);
     }
     toolbar?.dispose();
     stepper?.dispose();

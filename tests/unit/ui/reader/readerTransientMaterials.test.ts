@@ -2,6 +2,7 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 import { ReaderCommentTemplateSettingsPopover } from '@/ui/content/reader/ReaderCommentTemplateSettingsPopover';
 import { CommentPromptPickerPopover } from '@/ui/content/components/CommentPromptPickerPopover';
 import { ReaderCommentExportPopover } from '@/ui/content/reader/ReaderCommentExportPopover';
+import { getFlatWorkflowCss } from '@/ui/content/components/styles/flatWorkflowCss';
 
 const labels = {
     title: 'Annotation export template with a deliberately long readable heading', close: 'Close', template: 'Template',
@@ -33,12 +34,12 @@ describe('Reader transient materials', () => {
         popover.open({ parent, opener, labels, template: [{ type: 'text', value: 'Original' }], preview: 'Long preview\n'.repeat(100),
             onBuildPreview: () => 'Updated preview', onSave, onRestoreDefault: () => [{ type: 'text', value: 'Default' }] });
         const panel = shadow.querySelector<HTMLElement>('.reader-settings-popover--template')!;
-        expect(panel.classList.contains('aimd-material-surface')).toBe(true);
+        expect(panel.classList.contains('flat-workflow')).toBe(true);
         expect(panel.parentElement?.classList.contains('reader-settings-popover-layer--template')).toBe(true);
-        expect(panel.querySelector('[data-role="commentTemplate"].aimd-material-field')).toBeTruthy();
+        expect(panel.querySelector('[data-role="commentTemplate"].flat-workflow__input')).toBeTruthy();
+        expect(panel.querySelector<HTMLDetailsElement>('.reader-settings-template__preview-disclosure')?.open).toBe(false);
         const style = shadow.querySelector<HTMLStyleElement>('[data-aimd-style-id="aimd-reader-settings-material"]')!;
-        expect(style.textContent).toContain('grid-template-columns: repeat(2, minmax(0, 1fr));');
-        expect(style.textContent).toContain('@media (max-width: 720px)');
+        expect(style.textContent).toContain(getFlatWorkflowCss());
         const editor = panel.querySelector<HTMLElement>('[data-role="commentTemplate"]')!;
         editor.textContent = 'Unsaved change';
         editor.dispatchEvent(new Event('input', { bubbles: true, composed: true }));

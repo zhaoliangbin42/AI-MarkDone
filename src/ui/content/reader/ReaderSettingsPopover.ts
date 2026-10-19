@@ -146,11 +146,11 @@ export class ReaderSettingsPopover {
     private render(body: HTMLElement, footer?: HTMLElement): void {
         const settings = this.settings;
         if (!settings) return;
+        const moreOpen = body.querySelector<HTMLDetailsElement>('[data-role="reader-more-settings"]')?.open ?? false;
         body.replaceChildren();
         footer?.replaceChildren();
         body.append(
             this.createSectionHeading(t('readerSettingsDisplaySection')),
-            this.createOpenModeRow(settings),
             this.createFontSizeRow(settings),
             this.createContentWidthRow(settings),
             this.createToggleRow(
@@ -165,6 +165,18 @@ export class ReaderSettingsPopover {
                 settings.showOutlineInReader,
                 (checked) => this.applyPatch({ showOutlineInReader: checked }),
             ),
+        );
+
+        const more = document.createElement('details');
+        more.className = 'reader-settings-options';
+        more.dataset.role = 'reader-more-settings';
+        more.open = moreOpen;
+        const summary = document.createElement('summary');
+        summary.textContent = t('readerSettingsMore');
+        const advanced = document.createElement('div');
+        advanced.className = 'reader-settings-options__body';
+        advanced.append(
+            this.createOpenModeRow(settings),
             this.createSectionHeading(t('readerSettingsAnnotationsSection')),
             this.createToggleRow(
                 t('readerAnnotationPersistenceLabel'),
@@ -202,6 +214,8 @@ export class ReaderSettingsPopover {
                 'reader-settings-detached-notice-reset',
             ),
         );
+        more.append(summary, advanced);
+        body.appendChild(more);
 
         footer?.remove();
     }

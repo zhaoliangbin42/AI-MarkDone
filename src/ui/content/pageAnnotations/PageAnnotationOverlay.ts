@@ -80,9 +80,9 @@ function getOverlayCss(): string {
   gap: var(--aimd-space-2);
   padding: var(--aimd-space-2);
   border: 1px solid var(--aimd-workspace-border);
-  border-radius: var(--aimd-radius-full);
+  border-radius: var(--aimd-radius-xl);
   background: var(--aimd-workspace-card);
-  box-shadow: var(--aimd-workspace-raised);
+  box-shadow: var(--aimd-shadow-sm);
 }
 
 .reader-highlight-actions__delete {
@@ -94,7 +94,7 @@ function getOverlayCss(): string {
   justify-content: center;
   width: var(--aimd-size-control-compact);
   height: var(--aimd-size-control-compact);
-  border-radius: var(--aimd-radius-full);
+  border-radius: var(--aimd-radius-lg);
   color: var(--aimd-button-icon-text);
 }
 .reader-highlight-actions__delete:hover { color: var(--aimd-color-danger); background: var(--aimd-interactive-hover); }
@@ -108,7 +108,7 @@ function getOverlayCss(): string {
   user-select: none;
   min-height: var(--aimd-size-control-action-panel);
   padding: 0 var(--aimd-space-3);
-  border-radius: var(--aimd-radius-full);
+  border-radius: var(--aimd-radius-lg);
   border: 1px solid var(--aimd-border-default);
   background: var(--aimd-button-secondary-bg);
   color: var(--aimd-button-secondary-text);
@@ -335,9 +335,9 @@ export function getPageSelectionToolbarCss(): string {
   white-space: nowrap;
   padding: var(--aimd-space-1) var(--aimd-space-2);
   border: 1px solid var(--aimd-workspace-border);
-  border-radius: var(--aimd-radius-full);
+  border-radius: var(--aimd-radius-xl);
   background: var(--aimd-workspace-card);
-  box-shadow: var(--aimd-workspace-raised);
+  box-shadow: var(--aimd-shadow-sm);
 }
 `;
 }

@@ -666,32 +666,10 @@ export class ChatGPTPromptAutocompleteController {
         } else if (action.type === 'hover') {
             this.workflow.selectIndex(action.index);
             this.renderer?.syncAutocompleteSelection(this.workflow.state.selectedIndex);
-        } else if (action.type === 'reorder-start') {
-            this.startPromptListDrag(action.event, action.promptId);
         } else if (action.type === 'panel-drag-start') {
             const layout = this.createGeometryLayout();
             if (layout) this.geometry.startPanelDrag(action.event, layout);
         }
-    }
-
-    private startPromptListDrag(event: PointerEvent, sourceId: string): void {
-        if (this.workflow.state.mode !== 'manager' || !sourceId) return;
-        this.renderer?.setPromptDragging(sourceId, true);
-        this.geometry.startListDrag(event, {
-            sourceId,
-            getTargetIdAt: (clientY) => this.renderer?.getManagerRowIdAt(clientY) ?? null,
-            onTarget: (targetId) => {
-                if (!this.workflow.reorder(sourceId, targetId)) return;
-                this.render();
-                this.renderer?.setPromptDragging(sourceId, true);
-            },
-            onEnd: (moved) => {
-                this.renderer?.setPromptDragging(sourceId, false);
-                if (moved) {
-                    void this.workflow.persistOrder(t('promptSaveFailed')).then(() => this.render());
-                }
-            },
-        });
     }
 
     private async insertPrompt(prompt: PromptRecord, token: PromptTriggerToken | null): Promise<void> {

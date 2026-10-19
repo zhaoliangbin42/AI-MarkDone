@@ -10,6 +10,7 @@ import {
     SurfaceSession,
 } from '../components/SurfaceRuntime';
 import { getAnchoredMotionCss } from '../components/styles/anchoredMotionCss';
+import { getFlatWorkflowCss } from '../components/styles/flatWorkflowCss';
 import { getAnnotationActionButtonCss } from '../pageAnnotations/annotationActionButtonCss';
 
 const editorMessages = {
@@ -19,6 +20,7 @@ const editorMessages = {
     saveFailed: ['readerCommentSaveFailed', 'Annotation not saved. Your text is kept here; try again.'],
     discardConfirm: ['readerCommentDiscardConfirm', 'Discard these unsaved edits?'],
     deleteConfirm: ['readerCommentDeleteConfirm', 'Delete this annotation?'], keepWriting: ['readerCommentKeepWriting', 'Keep writing'],
+    more: ['libraryMore', 'More'],
 } as const;
 export function getAnnotationEditorLabels(getLabel: (key: string, fallback: string) => string): Record<keyof typeof editorMessages, string> {
     return Object.fromEntries(Object.entries(editorMessages).map(([name, [key, fallback]]) => [name, getLabel(key, fallback)])) as Record<keyof typeof editorMessages, string>;
@@ -66,6 +68,7 @@ type ActiveCommentSurface = {
 function getCommentPopoverCss(): string {
     return `
 ${getAnchoredMotionCss()}
+${getFlatWorkflowCss()}
 .reader-comment-popover-layer {
   position: absolute;
   inset: 0;
@@ -76,41 +79,23 @@ ${getAnchoredMotionCss()}
   --_reader-comment-arrow-size: var(--aimd-space-3);
   pointer-events: auto;
   position: absolute;
-  width: min(380px, calc(100% - (var(--aimd-space-5) * 2)));
+  width: min(420px, calc(100% - (var(--aimd-space-4) * 2)));
   max-height: calc(100% - (var(--aimd-space-4) * 2));
   display: grid;
   grid-template-rows: auto minmax(0, 1fr) auto;
-  gap: var(--aimd-space-3);
-  padding: var(--aimd-space-3);
+  gap: 0;
+  padding: 0;
   border-radius: var(--aimd-radius-2xl);
   border: 1px solid var(--aimd-workspace-border);
   background: var(--aimd-workspace-card);
-  box-shadow: var(--aimd-shadow-workspace), var(--aimd-workspace-edge-shadow);
+  box-shadow: var(--aimd-shadow-workspace);
   color: var(--aimd-text-primary);
   z-index: var(--aimd-z-tooltip);
   overflow: hidden;
 }
 
 .reader-comment-popover::after {
-  content: '';
-  position: absolute;
-  left: var(--_reader-comment-arrow-left, 50%);
-  width: var(--_reader-comment-arrow-size);
-  height: var(--_reader-comment-arrow-size);
-  background: inherit;
-  transform: translateX(-50%) rotate(45deg);
-}
-
-.reader-comment-popover[data-side="top"]::after {
-  bottom: calc(var(--_reader-comment-arrow-size) * -0.5);
-  border-right: 1px solid var(--aimd-workspace-border);
-  border-bottom: 1px solid var(--aimd-workspace-border);
-}
-
-.reader-comment-popover[data-side="bottom"]::after {
-  top: calc(var(--_reader-comment-arrow-size) * -0.5);
-  border-left: 1px solid var(--aimd-workspace-border);
-  border-top: 1px solid var(--aimd-workspace-border);
+  display: none;
 }
 
 .reader-comment-popover__head,
@@ -119,6 +104,15 @@ ${getAnchoredMotionCss()}
   align-items: center;
   justify-content: space-between;
   gap: var(--aimd-space-3);
+  padding: var(--aimd-space-4) var(--aimd-space-5);
+}
+
+.reader-comment-popover__head {
+  flex-wrap: wrap;
+  border-bottom: 1px solid var(--aimd-border-subtle);
+  cursor: grab;
+  touch-action: none;
+  user-select: none;
 }
 
 .reader-comment-popover__title {
@@ -126,68 +120,130 @@ ${getAnchoredMotionCss()}
   align-items: center;
   gap: var(--aimd-space-2);
   margin: 0;
-  font-size: var(--aimd-text-sm);
-  line-height: 1.4;
-  font-weight: var(--aimd-font-medium);
+  min-width: 0;
+  flex: 1;
+  overflow: hidden;
+  font-size: var(--aimd-text-base);
+  line-height: var(--aimd-leading-normal);
+  font-weight: var(--aimd-font-semibold);
   color: var(--aimd-text-primary);
 }
 
 .reader-comment-popover__title .aimd-icon {
-  color: var(--aimd-interactive-primary);
+  color: var(--aimd-text-secondary);
+}
+
+.reader-comment-popover__title span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.reader-comment-popover__tools {
+  display: flex;
+  align-items: center;
+  gap: var(--aimd-space-1);
+  flex: none;
+  order: 2;
+}
+
+.reader-comment-popover__options {
+  min-width: 0;
+  color: var(--aimd-text-secondary);
+  font-size: var(--aimd-text-xs);
+  order: 1;
+}
+
+.reader-comment-popover__options[open] {
+  flex-basis: 100%;
+  order: 3;
+}
+
+.reader-comment-popover__options > summary {
+  cursor: pointer;
+  padding: var(--aimd-space-2);
+}
+
+.reader-comment-popover__option-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--aimd-space-2);
+  padding-top: var(--aimd-space-2);
 }
 
 .reader-comment-popover__selection {
-  display: grid;
-  gap: var(--aimd-space-2);
+  padding: 0;
+}
+
+.reader-comment-popover__selection > summary {
+  cursor: pointer;
+  color: var(--aimd-text-secondary);
+  font-size: var(--aimd-text-xs);
+  line-height: var(--aimd-leading-normal);
+}
+
+.reader-comment-popover__selection-excerpt {
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+  margin-top: var(--aimd-space-2);
+  font-size: var(--aimd-text-sm);
+  overflow-wrap: anywhere;
+}
+
+.reader-comment-popover__selection[open] .reader-comment-popover__selection-excerpt {
+  display: none;
 }
 
 .reader-comment-popover__body {
   min-height: 0;
   display: grid;
   align-content: start;
-  gap: var(--aimd-space-3);
+  gap: var(--aimd-space-4);
+  padding: var(--aimd-space-5);
   overflow: auto;
   overscroll-behavior: contain;
 }
 
 .reader-comment-popover__selection-label {
   font-size: var(--aimd-text-xs);
-  line-height: 1.2;
-  letter-spacing: normal;
-  text-transform: none;
+  line-height: var(--aimd-leading-normal);
+  font-weight: var(--aimd-font-semibold);
   color: var(--aimd-text-secondary);
 }
 
 .reader-comment-popover__selection-value {
-  margin: 0;
-  padding: var(--aimd-space-3);
-  border-radius: var(--aimd-radius-xl);
-  border: 1px solid var(--aimd-workspace-border);
-  background: var(--aimd-workspace-surface);
-  box-shadow: var(--aimd-workspace-inset);
-  color: var(--aimd-text-primary);
+  margin: var(--aimd-space-3) 0 0;
+  padding: 0 0 0 var(--aimd-space-3);
+  border: 0;
+  border-left: 2px solid var(--aimd-border-default);
+  background: transparent;
+  box-shadow: none;
+  color: var(--aimd-text-secondary);
   font-size: var(--aimd-text-sm);
-  line-height: 1.55;
+  line-height: var(--aimd-leading-normal);
   white-space: pre-wrap;
   overflow-wrap: anywhere;
-  min-height: 88px;
-  max-height: 88px;
+  min-height: 0;
+  max-height: calc(var(--aimd-size-control-action-panel) * 3);
   overflow: auto;
 }
 
 .reader-comment-popover__input {
   width: 100%;
-  min-height: 116px;
-  resize: vertical;
+  min-height: calc(var(--aimd-size-control-action-panel) * 5);
+  resize: none;
   padding: var(--aimd-space-3);
-  border-radius: var(--aimd-radius-xl);
+  border-radius: var(--aimd-radius-lg);
   border: 1px solid var(--aimd-workspace-border);
-  background: var(--aimd-workspace-surface);
-  box-shadow: var(--aimd-workspace-inset);
+  background: var(--aimd-bg-primary);
+  box-shadow: none;
   color: var(--aimd-text-primary);
   font: inherit;
   font-size: var(--aimd-text-sm);
-  line-height: 1.55;
+  line-height: var(--aimd-leading-normal);
 }
 
 .reader-comment-popover__input:focus-visible {
@@ -198,11 +254,13 @@ ${getAnchoredMotionCss()}
 
 .reader-comment-popover__actions {
   justify-content: flex-end;
+  flex-wrap: wrap;
   gap: var(--aimd-space-2);
+  border-top: 1px solid var(--aimd-border-subtle);
 }
 
 .reader-comment-popover__btn {
-  min-width: 88px;
+  min-width: 0;
   padding-inline: var(--aimd-space-4);
 }
 
@@ -212,9 +270,11 @@ ${getAnchoredMotionCss()}
 }
 
 .reader-comment-popover__shortcut {
+  flex-basis: 100%;
+  text-align: right;
   color: var(--aimd-text-tertiary);
   font-size: var(--aimd-text-xs);
-  line-height: 1.2;
+  line-height: var(--aimd-leading-normal);
   white-space: nowrap;
   user-select: none;
 }
@@ -223,12 +283,13 @@ ${getAnchoredMotionCss()}
   .reader-comment-popover {
     width: calc(100% - (var(--aimd-space-2) * 2));
     max-height: calc(100% - (var(--aimd-space-2) * 2));
-    gap: var(--aimd-space-2);
-    padding: var(--aimd-space-2);
+    gap: 0;
   }
 
-  .reader-comment-popover__body {
-    gap: var(--aimd-space-2);
+  .reader-comment-popover__head,
+  .reader-comment-popover__body,
+  .reader-comment-popover__actions {
+    padding: var(--aimd-space-3);
   }
 
   .reader-comment-popover__btn {
@@ -248,24 +309,17 @@ ${getAnchoredMotionCss()}
   }
 }
 ${getAnnotationActionButtonCss()}
-.reader-comment-popover { width: min(420px, calc(100% - var(--aimd-space-4) * 2)); padding:var(--aimd-space-4); gap:var(--aimd-space-4); }
-.reader-comment-popover::after { display:none; }
-.reader-comment-popover__head { cursor:grab; touch-action:none; user-select:none; }
-.reader-comment-popover__title { min-width:0; flex:1; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
-.reader-comment-popover__tools { display:flex; align-items:center; gap:var(--aimd-space-1); flex:none; }
-.reader-comment-popover__selection-value { min-height:0; max-height:calc(var(--aimd-size-control-action-panel) * 3); border:0; border-left:var(--aimd-space-1) solid var(--aimd-border-default); box-shadow:none; }
-.reader-comment-popover__input { min-height:calc(var(--aimd-size-control-action-panel) * 4); resize:none; }
-.reader-comment-popover__actions { flex-wrap:wrap; }
-.reader-comment-popover__status { flex:1 1 100%; margin:0; font-size:var(--aimd-text-xs); line-height:1.5; color:var(--aimd-text-secondary); overflow-wrap:anywhere; }
+.reader-comment-popover__status { flex:1 1 100%; margin:0; font-size:var(--aimd-text-xs); line-height:var(--aimd-leading-normal); color:var(--aimd-text-secondary); overflow-wrap:anywhere; }
+.reader-comment-popover__status:empty { display:none; }
 .reader-comment-popover__btn { min-width:0; }
 .reader-comment-popover__confirmation { display:flex; align-items:center; gap:var(--aimd-space-2); flex-wrap:wrap; font-size:var(--aimd-text-sm); }
 .reader-comment-popover [hidden] { display:none; }
 .reader-comment-popover[data-minimized="true"] .reader-comment-popover__body,
 .reader-comment-popover[data-minimized="true"] .reader-comment-popover__actions { display:none; }
-.reader-comment-popover[data-minimized="true"] { grid-template-rows:auto; gap:0; padding-block:var(--aimd-space-2); }
+.reader-comment-popover[data-minimized="true"] { grid-template-rows:auto; }
+.reader-comment-popover[data-minimized="true"] .reader-comment-popover__head { border-bottom:0; }
 .reader-comment-popover[data-expanded="true"] .reader-comment-popover__body { grid-template-rows:auto minmax(0,1fr); }
 .reader-comment-popover[data-expanded="true"] .reader-comment-popover__input { height:100%; }
-@media (max-width:560px) { .reader-comment-popover { padding:var(--aimd-space-3); gap:var(--aimd-space-3); } .reader-comment-popover__shortcut { flex-basis:100%; } }
 `;
 }
 
@@ -321,7 +375,7 @@ export class ReaderCommentPopover {
         layer.className = 'reader-comment-popover-layer';
 
         const popover = document.createElement('div');
-        popover.className = 'reader-comment-popover';
+        popover.className = 'reader-comment-popover flat-workflow';
         popover.dataset.aimdSurfaceProfile = 'anchored';
         popover.dataset.aimdRole = 'reader-comment-popover';
         popover.setAttribute('data-aimd-theme', appearance.theme);
@@ -331,26 +385,33 @@ export class ReaderCommentPopover {
         popover.innerHTML = `
           <div class="reader-comment-popover__head">
             <h3 class="reader-comment-popover__title">${createIcon(messageSquareTextIcon).outerHTML}<span>${params.mode === 'edit' ? labels.editTitle : labels.addTitle}</span></h3>
+            <details class="reader-comment-popover__options">
+              <summary>${labels.more}</summary>
+              <div class="reader-comment-popover__option-actions">
+                <button class="secondary-btn reader-comment-popover__btn" type="button" data-action="minimize" aria-label="${labels.minimize}">${createIcon(minusIcon).outerHTML}<span>${labels.minimize}</span></button>
+                <button class="secondary-btn reader-comment-popover__btn" type="button" data-action="expand" aria-label="${labels.expand}">${createIcon(maximizeIcon).outerHTML}<span>${labels.expand}</span></button>
+                <button class="secondary-btn reader-comment-popover__btn" type="button" data-action="discard">${labels.discardDraft}</button>
+                ${params.mode === 'edit' ? `<button class="secondary-btn reader-comment-popover__btn" type="button" data-action="delete">${labels.delete}</button>` : ''}
+                <span class="reader-comment-popover__shortcut" aria-hidden="true">${labels.saveShortcut}</span>
+              </div>
+            </details>
             <div class="reader-comment-popover__tools">
-            <button class="icon-btn annotation-action-button" type="button" data-action="minimize" aria-label="${labels.minimize}">${createIcon(minusIcon).outerHTML}</button>
-            <button class="icon-btn annotation-action-button" type="button" data-action="expand" aria-label="${labels.expand}">${createIcon(maximizeIcon).outerHTML}</button>
             <button class="icon-btn reader-comment-popover__close annotation-action-button" type="button" data-action="close" aria-label="${labels.close}">${createIcon(xIcon).outerHTML}</button>
             </div>
           </div>
-          <div class="reader-comment-popover__body">
-            <div class="reader-comment-popover__selection">
-              <div class="reader-comment-popover__selection-label">${labels.selectedSource}</div>
+          <div class="reader-comment-popover__body flat-workflow__body">
+            <details class="reader-comment-popover__selection">
+              <summary><span class="reader-comment-popover__selection-label">${labels.selectedSource}</span><span class="reader-comment-popover__selection-excerpt" data-role="source-excerpt"></span></summary>
               <pre class="reader-comment-popover__selection-value" data-role="selected-source"></pre>
+            </details>
+            <div class="reader-comment-popover__editor flat-workflow__field">
+              <textarea class="reader-comment-popover__input flat-workflow__input" data-role="input" placeholder="${labels.placeholder}"></textarea>
             </div>
-            <textarea class="reader-comment-popover__input" data-role="input" placeholder="${labels.placeholder}"></textarea>
           </div>
           <div class="reader-comment-popover__actions">
             <p class="reader-comment-popover__status" data-role="save-status" role="status" aria-live="polite"></p>
             <div class="reader-comment-popover__confirmation" data-role="confirmation" hidden></div>
-            <button class="secondary-btn reader-comment-popover__btn" type="button" data-action="discard">${labels.discardDraft}</button>
-            ${params.mode === 'edit' ? `<button class="secondary-btn reader-comment-popover__btn" type="button" data-action="delete">${labels.delete}</button>` : ''}
             <button class="secondary-btn secondary-btn--primary reader-comment-popover__btn" type="button" data-action="save">${labels.save}</button>
-            <span class="reader-comment-popover__shortcut" aria-hidden="true">${labels.saveShortcut}</span>
           </div>
         `;
 
@@ -376,6 +437,7 @@ export class ReaderCommentPopover {
         let moved: { left: number; top: number } | undefined;
         const reposition = () => this.positionPopover(popover, params.container, params.anchorRect, moved);
         const onViewportChange = () => session.position();
+        popover.querySelectorAll('details').forEach((details) => details.addEventListener('toggle', onViewportChange));
         window.addEventListener('resize', onViewportChange);
         window.visualViewport?.addEventListener('resize', onViewportChange);
         window.visualViewport?.addEventListener('scroll', onViewportChange);
@@ -392,6 +454,11 @@ export class ReaderCommentPopover {
         if (!textarea) return;
         const selectedSource = popover.querySelector<HTMLElement>('[data-role="selected-source"]');
         if (selectedSource) selectedSource.textContent = params.selectedSource;
+        const sourceExcerpt = popover.querySelector<HTMLElement>('[data-role="source-excerpt"]');
+        if (sourceExcerpt) {
+            const characters = Array.from(params.selectedSource.replace(/\s+/g, ' ').trim());
+            sourceExcerpt.textContent = characters.length > 140 ? `${characters.slice(0, 140).join('')}…` : characters.join('');
+        }
         if (textarea) {
             textarea.value = params.initialText ?? '';
             textarea.setAttribute('aria-label', labels.placeholder);
@@ -493,13 +560,14 @@ export class ReaderCommentPopover {
             const button = event.currentTarget as HTMLButtonElement;
             button.setAttribute('aria-label', minimized ? labels.restore : labels.minimize);
             button.setAttribute('aria-expanded', String(!minimized));
+            button.replaceChildren(createIcon(minusIcon), document.createTextNode(minimized ? labels.restore : labels.minimize));
             reposition();
         });
         popover.querySelector<HTMLButtonElement>('[data-action="expand"]')?.addEventListener('click', event => {
             const expanded = popover.dataset.expanded !== 'true'; popover.dataset.expanded = String(expanded); popover.dataset.minimized = 'false';
             const button = event.currentTarget as HTMLButtonElement;
             button.setAttribute('aria-label', expanded ? labels.restore : labels.expand);
-            button.innerHTML = createIcon(expanded ? minimizeIcon : maximizeIcon).outerHTML;
+            button.replaceChildren(createIcon(expanded ? minimizeIcon : maximizeIcon), document.createTextNode(expanded ? labels.restore : labels.expand));
             reposition();
         });
         const header = popover.querySelector<HTMLElement>('.reader-comment-popover__head')!;
@@ -517,7 +585,7 @@ export class ReaderCommentPopover {
             reposition();
         });
         header.addEventListener('pointerdown', event => {
-            if (event.button !== 0 || (event.target as Element).closest('button') || popover.dataset.expanded === 'true') return;
+            if (event.button !== 0 || (event.target as Element).closest('button, details') || popover.dataset.expanded === 'true') return;
             event.preventDefault();
             const origin = { left: Number.parseFloat(popover.style.left) || 0, top: Number.parseFloat(popover.style.top) || 0, x: event.clientX, y: event.clientY };
             header.setPointerCapture?.(event.pointerId);

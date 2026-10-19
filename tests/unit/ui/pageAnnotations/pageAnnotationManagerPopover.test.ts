@@ -26,7 +26,7 @@ function record(id: string, updatedAt = 100): ReaderCommentRecord {
 
 async function openManager(params: {
     getCurrentRecords: () => ReaderCommentRecord[];
-    getCurrentLoadFailure?: () => string | null;
+    getCurrentLoadFailure?: () => boolean;
     retryCurrent?: () => Promise<void>;
     loadAll?: () => Promise<ReaderCommentRecord[]>;
     onInsertAll?: (records: ReaderCommentRecord[]) => void | Promise<void>;
@@ -75,7 +75,7 @@ describe('PageAnnotationManagerPopover', () => {
         const retryCurrent = vi.fn(async () => { loadFailed = false; });
         const { shadow } = await openManager({
             getCurrentRecords: () => [],
-            getCurrentLoadFailure: () => loadFailed ? 'Could not load annotations' : null,
+            getCurrentLoadFailure: () => loadFailed,
             retryCurrent,
         });
 
@@ -114,6 +114,7 @@ describe('PageAnnotationManagerPopover', () => {
         expect(dialog.querySelector('[data-action="page-annotation-copy-all"]')).toBeNull();
         expect(dialog.querySelector('[data-action="page-annotation-delete-all"]')).toBeNull();
         expect(dialog.querySelector('[data-action="page-annotation-copy-and-delete"]')).toBeNull();
+        expect(dialog.querySelector('[data-action="page-annotation-insert-and-delete"]')).toBeNull();
 
         (dialog.querySelector('[data-view="all"]') as HTMLButtonElement).click();
         await vi.waitFor(() => expect(dialog.querySelector('[data-view="all"]')?.getAttribute('data-active')).toBe('1'));
@@ -123,17 +124,22 @@ describe('PageAnnotationManagerPopover', () => {
         expect(dialog.querySelector('[data-role="all-view-hint"]')?.textContent).toContain('Current conversation');
     });
 
-    it('closes and inserts all annotations into the composer on insert click', async () => {
+    it('inserts the whole current conversation even when search hides other rows', async () => {
         const current = record('a');
+        const other = record('b');
         const { shadow, onInsertAll } = await openManager({
-            getCurrentRecords: () => [current],
+            getCurrentRecords: () => [current, other],
         });
 
         const dialog = shadow.querySelector('.mock-modal--page-annotation-manager') as HTMLElement;
+        const search = dialog.querySelector<HTMLInputElement>('input[type="search"]')!;
+        search.value = 'Comment a';
+        search.dispatchEvent(new Event('input', { bubbles: true }));
+        expect(dialog.querySelectorAll('.page-annotation-manager__item')).toHaveLength(1);
         (dialog.querySelector('[data-action="page-annotation-insert-all"]') as HTMLButtonElement).click();
 
         await vi.waitFor(() => expect(onInsertAll).toHaveBeenCalledTimes(1));
-        expect(onInsertAll).toHaveBeenCalledWith([current]);
+        expect(onInsertAll).toHaveBeenCalledWith([current, other]);
         expect(dialog.querySelector('[data-action="page-annotation-insert-all"]')?.textContent).toBe('Insert to input');
     });
 

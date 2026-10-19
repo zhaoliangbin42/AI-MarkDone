@@ -26,6 +26,7 @@ import { createFormulaAssetActionItems, createFormulaAssetActionButton, getFormu
 import type { FormulaAssetAction } from '../../../services/math/formulaAssetActions';
 import { getAnnotationActionButtonCss } from '../pageAnnotations/annotationActionButtonCss';
 import { getSurfaceMaterialCss } from './styles/surfaceMaterialCss';
+import { getFlatWorkflowCss } from './styles/flatWorkflowCss';
 
 export type FormulaPreviewState =
     | { status: 'loading' }
@@ -117,6 +118,7 @@ ${COMPOSER_SUGGESTION_LIST_CSS}
   .formula-assistant { transition: none; }
 }
 ${getSurfaceMaterialCss()}
+${getFlatWorkflowCss()}
 `;
 
 const RESPONSIVE_PROFILE: ResponsiveProfile = {
@@ -184,7 +186,7 @@ export class FormulaComposerAssistantPopover {
         this.host.hidden = true;
         this.shadow = this.host.attachShadow({ mode: 'open' });
         this.root = document.createElement('section');
-        this.root.className = 'formula-assistant aimd-material-surface';
+        this.root.className = 'formula-assistant aimd-material-surface flat-workflow';
         this.root.setAttribute('role', 'region');
         this.root.dataset.aimdSurfaceProfile = 'anchored';
         this.shadow.appendChild(this.root);

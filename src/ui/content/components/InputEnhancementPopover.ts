@@ -8,6 +8,7 @@ import { SurfaceSession, getDefaultSurfaceMotionProfile } from './SurfaceRuntime
 import { getAnchoredMotionCss } from './styles/anchoredMotionCss';
 import { markTransientRoot } from './transientUi';
 import { showToast } from '../../../utils/toast';
+import { getFlatWorkflowCss } from './styles/flatWorkflowCss';
 
 const clone = (value: ChatGPTInputEnhancementSettings) => ({ ...value, lists: { ...value.lists } });
 const CSS = `
@@ -24,6 +25,9 @@ label { font-size: var(--aimd-text-sm); padding-block: var(--aimd-space-2); curs
 input { accent-color: var(--aimd-interactive-primary); width: var(--aimd-space-4); height: var(--aimd-space-4); flex: none; }
 :focus-visible { outline: 2px solid var(--aimd-focus-ring); outline-offset: 2px; }
 label:has(input:disabled) { opacity: .5; cursor: default; }
+${getFlatWorkflowCss()}
+.flat-workflow > label { padding-block: var(--aimd-space-3); }
+.flat-workflow > label + label { border-top: 1px solid var(--aimd-border-subtle); }
 `;
 
 export class InputEnhancementPopover {
@@ -40,7 +44,7 @@ export class InputEnhancementPopover {
     constructor(private readonly onChange: (settings: ChatGPTInputEnhancementSettings) => Promise<boolean>) {
         this.host.dataset.aimdRole = 'input-enhancement-popover';
         this.host.hidden = true;
-        this.panel.className = 'input-enhancement';
+        this.panel.className = 'input-enhancement flat-workflow';
         this.panel.dataset.aimdSurfaceProfile = 'anchored';
         this.panel.setAttribute('role', 'dialog');
         this.shadow.append(this.panel);

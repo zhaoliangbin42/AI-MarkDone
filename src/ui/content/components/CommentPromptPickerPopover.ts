@@ -4,6 +4,7 @@ import { ensureStyle } from '../../../style/shadow';
 import { markTransientRoot } from './transientUi';
 import type { Theme } from '../../../core/types/theme';
 import { getSurfaceMaterialCss } from './styles/surfaceMaterialCss';
+import { getFlatWorkflowCss } from './styles/flatWorkflowCss';
 
 type PromptOption = {
     id: string;
@@ -154,7 +155,11 @@ function getCss(): string {
   width: var(--aimd-size-control-glyph-panel);
   height: var(--aimd-size-control-glyph-panel);
 }
-${getSurfaceMaterialCss()}`;
+${getSurfaceMaterialCss()}
+${getFlatWorkflowCss()}
+.flat-workflow .comment-prompt-picker__list { margin: 0 var(--aimd-space-4) var(--aimd-space-4); gap: 0; }
+.flat-workflow .comment-prompt-picker__item:hover { background: var(--aimd-interactive-hover); }
+`;
 }
 
 function getPromptPreview(content: string): string {
@@ -196,7 +201,7 @@ export class CommentPromptPickerPopover {
         layer.className = 'comment-prompt-picker-layer';
         layer.dataset.placement = params.placement === 'center' ? 'center' : 'anchor';
         const popover = document.createElement('div');
-        popover.className = 'comment-prompt-picker aimd-material-surface';
+        popover.className = 'comment-prompt-picker aimd-material-surface flat-workflow';
         popover.setAttribute('data-aimd-theme', params.theme);
         popover.innerHTML = `
           <div class="comment-prompt-picker__head aimd-material-chrome">
@@ -206,17 +211,17 @@ export class CommentPromptPickerPopover {
         `;
 
         const list = document.createElement('div');
-        list.className = 'comment-prompt-picker__list';
+        list.className = 'comment-prompt-picker__list flat-workflow__list';
         if (params.prompts.length < 1) {
             const empty = document.createElement('p');
-            empty.className = 'comment-prompt-picker__empty aimd-material-card';
+            empty.className = 'comment-prompt-picker__empty flat-workflow__description';
             empty.textContent = params.labels.empty;
             list.appendChild(empty);
         } else {
             for (const prompt of params.prompts) {
                 const button = document.createElement('button');
                 button.type = 'button';
-                button.className = 'comment-prompt-picker__item aimd-material-choice';
+                button.className = 'comment-prompt-picker__item flat-workflow__item';
                 button.dataset.promptId = prompt.id;
                 button.setAttribute('aria-label', prompt.title);
                 const title = document.createElement('span');

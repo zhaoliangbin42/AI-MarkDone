@@ -532,7 +532,7 @@ export class SaveMessagesDialog {
         const renderProgressValue = this.state.renderProgressValue ?? 0;
 
         return `
-<div class="panel-window panel-window--dialog panel-window--save workflow-dialog" role="dialog" aria-modal="true" aria-label="${escapeHtml(title)}" aria-busy="${this.state.saving ? 'true' : 'false'}">
+<div class="panel-window panel-window--dialog panel-window--save workflow-dialog flat-workflow" role="dialog" aria-modal="true" aria-label="${escapeHtml(title)}" aria-busy="${this.state.saving ? 'true' : 'false'}">
   <div class="panel-header">
     <div class="panel-header__meta">
       <h2>${escapeHtml(title)}</h2>

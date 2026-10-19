@@ -79,30 +79,32 @@ export class ReaderCommentTemplateSettingsPopover {
         this.rootEl = shell.layer;
 
         shell.body.innerHTML = `
-          <div class="reader-settings-popover__field">
-            <span class="reader-settings-popover__field-label">${params.labels.template}</span>
-            <div class="reader-settings-template__toolbar">
-              <div class="reader-settings-template__menu-shell">
-                <button class="secondary-btn secondary-btn--compact reader-settings-template__tool aimd-material-button" type="button" data-action="toggle-placeholder-menu" aria-haspopup="menu" aria-expanded="false">${params.labels.insertPlaceholder}</button>
-                <div class="reader-settings-template__menu aimd-material-surface" data-role="placeholder-menu" data-open="0" role="menu">
-                  <button class="reader-settings-template__menu-item aimd-material-choice" type="button" data-action="insert-selected-source" role="menuitem">
-                    ${createIcon(fileCodeIcon).outerHTML}
-                    <span>${params.labels.insertSelectedSource}</span>
-                  </button>
-                  <button class="reader-settings-template__menu-item aimd-material-choice" type="button" data-action="insert-user-comment" role="menuitem">
-                    ${createIcon(commentTokenIcon).outerHTML}
-                    <span>${params.labels.insertUserComment}</span>
-                  </button>
+          <section class="reader-settings-popover__field flat-workflow__section">
+            <div class="flat-workflow__row">
+              <span class="reader-settings-popover__field-label flat-workflow__section-title">${params.labels.template}</span>
+              <div class="reader-settings-template__toolbar flat-workflow__actions">
+                <div class="reader-settings-template__menu-shell">
+                  <button class="secondary-btn secondary-btn--compact reader-settings-template__tool" type="button" data-action="toggle-placeholder-menu" aria-haspopup="menu" aria-expanded="false">${params.labels.insertPlaceholder}</button>
+                  <div class="reader-settings-template__menu aimd-material-surface" data-role="placeholder-menu" data-open="0" role="menu">
+                    <button class="reader-settings-template__menu-item aimd-material-choice" type="button" data-action="insert-selected-source" role="menuitem">
+                      ${createIcon(fileCodeIcon).outerHTML}
+                      <span>${params.labels.insertSelectedSource}</span>
+                    </button>
+                    <button class="reader-settings-template__menu-item aimd-material-choice" type="button" data-action="insert-user-comment" role="menuitem">
+                      ${createIcon(commentTokenIcon).outerHTML}
+                      <span>${params.labels.insertUserComment}</span>
+                    </button>
+                  </div>
                 </div>
               </div>
             </div>
-            <div class="reader-settings-template__editor aimd-material-field" data-role="commentTemplate" tabindex="0"></div>
-            <p class="reader-settings-template__hint">${params.labels.templateHint}</p>
-          </div>
-          <div class="reader-settings-popover__field">
-            <span class="reader-settings-popover__field-label">${params.labels.preview}</span>
-            <pre class="reader-settings-template__preview aimd-material-field" data-role="preview"></pre>
-          </div>
+            <div class="reader-settings-template__editor flat-workflow__input" data-role="commentTemplate" tabindex="0"></div>
+            <p class="reader-settings-template__hint flat-workflow__description">${params.labels.templateHint}</p>
+          </section>
+          <details class="reader-settings-template__preview-disclosure flat-workflow__section">
+            <summary class="reader-settings-popover__field-label flat-workflow__section-title">${params.labels.preview}</summary>
+            <pre class="reader-settings-template__preview flat-workflow__quote" data-role="preview"></pre>
+          </details>
         `;
         shell.footer.innerHTML = `
           <button class="secondary-btn secondary-btn--compact" type="button" data-action="restore-default-template">${params.labels.restoreDefault}</button>

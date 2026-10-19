@@ -1,4 +1,28 @@
 {
+    "promptTriggerHelp": {
+        "message": "设置后，在 ChatGPT 输入框输入反斜杠 \\ 加触发文本，即可插入这个 Prompt。",
+        "description": "Explain optional Prompt trigger text"
+    },
+    "readerSettingsMore": {
+        "message": "更多设置",
+        "description": "Simplified workflow controls"
+    },
+    "promptActionsLabel": {
+        "message": "操作",
+        "description": "Simplified workflow controls"
+    },
+    "promptDisabled": {
+        "message": "已停用",
+        "description": "Simplified workflow controls"
+    },
+    "promptOptionalSettings": {
+        "message": "快捷输入与光标位置（可选）",
+        "description": "Simplified workflow controls"
+    },
+    "bookmarkSaveChangeFolder": {
+        "message": "更改文件夹",
+        "description": "Simplified workflow controls"
+    },
     "extName": {
         "message": "AI-MarkDone — ChatGPT 阅读与导出",
         "description": "Message for extName"
@@ -446,14 +470,6 @@
     "readerCommentSearch": {
         "message": "搜索注释",
         "description": "Reader annotation manager search"
-    },
-    "readerCommentGroupByConversation": {
-        "message": "按对话",
-        "description": "Reader annotation manager conversation grouping"
-    },
-    "readerCommentTimeline": {
-        "message": "时间线",
-        "description": "Reader annotation manager timeline view"
     },
     "readerCommentBulkEdit": {
         "message": "管理选择",
@@ -3303,6 +3319,26 @@
         "message": "暂无提示词",
         "description": "Empty state for prompt manager"
     },
+    "promptManualAutocompleteHint": {
+        "message": "输入标题或触发词筛选；↑ ↓ 选择，Enter/Tab 插入，Esc 关闭。",
+        "description": "Hint for manually opened prompt candidates"
+    },
+    "promptAutocompleteEmptyLibrary": {
+        "message": "暂无已启用的提示词，可前往提示词库添加。",
+        "description": "Empty manual prompt candidate library"
+    },
+    "promptAutocompleteNoMatches": {
+        "message": "没有匹配的提示词，可修改搜索内容或打开提示词库。",
+        "description": "No manual prompt candidates match the current query"
+    },
+    "promptAutocompleteOpenLibrary": {
+        "message": "打开提示词库",
+        "description": "Explicit action from empty candidates to prompt management"
+    },
+    "promptAutocompleteLoadFailed": {
+        "message": "提示词加载失败，可打开提示词库重试。",
+        "description": "Prompt candidate load failure distinct from an empty library"
+    },
     "promptUntitled": {
         "message": "未命名提示词",
         "description": "Fallback prompt title"
@@ -3462,18 +3498,6 @@
     "pageControls": {
         "message": "页面工具",
         "description": "Label for pageControls"
-    },
-    "pageAnnotationInsertAndDelete": {
-        "message": "插入并删除",
-        "description": "Label for pageAnnotationInsertAndDelete"
-    },
-    "pageAnnotationInsertedAndDeleted": {
-        "message": "注释已插入并删除",
-        "description": "Label for pageAnnotationInsertedAndDeleted"
-    },
-    "pageAnnotationInsertedDeleteFailed": {
-        "message": "已插入；部分注释删除失败，已保留。",
-        "description": "Label for pageAnnotationInsertedDeleteFailed"
     },
     "pageAnnotationInsert": {
         "message": "插入到输入框",
@@ -5599,25 +5623,49 @@
         "message": "未能定位这条回复，请滚动对话后重试。",
         "description": "Feedback when a message directory jump cannot locate the reply"
     },
-    "promptManualAutocompleteHint": {
-        "message": "输入标题或触发词筛选；↑ ↓ 选择，Enter/Tab 插入，Esc 关闭。",
-        "description": "Hint for manually opened prompt candidates"
+    "readerCommentCopySelect": {
+        "message": "选择要复制的注释",
+        "description": "Reader annotation copy selection"
     },
-    "promptAutocompleteEmptyLibrary": {
-        "message": "暂无已启用的提示词，可前往提示词库添加。",
-        "description": "Empty manual prompt candidate library"
+    "readerCommentCopySelectionCount": {
+        "message": "已选 $1 / $2 项",
+        "description": "Reader annotation copy selection"
     },
-    "promptAutocompleteNoMatches": {
-        "message": "没有匹配的提示词，可修改搜索内容或打开提示词库。",
-        "description": "No manual prompt candidates match the current query"
+    "readerCommentCopyOptionalPrompt": {
+        "message": "附加 Prompt（可选）",
+        "description": "Reader annotation copy selection"
     },
-    "promptAutocompleteOpenLibrary": {
-        "message": "打开提示词库",
-        "description": "Explicit action from empty candidates to prompt management"
+    "readerCommentCopyNoPrompt": {
+        "message": "不附加 Prompt",
+        "description": "Reader annotation copy selection"
     },
-    "promptAutocompleteLoadFailed": {
-        "message": "提示词加载失败，可打开提示词库重试。",
-        "description": "Prompt candidate load failure distinct from an empty library"
+    "readerCommentCopySelected": {
+        "message": "复制所选注释",
+        "description": "Reader annotation copy selection"
+    },
+    "readerCommentCopySelectedCount": {
+        "message": "复制所选 $1 条",
+        "description": "Selected annotation copy and delete workflow"
+    },
+    "readerCommentDeleteSelectedCount": {
+        "message": "删除所选 $1 条",
+        "description": "Selected annotation copy and delete workflow"
+    },
+    "readerCommentDeleteSelectionTitle": {
+        "message": "删除选中的 $1 条注释？",
+        "description": "Selected annotation copy and delete workflow"
+    },
+    "readerCommentDeleteSelectionMessage": {
+        "message": "仅删除选中的注释，原文消息会保留。",
+        "description": "Selected annotation copy and delete workflow"
+    },
+    "readerCommentDeleteSelectionChanged": {
+        "message": "部分注释已更新，请查看后重新删除。",
+        "description": "Selected annotation copy and delete workflow"
+    },
+    "readerCommentDeleteSelectionFailed": {
+        "message": "部分注释未能删除，请重试。",
+        "description": "Selected annotation copy and delete workflow"
     },
     "keyboardButtonsTab": {
         "message": "按钮"
@@ -5784,4 +5832,5 @@
     "keyboardPlatformUnavailable": {
         "message": "当前系统不可用"
     }
+
 }

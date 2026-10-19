@@ -173,7 +173,7 @@ export class SendPopover {
         });
 
         const pop = document.createElement('div');
-        pop.className = 'send-popover aimd-material-surface';
+        pop.className = 'send-popover aimd-material-surface flat-workflow';
         pop.setAttribute('role', 'dialog');
         pop.setAttribute('aria-modal', 'false');
         pop.setAttribute('aria-label', t('send'));
@@ -197,7 +197,6 @@ export class SendPopover {
   <div class="send-popover__foot">
     <div class="status-line" data-role="status" data-tone="muted" role="status" aria-live="polite"></div>
     <div class="button-row">
-      <button class="studio-btn studio-btn--ghost aimd-material-button aimd-material-button--quiet" type="button" data-action="cancel" aria-label="${escapeHtml(t('btnCancel'))}">${escapeHtml(t('btnCancel'))}</button>
       <button class="studio-btn studio-btn--primary aimd-material-button aimd-material-button--primary" type="button" data-action="send" aria-label="${escapeHtml(t('send'))}">${createIcon(sendIcon).outerHTML}<span>${escapeHtml(t('send'))}</span></button>
     </div>
   </div>
@@ -222,7 +221,6 @@ export class SendPopover {
         if (resizeHandle) resizeHandle.dataset.ready = '1';
 
         pop.querySelector<HTMLButtonElement>('[data-action="close"]')?.addEventListener('click', () => this.close(params.shadow, { syncBack: true }));
-        pop.querySelector<HTMLButtonElement>('[data-action="cancel"]')?.addEventListener('click', () => this.close(params.shadow, { syncBack: true }));
         pop.querySelector<HTMLButtonElement>('[data-action="send"]')?.addEventListener('click', () => void this.submit(params.shadow));
         pop.querySelector<HTMLButtonElement>('[data-action="resize"]')?.addEventListener('mousedown', (event) => this.startResize(event, params.shadow));
         pop.querySelector<HTMLButtonElement>('[data-action="insert-comments"]')?.addEventListener('click', () => {
@@ -386,11 +384,6 @@ export class SendPopover {
         if (resize) resize.setAttribute('aria-label', t('resizeSendPopover'));
         const textarea = this.popoverEl.querySelector<HTMLTextAreaElement>('[data-role="text"]');
         if (textarea) textarea.setAttribute('placeholder', t('typeYourMessage'));
-        const cancel = this.popoverEl.querySelector<HTMLButtonElement>('[data-action="cancel"]');
-        if (cancel) {
-            cancel.setAttribute('aria-label', t('btnCancel'));
-            cancel.textContent = t('btnCancel');
-        }
         const send = this.popoverEl.querySelector<HTMLButtonElement>('[data-action="send"]');
         if (send) {
             send.setAttribute('aria-label', t('send'));

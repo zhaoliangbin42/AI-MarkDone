@@ -4,6 +4,7 @@ import { createIcon } from '../components/Icon';
 import type { ModalHost } from '../components/ModalHost';
 import type { ReaderCommentRecord } from '../../../services/reader/commentSession';
 import { t } from '../components/i18n';
+import { getFlatWorkflowCss } from '../components/styles/flatWorkflowCss';
 
 type AnchorRect = {
     left: number;
@@ -25,7 +26,6 @@ type OpenParams = {
     onSelect: (record: ReaderCommentRecord) => void;
     onDelete: (record: ReaderCommentRecord) => Promise<boolean>;
     onInsertAll: (records: ReaderCommentRecord[]) => void | Promise<void>;
-    onInsertAndDelete?: (records: ReaderCommentRecord[]) => void | Promise<void>;
 };
 
 const ANCHOR_GAP_PX = 8;
@@ -66,35 +66,34 @@ function formatDate(value: number): string {
 
 function getCss(): string {
     return `
+${getFlatWorkflowCss()}
 .mock-modal--page-annotation-manager {
   --_modal-content-max-width: 720px;
   --_modal-content-max-height: 640px;
   border-color: var(--aimd-workspace-border);
   background: var(--aimd-workspace-card);
-  box-shadow: var(--aimd-shadow-workspace), var(--aimd-workspace-edge-shadow);
+  box-shadow: var(--aimd-shadow-workspace);
 }
 .mock-modal--page-annotation-manager .mock-modal__head, .mock-modal--page-annotation-manager .mock-modal__footer { background: var(--aimd-workspace-card); border-color: var(--aimd-workspace-border); }
 .mock-modal--page-annotation-manager .mock-modal__title-copy strong { color: var(--aimd-text-primary); }
 .mock-modal--page-annotation-manager .mock-modal__content { overflow: hidden; }
 .page-annotation-manager, .page-annotation-manager * { box-sizing: border-box; }
-.page-annotation-manager { min-width: 0; min-height: 0; width: 100%; display: grid; grid-template-rows: auto minmax(0, 1fr); gap: var(--aimd-space-3); }
-.page-annotation-manager__toolbar { min-width: 0; display: grid; gap: var(--aimd-space-3); }
+.page-annotation-manager { min-width: 0; min-height: 0; width: 100%; display: grid; grid-template-rows: auto minmax(0, 1fr); gap: var(--aimd-space-4); }
+.page-annotation-manager__toolbar { min-width: 0; display: grid; gap: var(--aimd-space-4); }
+.page-annotation-manager__collection { min-width: 0; min-height: 0; display: grid; grid-template-rows: auto minmax(0, 1fr); gap: var(--aimd-space-3); }
 .page-annotation-manager__row { display: flex; flex-wrap: wrap; align-items: center; gap: var(--aimd-space-2); }
 .page-annotation-manager__row--primary { justify-content: space-between; }
-.page-annotation-manager__tabs { box-sizing: border-box; display: inline-flex; gap: var(--aimd-space-1); padding: var(--aimd-space-1); border: 1px solid var(--aimd-workspace-border); border-radius: var(--aimd-radius-xl); background: var(--aimd-workspace-surface); width: max-content; }
-.page-annotation-manager__tab { all: unset; box-sizing: border-box; cursor: pointer; min-height: var(--aimd-size-control-compact); padding: 0 var(--aimd-space-3); border-radius: var(--aimd-radius-lg); color: var(--aimd-text-secondary); font-size: var(--aimd-text-sm); white-space: nowrap; }
-.page-annotation-manager__tab:hover { background: var(--aimd-interactive-hover); color: var(--aimd-text-primary); }
-.page-annotation-manager__tab[data-active="1"] { color: var(--aimd-interactive-primary); background: var(--aimd-interactive-selected); font-weight: var(--aimd-font-semibold); }
-.page-annotation-manager__search { width: 100%; min-height: var(--aimd-size-control-compact); box-sizing: border-box; padding: 0 var(--aimd-space-3); border: 1px solid var(--aimd-workspace-border); border-radius: var(--aimd-radius-lg); background: var(--aimd-workspace-surface); box-shadow: var(--aimd-workspace-inset); color: var(--aimd-text-primary); font: inherit; }
+.page-annotation-manager__tabs { width: max-content; max-width: 100%; }
+.page-annotation-manager__search { width: 100%; min-height: var(--aimd-size-control-action-panel); box-sizing: border-box; padding: 0 var(--aimd-space-3); border: 1px solid var(--aimd-workspace-border); border-radius: var(--aimd-radius-lg); background: var(--aimd-bg-primary); box-shadow: none; color: var(--aimd-text-primary); font: inherit; }
 .page-annotation-manager__search:focus-visible { outline: none; border-color: var(--aimd-interactive-primary); box-shadow: var(--aimd-shadow-focus); }
 .page-annotation-manager__items { min-height: 0; overflow: auto; overscroll-behavior: contain; scrollbar-gutter: stable; }
-.page-annotation-manager__item { min-width: 0; display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: var(--aimd-space-3); padding: var(--aimd-space-3) var(--aimd-space-2); border-top: 1px solid var(--aimd-border-subtle); }
+.page-annotation-manager__item { min-width: 0; display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: var(--aimd-space-3); padding: var(--aimd-space-4); border-top: 1px solid var(--aimd-border-subtle); }
 .page-annotation-manager__item:hover, .page-annotation-manager__item:focus-within { background: var(--aimd-surface-hover); }
 .page-annotation-manager__item:last-child { border-bottom: 1px solid var(--aimd-border-subtle); }
 .page-annotation-manager__open { all: unset; min-width: 0; cursor: pointer; display: grid; gap: var(--aimd-space-2); border-radius: var(--aimd-radius-md); }
 .page-annotation-manager__open:focus-visible, .page-annotation-manager__delete:focus-visible { outline: 2px solid var(--aimd-focus-ring); outline-offset: 2px; }
-.page-annotation-manager__quote { min-width: 0; overflow: hidden; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; color: var(--aimd-text-primary); font-size: var(--aimd-text-sm); line-height: var(--aimd-leading-normal); border-left: 2px solid var(--aimd-interactive-primary); padding-left: var(--aimd-space-2); text-wrap: pretty; }
-.page-annotation-manager__comment { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--aimd-text-secondary); font-size: var(--aimd-text-sm); }
+.page-annotation-manager__quote { min-width: 0; overflow: hidden; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; color: var(--aimd-text-secondary); font-size: var(--aimd-text-sm); line-height: var(--aimd-leading-normal); border-left: 2px solid var(--aimd-border-default); padding-left: var(--aimd-space-3); text-wrap: pretty; }
+.page-annotation-manager__comment { min-width: 0; overflow: hidden; display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow-wrap: anywhere; color: var(--aimd-text-primary); font-size: var(--aimd-text-sm); line-height: var(--aimd-leading-normal); }
 .page-annotation-manager__meta { display: flex; flex-wrap: wrap; gap: var(--aimd-space-2); color: var(--aimd-text-tertiary); font-size: var(--aimd-text-xs); font-variant-numeric: tabular-nums; }
 .page-annotation-manager__hint { color: var(--aimd-text-secondary); font-size: var(--aimd-text-xs); line-height: var(--aimd-leading-normal); }
 .page-annotation-manager__delete { all: unset; box-sizing: border-box; cursor: pointer; align-self: start; display: inline-flex; align-items: center; justify-content: center; width: var(--aimd-size-control-icon-panel); height: var(--aimd-size-control-icon-panel); border-radius: var(--aimd-radius-full); color: var(--aimd-text-secondary); }
@@ -102,6 +101,7 @@ function getCss(): string {
 .page-annotation-manager__delete:disabled { opacity: 0.5; cursor: not-allowed; }
 .page-annotation-manager__empty, .page-annotation-manager__loading { padding: var(--aimd-space-6) var(--aimd-space-3); color: var(--aimd-text-secondary); text-align: center; font-size: var(--aimd-text-sm); }
 .page-annotation-manager__error { display: flex; flex-wrap: wrap; align-items: center; justify-content: center; gap: var(--aimd-space-3); padding: var(--aimd-space-6) var(--aimd-space-3); color: var(--aimd-text-secondary); text-align: center; font-size: var(--aimd-text-sm); }
+@media (max-width: 560px) { .page-annotation-manager__tabs { width: 100%; } .page-annotation-manager__tab { flex: 1; min-width: 0; white-space: normal; } }
 `;
 }
 
@@ -118,7 +118,6 @@ export class PageAnnotationManagerPopover {
     private allLoadFailed = false;
     private pendingSelection: ReaderCommentRecord | null = null;
     private pendingInsertRecords: ReaderCommentRecord[] | null = null;
-    private pendingInsertDeletes = false;
     private lastVisibleRecordsKey: string | null = null;
     private lastVisibleRecords: ReaderCommentRecord[] = [];
     private lastListRenderKey: string | null = null;
@@ -152,26 +151,25 @@ export class PageAnnotationManagerPopover {
         this.allLoadFailed = false;
         this.pendingSelection = null;
         this.pendingInsertRecords = null;
-        this.pendingInsertDeletes = false;
         this.lastVisibleRecordsKey = null;
         this.lastVisibleRecords = [];
         this.lastListRenderKey = null;
         ensureStyle(params.shadow, getCss(), { id: 'aimd-page-annotation-manager-style', cache: 'shared' });
 
         const body = document.createElement('div');
-        body.className = 'page-annotation-manager';
+        body.className = 'page-annotation-manager flat-workflow';
         body.dataset.aimdRole = 'page-annotation-manager';
 
         const toolbar = document.createElement('div');
-        toolbar.className = 'page-annotation-manager__toolbar';
+        toolbar.className = 'page-annotation-manager__toolbar flat-workflow__toolbar';
         const primaryRow = document.createElement('div');
         primaryRow.className = 'page-annotation-manager__row page-annotation-manager__row--primary';
         const tabs = document.createElement('div');
-        tabs.className = 'page-annotation-manager__tabs';
+        tabs.className = 'page-annotation-manager__tabs flat-workflow__tabs';
         for (const [view, label] of [['current', this.getLabel('pageAnnotationManagerCurrent', 'Current conversation')], ['all', this.getLabel('pageAnnotationManagerAll', 'All')]] as const) {
             const button = document.createElement('button');
             button.type = 'button';
-            button.className = 'page-annotation-manager__tab';
+            button.className = 'page-annotation-manager__tab flat-workflow__tab';
             button.dataset.view = view;
             button.textContent = label;
             button.addEventListener('click', () => { void this.setView(view); });
@@ -180,8 +178,9 @@ export class PageAnnotationManagerPopover {
         primaryRow.appendChild(tabs);
         const search = document.createElement('input');
         search.type = 'search';
-        search.className = 'page-annotation-manager__search';
+        search.className = 'page-annotation-manager__search flat-workflow__input';
         search.placeholder = this.getLabel('pageAnnotationManagerSearch', 'Search annotations');
+        search.setAttribute('aria-label', search.placeholder);
         search.addEventListener('input', () => {
             this.query = search.value.trim().toLowerCase();
             this.render();
@@ -189,12 +188,15 @@ export class PageAnnotationManagerPopover {
         const actionsRow = document.createElement('div');
         actionsRow.className = 'page-annotation-manager__row';
         actionsRow.dataset.role = 'bulk-actions';
-        toolbar.append(primaryRow, search, actionsRow);
+        toolbar.append(primaryRow, search);
         body.appendChild(toolbar);
+        const collection = document.createElement('section');
+        collection.className = 'page-annotation-manager__collection';
         const items = document.createElement('div');
-        items.className = 'page-annotation-manager__items';
+        items.className = 'page-annotation-manager__items flat-workflow__list';
         items.dataset.role = 'items';
-        body.appendChild(items);
+        collection.append(actionsRow, items);
+        body.appendChild(collection);
         this.rootEl = body;
         this.render();
 
@@ -217,15 +219,13 @@ export class PageAnnotationManagerPopover {
                 this.allLoadGeneration += 1;
                 const selected = this.pendingSelection;
                 const insertRecords = this.pendingInsertRecords;
-                const insert = this.pendingInsertDeletes ? params.onInsertAndDelete : params.onInsertAll;
                 this.pendingSelection = null;
                 this.pendingInsertRecords = null;
-                this.pendingInsertDeletes = false;
                 this.rootEl = null;
                 this.closeModal = null;
                 this.params = null;
                 if (selected) params.onSelect(selected);
-                if (insertRecords && insertRecords.length > 0) void insert?.(insertRecords);
+                if (insertRecords && insertRecords.length > 0) void params.onInsertAll(insertRecords);
             },
         });
         // The modal shell appends the dialog synchronously; anchor it next to
@@ -421,25 +421,11 @@ export class PageAnnotationManagerPopover {
             this.closeModal?.();
         });
         actions.appendChild(insertAll);
-        if (this.params.onInsertAndDelete) {
-            const insertAndDelete = document.createElement('button');
-            insertAndDelete.type = 'button';
-            insertAndDelete.className = 'mock-modal__button mock-modal__button--secondary';
-            insertAndDelete.dataset.action = 'page-annotation-insert-and-delete';
-            insertAndDelete.textContent = this.getLabel('pageAnnotationInsertAndDelete', 'Insert and delete');
-            insertAndDelete.disabled = total < 1;
-            insertAndDelete.addEventListener('click', () => {
-                this.pendingInsertRecords = this.getViewRecords();
-                this.pendingInsertDeletes = true;
-                this.closeModal?.();
-            });
-            actions.appendChild(insertAndDelete);
-        }
     }
 
     private createRow(record: ReaderCommentRecord): HTMLElement {
         const row = document.createElement('article');
-        row.className = 'page-annotation-manager__item';
+        row.className = 'page-annotation-manager__item flat-workflow__item';
         const open = document.createElement('button');
         open.type = 'button';
         open.className = 'page-annotation-manager__open';
@@ -459,7 +445,7 @@ export class PageAnnotationManagerPopover {
         if (conversation) parts.unshift(`${this.getLabel('pageAnnotationManagerConversation', 'Conversation')} ${conversation}`);
         if (record.lastKnownAnchorState === 'unanchored') parts.push(this.getLabel('pageAnnotationManagerUnanchored', 'Not located'));
         meta.textContent = parts.join(' · ');
-        open.append(quote, comment, meta);
+        open.append(comment, quote, meta);
         open.addEventListener('click', () => {
             this.pendingSelection = record;
             this.closeModal?.();

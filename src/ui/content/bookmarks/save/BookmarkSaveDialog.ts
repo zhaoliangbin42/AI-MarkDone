@@ -106,6 +106,7 @@ export class BookmarkSaveDialog {
         this.pending = false;
         this.rootFolderModal = null;
         this.subfolderInline = null;
+        this.overlaySession?.surfaceRoot.querySelector<HTMLDetailsElement>('[data-role="bookmark-save-folder-picker"]')?.removeAttribute('open');
         if (this.overlaySession && this.closing) {
             this.overlaySession.cancelSurfaceClose();
         }
@@ -658,6 +659,7 @@ export class BookmarkSaveDialog {
     }
 
     private getHtml(): string {
+        const isCreate = this.state?.mode === 'create';
         const isFolderSelect = this.state?.mode === 'folder-select';
         const title = isFolderSelect ? this.getLabel('libraryMoveTo', 'Move to') : this.getLabel('saveBookmarkTitle', 'Save Bookmark');
         const closeLabel = this.getLabel('btnClose', 'Close panel');
@@ -690,9 +692,35 @@ export class BookmarkSaveDialog {
             : this.folderLoadState.kind === 'error'
                 ? ''
                 : `<div class="help-text">${escapeHtml(emptyFolderMessage)}</div>`;
+        const selectedFolderPath = this.state?.selectedFolderPath ?? null;
+        const hasSelectedFolder = this.isSelectableFolder(selectedFolderPath)
+            && (selectedFolderPath === '/'
+                ? Boolean(this.selectionOptions.allowRoot)
+                : this.folders.some((folder) => folder.path === selectedFolderPath));
+        const hasSelectableFolder = this.folders.some((folder) => this.isSelectableFolder(folder.path))
+            || Boolean(this.selectionOptions.allowRoot && this.isSelectableFolder('/'));
+        const existingFolderPicker = this.overlaySession?.surfaceRoot
+            .querySelector<HTMLDetailsElement>('[data-role="bookmark-save-folder-picker"]');
+        // Keep native disclosure state across redraws; unavailable destinations must stay reachable.
+        const expandFolderPicker = Boolean(existingFolderPicker?.open || this.subfolderInline)
+            || this.folderLoadState.kind === 'error'
+            || (this.folderLoadState.kind === 'ready' && (!hasSelectedFolder || !hasSelectableFolder));
+        const selectedFolderLabel = hasSelectedFolder
+            ? selectedFolderPath === '/'
+                ? this.getLabel('libraryRootFolder', 'Top level')
+                : selectedFolderPath ?? ''
+            : this.folderLoadState.kind === 'loading'
+                ? this.getLabel('loading', 'Loading…')
+                : this.getLabel('selectFolderLabel', 'Select folder');
+        const folderPickerContent = `
+        ${isFolderSelect ? `<div class="library-folder-picker__summary"><span><small>${escapeHtml(this.getLabel('libraryCurrentFolder', 'Current folder'))}</small><strong>${escapeHtml(this.sourceFolderPath || this.getLabel('libraryRootFolder', 'Top level'))}</strong></span><span><small>${escapeHtml(this.getLabel('libraryTargetFolder', 'Destination'))}</small><strong>${escapeHtml(this.state?.selectedFolderPath || this.getLabel('libraryRootFolder', 'Top level'))}</strong></span></div>` : ''}
+        ${this.selectionOptions.allowRoot ? `<button class="library-folder-picker__root" data-selected="${String(this.state?.selectedFolderPath === '/')}" data-action="bookmark-save-select-folder" data-path="/" ${this.isSelectableFolder('/') ? '' : 'disabled'}>${iconMarkup(folderOpenIcon)}<span>${escapeHtml(this.getLabel('libraryRootFolder', 'Top level'))}</span></button>` : ''}
+        ${folderLoadError}
+        ${folderTreeContent}
+        `;
 
         return `
-<div class="panel-window panel-window--dialog panel-window--bookmark-save${isFolderSelect ? ' panel-window--folder-select' : ''} workflow-dialog" role="dialog" aria-modal="true" aria-label="${escapeHtml(title)}" aria-busy="${this.pending ? 'true' : 'false'}">
+<div class="panel-window panel-window--dialog panel-window--bookmark-save${isFolderSelect ? ' panel-window--folder-select' : ''} workflow-dialog flat-workflow" role="dialog" aria-modal="true" aria-label="${escapeHtml(title)}" aria-busy="${this.pending ? 'true' : 'false'}">
   <div class="panel-header">
     <div class="panel-header__meta panel-header__meta--reader">
       <h2>${escapeHtml(title)}</h2>
@@ -701,29 +729,36 @@ export class BookmarkSaveDialog {
       <button class="icon-btn" data-action="close-panel" aria-label="${escapeHtml(closeLabel)}" data-tooltip="${escapeHtml(closeLabel)}">${iconMarkup(xIcon)}</button>
     </div>
   </div>
-  <div class="dialog-body dialog-body--bookmark-save${isFolderSelect ? ' dialog-body--folder-select' : ''} workflow-dialog__body">
+  <div class="dialog-body dialog-body--bookmark-save${isFolderSelect ? ' dialog-body--folder-select' : ''} workflow-dialog__body flat-workflow__body">
     ${this.submitError ? `<p class="error-text" role="alert">${escapeHtml(this.submitError)}</p>` : ''}
-    ${isFolderSelect ? '' : `<div class="field-block">
+    ${isFolderSelect ? '' : `<div class="field-block flat-workflow__section flat-workflow__field">
       <label class="field-label">${escapeHtml(titleLabel)}</label>
       <input class="text-input text-input--bookmark-save-title aimd-field-control aimd-field-control--standalone" type="text" data-role="bookmark-save-title" value="${escapeHtml(this.state?.title ?? '')}" placeholder="${escapeHtml(titlePlaceholder)}" aria-invalid="${validation.titleError ? 'true' : 'false'}" />
       <div class="error-text workflow-dialog__status" data-tone="error" role="alert" data-role="bookmark-save-title-error" ${validation.titleError ? '' : 'hidden'}>${validation.titleError ? escapeHtml(titleValidationMessage(validation.titleError as any, this.state?.title ?? '')) : ''}</div>
     </div>`}
-    <div class="field-block">
+    ${isCreate ? `<details class="bookmark-save-folder-picker flat-workflow__section" data-role="bookmark-save-folder-picker" ${expandFolderPicker ? 'open' : ''}>
+      <summary class="bookmark-save-folder-summary" tabindex="0">
+        <span class="bookmark-save-folder-summary__current">
+          <span class="field-label">${escapeHtml(folderLabel)}</span>
+          <strong class="bookmark-save-folder-summary__path">${escapeHtml(selectedFolderLabel)}</strong>
+        </span>
+        <span class="bookmark-save-folder-summary__action">${escapeHtml(this.getLabel('bookmarkSaveChangeFolder', 'Change folder'))}${iconMarkup(chevronDownIcon)}</span>
+      </summary>
+      <div class="bookmark-save-folder-picker__content">
+        <button class="secondary-btn secondary-btn--compact secondary-btn--ghost bookmark-save-folder-picker__create" data-action="bookmark-save-new-root-folder">${iconMarkup(folderPlusIcon)}<span>${escapeHtml(createFolderLabel)}</span></button>
+        <div class="picker-tree">${folderPickerContent}</div>
+      </div>
+    </details>` : `<div class="field-block flat-workflow__section flat-workflow__field">
       <div class="field-head">
         <label class="field-label">${escapeHtml(folderLabel)}</label>
         <button class="icon-btn" data-action="bookmark-save-new-root-folder" aria-label="${escapeHtml(createFolderLabel)}">${iconMarkup(folderPlusIcon)}</button>
       </div>
-      <div class="picker-tree">
-        ${isFolderSelect ? `<div class="library-folder-picker__summary"><span><small>${escapeHtml(this.getLabel('libraryCurrentFolder', 'Current folder'))}</small><strong>${escapeHtml(this.sourceFolderPath || this.getLabel('libraryRootFolder', 'Top level'))}</strong></span><span><small>${escapeHtml(this.getLabel('libraryTargetFolder', 'Destination'))}</small><strong>${escapeHtml(this.state?.selectedFolderPath || this.getLabel('libraryRootFolder', 'Top level'))}</strong></span></div>` : ''}
-        ${this.selectionOptions.allowRoot ? `<button class="library-folder-picker__root" data-selected="${String(this.state?.selectedFolderPath === '/')}" data-action="bookmark-save-select-folder" data-path="/" ${this.isSelectableFolder('/') ? '' : 'disabled'}>${iconMarkup(folderOpenIcon)}<span>${escapeHtml(this.getLabel('libraryRootFolder', 'Top level'))}</span></button>` : ''}
-        ${folderLoadError}
-        ${folderTreeContent}
-      </div>
-    </div>
+      <div class="picker-tree">${folderPickerContent}</div>
+    </div>`}
   </div>
   <div class="panel-footer panel-footer--bookmark-save">
     <div class="button-row workflow-dialog__actions">
-      <button class="secondary-btn" data-action="close-panel">${escapeHtml(cancelLabel)}</button>
+      <button class="secondary-btn secondary-btn--ghost" data-action="close-panel">${escapeHtml(cancelLabel)}</button>
       <button class="secondary-btn secondary-btn--primary" data-action="bookmark-save-submit" ${this.pending || !validation.canSubmit || !this.isSelectableFolder(this.state?.selectedFolderPath ?? null) ? 'disabled' : ''}>${escapeHtml(saveLabel)}</button>
     </div>
   </div>

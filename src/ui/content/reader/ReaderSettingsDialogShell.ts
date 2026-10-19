@@ -3,10 +3,11 @@ import { createIcon } from '../components/Icon';
 import { markTransientRoot } from '../components/transientUi';
 import { ensureStyle } from '../../../style/shadow';
 import { getSurfaceMaterialCss } from '../components/styles/surfaceMaterialCss';
+import { getFlatWorkflowCss } from '../components/styles/flatWorkflowCss';
 import dialogCss from './readerSettingsDialog.css?inline';
 
 function getDialogCss(): string {
-    return dialogCss + getSurfaceMaterialCss();
+    return dialogCss + getSurfaceMaterialCss() + getFlatWorkflowCss();
 }
 
 let dialogTitleSequence = 0;
@@ -41,7 +42,7 @@ export function createReaderSettingsDialogLayer(params: {
     if (root instanceof ShadowRoot) ensureStyle(root, getDialogCss(), { id: 'aimd-reader-settings-material', cache: 'shared' });
 
     const panel = document.createElement('div');
-    panel.className = ['panel-window', 'panel-window--dialog', 'panel-window--reader-settings', 'aimd-material-surface', ...params.panelClassNames].join(' ');
+    panel.className = ['panel-window', 'panel-window--dialog', 'panel-window--reader-settings', 'aimd-material-surface', 'flat-workflow', ...params.panelClassNames].join(' ');
 
     layer.appendChild(panel);
     params.parent.appendChild(layer);

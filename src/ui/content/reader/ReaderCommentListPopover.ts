@@ -2,9 +2,10 @@ import { fileTextIcon, trashIcon } from '../../../assets/icons';
 import type { ReaderCommentSortMode } from '../../../core/settings/readerCommentExport';
 import { sortReaderComments, type ReaderCommentRecord } from '../../../services/reader/commentSession';
 import { ensureStyle } from '../../../style/shadow';
-import { getSurfaceMaterialCss } from '../components/styles/surfaceMaterialCss';
+import { getFlatWorkflowCss } from '../components/styles/flatWorkflowCss';
 import { createIcon } from '../components/Icon';
 import type { ModalHost } from '../components/ModalHost';
+import { t } from '../components/i18n';
 
 type OpenParams = {
     shadow: ShadowRoot;
@@ -49,6 +50,7 @@ function formatTextPosition(record: ReaderCommentRecord): string {
 
 function getCommentListCss(): string {
     return `
+${getFlatWorkflowCss()}
 .mock-modal--reader-comment-list {
   --_modal-content-max-width: 760px;
   --_modal-content-max-height: 720px;
@@ -74,20 +76,15 @@ function getCommentListCss(): string {
 }
 
 .reader-comment-list__sort {
-  display: inline-flex;
-  align-items: center;
-  gap: var(--aimd-space-1);
-  padding: var(--aimd-space-1);
+  gap: var(--aimd-space-4);
   min-width: 0;
 }
 
+.reader-comment-list__options { color: var(--aimd-text-secondary); font-size: var(--aimd-text-sm); }
+.reader-comment-list__options > summary { cursor: pointer; padding-block: var(--aimd-space-2); }
+
 .reader-comment-list__sort-button {
-  all: unset;
   box-sizing: border-box;
-  cursor: pointer;
-  min-height: var(--aimd-size-control-compact);
-  padding: 0 var(--aimd-space-3);
-  font-size: var(--aimd-text-sm);
   white-space: normal;
   overflow-wrap: anywhere;
   min-width: 0;
@@ -112,7 +109,7 @@ function getCommentListCss(): string {
   scrollbar-gutter: stable;
   display: grid;
   align-content: start;
-  gap: var(--aimd-space-2);
+  gap: 0;
   padding-right: var(--aimd-space-1);
 }
 
@@ -127,21 +124,16 @@ function getCommentListCss(): string {
   box-sizing: border-box;
   min-width: 0;
   display: grid;
-  gap: var(--aimd-space-2);
-  padding: var(--aimd-space-3);
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: start;
+  gap: var(--aimd-space-3);
+  padding: var(--aimd-space-4);
+  border-bottom: 1px solid var(--aimd-border-subtle);
 }
 
 .reader-comment-list__item:hover,
 .reader-comment-list__item:focus-within {
   background: var(--aimd-workspace-surface);
-}
-
-.reader-comment-list__item-head {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) auto;
-  align-items: start;
-  gap: var(--aimd-space-2);
-  min-width: 0;
 }
 
 .reader-comment-list__item-meta {
@@ -175,8 +167,8 @@ function getCommentListCss(): string {
   cursor: pointer;
   min-width: 0;
   display: grid;
-  gap: var(--aimd-space-2);
-  border-radius: var(--aimd-radius-lg);
+  gap: var(--aimd-space-3);
+  border-radius: var(--aimd-radius-md);
 }
 
 .reader-comment-list__open:focus-visible {
@@ -193,7 +185,7 @@ function getCommentListCss(): string {
 .reader-comment-list__label {
   color: var(--aimd-text-tertiary);
   font-size: var(--aimd-text-xs);
-  font-weight: var(--aimd-font-medium);
+  font-weight: var(--aimd-font-semibold);
 }
 
 .reader-comment-list__text {
@@ -208,11 +200,13 @@ function getCommentListCss(): string {
   -webkit-box-orient: vertical;
 }
 
-.reader-comment-list__text--comment {
+.reader-comment-list__text--source {
   color: var(--aimd-text-secondary);
+  padding-left: var(--aimd-space-3);
+  border-left: 2px solid var(--aimd-border-default);
 }
 @media (max-width: 560px) { .reader-comment-list__sort { width: 100%; } .reader-comment-list__sort-button { flex: 1 1 0; } }
-${getSurfaceMaterialCss()}`;
+`;
 }
 
 export class ReaderCommentListPopover {
@@ -237,16 +231,17 @@ export class ReaderCommentListPopover {
         ensureStyle(params.shadow, getCommentListCss(), { id: 'aimd-reader-comment-list-style', cache: 'shared' });
 
         const body = document.createElement('div');
-        body.className = 'reader-comment-list';
+        body.className = 'reader-comment-list flat-workflow';
         body.innerHTML = `
-          <div class="reader-comment-list__toolbar">
-            <div class="reader-comment-list__sort aimd-material-segmented" role="group">
-              <button class="reader-comment-list__sort-button aimd-material-choice" type="button" data-sort-mode="created"></button>
-              <button class="reader-comment-list__sort-button aimd-material-choice" type="button" data-sort-mode="position"></button>
+          <details class="reader-comment-list__options">
+            <summary>${t('libraryMore') === 'libraryMore' ? 'More' : t('libraryMore')}</summary>
+            <div class="reader-comment-list__sort flat-workflow__tabs" role="group">
+              <button class="reader-comment-list__sort-button flat-workflow__tab" type="button" data-sort-mode="created"></button>
+              <button class="reader-comment-list__sort-button flat-workflow__tab" type="button" data-sort-mode="position"></button>
             </div>
-          </div>
+          </details>
           <div class="reader-comment-list__sort-error" data-role="sort-error" role="alert" aria-live="polite" hidden></div>
-          <div class="reader-comment-list__items" data-role="items"></div>
+          <div class="reader-comment-list__items flat-workflow__list" data-role="items"></div>
         `;
         body.querySelector<HTMLButtonElement>('[data-sort-mode="created"]')!.textContent = params.labels.sortByCreated;
         body.querySelector<HTMLButtonElement>('[data-sort-mode="position"]')!.textContent = params.labels.sortByPosition;
@@ -342,7 +337,7 @@ export class ReaderCommentListPopover {
         const comments = sortReaderComments(this.params.comments, this.params.sortMode);
         if (comments.length < 1) {
             const empty = document.createElement('div');
-            empty.className = 'reader-comment-list__empty aimd-material-card';
+            empty.className = 'reader-comment-list__empty flat-workflow__description';
             empty.textContent = this.params.labels.empty;
             list.replaceChildren(empty);
             return;
@@ -353,11 +348,9 @@ export class ReaderCommentListPopover {
 
     private createItem(record: ReaderCommentRecord): HTMLElement {
         const item = document.createElement('article');
-        item.className = 'reader-comment-list__item aimd-material-card';
+        item.className = 'reader-comment-list__item flat-workflow__item';
         item.dataset.commentId = record.id;
 
-        const head = document.createElement('div');
-        head.className = 'reader-comment-list__item-head';
         const meta = document.createElement('div');
         meta.className = 'reader-comment-list__item-meta';
         const created = document.createElement('span');
@@ -369,7 +362,7 @@ export class ReaderCommentListPopover {
 
         const deleteButton = document.createElement('button');
         deleteButton.type = 'button';
-        deleteButton.className = 'icon-btn icon-btn--danger reader-comment-list__delete aimd-material-button aimd-material-button--quiet aimd-material-button--danger';
+        deleteButton.className = 'icon-btn icon-btn--danger reader-comment-list__delete';
         deleteButton.dataset.action = 'delete';
         deleteButton.setAttribute('aria-label', this.params!.labels.delete);
         deleteButton.title = this.params!.labels.delete;
@@ -379,20 +372,18 @@ export class ReaderCommentListPopover {
             if (!params) return;
             void Promise.resolve(params.onDelete({ ...record }));
         });
-        head.append(meta, deleteButton);
-
         const openButton = document.createElement('button');
         openButton.type = 'button';
         openButton.className = 'reader-comment-list__open';
         openButton.dataset.action = 'open';
         const source = this.createTextSection(this.params!.labels.selectedSource, compactText(record.sourceMarkdown || record.quoteText));
         const comment = this.createTextSection(this.params!.labels.userComment, compactText(record.comment), true);
-        openButton.append(source, comment);
+        openButton.append(comment, source, meta);
         openButton.addEventListener('click', () => {
             this.pendingSelection = { ...record };
             this.closeModal?.();
         });
-        item.append(head, openButton);
+        item.append(openButton, deleteButton);
         return item;
     }
 
@@ -403,9 +394,9 @@ export class ReaderCommentListPopover {
         labelEl.className = 'reader-comment-list__label';
         labelEl.textContent = label;
         const text = document.createElement('span');
-        text.className = `reader-comment-list__text${comment ? ' reader-comment-list__text--comment' : ''}`;
+        text.className = `reader-comment-list__text reader-comment-list__text--${comment ? 'comment' : 'source'}`;
         text.textContent = value || '-';
-        section.append(labelEl, text);
+        section.append(...(comment ? [text] : [labelEl, text]));
         return section;
     }
 }

@@ -12,9 +12,9 @@ export function getAnnotationActionButtonCss(): string {
   min-width: var(--aimd-size-control-icon-panel);
   height: var(--aimd-size-control-icon-panel);
   border: 1px solid transparent;
-  border-radius: var(--aimd-radius-full);
-  background: var(--aimd-button-icon-bg);
-  color: color-mix(in srgb, var(--aimd-interactive-primary) 75%, var(--aimd-text-primary));
+  border-radius: var(--aimd-radius-lg);
+  background: transparent;
+  color: var(--aimd-text-secondary);
   cursor: pointer;
   transition: background var(--aimd-duration-fast) var(--aimd-ease-in-out),
     border-color var(--aimd-duration-fast) var(--aimd-ease-in-out),
@@ -22,8 +22,8 @@ export function getAnnotationActionButtonCss(): string {
 }
 
 .annotation-action-button:hover:not(:disabled) {
-  border-color: color-mix(in srgb, var(--aimd-interactive-primary) 28%, var(--aimd-border-default));
-  background: var(--aimd-interactive-selected);
+  background: var(--aimd-interactive-hover);
+  color: var(--aimd-text-primary);
 }
 
 .annotation-action-button:active:not(:disabled) {
@@ -52,7 +52,7 @@ export function getAnnotationActionButtonCss(): string {
   padding: 0 var(--aimd-space-2);
   border-color: var(--aimd-workspace-border);
   background: var(--aimd-workspace-card);
-  box-shadow: var(--aimd-workspace-raised);
+  box-shadow: none;
   font-size: var(--aimd-text-xs);
   font-weight: var(--aimd-font-semibold);
   line-height: 1;

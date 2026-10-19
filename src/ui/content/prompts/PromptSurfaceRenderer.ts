@@ -1,6 +1,6 @@
 import { promptIcon } from '../../../assets/workspaceIcons';
 import type { PromptRecord } from '../../../core/prompts/promptLibrary';
-import { checkIcon, gripHorizontalIcon, pencilIcon, plusIcon, trashIcon, xIcon } from '../../../assets/icons';
+import { checkIcon, chevronDownIcon, plusIcon, trashIcon, xIcon } from '../../../assets/icons';
 import { installInputEventBoundary } from '../components/inputEventBoundary';
 import { t } from '../components/i18n';
 import { renderComposerSuggestionList } from '../components/ComposerSuggestionList';
@@ -31,7 +31,6 @@ export type PromptSurfaceAction =
     | { type: 'retry-load' }
     | { type: 'select'; index: number }
     | { type: 'hover'; index: number }
-    | { type: 'reorder-start'; promptId: string; event: PointerEvent }
     | { type: 'panel-drag-start'; event: PointerEvent };
 
 function escapeHtml(value: string): string {
@@ -125,22 +124,6 @@ export class PromptSurfaceRenderer {
         if (Math.abs(adjustment) > 0.5) list.scrollTop = Math.max(0, Math.min(list.scrollHeight - list.clientHeight, list.scrollTop + adjustment));
     }
 
-    getManagerRowIdAt(clientY: number): string | null {
-        const row = Array.from(this.root.querySelectorAll<HTMLElement>('.manager-row')).find((candidate) => {
-            const rect = candidate.getBoundingClientRect();
-            return clientY >= rect.top && clientY <= rect.bottom;
-        });
-        return row?.dataset.promptId ?? null;
-    }
-
-    setPromptDragging(id: string, dragging: boolean): void {
-        const row = Array.from(this.root.querySelectorAll<HTMLElement>('.manager-row'))
-            .find((candidate) => candidate.dataset.promptId === id);
-        if (!row) return;
-        if (dragging) row.dataset.dragging = '1';
-        else delete row.dataset.dragging;
-    }
-
     destroy(): void {
         this.root.removeEventListener('click', this.onClick);
         this.root.removeEventListener('input', this.onInputCapture, { capture: true } as any);
@@ -149,7 +132,7 @@ export class PromptSurfaceRenderer {
     }
 
     private renderAutocomplete(view: PromptSurfaceView): void {
-        this.root.className = 'prompt-popover prompt-popover--autocomplete aimd-material-surface';
+        this.root.className = 'prompt-popover prompt-popover--autocomplete aimd-material-surface flat-workflow';
         this.root.replaceChildren();
         const list = renderComposerSuggestionList({
             root: this.root,
@@ -199,22 +182,30 @@ export class PromptSurfaceRenderer {
     }
 
     private renderManager(view: PromptSurfaceView): void {
+        const expandedPromptIds = new Set(Array.from(
+            this.root.querySelectorAll<HTMLDetailsElement>('.manager-row__options[open]'),
+        ).map((details) => details.dataset.promptId));
         const rows = view.prompts.map((prompt) => {
             const body = `<button class="manager-row__main aimd-material-choice" type="button" data-action="edit-prompt" data-prompt-id="${escapeHtml(prompt.id)}">
-                <span class="manager-row__title">${escapeHtml(prompt.title)}</span>
-                <span class="manager-row__meta">${escapeHtml(prompt.triggerText)}</span>
+                <span class="manager-row__heading">
+                  <span class="manager-row__title">${escapeHtml(prompt.title)}</span>
+                  ${prompt.enabled ? '' : `<span class="manager-row__state">${escapeHtml(t('promptDisabled'))}</span>`}
+                </span>
                 <span class="manager-row__content">${escapeHtml(prompt.content.replace('{{cursor}}', '').trim())}</span>
               </button>`;
             return `
             <div class="manager-row" data-prompt-id="${escapeHtml(prompt.id)}">
-              <button class="icon-btn prompt-drag-handle aimd-material-button aimd-material-button--quiet" type="button" data-action="reorder-prompt" data-prompt-id="${escapeHtml(prompt.id)}" aria-label="${escapeHtml(t('readerStickyDrag'))}" title="${escapeHtml(t('readerStickyDrag'))}">${gripHorizontalIcon}</button>
               ${body}
-              <label class="prompt-enabled-toggle">
-                <span>${escapeHtml(t('promptEnabledLabel'))}</span>
-                <input class="aimd-material-check" type="checkbox" aria-label="${escapeHtml(`${t('promptEnabledLabel')}: ${prompt.title}`)}" data-action="toggle-prompt-enabled" data-prompt-id="${escapeHtml(prompt.id)}" ${prompt.enabled ? 'checked' : ''} />
-              </label>
-              <button class="icon-btn aimd-material-button aimd-material-button--quiet" type="button" data-action="edit-prompt" data-prompt-id="${escapeHtml(prompt.id)}" aria-label="${escapeHtml(t('promptEdit'))}">${pencilIcon}</button>
-              <button class="icon-btn icon-btn--danger aimd-material-button aimd-material-button--quiet aimd-material-button--danger" type="button" data-action="delete-prompt" data-prompt-id="${escapeHtml(prompt.id)}" aria-label="${escapeHtml(t('promptDelete'))}">${trashIcon}</button>
+              <details class="manager-row__options" data-prompt-id="${escapeHtml(prompt.id)}" ${expandedPromptIds.has(prompt.id) ? 'open' : ''}>
+                <summary class="prompt-options-summary manager-row__summary" data-role="prompt-actions" data-prompt-id="${escapeHtml(prompt.id)}" aria-label="${escapeHtml(`${t('promptActionsLabel')}: ${prompt.title}`)}"><span>${escapeHtml(t('promptActionsLabel'))}</span>${chevronDownIcon}</summary>
+                <div class="manager-row__actions">
+                  <label class="prompt-enabled-toggle">
+                    <input class="aimd-material-check" type="checkbox" aria-label="${escapeHtml(`${t('promptEnabledLabel')}: ${prompt.title}`)}" data-action="toggle-prompt-enabled" data-prompt-id="${escapeHtml(prompt.id)}" ${prompt.enabled ? 'checked' : ''} />
+                    <span>${escapeHtml(t('promptEnabledLabel'))}</span>
+                  </label>
+                  <button class="secondary-btn aimd-material-button aimd-material-button--quiet aimd-material-button--danger" type="button" data-action="delete-prompt" data-prompt-id="${escapeHtml(prompt.id)}">${trashIcon}<span>${escapeHtml(t('promptDelete'))}</span></button>
+                </div>
+              </details>
             </div>`;
         }).join('');
         const loadFailed = view.dataState === 'error';
@@ -224,18 +215,18 @@ export class PromptSurfaceRenderer {
                 ${loadFailed ? `<button class="secondary-btn" type="button" data-action="retry-prompts">${escapeHtml(t('retryAction'))}</button>` : ''}
               </div>`
             : '';
-        this.root.className = 'prompt-popover prompt-popover--manager aimd-material-surface';
+        this.root.className = 'prompt-popover prompt-popover--manager aimd-material-surface flat-workflow';
         this.root.innerHTML = `
           <div class="prompt-header aimd-material-chrome">
             <div class="prompt-header__title">${promptIcon}<span>${escapeHtml(t('promptManagerTitle'))}</span></div>
             <button class="icon-btn aimd-material-button aimd-material-button--quiet" type="button" data-action="close-prompts" aria-label="${escapeHtml(t('btnClose'))}">${xIcon}</button>
           </div>
-          <div class="prompt-toolbar">
+          <div class="prompt-toolbar flat-workflow__toolbar">
             <input class="prompt-search aimd-material-field" data-role="prompt-search" type="search" aria-label="${escapeHtml(t('promptSearchPlaceholder'))}" placeholder="${escapeHtml(t('promptSearchPlaceholder'))}" value="${escapeHtml(view.managerQuery)}" />
             <button class="primary-btn aimd-material-button aimd-material-button--primary" type="button" data-action="add-prompt" aria-label="${escapeHtml(t('promptAdd'))}">${plusIcon}<span>${escapeHtml(t('promptAdd'))}</span></button>
           </div>
-          <div class="prompt-manager-body">${status}
-            <div class="manager-list">${rows || (loadFailed ? '' : `<div class="prompt-empty">${escapeHtml(t('promptNoPrompts'))}</div>`)}</div>
+          <div class="prompt-manager-body flat-workflow__body">${status}
+            <div class="manager-list flat-workflow__list">${rows || (loadFailed ? '' : `<div class="prompt-empty">${escapeHtml(t('promptNoPrompts'))}</div>`)}</div>
           </div>`;
         this.installInputBoundaries();
     }
@@ -243,27 +234,36 @@ export class PromptSurfaceRenderer {
     private renderEditor(view: PromptSurfaceView): void {
         const prompt = view.editPrompt;
         if (!prompt) return;
-        this.root.className = 'prompt-popover prompt-popover--editor aimd-material-surface';
+        const openingEditor = !this.root.classList.contains('prompt-popover--editor');
+        const optionalSettingsOpen = this.root.querySelector<HTMLDetailsElement>('[data-role="prompt-optional-settings"]')?.open ?? false;
+        this.root.className = 'prompt-popover prompt-popover--editor aimd-material-surface flat-workflow';
         this.root.innerHTML = `
           <div class="prompt-header aimd-material-chrome">
             <div class="prompt-header__title">${promptIcon}<span>${escapeHtml(prompt.content ? t('promptEdit') : t('promptAdd'))}</span></div>
             <button class="icon-btn aimd-material-button aimd-material-button--quiet" type="button" data-action="cancel-edit" aria-label="${escapeHtml(t('btnBack'))}">${xIcon}</button>
           </div>
-          <div class="prompt-editor-body">
+          <div class="prompt-editor-body flat-workflow__body">
             <label class="field"><span>${escapeHtml(t('promptTitleLabel'))}</span><input class="aimd-material-field" data-role="prompt-title" type="text" value="${escapeHtml(prompt.title)}" /></label>
-            <label class="field"><span>${escapeHtml(t('promptTriggerLabel'))}</span><input class="aimd-material-field" data-role="prompt-trigger" type="text" value="${escapeHtml(prompt.triggerText)}" placeholder="translate" /></label>
-            <label class="field"><span>${escapeHtml(t('promptContentLabel'))}</span><textarea class="aimd-material-field" data-role="prompt-content" rows="7">${escapeHtml(prompt.content)}</textarea></label>
-            <div class="placeholder-row">
-              <button class="secondary-btn" type="button" data-action="insert-cursor-placeholder">${escapeHtml(t('promptInsertCursorPlaceholder'))}</button>
-            </div>
+            <label class="field field--content"><span>${escapeHtml(t('promptContentLabel'))}</span><textarea class="aimd-material-field" data-role="prompt-content" rows="7">${escapeHtml(prompt.content)}</textarea></label>
+            <details class="prompt-editor-options" data-role="prompt-optional-settings" ${optionalSettingsOpen ? 'open' : ''}>
+              <summary class="prompt-options-summary" data-role="prompt-optional-summary"><span>${escapeHtml(t('promptOptionalSettings'))}</span><span class="prompt-trigger-summary" data-role="prompt-trigger-summary" ${prompt.triggerText.trim() ? '' : 'hidden'}>${escapeHtml(prompt.triggerText)}</span>${chevronDownIcon}</summary>
+              <div class="prompt-editor-options__body">
+                <label class="field"><span>${escapeHtml(t('promptTriggerLabel'))}</span><input class="aimd-material-field" data-role="prompt-trigger" type="text" value="${escapeHtml(prompt.triggerText)}" placeholder="translate" /></label>
+                <p class="flat-workflow__description">${escapeHtml(t('promptTriggerHelp'))}</p>
+                <div class="placeholder-row">
+                  <button class="secondary-btn aimd-material-button aimd-material-button--quiet" type="button" data-action="insert-cursor-placeholder">${escapeHtml(t('promptInsertCursorPlaceholder'))}</button>
+                </div>
+              </div>
+            </details>
             ${view.statusMessage ? `<div class="prompt-status">${escapeHtml(view.statusMessage)}</div>` : ''}
           </div>
-          <div class="prompt-footer aimd-material-chrome">
+          <div class="prompt-footer aimd-material-chrome flat-workflow__actions">
             <button class="secondary-btn" type="button" data-action="cancel-edit">${escapeHtml(t('btnCancel'))}</button>
             <button class="primary-btn" type="button" data-action="save-prompt" aria-label="${escapeHtml(t('btnSave'))}">${checkIcon}<span>${escapeHtml(t('btnSave'))}</span></button>
           </div>`;
         this.installInputBoundaries();
         this.syncCursorPlaceholderButtonState();
+        if (openingEditor) this.root.querySelector<HTMLTextAreaElement>('[data-role="prompt-content"]')?.focus({ preventScroll: true });
     }
 
     private installInputBoundaries(): void {
@@ -334,6 +334,13 @@ export class PromptSurfaceRenderer {
             this.options.onAction({ type: 'search', query: input.value });
             return;
         }
+        if (input instanceof HTMLInputElement && input.dataset.role === 'prompt-trigger') {
+            const summary = this.root.querySelector<HTMLElement>('[data-role="prompt-trigger-summary"]');
+            if (summary) {
+                summary.textContent = input.value.trim();
+                summary.hidden = !input.value.trim();
+            }
+        }
         if (input instanceof HTMLTextAreaElement && input.dataset.role === 'prompt-content') {
             this.syncCursorPlaceholderButtonState();
         }
@@ -348,11 +355,6 @@ export class PromptSurfaceRenderer {
 
     private onPointerDown = (event: PointerEvent): void => {
         const target = event.target instanceof Element ? event.target : null;
-        const reorder = target?.closest<HTMLElement>('[data-action="reorder-prompt"]');
-        if (reorder?.dataset.promptId) {
-            this.options.onAction({ type: 'reorder-start', promptId: reorder.dataset.promptId, event });
-            return;
-        }
         if (target?.closest('.prompt-header')) {
             this.options.onAction({ type: 'panel-drag-start', event });
         }

@@ -57,24 +57,21 @@ describe('ReaderAnnotationManagerPopover', () => {
             loadAll: async () => [current, other],
             labels: {
                 title: 'Annotations', close: 'Close', current: 'Current conversation', all: 'All annotations', search: 'Search',
-                byConversation: 'By conversation', timeline: 'Timeline', empty: 'Empty', loading: 'Loading', error: 'Error', quote: 'Quote', comment: 'Comment',
+                empty: 'Empty', loading: 'Loading', error: 'Error', quote: 'Quote', comment: 'Comment',
                 updated: 'Updated', reply: 'Reply', unanchored: 'Not located', delete: 'Delete',
                 bulkEdit: 'Bulk edit', bulkCancel: 'Cancel bulk edit', selectAll: 'Select all', deleteSelected: 'Delete selected',
-                persistence: 'Persist annotations', persistenceTooltip: 'Keep annotations',
             },
             onSelect: vi.fn(),
             onDelete,
             onDeleteMany,
-            persistenceEnabled: true,
-            onPersistenceChange: vi.fn(),
         });
         await Promise.resolve();
         const dialog = shadow.querySelector('.mock-modal--reader-annotation-manager') as HTMLElement;
         expect(dialog).toBeTruthy();
         const primaryRow = dialog.querySelector('.reader-annotation-manager__toolbar-row--primary');
         expect(primaryRow?.querySelector('[data-view="current"]')).toBeTruthy();
-        expect(primaryRow?.querySelector('[data-role="persistence-toggle"]')).toBeTruthy();
-        expect(primaryRow?.querySelector('.reader-annotation-manager__persistence-help')?.getAttribute('aria-label')).toBe('Keep annotations');
+        expect(dialog.querySelector('[data-role="persistence-toggle"]')).toBeNull();
+        expect(dialog.querySelector('[data-mode]')).toBeNull();
         expect(dialog.querySelectorAll('[data-view]')).toHaveLength(2);
         expect(dialog.querySelectorAll('.reader-annotation-manager__row')).toHaveLength(1);
 
@@ -109,19 +106,19 @@ describe('ReaderAnnotationManagerPopover', () => {
             currentEntries: [first, second],
             loadAll: async () => [first, second],
             labels: {
-                title: 'Annotations', close: 'Close', current: 'Current', all: 'All', search: 'Search', byConversation: 'By conversation', timeline: 'Timeline',
+                title: 'Annotations', close: 'Close', current: 'Current', all: 'All', search: 'Search',
                 empty: 'Empty', loading: 'Loading', error: 'Error', quote: 'Quote', comment: 'Comment', updated: 'Updated', reply: 'Reply', unanchored: 'Not located', delete: 'Delete',
-                bulkEdit: 'Bulk edit', bulkCancel: 'Cancel bulk edit', selectAll: 'Select all', deleteSelected: 'Delete selected', persistence: 'Persist annotations', persistenceTooltip: 'Keep annotations',
+                bulkEdit: 'Bulk edit', bulkCancel: 'Cancel bulk edit', selectAll: 'Select all', deleteSelected: 'Delete selected',
             },
             onSelect: vi.fn(),
             onDelete: vi.fn(async () => true),
             onDeleteMany,
-            persistenceEnabled: true,
-            onPersistenceChange: vi.fn(),
         });
         await Promise.resolve();
         const dialog = shadow.querySelector('.mock-modal--reader-annotation-manager') as HTMLElement;
-        (dialog.querySelector('[data-role="bulk-edit"]') as HTMLButtonElement).click();
+        (dialog.querySelector('.reader-annotation-manager__options > summary') as HTMLElement).click();
+        (dialog.querySelector('[data-role="bulk-entry"]') as HTMLButtonElement).click();
+        expect(dialog.querySelector('[data-role="bulk-edit"]')?.textContent).toBe('Cancel bulk edit');
         const firstRowSelect = dialog.querySelector<HTMLInputElement>('.reader-annotation-manager__select')!;
         firstRowSelect.click();
         expect((dialog.querySelector('[data-role="select-all"]') as HTMLInputElement).indeterminate).toBe(true);
@@ -147,16 +144,17 @@ describe('ReaderAnnotationManagerPopover', () => {
             shadow, modalHost, appearance: {} as any, currentDocument: first.document,
             currentEntries: [first, second], loadAll: async () => [],
             labels: {
-                title: 'Annotations', close: 'Close', current: 'Current', all: 'All', search: 'Search', byConversation: 'By conversation', timeline: 'Timeline',
+                title: 'Annotations', close: 'Close', current: 'Current', all: 'All', search: 'Search',
                 empty: 'Empty', loading: 'Loading', error: 'Error', quote: 'Quote', comment: 'Comment', updated: 'Updated', reply: 'Reply', unanchored: 'Not located', delete: 'Delete',
-                bulkEdit: 'Bulk edit', bulkCancel: 'Cancel bulk edit', selectAll: 'Select all', invertSelection: 'Invert selection', deleteSelected: 'Delete selected', persistence: 'Persist annotations', persistenceTooltip: 'Keep annotations',
+                bulkEdit: 'Bulk edit', bulkCancel: 'Cancel bulk edit', selectAll: 'Select all', invertSelection: 'Invert selection', deleteSelected: 'Delete selected',
             },
-            onSelect: vi.fn(), onDelete: vi.fn(async () => true), onDeleteMany, persistenceEnabled: true, onPersistenceChange: vi.fn(),
+            onSelect: vi.fn(), onDelete: vi.fn(async () => true), onDeleteMany,
         });
         await Promise.resolve();
 
         const dialog = shadow.querySelector('.mock-modal--reader-annotation-manager') as HTMLElement;
-        (dialog.querySelector('[data-role="bulk-edit"]') as HTMLButtonElement).click();
+        (dialog.querySelector('.reader-annotation-manager__options > summary') as HTMLElement).click();
+        (dialog.querySelector('[data-role="bulk-entry"]') as HTMLButtonElement).click();
         (dialog.querySelector('.reader-annotation-manager__select') as HTMLInputElement).click();
         (dialog.querySelector('[data-role="invert-visible"]') as HTMLButtonElement).click();
         expect([...dialog.querySelectorAll<HTMLInputElement>('.reader-annotation-manager__select')].map(input => input.checked)).toEqual([false, true]);
@@ -165,85 +163,7 @@ describe('ReaderAnnotationManagerPopover', () => {
         expect(onDeleteMany).toHaveBeenCalledWith([second]);
     });
 
-    it('exposes the persistence toggle and delegates the preference change', async () => {
-        const host = document.createElement('div');
-        document.body.appendChild(host);
-        const shadow = host.attachShadow({ mode: 'open' });
-        const modalHost = new ModalHost(shadow);
-        const onPersistenceChange = vi.fn(async () => undefined);
-        const manager = new ReaderAnnotationManagerPopover();
-        const current = entry('toggle', 'conversation-toggle', 100);
-        manager.open({
-            shadow,
-            modalHost,
-            appearance: {} as any,
-            currentDocument: current.document,
-            currentEntries: [],
-            loadAll: async () => [],
-            labels: {
-                title: 'Annotations', close: 'Close', current: 'Current', all: 'All', search: 'Search', byConversation: 'By conversation', timeline: 'Timeline',
-                empty: 'Empty', loading: 'Loading', error: 'Error', quote: 'Quote', comment: 'Comment', updated: 'Updated', reply: 'Reply', unanchored: 'Not located', delete: 'Delete',
-                bulkEdit: 'Bulk edit', bulkCancel: 'Cancel bulk edit', selectAll: 'Select all', deleteSelected: 'Delete selected', persistence: 'Persist annotations', persistenceTooltip: 'Keep annotations',
-            },
-            onSelect: vi.fn(),
-            onDelete: vi.fn(async () => true),
-            onDeleteMany: vi.fn(async () => true),
-            persistenceEnabled: false,
-            onPersistenceChange,
-        });
-        await Promise.resolve();
-        const toggle = shadow.querySelector<HTMLInputElement>('[data-role="persistence-toggle"]')!;
-        const help = shadow.querySelector<HTMLButtonElement>('.reader-annotation-manager__persistence-help');
-        expect(help?.dataset.tooltip).toBe('Keep annotations');
-        expect(help?.dataset.tooltipVariant).toBe('preview');
-        expect(help?.getAttribute('aria-label')).toBe('Keep annotations');
-        toggle.click();
-        await Promise.resolve();
-        expect(onPersistenceChange).toHaveBeenCalledWith(true);
-        expect(toggle.checked).toBe(true);
-    });
-
-    it('rolls back a rejected persistence toggle and exposes the write error inline', async () => {
-        const host = document.createElement('div');
-        document.body.appendChild(host);
-        const shadow = host.attachShadow({ mode: 'open' });
-        const modalHost = new ModalHost(shadow);
-        const manager = new ReaderAnnotationManagerPopover();
-        const current = entry('toggle-error', 'conversation-toggle', 100);
-        manager.open({
-            shadow,
-            modalHost,
-            appearance: {} as any,
-            currentDocument: current.document,
-            currentEntries: [],
-            loadAll: async () => [],
-            labels: {
-                title: 'Annotations', close: 'Close', current: 'Current', all: 'All', search: 'Search', byConversation: 'By conversation', timeline: 'Timeline',
-                empty: 'Empty', loading: 'Loading', error: 'Could not save annotation persistence', quote: 'Quote', comment: 'Comment', updated: 'Updated', reply: 'Reply', unanchored: 'Not located', delete: 'Delete',
-                bulkEdit: 'Bulk edit', bulkCancel: 'Cancel bulk edit', selectAll: 'Select all', deleteSelected: 'Delete selected', persistence: 'Persist annotations', persistenceTooltip: 'Keep annotations',
-            },
-            onSelect: vi.fn(),
-            onDelete: vi.fn(async () => true),
-            onDeleteMany: vi.fn(async () => true),
-            persistenceEnabled: false,
-            onPersistenceChange: vi.fn(async () => {
-                throw new Error('Settings write was not confirmed');
-            }),
-        });
-        await Promise.resolve();
-
-        const toggle = shadow.querySelector<HTMLInputElement>('[data-role="persistence-toggle"]')!;
-        toggle.click();
-
-        await vi.waitFor(() => {
-            expect(toggle.checked).toBe(false);
-            const error = shadow.querySelector<HTMLElement>('[data-role="persistence-error"]');
-            expect(error?.hidden).toBe(false);
-            expect(error?.textContent).toBe('Settings write was not confirmed');
-        });
-    });
-
-    it('does not hide loaded annotations when persistence for new annotations is turned off', async () => {
+    it('keeps loaded historical annotations available when switching conversation scopes', async () => {
         const host = document.createElement('div');
         document.body.appendChild(host);
         const shadow = host.attachShadow({ mode: 'open' });
@@ -259,15 +179,13 @@ describe('ReaderAnnotationManagerPopover', () => {
             currentEntries: [current],
             loadAll: async () => [current, other],
             labels: {
-                title: 'Annotations', close: 'Close', current: 'Current', all: 'All', search: 'Search', byConversation: 'By conversation', timeline: 'Timeline',
+                title: 'Annotations', close: 'Close', current: 'Current', all: 'All', search: 'Search',
                 empty: 'Empty', loading: 'Loading', error: 'Error', quote: 'Quote', comment: 'Comment', updated: 'Updated', reply: 'Reply', unanchored: 'Not located', delete: 'Delete',
-                bulkEdit: 'Bulk edit', bulkCancel: 'Cancel bulk edit', selectAll: 'Select all', deleteSelected: 'Delete selected', persistence: 'Persist annotations', persistenceTooltip: 'Saved annotations stay visible',
+                bulkEdit: 'Bulk edit', bulkCancel: 'Cancel bulk edit', selectAll: 'Select all', deleteSelected: 'Delete selected',
             },
             onSelect: vi.fn(),
             onDelete: vi.fn(async () => true),
             onDeleteMany: vi.fn(async () => true),
-            persistenceEnabled: true,
-            onPersistenceChange: vi.fn(async () => undefined),
         });
         await Promise.resolve();
         const dialog = shadow.querySelector('.mock-modal--reader-annotation-manager') as HTMLElement;
@@ -275,9 +193,13 @@ describe('ReaderAnnotationManagerPopover', () => {
         await Promise.resolve();
         expect(dialog.textContent).toContain('Comment other');
 
-        (dialog.querySelector('[data-role="persistence-toggle"]') as HTMLInputElement).click();
+        (dialog.querySelector('[data-view="current"]') as HTMLButtonElement).click();
         await Promise.resolve();
+        expect(dialog.textContent).toContain('Comment current');
+        expect(dialog.textContent).not.toContain('Comment other');
 
+        (dialog.querySelector('[data-view="all"]') as HTMLButtonElement).click();
+        await Promise.resolve();
         expect(dialog.textContent).toContain('Comment current');
         expect(dialog.textContent).toContain('Comment other');
     });

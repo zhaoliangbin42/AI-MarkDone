@@ -1,5 +1,6 @@
 import { getInputFieldCss } from '../../../components/styles/inputFieldCss';
 import { getSurfaceMaterialCss } from '../../../components/styles/surfaceMaterialCss';
+import { getFlatWorkflowCss } from '../../../components/styles/flatWorkflowCss';
 
 export function getSendPopoverCss(): string {
     return `
@@ -88,6 +89,10 @@ ${getInputFieldCss()}
   font-size: var(--aimd-text-xs);
   line-height: 1.4;
   color: var(--aimd-text-secondary);
+}
+
+.send-popover__foot .status-line:empty {
+  display: none;
 }
 
 .send-popover__foot .status-line[data-tone="error"] {
@@ -183,5 +188,6 @@ ${getInputFieldCss()}
     linear-gradient(135deg, transparent 0 40%, currentColor 40% 48%, transparent 48% 60%, currentColor 60% 68%, transparent 68% 80%, currentColor 80% 88%, transparent 88% 100%);
 }
 ${getSurfaceMaterialCss()}
+${getFlatWorkflowCss()}
 `;
 }

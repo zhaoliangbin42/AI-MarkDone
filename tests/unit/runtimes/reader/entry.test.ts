@@ -1179,7 +1179,7 @@ describe('detached reader runtime entry', () => {
         const popover = footerLeft.querySelector<HTMLElement>('.send-popover')!;
         const input = popover.querySelector<HTMLTextAreaElement>('[data-role="text"]')!;
         input.value = 'edited detached draft';
-        popover.querySelector<HTMLButtonElement>('[data-action="cancel"]')!.click();
+        popover.querySelector<HTMLButtonElement>('[data-action="close"]')!.click();
         await Promise.resolve();
         await Promise.resolve();
 

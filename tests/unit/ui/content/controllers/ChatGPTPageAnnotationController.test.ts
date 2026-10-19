@@ -563,7 +563,7 @@ describe('ChatGPTPageAnnotationController', () => {
         } finally { controller.dispose(); }
     });
 
-    it.each(['success', 'missing-composer', 'delete-failed'])('inserts through the annotation chip and manager (%s)', async (scenario) => {
+    it.each(['success', 'missing-composer'])('inserts without deleting through the annotation chip and manager (%s)', async (scenario) => {
         const message = mountMessage('<p>Quoted answer</p>');
         const root = message.querySelector('.markdown.prose') as HTMLElement;
         document.body.insertAdjacentHTML('beforeend', '<form><div><button type="button" id="composer-plus-btn">+</button></div><textarea name="prompt-textarea">Existing draft</textarea></form>');
@@ -579,24 +579,20 @@ describe('ChatGPTPageAnnotationController', () => {
             chip.dispatchEvent(new MouseEvent('pointerdown', { bubbles: true, composed: true }));
             chip.click();
             if (scenario === 'missing-composer') document.querySelector('textarea')!.remove();
-            if (scenario === 'delete-failed') vi.spyOn(controller['store'], 'removeMany').mockResolvedValue([record]);
+            const removeMany = vi.spyOn(controller['store'], 'removeMany');
             const shadow = document.querySelector('#aimd-chatgpt-page-annotation-manager-host')!.shadowRoot!;
-            const button = shadow.querySelector<HTMLButtonElement>('[data-action="page-annotation-insert-and-delete"]')!;
-            expect(shadow.querySelector('[data-action="page-annotation-insert-all"]')).toBeTruthy();
+            const button = shadow.querySelector<HTMLButtonElement>('[data-action="page-annotation-insert-all"]')!;
+            expect(shadow.querySelector('[data-action="page-annotation-insert-and-delete"]')).toBeNull();
             button.dispatchEvent(new MouseEvent('pointerdown', { bubbles: true, composed: true }));
             button.click();
             if (scenario === 'success') {
-                await vi.waitFor(() => expect(controller['store'].listForConversation()).toHaveLength(0));
+                await vi.waitFor(() => expect(document.querySelector('textarea')!.value).toContain('Keep this note'));
                 expect(document.querySelector('textarea')!.value).toContain('Existing draft');
-                expect(document.querySelector('textarea')!.value).toContain('Keep this note');
-            } else if (scenario === 'delete-failed') {
-                await vi.waitFor(() => expect(document.querySelector('.aimd-toast')?.textContent).toContain('could not be deleted'));
-                expect(controller['store'].listForConversation()).toHaveLength(1);
-                expect(document.querySelector('textarea')!.value).toContain('Keep this note');
             } else {
                 await vi.waitFor(() => expect(document.querySelector('.aimd-toast')?.textContent).toContain('Could not insert annotations'));
-                expect(controller['store'].listForConversation()).toHaveLength(1);
             }
+            expect(controller['store'].listForConversation()).toHaveLength(1);
+            expect(removeMany).not.toHaveBeenCalled();
         } finally { controller.dispose(); }
     });
 

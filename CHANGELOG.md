@@ -12,6 +12,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Use mnemonic B/Y/R highlight shortcuts, H for highlighting, N for notes and P for prompt candidates, with platform-specific modifiers. Automatic backslash suggestions can be disabled independently.
 
 ### Changed
+- Simplified annotation, Prompt, bookmark-saving, sending, and Reader settings workflows, keeping everyday actions visible and moving optional controls out of the way.
+- Choose individual annotations before copying, with no initial selection and an optional Prompt. Keep the selection after copying and delete it from the same window with confirmation; failed deletions stay selected for retry. Removed duplicate annotation settings, the timeline view, automatic deletion after insertion, and manual Prompt reordering while preserving saved records and custom templates.
 - Rebuilt the message export dialog with flat Settings-style groups and dropdowns for format and rich content, keeping message-selection actions together.
 - Highlight supported text and complete formulas across table cells and mixed layouts, skipping unsupported visual blocks and controls. Partial inline code can also be marked. Thanks to email user @qds19100.
 - Open saved ChatGPT messages with a direct message link when switching conversations; existing bookmarks and backups stay compatible.

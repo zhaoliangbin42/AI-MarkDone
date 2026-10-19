@@ -1,5 +1,54 @@
 # AI-MarkDone Design Reference
 
+## Flat workflow surfaces (2026-10-18)
+
+Start with the user's task, rather than displaying every available control:
+
+| Task | Default surface | Available on demand |
+| --- | --- | --- |
+| Write an annotation | Short source excerpt, annotation input, Save and Close | Full source, window tools, discard and delete |
+| Find an annotation | Scope, search and annotation text; all history grouped by conversation | Bulk management; new-annotation persistence is configured only in Reader Settings |
+| Edit a Prompt | Name and content, Cancel and Save | Trigger text and cursor placeholder |
+| Manage Prompts | Search, New and a readable list; row opens editing | Enable and delete through each row's actions; existing order is retained and new Prompts append |
+| Save a bookmark | Prefilled title, selected folder and Save | Folder tree and folder creation; expand automatically when selection is unavailable |
+| Send | Editable existing draft, Send and Close | Existing annotation insertion and resize controls |
+| Adjust reading | Font size, content width, outline and code display | Open mode, annotation/output rules, Prompt/template editing and notices |
+
+Use native disclosure controls for secondary tasks and preserve their open state
+during in-place updates. Avoid wrapping each editor field in its own card.
+Annotation copying uses one window to select annotations, optionally add a
+Prompt, and preview/copy the result. Every open starts with no annotations
+selected and no Prompt. Copy requires at least one selected annotation; an empty
+Prompt library does not block copying. Keep the current-message scope, complete
+source Markdown, saved template and output ordering. Revalidate the source scope
+and selected record IDs before copying. The same window keeps a primary Copy
+selected action and a secondary Delete selected action, both showing the current
+selection count. Copy preserves the open window and selection. Delete requires
+confirmation and uses the displayed record versions; changed records stay for
+review. While confirmation/deletion is pending, lock the selection and protect
+the parent window from nested-modal dismissal. Remove successful or already
+absent rows, retain failed selections with refreshed content, and keep the window
+open for the next batch. Page annotation insertion keeps records; deletion is a
+separate action. Prompt manager rows still edit; they do not insert
+content. Custom templates, Prompt position and editor window controls remain.
+
+The approved Settings and Save Messages presentation now extends to annotation
+editing, Page/Reader annotation management, annotation copying and templates,
+Prompt management/editing/completion, bookmark saving and folder selection,
+sending, Reader settings, Prompt pickers, formula previews and shared modal
+notices. Existing Settings and Library information architecture stays intact.
+
+`components/styles/flatWorkflowCss.ts` is the shared opt-in appearance profile:
+owners add `flat-workflow` and compose `getFlatWorkflowCss()` after the base
+surface material. It uses existing public tokens, flat fields and controls,
+neutral grouped sections, restrained row separators and clear primary actions.
+Inset/raised control shadows and recessed segmented trays do not belong to this
+profile. Floating outer surfaces keep their existing elevation and geometry.
+Low-specificity structural classes let each owner retain its scrolling, layout
+and responsive contract even when several component styles share a ShadowRoot.
+Validation errors, keyboard focus, disabled states, locale and theme remain visible.
+The profile does not own content, persistence, selection, navigation or dismissal.
+
 ## Keyboard shortcut settings (2026-10-19)
 
 Settings → Buttons & shortcuts retains the existing category and adds Buttons / Keyboard shortcuts tabs. Keep the flat grouped Settings rows, restrained separators, tokenized keycaps, clear focus rings and responsive stacking. The keyboard view owns an isolated ShadowRoot with the same appearance snapshot; the workspace body remains the scroll owner. The production-component fixture is `mocks/components/keyboard-settings`; the earlier `keyboard-settings-prototype` remains a design reference.
@@ -13,7 +62,6 @@ Keep clear, disable and reset distinct. Clear creates an empty binding; disable 
 The shortcut master switch and backslash automatic-suggestion switch are independent. Disabling shortcuts preserves their bindings; manual prompt-opening shortcuts remain available when only automatic suggestions are off. Restore all defaults requires an inline confirmation and restores shortcut defaults and the shortcut master only. The automatic-suggestion switch retains its own setting. Do not duplicate the input settings preference or replace the Prompt editor's native candidate controls.
 
 Manual candidates open next to the current caret, preferably above it. Flip below or shrink the internally scrolling list when space is limited, without covering the caret or exceeding the visual viewport. Follow composer scrolling, including external Reader composers in Shadow DOM. Keep input focus and draft text on Escape. Manual filtering includes enabled Prompt titles and triggers; empty and failed results stay visible with an actionable library entry. Selection changes via Up/Down update rows in place and scroll only the candidate list.
-
 
 ## Message export layout (2026-10-16)
 
@@ -133,7 +181,8 @@ The catalog is normative for visual and interaction ownership. Appearance means 
 | Toolbar hover action and task progress; opened from a toolbar action | Message Toolbar family; page portal/ShadowRoot; `anchored` | Same snapshot as owning toolbar | Live refresh required | Hover/focus bridge; hover action closes on the established outside-pointer/resize/scroll boundary; task progress owns cancellation | Flip/clamp to visual viewport; progress content must not resize the toolbar | `mocks/components/host-integrated-controls` (family coverage) |
 | Lower-right page-control cluster; fixed ChatGPT page entry | Page Controls family; documented light-DOM host; `inline` | Page appearance scope | Live refresh required | Button focus; no focus trap; each transient child owns dismissal | No wrapping; at `<=560px` use compact icon-only controls with tooltip and `aria-label`; never obscure the composer | `mocks/components/host-integrated-controls` (family coverage) |
 | ChatGPT directory rail and prompt preview; page navigation entry | Directory family; rail ShadowRoot plus contextual preview; `inline` + `anchored` | Shared snapshot | Live refresh required | Rail buttons remain keyboard reachable; preview closes on anchor loss/Escape/outside click; Export reuses the Message Toolbar action | Preview is available in Preview and Expanded modes, clamps to the visual viewport, and truncates by the configured 200–2000 character limit; close preview first, then compact the rail; if usable conversation width still cannot be preserved, hide the rail for that viewport without changing the saved setting | `mocks/components/host-integrated-controls` (family coverage) |
-| Button configuration and previews; Settings → Buttons | Settings family; nested ShadowRoot; `inline` | Shared snapshot | Live refresh required | Acknowledged row writes; primary-action Pin disabled while its button is off; preview actions have no side effects | Five groups; Directory has rows only; other groups have local previews; container-responsive navigation | `mocks/components/buttons-settings` |
+| Button configuration and previews; Settings → Buttons & shortcuts → Buttons | Settings family; nested ShadowRoot; `inline` | Shared snapshot | Live refresh required | Acknowledged row writes; primary-action Pin disabled while its button is off; preview actions have no side effects | Five groups; Directory has rows only; other groups have local previews; container-responsive navigation | `mocks/components/buttons-settings` |
+| Keyboard shortcuts; Settings → Buttons & shortcuts → Keyboard shortcuts | Settings family; nested ShadowRoot; `inline` | Shared snapshot | Live refresh required | Scoped command recording; IME/Esc/Tab lifecycle; atomic conflict replacement; pending lock, failure retention and existing runtime retry | Flat grouped rows; inline recorder/confirmation; command and combination search; narrow rows stack | `mocks/components/keyboard-settings` |
 | Settings JSON export/import/recovery; Settings → Data | Settings family; nested ShadowRoot; `inline` | Shared snapshot | Live refresh required | Export notice; diff/category selection; explicit apply or cancel; operation buttons disabled while pending | Wrapped actions; bounded change-list scrolling | `mocks/components/buttons-settings` (family coverage) |
 | Input enhancement settings and syntax guide | Settings family; shared ShadowRoot and modal host | Shared snapshot | Live refresh required | Settings category/search focus; guide uses ModalHost | Existing controls remain directly editable across categories | `mocks/components/bookmarks-workspace` |
 | Formula composer assistant; active formula caret | Composer family; ShadowRoot portal; `anchored` | Shared snapshot | Live refresh required | Keyboard selection precedes composer Enter handling; Escape closes without changing source | Follow caret when measurable, otherwise anchor to composer; preview/suggestion areas own internal max height | `mocks/components/formula-composer-assistant` |
@@ -167,15 +216,15 @@ Hidden export-renderer and formula-renderer documents are rendering infrastructu
 ### 3.3 Reader Annotation Manager Contract (v1 shipped)
 
 - The manager remains inside the Reader family and reuses `ModalHost`; it is not a second workspace or a standalone notes page.
-- The modal has two scopes: `current conversation` and `all annotations`. The all scope has two in-memory projections: `by conversation` and `timeline`.
+- The modal has two scopes: `current conversation` and `all annotations`. All annotations are grouped by conversation; there is no alternate timeline view.
 - Search matches conversation title, selected quote, and user annotation. It does not create a server-side or persistent search index.
 - The source excerpt keeps up to 50 characters at both ends and uses a single ellipsis for omitted middle content.
 - Bulk edit is a light selection mode: users can select all visible rows and confirm one batch deletion; individual deletion remains available outside that mode.
-- Current-conversation rows follow canonical response order and source position. Grouped all-annotation rows follow conversation recency, then source order; timeline rows follow annotation update time.
+- Current-conversation rows follow canonical response order and source position. All-annotation groups follow conversation recency, then source order.
 - Rows use neutral structure, clear tokenized separators, a restrained quote accent, two-line text truncation, visible focus, and a permanently reachable delete action. Bulk edit adds row selection and select-all without introducing nested cards, decorative gradients, color tags, or raw character offsets.
 - Empty, loading, failure, pending, and unanchored states are explicit. A failed anchor remains visible and never looks deleted.
 - The list opens even when the current conversation has no annotations, so the user can switch to the all scope. Existing Copy annotations and sending surfaces retain their separate contracts.
-- The manager exposes the same explicit persistence preference as Reader Settings. The setting row states that saved annotations always remain visible and that the switch only controls newly created annotations.
+- Reader Settings is the only Reader entry for the persistence preference; the manager does not duplicate it. The setting states that saved annotations always remain visible and that the switch only controls newly created annotations.
 - `reader.persistAnnotations` defaults off. Durable ChatGPT annotations are always read and displayed, and their later edits/deletions remain durable regardless of the switch. When off, only newly created annotations stay in the current page runtime; turning it on does not silently migrate those session-only records.
 - The visual fixture must mount the production manager with real tokens and cover dense multi-conversation data, long Chinese/English text, empty state, unanchored state, deletion confirmation, narrow width, dark mode, and 200% zoom. A Reader header trigger test must enter the manager through the real user path.
 

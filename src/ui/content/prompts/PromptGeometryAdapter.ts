@@ -45,7 +45,6 @@ type ViewportFrame = {
 export class PromptGeometryAdapter {
     private _managerPlacement: PromptPlacement | null = null;
     private panelDragCleanup: (() => void) | null = null;
-    private listDragCleanup: (() => void) | null = null;
 
     constructor(private readonly getComposer: () => ComposerInput | null) {}
 
@@ -131,42 +130,9 @@ export class PromptGeometryAdapter {
         document.addEventListener('pointercancel', onEnd, { once: true });
     }
 
-    startListDrag(event: PointerEvent, params: {
-        sourceId: string;
-        getTargetIdAt: (clientY: number) => string | null;
-        onTarget: (targetId: string) => void;
-        onEnd: (moved: boolean) => void;
-    }): void {
-        if (!params.sourceId) return;
-        event.preventDefault();
-        event.stopPropagation();
-        this.listDragCleanup?.();
-        let moved = false;
-        const onMove = (moveEvent: PointerEvent) => {
-            moveEvent.preventDefault();
-            const targetId = params.getTargetIdAt(moveEvent.clientY);
-            if (!targetId || targetId === params.sourceId) return;
-            moved = true;
-            params.onTarget(targetId);
-        };
-        const onEnd = () => {
-            document.removeEventListener('pointermove', onMove);
-            document.removeEventListener('pointerup', onEnd);
-            document.removeEventListener('pointercancel', onEnd);
-            this.listDragCleanup = null;
-            params.onEnd(moved);
-        };
-        this.listDragCleanup = onEnd;
-        document.addEventListener('pointermove', onMove);
-        document.addEventListener('pointerup', onEnd, { once: true });
-        document.addEventListener('pointercancel', onEnd, { once: true });
-    }
-
     destroyTransient(): void {
         this.panelDragCleanup?.();
         this.panelDragCleanup = null;
-        this.listDragCleanup?.();
-        this.listDragCleanup = null;
     }
 
     private positionAutocomplete(layout: PromptGeometryLayout): void {
@@ -304,7 +270,7 @@ export class PromptGeometryAdapter {
     private isPanelDragExcluded(target: EventTarget | null): boolean {
         if (!(target instanceof Element)) return false;
         return Boolean(target.closest(
-            'button, input, textarea, select, [contenteditable="true"], [data-action="reorder-prompt"], .prompt-drag-handle',
+            'button, input, textarea, select, [contenteditable="true"]',
         ));
     }
 
