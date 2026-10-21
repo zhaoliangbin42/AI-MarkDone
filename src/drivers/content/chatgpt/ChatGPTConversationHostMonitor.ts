@@ -158,14 +158,17 @@ export class ChatGPTConversationHostMonitor {
         for (const replacement of batch.assistantIdentityReplacements) {
             const pending = this.pendingReplacements.get(replacement.previousAssistantMessageId);
             this.pendingReplacements.delete(replacement.previousAssistantMessageId);
+            this.dirtyAssistantIds.delete(replacement.previousAssistantMessageId);
             const previousAssistantMessageId = pending?.previousAssistantMessageId ?? replacement.previousAssistantMessageId;
             if (previousAssistantMessageId === replacement.nextAssistantMessageId) continue;
             const previous = obtained.find(turn => turn.identity.assistantMessageId === previousAssistantMessageId);
+            const previousUserMessageId = previous?.identity.userMessageId
+                ?? this.options.repository.readHostSlotIdentity(previousAssistantMessageId)?.userMessageId;
             const round = this.options.index.getSnapshot().find(round => round.identity.assistantMessageId === replacement.nextAssistantMessageId);
             const identity = round && resolveChatGPTDomRoundProjectionIdentity(round);
             const hostSlotId = round && resolveChatGPTDomRoundHostSlotId(round, slots);
-            if (!documentKey || !previous?.identity.userMessageId || !identity?.userMessageId || !hostSlotId
-                || previous.identity.userMessageId !== identity.userMessageId) continue;
+            if (!documentKey || !previousUserMessageId || !identity?.userMessageId || !hostSlotId
+                || previousUserMessageId !== identity.userMessageId) continue;
             this.pendingReplacements.set(identity.assistantMessageId, Object.freeze({
                 documentKey, hostSlotId, previousAssistantMessageId,
                 nextAssistantMessageId: identity.assistantMessageId,
@@ -184,10 +187,12 @@ export class ChatGPTConversationHostMonitor {
             || batch.kinds.includes('identity')
             || (batch.kinds.includes('lifecycle') && !batch.kinds.includes('structure'));
         const completedIds = new Set(batch.generationCompletedAssistantMessageIds);
+        const retiredIds = new Set(batch.assistantIdentityReplacements.map(replacement => replacement.previousAssistantMessageId));
         for (const assistantMessageId of batch.assistantMessageIds) {
             const normalized = assistantMessageId.trim();
             if (
                 normalized
+                && !retiredIds.has(normalized)
                 && (
                     forceKnownCapture
                     || completedIds.has(normalized)

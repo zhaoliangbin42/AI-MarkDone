@@ -143,7 +143,7 @@ describe('SettingsClient', () => {
         vi.useFakeTimers();
         try {
             const persisted = structuredClone(DEFAULT_SETTINGS);
-            persisted.chatgptBehavior.pageWidthScale = 145;
+            persisted.chatgptBehavior.pageWidthScale = 150;
             sendExtRequest
                 .mockResolvedValueOnce({
                     kind: 'transport-failure',
@@ -175,7 +175,7 @@ describe('SettingsClient', () => {
             await expect(ready).resolves.toEqual(persisted);
             expect(sendExtRequest).toHaveBeenCalledTimes(2);
             expect(listener).toHaveBeenLastCalledWith({ settings: persisted });
-            expect(client.getCached()?.chatgptBehavior.pageWidthScale).toBe(145);
+            expect(client.getCached()?.chatgptBehavior.pageWidthScale).toBe(150);
         } finally {
             vi.useRealTimers();
         }

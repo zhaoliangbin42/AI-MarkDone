@@ -305,7 +305,7 @@ describe('settingsService', () => {
             pinnedPageControls: [],
             promptAutocomplete: false,
             enableArrowKeyMessageNavigation: false,
-            pageWidthScale: 145,
+            pageWidthScale: 150,
             pageAnnotationsEnabled: true,
             showPageSelectionToolbar: true,
             navigationSeekStepPx: 3_000,
@@ -317,7 +317,7 @@ describe('settingsService', () => {
             chatgptBehavior: undefined,
         } as any);
         const clamped = planSetCategory(DEFAULT_SETTINGS, 'chatgptBehavior', {
-            pageWidthScale: 237,
+            pageWidthScale: 537,
         }).next;
         expect(normalized.chatgptBehavior).toEqual({
             restorePositionAfterSend: true,
@@ -351,7 +351,8 @@ describe('settingsService', () => {
             showPageSelectionToolbar: true,
             navigationSeekStepPx: 3_000,
         });
-        expect(clamped.chatgptBehavior.pageWidthScale).toBe(200);
+        expect(clamped.chatgptBehavior.pageWidthScale).toBe(500);
+        expect(planSetCategory(DEFAULT_SETTINGS, 'chatgptBehavior', { pageWidthScale: 25 }).next.chatgptBehavior.pageWidthScale).toBe(50);
     });
 
     it('adds default reader comment export settings when normalizing stored settings', () => {

@@ -655,6 +655,13 @@ export class ReaderPanel {
         session.surfaceRoot.addEventListener('dragend', this.onSurfaceDragEnd);
 
         this.onKeyDown = (event: KeyboardEvent) => {
+            // Surface input isolation stops bubbling before the host Escape scope.
+            if (event.key === 'Escape' && isShortcutEventEligible(event, { owner: session.host, allowEditable: true })) {
+                event.preventDefault();
+                event.stopPropagation();
+                this.handleEscape();
+                return;
+            }
             if (!isShortcutEventEligible(event, { owner: session.host })) return;
             const platform = getShortcutPlatform();
             for (const id of SHORTCUT_COMMAND_IDS) {

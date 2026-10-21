@@ -493,7 +493,7 @@ async function runRuntimeBenchmark(extensionPath: string, rounds: number, mutati
         await resetPhase(page);
         await runRealDragSelection(page, mutations, true);
         await page.evaluate(() => navigator.clipboard.writeText('aimd-perf-shortcut-sentinel'));
-        await page.keyboard.press('Control+Shift+C');
+        await page.keyboard.press('ControlOrMeta+Shift+C');
         await waitForClipboardText(page, '$\\frac{x}{y}$');
         const clipboardContract = await page.evaluate(async () => {
             const copiedMarkdown = await navigator.clipboard.readText();

@@ -60,6 +60,14 @@ function pointerClick(element: HTMLElement): void {
     element.click();
 }
 
+function chooseFormat(shadow: ShadowRoot, format: string): void {
+    const control = shadow.querySelector<HTMLElement>('[data-role="export-format-control"]')!;
+    const trigger = control.querySelector<HTMLButtonElement>('[aria-haspopup="listbox"]')!;
+    pointerClick(trigger);
+    expect(trigger.getAttribute('aria-expanded')).toBe('true');
+    pointerClick(control.querySelector<HTMLElement>(`[data-format="${format}"]`)!);
+}
+
 function richItems() {
     return [{
         id: 'rich', userPrompt: 'Question', content: '![Counts](aimd-rich:rich-1-test)',
@@ -100,17 +108,18 @@ describe('SaveMessagesDialog', () => {
         await dialog.open({ getPlatformId: () => 'chatgpt' } as any, 'light');
         const shadow = document.getElementById('aimd-save-messages-dialog-host')!.shadowRoot!;
         expect(shadow.querySelector('[data-format="markdown-zip"]')).toBeTruthy();
-        expect(shadow.querySelector('[data-index="0"]')?.classList.contains('aimd-material-choice')).toBe(true);
-        expect(shadow.querySelector('[data-format="markdown-zip"]')?.classList.contains('aimd-material-choice')).toBe(true);
-        expect(shadow.querySelector('.format-options')?.classList.contains('aimd-material-segmented')).toBe(true);
+        expect(shadow.querySelector('[data-index="0"]')?.classList.contains('message-chip')).toBe(true);
+        expect(shadow.querySelector('[data-index="0"]')?.getAttribute('aria-pressed')).toBe('true');
+        expect(shadow.querySelector('.panel-window--save')?.classList.contains('flat-workflow')).toBe(true);
+        expect(shadow.querySelector('[data-role="export-format-control"] [aria-haspopup="listbox"]')).toBeTruthy();
         expect(shadow.querySelector('[data-role="rich-content-options"]')).toBeNull();
-        pointerClick(shadow.querySelector<HTMLElement>('[data-format="pdf"]')!);
-        expect(shadow.querySelector('[data-visuals="include"]')?.getAttribute('aria-pressed')).toBe('true');
+        chooseFormat(shadow, 'pdf');
+        expect(shadow.querySelector('[data-visuals="include"]')?.getAttribute('aria-selected')).toBe('true');
         pointerClick(shadow.querySelector<HTMLElement>('[data-index="0"]')!);
         pointerClick(shadow.querySelector<HTMLElement>('[data-index="1"]')!);
         expect(shadow.querySelector('[data-role="rich-content-options"]')).toBeNull();
         pointerClick(shadow.querySelector<HTMLElement>('[data-action="select-all-turns"]')!);
-        pointerClick(shadow.querySelector<HTMLElement>('[data-format="png"]')!);
+        chooseFormat(shadow, 'png');
         expect(shadow.querySelector('[data-role="rich-content-options"]')).toBeTruthy();
     });
 
@@ -486,7 +495,7 @@ describe('SaveMessagesDialog', () => {
         expect(document.getElementById('aimd-save-messages-dialog-host')).toBeNull();
     });
 
-    it('uses an image icon for PNG and shows progress while PNG export is running', async () => {
+    it('selects PNG through the inline format menu and shows progress while export is running', async () => {
         await setLocale('en');
         const adapter = { getPlatformId: () => 'chatgpt' } as any;
         let resolveExport!: () => void;
@@ -516,11 +525,9 @@ describe('SaveMessagesDialog', () => {
 
         const host = document.getElementById('aimd-save-messages-dialog-host')!;
         const shadow = host.shadowRoot!;
-        const pngBtn = shadow.querySelector<HTMLElement>('[data-action="set-format"][data-format="png"]')!;
-        pngBtn.click();
-
-        expect(pngBtn.innerHTML).toContain('circle cx="9" cy="9"');
-        expect(pngBtn.innerHTML).toContain('rect x="3" y="3"');
+        chooseFormat(shadow, 'png');
+        expect(shadow.querySelector('[data-role="export-format-control"] .settings-select-trigger__label')?.textContent).toBe('PNG');
+        expect(shadow.querySelector('[data-format="png"]')?.getAttribute('aria-selected')).toBe('true');
 
         shadow.querySelector<HTMLButtonElement>('[data-action="save-turns"]')!.click();
         await flushUi();
@@ -772,12 +779,15 @@ describe('SaveMessagesDialog', () => {
         expect(secondPanel.dataset.motionState).not.toBe('closing');
     });
 
-    it('uses shared selection materials after dialog layout rules', async () => {
+    it('layers the scoped flat workflow after the shared surface materials', async () => {
         const { getSaveMessagesDialogCss } = await import('@/ui/content/export/saveMessagesDialogCss');
         const { getSurfaceMaterialCss } = await import('@/ui/content/components/styles/surfaceMaterialCss');
+        const { getFlatWorkflowCss } = await import('@/ui/content/components/styles/flatWorkflowCss');
         const css = getSaveMessagesDialogCss();
 
-        expect(css.trimEnd().endsWith(getSurfaceMaterialCss().trimEnd())).toBe(true);
+        expect(css).toContain(getSurfaceMaterialCss());
+        expect(css.trimEnd().endsWith(getFlatWorkflowCss().trimEnd())).toBe(true);
+        expect(css.indexOf(getSurfaceMaterialCss())).toBeLessThan(css.indexOf(getFlatWorkflowCss()));
         expect(css).not.toContain('.message-chip[data-active="1"]:hover');
         expect(css).not.toContain('.segmented button[data-active="1"]:hover');
     });
@@ -803,13 +813,16 @@ describe('SaveMessagesDialog', () => {
         panel.dispatchEvent(new Event('animationend', { bubbles: true }));
     });
 
-    it('keeps save-message chips at a uniform width regardless of label digits', async () => {
+    it('uses token-sized message chips that allow longer numeric labels', async () => {
         const { getSaveMessagesDialogCss } = await import('@/ui/content/export/saveMessagesDialogCss');
         const css = getSaveMessagesDialogCss();
 
-        expect(css).toContain('width: 42px;');
-        expect(css).toContain('min-width: 42px;');
-        expect(css).not.toContain('padding: 0 10px;');
+        const chipCss = css.match(/\.message-chip \{([^}]+)\}/)?.[1] ?? '';
+        expect(chipCss).toContain('min-width: var(--aimd-size-control-action-panel);');
+        expect(chipCss).toContain('height: var(--aimd-size-control-action-panel);');
+        expect(chipCss).toContain('padding-inline: var(--aimd-space-2);');
+        expect(chipCss).toContain('font-variant-numeric: tabular-nums;');
+        expect(chipCss).not.toMatch(/(?:^|;)\s*width:/);
     });
 
     it('does not close when text selection starts inside the dialog and releases on the backdrop', async () => {

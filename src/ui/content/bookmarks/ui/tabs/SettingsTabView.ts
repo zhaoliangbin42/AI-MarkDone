@@ -143,6 +143,8 @@ type StepperFieldRef = {
     value: HTMLElement;
 };
 
+type NumberStepperFieldRef = StepperFieldRef & { input: HTMLInputElement };
+
 type Refs = {
     platforms: Pick<Record<keyof AppSettings['platforms'], HTMLInputElement>, 'chatgpt'>;
     behavior: {
@@ -179,7 +181,7 @@ type Refs = {
         showDetachedReaderControl: HTMLInputElement;
         showPromptControl: HTMLInputElement;
         arrowKeyMessageNavigation: HTMLInputElement;
-        pageWidthScale: SliderFieldRef;
+        pageWidthScale: NumberStepperFieldRef;
         navigationSeekStep: SliderFieldRef;
         enabled: HTMLInputElement;
         mode: SelectRef;
@@ -389,15 +391,9 @@ export class SettingsTabView {
             t('chatgptArrowKeyMessageNavigationLabel'),
             t('chatgptArrowKeyMessageNavigationDesc'),
         );
-        const chatGptPageWidthScale = this.createSliderRow(
+        const chatGptPageWidthScale = this.createPageWidthStepper(
             chatGptDirectoryGroup.body,
             t('chatgptPageWidthScaleLabel'),
-            '',
-            MIN_CHATGPT_PAGE_WIDTH_SCALE,
-            MAX_CHATGPT_PAGE_WIDTH_SCALE,
-            CHATGPT_PAGE_WIDTH_SCALE_STEP,
-            'settings-chatgpt-page-width-scale-value',
-            (value) => value <= MIN_CHATGPT_PAGE_WIDTH_SCALE ? t('chatgptPageWidthScaleNormal') : `${value}%`,
         );
         const chatGptNavigationSeekStep = this.createSliderRow(
             chatGptDirectoryGroup.body,
@@ -1270,15 +1266,29 @@ export class SettingsTabView {
             this.settings.chatgptBehavior.enableArrowKeyMessageNavigation = next;
             void this.actions.setChatGptBehaviorSettings?.({ enableArrowKeyMessageNavigation: next });
         });
-        this.refs.chatgptDirectory.pageWidthScale.input.addEventListener('input', () => {
-            this.syncSliderValue(this.refs.chatgptDirectory.pageWidthScale);
+        const pageWidth = this.refs.chatgptDirectory.pageWidthScale;
+        let composingPageWidth = false;
+        const commitPageWidth = () => {
+            if (composingPageWidth) return;
+            const raw = pageWidth.input.value.trim();
+            const numeric = Number(raw);
+            if (!raw || !Number.isFinite(numeric)) { this.syncPageWidthStepper(); return; }
+            this.updatePageWidthScale(numeric);
+        };
+        pageWidth.input.addEventListener('compositionstart', () => { composingPageWidth = true; });
+        pageWidth.input.addEventListener('compositionend', () => { composingPageWidth = false; });
+        pageWidth.input.addEventListener('change', commitPageWidth);
+        pageWidth.input.addEventListener('blur', commitPageWidth);
+        pageWidth.input.addEventListener('keydown', (event) => {
+            if (event.isComposing || composingPageWidth) return;
+            if (event.key !== 'Enter' && event.key !== 'Escape') return;
+            event.preventDefault();
+            event.stopPropagation();
+            if (event.key === 'Enter') commitPageWidth();
+            else this.syncPageWidthStepper();
         });
-        this.refs.chatgptDirectory.pageWidthScale.input.addEventListener('change', () => {
-            const next = normalizeChatGPTPageWidthScale(this.refs.chatgptDirectory.pageWidthScale.input.value);
-            this.settings.chatgptBehavior.pageWidthScale = next;
-            this.syncSliderValue(this.refs.chatgptDirectory.pageWidthScale, next);
-            void this.actions.setChatGptBehaviorSettings?.({ pageWidthScale: next });
-        });
+        pageWidth.decrease.addEventListener('click', () => this.updatePageWidthScale(this.settings.chatgptBehavior.pageWidthScale - CHATGPT_PAGE_WIDTH_SCALE_STEP));
+        pageWidth.increase.addEventListener('click', () => this.updatePageWidthScale(this.settings.chatgptBehavior.pageWidthScale + CHATGPT_PAGE_WIDTH_SCALE_STEP));
         this.refs.chatgptDirectory.navigationSeekStep.input.addEventListener('input', () => {
             this.syncSliderValue(this.refs.chatgptDirectory.navigationSeekStep);
         });
@@ -1425,7 +1435,7 @@ export class SettingsTabView {
         this.refs.chatgptDirectory.showDetachedReaderControl.checked = Boolean(s.chatgptBehavior.showDetachedReaderControl);
         this.refs.chatgptDirectory.showPromptControl.checked = Boolean(s.chatgptBehavior.showPromptControl);
         this.refs.chatgptDirectory.arrowKeyMessageNavigation.checked = Boolean(s.chatgptBehavior.enableArrowKeyMessageNavigation);
-        this.syncSliderValue(this.refs.chatgptDirectory.pageWidthScale, normalizeChatGPTPageWidthScale(s.chatgptBehavior.pageWidthScale));
+        this.syncPageWidthStepper();
         this.syncSliderValue(this.refs.chatgptDirectory.navigationSeekStep, normalizeChatGPTNavigationSeekStepPx(s.chatgptBehavior.navigationSeekStepPx));
         this.refs.chatgptDirectory.enabled.checked = Boolean(s.chatgptDirectory.enabled);
         this.refs.chatgptDirectory.mode.setValue(s.chatgptDirectory.mode === 'expanded' ? 'expanded' : 'preview');
@@ -1687,6 +1697,7 @@ export class SettingsTabView {
         max: number,
         step: number,
         valueRole: string,
+        buttonLabels = { decrease: t('decreaseFontSize'), increase: t('increaseFontSize') },
     ): StepperFieldRef {
         const item = document.createElement('div');
         item.className = 'settings-row settings-item';
@@ -1708,7 +1719,7 @@ export class SettingsTabView {
         decrease.type = 'button';
         decrease.className = 'settings-stepper-button';
         decrease.textContent = '-';
-        decrease.setAttribute('aria-label', t('decreaseFontSize'));
+        decrease.setAttribute('aria-label', buttonLabels.decrease);
 
         const value = document.createElement('span');
         value.className = 'settings-stepper-value';
@@ -1718,12 +1729,43 @@ export class SettingsTabView {
         increase.type = 'button';
         increase.className = 'settings-stepper-button';
         increase.textContent = '+';
-        increase.setAttribute('aria-label', t('increaseFontSize'));
+        increase.setAttribute('aria-label', buttonLabels.increase);
 
         field.append(decrease, value, increase);
         item.append(info, field);
         parent.appendChild(item);
         return { root: item, field, decrease, increase, value };
+    }
+
+    private createPageWidthStepper(parent: HTMLElement, label: string): NumberStepperFieldRef {
+        const ref = this.createStepperRow(parent, label, '', MIN_CHATGPT_PAGE_WIDTH_SCALE,
+            MAX_CHATGPT_PAGE_WIDTH_SCALE, CHATGPT_PAGE_WIDTH_SCALE_STEP, 'settings-chatgpt-page-width-scale-value',
+            { decrease: t('decreasePageWidth'), increase: t('increasePageWidth') });
+        const input = document.createElement('input');
+        input.type = 'number';
+        input.className = 'settings-stepper-input';
+        input.min = String(MIN_CHATGPT_PAGE_WIDTH_SCALE);
+        input.max = String(MAX_CHATGPT_PAGE_WIDTH_SCALE);
+        input.step = String(CHATGPT_PAGE_WIDTH_SCALE_STEP);
+        input.setAttribute('aria-label', `${label} (%)`);
+        ref.value.append(input, document.createTextNode('%'));
+        return { ...ref, input };
+    }
+
+    private syncPageWidthStepper(): void {
+        const ref = this.refs.chatgptDirectory.pageWidthScale;
+        const value = normalizeChatGPTPageWidthScale(this.settings.chatgptBehavior.pageWidthScale);
+        ref.input.value = String(value);
+        ref.decrease.disabled = value <= MIN_CHATGPT_PAGE_WIDTH_SCALE;
+        ref.increase.disabled = value >= MAX_CHATGPT_PAGE_WIDTH_SCALE;
+    }
+
+    private updatePageWidthScale(value: number): void {
+        const next = normalizeChatGPTPageWidthScale(value);
+        const changed = next !== this.settings.chatgptBehavior.pageWidthScale;
+        this.settings.chatgptBehavior.pageWidthScale = next;
+        this.syncPageWidthStepper();
+        if (changed) void this.actions.setChatGptBehaviorSettings?.({ pageWidthScale: next });
     }
 
     private createAdvancedSettingsGroup(): Refs['advanced'] {

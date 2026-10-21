@@ -4,6 +4,7 @@ import path from 'node:path';
 import { SendPopover } from '@/ui/content/sending/SendPopover';
 import { createContentSendPort } from '@/ui/content/sending/contentSendPort';
 import { setLocale } from '@/ui/content/components/i18n';
+import { getFlatWorkflowCss } from '@/ui/content/components/styles/flatWorkflowCss';
 
 function readLocaleJson(locale: 'en' | 'zh_CN'): any {
     const filePath = path.resolve(process.cwd(), `public/_locales/${locale}/messages.json`);
@@ -31,7 +32,7 @@ describe('SendPopover', () => {
         vi.unstubAllGlobals();
     });
 
-    it('opens with the mock send-popover structure and closes on outside click / ESC', () => {
+    it('opens the flat draft editor and closes through Close, Escape and outside click', () => {
         const host = document.createElement('div');
         document.body.appendChild(host);
         const shadow = host.attachShadow({ mode: 'open' });
@@ -80,15 +81,23 @@ describe('SendPopover', () => {
         expect(styleNode?.textContent).not.toContain('#0f172a');
         expect(styleNode?.textContent).toContain('z-index: var(--aimd-z-tooltip);');
         expect(opened?.classList.contains('aimd-material-surface')).toBe(true);
-        expect(opened?.querySelector('[data-action="cancel"]')?.classList.contains('aimd-material-button--quiet')).toBe(true);
+        expect(opened?.classList.contains('flat-workflow')).toBe(true);
+        expect(opened?.querySelector('[data-action="close"]')?.classList.contains('aimd-material-button--quiet')).toBe(true);
+        expect(opened?.querySelector('[data-action="cancel"]')).toBeNull();
         expect(opened?.querySelector('[data-action="send"]')?.classList.contains('aimd-material-button--primary')).toBe(true);
         expect(styleNode?.textContent).toContain('background: var(--aimd-workspace-card);');
-        expect(styleNode?.textContent).toContain('box-shadow: var(--aimd-workspace-inset);');
+        expect(styleNode?.textContent?.trimEnd().endsWith(getFlatWorkflowCss().trimEnd())).toBe(true);
         expect(styleNode?.textContent).toContain('background: var(--aimd-interactive-primary-hover);');
         expect(styleNode?.textContent).toContain('.send-popover__foot .status-line {');
         expect(styleNode?.textContent).toContain('font-size: var(--aimd-text-xs);');
         expect(styleNode?.textContent).toContain('line-height: 1.4;');
         expect(styleNode?.textContent).toContain('color: var(--aimd-text-secondary);');
+
+        const close = opened!.querySelector<HTMLButtonElement>('[data-action="close"]')!;
+        close.dispatchEvent(new MouseEvent('pointerdown', { bubbles: true, composed: true }));
+        close.click();
+        expect(footerLeft.querySelector('.send-popover')).toBeNull();
+        pop.open({ shadow, anchor: footerLeft, sendPort: createContentSendPort(adapter), theme: 'light', initialText: 'hi' });
 
         // ESC closes (bubble is mounted as child of footerLeft)
         const el = footerLeft.querySelector('.send-popover') as HTMLElement;

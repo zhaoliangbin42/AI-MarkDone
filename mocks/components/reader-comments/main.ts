@@ -12,6 +12,7 @@ import { ReaderCommentListPopover } from '../../../src/ui/content/reader/ReaderC
 import { ReaderAnnotationManagerPopover } from '../../../src/ui/content/reader/ReaderAnnotationManagerPopover';
 import { getReaderSurfaceCss } from '../../../src/ui/content/reader/ReaderRendering';
 import { ModalHost } from '../../../src/ui/content/components/ModalHost';
+import { setLocale } from '../../../src/ui/content/components/i18n';
 import type { ReaderAnnotationDocument, ReaderAnnotationListEntry } from '../../../src/contracts/readerAnnotations';
 import { renderMarkdownForReader, type ReaderAtomicUnit } from '../../../src/services/renderer/renderMarkdown';
 import {
@@ -998,12 +999,13 @@ else mount();
 
 let visualVariant: VisualHarnessVariant = { theme: 'light', locale: 'en' };
 
-function applyVisualVariant(variant: VisualHarnessVariant): void {
+async function applyVisualVariant(variant: VisualHarnessVariant): Promise<void> {
     visualVariant = variant;
     document.documentElement.dataset.aimdTheme = variant.theme;
     document.documentElement.dataset.theme = variant.theme;
     document.documentElement.lang = variant.locale === 'zh_CN' ? 'zh-CN' : 'en';
     document.body.dataset.theme = variant.theme;
+    await setLocale(variant.locale);
     readerMocks.forEach((readerMock) => readerMock.setTheme(variant.theme));
     const title = document.querySelector('h1');
     if (title) title.textContent = variant.locale === 'zh_CN' ? '阅读器评论' : 'Reader Comments Mock';

@@ -617,7 +617,8 @@ describe('BookmarksPanel', () => {
         const modal = shadow.querySelector<HTMLElement>('.mock-modal');
 
         expect(modal?.querySelector('.mock-modal__title-copy strong')?.textContent).toBe(`What's new in AI-MarkDone ${releaseVersion}`);
-        expect(modal?.textContent).toContain('only Save submits the annotation');
+        expect(modal?.textContent).toContain('Choose Save to submit the annotation');
+        expect(modal?.textContent).toContain('50% to 500%');
 
         const okButton = Array.from(modal?.querySelectorAll<HTMLButtonElement>('.mock-modal__button') ?? []).find((button) => button.textContent === 'OK');
         okButton?.click();

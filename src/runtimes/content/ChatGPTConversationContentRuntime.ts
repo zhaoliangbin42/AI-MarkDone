@@ -48,6 +48,7 @@ export class ChatGPTConversationContentRuntime {
     private unsubscribePage: (() => void) | null = null;
     private unsubscribeGraph: (() => void) | null = null;
     private lastDocumentKey: string | null | undefined;
+    private hasEnteredCanonicalDocument = false;
     private initialized = false;
     private disposed = false;
     private wakeReconcileTimer: ReturnType<typeof window.setTimeout> | null = null;
@@ -182,10 +183,20 @@ export class ChatGPTConversationContentRuntime {
     }
 
     private synchronizeCurrentEpoch(force: boolean, pageUrl = window.location.href): void {
-        const nextDocumentKey = this.resolveCurrentDocument(pageUrl).key;
+        const nextDocument = this.resolveCurrentDocument(pageUrl);
+        const nextDocumentKey = nextDocument.key;
         const changed = nextDocumentKey !== this.lastDocumentKey;
         const isInitialSynchronization = this.lastDocumentKey === undefined;
-        if (changed) this.hostMonitor.notifyRouteChanged(isInitialSynchronization);
+        const promotesPageIdentity = this.lastDocumentKey === this.pageDocument.key
+            && !this.hasEnteredCanonicalDocument
+            && nextDocument.identityKind !== 'page'
+            && nextDocument.conversationId !== null;
+        if (nextDocument.identityKind !== 'page') this.hasEnteredCanonicalDocument = true;
+        // The initial page epoch cannot own a previous canonical conversation.
+        // Later home routes can retain old DOM, so their route change alone
+        // cannot authorize recapture; fresh host observations still can.
+        if (promotesPageIdentity) this.pageIndex.notifyPageIdentityPromotion(pageUrl);
+        if (changed) this.hostMonitor.notifyRouteChanged(isInitialSynchronization || promotesPageIdentity);
         this.lastDocumentKey = nextDocumentKey;
         if (changed || force) void this.repository.enterCurrentEpoch();
     }

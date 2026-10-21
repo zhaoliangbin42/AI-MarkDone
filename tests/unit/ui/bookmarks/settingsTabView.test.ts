@@ -304,17 +304,53 @@ describe('SettingsTabView', () => {
         });
 
         const slider = view.getElement().querySelector<HTMLInputElement>('[data-role="settings-chatgpt-page-width-scale"]')!;
-        expect(slider.type).toBe('range');
-        expect(slider.min).toBe('100');
-        expect(slider.max).toBe('200');
-        expect(slider.step).toBe('5');
+        expect(slider.type).toBe('number');
+        expect(slider.min).toBe('50');
+        expect(slider.max).toBe('500');
+        expect(slider.step).toBe('25');
         expect(slider.value).toBe('100');
 
         slider.value = '147';
         slider.dispatchEvent(new Event('change', { bubbles: true }));
 
-        expect(onSetChatGptBehaviorSettings).toHaveBeenCalledWith({ pageWidthScale: 145 });
-        expect(slider.value).toBe('145');
+        expect(onSetChatGptBehaviorSettings).toHaveBeenCalledWith({ pageWidthScale: 150 });
+        expect(slider.value).toBe('150');
+
+        const field = slider.closest('.settings-stepper-field')!;
+        const decrease = field.querySelector<HTMLButtonElement>('button:first-child')!;
+        const increase = field.querySelector<HTMLButtonElement>('button:last-child')!;
+        decrease.click();
+        expect(slider.value).toBe('125');
+        increase.click();
+        expect(slider.value).toBe('150');
+        slider.value = '900';
+        slider.dispatchEvent(new Event('change', { bubbles: true }));
+        expect(slider.value).toBe('500');
+        expect(increase.disabled).toBe(true);
+        slider.value = '1';
+        slider.dispatchEvent(new Event('change', { bubbles: true }));
+        expect(slider.value).toBe('50');
+        expect(decrease.disabled).toBe(true);
+        onSetChatGptBehaviorSettings.mockClear();
+        slider.value = '';
+        slider.dispatchEvent(new Event('change', { bubbles: true }));
+        expect(slider.value).toBe('50');
+        expect(onSetChatGptBehaviorSettings).not.toHaveBeenCalled();
+        slider.value = '300';
+        slider.dispatchEvent(new CompositionEvent('compositionstart', { bubbles: true }));
+        slider.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', isComposing: true, bubbles: true }));
+        slider.dispatchEvent(new Event('change', { bubbles: true }));
+        expect(onSetChatGptBehaviorSettings).not.toHaveBeenCalled();
+        slider.dispatchEvent(new CompositionEvent('compositionend', { bubbles: true }));
+        slider.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', bubbles: true }));
+        expect(onSetChatGptBehaviorSettings).toHaveBeenCalledWith({ pageWidthScale: 300 });
+        slider.value = '425';
+        slider.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }));
+        expect(slider.value).toBe('300');
+        slider.value = '49';
+        slider.dispatchEvent(new FocusEvent('blur'));
+        expect(slider.value).toBe('50');
+        expect(onSetChatGptBehaviorSettings).toHaveBeenLastCalledWith({ pageWidthScale: 50 });
     });
 
     it('removes the retired fast-top control and keeps navigation seek speed scoped to behavior', () => {

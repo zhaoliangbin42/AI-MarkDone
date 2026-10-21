@@ -1,5 +1,14 @@
 # AI-MarkDone Design Reference
 
+## ChatGPT page width (2026-10-20)
+
+Settings → Appearance & layout uses the font-size stepper appearance for page
+width: minus, an editable numeric percentage, and plus. Use 50–500 in 25-point
+steps; 100 restores the official layout. Enter or leaving the field commits a
+bounded, rounded value; Escape and empty/invalid input restore the saved value.
+Disable the corresponding button at each limit and keep numeric entry usable
+with keyboard and IME. Reuse the existing grouped row and stepper materials.
+
 ## Flat workflow surfaces (2026-10-18)
 
 Start with the user's task, rather than displaying every available control:
@@ -231,10 +240,10 @@ Hidden export-renderer and formula-renderer documents are rendering infrastructu
 ### 3.4 Annotation editor
 
 - The shared Page/Reader annotation editor is nonmodal: outside clicks neither close it nor pull focus back from reading. Its textarea has a visible boundary and keyboard focus treatment; icon controls have localized action names.
-- Header drag, minimize, expand and close preserve input. Dragged placement stops following the selection and clamps against the owning container and visual viewport after resize/scroll. At narrow widths and short heights, only the editor body scrolls; draft status and Save remain reachable.
-- Close/Escape preserve a draft. Discard draft and Delete annotation have explicit confirmation states, and pending destructive actions lock conflicting editing/saving. IME composition cannot trigger Escape dismissal or shortcut submission.
-- Draft-saving, local/session recovery, conflict, quota and save failure are distinct visible states. A failed local write preserves text and offers retry; a successful formal save clears only the submitted draft version. Draft status must not imply that the formal annotation has been saved.
-- Reader redraws reattach the same editing DOM and keyboard scope. Target changes close and flush the original target instead of attaching its writing to the new message. Persistent draft identity excludes synthetic page identities; runtime recovery uses caller-owned document/message/selection identity.
+- Header drag, minimize and expand preserve input while the editor stays open. Dragged placement stops following the selection and clamps against the owning container and visual viewport after resize/scroll. At narrow widths and short heights, only the editor body scrolls; Save and its status remain reachable.
+- Close/Escape discard unsaved edits, following the maintainer's 2026-10-13 decision. Discard edits and Delete annotation have explicit confirmation states, and pending destructive actions lock conflicting editing/saving. IME composition cannot trigger Escape dismissal or shortcut submission.
+- Typing, blur, closing and page exit do not save or restore drafts. Choose Save (or the configured save shortcut) to submit an annotation. A failed save preserves text for retry; successful records follow the existing annotation-persistence preference. Legacy draft helpers/protocols have no editor entrypoint and existing legacy storage is not proactively deleted.
+- Target changes close the original editor instead of attaching its writing to a different selection. Closing and reopening does not restore unsaved text.
 - Both locales use the writing authority in [WRITING.md](WRITING.md). The production reader-comments fixture covers selection-triggered editing, outside reading, drag/collapse/expand, close/reopen recovery, responsive layouts and both themes.
 
 ## 4. Color Tokens

@@ -108,9 +108,9 @@ describe('ReaderPanel presentation', () => {
             const modal = shadow.querySelector<HTMLElement>('.mock-modal');
 
             expect(modal?.querySelector('.mock-modal__title-copy strong')?.textContent).toBe(`What's new in AI-MarkDone ${releaseVersion}`);
-            expect(modal?.textContent).toContain('2026-10-13');
-            expect(modal?.textContent).toContain('movable in-page window');
-            expect(modal?.textContent).toContain('code fences');
+            expect(modal?.textContent).toContain('2026-10-21');
+            expect(modal?.textContent).toContain('50% to 500%');
+            expect(modal?.textContent).toContain('Customize common keyboard shortcuts');
             expect(Array.from(modal?.querySelectorAll<HTMLButtonElement>('.mock-modal__button') ?? []).map((button) => button.textContent)).toEqual(['OK']);
 
             const okButton = modal?.querySelector<HTMLButtonElement>('.mock-modal__button');
@@ -600,8 +600,9 @@ describe('ReaderPanel presentation', () => {
             expect(templatePanel.dataset.aimdSurfaceProfile).toBe('panel');
             const templateEditor = templatePanel.querySelector<HTMLElement>('[data-role="commentTemplate"]')!;
             expect(templatePanel.classList.contains('aimd-material-surface')).toBe(true);
-            expect(templateEditor.classList.contains('aimd-material-field')).toBe(true);
-            expect(templatePanel.querySelector('[data-role="preview"].aimd-material-field')).toBeTruthy();
+            expect(templatePanel.classList.contains('flat-workflow')).toBe(true);
+            expect(templateEditor.classList.contains('flat-workflow__input')).toBe(true);
+            expect(templatePanel.querySelector('[data-role="preview"].flat-workflow__quote')).toBeTruthy();
             templateEditor.dispatchEvent(new MouseEvent('pointerdown', { bubbles: true, composed: true }));
             expect(templatePanel.isConnected).toBe(true);
             templateEditor.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', isComposing: true, bubbles: true, composed: true, cancelable: true }));
@@ -647,7 +648,7 @@ describe('ReaderPanel presentation', () => {
         }
     });
 
-    it('loads current shared prompts when opening the Reader annotation copy picker', async () => {
+    it('loads current shared Prompts into the optional annotation-copy select and preview', async () => {
         clearReaderCommentScope('reader-panel-comments-v1');
         saveReaderComment('reader-panel-comments-v1', {
             id: 'comment-1',
@@ -685,17 +686,28 @@ describe('ReaderPanel presentation', () => {
             const host = document.querySelector('#aimd-reader-panel-host') as HTMLElement;
             const shadow = host.shadowRoot as ShadowRoot;
 
-            shadow.querySelector<HTMLButtonElement>('[data-action="reader-copy-comments"]')!.click();
-            await Promise.resolve();
-            await Promise.resolve();
+            const trigger = shadow.querySelector<HTMLButtonElement>('[data-action="reader-copy-comments"]')!;
+            trigger.dispatchEvent(new MouseEvent('pointerdown', { bubbles: true, composed: true }));
+            trigger.click();
+            await vi.waitFor(() => expect(shadow.querySelector('.reader-comment-export')).toBeTruthy());
 
             expect(listReaderPrompts).toHaveBeenCalledTimes(1);
-            const promptItem = shadow.querySelector<HTMLButtonElement>('.comment-prompt-picker__item[data-prompt-id="fresh"]')!;
-            expect(promptItem.querySelector('.comment-prompt-picker__item-title')?.textContent).toBe('Fresh Shared Prompt');
-            const preview = promptItem.querySelector<HTMLElement>('.comment-prompt-picker__item-content')!;
-            expect(preview.textContent).toBe('Use the current shared prompt with a long body that should stay out of the picker row.');
-            expect(preview.textContent).not.toContain('\n');
-            expect(shadow.querySelector('.comment-prompt-picker__item[data-prompt-id="legacy"]')).toBeNull();
+            const exporting = shadow.querySelector<HTMLElement>('.reader-comment-export')!;
+            const select = exporting.querySelector<HTMLSelectElement>('[data-role="prompt-select"]')!;
+            expect(select.querySelector('option[value="fresh"]')?.textContent).toBe('Fresh Shared Prompt');
+            expect(select.querySelector('option[value="legacy"]')).toBeNull();
+            expect(select.value).toBe('');
+            const copy = exporting.querySelector<HTMLButtonElement>('[data-action="copy"]')!;
+            expect(copy.disabled).toBe(true);
+            exporting.querySelector<HTMLInputElement>('[data-annotation-id="comment-1"]')!.click();
+            const disclosure = select.closest('details')!;
+            disclosure.querySelector<HTMLElement>('summary')!.click();
+            expect(disclosure.open).toBe(true);
+            select.value = 'fresh';
+            select.dispatchEvent(new Event('change', { bubbles: true }));
+            expect(exporting.querySelector('[data-role="preview"]')?.textContent)
+                .toContain('Use the current shared prompt with a long body that should stay out of the picker row.');
+            expect(copy.disabled).toBe(false);
         } finally {
             panel.hide();
         }

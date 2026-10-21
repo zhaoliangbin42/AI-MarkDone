@@ -456,17 +456,16 @@ describe('ReaderPanel comments', () => {
                 'Summarize these comments:',
             ].join('\n'),
         );
+        await vi.waitFor(() => expect(copyExport.disabled).toBe(false));
         prompt.value = '';
         prompt.dispatchEvent(new Event('change', { bubbles: true }));
-        copyExport.click();
-        await Promise.resolve();
-        await Promise.resolve();
-        expect(writeText).toHaveBeenLastCalledWith([
+        clickWithPointer(copyExport);
+        await vi.waitFor(() => expect(writeText).toHaveBeenLastCalledWith([
             '1. Regarding',
             '   Before `code` and $x+y$ after',
             '   My comment is:',
             '   Needs clarification',
-        ].join('\n'));
+        ].join('\n')));
         getSelectionSpy.mockRestore();
     });
 
@@ -657,6 +656,9 @@ describe('ReaderPanel comments', () => {
             keyboardTarget.focus();
             expect(document.activeElement).toBe(host);
             expect(shadow.activeElement).toBe(focus === 'header' ? trigger : null);
+            keyboardTarget.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', isComposing: true, bubbles: true, composed: true, cancelable: true }));
+            expect(shadow.querySelector('.reader-comment-export')).toBeTruthy();
+            expect(panel.isVisible()).toBe(true);
             keyboardTarget.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true, composed: true, cancelable: true }));
             await vi.waitFor(() => expect(shadow.querySelector('.reader-comment-export')).toBeNull());
             expect(panel.isVisible()).toBe(true);

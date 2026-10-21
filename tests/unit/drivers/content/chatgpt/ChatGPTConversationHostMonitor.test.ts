@@ -124,6 +124,76 @@ describe('ChatGPTConversationHostMonitor DOM readiness', () => {
         vi.useRealTimers();
     });
 
+    it.each([
+        ['same mounted unit', 'assistant-pending-3'],
+        ['replacement unit', 'assistant-pending-3'],
+        ['same mounted unit', 'fallback-turn-2'],
+        ['replacement unit', 'fallback-turn-2'],
+    ] as const)(
+        'admits the final native tail in the %s after pending identity %s', async (replacement, pendingId) => {
+            const nativeRound = (index: number, assistantMessageId = `assistant-${index}`) => `
+                <div data-turn-key="user-${index}" data-talvt-turn-state="complete">
+                    <div data-content-search-turn-key="fallback-turn-${index - 1}">
+                        <div data-chatgpt-search-unit-key="fallback-turn-${index - 1}:0:user" data-chatgpt-search-message-ids="user-${index}">Question ${index}</div>
+                        <div>
+                            <div data-chatgpt-search-unit-key="fallback-turn-${index - 1}:1:assistant" data-chatgpt-search-message-ids="${assistantMessageId}">
+                                <div data-markdown-text-style="assistant-message">Answer ${index}</div>
+                            </div>
+                            <div class="turn-action-controls"><button>Copy</button></div>
+                        </div>
+                    </div>
+                </div>`;
+            const main = document.querySelector('main')!;
+            main.innerHTML = nativeRound(1) + nativeRound(2);
+            const id = `native-pending-${replacement}`;
+            const harness = createHarness(id);
+
+            try {
+                harness.monitor.init();
+                await settle();
+                expect(harness.repository.read().snapshot?.turns.map(turn => turn.identity.assistantMessageId))
+                    .toEqual(['assistant-1', 'assistant-2']);
+
+                document.body.insertAdjacentHTML('beforeend', '<button data-testid="stop-button">Stop</button>');
+                main.insertAdjacentHTML('beforeend', nativeRound(3, pendingId));
+                const owner = main.querySelector<HTMLElement>('[data-turn-key="user-3"]')!;
+                owner.setAttribute('data-talvt-turn-state', 'streaming');
+                await settle();
+                expect(harness.repository.read().snapshot?.turns.map(turn => turn.identity.assistantMessageId))
+                    .toEqual(['assistant-1', 'assistant-2']);
+
+                const pendingUnit = owner.querySelector<HTMLElement>('[data-chatgpt-search-unit-key$=":assistant"]')!;
+                const finalUnit = replacement === 'replacement unit'
+                    ? pendingUnit.cloneNode(true) as HTMLElement
+                    : pendingUnit;
+                finalUnit.setAttribute('data-chatgpt-search-message-ids', 'assistant-3');
+                finalUnit.querySelector('[data-markdown-text-style]')!.textContent = 'Final answer 3';
+                if (finalUnit !== pendingUnit) pendingUnit.replaceWith(finalUnit);
+                owner.setAttribute('data-talvt-turn-state', 'complete');
+                document.querySelector('[data-testid="stop-button"]')!.remove();
+                await settle(60);
+
+                expect.soft(harness.repository.read().snapshot?.turns.map(turn => turn.identity.assistantMessageId))
+                    .toEqual(['assistant-1', 'assistant-2', 'assistant-3']);
+                const target = {
+                    documentKey: documentRef(id).key,
+                    turnId: 'user-3',
+                    userMessageId: 'user-3',
+                    assistantMessageId: 'assistant-3',
+                };
+                expect.soft(harness.repository.readTurn(target)).toMatchObject({
+                    kind: 'ready', turn: { assistantMarkdown: 'Final answer 3' },
+                });
+                expect.soft(harness.repository.readTurn({ ...target, assistantMessageId: pendingId }).kind)
+                    .toBe('unavailable');
+                expect(harness.monitor.readDiagnosticsFacts().admissionRejections?.['identity-conflict'] ?? 0).toBe(0);
+                expect(harness.monitor.readDiagnosticsFacts().dirtyAssistantCount).toBe(0);
+            } finally {
+                harness.dispose();
+            }
+        },
+    );
+
     it('replaces an already obtained assistant after same-owner regeneration finishes streaming', async () => {
         document.querySelector('main')!.innerHTML = roundHtml(1, 'Original answer');
         const harness = createHarness('regeneration');

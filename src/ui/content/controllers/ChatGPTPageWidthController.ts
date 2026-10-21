@@ -1,20 +1,11 @@
-import {
-    DEFAULT_CHATGPT_PAGE_WIDTH_SCALE,
-    MAX_CHATGPT_PAGE_WIDTH_SCALE,
-    MIN_CHATGPT_PAGE_WIDTH_SCALE,
-} from '../../../core/settings/types';
+import { DEFAULT_CHATGPT_PAGE_WIDTH_SCALE } from '../../../core/settings/types';
+import { normalizeChatGPTPageWidthScale } from '../../../core/settings/migrations';
 
 const CHATGPT_PAGE_WIDTH_STYLE_ID = 'aimd-chatgpt-page-width-style';
 const CHATGPT_PAGE_WIDTH_DATASET = 'aimdChatgptPageWidth';
 const CHATGPT_PAGE_WIDTH_SELECTORS = [
-    ':is([class*="max-w-(--thread-content-max-width)"], .text-token-text-primary > div > div)',
+    ':is([class*="max-w-(--thread-body-max-width)"], [class*="max-w-(--thread-content-max-width)"], .text-token-text-primary > div > div)',
 ] as const;
-
-function normalizeScale(value: unknown): number {
-    const numeric = typeof value === 'number' ? value : Number.parseInt(String(value ?? ''), 10);
-    if (!Number.isFinite(numeric)) return DEFAULT_CHATGPT_PAGE_WIDTH_SCALE;
-    return Math.min(MAX_CHATGPT_PAGE_WIDTH_SCALE, Math.max(MIN_CHATGPT_PAGE_WIDTH_SCALE, Math.round(numeric)));
-}
 
 export class ChatGPTPageWidthController {
     private scale = DEFAULT_CHATGPT_PAGE_WIDTH_SCALE;
@@ -36,7 +27,7 @@ export class ChatGPTPageWidthController {
     }
 
     setScale(value: number): void {
-        const next = normalizeScale(value);
+        const next = normalizeChatGPTPageWidthScale(value);
         if (next === this.scale) {
             this.apply();
             return;
@@ -47,7 +38,7 @@ export class ChatGPTPageWidthController {
     }
 
     private apply(): void {
-        if (this.scale <= DEFAULT_CHATGPT_PAGE_WIDTH_SCALE) {
+        if (this.scale === DEFAULT_CHATGPT_PAGE_WIDTH_SCALE) {
             this.clearStyle();
             return;
         }
@@ -107,7 +98,7 @@ export class ChatGPTPageWidthController {
             for (const element of candidates) {
                 const value = window.getComputedStyle(element).maxWidth;
                 const numericValue = Number.parseFloat(value);
-                if (value && value !== 'none' && value !== '100%' && Number.isFinite(numericValue) && numericValue > 0) {
+                if (value.endsWith('px') && Number.isFinite(numericValue) && numericValue > 0) {
                     this.originalWidths[selector] = numericValue;
                     break;
                 }
@@ -118,7 +109,7 @@ export class ChatGPTPageWidthController {
     }
 
     private watchForElements(): void {
-        if (this.scale <= DEFAULT_CHATGPT_PAGE_WIDTH_SCALE) return;
+        if (this.scale === DEFAULT_CHATGPT_PAGE_WIDTH_SCALE) return;
         const allKnown = CHATGPT_PAGE_WIDTH_SELECTORS.every((selector) => this.originalWidths[selector]);
         if (allKnown) {
             this.observer?.disconnect();

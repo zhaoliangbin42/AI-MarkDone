@@ -30,7 +30,7 @@ Select a passage and choose Annotate. You can copy the passage and annotation to
 
 ## Can I customize annotation templates?
 
-Open the annotation copy template from Reader’s upper-right settings, or Library → Annotations → Details → Templates. The template controls the order and format of each passage and note.
+Open the annotation copy template from Reader’s upper-right settings. The template controls the order and format of each passage and note.
 
 Manage reusable prompts under Settings → Writing & prompts. When copying annotations, choose a prompt and place it before or after the annotations.
 
@@ -50,7 +50,17 @@ If saving fails, the window retains your text for retry. Saved annotations still
 
 Select text on ChatGPT or in Reader and choose Copy Markdown. Text, formulas, code, and lists keep their Markdown formatting. Selected formulas copy in full; partial code selections copy only the selected text.
 
-ChatGPT’s default shortcut is Cmd/Ctrl + Shift + C; change it to Cmd/Ctrl + C or turn it off in Settings → Advanced. Reader uses Cmd/Ctrl + C.
+ChatGPT’s default shortcut is Cmd/Ctrl + Shift + C; existing custom combinations take priority. Change or disable it under Settings → Buttons & shortcuts → Keyboard shortcuts. Reader also uses the effective combination shown there.
+
+## Can I customize keyboard shortcuts?
+
+Yes. Under Settings → Buttons & shortcuts → Keyboard shortcuts, select a combination to record new keys, disable a command or restore defaults. Checks cover extension conflicts and known reserved keys, not every system, browser or other-extension binding. Reading navigation pauses while you type.
+
+## How do backslash prompt suggestions work?
+
+Type `\` at the start of the ChatGPT composer or Reader send box, or after whitespace, to see matching prompts and continue filtering by trigger text. Automatic suggestions include enabled prompts with a trigger; backslashes inside formulas belong to the formula assistant.
+
+The automatic-suggestion switch is under Settings → Buttons & shortcuts → Keyboard shortcuts. When automatic suggestions are off, an enabled Open prompt suggestions shortcut remains available; manual candidates also include prompts without triggers. Check Settings for your effective combination.
 
 ## How do I copy a formula?
 
@@ -78,7 +88,9 @@ Choose an offline Markdown ZIP to keep supported diagrams or cards with image at
 
 ## Can I hide buttons or change the theme?
 
-Use Settings → Buttons to configure page, reply, formula, selection, and directory buttons, and keep common page or reply actions visible. Theme, font size, and accent color are under Appearance & layout. Follow the page or use light or dark mode, and choose a preset or custom accent color. Search finds controls across all eight categories.
+Use Settings → Buttons & shortcuts → Buttons to configure page, reply, formula, selection, and directory buttons, and keep common page or reply actions visible. Theme, font size, and accent color are under Appearance & layout. Follow the page or use light or dark mode, and choose a preset or custom accent color. Search finds controls across all eight categories.
+
+Conversation and input width is also under Appearance & layout: use the numeric field or minus/plus buttons for 50%–500% in 25% steps. At 100%, the official width is restored; actual width remains constrained by the window and native parent containers.
 
 ## Where does Google Drive backup save my data?
 
@@ -92,7 +104,7 @@ Manage cloud files or test the connection under Data & backup. Trashing a Drive 
 
 Use the page’s lower-right previous/next buttons. Left and right arrow keys also navigate when you are not typing, if enabled.
 
-The directory is on by default for new installations; existing settings stay unchanged. Under Settings → Reading & messages, turn it on or off, choose compact previews or an expanded list, and adjust summaries, preview length, and right spacing. Regular messages join the directory as they load; unloaded history may be missing. Official navigation visibility is in the same category; navigation shortcuts and jump distance are under Advanced.
+The directory is on by default for new installations; existing settings stay unchanged. Under Settings → Reading & messages, turn it on or off, choose compact previews or an expanded list, and adjust summaries, preview length, and right spacing. Regular messages join the directory as they load; unloaded history may be missing. Official navigation visibility is in the same category; navigation shortcuts are under Buttons & shortcuts, and jump distance is under Advanced.
 
 ## What does the character count include?
 

@@ -95,14 +95,14 @@ The directory adds replies as the website loads them; unavailable history may no
 
 ## Changelog
 
-### 6.2.0
+### 6.2.5
 
-Download packages and read the release notes on [GitHub Release](https://github.com/zhaoliangbin42/AI-MarkDone/releases/tag/v6.2.0). Store availability may differ.
+Version 6.2.5 release notes and changelog are ready below. See the [source tag](https://github.com/zhaoliangbin42/AI-MarkDone/tree/v6.2.5); release downloads and store availability follow separately.
 
-- Move or minimize the annotation window and keep it open when clicking outside. Choose Save to submit your note.
-- Save supported charts/cards in an offline Markdown ZIP; choose images or placeholders in PDF/PNG.
-- Fix code copying, bookmark saves, annotation/highlight navigation and an identified cause of blank PDFs.
-- Restore the directory and reply controls after conversation switches, and unify smaller windows.
+- Adjust conversation and input width from 50% to 500% in 25% steps.
+- Customize common keyboard shortcuts and control automatic backslash suggestions independently.
+- Fix highlight recoloring, improve mixed selections and open bookmarked messages more reliably.
+- Keep new replies available to the directory, bookmarks, Reader and exports, and simplify everyday windows.
 
 [Release notes](./RELEASE_NOTES.md) · [Full changelog](./CHANGELOG.md)
 

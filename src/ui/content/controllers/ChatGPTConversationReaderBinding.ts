@@ -43,7 +43,10 @@ function hasSameCanonicalContent(left: ReaderItem, right: ReaderItem): boolean {
         && typeof left.content === 'string'
         && typeof right.content === 'string'
         && left.content === right.content
-        && left.sourceContent === right.sourceContent;
+        && left.sourceContent === right.sourceContent
+        // A visual asset can change while its aimd-rich Markdown URL stays the same.
+        && (left.richBlocks === right.richBlocks
+            || JSON.stringify(left.richBlocks ?? []) === JSON.stringify(right.richBlocks ?? []));
 }
 
 function planChatGPTReaderUpdate(

@@ -82,6 +82,49 @@ describe('ConversationContentRepository persistent host slots', () => {
         return { hostSlotId: 'assistant-slot-1', turn: { ...original, key: `turn-1:${id}`, identity: { ...original.identity, assistantMessageId: id } } };
     }
 
+    function pendingReplacement(repository: ConversationContentRepository): ConversationHostAssistantReplacementV1 {
+        return { documentKey: repository.read().document!.key, hostSlotId: 'assistant-slot-3',
+            previousAssistantMessageId: 'assistant-pending', nextAssistantMessageId: 'assistant-3', userMessageId: 'user-3' };
+    }
+
+    function seedPending(repository: ConversationContentRepository): void {
+        repository.ingestHostBatch([observation(1), observation(2)]);
+        repository.admitHostBatch([], ['assistant-slot-1', 'assistant-slot-2', 'assistant-slot-3'], [
+            { hostSlotId: 'assistant-slot-3', assistantMessageId: 'assistant-pending', userMessageId: 'user-3' },
+        ]);
+    }
+
+    it('replaces an uncompiled identity proof atomically without losing obtained history', () => {
+        const repository = new ConversationContentRepository({ resolveDocument: () => documentRef('pending-replacement') });
+        seedPending(repository);
+        expect(ids(repository)).toEqual(['assistant-1', 'assistant-2']);
+        const result = repository.admitHostBatch([observation(3)], ['assistant-slot-1', 'assistant-slot-2', 'assistant-slot-3'], [], undefined, [pendingReplacement(repository)]);
+        expect(result.rejectionReason).toBeNull();
+        expect(ids(repository)).toEqual(['assistant-1', 'assistant-2', 'assistant-3']);
+        const stale = { ...observation(3), turn: { ...turn(3), identity: { ...turn(3).identity, assistantMessageId: 'assistant-pending' } } };
+        expect(repository.admitHostBatch([stale]).rejectionReason).toBe('identity-conflict');
+    });
+
+    it.each(['document', 'user', 'missing-user', 'slot', 'previous', 'duplicate', 'incoming-user'] as const)(
+        'rejects invalid %s pending replacement proof without changing the pool', (fault) => {
+            const repository = new ConversationContentRepository({ resolveDocument: () => documentRef(`pending-${fault}`) });
+            seedPending(repository);
+            const before = repository.read().snapshot;
+            const proof = { ...pendingReplacement(repository) };
+            if (fault === 'document') proof.documentKey = documentRef('other').key;
+            if (fault === 'user') proof.userMessageId = 'other-user';
+            if (fault === 'missing-user') proof.userMessageId = null;
+            if (fault === 'slot') proof.hostSlotId = 'assistant-slot-2';
+            if (fault === 'previous') proof.previousAssistantMessageId = 'unknown-assistant';
+            if (fault === 'duplicate') proof.nextAssistantMessageId = 'assistant-2';
+            let body = observation(3);
+            if (fault === 'incoming-user') body = { ...body, turn: { ...body.turn, identity: { ...body.turn.identity, userMessageId: 'other-user' } } };
+            expect(repository.admitHostBatch([body], ['assistant-slot-1', 'assistant-slot-2', 'assistant-slot-3'], [], undefined, [proof]).rejectionReason).toBe('identity-conflict');
+            expect(repository.read().snapshot).toBe(before);
+            expect(repository.admitHostBatch([observation(3)], ['assistant-slot-1', 'assistant-slot-2', 'assistant-slot-3'], [], undefined, [pendingReplacement(repository)]).rejectionReason).toBeNull();
+        },
+    );
+
     it('atomically replaces an obtained assistant with explicit same-user slot proof and permits a proved switch back', () => {
         const repository = new ConversationContentRepository({ resolveDocument: () => documentRef('replacement') });
         repository.ingestHostBatch([observation(1), observation(2)]);
@@ -92,6 +135,18 @@ describe('ConversationContentRepository persistent host slots', () => {
         const restored = repository.admitHostBatch([regenerated('assistant-1')], ['assistant-slot-1', 'assistant-slot-2'], [], undefined, [replacement(repository, 'assistant-new', 'assistant-1')]);
         expect(restored.rejectionReason).toBeNull();
         expect(ids(repository)).toEqual(['assistant-1', 'assistant-2']);
+    });
+
+    it('replaces a GET-seeded body when its exact host identity is proved before DOM body capture', () => {
+        const ref = documentRef('source-owned-replacement');
+        const repository = new ConversationContentRepository({ resolveDocument: () => ref });
+        repository.ingestSourceCandidate({ document: ref, coverage: 'complete', origin: 'source', turns: [turn(1), turn(2)] });
+        repository.admitHostBatch([], ['assistant-slot-1', 'assistant-slot-2'], [
+            { hostSlotId: 'assistant-slot-1', assistantMessageId: 'assistant-1', userMessageId: 'user-1' },
+            { hostSlotId: 'assistant-slot-2', assistantMessageId: 'assistant-2', userMessageId: 'user-2' },
+        ]);
+        expect(repository.admitHostBatch([regenerated()], ['assistant-slot-1', 'assistant-slot-2'], [], undefined, [replacement(repository)]).rejectionReason).toBeNull();
+        expect(ids(repository)).toEqual(['assistant-new', 'assistant-2']);
     });
 
     it.each(['document', 'user', 'missing-user', 'slot', 'duplicate'] as const)('rejects invalid %s replacement proof without modifying private content', (fault) => {

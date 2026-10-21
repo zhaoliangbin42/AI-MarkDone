@@ -7,21 +7,29 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [6.2.5] - 2026-10-21
+
 ### Added
-- Configure keyboard shortcuts in Settings, with recording, conflict checks, per-command disable and clear controls, and restore-to-default actions. Existing copy and message-navigation preferences are preserved.
+- Configure keyboard shortcuts in Settings, with recording, conflict checks, per-command disable and clear controls, and restore-to-default actions. Existing copy and message-navigation preferences are preserved. Thanks to Xiaohongshu user @短片.
 - Use mnemonic B/Y/R highlight shortcuts, H for highlighting, N for notes and P for prompt candidates, with platform-specific modifiers. Automatic backslash suggestions can be disabled independently.
 
 ### Changed
-- Simplified annotation, Prompt, bookmark-saving, sending, and Reader settings workflows, keeping everyday actions visible and moving optional controls out of the way.
+- Adjust ChatGPT conversation and input width from 50% to 500% with a numeric field and 25% decrease/increase buttons; 100% keeps the original layout. Thanks to @neuromaancer for the expanded-range contribution in PR #22.
+- Further simplified annotation, Prompt, bookmark-saving, Send, and Reader settings windows, keeping common actions directly available and revealing less-used options on demand.
+- Simplify the annotation editor by folding full source and secondary window actions away from the writing area. Choose Save to submit the annotation. Thanks to email user @qds19100.
 - Choose individual annotations before copying, with no initial selection and an optional Prompt. Keep the selection after copying and delete it from the same window with confirmation; failed deletions stay selected for retry. Removed duplicate annotation settings, the timeline view, automatic deletion after insertion, and manual Prompt reordering while preserving saved records and custom templates.
-- Rebuilt the message export dialog with flat Settings-style groups and dropdowns for format and rich content, keeping message-selection actions together.
+- Improved the message export window with clearer grouping for message selection and export options, using Settings-style controls and dropdowns for format and rich content.
 - Highlight supported text and complete formulas across table cells and mixed layouts, skipping unsupported visual blocks and controls. Partial inline code can also be marked. Thanks to email user @qds19100.
 - Open saved ChatGPT messages with a direct message link when switching conversations; existing bookmarks and backups stay compatible.
 - Identify Chrome or Firefox in feedback email subjects while keeping the same contact address and copy-email action.
-- Reduce the lower-right page controls and icons to leave more room for ChatGPT’s own buttons.
+- Reduce the lower-right page controls and icons to leave more room for ChatGPT’s own buttons. Thanks to Xiaohongshu user @Jar Sin.
 - Explain how to enable ChatGPT’s native Enter-to-newline behavior through the avatar’s Settings → Keyboard menu, and when the extension option can be turned off.
 
 ### Fixed
+- Keep new ChatGPT replies available to bookmarks and the directory when streaming placeholders acquire their final message identities.
+- Keep current-message exports and Reader visual assets aligned with the published conversation content.
+- Close the correct Reader window with Escape from its header while preserving nested dialogs and text composition.
+- Restore page-width adjustments for ChatGPT's current conversation and input-box layout, including widths below 100%. Thanks to Xiaohongshu user @Serein.
 - Keep manually opened Prompt candidates near the caret, visible while scrolling and usable when automatic suggestions are off. Include title search and clear empty/loading-error states.
 - Keep Library search text intact while typing, including Chinese input, when selection changes refresh the panel.
 - Keep highlight colors available for supported content beside partial formulas. Empty selections no longer offer colors, and unsafe saves explain how to retry without silently dropping selected parts.

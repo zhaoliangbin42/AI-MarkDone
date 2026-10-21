@@ -25,6 +25,9 @@
 
 ### Refactor And Closeout Records
 
+- [ChatGPT discovery and consumer alignment](plans/2026-10-20-content-discovery-consumer-alignment.md)
+  - streaming placeholder admission, retained-owner transitions and shared consumer validation
+
 - [Composer preview and Library search investigation](plans/2026-10-16-composer-preview-and-bookmark-search.md)
   - repaired Shadow DOM search input; installed formula renderer investigation remains open
 

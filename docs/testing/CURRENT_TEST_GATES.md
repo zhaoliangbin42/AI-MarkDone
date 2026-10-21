@@ -2,6 +2,33 @@
 
 This document defines the **current executable test and verification gates** for day-to-day development. Use this file for what we must run now, not for future-state testing architecture.
 
+### Content discovery and consumer alignment (2026-10-20)
+
+- Enter through the actual Runtime: two obtained native replies, a streaming tail
+  with a window placeholder or temporary stable ID, then final identity and
+  completion. Source, Surface, navigation, Reader bookmark metadata and `readTurn`
+  must publish the same third turn/document/token; regeneration replaces it once.
+- Test retained modern owner/child remount and reject whole-owner reuse, wrong
+  document/user/slot, duplicate ownership and late superseded work. Pending and
+  GET-seeded identity replacements remain atomic; retired dirty IDs are cleared.
+- Cover initial page promotion and reject canonical A→B and A→home→B old-DOM
+  contamination. Later New Chat still requires actual host evidence.
+- Real Toolbar Bookmark/Export paths must share canonical content and raw-link
+  sidecars; pending reply copy remains read-only. Reader rich-only source changes
+  refresh its asset while equal sidecars do not rebuild it.
+- Automated and installed Chrome execution evidence is in
+  [the repair record](../plans/2026-10-20-content-discovery-consumer-alignment.md).
+- Final core: 340 files / 3116 tests passed; Chrome/Firefox builds and boundary
+  checks passed. Nine existing workflow failures were reproduced at isolated
+  HEAD, then corrected without relaxing expected interactions. Reader Escape
+  must enter from its real header, close only the top nested surface, retain
+  focus-return semantics and ignore composing events. Installed Chrome confirmed
+  the exact new script, Directory 1→2→3 on real mathematical follow-ups, successful
+  third-reply bookmark save/readback, Reader 3/3 and no dirty/admission/compiler
+  rejections. Export selected the correct third reply. OS clipboard/file delivery
+  probes are separately unverified; do not turn them into a successful asset
+  delivery or full PDF/PNG acceptance claim.
+
 ### Configurable keyboard shortcuts (2026-10-19)
 
 - Run `tests/unit/core/shortcuts/`, the settings migration/portable/service and
@@ -571,6 +598,54 @@ content remains consumable after DOM virtualization and SPA navigation.
 
 # Current ChatGPT discovery gate (DOM-authoritative tab-local pools)
 
+## 6.2.5 release preparation closeout (2026-10-20)
+
+- Final frozen-source core: 340 files / 3116 tests passed. The subsequent
+  `release:verify` passed smoke 63, acceptance 506 and Chrome/Firefox builds,
+  entry-format and single-pool boundaries. Type checking passed. This supersedes
+  the earlier nine-failure width checkpoint; the fixes are recorded in the
+  content-discovery consumer-alignment plan.
+- Chromium and Firefox each have 574 effective visual cases including explicit
+  Library and Settings matrices. There were 1271 executions including reruns;
+  the initial Firefox Reader failure had a local 404/no bridge state and its
+  complete 41-case page rerun passed. The annotation fixture now initializes the
+  shared locale, and both browsers' 41-case reruns plus screenshot review passed.
+- The performance driver now uses `ControlOrMeta+Shift+C` for the current native
+  platform. Its original clipboard/MIME, projection and drag budgets are intact.
+  200 turns, 200 mutations and three control/enabled runs passed; drag p95/max
+  deltas were approximately 0.6ms.
+- Each release ZIP has 111 runtime files matching final dist bytes, excluding
+  Finder `.DS_Store` metadata. Versions, declared resources and SHA-256 match.
+- Installed Chrome 6.2.5 confirmed the update notice, Library records, saved
+  mathematical bookmark Reader, formulas/table and Escape close. Fresh official
+  conversation pages failed to load; they do not prove new-reply admission or
+  native printing. Native Firefox extension/print acceptance was not rerun.
+  Automated Firefox fixtures are separate from installed-extension evidence.
+- Candidate preparation is complete locally; main merge, push, tag, public
+  release and store submission require the maintainer's pending confirmation.
+  Evidence and manual limits: `release/AI-MarkDone-v6.2.5-PREPARATION.md` and
+  `output/release-6.2.5/verification-summary.json`.
+
+## ChatGPT page width (2026-10-20)
+
+- Controller regressions use the current `max-w-(--thread-body-max-width)`
+  conversation/composer structure and assert computed max-width at 50, 75, 125,
+  200, 300 and 500, reset to 100, late mounting, node replacement and disposal.
+- Settings tests exercise the actual number field and +/- buttons, 25-point
+  steps, range limits, empty input, Enter/Escape, blur and IME composition.
+  Migration/service tests cover clamping and rounding; portable settings retain
+  old 100–200 values in 5-point steps by normalizing them on import.
+- Installed Chrome acceptance verified Settings entry and both rendered widths:
+  50 = 404px, 75 = 606px, 100 = 808px, 200 = 1616px. At 300/500 the native parent
+  containers constrain actual width without document horizontal overflow;
+  a narrow 480 CSS-pixel viewport also has no document overflow. Component checks
+  cover the numeric control in English/light and Chinese/dark narrow layouts.
+  Firefox build verification is separate from installed Firefox UI acceptance.
+- At the width-fix checkpoint the full core run had 3075 passes and 9 failures
+  in four existing Reader/Send/Save Messages suites; all nine reproduced on the
+  unchanged `c3cf00fb` baseline. The width/settings/runtime-entry gate passed 204
+  tests. This intermediate result is superseded by the 6.2.5 closeout below.
+
 ## First-install Directory default (2026-10-08)
 
 First-install Directory defaults are covered through the actual background
@@ -584,7 +659,7 @@ missing-field/import semantics.
 
 ## Annotation drafts and content fidelity (2026-10-07)
 
-- Annotation editing must enter through native selection → Page/Reader Annotate, not only direct editor construction. Cover outside reading, close/reopen recovery, minimize/expand, drag containment, IME, formal save failure, pending destructive actions, source changes and Reader redraws. The production `reader-comments` fixture remains the visual source.
+- Annotation editing must enter through native selection → Page/Reader Annotate, not only direct editor construction. Cover outside reading, close/reopen without restoring unsaved input, minimize/expand, drag containment, IME, formal save failure, pending destructive actions, source changes and Reader redraws. The production `reader-comments` fixture remains the visual source. The maintainer's 2026-10-13 explicit-save decision supersedes the earlier automatic-draft UI requirements; legacy draft helper tests do not establish an active editor workflow.
 - Draft contract/session/background tests cover canonical versus page-only identity, target isolation, late reads, old-session ownership, revision conflicts, deletion/recreation, corrupt/future storage, retention, count/text/byte limits and unavailable storage without truncating input. Drafts must remain separate from formal annotation preferences, counts and backups.
 - Content fixtures cover code language, indentation, repeated blank lines, embedded backticks, tilde/long fences, inline code and code-viewer line breaks. Verify the real toolbar Copy trigger, Reader rendering, weighted counts and Markdown/PDF/PNG source projection; retain partial-selection literal behavior.
 - PDF checks include delayed/failed images and localized alt descriptions through the real export trigger, plus actual browser layout/output for long code, wide tables, long formulas and cross-page text. CSS-string assertions alone do not prove that overflow or pagination is correct.

@@ -699,6 +699,47 @@ describe('ChatGPTPageIndex', () => {
         unsubscribe();
     });
 
+    it.each(['retained owner', 'replacement owner'] as const)(
+        'uses modern owner continuity for a remounted native assistant unit with a %s', async (ownerMode) => {
+            document.querySelector('main')!.innerHTML = `
+                <div data-turn-key="user-1"><div data-content-search-turn-key="fallback-turn-0">
+                    <div data-chatgpt-search-unit-key="fallback-turn-0:0:user" data-chatgpt-search-message-ids="user-1">Question</div>
+                    <div class="native-owner">
+                        <div data-chatgpt-search-unit-key="fallback-turn-0:1:assistant" data-chatgpt-search-message-ids="assistant-previous">
+                            <div data-markdown-text-style="assistant-message">Previous answer</div>
+                        </div>
+                        <div class="turn-action-controls"><button>Copy</button></div>
+                    </div>
+                </div></div>`;
+            const replacements: Array<readonly {
+                previousAssistantMessageId: string;
+                nextAssistantMessageId: string;
+            }[]> = [];
+            const index = getChatGPTPageIndex(adapter);
+            index.getSnapshot();
+            const unsubscribe = index.subscribeObservations(batch => replacements.push(batch.assistantIdentityReplacements));
+            const previousOwner = document.querySelector<HTMLElement>('[data-turn-key="user-1"]')!;
+            const nextOwner = ownerMode === 'replacement owner'
+                ? previousOwner.cloneNode(true) as HTMLElement
+                : previousOwner;
+            const previousUnit = nextOwner.querySelector<HTMLElement>('[data-chatgpt-search-unit-key$=":assistant"]')!;
+            const nextUnit = previousUnit.cloneNode(true) as HTMLElement;
+            nextUnit.setAttribute('data-chatgpt-search-message-ids', 'assistant-next');
+            nextUnit.querySelector('[data-markdown-text-style]')!.textContent = 'Next answer';
+            previousUnit.replaceWith(nextUnit);
+            if (nextOwner !== previousOwner) previousOwner.replaceWith(nextOwner);
+            await deliverMutations();
+
+            expect(index.getSnapshot().map(round => round.identity.assistantMessageId)).toEqual(['assistant-next']);
+            // An equal display key on a newly mounted owner is not continuity proof.
+            expect(replacements.flat()).toEqual(ownerMode === 'retained owner' ? [{
+                previousAssistantMessageId: 'assistant-previous',
+                nextAssistantMessageId: 'assistant-next',
+            }] : []);
+            unsubscribe();
+        },
+    );
+
     it('reports a content-root replacement without manufacturing generation facts', async () => {
         const batches: Array<{
             surfaceRebased: boolean;

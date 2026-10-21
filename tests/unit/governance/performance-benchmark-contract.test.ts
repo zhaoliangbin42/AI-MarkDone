@@ -68,7 +68,7 @@ describe('ChatGPT performance benchmark contract', () => {
         expect(source).toContain('data-aimd-perf-atomic-selection');
         expect(source).toContain('data-latex-source="\\\\frac{x}{y}"');
         expect(source).toContain("context.grantPermissions(");
-        expect(source).toContain("page.keyboard.press('Control+Shift+C')");
+        expect(source).toContain("page.keyboard.press('ControlOrMeta+Shift+C')");
         expect(source).toContain('navigator.clipboard.readText()');
         expect(source).not.toContain("new ClipboardEvent('copy'");
         expect(source).toContain("selectionContract.copiedMarkdown.includes('$\\\\frac{x}{y}$')");

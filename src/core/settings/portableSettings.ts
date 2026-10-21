@@ -1,4 +1,5 @@
-import { MESSAGE_CONTROL_ACTIONS, PAGE_CONTROL_ACTIONS, type AppSettings } from './types';
+import { CHATGPT_PAGE_WIDTH_SCALE_STEP, MIN_CHATGPT_PAGE_WIDTH_SCALE, MAX_CHATGPT_PAGE_WIDTH_SCALE, MESSAGE_CONTROL_ACTIONS, PAGE_CONTROL_ACTIONS, type AppSettings } from './types';
+import { normalizeChatGPTPageWidthScale } from './migrations';
 import { normalizeAccentHex } from './appearance';
 import { FORMULA_SOURCE_FORMATS } from '../math/formulaSourceFormat';
 import type { SettingsFile, SettingsPreferenceChange } from '../../contracts/settingsTransfer';
@@ -72,7 +73,7 @@ export const PORTABLE_SETTINGS_FIELDS: Readonly<Record<string, FieldRule>> = Obj
     ...Object.fromEntries(['enabled', 'ordered', 'unordered'].map(field => [`chatgptBehavior.inputEnhancement.lists.${field}`, bool])),
     ...Object.fromEntries(['showMessageStepper', 'showPageBookmarkControl', 'showDetachedReaderControl', 'showPromptControl', 'showInputEnhancementControl', 'showRefreshNavigationControl', 'showComposerInputEnhancementControl', 'showComposerAnnotationControl', 'promptAutocomplete', 'enableArrowKeyMessageNavigation', 'pageAnnotationsEnabled', 'showPageSelectionToolbar'].map(field => [`chatgptBehavior.${field}`, bool])),
     'chatgptBehavior.pinnedPageControls': { kind: 'actions', values: PAGE_CONTROL_ACTIONS },
-    'chatgptBehavior.pageWidthScale': number(100, 200, 5),
+    'chatgptBehavior.pageWidthScale': number(MIN_CHATGPT_PAGE_WIDTH_SCALE, MAX_CHATGPT_PAGE_WIDTH_SCALE, CHATGPT_PAGE_WIDTH_SCALE_STEP),
     'chatgptBehavior.navigationSeekStepPx': number(1000, 5000, 400),
     'appearance.themeMode': choice('auto', 'light', 'dark'),
     'appearance.fontSizePx': number(12, 20, 1),
@@ -113,11 +114,19 @@ function valid(value: unknown, rule: FieldRule): boolean {
 export function isPortablePreferenceValue(path: string, value: unknown): boolean {
     return Object.prototype.hasOwnProperty.call(PORTABLE_SETTINGS_FIELDS, path) && valid(value, PORTABLE_SETTINGS_FIELDS[path]);
 }
+function normalizeLegacyPageWidth(path: string, value: unknown): unknown {
+    // Settings files exported before the 25% step used 5% increments from 100 to 200.
+    if (path === 'chatgptBehavior.pageWidthScale' && typeof value === 'number'
+        && value >= 100 && value <= 200 && value % 5 === 0) {
+        return normalizeChatGPTPageWidthScale(value);
+    }
+    return value;
+}
 export function projectPortableSettings(settings: AppSettings): PortableSettings {
     const result: PortableSettings = {};
     for (const [path, rule] of Object.entries(PORTABLE_SETTINGS_FIELDS)) {
         if (retiredComposerFields.has(path)) continue;
-        const value = readPreferencePath(settings, path);
+        const value = normalizeLegacyPageWidth(path, readPreferencePath(settings, path));
         if (value !== undefined && valid(value, rule))
             writePath(result, path, value);
     }
@@ -161,10 +170,11 @@ export function parseSettingsFile(text: string, currentAppVersion?: string): {
     let count = 0;
     const ignoredCount = 0;
     const walk = (record: Record<string, unknown>, prefix = '') => {
-        for (const [key, value] of Object.entries(record)) {
+        for (const [key, rawValue] of Object.entries(record)) {
             if (key === '__proto__' || key === 'prototype' || key === 'constructor')
                 throw new Error('SETTINGS_FILE_INVALID');
             const path = prefix ? `${prefix}.${key}` : key;
+            const value = normalizeLegacyPageWidth(path, rawValue);
             const rule = Object.prototype.hasOwnProperty.call(PORTABLE_SETTINGS_FIELDS, path) ? PORTABLE_SETTINGS_FIELDS[path] : undefined;
             if (rule) {
                 if (!valid(value, rule))

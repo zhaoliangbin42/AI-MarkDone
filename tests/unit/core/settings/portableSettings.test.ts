@@ -9,6 +9,20 @@ function file(settings: unknown): string {
     return JSON.stringify({ format: 'ai-markdone-settings', formatVersion: 1, appVersion: '6.0.0', exportedAt: '2026-09-30T00:00:00.000Z', settings });
 }
 describe('portable settings', () => {
+    it.each([50, 75, 300, 500])('roundtrips a %i percent page width', (pageWidthScale) => {
+        const current = structuredClone(DEFAULT_SETTINGS);
+        current.chatgptBehavior.pageWidthScale = pageWidthScale;
+        const parsed = parseSettingsFile(JSON.stringify(createSettingsFile(current, '6.2.0')));
+        const restored = mergePortableSettings(DEFAULT_SETTINGS, parsed.file.settings, ['chatgptBehavior']);
+        expect(restored.chatgptBehavior.pageWidthScale).toBe(pageWidthScale);
+    });
+    it('normalizes old 5% page-width imports and rejects invalid widths', () => {
+        const parsed = parseSettingsFile(file({ chatgptBehavior: { pageWidthScale: 145 } }));
+        expect(mergePortableSettings(DEFAULT_SETTINGS, parsed.file.settings, ['chatgptBehavior']).chatgptBehavior.pageWidthScale).toBe(150);
+        for (const value of [25, 505, 147]) {
+            expect(() => parseSettingsFile(file({ chatgptBehavior: { pageWidthScale: value } }))).toThrow('SETTINGS_FILE_INVALID');
+        }
+    });
     it('roundtrips disabled shortcuts and their original chords, with preset and empty defaults remaining implicit', () => {
         const current = structuredClone(DEFAULT_SETTINGS);
         current.shortcuts = withShortcutBinding(current.shortcuts, 'selection.annotate', { code: 'KeyM', primary: true, shift: true, alt: false });

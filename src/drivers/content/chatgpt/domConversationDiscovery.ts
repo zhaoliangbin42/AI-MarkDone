@@ -41,8 +41,8 @@ export type ChatGPTDomHostSlotRef = Readonly<{
 export function resolveChatGPTDomRoundIdentity(
     round: ChatGPTDomRoundRef,
 ): ChatGPTResolvedDomTurnIdentity | null {
-    const userMessageId = round.identity.userMessageId?.trim() ?? '';
-    const assistantMessageId = round.identity.assistantMessageId?.trim() ?? '';
+    const userMessageId = stableMessageId(round.identity.userMessageId);
+    const assistantMessageId = stableMessageId(round.identity.assistantMessageId);
     if (!userMessageId || !assistantMessageId) return null;
     const turnId = stableSemanticTurnId(round, userMessageId, assistantMessageId);
     return turnId ? Object.freeze({ turnId, userMessageId, assistantMessageId }) : null;
@@ -65,21 +65,27 @@ export type ChatGPTDomRoundProjectionIdentity = Readonly<{
 export function resolveChatGPTDomRoundProjectionIdentity(
     round: ChatGPTDomRoundRef,
 ): ChatGPTDomRoundProjectionIdentity | null {
-    const assistantMessageId = round.identity.assistantMessageId?.trim()
-        || round.identity.assistantTurnId?.trim()
-        || '';
+    const assistantMessageId = stableMessageId(round.identity.assistantMessageId)
+        || stableMessageId(round.identity.assistantTurnId);
     if (!assistantMessageId) return null;
-    const userMessageId = round.identity.userMessageId?.trim() || null;
+    const userMessageId = stableMessageId(round.identity.userMessageId);
     const turnId = stableSemanticTurnId(round, userMessageId, assistantMessageId);
     return Object.freeze({ turnId, userMessageId, assistantMessageId });
 }
 
 function stableSemanticTurnId(round: ChatGPTDomRoundRef, userMessageId: string | null, assistantMessageId: string): string {
     const explicit = [round.identity.roundId, round.identity.assistantTurnId]
-        .map(id => id?.trim()).find(id => id && !id.startsWith('fallback-turn-'));
+        .map(stableMessageId).find(Boolean);
     // Search keys are window-local display coordinates and may be reused
     // after hydration. Keep them on the DOM ref, never in semantic identity.
     return explicit || userMessageId || `chatgpt-turn:${assistantMessageId}`;
+}
+
+function stableMessageId(value: string | null | undefined): string | null {
+    const id = value?.trim();
+    // These are host window coordinates, including optimistic streaming IDs.
+    // They cannot reserve an assistant identity in the persistent content pool.
+    return id && id !== 'client-created-root' && !id.startsWith('fallback-turn-') ? id : null;
 }
 
 const ROLE_SELECTOR = '[data-message-author-role]';
@@ -187,7 +193,8 @@ function readOwnerMessageIdentity(owner: HTMLElement): ChatGPTDomHostSlotRef['id
         const tokens = ['data-message-id', 'data-chatgpt-search-message-ids']
             .flatMap(attribute => readElementId(node, attribute)?.split(/\s+/) ?? []);
         if (!tokens.length || new Set(tokens).size !== 1) return null;
-        ids[role].add(tokens[0]!);
+        const id = stableMessageId(tokens[0]);
+        if (id) ids[role].add(id);
     }
     if (ids.user.size > 1 || ids.assistant.size > 1) return null;
     // Only this owner's exact role nodes prove a logical position. A nearby

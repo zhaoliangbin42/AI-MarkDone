@@ -1,6 +1,8 @@
 import { afterEach, describe, expect, it } from 'vitest';
 import { ChatGPTPageWidthController } from '@/ui/content/controllers/ChatGPTPageWidthController';
 
+const currentLayoutControllers: ChatGPTPageWidthController[] = [];
+
 function appendConversationNode(maxWidth = '800px'): HTMLElement {
     const root = document.createElement('div');
     root.className = 'text-token-text-primary';
@@ -27,12 +29,37 @@ function appendComposerWidthNode(maxWidth = '800px'): HTMLElement {
 }
 
 afterEach(() => {
+    for (const controller of currentLayoutControllers.splice(0)) controller.dispose();
     document.head.innerHTML = '';
     document.body.innerHTML = '';
     document.documentElement.removeAttribute('data-aimd-chatgpt-page-width');
 });
 
 describe('ChatGPTPageWidthController', () => {
+    it.each([50, 75, 125, 200, 300, 500])('scales the current ChatGPT body and composer limiters to %i percent', (scale) => {
+        const hostStyle = document.createElement('style');
+        hostStyle.textContent = '[class*="max-w-(--thread-body-max-width)"] { max-width: 808px; }';
+        document.head.appendChild(hostStyle);
+        const conversation = document.createElement('div');
+        conversation.className = 'transcriptContent mx-auto w-full max-w-(--thread-body-max-width)';
+        const composer = document.createElement('div');
+        composer.className = 'mx-auto w-full max-w-(--thread-body-max-width)';
+        composer.innerHTML = '<div contenteditable="true" role="textbox"></div>';
+        document.body.append(conversation, composer);
+        const controller = new ChatGPTPageWidthController();
+        currentLayoutControllers.push(controller);
+
+        controller.setScale(scale);
+
+        const expected = `${Math.round(808 * scale / 100)}px`;
+        expect(getComputedStyle(conversation).maxWidth).toBe(expected);
+        expect(getComputedStyle(composer).maxWidth).toBe(expected);
+        controller.setScale(100);
+        expect(getComputedStyle(conversation).maxWidth).toBe('808px');
+        expect(getComputedStyle(composer).maxWidth).toBe('808px');
+        controller.dispose();
+    });
+
     it('leaves the page untouched at the normal 100% scale', () => {
         appendConversationNode();
         const controller = new ChatGPTPageWidthController();
@@ -101,7 +128,7 @@ describe('ChatGPTPageWidthController', () => {
         appendConversationNode('900px');
         await Promise.resolve();
 
-        expect(document.getElementById('aimd-chatgpt-page-width-style')?.textContent).toContain('max-width: 1260px');
+        expect(document.getElementById('aimd-chatgpt-page-width-style')?.textContent).toContain('max-width: 1350px');
     });
 
     it('removes injected state on dispose', () => {
@@ -113,5 +140,27 @@ describe('ChatGPTPageWidthController', () => {
 
         expect(document.getElementById('aimd-chatgpt-page-width-style')).toBeNull();
         expect(document.documentElement.dataset.aimdChatgptPageWidth).toBeUndefined();
+    });
+
+    it('applies a saved reduced width after late mounting and to replacement composer nodes', async () => {
+        const hostStyle = document.createElement('style');
+        hostStyle.textContent = '[class*="max-w-(--thread-body-max-width)"] { max-width: 808px; }';
+        document.head.appendChild(hostStyle);
+        const controller = new ChatGPTPageWidthController();
+        currentLayoutControllers.push(controller);
+        controller.setScale(50);
+        const conversation = document.createElement('div');
+        conversation.className = 'max-w-(--thread-body-max-width)';
+        document.body.appendChild(conversation);
+        await Promise.resolve();
+        expect(getComputedStyle(conversation).maxWidth).toBe('404px');
+        const replacement = conversation.cloneNode() as HTMLElement;
+        conversation.replaceWith(replacement);
+        document.documentElement.removeAttribute('data-aimd-chatgpt-page-width');
+        expect(getComputedStyle(replacement).maxWidth).toBe('404px');
+        controller.setScale(900);
+        expect(getComputedStyle(replacement).maxWidth).toBe('4040px');
+        controller.dispose();
+        expect(getComputedStyle(replacement).maxWidth).toBe('808px');
     });
 });

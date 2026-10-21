@@ -106,6 +106,11 @@ export class ConversationContentRepository implements ConversationContentSourceV
         return this.state;
     }
 
+    /** Producer-only ownership evidence, including a slot whose body is still streaming. */
+    readHostSlotIdentity(assistantMessageId: string): ConversationHostSlotIdentityV1 | null {
+        return this.activePool?.hostSlotProofByAssistantId.get(assistantMessageId) ?? null;
+    }
+
     subscribe(listener: (state: ConversationContentStateV1) => void): () => void {
         this.listeners.add(listener);
         listener(this.state);
@@ -679,12 +684,18 @@ function stageHostReplacements(
         const user = proof.userMessageId?.trim() ?? '';
         const slot = pool.hostSlotAliases.get(proof.hostSlotId.trim()) ?? proof.hostSlotId.trim();
         const previousTurn = pool.turnsByAssistantId.get(previous);
+        const previousProof = pool.hostSlotProofByAssistantId.get(previous);
+        const previousUser = previousTurn?.identity.userMessageId ?? previousProof?.userMessageId;
+        const previousSlot = pool.slotIdByAssistantId.get(previous) ?? previousProof?.hostSlotId;
+        const previousOwnsSlot = pool.assistantIdBySlotId.get(slot) === previous
+            || (previousProof?.hostSlotId === slot && !pool.assistantIdBySlotId.has(slot));
         const incoming = observations.filter(observation => observation.turn.identity.assistantMessageId === next);
         if (
             proof.documentKey !== documentKey || !previous || !next || previous === next || !user
-            || replacedSlots.has(slot) || !previousTurn || previousTurn.identity.userMessageId !== user
-            || pool.slotIdByAssistantId.get(previous) !== slot || pool.assistantIdBySlotId.get(slot) !== previous
+            || replacedSlots.has(slot) || previousUser !== user
+            || previousSlot !== slot || !previousOwnsSlot
             || pool.turnsByAssistantId.has(next) || pool.slotIdByAssistantId.has(next)
+            || pool.hostSlotProofByAssistantId.has(next)
             || incoming.length !== 1 || incoming[0]!.turn.identity.userMessageId !== user
             || (pool.hostSlotAliases.get(incoming[0]!.hostSlotId) ?? incoming[0]!.hostSlotId) !== slot
         ) return null;

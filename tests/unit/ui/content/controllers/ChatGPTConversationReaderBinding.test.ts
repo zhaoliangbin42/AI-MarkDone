@@ -1,6 +1,7 @@
 import { describe, expect, it, vi } from 'vitest';
 import { ChatGPTConversationReaderBinding } from '@/ui/content/controllers/ChatGPTConversationReaderBinding';
 import type { ReaderItem } from '@/services/reader/types';
+import type { RichBlockV1 } from '@/contracts/richContent';
 import {
     createConversationContentSource,
     readyConversationState,
@@ -174,6 +175,91 @@ describe('ChatGPTConversationReaderBinding', () => {
         expect(readerPanel.replaceItems).not.toHaveBeenCalled();
         expect(source.ensureReady).not.toHaveBeenCalled();
         binding.dispose();
+    });
+
+    it.each(['asset', 'availability', 'add', 'remove'] as const)(
+        'updates an open Reader when only rich block %s changes', async (change) => {
+            const block: RichBlockV1 = {
+                id: 'chart-1', kind: 'image', label: 'Chart', fallbackMarkdown: '[Chart]', visualDigest: 'chart-visual',
+                source: { kind: 'loaded-image', url: 'https://example.com/old.png', width: 320, height: 200 },
+            };
+            const initialBlocks = change === 'add' ? undefined : [block];
+            const nextBlocks = change === 'remove' ? undefined : [{
+                ...block,
+                source: change === 'availability'
+                    ? { kind: 'unavailable' as const, reason: 'not-rendered' as const }
+                    : { kind: 'loaded-image' as const, url: 'https://example.com/new.png', width: 320, height: 200 },
+            }];
+            const markdown = '![Chart](aimd-rich:chart-1)';
+            const baseline = readyConversationState(buildState(1).snapshot);
+            const state = { ...baseline, snapshot: {
+                ...baseline.snapshot!, turns: [{ ...baseline.snapshot!.turns[0]!, assistantMarkdown: markdown, assistantRichBlocks: initialBlocks }],
+            } };
+            const source = createConversationContentSource(state);
+            let currentItems: ReaderItem[] = [{ ...buildReaderItem(1), content: markdown, richBlocks: initialBlocks }];
+            const readerPanel = {
+                isShowingConversationReader: vi.fn(() => true),
+                getItemsSnapshot: vi.fn(() => [...currentItems]),
+                appendItem: vi.fn(),
+                replaceItems: vi.fn(async (items: ReaderItem[]) => { currentItems = items; }),
+                hide: vi.fn(),
+            } as any;
+            const binding = new ChatGPTConversationReaderBinding({
+                adapter: { getPlatformId: () => 'chatgpt' } as any,
+                source, readerPanel, pageUrl: () => 'https://chatgpt.com/c/conv-1',
+            });
+            try {
+                binding.init();
+                expect(readerPanel.replaceItems).not.toHaveBeenCalled();
+                source.publish({ ...state, snapshot: {
+                    ...state.snapshot, contentToken: 'rich-block-only-update',
+                    turns: [{ ...state.snapshot.turns[0]!, assistantRichBlocks: nextBlocks }],
+                } });
+
+                await vi.waitFor(() => expect(readerPanel.replaceItems).toHaveBeenCalledOnce());
+                expect(currentItems[0]?.content).toBe(markdown);
+                expect(currentItems[0]?.richBlocks).toEqual(nextBlocks);
+                expect(readerPanel.replaceItems).toHaveBeenCalledWith(currentItems, { preserveCurrentIdentity: true });
+                expect(readerPanel.appendItem).not.toHaveBeenCalled();
+            } finally {
+                binding.dispose();
+            }
+        },
+    );
+
+    it.each(['cloned', 'empty'] as const)('keeps the Reader intact for semantically equal %s rich blocks', async (change) => {
+        const block: RichBlockV1 = {
+            id: 'chart-1', kind: 'image', label: 'Chart', fallbackMarkdown: '[Chart]', visualDigest: 'chart-visual',
+            source: { kind: 'loaded-image', url: 'https://example.com/chart.png' },
+        };
+        const initialBlocks = change === 'empty' ? [] : [block];
+        const nextBlocks = change === 'empty' ? undefined : [{ ...block, source: { ...block.source } }];
+        const baseline = readyConversationState(buildState(1).snapshot);
+        const state = { ...baseline, snapshot: {
+            ...baseline.snapshot!, turns: [{ ...baseline.snapshot!.turns[0]!, assistantRichBlocks: initialBlocks }],
+        } };
+        const source = createConversationContentSource(state);
+        const readerPanel = {
+            isShowingConversationReader: vi.fn(() => true),
+            getItemsSnapshot: vi.fn(() => [{ ...buildReaderItem(1), richBlocks: initialBlocks }]),
+            appendItem: vi.fn(), replaceItems: vi.fn(), hide: vi.fn(),
+        } as any;
+        const binding = new ChatGPTConversationReaderBinding({
+            adapter: { getPlatformId: () => 'chatgpt' } as any,
+            source, readerPanel, pageUrl: () => 'https://chatgpt.com/c/conv-1',
+        });
+        try {
+            binding.init();
+            source.publish({ ...state, snapshot: {
+                ...state.snapshot, contentToken: 'equal-rich-block-new-revision',
+                turns: [{ ...state.snapshot.turns[0]!, assistantRichBlocks: nextBlocks }],
+            } });
+            await Promise.resolve();
+            expect(readerPanel.replaceItems).not.toHaveBeenCalled();
+            expect(readerPanel.appendItem).not.toHaveBeenCalled();
+        } finally {
+            binding.dispose();
+        }
     });
 
     it('replaces the open Reader when canonical content changes under the same typed identity', async () => {

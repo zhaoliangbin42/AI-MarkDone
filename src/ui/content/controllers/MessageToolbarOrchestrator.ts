@@ -341,19 +341,24 @@ export class MessageToolbarOrchestrator {
 
     private async resolveCurrentReaderItemForElement(messageElement: HTMLElement): Promise<FreshReaderItemResult | null> {
         if (this.adapter.getPlatformId() === 'chatgpt') {
+            if (this.readChatGptTurnForElement(messageElement)) {
+                return collectFreshCurrentReaderItem(this.adapter, messageElement, {
+                    conversationContentSource: this.conversationContentSource,
+                    conversationMaterialization: this.conversationMaterialization,
+                    pageUrl: this.getBookmarkPageUrl(),
+                });
+            }
             const turn = this.getTurnRefForElement(messageElement);
             const markdown = turn
                 ? copyMarkdownFromTurn(this.adapter, turn.messageEls)
                 : copyMarkdownFromMessage(this.adapter, messageElement);
             if (!markdown.ok || !markdown.markdown.trim()) return null;
 
-            const canonicalTurn = this.readChatGptTurnForElement(messageElement);
             const assistantMessageId = this.adapter.getMessageId(messageElement)?.trim()
-                || canonicalTurn?.identity.assistantMessageId
                 || null;
             const item: ReaderItem = {
                 id: `chatgpt-${assistantMessageId ?? this.getReaderItemCacheKey(messageElement)}`,
-                userPrompt: canonicalTurn?.userText || turn?.userPrompt || this.adapter.extractUserPrompt(messageElement) || '',
+                userPrompt: turn?.userPrompt || this.adapter.extractUserPrompt(messageElement) || '',
                 content: markdown.markdown,
                 sourceContent: markdown.sourceMarkdown,
                 ...(markdown.richBlocks !== undefined ? { richBlocks: markdown.richBlocks } : {}),
@@ -361,18 +366,17 @@ export class MessageToolbarOrchestrator {
                     platformId: 'chatgpt',
                     messageId: assistantMessageId,
                     assistantMessageId,
-                    userMessageId: canonicalTurn?.identity.userMessageId ?? null,
-                    roundId: canonicalTurn?.identity.turnId ?? null,
-                    position: canonicalTurn?.ordinal ?? 0,
+                    userMessageId: null,
+                    roundId: null,
+                    position: 0,
                     url: this.getBookmarkPageUrl(),
-                    bookmarkable: Boolean(canonicalTurn && this.getAvailableBookmarkUrl()),
+                    bookmarkable: false,
                     bookmarked: false,
                     sourceQuality: 'host-rendered',
                 },
             };
             return {
                 item,
-                sourceRevision: canonicalTurn ? this.captureCurrentSourceRevision() : undefined,
             };
         }
         return collectFreshCurrentReaderItem(this.adapter, messageElement, {
@@ -402,7 +406,7 @@ export class MessageToolbarOrchestrator {
                 })
                 .finally(() => {
                     // ChatGPT shares concurrent preparation only. A later explicit
-                    // action must read the current DOM, even before pool admission.
+                    // action must read the current published item, or live DOM before pool admission.
                     if (this.adapter.getPlatformId() === 'chatgpt' && this.currentReaderItemByMessageKey.get(key) === promise) {
                         this.currentReaderItemByMessageKey.delete(key);
                     }

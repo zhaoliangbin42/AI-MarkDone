@@ -675,6 +675,25 @@
   font-weight: var(--aimd-font-medium);
   white-space: nowrap;
 }
+.settings-stepper-input {
+  appearance: textfield;
+  width: 4ch;
+  min-width: 0;
+  border: 0;
+  padding: 0;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  text-align: center;
+}
+.settings-stepper-input::-webkit-inner-spin-button,
+.settings-stepper-input::-webkit-outer-spin-button {
+  appearance: none;
+  margin: 0;
+}
+.settings-stepper-input:focus-visible {
+  outline: calc(var(--aimd-space-1) / 2) solid var(--aimd-focus-ring);
+}
 .settings-color-row {
   align-items: center;
 }

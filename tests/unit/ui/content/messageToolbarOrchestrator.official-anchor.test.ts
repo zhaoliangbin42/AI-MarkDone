@@ -207,6 +207,61 @@ describe('MessageToolbarOrchestrator Surface-driven official toolbar lifecycle',
         } finally { copyMessage.mockRestore(); copyTurn.mockRestore(); }
     });
 
+    it('shares the published Reader item between Bookmark and Export when DOM normalization differs', async () => {
+        renderTurn();
+        document.querySelector('.content')!.textContent = 'Visible rendered answer';
+        const baseline = readyConversationState(SNAPSHOT);
+        const blocks = [richSvgBlock()];
+        const markdown = 'Canonical answer ![Diagram](aimd-rich:block-1)';
+        const sourceMarkdown = '[Canonical answer](https://example.com/paper) ![Diagram](aimd-rich:block-1)';
+        const source = createConversationContentSource({ ...baseline, snapshot: {
+            ...baseline.snapshot!, turns: [{
+                ...baseline.snapshot!.turns[0]!, assistantMarkdown: markdown,
+                assistantSourceMarkdown: sourceMarkdown, assistantRichBlocks: blocks,
+            }],
+        } });
+        const adapter = new FakeOfficialToolbarAdapter();
+        const surface = new ChatGPTConversationSurface({ adapter, content: source });
+        const bookmarksController = {
+            refreshPositionsForUrl: vi.fn(async () => undefined),
+            resolveConversationBookmarkPositions: vi.fn(() => new Set<number>()),
+            readPositionBookmarkStatus: vi.fn(async () => ({ ok: true, data: { saved: false } })),
+            getDefaultFolderPath: () => '/Inbox',
+            setPositionBookmarkSaved: vi.fn(async () => ({ ok: true })),
+            selectFolder: vi.fn(),
+        };
+        const bookmarkSaveDialog = { open: vi.fn(async () => ({ ok: true, folderPath: '/Research', title: 'Prompt' })) };
+        const saveMessagesDialog = { open: vi.fn(async () => true), isOpen: () => false, close() {} };
+        const orchestrator = new MessageToolbarOrchestrator(adapter, {
+            readerPanel: { setTheme() {}, show: async () => undefined } as any,
+            bookmarksController: bookmarksController as any,
+            bookmarkSaveDialog: bookmarkSaveDialog as any,
+            saveMessagesDialog: saveMessagesDialog as any,
+            conversationContentSource: source, conversationMaterialization: surface.materialization, conversationSurface: surface,
+        });
+        harnesses.add({ adapter, source, surface, orchestrator });
+        orchestrator.setBehaviorFlags({ showSaveMessages: true, pinnedMessageControls: ['bookmark_toggle', 'export'] });
+        orchestrator.init();
+        await vi.waitFor(() => expect(toolbarHosts()).toHaveLength(1));
+        const shadow = toolbarHosts()[0]!.shadowRoot!;
+        const bookmark = shadow.querySelector<HTMLButtonElement>('[data-action="bookmark_toggle"]')!;
+        bookmark.dispatchEvent(new MouseEvent('pointerdown', { bubbles: true, composed: true }));
+        bookmark.click();
+        await vi.waitFor(() => expect(bookmarksController.setPositionBookmarkSaved).toHaveBeenCalledWith(
+            expect.objectContaining({ position: 1, messageId: 'm1', userMessage: 'Prompt', aiResponse: markdown }), true,
+        ));
+
+        const exportButton = shadow.querySelector<HTMLButtonElement>('[data-action="export"]')!;
+        exportButton.dispatchEvent(new MouseEvent('pointerdown', { bubbles: true, composed: true }));
+        exportButton.click();
+        await vi.waitFor(() => expect(saveMessagesDialog.open).toHaveBeenCalledWith(
+            adapter, expect.any(String), expect.objectContaining({ currentReaderItem: expect.objectContaining({
+                content: markdown, sourceContent: sourceMarkdown, richBlocks: blocks,
+                meta: expect.objectContaining({ position: 1, assistantMessageId: 'm1', bookmarkable: true }),
+            }) }),
+        ));
+    });
+
     it('opens the message drawer only from More when a pinned action is hovered in the official row', async () => {
         renderTurn();
         const { orchestrator } = createHarness();
@@ -497,9 +552,36 @@ describe('MessageToolbarOrchestrator Surface-driven official toolbar lifecycle',
         expect(document.querySelector('[data-testid="stop-button"]')).toBeTruthy();
         expect(document.querySelector('[data-testid="copy-turn-action-button"]')).toBeTruthy();
     });
-});
-
-it('copies raw reply links through the actual Prompt+Reply trigger when link preservation is enabled',async()=>{
-    vi.mocked(copyTextToClipboard).mockClear();renderTurn();document.querySelector('.content')!.innerHTML='<p>Visit <a href="https://example.com">Example</a>.</p>';
-    const {orchestrator,adapter}=createHarness();vi.spyOn(adapter,'getMarkdownParserAdapter').mockReturnValue(new ChatGPTAdapter().getMarkdownParserAdapter());orchestrator.setContentCleanupSettings({preserveLinks:true,includeCodeBlocks:true});orchestrator.init();await vi.waitFor(()=>expect(toolbarHosts()).toHaveLength(1));clickPromptReplyHoverAction();await vi.waitFor(()=>expect(copyTextToClipboard).toHaveBeenCalledOnce());expect(vi.mocked(copyTextToClipboard).mock.calls[0][0]).toContain('[Example](https://example.com)');
+    it.each(['published', 'pending'] as const)(
+        'preserves raw reply links through the actual toolbar copy trigger for %s content', async (stage) => {
+            vi.mocked(copyTextToClipboard).mockClear();
+            renderTurn();
+            document.querySelector('.content')!.innerHTML = '<p>Visit <a href="https://example.com">Example</a>.</p>';
+            const baseline = readyConversationState(SNAPSHOT);
+            const state: ConversationContentStateV1 = stage === 'pending'
+                ? { kind: 'syncing', document: baseline.document, snapshot: null }
+                : { ...baseline, snapshot: {
+                    ...baseline.snapshot!, turns: [{ ...baseline.snapshot!.turns[0]!,
+                        assistantMarkdown: 'Visit Example.',
+                        assistantSourceMarkdown: 'Visit [Example](https://example.com).',
+                    }],
+                } };
+            const { orchestrator, adapter } = createHarness(state);
+            vi.spyOn(adapter, 'getMarkdownParserAdapter').mockReturnValue(new ChatGPTAdapter().getMarkdownParserAdapter());
+            orchestrator.setContentCleanupSettings({ preserveLinks: true, includeCodeBlocks: true });
+            orchestrator.init();
+            await vi.waitFor(() => expect(toolbarHosts()).toHaveLength(1));
+            if (stage === 'published') {
+                clickPromptReplyHoverAction();
+            } else {
+                const shadow = toolbarHosts()[0]!.shadowRoot!;
+                shadow.querySelector<HTMLButtonElement>('[data-action="toggle-capsule"]')!.click();
+                const copy = shadow.querySelector<HTMLButtonElement>('[data-action="copy_markdown"]')!;
+                copy.dispatchEvent(new MouseEvent('pointerdown', { bubbles: true, composed: true }));
+                copy.click();
+            }
+            await vi.waitFor(() => expect(copyTextToClipboard).toHaveBeenCalledOnce());
+            expect(vi.mocked(copyTextToClipboard).mock.calls[0][0]).toContain('[Example](https://example.com)');
+        },
+    );
 });

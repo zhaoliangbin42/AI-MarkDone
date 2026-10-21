@@ -6,14 +6,21 @@ import { loadBookmarksDoc } from '@/ui/content/bookmarks/content/loader';
 describe('bookmarks content parser', () => {
     it('parses changelog markdown for both locales', () => {
         const zh = parseChangelogDoc(loadBookmarksDoc('changelog', 'zh_CN'));
-        expect(zh.entries[0]?.version).toBe('6.2.0');
+        expect(zh.entries[0]?.version).toBe('6.2.5');
         expect(zh.entries[0]?.leadBlocks[0]).toEqual(expect.objectContaining({ text: expect.stringContaining('朋友们好') }));
-        expect(zh.entries[1]?.version).toBe('6.1.0');
-        zh.entries = zh.entries.filter(entry => !['6.2.0', '6.1.0', '6.0.0', '5.4.1'].includes(entry.version));
+        expect(zh.entries[1]?.version).toBe('6.2.0');
+        expect(zh.entries[2]?.version).toBe('6.1.0');
+        const currentZh = JSON.stringify(zh.entries[0]);
+        for (const credit of ['（感谢邮箱@qds19100）', '（感谢小红书用户@Serein）', '（感谢小红书用户@短片）', '（感谢GitHub用户@neuromaancer）', '（感谢小红书用户@Jar Sin）']) expect(currentZh).toContain(credit);
+        expect(currentZh).toContain('50%～500%');
+        expect(currentZh).toContain('优化消息导出窗口');
+        zh.entries = zh.entries.filter(entry => !['6.2.5', '6.2.0', '6.1.0', '6.0.0', '5.4.1'].includes(entry.version));
         const en = parseChangelogDoc(loadBookmarksDoc('changelog', 'en'));
-        expect(en.entries[0]?.version).toBe('6.2.0');
-        expect(en.entries[1]?.version).toBe('6.1.0');
-        en.entries = en.entries.filter(entry => !['6.2.0', '6.1.0', '6.0.0', '5.4.1'].includes(entry.version));
+        expect(en.entries[0]?.version).toBe('6.2.5');
+        expect(en.entries[1]?.version).toBe('6.2.0');
+        expect(en.entries[2]?.version).toBe('6.1.0');
+        expect(JSON.stringify(en.entries[0])).toContain('25%');
+        en.entries = en.entries.filter(entry => !['6.2.5', '6.2.0', '6.1.0', '6.0.0', '5.4.1'].includes(entry.version));
 
         expect(zh.title).toBe('更新日志');
         expect(en.title).toBe('Changelog');
@@ -99,7 +106,7 @@ describe('bookmarks content parser', () => {
 
         expect(en.title).toBe('FAQ');
         expect(en.leadBlocks).toEqual([]);
-        expect(en.items).toHaveLength(18);
+        expect(en.items).toHaveLength(20);
         expect(en.items[0]?.question).toBe('Where can I use AI-MarkDone?');
         expect(en.items[0]?.blocks[0]).toEqual(
             expect.objectContaining({
@@ -128,8 +135,12 @@ describe('bookmarks content parser', () => {
         expect(en).toContain('questions and replies longer than 500 characters each');
         expect(zh).toContain('阅读器设置中的“保存新建的注释”默认关闭');
         expect(zh).toContain('原 ChatGPT 标签页保持打开');
-        expect(zh).not.toMatch(/批注|Prompt|独立窗口 Reader|标记与注释|按钮与快捷键|阅读与导航/);
-        expect(en).not.toMatch(/detached Reader|Buttons & shortcuts|Reading & navigation/);
+        expect(zh).toContain('按钮与快捷键');
+        expect(en).toContain('Buttons & shortcuts');
+        expect(zh).toContain('50%～500%');
+        expect(en).toContain('50%–500%');
+        expect(zh).not.toMatch(/批注|Prompt|独立窗口 Reader|标记与注释|阅读与导航/);
+        expect(en).not.toMatch(/detached Reader|Reading & navigation/);
     });
 
     it('parses standalone static markdown images as image blocks', () => {

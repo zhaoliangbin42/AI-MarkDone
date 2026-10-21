@@ -210,6 +210,11 @@ export class ChatGPTPageIndex {
         this.snapshot = null;
     }
 
+    /** The composition root proved that the page acquired its own canonical URL. */
+    notifyPageIdentityPromotion(pageUrl: string): void {
+        this.advanceSurface(pageUrl, false, true);
+    }
+
     subscribe(listener: () => void): () => void {
         this.roundSubscribers.add(listener);
         this.ensureObservedRoot();
@@ -368,14 +373,14 @@ export class ChatGPTPageIndex {
         });
     }
 
-    private advanceSurface(pageUrl: string, force: boolean): void {
+    private advanceSurface(pageUrl: string, force: boolean, preservesConversation = false): void {
         const nextRouteKey = resolveSurfaceRouteKey(pageUrl);
         const routeChanged = nextRouteKey !== this.surfaceRouteKey;
         const firstSurface = this.pageUrl === '';
         this.pageUrl = pageUrl;
         this.surfaceRouteKey = nextRouteKey;
         if (firstSurface || force || routeChanged) this.surfaceEpoch += 1;
-        if (routeChanged) {
+        if (routeChanged && !preservesConversation) {
             // SPA navigation may recycle the same owner element for another
             // conversation. Its previous identity/generation is not evidence.
             this.activeGenerationAssistantIds.clear();
@@ -434,7 +439,7 @@ export class ChatGPTPageIndex {
 }
 
 function resolveAssistantIdentityOwner(round: ChatGPTDomRoundRef): HTMLElement {
-    return round.assistantRootEl.closest<HTMLElement>('[data-turn-id-container]')
+    return round.assistantRootEl.closest<HTMLElement>('[data-turn-id-container], [data-turn-key]')
         ?? round.assistantRootEl;
 }
 

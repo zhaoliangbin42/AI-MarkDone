@@ -1527,6 +1527,12 @@
         "message": "对话正文和输入框的宽度",
         "description": "Message for chatgptPageWidthScaleLabel"
     },
+    "decreasePageWidth": {
+        "message": "页面宽度减小 25%"
+    },
+    "increasePageWidth": {
+        "message": "页面宽度增大 25%"
+    },
     "chatgptPageWidthScaleDesc": {
         "message": "调大 ChatGPT 对话区域宽度，充分利用屏幕空间。",
         "description": "Message for chatgptPageWidthScaleDesc"

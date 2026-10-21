@@ -1,5 +1,23 @@
 # Changelog
 
+# 6.2.5
+2026-10-21
+
+Hello, friends! Version 6.2.5 improves page width, highlights, bookmark navigation and keyboard shortcuts. I have also simplified the smaller windows used every day. Thank you for sharing specific problems and helping me improve these details.
+
+1. Simplify the annotation editor, with full source, window tools and deletion available on demand. Choose Save to submit the annotation. Thanks to email user @qds19100.
+2. Fix page-width adjustments so conversation content and the input box change together. Thanks to Xiaohongshu user @Serein.
+3. Fix recoloring existing highlights and improve selections across table cells, paragraphs and complete formulas. Thanks to email user @qds19100.
+4. Improve cross-conversation bookmark navigation by opening the saved message directly.
+5. Customize common keyboard shortcuts, with conflict feedback, disable controls and restore-to-default actions. Thanks to Xiaohongshu user @短片.
+6. Adjust page width from 50% to 500% with a numeric field and minus/plus buttons in 25% steps; 100% restores the official layout. Thanks to GitHub user @neuromaancer.
+7. Reduce the lower-right icons to leave more room for the input box. Thanks to Xiaohongshu user @Jar Sin.
+8. Simplify Prompt, bookmark-saving, Send and Reader settings windows, keeping common actions visible and revealing less-used options on demand.
+9. Improve the message export window with clearer groups for message selection and export options.
+10. Fix completed replies missing from the directory or remaining unavailable to bookmarks, and keep Reader and current-message exports aligned with the latest content.
+11. Choose annotations before copying, with no initial selection and an optional Prompt. Copying keeps the selection; confirmed batch deletion is available in the same window. Inserting annotations no longer deletes them automatically.
+
+
 # 6.2.0
 2026-10-13
 
