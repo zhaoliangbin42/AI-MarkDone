@@ -209,6 +209,10 @@ export class PromptWorkflow {
         return prompt;
     }
 
+    setStatusMessage(message: string): void {
+        this.statusMessage = message;
+    }
+
     setManagerQuery(query: string): void {
         this.managerQuery = query;
     }
@@ -258,15 +262,17 @@ export class PromptWorkflow {
         }
     }
 
-    async delete(id: string, fallbackMessage: string): Promise<boolean> {
+    async delete(id: string, fallbackMessage: string, expectedUpdatedAt?: number): Promise<boolean> {
         const prompt = this.findPrompt(id);
         if (!prompt) return false;
         try {
-            await this.client.deletePrompt(prompt.id);
+            if (expectedUpdatedAt === undefined) await this.client.deletePrompt(prompt.id);
+            else await this.client.deletePrompt(prompt.id, expectedUpdatedAt);
             await this.reloadManagerPrompts();
             this.statusMessage = '';
             return true;
         } catch (error) {
+            if (expectedUpdatedAt !== undefined) await this.reloadManagerPrompts().catch(() => undefined);
             this.statusMessage = error instanceof Error ? error.message : fallbackMessage;
             return false;
         }
@@ -318,7 +324,6 @@ export class PromptWorkflow {
     }
 
     private async reloadManagerPrompts(): Promise<void> {
-        this.promptsCache = null;
         await this.loadPrompts({ force: true, includeDisabled: true });
     }
 

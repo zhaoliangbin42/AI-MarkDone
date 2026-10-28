@@ -48,12 +48,16 @@ macOS 的 `Ctrl` 是实际 Control（`⌃`）；Windows/Linux 不使用已被浏
   Numeric DIL metric rows with at least two direct column boxes, each containing
   a tabular-number title and caption, are captured as one visual; numbers remain
   in text fallback, not the outline.
-- Whole-message Markdown copy and `.md` export contain readable visual labels
-  and extractable chart data, without internal asset schemes or temporary URLs.
+- Whole-message Markdown copy and default `.md` export contain readable visual
+  labels and extractable chart data, without internal asset schemes or temporary
+  URLs. Save Messages optionally emits safe HTTP(S) source-image links; these
+  may expire and do not promise offline access. Formula delimiter/source format,
+  links and code blocks can be selected per export without changing global copy.
   Markdown offline ZIP adds actual SVG/PNG files, relative image references and
   an included/placeholder manifest. A remote URL alone is not offline success.
-- PDF and PNG offer static images (default) or text placeholders when selected
-  messages contain rich blocks. This is an output choice, not a content/annotation
+- PDF, PNG and Markdown ZIP offer static images (default) or text placeholders
+  regardless of the current selection. Placeholder mode also removes ordinary
+  inline/reference images from both message roles while preserving code examples. This is an output choice, not a content/annotation
   mutation. Ordinary formula/code/table settings retain their independent roles.
   Placeholder mode starts no visual capture; one failed block keeps the rest usable.
 - Resource preparation has cancellation and byte/node/pixel/time limits. Save
@@ -64,7 +68,10 @@ macOS 的 `Ctrl` 是实际 Control（`⌃`）；Windows/Linux 不使用已被浏
   visual-only/assistant-only messages, projects readable previews and retains
   stable navigation identity through DOM unmount and supported replacement.
 - Page Reader immediately displays readable fallback, then hydrates only its
-  visual slots. Detached Reader uses the same document and session-bound asset
+  visual slots. `reader.showImagesInReader` defaults on; turning it off preserves
+  source text/anchors, releases images and skips acquisition. Inline reply images
+  use the existing rich-block pipeline; user attachment resource capture is not
+  added. Numeric Enter-to-jump and the hover/focus full pager use obtained order. Detached Reader uses the same document and session-bound asset
   references; source/Reader cancellation and teardown release resources.
 - Acceptance is tracked in the dated execution plan: actual installed Chrome,
   Firefox and detached Blob partition/decoding proof are distinct from component
@@ -484,3 +491,19 @@ See [ADR-0024](adr/ADR-0024-chatgpt-dom-authoritative-content-pool.md) and
 2026-10-01 settings correction: Buttons has five groups and no composer-entry configuration. Composer Input enhancement has no button; current-conversation annotation entry is automatic. Appearance offers eight distinct presets including Cherry pink, Bay blue and Light pink, plus one case-insensitive hexadecimal RGB editor that strips hashes; removed Classic blue and Lilac presets remain compatible as saved custom values. Valid custom colors remain compatible with portable settings; retired composer-entry fields are accepted but ignored.
 
 2026-10-01 hydration correction: rolling virtual DOM windows merge by stable-ID order constraints in the existing content pool. Structure/identity observations retain topology before body coalescing; admission receipts, not compilation alone, acknowledge captures. Refused bodies remain dirty for a genuine host/lifecycle signal, with separate admission diagnostics. Source-only history keeps its established projection policy and late GET anchors allow newer DOM tails. Exact assistant identity and compatible user pairing preserve the same content through provisional/changed owner markers; unique contained message IDs can prove a logical slot before its marker stabilizes. Native assistant-only search units can enter before their Prompt remounts. Window-local fallback keys stay out of semantic identity; aliases and publication validate before private commit. A disjoint mounted window can use the existing scroll root to tentatively place its completed bodies before history or after the latest end; later mounted/shared order corrects that placement instead of discarding obtained bodies. No extra observer, polling, conversation request, consumer pool or storage change.
+
+
+### Directory and Prompt manager additions (2026-10-28)
+
+`chatgptDirectory.previewAssistant` defaults false. Opting in displays both
+Prompt and AI reply as plain text, each bounded by `previewMaxChars`. Width is
+limited by 65% of the viewport and the space beside the rail. No new content
+source, navigation owner or discovery work is introduced.
+
+Prompt manager exposes Insert and a secondary Insert and delete. Both preserve
+the composer draft and cursor marker. Combined deletion follows successful
+write/read-back and checks the displayed record's `updatedAt` in the background
+storage queue. Write failure, unavailable composer, changed record and deletion
+failure retain the library record or report the conflict; no automatic retry
+inserts text again. Settings-only detached contexts without a composer disable
+insertion while keeping editing and deletion available.

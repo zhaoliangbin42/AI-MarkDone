@@ -5837,6 +5837,30 @@
     },
     "keyboardPlatformUnavailable": {
         "message": "Unavailable on this system"
-    }
-
+    },
+    "readerPageJump": {"message": "Page number · Enter to go"},
+    "readerShowImagesLabel": {"message": "Show images in replies"},
+    "readerShowImagesDesc": {"message": "Show captured inline images and charts. Turn off to read their text descriptions without loading images."},
+    "chatgptDirectoryPreviewAssistantLabel": {"message": "Include AI replies in previews"},
+    "chatgptDirectoryPreviewAssistantDesc": {"message": "Show the Prompt and AI reply as plain text. The preview length applies to each part."},
+    "exportFormulaLabel": {"message": "Formula format"},
+    "exportLinksLabel": {"message": "Links"},
+    "exportLinksKeep": {"message": "Keep clickable links"},
+    "exportLinksText": {"message": "Text only"},
+    "exportCodeLabel": {"message": "Code blocks"},
+    "exportCodeKeep": {"message": "Include code blocks"},
+    "exportCodeOmit": {"message": "Omit code blocks"},
+    "exportMarkdownImagesHint": {"message": "To save images with Markdown, choose the offline ZIP bundle."},
+    "promptInsert": {"message": "Insert"},
+    "promptInsertAndDelete": {"message": "Insert and delete"},
+    "promptInsertFailed": {"message": "The Prompt was not inserted. The library entry has been kept. Check the message input and try again."},
+    "promptInsertedDeleteFailed": {"message": "The Prompt was inserted, but could not be removed from the library. Use Delete to retry without inserting again."},
+    "promptNoMatches": {"message": "No matching Prompts. Try another search."},
+    "exportImagesLabel": {"message": "Images"},
+    "exportImageLinksKeep": {"message": "Keep available image links"},
+    "exportAdvancedOptions": {"message": "Advanced options"},
+    "exportOptionsOptional": {"message": "Optional"},
+    "exportOptionsCustomized": {"message": "Customized"},
+    "readerAllMessages": {"message": "All messages"},
+    "readerPagerHelp": {"message": "Hover to preview · Click to jump"}
 }

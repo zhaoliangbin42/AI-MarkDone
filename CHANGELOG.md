@@ -7,6 +7,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+- Jump directly to a Reader message by entering its number, or hover the folded pager to browse all message numbers with previews.
+- Choose whether Reader displays captured inline reply images and charts.
+- Customize Markdown exports with link, formula, code-block and image-link options; choose images or text placeholders for PDF, PNG and offline Markdown bundles.
+- Optionally preview AI replies alongside Prompts in the directory, with adjustable text length for each part.
+- Insert a saved Prompt from its manager, or insert and delete it after the message input accepts the text. Changed library entries remain protected.
+
+### Changed
+- Keep export details under collapsed Advanced options, with clearer Prompt actions, message navigation and preview surfaces.
+- Keep directory previews beside the rail and within a proportional viewport limit.
+- Make selection highlight swatches more compact, improve Prompt action visibility, and refine Reader navigation for narrow windows.
+
 ## [6.2.5] - 2026-10-21
 
 ### Added

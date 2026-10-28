@@ -9,6 +9,23 @@ function t(key: string, args?: any): string {
 }
 
 describe('buildMarkdownExport', () => {
+    it('includes safe original image links only when requested and preserves code literals', () => {
+        const metadata = { url: 'https://chatgpt.com/c/1', exportedAt: '2026-10-28T00:00:00Z', title: 'Images', count: 1, platform: 'ChatGPT' };
+        const block = { id: 'photo', kind: 'image' as const, label: 'Photo [one]', visualDigest: 'v1', fallbackMarkdown: 'Photo unavailable', source: { kind: 'loaded-image' as const, url: 'https://example.com/photo.png' } };
+        const turns = [{ user: 'Question', assistant: 'Before\n\n![Photo](aimd-rich:photo)\n\nAfter\n\n`![Photo](aimd-rich:photo)`', richBlocks: [block], index: 0 }];
+        const plain = buildMarkdownExport(turns, [0], metadata, t, { includeImages: false })!;
+        expect(plain.markdown).not.toContain('https://example.com/photo.png');
+        const linked = buildMarkdownExport(turns, [0], metadata, t, { includeImages: true })!;
+        expect(linked.markdown).toContain('(<https://example.com/photo.png>)');
+        expect(linked.markdown).toContain('`![Photo](aimd-rich:photo)`');
+        for (const url of ['javascript:alert(1)', 'blob:https://example.com/transient', 'https://user:secret@example.com/photo.png']) {
+            const out = buildMarkdownExport([{ ...turns[0], richBlocks: [{ ...block, source: { kind: 'loaded-image', url } }] }], [0], metadata, t, { includeImages: true })!;
+            expect(out.markdown).not.toContain(url);
+            expect(out.markdown).toContain('Photo unavailable');
+        }
+        expect(turns[0].assistant).toContain('![Photo](aimd-rich:photo)');
+    });
+
     it('projects bound rich blocks to readable text while preserving marker-like code literals', () => {
         const block = { id: 'chart-1', kind: 'svg' as const, label: 'Leakage chart',
             visualDigest: 'v1', fallbackMarkdown: '> [Leakage chart]\n\n| SNR | Probability |\n| --- | --- |\n| 20 dB | 51.3% |',

@@ -8,6 +8,7 @@ import {
 } from '../../../core/settings/export';
 import {
     DEFAULT_FORMULA_SOURCE_FORMAT,
+    FORMULA_SOURCE_FORMATS,
     normalizeFormulaSourceFormat,
     type FormulaSourceFormat,
 } from '../../../core/math/formulaSourceFormat';
@@ -32,7 +33,7 @@ import {
 } from '../../../services/reader/readerContentSource';
 import type { ReaderItem } from '../../../services/reader/types';
 import { getSaveMessagesDialogCss } from './saveMessagesDialogCss';
-import { xIcon } from '../../../assets/icons';
+import { chevronDownIcon, xIcon } from '../../../assets/icons';
 import { createBookmarksInlineSelectControl, type BookmarksInlineSelectRef } from '../bookmarks/ui/components/BookmarksInlineSelect';
 import { OverlaySession } from '../overlay/OverlaySession';
 import { TooltipDelegate } from '../../../utils/tooltip';
@@ -79,6 +80,9 @@ export class SaveMessagesDialog {
     private resolvedPngWidth = resolvePngExportWidth(DEFAULT_EXPORT_SETTINGS);
     private resolvedPngPixelRatio = resolvePngExportPixelRatio(DEFAULT_EXPORT_SETTINGS);
     private markdownFormulaFormat: FormulaSourceFormat = DEFAULT_FORMULA_SOURCE_FORMAT;
+    private exportContentCleanup = { ...DEFAULT_CONTENT_CLEANUP_SETTINGS };
+    private markdownIncludeImages = false;
+    private exportFormulaFormat: FormulaSourceFormat = DEFAULT_FORMULA_SOURCE_FORMAT;
     private appearance: AppearanceSnapshot = createAppearanceSnapshot('light');
 
     private state: State = {
@@ -178,6 +182,9 @@ export class SaveMessagesDialog {
         this.state.turnsCount = turns.length;
         this.state.selected = this.getInitialSelectedTurns(turns.length, startIndex);
         this.state.format = 'markdown';
+        this.exportContentCleanup = { ...this.contentCleanup };
+        this.exportFormulaFormat = this.markdownFormulaFormat;
+        this.markdownIncludeImages = false;
         this.state.saving = false;
         this.state.progressText = '';
         this.state.progressValue = null;
@@ -192,7 +199,7 @@ export class SaveMessagesDialog {
         this.motionNeedsOpen = !this.overlaySession;
 
         this.mount();
-        this.render();
+        this.render(true);
         return true;
     }
 
@@ -262,9 +269,12 @@ export class SaveMessagesDialog {
         });
     }
 
-    private render(): void {
+    private render(resetAdvanced = false): void {
         if (!this.overlaySession || this.closing) return;
 
+        const advancedOpen = !resetAdvanced && Boolean(this.overlaySession.surfaceRoot.querySelector<HTMLDetailsElement>('[data-role="export-advanced-options"]')?.open);
+        const focusedSummary = this.overlaySession.shadow.activeElement?.matches('.export-advanced-summary');
+        const focusedControl = this.overlaySession.shadow.activeElement?.closest<HTMLElement>('[data-role^="export-"]')?.dataset.role;
         this.exportSelects.forEach(control => control.close());
         this.exportSelects = [];
 
@@ -272,9 +282,15 @@ export class SaveMessagesDialog {
         const { element: panel, isNew: isNewPanel } = ensureStableElementFromHtml<HTMLElement>(
             this.overlaySession.surfaceRoot,
             '.panel-window--save',
-            this.getHtml(),
+            this.getHtml(advancedOpen),
         );
         this.mountExportSelects(panel);
+        const advanced = panel.querySelector<HTMLDetailsElement>('[data-role="export-advanced-options"]');
+        advanced?.addEventListener('toggle', () => {
+            if (advanced.isConnected && !advanced.open) this.exportSelects.forEach(control => control.close());
+        });
+        if (focusedSummary) advanced?.querySelector<HTMLElement>('summary')?.focus();
+        if (focusedControl) panel.querySelector<HTMLButtonElement>(`[data-role="${focusedControl}"] [aria-haspopup="listbox"]`)?.focus();
         this.overlaySession.syncSurfaceMotion({ surface: panel, backdrop });
         this.overlaySession.syncKeyboardScope({
             root: this.overlaySession.host,
@@ -300,8 +316,8 @@ export class SaveMessagesDialog {
             label: string,
             value: string,
             options: Array<{ value: string; label: string }>,
-            action: 'set-format' | 'set-visuals',
-            valueKey: 'format' | 'visuals',
+            action: 'set-format' | 'set-visuals' | 'set-formula' | 'set-links' | 'set-code' | 'set-markdown-images',
+            valueKey: 'format' | 'visuals' | 'value',
         ): void => {
             const slot = panel.querySelector<HTMLElement>(`[data-role="${role}"]`);
             if (!slot) return;
@@ -328,6 +344,22 @@ export class SaveMessagesDialog {
             { value: 'pdf', label: this.getLabel('formatPdf', 'PDF') },
             { value: 'png', label: this.getLabel('formatPng', 'PNG') },
         ], 'set-format', 'format');
+        mount('export-formula-control', this.getLabel('exportFormulaLabel', 'Formula format'), this.exportFormulaFormat,
+            FORMULA_SOURCE_FORMATS.map((value, index) => ({ value, label: this.getLabel([
+                'formulaSourceFormatMarkdownDollar', 'formulaSourceFormatLatexBrackets', 'formulaSourceFormatRaw', 'formulaSourceFormatEquation', 'formulaSourceFormatEquationStar',
+            ][index], value) })), 'set-formula', 'value');
+        mount('export-links-control', this.getLabel('exportLinksLabel', 'Links'), String(this.exportContentCleanup.preserveLinks), [
+            { value: 'true', label: this.getLabel('exportLinksKeep', 'Keep clickable links') },
+            { value: 'false', label: this.getLabel('exportLinksText', 'Text only') },
+        ], 'set-links', 'value');
+        mount('export-code-control', this.getLabel('exportCodeLabel', 'Code blocks'), String(this.exportContentCleanup.includeCodeBlocks), [
+            { value: 'true', label: this.getLabel('exportCodeKeep', 'Include code blocks') },
+            { value: 'false', label: this.getLabel('exportCodeOmit', 'Omit code blocks') },
+        ], 'set-code', 'value');
+        mount('export-markdown-images-control', this.getLabel('exportImagesLabel', 'Images'), String(this.markdownIncludeImages), [
+            { value: 'false', label: this.getLabel('messageExportRichPlaceholder', 'Use text placeholders') },
+            { value: 'true', label: this.getLabel('exportImageLinksKeep', 'Keep available image links') },
+        ], 'set-markdown-images', 'value');
         mount('export-visuals-control', this.getLabel('messageExportRichLabel', 'Charts and rich content'), this.state.visuals, [
             { value: 'include', label: this.getLabel('messageExportRichInclude', 'Include images') },
             { value: 'placeholder', label: this.getLabel('messageExportRichPlaceholder', 'Use text placeholders') },
@@ -372,6 +404,22 @@ export class SaveMessagesDialog {
                 }
                 return;
             }
+            case 'set-markdown-images':
+                this.markdownIncludeImages = actionEl.dataset.value === 'true';
+                this.render();
+                return;
+            case 'set-formula':
+                this.exportFormulaFormat = normalizeFormulaSourceFormat(actionEl.dataset.value);
+                this.render();
+                return;
+            case 'set-links':
+                this.exportContentCleanup.preserveLinks = actionEl.dataset.value === 'true';
+                this.render();
+                return;
+            case 'set-code':
+                this.exportContentCleanup.includeCodeBlocks = actionEl.dataset.value === 'true';
+                this.render();
+                return;
             case 'set-visuals': {
                 this.state.visuals = actionEl.dataset.visuals === 'placeholder' ? 'placeholder' : 'include';
                 this.render();
@@ -453,8 +501,9 @@ export class SaveMessagesDialog {
 
         const options: ExportOptions = {
             t: this.exportT,
-            contentCleanup: { ...this.contentCleanup },
-            markdownFormulaFormat: this.markdownFormulaFormat,
+            contentCleanup: { ...this.exportContentCleanup },
+            markdownFormulaFormat: this.exportFormulaFormat,
+            markdownIncludeImages: this.markdownIncludeImages,
             visuals: this.state.visuals,
             signal: abort.signal,
             onProgress: event => {
@@ -511,7 +560,7 @@ export class SaveMessagesDialog {
         }
     }
 
-    private getHtml(): string {
+    private getHtml(advancedOpen = false): string {
         const title = this.getLabel('saveMessagesTitle', 'Save Messages');
         const closeLabel = this.getLabel('btnClose', 'Close panel');
         const selectMessagesLabel = this.getLabel('selectMessagesLabel', 'Select messages');
@@ -525,8 +574,14 @@ export class SaveMessagesDialog {
         const showProgress = this.state.saving
             && (Boolean(this.state.progressText) || Boolean(this.state.renderProgressText));
         const showCancel = this.state.saving;
-        const showVisuals = ['pdf', 'png'].includes(this.state.format)
-            && [...this.state.selected].some(index => Boolean(this.turns[index]?.richBlocks?.length));
+        const showVisuals = this.state.format !== 'markdown';
+        const showMarkdownOptions = this.state.format === 'markdown' || this.state.format === 'markdown-zip';
+        const customized = (showMarkdownOptions && (
+            this.exportContentCleanup.preserveLinks !== this.contentCleanup.preserveLinks
+            || this.exportContentCleanup.includeCodeBlocks !== this.contentCleanup.includeCodeBlocks
+            || this.exportFormulaFormat !== this.markdownFormulaFormat
+        )) || (this.state.format === 'markdown' && this.markdownIncludeImages)
+            || (showVisuals && this.state.visuals !== 'include');
         const disabled = this.state.saving ? 'disabled' : '';
         const totalProgressValue = this.state.progressValue ?? 0;
         const renderProgressValue = this.state.renderProgressValue ?? 0;
@@ -562,14 +617,29 @@ export class SaveMessagesDialog {
     </div>
     </section>
     <div class="settings-card export-options">
-      <div class="settings-row settings-item">
+      <div class="settings-row settings-item export-format-row">
         <div class="settings-label"><strong>${escapeHtml(formatLabel)}</strong></div>
         <div data-role="export-format-control"></div>
       </div>
+      <details class="export-advanced-options" data-role="export-advanced-options" ${advancedOpen ? 'open' : ''}>
+        <summary class="export-advanced-summary">
+          <span>${escapeHtml(this.getLabel('exportAdvancedOptions', 'Advanced options'))}</span>
+          <span class="export-advanced-state" data-customized="${customized}">${escapeHtml(customized ? this.getLabel('exportOptionsCustomized', 'Customized') : this.getLabel('exportOptionsOptional', 'Optional'))}</span>
+          ${iconMarkup(chevronDownIcon)}
+        </summary>
+        <div class="export-advanced-body">
+      ${showMarkdownOptions ? `
+      <div class="settings-row settings-item"><div class="settings-label"><strong>${escapeHtml(this.getLabel('exportLinksLabel', 'Links'))}</strong></div><div data-role="export-links-control"></div></div>
+      <div class="settings-row settings-item"><div class="settings-label"><strong>${escapeHtml(this.getLabel('exportFormulaLabel', 'Formula format'))}</strong></div><div data-role="export-formula-control"></div></div>
+      <div class="settings-row settings-item"><div class="settings-label"><strong>${escapeHtml(this.getLabel('exportCodeLabel', 'Code blocks'))}</strong></div><div data-role="export-code-control"></div></div>
+      ${this.state.format === 'markdown' ? `<div class="settings-row settings-item"><div class="settings-label"><strong>${escapeHtml(this.getLabel('exportImagesLabel', 'Images'))}</strong></div><div data-role="export-markdown-images-control"></div></div><p class="export-format-hint">${escapeHtml(this.getLabel('exportMarkdownImagesHint', 'To save images with Markdown, choose the offline ZIP bundle.'))}</p>` : ''}
+      ` : ''}
       ${showVisuals ? `<div class="settings-row settings-item" data-role="rich-content-options">
         <div class="settings-label"><strong>${escapeHtml(this.getLabel('messageExportRichLabel', 'Charts and rich content'))}</strong></div>
         <div data-role="export-visuals-control"></div>
       </div>` : ''}
+        </div>
+      </details>
     </div>
     ${this.state.resultText ? `<div class="export-result workflow-dialog__status" data-role="export-result" role="status" aria-live="polite">${escapeHtml(this.state.resultText)}</div>` : ''}
     ${showProgress ? `

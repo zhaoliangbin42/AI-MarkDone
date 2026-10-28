@@ -37,6 +37,7 @@ export function createEmptyReaderRenderResult(userPrompt = ''): ReaderRenderResu
 
 export async function renderReaderItem(item: ReaderItem, options: {
     highlightCode: boolean;
+    includeImages?: boolean;
     contentCleanup?: ContentCleanupSettings;
     richAssets?: readonly RichContentImageV1[];
     labels: {
@@ -51,6 +52,7 @@ export async function renderReaderItem(item: ReaderItem, options: {
         : await resolveContent(item.content);
     const rendered = renderMarkdownForReader(markdown, {
         highlightCode: options.highlightCode,
+        includeImages: options.includeImages,
         ...(item.richBlocks ? { richContent: { blocks: item.richBlocks, assets: options.richAssets } } : {}),
     });
     return {

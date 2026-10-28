@@ -257,7 +257,7 @@ export function projectChatGPTMarkdown(
         stripBareUrls: !settings.preserveLinks,
     });
     const withoutImages = settings.preserveLinks
-        ? stripMarkdownImages(normalized)
+        ? omitMarkdownImages(normalized, true)
         : normalized;
     return settings.includeCodeBlocks ? withoutImages : omitMarkdownCodeBlocks(withoutImages);
 }
@@ -282,13 +282,13 @@ export function omitMarkdownCodeBlocks(markdown: string): string {
     }
 }
 
-function stripMarkdownImages(markdown: string): string {
+export function omitMarkdownImages(markdown: string, preserveRichReferences = false): string {
     try {
         const tree = unified().use(remarkParse).use(remarkGfm).use(remarkMath).parse(markdown) as MarkdownAstNode;
         const replacements: Array<{ start: number; end: number; value: string }> = [];
         visitMarkdownAst(tree, (node) => {
             if (node.type !== 'image' && node.type !== 'imageReference') return;
-            if (node.type === 'image' && node.url && isRichContentUrl(node.url)) return;
+            if (preserveRichReferences && node.type === 'image' && node.url && isRichContentUrl(node.url)) return;
             const start = node.position?.start?.offset;
             const end = node.position?.end?.offset;
             if (typeof start === 'number' && typeof end === 'number' && end > start) {

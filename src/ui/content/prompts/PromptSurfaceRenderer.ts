@@ -16,6 +16,8 @@ export type PromptSurfaceView = {
     statusMessage: string;
     dataState?: PromptDataState;
     manualAutocomplete?: boolean;
+    canInsert?: boolean;
+    busy?: boolean;
 };
 
 export type PromptSurfaceAction =
@@ -26,6 +28,7 @@ export type PromptSurfaceAction =
     | { type: 'edit'; promptId: string }
     | { type: 'toggle'; promptId: string; enabled: boolean }
     | { type: 'delete'; promptId: string }
+    | { type: 'insert'; promptId: string; deleteAfter: boolean }
     | { type: 'cancel-edit' }
     | { type: 'save'; draft: PromptEditorDraft }
     | { type: 'retry-load' }
@@ -63,6 +66,8 @@ export class PromptSurfaceRenderer {
         } else {
             this.renderManager(view);
         }
+        this.root.setAttribute('aria-busy', String(Boolean(view.busy)));
+        if (view.busy) this.root.querySelectorAll<HTMLButtonElement | HTMLInputElement>('button:not([data-action="close-prompts"]), input').forEach(control => { control.disabled = true; });
     }
 
     renderPreservingFocus(view: PromptSurfaceView): void {
@@ -189,6 +194,7 @@ export class PromptSurfaceRenderer {
             const body = `<button class="manager-row__main aimd-material-choice" type="button" data-action="edit-prompt" data-prompt-id="${escapeHtml(prompt.id)}">
                 <span class="manager-row__heading">
                   <span class="manager-row__title">${escapeHtml(prompt.title)}</span>
+                  ${prompt.triggerText ? `<span class="manager-row__trigger">\\${escapeHtml(prompt.triggerText)}</span>` : ''}
                   ${prompt.enabled ? '' : `<span class="manager-row__state">${escapeHtml(t('promptDisabled'))}</span>`}
                 </span>
                 <span class="manager-row__content">${escapeHtml(prompt.content.replace('{{cursor}}', '').trim())}</span>
@@ -196,9 +202,11 @@ export class PromptSurfaceRenderer {
             return `
             <div class="manager-row" data-prompt-id="${escapeHtml(prompt.id)}">
               ${body}
+              <button class="secondary-btn aimd-material-button aimd-material-button--quiet manager-row__insert" type="button" data-action="insert-prompt" data-prompt-id="${escapeHtml(prompt.id)}" ${view.canInsert === false ? 'disabled' : ''}>${escapeHtml(t('promptInsert'))}</button>
               <details class="manager-row__options" data-prompt-id="${escapeHtml(prompt.id)}" ${expandedPromptIds.has(prompt.id) ? 'open' : ''}>
                 <summary class="prompt-options-summary manager-row__summary" data-role="prompt-actions" data-prompt-id="${escapeHtml(prompt.id)}" aria-label="${escapeHtml(`${t('promptActionsLabel')}: ${prompt.title}`)}"><span>${escapeHtml(t('promptActionsLabel'))}</span>${chevronDownIcon}</summary>
                 <div class="manager-row__actions">
+                  <button class="secondary-btn aimd-material-button aimd-material-button--quiet" type="button" data-action="insert-delete-prompt" data-prompt-id="${escapeHtml(prompt.id)}" ${view.canInsert === false ? 'disabled' : ''}>${escapeHtml(t('promptInsertAndDelete'))}</button>
                   <label class="prompt-enabled-toggle">
                     <input class="aimd-material-check" type="checkbox" aria-label="${escapeHtml(`${t('promptEnabledLabel')}: ${prompt.title}`)}" data-action="toggle-prompt-enabled" data-prompt-id="${escapeHtml(prompt.id)}" ${prompt.enabled ? 'checked' : ''} />
                     <span>${escapeHtml(t('promptEnabledLabel'))}</span>
@@ -226,7 +234,7 @@ export class PromptSurfaceRenderer {
             <button class="primary-btn aimd-material-button aimd-material-button--primary" type="button" data-action="add-prompt" aria-label="${escapeHtml(t('promptAdd'))}">${plusIcon}<span>${escapeHtml(t('promptAdd'))}</span></button>
           </div>
           <div class="prompt-manager-body flat-workflow__body">${status}
-            <div class="manager-list flat-workflow__list">${rows || (loadFailed ? '' : `<div class="prompt-empty">${escapeHtml(t('promptNoPrompts'))}</div>`)}</div>
+            <div class="manager-list flat-workflow__list">${rows || (loadFailed ? '' : `<div class="prompt-empty">${escapeHtml(t(view.managerQuery.trim() ? 'promptNoMatches' : 'promptNoPrompts'))}</div>`)}</div>
           </div>`;
         this.installInputBoundaries();
     }
@@ -321,6 +329,7 @@ export class PromptSurfaceRenderer {
         else if (action === 'open-prompt-library') this.options.onAction({ type: 'open-library' });
         else if (action === 'add-prompt') this.options.onAction({ type: 'add' });
         else if (action === 'edit-prompt' && promptId) this.options.onAction({ type: 'edit', promptId });
+        else if ((action === 'insert-prompt' || action === 'insert-delete-prompt') && promptId) this.options.onAction({ type: 'insert', promptId, deleteAfter: action === 'insert-delete-prompt' });
         else if (action === 'delete-prompt' && promptId) this.options.onAction({ type: 'delete', promptId });
         else if (action === 'retry-prompts') this.options.onAction({ type: 'retry-load' });
         else if (action === 'cancel-edit') this.options.onAction({ type: 'cancel-edit' });

@@ -23,6 +23,7 @@ import {
 export type MarkdownRenderOptions = {
     softBreaks?: boolean;
     highlightCode?: boolean;
+    includeImages?: boolean;
     richContent?: {
         blocks: readonly RichBlockV1[];
         assets?: readonly { blockId: string; url: string; mimeType: string }[];
@@ -98,6 +99,15 @@ function prepareRichImages(options?: MarkdownRenderOptions) {
     return () => (tree: HastNode) => {
         visitTree(tree, node => {
             if (node.tagName !== 'img') return;
+            if (options?.includeImages === false) {
+                const id = getRichBlockIdFromUrl(String(node.properties?.src ?? ''));
+                const block = blocks.find(candidate => candidate.id === id);
+                const text = block?.fallbackMarkdown || String(node.properties?.alt || '');
+                node.tagName = 'span';
+                node.properties = {};
+                node.children = [{ type: 'text', value: text.replace(/^>\s*/gm, '') }];
+                return;
+            }
             const source = node.properties?.src;
             if (typeof source !== 'string' || !source.startsWith('aimd-rich:')) return;
             const id = getRichBlockIdFromUrl(source);
@@ -217,7 +227,7 @@ let softBreaksNoHighlightProcessor: ReturnType<typeof createProcessor> | null = 
 function getProcessor(options?: MarkdownRenderOptions) {
     // Resource capabilities are scoped to one message/revision, never cached
     // in a processor shared with another Reader item or export document.
-    if (options?.richContent) return createProcessor(options);
+    if (options?.richContent || options?.includeImages === false) return createProcessor(options);
     const highlightCode = options?.highlightCode !== false;
     if (options?.softBreaks) {
         if (highlightCode) {

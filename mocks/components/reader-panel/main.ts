@@ -143,6 +143,18 @@ let toolbar: MessageToolbar | null = null;
 let stepper: ChatGPTMessageStepperController | null = null;
 const fixtureParams = new URLSearchParams(window.location.search);
 let variant: VisualHarnessVariant = { theme: fixtureParams.get('theme') === 'dark' ? 'dark' : 'light', locale: fixtureParams.get('locale') === 'zh_CN' ? 'zh_CN' : 'en' };
+if (fixtureParams.get('pages') === 'long') {
+    const samples = [...readerItems];
+    readerItems.splice(0, readerItems.length, ...Array.from({ length: 150 }, (_, index) => ({
+        ...samples[index % samples.length], id: `reader-long-${index}`, userPrompt: `${index + 1}. ${samples[index % samples.length].userPrompt}`,
+    })));
+}
+if (fixtureParams.get('images') === '1') {
+    readerItems[0] = {
+        ...readerItems[0], content: '# Inline image fixture\n\nText before the image.\n\n![Inline diagram](aimd-rich:fixture-image)\n\nText after the image.',
+        richBlocks: [{ id: 'fixture-image', kind: 'svg', label: 'Inline diagram', visualDigest: 'fixture-v1', fallbackMarkdown: 'Diagram: a blue circle.', source: { kind: 'svg', svg: '<svg xmlns="http://www.w3.org/2000/svg" width="300" height="160"><circle cx="150" cy="80" r="60" fill="royalblue"/></svg>' } }],
+    };
+}
 let lastTrigger: 'toolbar' | 'page-control' = 'toolbar';
 
 const nextTask = (): Promise<void> => new Promise((resolve) => window.setTimeout(resolve, 0));
@@ -161,6 +173,12 @@ async function showReader(trigger: 'toolbar' | 'page-control'): Promise<void> {
         annotationDocument: { platform: 'chatgpt', conversationId: fixtureParams.get('conversation') || 'visual-reader', title: 'Reader highlight preview', lastKnownUrl: `https://chatgpt.com/c/${fixtureParams.get('conversation') || 'visual-reader'}` },
         profile: 'conversation-reader',
         actions: getReaderActions(),
+        ...(fixtureParams.get('images') === '1' ? { resolveRichContent: async (item: ReaderItem) => {
+            const block = item.richBlocks?.[0];
+            if (!block || block.source.kind !== 'svg') return { assets: [], release() {} };
+            const url = URL.createObjectURL(new Blob([block.source.svg], { type: 'image/svg+xml' }));
+            return { assets: [{ blockId: block.id, url, mimeType: 'image/svg+xml' as const }], release: () => URL.revokeObjectURL(url) };
+        } } : {}),
     });
 }
 

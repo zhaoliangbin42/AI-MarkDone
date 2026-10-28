@@ -101,7 +101,56 @@ describe('SaveMessagesDialog', () => {
         vi.unstubAllGlobals();
     });
 
-    it('shows rich-content options only for a selected rich reply in PDF or PNG', async () => {
+    it('folds advanced choices by default, retains disclosure and values during editing, and resets on reopen', async () => {
+        const dialog = new SaveMessagesDialog();
+        await dialog.open({ getPlatformId: () => 'chatgpt' } as any, 'light');
+        const shadow = document.getElementById('aimd-save-messages-dialog-host')!.shadowRoot!;
+        const advanced = () => shadow.querySelector<HTMLDetailsElement>('[data-role="export-advanced-options"]')!;
+        expect(advanced()).not.toBeNull();
+        expect(advanced().open).toBe(false);
+        expect(advanced().contains(shadow.querySelector('[data-role="export-format-control"]'))).toBe(false);
+        pointerClick(advanced().querySelector('summary')!);
+        expect(advanced().open).toBe(true);
+        const links = shadow.querySelector<HTMLElement>('[data-role="export-links-control"]')!;
+        pointerClick(links.querySelector<HTMLElement>('[aria-haspopup="listbox"]')!);
+        pointerClick(links.querySelector<HTMLElement>('[data-value="true"]')!);
+        expect(advanced().open).toBe(true);
+        expect(advanced().querySelector('[data-customized="true"]')).toBeTruthy();
+        chooseFormat(shadow, 'pdf');
+        expect(advanced().open).toBe(true);
+        pointerClick(advanced().querySelector('summary')!);
+        chooseFormat(shadow, 'markdown');
+        expect(advanced().open).toBe(false);
+        expect(shadow.querySelector('[data-role="export-links-control"] [aria-selected="true"]')?.getAttribute('data-value')).toBe('true');
+        await dialog.open({ getPlatformId: () => 'chatgpt' } as any, 'light');
+        expect(advanced().open).toBe(false);
+    });
+
+    it('exports the per-dialog Markdown choices through real dropdown triggers without changing global defaults', async () => {
+        const dialog = new SaveMessagesDialog();
+        await dialog.open({ getPlatformId: () => 'chatgpt' } as any, 'light');
+        const shadow = document.getElementById('aimd-save-messages-dialog-host')!.shadowRoot!;
+        const choose = (role: string, value: string) => {
+            const control = shadow.querySelector<HTMLElement>(`[data-role="${role}"]`)!;
+            pointerClick(control.querySelector<HTMLElement>('[aria-haspopup="listbox"]')!);
+            pointerClick(control.querySelector<HTMLElement>(`[data-value="${value}"]`)!);
+        };
+        choose('export-links-control', 'true');
+        choose('export-formula-control', 'latex-brackets');
+        choose('export-code-control', 'false');
+        choose('export-markdown-images-control', 'true');
+        chooseFormat(shadow, 'pdf');
+        chooseFormat(shadow, 'markdown');
+        pointerClick(shadow.querySelector<HTMLElement>('[data-action="save-turns"]')!);
+        await flushUi();
+        expect(exportTurnsMarkdown).toHaveBeenLastCalledWith(expect.any(Array), expect.any(Array), expect.any(Object), expect.objectContaining({
+            contentCleanup: { preserveLinks: true, includeCodeBlocks: false }, markdownFormulaFormat: 'latex-brackets', markdownIncludeImages: true,
+        }));
+        await dialog.open({ getPlatformId: () => 'chatgpt' } as any, 'light');
+        expect(shadow.querySelector('[data-role="export-links-control"] [data-value="false"]')?.getAttribute('aria-selected')).toBe('true');
+    });
+
+    it('keeps image options available for PDF and PNG even when the selection changes to plain text', async () => {
         await setLocale('en');
         vi.mocked(collectFreshReaderContent).mockResolvedValueOnce({ items: richItems(), startIndex: 0, metadataSource: 'chatgpt-content-v1' });
         const dialog = new SaveMessagesDialog();
@@ -117,7 +166,7 @@ describe('SaveMessagesDialog', () => {
         expect(shadow.querySelector('[data-visuals="include"]')?.getAttribute('aria-selected')).toBe('true');
         pointerClick(shadow.querySelector<HTMLElement>('[data-index="0"]')!);
         pointerClick(shadow.querySelector<HTMLElement>('[data-index="1"]')!);
-        expect(shadow.querySelector('[data-role="rich-content-options"]')).toBeNull();
+        expect(shadow.querySelector('[data-role="rich-content-options"]')).toBeTruthy();
         pointerClick(shadow.querySelector<HTMLElement>('[data-action="select-all-turns"]')!);
         chooseFormat(shadow, 'png');
         expect(shadow.querySelector('[data-role="rich-content-options"]')).toBeTruthy();

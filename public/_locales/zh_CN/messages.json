@@ -5837,6 +5837,30 @@
     },
     "keyboardPlatformUnavailable": {
         "message": "当前系统不可用"
-    }
-
+    },
+    "readerPageJump": {"message": "页码 · 按回车跳转"},
+    "readerShowImagesLabel": {"message": "显示回复中的图片"},
+    "readerShowImagesDesc": {"message": "显示已获取的内嵌图片和图表；关闭后只显示文字说明，不加载图片。"},
+    "chatgptDirectoryPreviewAssistantLabel": {"message": "预览中显示 AI 回复"},
+    "chatgptDirectoryPreviewAssistantDesc": {"message": "以纯文本同时显示提问与 AI 回复；预览长度分别作用于两部分。"},
+    "exportFormulaLabel": {"message": "公式格式"},
+    "exportLinksLabel": {"message": "链接"},
+    "exportLinksKeep": {"message": "保留链接"},
+    "exportLinksText": {"message": "仅保留文字"},
+    "exportCodeLabel": {"message": "代码块"},
+    "exportCodeKeep": {"message": "包含代码块"},
+    "exportCodeOmit": {"message": "不包含代码块"},
+    "exportMarkdownImagesHint": {"message": "需要同时保存 Markdown 和图片时，请选择 Markdown 离线包（ZIP）。"},
+    "promptInsert": {"message": "插入"},
+    "promptInsertAndDelete": {"message": "插入并删除"},
+    "promptInsertFailed": {"message": "Prompt 未能插入，库中的条目已保留。请检查消息输入框后重试。"},
+    "promptInsertedDeleteFailed": {"message": "Prompt 已插入，但未能从库中删除。请使用“删除”重试，避免重复插入。"},
+    "promptNoMatches": {"message": "没有匹配的 Prompt，请换个关键词。"},
+    "exportImagesLabel": {"message": "图片"},
+    "exportImageLinksKeep": {"message": "保留可用的图片链接"},
+    "exportAdvancedOptions": {"message": "高级选项"},
+    "exportOptionsOptional": {"message": "可选"},
+    "exportOptionsCustomized": {"message": "已调整"},
+    "readerAllMessages": {"message": "全部消息"},
+    "readerPagerHelp": {"message": "悬停预览 · 点击跳转"}
 }

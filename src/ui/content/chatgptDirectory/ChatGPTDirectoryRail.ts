@@ -1,3 +1,4 @@
+import { t } from '../components/i18n';
 import type { Theme } from '../../../core/types/theme';
 import {
     areAppearanceSnapshotsEqual,
@@ -33,7 +34,7 @@ const EXPANDED_LABEL_HEAD_TAIL_MAX_LENGTH = 30;
 const USER_INTERACTION_IDLE_MS = 800;
 const PREVIEW_CLOSE_DELAY_MS = 400;
 const PREVIEW_MIN_WIDTH_PX = 360;
-const PREVIEW_MAX_WIDTH_PX = 800;
+const PREVIEW_MAX_VIEWPORT_RATIO = 0.65;
 const PREVIEW_WIDTH_BASE_CHARS = 40;
 const PREVIEW_WIDTH_STEP_CHARS = 120;
 const PREVIEW_WIDTH_STEP_PX = 100;
@@ -71,7 +72,7 @@ function resolvePreviewWidth(text: string): number {
     const extraSteps = charCount <= PREVIEW_WIDTH_BASE_CHARS
         ? 0
         : Math.ceil((charCount - PREVIEW_WIDTH_BASE_CHARS) / PREVIEW_WIDTH_STEP_CHARS);
-    return Math.min(PREVIEW_MAX_WIDTH_PX, PREVIEW_MIN_WIDTH_PX + extraSteps * PREVIEW_WIDTH_STEP_PX);
+    return PREVIEW_MIN_WIDTH_PX + extraSteps * PREVIEW_WIDTH_STEP_PX;
 }
 
 function getDirectoryPortalHost(): HTMLElement | null {
@@ -111,6 +112,7 @@ export class ChatGPTDirectoryRail {
     private programmaticScrollTop: number | null = null;
     private interactionIdleTimer: number | null = null;
     private onSelect: (round: ChatGPTConversationRound) => void;
+    private previewAssistant = false;
     private previewMaxChars = DEFAULT_CHATGPT_DIRECTORY_PREVIEW_MAX_CHARS;
     private previewActionsFactory: ChatGPTDirectoryPreviewActionsFactory | null = null;
     private previewToolbar: MessageToolbar | null = null;
@@ -311,6 +313,11 @@ export class ChatGPTDirectoryRail {
     setRightInsetPx(value: number): void {
         this.rightInsetPx = normalizeRightInsetPx(value);
         this.applyRightOffsetVars();
+    }
+
+    setPreviewAssistant(value: boolean): void {
+        this.previewAssistant = Boolean(value);
+        this.renderPreview();
     }
 
     setPreviewMaxChars(value: number): void {
@@ -590,13 +597,30 @@ export class ChatGPTDirectoryRail {
         const body = this.previewEl.querySelector<HTMLElement>('.aimd-chatgpt-directory-preview__body');
         const previewText = this.buildPreviewText(round);
         if (title) title.textContent = `#${round.position}`;
-        if (body) body.textContent = previewText;
+        if (body) {
+            body.replaceChildren();
+            const parts = this.buildPreviewParts(round);
+            for (const part of parts) {
+                const section = document.createElement('div');
+                section.className = 'aimd-chatgpt-directory-preview__section';
+                if (parts.length > 1) {
+                    const label = document.createElement('div');
+                    label.className = 'aimd-chatgpt-directory-preview__label';
+                    label.textContent = part.label;
+                    section.appendChild(label);
+                }
+                const text = document.createElement('div');
+                text.textContent = part.text;
+                section.appendChild(text);
+                body.appendChild(section);
+            }
+        }
         this.previewEl.style.setProperty('--_directory-preview-width', `${resolvePreviewWidth(previewText)}px`);
         this.renderPreviewActions(round);
         this.previewEl.dataset.open = '1';
         this.installPreviewGlobalHandlers();
         this.positionPreview();
-        this.fitPreviewBody(body);
+        if (!this.previewAssistant) this.fitPreviewBody(body);
         this.schedulePreviewFit();
     }
 
@@ -618,11 +642,22 @@ export class ChatGPTDirectoryRail {
         style.textContent = this.getPreviewCss();
     }
 
+    private buildPreviewParts(round: ChatGPTConversationRound): Array<{ label: string; text: string }> {
+        const truncate = (text: string) => {
+            const chars = Array.from(text.trim());
+            return chars.length <= this.previewMaxChars ? text.trim() : `${chars.slice(0, this.previewMaxChars - 1).join('')}…`;
+        };
+        if (!this.previewAssistant || !round.userPrompt.trim()) {
+            return [{ label: '', text: truncate(resolveDirectoryEntryText(round)) }];
+        }
+        return [
+            { label: t('exportUserLabel'), text: truncate(round.userPrompt) },
+            { label: t('exportAssistantLabel'), text: truncate(round.assistantContent) },
+        ].filter(part => part.text);
+    }
+
     private buildPreviewText(round: ChatGPTConversationRound): string {
-        const text = resolveDirectoryEntryText(round);
-        const chars = Array.from(text);
-        if (chars.length <= this.previewMaxChars) return text;
-        return `${chars.slice(0, Math.max(1, this.previewMaxChars - 1)).join('')}…`;
+        return this.buildPreviewParts(round).map(part => part.text).join('\n\n');
     }
 
     private renderPreviewActions(round: ChatGPTConversationRound): void {
@@ -680,7 +715,7 @@ export class ChatGPTDirectoryRail {
         if (this.previewFitFrame !== null || this.previewEl.dataset.open !== '1') return;
         this.previewFitFrame = window.requestAnimationFrame(() => {
             this.previewFitFrame = null;
-            this.fitPreviewBody(this.previewEl.querySelector<HTMLElement>('.aimd-chatgpt-directory-preview__body'));
+            if (!this.previewAssistant) this.fitPreviewBody(this.previewEl.querySelector<HTMLElement>('.aimd-chatgpt-directory-preview__body'));
             this.positionPreview();
         });
     }
@@ -747,16 +782,22 @@ export class ChatGPTDirectoryRail {
     private positionPreview(): void {
         if (this.previewEl.dataset.open !== '1') return;
         const railRect = this.rootEl.getBoundingClientRect();
-        const previewRect = this.previewEl.getBoundingClientRect();
+
         const viewportWidth = window.innerWidth || document.documentElement.clientWidth || 1024;
         const viewportHeight = window.innerHeight || document.documentElement.clientHeight || 768;
         const computed = typeof window.getComputedStyle === 'function' ? window.getComputedStyle(this.previewEl) : null;
         const gap = Number.parseFloat(computed?.getPropertyValue('--_directory-preview-gap') ?? '') || 12;
         const gutter = Number.parseFloat(computed?.getPropertyValue('--_directory-preview-gutter') ?? '') || 12;
-        const width = previewRect.width || 280;
+        const availableLeft = Math.max(0, railRect.left - gap - gutter);
+        const availableRight = Math.max(0, viewportWidth - railRect.right - gap - gutter);
+        const placeLeft = availableLeft >= availableRight;
+        const available = Math.min(viewportWidth * PREVIEW_MAX_VIEWPORT_RATIO, placeLeft ? availableLeft : availableRight);
+        this.previewEl.style.maxWidth = `${available}px`;
+        const previewRect = this.previewEl.getBoundingClientRect();
+        const width = Math.min(previewRect.width || 280, available);
         const leftOfRail = railRect.left - gap - width;
         const rightOfRail = railRect.right + gap;
-        const preferredLeft = leftOfRail >= gutter ? leftOfRail : rightOfRail;
+        const preferredLeft = placeLeft ? leftOfRail : rightOfRail;
         const left = Math.min(Math.max(gutter, preferredLeft), Math.max(gutter, viewportWidth - width - gutter));
         this.previewEl.style.left = `${Math.round(left)}px`;
         this.previewEl.style.right = 'auto';
@@ -780,14 +821,13 @@ export class ChatGPTDirectoryRail {
   right: auto;
   top: 0;
   width: var(--_directory-preview-width);
-  max-width: min(var(--_directory-preview-width), calc(100vw - (var(--aimd-space-3) * 2)));
-  padding: var(--aimd-space-3);
+  max-width: min(var(--_directory-preview-width), 65vw, calc(100vw - (var(--aimd-space-3) * 2)));
+  padding: var(--aimd-space-4);
   border-radius: var(--aimd-radius-lg);
   background: var(--aimd-bg-surface);
-  background: color-mix(in srgb, var(--aimd-bg-surface) 92%, transparent);
   color: var(--aimd-text-primary);
   box-shadow: var(--aimd-shadow-lg);
-  border: 1px solid color-mix(in srgb, var(--aimd-border-subtle) 72%, transparent);
+  border: 1px solid var(--aimd-border-subtle);
   pointer-events: none;
   visibility: hidden;
   opacity: 0;
@@ -806,6 +846,7 @@ export class ChatGPTDirectoryRail {
   opacity: 1;
 }
 .aimd-chatgpt-directory-preview__title {
+  align-self: flex-start;
   display: inline-flex;
   align-items: center;
   min-height: 22px;
@@ -819,14 +860,26 @@ export class ChatGPTDirectoryRail {
   margin-bottom: var(--aimd-space-2);
 }
 .aimd-chatgpt-directory-preview__body {
-  color: var(--aimd-text-secondary);
+  color: var(--aimd-text-primary);
   font-size: var(--aimd-font-size-sm);
-  line-height: 1.45;
-  white-space: normal;
+  line-height: 1.6;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
   flex: 1 1 auto;
   min-height: 0;
-  max-height: calc(100vh - (var(--aimd-space-3) * 7));
-  overflow: hidden;
+  max-height: 55vh;
+  overflow: auto;
+}
+.aimd-chatgpt-directory-preview__section + .aimd-chatgpt-directory-preview__section {
+  margin-top: var(--aimd-space-3);
+  padding-top: var(--aimd-space-3);
+  border-top: 1px solid var(--aimd-border-subtle);
+}
+.aimd-chatgpt-directory-preview__label {
+  margin-bottom: var(--aimd-space-2);
+  font-size: var(--aimd-text-xs);
+  font-weight: var(--aimd-font-medium);
+  color: var(--aimd-text-secondary);
 }
 .aimd-chatgpt-directory-preview__actions {
   display: flex;
@@ -835,9 +888,7 @@ export class ChatGPTDirectoryRail {
   pointer-events: auto;
 }
 @media (max-width: 560px) {
-  .aimd-chatgpt-directory-preview {
-    display: none;
-  }
+  .aimd-chatgpt-directory-preview { display: none; }
 }
 
 `;

@@ -12,6 +12,8 @@ button { font: inherit; color: inherit; }
 ${getPanelChromeCss()}
 ${getWorkflowDialogChromeCss()}
 
+.export-format-hint { margin: var(--aimd-space-2) 0; color: var(--aimd-text-secondary); font-size: var(--aimd-text-sm); line-height: 1.5; }
+
 .panel-stage__overlay {
   position: fixed;
   inset: 0;
@@ -70,6 +72,32 @@ ${getWorkflowDialogChromeCss()}
   min-width: 0;
   padding-block: var(--aimd-space-4);
 }
+.export-options .settings-row { padding-block: var(--aimd-space-3); }
+.export-options .export-format-row { padding-block: var(--aimd-space-4); }
+.export-advanced-options { border-top: 1px solid var(--aimd-border-subtle); }
+.export-advanced-summary {
+  display: flex;
+  align-items: center;
+  gap: var(--aimd-space-2);
+  min-height: var(--aimd-size-control-action-panel);
+  padding-block: var(--aimd-space-3);
+  font-size: var(--aimd-text-sm);
+  color: var(--aimd-text-secondary);
+  cursor: pointer;
+  list-style: none;
+}
+.export-advanced-summary::-webkit-details-marker { display: none; }
+.export-advanced-summary > span:first-child { flex: 1; }
+.export-advanced-summary > svg { width: var(--aimd-size-control-glyph-panel); height: var(--aimd-size-control-glyph-panel); }
+.export-advanced-options[open] > summary > svg { transform: rotate(180deg); }
+.export-advanced-summary:hover { color: var(--aimd-text-primary); }
+.export-advanced-summary:focus-visible { outline: 2px solid var(--aimd-focus-ring); outline-offset: -2px; border-radius: var(--aimd-radius-sm); }
+.export-advanced-state { font-size: var(--aimd-text-xs); color: var(--aimd-text-tertiary); }
+.export-advanced-state[data-customized="true"] { color: var(--aimd-interactive-primary); font-weight: var(--aimd-font-medium); }
+.export-advanced-body { padding-bottom: var(--aimd-space-3); border-top: 1px solid var(--aimd-border-subtle); }
+.message-selection.settings-card { border: 0; border-radius: 0; padding-inline: 0; background: transparent; }
+.message-selection .message-grid { padding-top: 0; }
+
 .settings-item + .settings-item {
   border-top: 1px solid color-mix(in srgb, var(--aimd-workspace-border) 65%, transparent);
 }

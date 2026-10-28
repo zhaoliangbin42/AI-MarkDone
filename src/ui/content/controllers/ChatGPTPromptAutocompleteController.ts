@@ -61,6 +61,8 @@ function stripCursorMarker(value: string): { text: string; markerIndex: number }
  * Workflow state, host geometry, and DOM rendering live in their deep Modules.
  */
 export class ChatGPTPromptAutocompleteController {
+    private managerInsertionPending = false;
+    private managerComposerContext: { input: ComposerInput; text: string; start: number; end: number } | null = null;
     private initialized = false;
     private composer: ComposerInput | null = null;
     private composerOverride: ComposerInput | null = null;
@@ -164,6 +166,10 @@ export class ChatGPTPromptAutocompleteController {
 
     async openManager(anchor?: HTMLElement | null): Promise<void> {
         this.ensureLocaleSubscription();
+        const input = this.getComposerInput();
+        const read = readComposer(this.getActiveComposerAdapter());
+        const caret = this.getCaretRange();
+        this.managerComposerContext = input && read.ok ? { input, text: read.text, start: caret?.start ?? read.text.length, end: caret?.end ?? read.text.length } : null;
         await this.workflow.openManager();
         this.ensureHost();
         this.surfaceSession?.captureFocus(anchor ?? undefined);
@@ -545,6 +551,8 @@ export class ChatGPTPromptAutocompleteController {
             statusMessage: state.statusMessage,
             dataState: state.dataState,
             manualAutocomplete: state.manualAutocomplete,
+            canInsert: Boolean(this.getComposerInput()),
+            busy: this.managerInsertionPending,
         };
     }
 
@@ -627,10 +635,14 @@ export class ChatGPTPromptAutocompleteController {
         this.root = null;
         this.surfaceLifecycleMode = null;
         this.surfaceAnchor = null;
-        if (resetWorkflow) this.workflow.closeSurface();
+        if (resetWorkflow) {
+            this.workflow.closeSurface();
+            this.managerComposerContext = null;
+        }
     }
 
     private handleSurfaceAction(action: PromptSurfaceAction): void {
+        if (this.managerInsertionPending && action.type !== 'close') return;
         if (action.type === 'close') {
             this.close();
         } else if (action.type === 'open-library') {
@@ -649,6 +661,8 @@ export class ChatGPTPromptAutocompleteController {
         } else if (action.type === 'toggle') {
             void this.workflow.toggleEnabled(action.promptId, action.enabled, t('promptSaveFailed'))
                 .then(() => this.render());
+        } else if (action.type === 'insert') {
+            void this.insertFromManager(action.promptId, action.deleteAfter);
         } else if (action.type === 'delete') {
             void this.workflow.delete(action.promptId, t('promptSaveFailed')).then(() => this.render());
         } else if (action.type === 'cancel-edit') {
@@ -669,6 +683,55 @@ export class ChatGPTPromptAutocompleteController {
         } else if (action.type === 'panel-drag-start') {
             const layout = this.createGeometryLayout();
             if (layout) this.geometry.startPanelDrag(action.event, layout);
+        }
+    }
+
+    private async insertFromManager(promptId: string, deleteAfter: boolean): Promise<void> {
+        if (this.managerInsertionPending || this.workflow.state.mode !== 'manager') return;
+        const prompt = this.workflow.state.prompts?.find(item => item.id === promptId);
+        const input = this.getComposerInput();
+        const adapter = this.getActiveComposerAdapter();
+        const read = readComposer(adapter);
+        if (!prompt || !input || !read.ok || !input.isConnected) {
+            this.workflow.setStatusMessage(t('promptInsertFailed'));
+            this.render();
+            return;
+        }
+        const context = this.managerComposerContext;
+        const caret = context?.input === input && context.text === read.text
+            ? context : { start: read.text.length, end: read.text.length };
+        const prepared = stripCursorMarker(prompt.content);
+        const originHost = this.host;
+        this.managerInsertionPending = true;
+        this.workflow.setStatusMessage('');
+        this.render();
+        try {
+            // Keep the manager's focus scope until the verified write finishes.
+            const result = await replaceComposerTextRange(adapter, {
+                start: caret.start, end: caret.end, replacement: prepared.text,
+                cursorIndex: caret.start + (prepared.markerIndex >= 0 ? prepared.markerIndex : prepared.text.length),
+            }, { focus: false });
+            const verified = readComposer(adapter);
+            if (!result.ok || !verified.ok || verified.text !== result.text || this.getComposerInput() !== input || !input.isConnected) {
+                this.workflow.setStatusMessage(t('promptInsertFailed'));
+                return;
+            }
+            if (deleteAfter) {
+                const deleted = await this.workflow.delete(prompt.id, t('promptSaveFailed'), prompt.updatedAt);
+                if (!deleted) {
+                    this.workflow.setStatusMessage(t('promptInsertedDeleteFailed'));
+                    return;
+                }
+            } else this.workflow.recordUse(prompt.id);
+            if (this.host === originHost) {
+                this.close();
+                input.focus();
+            }
+        } catch {
+            this.workflow.setStatusMessage(t('promptInsertFailed'));
+        } finally {
+            this.managerInsertionPending = false;
+            if (this.host === originHost) this.render();
         }
     }
 

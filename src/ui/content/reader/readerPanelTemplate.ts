@@ -230,7 +230,7 @@ export function getReaderPanelHtml(params: {
     </div>
     <div class="reader-footer__meta">
       <div class="hint">${escapeHtml(pagerHint)}</div>
-      <div class="reader-footer-page">${total > 0 ? `${state.index + 1}/${total}` : '0/0'}</div>
+      <label class="reader-page-jump"><input data-role="reader-page-input" type="text" inputmode="numeric" pattern="[0-9]*" aria-label="${escapeHtml(getLabel('readerPageJump', 'Page number · Enter to go'))}" value="${total > 0 ? state.index + 1 : 0}" ${total ? '' : 'disabled'} /><span>/ ${total}</span></label>
       <div class="status-line" data-field="status">${escapeHtml(state.statusText)}</div>
     </div>
   </div>

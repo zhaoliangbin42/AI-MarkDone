@@ -22,6 +22,7 @@ import {
 
 ensurePageTokens();
 const navigationFailureFixture = new URLSearchParams(location.search).has('navigation-failure');
+const directoryFixtureParams = new URLSearchParams(location.search);
 history.replaceState({}, '', '/c/12345678-abcd-4abc-8def-1234567890ab');
 
 const copy = {
@@ -156,7 +157,8 @@ function mountDirectory(): void {
     })));
     directory.setBookmarkedPositions([2, 5]);
     directory.setActivePosition(3, { follow: false });
-    directory.setDisplayMode('preview');
+    directory.setDisplayMode(directoryFixtureParams.get('directoryMode') === 'expanded' ? 'expanded' : 'preview');
+    directory.setPreviewAssistant(directoryFixtureParams.get('replies') === '1');
     document.body.appendChild(directory.getElement());
 }
 

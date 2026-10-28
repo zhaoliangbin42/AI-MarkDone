@@ -1,5 +1,48 @@
 # AI-MarkDone Design Reference
 
+## Reader navigation and output choices (2026-10-28)
+
+Reader's footer has an editable message number and total. Enter commits an
+in-range integer; Escape or invalid Enter restores the current number. IME
+composition never navigates. When the dot strip has omitted pages, hovering or
+focusing it opens a bounded, scrollable grid of all obtained messages. Grid nodes
+reuse the dot preview and jump path; the current message remains marked. Keep a
+400 ms hover handoff, focus access, first-Escape dismissal and teardown cleanup.
+The grid is created on demand and uses the panel's available height. A fixed
+header names All messages and shows the current position; only the grid scrolls.
+The active number uses the accent fill and its paired foreground token. Numeric
+entry remains reachable on narrow layouts.
+
+Reader settings includes Show images in replies, on by default to retain the
+existing rich-content presentation. Off renders descriptive text without acquiring
+assets; toggling cancels and releases the previous lease. This covers captured
+inline reply images and charts in both Reader runtimes. User attachments lack the
+same source sidecar and are not newly supported by this preference.
+
+Directory's optional reply preview is off by default. With it on, label Prompt
+and AI reply separately and set content through text nodes. The existing
+200–2000 character preference applies to each part. Bound preview width by 65%
+of the viewport and the actual space beside the rail; never clamp the popup on
+top of the rail. Retain the existing hover handoff and below-560px hidden contract.
+Long previews own their scrolling. Selection color swatches use the smaller
+shared spacing token while retaining their labels and focus indicators.
+
+Save Messages keeps message selection, Format and Save in its primary flow.
+A native Advanced options disclosure below Format starts closed on every open.
+Preserve disclosure state during selection, format, locale and progress updates;
+closing it does not reset values. Show a quiet Customized indicator when the
+current format's options differ from their initial values. Markdown and ZIP
+expose links, five formula-source formats and code inclusion inside this disclosure. Plain Markdown
+also offers available original image links; descriptive placeholders remain its
+default. Local/temporary image URLs are never exported as permanent links. ZIP
+is the offline-image option. PDF, PNG and ZIP always expose Include images /
+Use text placeholders, so changing the selected messages does not remove the
+choice. These are dialog-local overrides initialized from shared settings;
+reopening restores those defaults. The save footer stays reachable while the
+body scrolls; the message-selection area is flat and the advanced group owns no
+additional scroll container. Global copy and content preferences are unchanged by these choices.
+
+
 ## ChatGPT page width (2026-10-20)
 
 Settings → Appearance & layout uses the font-size stepper appearance for page
@@ -18,7 +61,7 @@ Start with the user's task, rather than displaying every available control:
 | Write an annotation | Short source excerpt, annotation input, Save and Close | Full source, window tools, discard and delete |
 | Find an annotation | Scope, search and annotation text; all history grouped by conversation | Bulk management; new-annotation persistence is configured only in Reader Settings |
 | Edit a Prompt | Name and content, Cancel and Save | Trigger text and cursor placeholder |
-| Manage Prompts | Search, New and a readable list; row opens editing | Enable and delete through each row's actions; existing order is retained and new Prompts append |
+| Manage Prompts | Search, New, readable rows and Insert; row body opens editing | Insert and delete, enable and delete through each row's actions; existing order is retained and new Prompts append |
 | Save a bookmark | Prefilled title, selected folder and Save | Folder tree and folder creation; expand automatically when selection is unavailable |
 | Send | Editable existing draft, Send and Close | Existing annotation insertion and resize controls |
 | Adjust reading | Font size, content width, outline and code display | Open mode, annotation/output rules, Prompt/template editing and notices |
@@ -38,8 +81,16 @@ review. While confirmation/deletion is pending, lock the selection and protect
 the parent window from nested-modal dismissal. Remove successful or already
 absent rows, retain failed selections with refreshed content, and keep the window
 open for the next batch. Page annotation insertion keeps records; deletion is a
-separate action. Prompt manager rows still edit; they do not insert
-content. Custom templates, Prompt position and editor window controls remain.
+separate action. Prompt manager row bodies still edit; a separate Insert action writes at the
+saved composer selection. If the draft changed while the manager was open,
+append without replacing stale selected text. Insert and delete is a secondary
+explicit action: verify the written draft before deleting the displayed Prompt
+revision. Failed insertion preserves the record; failed/conflicting deletion
+keeps the inserted draft and offers ordinary Delete for a deliberate retry.
+Place the explicit Insert button on the right of each row, with More actions
+below it and a two-line content preview on the left. Keep trigger text visually
+secondary. Disable insertion when no composer is available and suppress duplicate actions
+while a write is pending. Custom templates, Prompt position and editor window controls remain.
 
 The approved Settings and Save Messages presentation now extends to annotation
 editing, Page/Reader annotation management, annotation copying and templates,
@@ -96,9 +147,9 @@ It adds no modal or change to keyboard behavior.
 ## Rich-content output controls (2026-10-08)
 
 Save Messages uses the existing modal, token system and selection contract.
-Formats are Markdown, Markdown offline bundle (ZIP), PDF and PNG. PDF/PNG show
-one two-choice rich-content group only when the selection contains visual
-blocks: Include images (default) / Use text placeholders. Do not expose capture
+Formats are Markdown, Markdown offline bundle (ZIP), PDF and PNG. The October 28
+format-specific choices above extend this layout. PDF/PNG/ZIP expose Include
+images (default) / Use text placeholders regardless of the current selection. Do not expose capture
 channels, SVG/foreignObject details or per-block technical choices in this flow.
 Preparation keeps selection fixed, offers cancellation and overall progress;
 PNG additionally retains detailed rendering progress. Native PDF preview opens

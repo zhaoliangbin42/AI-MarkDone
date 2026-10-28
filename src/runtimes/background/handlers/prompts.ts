@@ -120,6 +120,10 @@ export async function handlePromptsRequest(request: ExtRequest): Promise<Handler
         case 'prompts:delete': {
             return backgroundStorageQueue.enqueue(async () => {
                 const library = await loadLibrary();
+                const current = library.prompts.find(prompt => prompt.id === request.payload.id);
+                if (current && request.payload.expectedUpdatedAt !== undefined && current.updatedAt !== request.payload.expectedUpdatedAt) {
+                    return { response: err(request.id, request.type, 'CONFLICT', 'The Prompt changed. Review it before deleting.') };
+                }
                 const prompts = library.prompts.filter((prompt) => prompt.id !== request.payload.id);
                 await saveLibrary({ ...library, prompts });
                 return { response: ok(request.id, request.type, { deleted: true }) };

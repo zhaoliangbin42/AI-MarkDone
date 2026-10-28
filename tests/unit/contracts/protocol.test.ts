@@ -13,6 +13,14 @@ describe('protocol', () => {
         expect(id.length).toBeGreaterThan(10);
     });
 
+    it('validates an optional Prompt deletion revision', () => {
+        const request = { v: PROTOCOL_VERSION, id: createRequestId(), type: 'prompts:delete', payload: { id: 'prompt', expectedUpdatedAt: 123 } };
+        expect(isExtRequest(request)).toBe(true);
+        for (const expectedUpdatedAt of [-1, NaN, Infinity, '123', null]) {
+            expect(isExtRequest({ ...request, payload: { id: 'prompt', expectedUpdatedAt } })).toBe(false);
+        }
+    });
+
     it('isExtRequest validates version and type', () => {
         const ok = { v: PROTOCOL_VERSION, id: createRequestId(), type: 'ping' } as const;
         expect(isExtRequest(ok)).toBe(true);

@@ -51,7 +51,7 @@ const client = {
     },
     recordUse: async () => undefined,
     savePrompt: async (prompt: (typeof prompts)[number]) => prompt,
-    deletePrompt: async () => undefined,
+    deletePrompt: async (id: string) => { const index = prompts.findIndex(prompt => prompt.id === id); if (index >= 0) prompts.splice(index, 1); },
     restoreDefaults: async () => prompts,
 };
 const adapter = {

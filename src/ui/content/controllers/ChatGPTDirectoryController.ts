@@ -60,6 +60,7 @@ export class ChatGPTDirectoryController {
     private enabled = true;
     private displayMode: ChatGPTDirectoryMode = 'preview';
     private promptLabelMode: ChatGPTDirectoryPromptLabelMode = 'head';
+    private previewAssistant = false;
     private previewMaxChars = DEFAULT_CHATGPT_DIRECTORY_PREVIEW_MAX_CHARS;
     private previewActionsFactory: ChatGPTDirectoryPreviewActionsFactory | null = null;
     private navigationControls: { previous: HTMLButtonElement; next: HTMLButtonElement } | null = null;
@@ -180,6 +181,11 @@ export class ChatGPTDirectoryController {
         this.rail?.setRightInsetPx(value);
     }
 
+    setPreviewAssistant(value: boolean): void {
+        this.previewAssistant = value;
+        this.rail?.setPreviewAssistant(value);
+    }
+
     setPreviewMaxChars(value: number): void {
         this.previewMaxChars = value;
         this.rail?.setPreviewMaxChars(value);
@@ -216,6 +222,7 @@ export class ChatGPTDirectoryController {
         this.rail.setDisplayMode(this.displayMode);
         this.rail.setPromptLabelMode(this.promptLabelMode);
         this.rail.setPreviewMaxChars(this.previewMaxChars);
+        this.rail.setPreviewAssistant(this.previewAssistant);
         this.rail.setPreviewActionsFactory(this.previewActionsFactory);
         if (this.navigationControls) this.rail.setNavigationControls(this.navigationControls.previous, this.navigationControls.next);
         this.rail.ensureAttached();

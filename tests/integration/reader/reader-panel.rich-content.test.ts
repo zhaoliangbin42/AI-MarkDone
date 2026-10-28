@@ -1,3 +1,4 @@
+import { DEFAULT_SETTINGS } from '@/core/settings/types';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { ReaderPanel } from '@/ui/content/reader/ReaderPanel';
 import { richSvgBlock } from '../../helpers/richContentFixtures';
@@ -5,6 +6,25 @@ import { richSvgBlock } from '../../helpers/richContentFixtures';
 afterEach(() => { document.querySelector('#aimd-reader-panel-host')?.remove(); });
 
 describe('Reader rich content lifecycle', () => {
+    it('does not acquire images when disabled, and preserves surrounding text across a settings toggle', async () => {
+        const panel = new ReaderPanel();
+        const release = vi.fn();
+        const resolveRichContent = vi.fn(async () => ({ assets: [{ blockId: 'block-1', url: `blob:${location.origin}/reader-opt-in`, mimeType: 'image/png' as const }], release }));
+        panel.setReaderSettings({ ...DEFAULT_SETTINGS.reader, showImagesInReader: false });
+        await panel.show([{ id: 'rich', userPrompt: '', content: 'Before.\n\n![Diagram](aimd-rich:block-1)\n\nAfter.', richBlocks: [richSvgBlock()] }], 0, 'light', { resolveRichContent });
+        const shadow = document.querySelector('#aimd-reader-panel-host')!.shadowRoot!;
+        expect(resolveRichContent).not.toHaveBeenCalled();
+        expect(shadow.querySelector('.reader-markdown img')).toBeNull();
+        expect(shadow.querySelector('.reader-markdown')?.textContent).toContain('Before.');
+        expect(shadow.querySelector('.reader-markdown')?.textContent).toContain('After.');
+        panel.setReaderSettings({ ...DEFAULT_SETTINGS.reader, showImagesInReader: true });
+        await vi.waitFor(() => expect(shadow.querySelector('.reader-markdown img')).toBeTruthy());
+        panel.setReaderSettings({ ...DEFAULT_SETTINGS.reader, showImagesInReader: false });
+        await vi.waitFor(() => expect(shadow.querySelector('.reader-markdown img')).toBeNull());
+        expect(release).toHaveBeenCalledTimes(1);
+        panel.hide();
+    });
+
     it('keeps a placeholder after a static image fails to decode, including later layout renders', async () => {
         const panel = new ReaderPanel();
         const release = vi.fn();

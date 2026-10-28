@@ -188,6 +188,7 @@ type Refs = {
         promptLabelMode: HTMLInputElement;
         rightInset: SliderFieldRef;
         previewMaxChars: SliderFieldRef;
+        previewAssistant: HTMLInputElement;
     };
     reader: {
         defaultOpenMode: SelectRef;
@@ -339,6 +340,9 @@ export class SettingsTabView {
             CHATGPT_DIRECTORY_RIGHT_INSET_STEP_PX,
             'settings-chatgpt-directory-right-inset-value',
             (value) => `${value}px`,
+        );
+        const chatGptDirectoryPreviewAssistant = this.createToggle(
+            chatGptDirectoryGroup.body, t('chatgptDirectoryPreviewAssistantLabel'), t('chatgptDirectoryPreviewAssistantDesc'),
         );
         const chatGptDirectoryPreviewMaxChars = this.createSliderRow(
             chatGptDirectoryGroup.body,
@@ -636,6 +640,7 @@ export class SettingsTabView {
                 promptLabelMode: chatGptDirectoryPromptLabelMode.input,
                 rightInset: chatGptDirectoryRightInset,
                 previewMaxChars: chatGptDirectoryPreviewMaxChars,
+                previewAssistant: chatGptDirectoryPreviewAssistant.input,
             },
             reader: {
                 defaultOpenMode: readerDefaultOpenMode,
@@ -788,7 +793,7 @@ export class SettingsTabView {
         const staging = document.createElement('div');
         const r = this.refs;
         add('appearance', r.advanced.fontSize!.root, this.root.querySelector<HTMLElement>('.settings-color-row')!, r.language.root, r.chatgptDirectory.pageWidthScale.root);
-        add('reading', r.chatgptDirectory.enabled, r.chatgptDirectory.mode.root, r.chatgptDirectory.promptLabelMode, r.chatgptDirectory.rightInset.root, r.chatgptDirectory.previewMaxChars.root, r.chatgptDirectory.restorePositionAfterSend);
+        add('reading', r.chatgptDirectory.enabled, r.chatgptDirectory.mode.root, r.chatgptDirectory.promptLabelMode, r.chatgptDirectory.rightInset.root, r.chatgptDirectory.previewMaxChars.root, r.chatgptDirectory.previewAssistant, r.chatgptDirectory.restorePositionAfterSend);
         const contentCleanup = this.createActionRow(staging, t('settingsContentCleanupTitle'), t('settingsContentCleanupDesc'), 'settings-content-cleanup');
         contentCleanup.button.addEventListener('click', () => this.openContentCleanupSettings());
         add('reading', contentCleanup.root);
@@ -1322,6 +1327,11 @@ export class SettingsTabView {
             this.syncSliderValue(this.refs.chatgptDirectory.rightInset, next);
             void this.actions.setChatGptDirectorySettings?.({ rightInsetPx: next });
         });
+        this.refs.chatgptDirectory.previewAssistant.addEventListener('change', () => {
+            const previewAssistant = this.refs.chatgptDirectory.previewAssistant.checked;
+            this.settings.chatgptDirectory.previewAssistant = previewAssistant;
+            void this.actions.setChatGptDirectorySettings?.({ previewAssistant });
+        });
         this.refs.chatgptDirectory.previewMaxChars.input.addEventListener('input', () => {
             this.syncSliderValue(this.refs.chatgptDirectory.previewMaxChars);
         });
@@ -1442,6 +1452,7 @@ export class SettingsTabView {
         this.refs.chatgptDirectory.promptLabelMode.checked = s.chatgptDirectory.promptLabelMode === 'headTail';
         this.syncSliderValue(this.refs.chatgptDirectory.rightInset, normalizeChatGPTDirectoryRightInsetPx(s.chatgptDirectory.rightInsetPx));
         this.syncSliderValue(this.refs.chatgptDirectory.previewMaxChars, normalizeChatGPTDirectoryPreviewMaxChars(s.chatgptDirectory.previewMaxChars));
+        this.refs.chatgptDirectory.previewAssistant.checked = Boolean(s.chatgptDirectory.previewAssistant);
         this.refs.reader.defaultOpenMode.setValue(normalizeReaderOpenMode(s.reader.defaultOpenMode));
         this.refs.reader.renderCode.checked = Boolean(s.reader.renderCodeInReader);
         this.refs.reader.showOutline.checked = Boolean(s.reader.showOutlineInReader);

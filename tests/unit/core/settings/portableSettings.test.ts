@@ -9,6 +9,18 @@ function file(settings: unknown): string {
     return JSON.stringify({ format: 'ai-markdone-settings', formatVersion: 1, appVersion: '6.0.0', exportedAt: '2026-09-30T00:00:00.000Z', settings });
 }
 describe('portable settings', () => {
+    it('roundtrips Reader images and directory reply previews independently', () => {
+        const current = structuredClone(DEFAULT_SETTINGS);
+        current.reader.showImagesInReader = false;
+        current.chatgptDirectory.previewAssistant = true;
+        const parsed = parseSettingsFile(JSON.stringify(createSettingsFile(current, '6.2.5')));
+        const restored = mergePortableSettings(DEFAULT_SETTINGS, parsed.file.settings, ['reader', 'chatgptDirectory']);
+        expect(restored.reader.showImagesInReader).toBe(false);
+        expect(restored.chatgptDirectory.previewAssistant).toBe(true);
+        expect(loadAndNormalize(restored).reader.showImagesInReader).toBe(false);
+        expect(planSetCategory(restored, 'reader', { bodyFontSizePx: 18 }).next.reader.showImagesInReader).toBe(false);
+    });
+
     it.each([50, 75, 300, 500])('roundtrips a %i percent page width', (pageWidthScale) => {
         const current = structuredClone(DEFAULT_SETTINGS);
         current.chatgptBehavior.pageWidthScale = pageWidthScale;

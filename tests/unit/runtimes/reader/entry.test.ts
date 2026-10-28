@@ -965,7 +965,7 @@ describe('detached reader runtime entry', () => {
         }));
         const host = document.getElementById('aimd-chatgpt-prompt-popover-host')!;
         expect(host).toBeTruthy();
-        expect(host.shadowRoot?.querySelector('[data-action="insert-prompt"]')).toBeNull();
+        expect(host.shadowRoot?.querySelector<HTMLButtonElement>('[data-action="insert-prompt"]')?.disabled).toBe(true);
     });
 
     it('opens the shared send popover for detached send instead of using a native prompt', async () => {

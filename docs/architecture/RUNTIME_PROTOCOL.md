@@ -245,6 +245,7 @@ partition behavior must pass actual Chrome/Firefox installation acceptance.
 - `prompts:list` 继续兼容 `context: "composer" | "readerComment" | "all"`、`query` 与 `includeDisabled` 参数，但 Prompt 本身不再按场景分库；Reader 与 ChatGPT manager 读取同一套 prompts
 - `prompts:list`/library load 是纯读取：已规范化的 library 不会因读取被写回，已有 `updatedAt` 不会被刷新；只有默认集迁移、旧 Reader prompt 迁移或坏数据修复需要落盘
 - `prompts:save` 会规范化 title、纯文本 triggerText（保存时去掉旧 `\`/`/` 前缀）、兼容字段与 timestamps；空正文返回 `INVALID_REQUEST`；同一非空 triggerText 在不同 prompt 之间冲突时返回 `CONFLICT`
+- `prompts:delete` 可选接收非负有限数字 `expectedUpdatedAt`；后台在现有 storage queue 内读取并比较当前记录版本，版本不同返回 `CONFLICT` 且不删除。缺失条目视为已删除；省略该字段保留原有直接删除语义。管理页“插入并删除”先核对 composer 写入结果，再携带已显示记录的版本删除；插入与删除没有跨 UI/storage 事务，失败不自动重放插入。
 - `prompts:reorder` 接收 Prompt id 顺序并写回 library 数组顺序；`prompts:list` 不再按 last-used 时间重排，manager、autocomplete 与 Reader picker 消费同一 storage 顺序
 - `prompts:restoreDefaults` 只补回缺失的内置 Prompt，不删除用户 Prompt，也不覆盖用户改过的默认 Prompt
 - `prompts:recordUse` 只记录 `lastUsedAt`，不上传、不同步、不改变 prompt 内容，也不刷新 `updatedAt`

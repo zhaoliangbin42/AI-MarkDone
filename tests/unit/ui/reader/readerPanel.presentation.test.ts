@@ -186,7 +186,7 @@ describe('ReaderPanel presentation', () => {
             const assistantSection = shadow.querySelector<HTMLElement>('.reader-message--assistant');
             const markdownRoot = shadow.querySelector<HTMLElement>('.reader-markdown');
             const hint = shadow.querySelector<HTMLElement>('.reader-footer__meta .hint');
-            const footerPage = shadow.querySelector<HTMLElement>('.reader-footer__meta .reader-footer-page');
+            const footerPage = shadow.querySelector<HTMLInputElement>('[data-role="reader-page-input"]');
             const katexLink = shadow.querySelector<HTMLLinkElement>('link[data-aimd-style-link="aimd-reader-panel-katex"]');
             const readerSource = fs.readFileSync(path.join(process.cwd(), 'src/ui/content/reader/ReaderPanel.ts'), 'utf8');
             const templateSource = ['readerPanelTemplate.ts', 'readerPanelBase.css', 'readerPanelLayout.css', 'readerPanelContent.css'].map(file => fs.readFileSync(path.join(process.cwd(), 'src/ui/content/reader', file), 'utf8')).join('\n');
@@ -202,7 +202,7 @@ describe('ReaderPanel presentation', () => {
             expect(assistantSection?.textContent).toContain('AI');
             expect(markdownRoot?.textContent).toContain('md1');
             expect(hint?.textContent).toBe('');
-            expect(footerPage?.textContent).toBe('1/1');
+            expect(footerPage?.value).toBe('1');
             expect(readerSource).toContain('OverlaySession');
             expect(readerSource).not.toContain('mountOverlaySurfaceHost');
             expect(templateSource).toContain('getPanelChromeCss()');

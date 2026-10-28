@@ -11,6 +11,18 @@ const body = 'Before\n\n![Chart](aimd-rich:chart)\n\nAfter';
 describe('prepareRichOutput', () => {
     beforeEach(() => vi.mocked(prepareRichContentAssets).mockReset());
 
+    it('omits ordinary inline and reference images from both roles without removing code examples', async () => {
+        const markdown = 'Before ![Photo](https://example.com/photo.png) after\n\n![Reference][photo]\n\n[photo]: https://example.com/ref.png\n\n`![Code](https://example.com/code.png)`';
+        const result = await prepareRichOutput([{ user: markdown, assistant: markdown, index: 0 }], [0], { target: 'visual', visuals: 'placeholder' });
+        expect(prepareRichContentAssets).not.toHaveBeenCalled();
+        for (const content of [result.turns[0].user, result.turns[0].assistant]) {
+            expect(content).toContain('Before Photo after');
+            expect(content).not.toContain('![Reference]');
+            expect(content).toContain('`![Code](https://example.com/code.png)`');
+        }
+        result.release();
+    });
+
     it('placeholder policy keeps readable data and starts no visual work', async () => {
         const result = await prepareRichOutput([{ user: '', assistant: body, richBlocks: [block], index: 7 }], [0, 0], { target: 'visual', visuals: 'placeholder' });
         expect(prepareRichContentAssets).not.toHaveBeenCalled();

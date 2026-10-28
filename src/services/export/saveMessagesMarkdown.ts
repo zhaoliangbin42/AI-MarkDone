@@ -1,3 +1,5 @@
+import { omitMarkdownImages } from '../../core/content/chatgptMarkdownCleanup';
+import type { RichBlockV1 } from '../../contracts/richContent';
 import type { ChatTurn, ConversationMetadata, TranslateFn } from './saveMessagesTypes';
 import { buildMessageExportDocument } from './messageExportDocument';
 import { sanitizeExportFilename } from './saveMessagesDocument';
@@ -29,7 +31,7 @@ export function buildMarkdownExport(
     selectedIndices: number[],
     metadata: ConversationMetadata,
     t: TranslateFn,
-    options: { formulaFormat?: FormulaSourceFormat } = {},
+    options: { formulaFormat?: FormulaSourceFormat; includeImages?: boolean } = {},
 ): MarkdownExportResult | null {
     const document = buildMessageExportDocument(turns, selectedIndices, {
         title: metadata.title,
@@ -48,13 +50,14 @@ export function buildMarkdownExport(
             markdown += `\n---\n\n`;
         }
         markdown += `# ${section.heading}\n\n`;
-        markdown += `## ${document.labels.user}\n\n${rewriteMarkdownFormulaSources(section.userText, formulaFormat)}\n\n`;
+        markdown += `## ${document.labels.user}\n\n${rewriteMarkdownFormulaSources(options.includeImages === false ? omitMarkdownImages(section.userText) : section.userText, formulaFormat)}\n\n`;
         let body = section.assistantMarkdown;
         if (body.includes('aimd-rich:')) {
-            const projection = projectRichContentMarkdown(body, section.richBlocks ?? []);
+            const projection = projectRichContentMarkdown(body, section.richBlocks ?? [], { replacements: options.includeImages ? imageLinkReplacements(section.richBlocks ?? []) : [] });
             if (projection.status !== 'ready' || projection.kind !== 'rich-content') throw new Error('Rich content projection is unavailable.');
             body = projection.markdown;
         }
+        if (options.includeImages === false) body = omitMarkdownImages(body);
         markdown += `## ${document.labels.assistant}\n\n${rewriteMarkdownFormulaSources(body, formulaFormat)}\n\n`;
     });
 
@@ -62,4 +65,17 @@ export function buildMarkdownExport(
         filename: `${sanitizeExportFilename(metadata.title)}.md`,
         markdown,
     };
+}
+
+function imageLinkReplacements(blocks: readonly RichBlockV1[]): Array<{ id: string; markdown: string }> {
+    return blocks.flatMap(block => {
+        if (block.source.kind !== 'loaded-image') return [];
+        try {
+            const url = new URL(block.source.url);
+            if (!['https:', 'http:'].includes(url.protocol) || url.username || url.password) return [];
+            const label = block.label.replace(/[\\\[\]]/g, '\\$&').replace(/[\r\n]/g, ' ');
+            const href = url.href.replace(/[<>]/g, value => encodeURIComponent(value));
+            return [{ id: block.id, markdown: `![${label}](<${href}>)` }];
+        } catch { return []; }
+    });
 }

@@ -923,6 +923,28 @@ describe('ChatGPTDirectoryController', () => {
         expect(style).toContain('inline-size: 30em');
     });
 
+    it('optionally includes a bounded plain-text reply without replacing the Prompt', () => {
+        const adapter = new ChatGPTTestAdapter();
+        const controller = createDirectoryController(adapter, { subscribe: vi.fn(() => () => undefined) } as any);
+        (controller as any).ensureRail();
+        const snapshot = buildSnapshot();
+        snapshot.rounds[0] = { ...snapshot.rounds[0]!, userPrompt: 'Question remains visible', assistantContent: '<img src=x onerror=alert(1)> ' + '答'.repeat(400) };
+        setCanonicalSnapshot(adapter, snapshot);
+        (controller as any).render();
+        const rail = (controller as any).rail;
+        rail.setPreviewMaxChars(200);
+        document.getElementById('aimd-chatgpt-directory-rail')!.shadowRoot!.querySelector('.rail__item')!.dispatchEvent(new Event('pointerover', { bubbles: true }));
+        const preview = document.getElementById('aimd-chatgpt-directory-preview')!;
+        expect(preview.textContent).not.toContain('onerror');
+        controller.setPreviewAssistant(true);
+        expect(preview.textContent).toContain('Question remains visible');
+        expect(preview.textContent).toContain('<img src=x onerror=alert(1)>');
+        expect(preview.querySelector('img')).toBeNull();
+        expect(preview.textContent).not.toContain('答'.repeat(200));
+        controller.setPreviewAssistant(false);
+        expect(preview.textContent).not.toContain('onerror');
+    });
+
     it('uses one visible fallback for assistant-only turns in both directory modes', () => {
         const adapter = new ChatGPTTestAdapter();
         const engine = { subscribe: vi.fn(() => () => undefined) } as any;

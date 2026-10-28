@@ -254,6 +254,7 @@ describe('settings migrations', () => {
             hideOfficialNavigation: false,
             rightInsetPx: 40,
             previewMaxChars: 600,
+            previewAssistant: false,
         });
         expect(next).not.toHaveProperty('chatgpt');
     });
@@ -271,6 +272,7 @@ describe('settings migrations', () => {
             hideOfficialNavigation: true,
             rightInsetPx: 0,
             previewMaxChars: 600,
+            previewAssistant: false,
         });
     });
 

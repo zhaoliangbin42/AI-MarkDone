@@ -151,6 +151,7 @@ export class ReaderSettingsPopover {
         footer?.replaceChildren();
         body.append(
             this.createSectionHeading(t('readerSettingsDisplaySection')),
+            this.createToggleRow(t('readerShowImagesLabel'), t('readerShowImagesDesc'), settings.showImagesInReader !== false, (checked) => this.applyPatch({ showImagesInReader: checked })),
             this.createFontSizeRow(settings),
             this.createContentWidthRow(settings),
             this.createToggleRow(
@@ -328,6 +329,7 @@ export class ReaderSettingsPopover {
         label.className = 'reader-settings-toggle';
         const input = document.createElement('input');
         input.type = 'checkbox';
+        input.setAttribute('aria-label', labelText);
         input.checked = checked;
         input.addEventListener('change', () => onChange(input.checked));
         const knob = document.createElement('span');
@@ -487,6 +489,7 @@ export class ReaderSettingsPopover {
             selectionToolbar: { ...settings.selectionToolbar },
             renderCodeInReader: Boolean(settings.renderCodeInReader),
             showOutlineInReader: Boolean(settings.showOutlineInReader),
+            showImagesInReader: settings.showImagesInReader !== false,
             persistAnnotations: Boolean(settings.persistAnnotations),
             defaultOpenMode: settings.defaultOpenMode === 'panel' ? 'panel' : DEFAULT_READER_OPEN_MODE,
             panelSizeRatio: {

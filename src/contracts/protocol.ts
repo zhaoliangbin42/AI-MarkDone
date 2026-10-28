@@ -201,7 +201,7 @@ export type PromptsSavePayload = {
         lastUsedAt?: number | null;
     };
 };
-export type PromptsDeletePayload = { id: string };
+export type PromptsDeletePayload = { id: string; expectedUpdatedAt?: number };
 export type PromptsReorderPayload = { ids: string[] };
 export type PromptsRecordUsePayload = { id: string; usedAt?: number };
 
@@ -664,7 +664,9 @@ export function isExtRequest(value: unknown): value is ExtRequest {
         if (typeof payload !== 'object' || payload === null) return false;
         const promptPayload = payload as Record<string, unknown>;
         if (type === 'prompts:delete') {
-            return typeof promptPayload.id === 'string' && promptPayload.id.trim().length > 0;
+            return typeof promptPayload.id === 'string' && promptPayload.id.trim().length > 0
+                && (promptPayload.expectedUpdatedAt === undefined
+                    || (typeof promptPayload.expectedUpdatedAt === 'number' && Number.isFinite(promptPayload.expectedUpdatedAt) && promptPayload.expectedUpdatedAt >= 0));
         }
         if (type === 'prompts:reorder') {
             return Array.isArray(promptPayload.ids)

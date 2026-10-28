@@ -191,6 +191,8 @@ export class ReaderPanel {
     private unsubscribeLocale: (() => void) | null = null;
     private tooltipDelegate: TooltipDelegate | null = null;
     private contentRenderToken = 0;
+    private pagerCloseTimer: number | null = null;
+    private showImagesInReader = true;
     private richContentController: AbortController | null = null;
     private richContentLease: ReaderRichContentLease | null = null;
     private resolveRichContent: ReaderRichContentResolver = prepareReaderRichContent;
@@ -405,6 +407,7 @@ export class ReaderPanel {
         const normalized = this.normalizeReaderSettings(settings);
         this.selectionToolbarActions = normalized.selectionToolbar;
         this.renderCodeInReader = normalized.renderCodeInReader;
+        this.showImagesInReader = normalized.showImagesInReader;
         this.state.showOutlineInReader = normalized.showOutlineInReader;
         this.state.defaultOpenMode = normalized.defaultOpenMode;
         this.state.panelSizeRatio = normalized.panelSizeRatio;
@@ -419,7 +422,8 @@ export class ReaderPanel {
             if (this.state.fullscreen && this.state.defaultOpenMode === 'panel') {
                 this.state.fullscreen = false;
             }
-            const needsContentRender = previous.renderCodeInReader !== normalized.renderCodeInReader;
+            const needsContentRender = previous.renderCodeInReader !== normalized.renderCodeInReader
+                || previous.showImagesInReader !== normalized.showImagesInReader;
             const needsShellRender = needsContentRender
                 || previous.showOutlineInReader !== normalized.showOutlineInReader
                 || previous.defaultOpenMode !== normalized.defaultOpenMode
@@ -655,6 +659,26 @@ export class ReaderPanel {
         session.surfaceRoot.addEventListener('dragend', this.onSurfaceDragEnd);
 
         this.onKeyDown = (event: KeyboardEvent) => {
+            const pages = session.surfaceRoot.querySelector<HTMLElement>('.reader-pages:not([hidden])');
+            const input = event.composedPath().find(node => node instanceof HTMLInputElement && node.dataset.role === 'reader-page-input') as HTMLInputElement | undefined;
+            if (input && (event.key === 'Enter' || (event.key === 'Escape' && !pages))) {
+                if (event.isComposing || event.keyCode === 229) return;
+                event.preventDefault();
+                event.stopPropagation();
+                const page = /^\d+$/.test(input.value.trim()) ? Number(input.value) : NaN;
+                if (event.key === 'Enter' && Number.isInteger(page) && page >= 1 && page <= this.workflow.items.length) void this.jumpTo(page - 1, true);
+                else input.value = String(this.workflow.index + 1);
+                return;
+            }
+            if (event.key === 'Escape' && !event.isComposing && pages) {
+                event.preventDefault();
+                event.stopPropagation();
+                pages.hidden = true;
+                session.surfaceRoot.querySelector<HTMLButtonElement>('.reader-dots .reader-dot--active')?.focus();
+                pages.hidden = true;
+                this.tooltipDelegate?.hide();
+                return;
+            }
             // Surface input isolation stops bubbling before the host Escape scope.
             if (event.key === 'Escape' && isShortcutEventEligible(event, { owner: session.host, allowEditable: true })) {
                 event.preventDefault();
@@ -709,6 +733,7 @@ export class ReaderPanel {
     }
 
     private unmount(): void {
+        this.clearPagerCloseTimer();
         this.clearRichContentAssets();
         this.showGeneration += 1;
         this.annotationLoadGeneration += 1;
@@ -795,6 +820,10 @@ export class ReaderPanel {
 
     private async handleSurfaceClick(event: Event): Promise<void> {
         const target = event.target as HTMLElement | null;
+        if (!target?.closest('.reader-footer__center')) {
+            const pages = this.overlaySession?.surfaceRoot.querySelector<HTMLElement>('.reader-pages');
+            if (pages) pages.hidden = true;
+        }
         const actionEl = target?.closest<HTMLElement>('[data-action]');
         if (!actionEl) return;
 
@@ -1051,7 +1080,7 @@ export class ReaderPanel {
         await this.renderCurrentContent();
     }
 
-    private jumpTo(index: number): void {
+    private async jumpTo(index: number, focusPageInput = false): Promise<void> {
         this.saveCurrentReaderScrollPosition();
         this.cancelPendingReaderScrollRestore();
         if (!this.workflow.jump(index)) return;
@@ -1059,7 +1088,12 @@ export class ReaderPanel {
         this.state.outlineItems = [];
         this.state.activeOutlineId = '';
         this.render(false);
-        void this.renderCurrentContent();
+        await this.renderCurrentContent();
+        if (focusPageInput && this.workflow.index === index) {
+            const input = this.overlaySession?.surfaceRoot.querySelector<HTMLInputElement>('[data-role="reader-page-input"]');
+            input?.focus();
+            input?.select();
+        }
     }
 
     private async renderCurrentContent(options: { restoreScrollPosition?: boolean } = {}): Promise<void> {
@@ -1085,6 +1119,7 @@ export class ReaderPanel {
         const token = ++this.contentRenderToken;
         const rendered = await renderReaderItem(item, {
             highlightCode: this.renderCodeInReader,
+            includeImages: this.showImagesInReader,
             contentCleanup: this.contentCleanup,
             labels: {
                 copyCode: this.getLabel('btnCopyText', 'Copy code'),
@@ -1110,7 +1145,7 @@ export class ReaderPanel {
             this.restoreCurrentReaderScrollPosition(item, token);
         }
         this.syncOutlineActiveState();
-        if (item.richBlocks?.length) void this.hydrateCurrentRichContent(item, token);
+        if (this.showImagesInReader && item.richBlocks?.length) void this.hydrateCurrentRichContent(item, token);
     }
 
     private clearRichContentAssets(): void {
@@ -1290,6 +1325,10 @@ export class ReaderPanel {
             this.renderCodeInReader = Boolean(patch.renderCodeInReader);
             void this.renderCurrentContent();
         }
+        if (typeof patch.showImagesInReader !== 'undefined') {
+            this.showImagesInReader = Boolean(patch.showImagesInReader);
+            void this.renderCurrentContent();
+        }
         if (typeof patch.showOutlineInReader !== 'undefined') {
             this.state.showOutlineInReader = Boolean(patch.showOutlineInReader);
         }
@@ -1332,6 +1371,7 @@ export class ReaderPanel {
         return this.normalizeReaderSettings({
             selectionToolbar: this.selectionToolbarActions,
             renderCodeInReader: this.renderCodeInReader,
+            showImagesInReader: this.showImagesInReader,
             showOutlineInReader: this.state.showOutlineInReader,
             persistAnnotations: this.persistAnnotations,
             defaultOpenMode: this.state.defaultOpenMode,
@@ -1347,6 +1387,7 @@ export class ReaderPanel {
         return {
             selectionToolbar: normalizeSelectionToolbarActions(settings.selectionToolbar),
             renderCodeInReader: Boolean(settings.renderCodeInReader),
+            showImagesInReader: settings.showImagesInReader !== false,
             showOutlineInReader: Boolean(settings.showOutlineInReader),
             persistAnnotations: Boolean(settings.persistAnnotations),
             defaultOpenMode: normalizeReaderOpenMode(settings.defaultOpenMode),
@@ -1492,6 +1533,7 @@ export class ReaderPanel {
     }
 
     private renderDots(): void {
+        this.clearPagerCloseTimer();
         if (!this.overlaySession) return;
 
         const dots = this.overlaySession.surfaceRoot.querySelector<HTMLElement>('.reader-dots');
@@ -1510,8 +1552,13 @@ export class ReaderPanel {
         const footerCenter = this.overlaySession.surfaceRoot.querySelector<HTMLElement>('.reader-footer__center');
         if (footerCenter) footerCenter.style.display = '';
 
-        dots.style.setProperty('--_reader-dot-size', '10px');
-        dots.style.setProperty('--_reader-dot-gap', '10px');
+        dots.style.setProperty('--_reader-dot-size', 'calc(var(--aimd-space-5) / 2)');
+        dots.style.setProperty('--_reader-dot-gap', 'calc(var(--aimd-space-5) / 2)');
+        this.overlaySession.surfaceRoot.querySelector('.reader-pages')?.remove();
+        if (footerCenter) {
+            footerCenter.onpointerenter = null;
+            footerCenter.onpointerleave = null;
+        }
 
         const maxPageDots = 10;
         if (total <= maxPageDots) {
@@ -1555,7 +1602,61 @@ export class ReaderPanel {
             appendDotRange(start, end);
         });
 
+        if (footerCenter && dots.querySelector('.reader-ellipsis')) {
+            const pages = this.host.document.createElement('div');
+            pages.className = 'reader-pages';
+            pages.hidden = true;
+            pages.setAttribute('role', 'group');
+            pages.setAttribute('aria-label', this.getLabel('paginationLabel', 'Pagination'));
+            footerCenter.appendChild(pages);
+            const open = () => {
+                this.clearPagerCloseTimer();
+                const wasHidden = pages.hidden;
+                if (!pages.childElementCount) {
+                    const heading = this.host.document.createElement('div');
+                    heading.className = 'reader-pages__header';
+                    const title = this.host.document.createElement('strong');
+                    title.textContent = this.getLabel('readerAllMessages', 'All messages');
+                    const help = this.host.document.createElement('span');
+                    help.className = 'reader-pages__hint';
+                    help.textContent = this.getLabel('readerPagerHelp', 'Hover to preview · Click to jump');
+                    const count = this.host.document.createElement('span');
+                    count.className = 'reader-pages__count';
+                    count.textContent = `${activeIndex + 1} / ${total}`;
+                    heading.append(title, help, count);
+                    const grid = this.host.document.createElement('div');
+                    grid.className = 'reader-pages__grid';
+                    pages.append(heading, grid);
+                    for (let index = 0; index < total; index += 1) {
+                        const button = this.createDot(index, index === activeIndex);
+                        button.textContent = String(index + 1);
+                        grid.appendChild(button);
+                    }
+                    this.tooltipDelegate?.refresh(this.overlaySession!.shadow);
+                }
+                pages.hidden = false;
+                const header = this.overlaySession?.surfaceRoot.querySelector('.panel-header');
+                const availableHeight = footerCenter.getBoundingClientRect().top - (header?.getBoundingClientRect().bottom ?? 0);
+                if (availableHeight > 0) pages.style.setProperty('--_reader-pages-max-height', `${availableHeight}px`);
+                if (wasHidden) pages.querySelector<HTMLElement>('.reader-dot--active')?.scrollIntoView?.({ block: 'nearest' });
+            };
+            footerCenter.addEventListener('pointerenter', open);
+            footerCenter.addEventListener('focusin', open);
+            footerCenter.onpointerleave = () => {
+                this.clearPagerCloseTimer();
+                this.pagerCloseTimer = this.host.window.setTimeout(() => {
+                    this.pagerCloseTimer = null;
+                    if (!pages.contains(this.overlaySession?.shadow.activeElement ?? null)) pages.hidden = true;
+                }, 400);
+            };
+            footerCenter.addEventListener('focusout', (event) => { if (!footerCenter.contains(event.relatedTarget as Node | null)) pages.hidden = true; });
+        }
         this.scrollActiveDotIntoView();
+    }
+
+    private clearPagerCloseTimer(): void {
+        if (this.pagerCloseTimer !== null) this.host.window.clearTimeout(this.pagerCloseTimer);
+        this.pagerCloseTimer = null;
     }
 
     private createDot(index: number, active: boolean): HTMLButtonElement {
@@ -1566,6 +1667,7 @@ export class ReaderPanel {
         button.className = `reader-dot ${active ? 'reader-dot--active' : ''} ${bookmarked ? 'reader-dot--bookmarked' : ''}`.trim();
         button.dataset.action = 'reader-jump';
         button.dataset.index = String(index);
+        if (active) button.setAttribute('aria-current', 'page');
         button.dataset.tooltipTitle = String(index + 1);
         button.dataset.tooltip = item?.userPrompt || this.getLabel('goToPage', `Go to page ${index + 1}`, String(index + 1));
         button.dataset.tooltipVariant = 'preview';

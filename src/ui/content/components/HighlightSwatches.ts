@@ -28,8 +28,8 @@ export function createHighlightSwatches(params: {
 
 export function getHighlightSwatchesCss(): string {
     return `
-.aimd-highlight-swatches { display: inline-flex; align-items: center; gap: var(--aimd-space-2); }
-.aimd-highlight-swatch { appearance: none; cursor: pointer; flex: none; width: var(--aimd-size-control-compact); height: var(--aimd-size-control-compact); border-radius: var(--aimd-radius-full); border: 1px solid var(--aimd-border-subtle); }
+.aimd-highlight-swatches { display: inline-flex; align-items: center; gap: var(--aimd-space-1); }
+.aimd-highlight-swatch { appearance: none; cursor: pointer; flex: none; width: var(--aimd-space-5); height: var(--aimd-space-5); border-radius: var(--aimd-radius-full); border: 1px solid var(--aimd-border-subtle); }
 .aimd-highlight-swatch[data-color="blue"] { background: var(--aimd-highlight-blue); }
 .aimd-highlight-swatch[data-color="yellow"] { background: var(--aimd-highlight-yellow); }
 .aimd-highlight-swatch[data-color="red"] { background: var(--aimd-highlight-red); }

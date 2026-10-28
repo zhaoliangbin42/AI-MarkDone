@@ -56,6 +56,7 @@ export type ChatGPTDirectorySettings = {
     hideOfficialNavigation: boolean;
     rightInsetPx: number;
     previewMaxChars: number;
+    previewAssistant: boolean;
 };
 
 export type ChatGPTInputEnhancementSettings = {
@@ -167,6 +168,7 @@ export type AppSettings = {
         selectionToolbar: SelectionToolbarActions;
         renderCodeInReader: boolean;
         showOutlineInReader: boolean;
+        showImagesInReader: boolean;
         persistAnnotations: boolean;
         defaultOpenMode: ReaderOpenMode;
         panelSizeRatio: ReaderPanelSizeRatio;
@@ -213,6 +215,7 @@ export const DEFAULT_SETTINGS: AppSettings = {
         selectionToolbar: normalizeSelectionToolbarActions(undefined),
         renderCodeInReader: true,
         showOutlineInReader: true,
+        showImagesInReader: true,
         persistAnnotations: false,
         defaultOpenMode: DEFAULT_READER_OPEN_MODE,
         panelSizeRatio: DEFAULT_READER_PANEL_SIZE_RATIO,
@@ -232,6 +235,7 @@ export const DEFAULT_SETTINGS: AppSettings = {
         hideOfficialNavigation: true,
         rightInsetPx: DEFAULT_CHATGPT_DIRECTORY_RIGHT_INSET_PX,
         previewMaxChars: DEFAULT_CHATGPT_DIRECTORY_PREVIEW_MAX_CHARS,
+        previewAssistant: false,
     },
     chatgptBehavior: {
         restorePositionAfterSend: true,

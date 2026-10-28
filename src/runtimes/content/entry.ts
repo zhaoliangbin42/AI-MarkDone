@@ -616,6 +616,7 @@ if (adapter) {
         chatGptDirectory.setDisplayMode(next.mode === 'expanded' ? 'expanded' : 'preview');
         chatGptDirectory.setPromptLabelMode(next.promptLabelMode === 'headTail' ? 'headTail' : 'head');
         chatGptDirectory.setPreviewMaxChars?.(next.previewMaxChars);
+        chatGptDirectory.setPreviewAssistant?.(next.previewAssistant);
         chatGptDirectory.setRightInsetPx(next.rightInsetPx);
         chatGptDirectory.setEnabled(Boolean(next.enabled));
         chatGptOfficialNavigationVisibility?.setEnabled(Boolean(next.enabled && next.hideOfficialNavigation));

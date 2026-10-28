@@ -1,3 +1,4 @@
+import { omitMarkdownImages } from '../../core/content/chatgptMarkdownCleanup';
 import type { RichContentImageV1 } from '../../contracts/richContent';
 import { prepareRichContentAssets, resolveRichContentMessageRoot, type RichContentAssetsLease, type RichContentPreparedAsset } from '../../drivers/content/export/richContentAssets';
 import { throwIfAborted } from '../../drivers/content/export/renderControl';
@@ -58,6 +59,11 @@ export async function prepareRichOutput(
         for (const position of positions) {
             throwIfAborted(options.signal);
             const turn = prepared[position]!;
+            if (options.visuals === 'placeholder') {
+                turn.user = omitMarkdownImages(turn.user);
+                turn.assistant = omitMarkdownImages(turn.assistant, true);
+                turn.richImages = [];
+            }
             const blocks = turn.richBlocks ?? [];
             if (!blocks.length) { turn.assistant = projectRichFallback(turn.assistant, turn); continue; }
             let assets: readonly RichContentPreparedAsset[] = [];

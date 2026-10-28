@@ -16,6 +16,59 @@ describe('ReaderPanel navigation', () => {
         document.querySelector('#aimd-reader-panel-host')?.remove();
     });
 
+    it('jumps by number, ignores IME and rejects invalid page numbers', async () => {
+        const panel = new ReaderPanel();
+        try {
+            await panel.show(Array.from({ length: 40 }, (_, i) => ({ id: String(i), userPrompt: `Q${i}`, content: `Answer ${i}` })), 0, 'light');
+            const shadow = document.querySelector('#aimd-reader-panel-host')!.shadowRoot!;
+            const input = () => shadow.querySelector<HTMLInputElement>('[data-role="reader-page-input"]')!;
+            expect(input()).not.toBeNull();
+            input().value = '25';
+            input().dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', bubbles: true, composed: true, isComposing: true }));
+            expect(shadow.querySelector('.reader-header-page')?.textContent).toBe('1/40');
+            input().dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', bubbles: true, composed: true }));
+            await vi.waitFor(() => expect(shadow.querySelector('.reader-header-page')?.textContent).toBe('25/40'));
+            for (const value of ['', '0', '41', '2.5', 'abc']) {
+                input().value = value;
+                input().dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', bubbles: true, composed: true }));
+                expect(shadow.querySelector('.reader-header-page')?.textContent).toBe('25/40');
+            }
+        } finally { panel.hide(); }
+    });
+
+    it('expands the folded pager from its real hover trigger and jumps with the same preview nodes', async () => {
+        const panel = new ReaderPanel();
+        try {
+            await panel.show(Array.from({ length: 40 }, (_, i) => ({ id: String(i), userPrompt: `Q${i}`, content: `Answer ${i}` })), 0, 'light');
+            const shadow = document.querySelector('#aimd-reader-panel-host')!.shadowRoot!;
+            shadow.querySelector('.reader-footer__center')!.dispatchEvent(new Event('pointerenter'));
+            const pages = shadow.querySelectorAll<HTMLButtonElement>('.reader-pages .reader-dot');
+            expect(pages).toHaveLength(40);
+            expect(pages[24].dataset.tooltip).toBe('Q24');
+            pages[24].dispatchEvent(new Event('pointerdown', { bubbles: true }));
+            pages[24].click();
+            await vi.waitFor(() => expect(shadow.querySelector('.reader-header-page')?.textContent).toBe('25/40'));
+        } finally { panel.hide(); }
+    });
+
+    it('closes the expanded pager on Escape without closing Reader, then releases pending hover cleanup', async () => {
+        const panel = new ReaderPanel();
+        try {
+            await panel.show(Array.from({ length: 40 }, (_, i) => ({ id: String(i), userPrompt: `Q${i}`, content: `Answer ${i}` })), 0, 'light');
+            const shadow = document.querySelector('#aimd-reader-panel-host')!.shadowRoot!;
+            const input = shadow.querySelector<HTMLInputElement>('[data-role="reader-page-input"]')!;
+            input.focus();
+            const trigger = shadow.querySelector<HTMLElement>('.reader-footer__center')!;
+            trigger.dispatchEvent(new Event('pointerenter'));
+            expect(shadow.querySelector<HTMLElement>('.reader-pages')?.hidden).toBe(false);
+            input.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true, composed: true, cancelable: true }));
+            expect(shadow.querySelector<HTMLElement>('.reader-pages')?.hidden).toBe(true);
+            expect(shadow.querySelector('.panel-window--reader')).toBeTruthy();
+            trigger.dispatchEvent(new Event('pointerenter'));
+            trigger.dispatchEvent(new Event('pointerleave'));
+        } finally { panel.hide(); }
+    });
+
     it('keeps the first pager dot active for large conversations', async () => {
         setClipboardMock();
 
@@ -212,12 +265,12 @@ describe('ReaderPanel navigation', () => {
 
             const host = document.querySelector('#aimd-reader-panel-host') as HTMLElement;
             const shadow = (host as any).shadowRoot as ShadowRoot;
-            const footerPage = shadow.querySelector<HTMLElement>('.reader-footer__meta .reader-footer-page');
+            const footerPage = shadow.querySelector<HTMLInputElement>('[data-role="reader-page-input"]');
             const dots = shadow.querySelector<HTMLElement>('.reader-dots');
             const styleText = Array.from(shadow.querySelectorAll('style')).map((node) => node.textContent || '').join('\n');
             const dotsRule = styleText.match(/\.reader-dots\s*\{[\s\S]*?\}/)?.[0] ?? '';
 
-            expect(footerPage?.textContent).toBe('31/50');
+            expect(footerPage?.value).toBe('31');
             expect(dots).toBeTruthy();
             expect(dotsRule).toContain('.reader-dots {');
             expect(dotsRule).toContain('flex-wrap: nowrap;');
@@ -245,8 +298,8 @@ describe('ReaderPanel navigation', () => {
             const shadow = (host as any).shadowRoot as ShadowRoot;
             const dots = shadow.querySelector<HTMLElement>('.reader-dots');
 
-            expect(dots?.style.getPropertyValue('--_reader-dot-size')).toBe('10px');
-            expect(dots?.style.getPropertyValue('--_reader-dot-gap')).toBe('10px');
+            expect(dots?.style.getPropertyValue('--_reader-dot-size')).toBe('calc(var(--aimd-space-5) / 2)');
+            expect(dots?.style.getPropertyValue('--_reader-dot-gap')).toBe('calc(var(--aimd-space-5) / 2)');
         } finally {
             panel.hide();
         }

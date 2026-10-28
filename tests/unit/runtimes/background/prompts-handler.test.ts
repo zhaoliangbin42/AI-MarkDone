@@ -160,6 +160,20 @@ describe('background prompts handler', () => {
         expect(localStore[STORAGE_KEYS.promptLibraryV1].prompts.some((prompt: any) => prompt.id === 'custom')).toBe(false);
     });
 
+    it('keeps a changed Prompt when insert-and-delete supplies an old revision', async () => {
+        const localStore: StorageMap = {};
+        (globalThis as any).browser = { runtime: { getManifest: () => ({ manifest_version: 3 }) }, storage: { local: createArea(localStore), sync: createArea({}) } };
+        const { handlePromptsRequest } = await import('../../../../src/runtimes/background/handlers/prompts');
+        await handlePromptsRequest(req('prompts:save', { prompt: { id: 'revision-check', title: 'Original', content: 'Original text', contexts: ['composer'] } }));
+        const prompt = localStore[STORAGE_KEYS.promptLibraryV1].prompts.find((item: any) => item.id === 'revision-check');
+        const stale = await handlePromptsRequest(req('prompts:delete', { id: prompt.id, expectedUpdatedAt: prompt.updatedAt - 1 }));
+        expect(stale?.response).toMatchObject({ ok: false, error: { code: 'CONFLICT' } });
+        expect(localStore[STORAGE_KEYS.promptLibraryV1].prompts).toContainEqual(prompt);
+        const deleted = await handlePromptsRequest(req('prompts:delete', { id: prompt.id, expectedUpdatedAt: prompt.updatedAt }));
+        expect(deleted?.response.ok).toBe(true);
+        expect(localStore[STORAGE_KEYS.promptLibraryV1].prompts).not.toContainEqual(prompt);
+    });
+
     it('preserves prompt order when saving existing prompts and supports explicit reorder', async () => {
         const localStore: StorageMap = {
             [STORAGE_KEYS.promptLibraryV1]: {

@@ -91,6 +91,7 @@ export function planSetCategory(current: AppSettings, category: SettingsCategory
                         ?? cur.reader.renderCodeInReader
                         ?? DEFAULT_SETTINGS.reader.renderCodeInReader
                     ),
+                    showImagesInReader: Boolean(patch.showImagesInReader ?? cur.reader.showImagesInReader ?? DEFAULT_SETTINGS.reader.showImagesInReader),
                     showOutlineInReader: Boolean(
                         patch.showOutlineInReader
                         ?? cur.reader.showOutlineInReader

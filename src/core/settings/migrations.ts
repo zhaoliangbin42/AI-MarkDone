@@ -140,6 +140,7 @@ export function normalizeChatGPTDirectorySettings(value: unknown): AppSettings['
         hideOfficialNavigation: Boolean((record as any).hideOfficialNavigation ?? DEFAULT_SETTINGS.chatgptDirectory.hideOfficialNavigation),
         rightInsetPx: normalizeChatGPTDirectoryRightInsetPx((record as any).rightInsetPx),
         previewMaxChars: normalizeChatGPTDirectoryPreviewMaxChars((record as any).previewMaxChars),
+        previewAssistant: typeof record.previewAssistant === 'boolean' ? record.previewAssistant : false,
     };
 }
 
@@ -333,6 +334,7 @@ export function mergeWithDefaults(stored: AppSettings): AppSettings {
             selectionToolbar: normalizeSelectionToolbarActions(stored.reader?.selectionToolbar),
             renderCodeInReader: Boolean((stored.reader as any)?.renderCodeInReader ?? DEFAULT_SETTINGS.reader.renderCodeInReader),
             showOutlineInReader: Boolean((stored.reader as any)?.showOutlineInReader ?? DEFAULT_SETTINGS.reader.showOutlineInReader),
+            showImagesInReader: Boolean((stored.reader as any)?.showImagesInReader ?? DEFAULT_SETTINGS.reader.showImagesInReader),
             persistAnnotations: Boolean((stored.reader as any)?.persistAnnotations ?? DEFAULT_SETTINGS.reader.persistAnnotations),
             defaultOpenMode: normalizeReaderOpenMode((stored.reader as any)?.defaultOpenMode),
             panelSizeRatio: normalizeReaderPanelSizeRatio((stored.reader as any)?.panelSizeRatio),
@@ -384,6 +386,7 @@ export function migrateFromV1(v1: unknown): AppSettings {
             ...DEFAULT_SETTINGS.reader,
             renderCodeInReader: Boolean((behavior as any).renderCodeInReader ?? true),
             showOutlineInReader: Boolean((behavior as any).showOutlineInReader ?? DEFAULT_SETTINGS.reader.showOutlineInReader),
+            showImagesInReader: Boolean((behavior as any).showImagesInReader ?? DEFAULT_SETTINGS.reader.showImagesInReader),
             persistAnnotations: Boolean((reader as any).persistAnnotations ?? DEFAULT_SETTINGS.reader.persistAnnotations),
             defaultOpenMode: normalizeReaderOpenMode((behavior as any).defaultOpenMode),
             panelSizeRatio: normalizeReaderPanelSizeRatio((behavior as any).panelSizeRatio),
@@ -427,6 +430,7 @@ export function migrateFromV2(v2: unknown): AppSettings {
             selectionToolbar: normalizeSelectionToolbarActions((reader as any).selectionToolbar),
             renderCodeInReader: Boolean((reader as any).renderCodeInReader ?? DEFAULT_SETTINGS.reader.renderCodeInReader),
             showOutlineInReader: Boolean((reader as any).showOutlineInReader ?? DEFAULT_SETTINGS.reader.showOutlineInReader),
+            showImagesInReader: Boolean((reader as any).showImagesInReader ?? DEFAULT_SETTINGS.reader.showImagesInReader),
             persistAnnotations: Boolean((reader as any).persistAnnotations ?? DEFAULT_SETTINGS.reader.persistAnnotations),
             defaultOpenMode: normalizeReaderOpenMode((reader as any).defaultOpenMode),
             panelSizeRatio: normalizeReaderPanelSizeRatio((reader as any).panelSizeRatio),

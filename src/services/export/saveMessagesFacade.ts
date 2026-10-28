@@ -29,6 +29,7 @@ export type ExportResult =
 export type ExportOptions = {
     t: TranslateFn;
     markdownFormulaFormat?: FormulaSourceFormat;
+    markdownIncludeImages?: boolean;
     contentCleanup?: ContentCleanupSettings;
     png?: MessagePngRenderSettings;
     onProgress?: ExportProgressCallback;
@@ -67,6 +68,7 @@ export async function exportTurnsMarkdown(
         throwIfAborted(options.signal);
         const out = buildMarkdownExport(projectTurns(turns, options.contentCleanup), selectedIndices, metadata, options.t, {
             formulaFormat: options.markdownFormulaFormat,
+            includeImages: options.markdownIncludeImages,
         });
         if (!out) return { ok: true, noop: true };
         throwIfAborted(options.signal);
