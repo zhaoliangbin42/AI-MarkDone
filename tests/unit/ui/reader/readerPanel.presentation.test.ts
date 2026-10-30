@@ -85,6 +85,33 @@ describe('ReaderPanel presentation', () => {
         document.querySelector('#aimd-reader-panel-host')?.remove();
     });
 
+    it('changes reading styles through settings without replacing the rendered message', async () => {
+        const panel = new ReaderPanel();
+        const onChange = vi.fn(async () => undefined);
+        panel.setReaderSettingsController({ onChange });
+        try {
+            await panel.show([{ id: 'style', userPrompt: 'Question', content: '# Title\n\nBody with **emphasis**.' }], 0, 'light');
+            const shadow = document.querySelector('#aimd-reader-panel-host')!.shadowRoot!;
+            const body = shadow.querySelector('.reader-markdown')!;
+            shadow.querySelector<HTMLButtonElement>('[data-action="reader-settings"]')!.click();
+            await vi.waitFor(() => expect(shadow.activeElement?.getAttribute('data-action')).toBe('close'));
+            const select = shadow.querySelector<HTMLSelectElement>('[data-role="reader-reading-style"]')!;
+            expect(select.value).toBe('modern');
+            select.focus();
+            select.value = 'book';
+            select.dispatchEvent(new Event('change', { bubbles: true }));
+            await vi.waitFor(() => expect(onChange).toHaveBeenCalledWith({ readingStyle: 'book' }));
+            expect(shadow.querySelector('.panel-window--reader')?.getAttribute('data-reading-style')).toBe('book');
+            expect(shadow.querySelector('.reader-markdown')).toBe(body);
+            await vi.waitFor(() => expect(shadow.activeElement?.getAttribute('data-role')).toBe('reader-reading-style'));
+            onChange.mockRejectedValueOnce(new Error('offline'));
+            const next = shadow.querySelector<HTMLSelectElement>('[data-role="reader-reading-style"]')!;
+            next.value = 'document'; next.dispatchEvent(new Event('change', { bubbles: true }));
+            await vi.waitFor(() => expect(shadow.querySelector('.panel-window--reader')?.getAttribute('data-reading-style')).toBe('book'));
+            expect(shadow.querySelector('.reader-markdown')).toBe(body);
+        } finally { panel.hide(); }
+    });
+
     it('shows and acknowledges the shared changelog notice when opening reader with a pending version', async () => {
         vi.mocked(bookmarksClient.getChangelogNotice).mockResolvedValueOnce({
             ok: true,
@@ -108,9 +135,9 @@ describe('ReaderPanel presentation', () => {
             const modal = shadow.querySelector<HTMLElement>('.mock-modal');
 
             expect(modal?.querySelector('.mock-modal__title-copy strong')?.textContent).toBe(`What's new in AI-MarkDone ${releaseVersion}`);
-            expect(modal?.textContent).toContain('2026-10-21');
-            expect(modal?.textContent).toContain('50% to 500%');
-            expect(modal?.textContent).toContain('Customize common keyboard shortcuts');
+            expect(modal?.textContent).toContain('2026-10-30');
+            expect(modal?.textContent).toContain('Reader');
+            expect(modal?.textContent).toContain('directory');
             expect(Array.from(modal?.querySelectorAll<HTMLButtonElement>('.mock-modal__button') ?? []).map((button) => button.textContent)).toEqual(['OK']);
 
             const okButton = modal?.querySelector<HTMLButtonElement>('.mock-modal__button');

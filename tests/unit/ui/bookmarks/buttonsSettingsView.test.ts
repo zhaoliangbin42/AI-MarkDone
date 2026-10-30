@@ -87,12 +87,12 @@ describe('Buttons settings through its group and row controls', () => {
         f.group('Formula');
         expect(f.toggle('formula.assetActions.copyMathml').getAttribute('aria-checked')).toBe('false');
         Array.from(f.shadow.querySelectorAll<HTMLButtonElement>('.contexts button'))[1].click();
-        expect(f.toggle('formula.composerAssetActions.copyMathml').getAttribute('aria-checked')).toBe('true');
+        expect(f.toggle('formula.composerAssetActions.copyMathml').getAttribute('aria-checked')).toBe('false');
         f.toggle('formula.composerAssetActions.copyMathml').click();
-        await vi.waitFor(() => expect(f.toggle('formula.composerAssetActions.copyMathml').getAttribute('aria-checked')).toBe('false'));
-        expect(f.save).toHaveBeenCalledWith('formula', { composerAssetActions: { copyMathml: false } });
-        const next = planSetCategory(DEFAULT_SETTINGS, 'formula', { composerAssetActions: { copyMathml: false } }).next;
-        expect(next.formula.composerAssetActions).toEqual({ copyPng: true, copySvg: true, copyMathml: false, savePng: true, saveSvg: true });
+        await vi.waitFor(() => expect(f.toggle('formula.composerAssetActions.copyMathml').getAttribute('aria-checked')).toBe('true'));
+        expect(f.save).toHaveBeenCalledWith('formula', { composerAssetActions: { copyMathml: true } });
+        const next = planSetCategory(DEFAULT_SETTINGS, 'formula', { composerAssetActions: { copyMathml: true } }).next;
+        expect(next.formula.composerAssetActions).toEqual({ copyPng: true, copySvg: false, copyMathml: true, savePng: true, saveSvg: false });
         expect(next.formula.assetActions).toEqual(DEFAULT_SETTINGS.formula.assetActions);
     });
     it('keeps copy hover options independent and preserves an old secondary pin without exposing it', async () => {
@@ -131,5 +131,5 @@ it('keeps Directory switches and removes the retired composer group',()=>{const 
 
 it('uses the complete production formula window for the typing sample',async()=>{
  const asset={source:'E=mc^2',displayMode:false,fontSizePx:36,width:90,height:30,viewBox:'0 0 90 30',svg:'<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 90 30"><path d="M0 0"/></svg>'};
- const view=new ButtonsSettingsView(async()=>true,async()=>asset);views.push(view);document.body.append(view.root);const shadow=view.root.shadowRoot!;shadow.querySelector<HTMLButtonElement>('[data-group="Formula"]')!.click();(shadow.querySelectorAll<HTMLButtonElement>('.contexts button')[1]).click();await vi.waitFor(()=>expect(shadow.querySelector('.formula-assistant .formula-preview svg')).toBeTruthy());expect(shadow.querySelector('.formula-preview-header')).toBeTruthy();expect(shadow.querySelectorAll('.formula-assistant .formula-export-actions button')).toHaveLength(5);expect(shadow.querySelector('.math-hover')).toBeNull();
+ const view=new ButtonsSettingsView(async()=>true,async()=>asset);views.push(view);document.body.append(view.root);const shadow=view.root.shadowRoot!;shadow.querySelector<HTMLButtonElement>('[data-group="Formula"]')!.click();(shadow.querySelectorAll<HTMLButtonElement>('.contexts button')[1]).click();await vi.waitFor(()=>expect(shadow.querySelector('.formula-assistant .formula-preview svg')).toBeTruthy());expect(shadow.querySelector('.formula-preview-header')).toBeTruthy();expect(shadow.querySelectorAll('.formula-assistant .formula-export-actions button')).toHaveLength(2);expect(shadow.querySelector('.math-hover')).toBeNull();
 });

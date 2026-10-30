@@ -5,6 +5,7 @@ import type { ModalHost } from '../components/ModalHost';
 import type { ReaderCommentRecord } from '../../../services/reader/commentSession';
 import { t } from '../components/i18n';
 import { getFlatWorkflowCss } from '../components/styles/flatWorkflowCss';
+import { finishSurfaceMotionOpening } from '../components/motionLifecycle';
 
 type AnchorRect = {
     left: number;
@@ -14,6 +15,9 @@ type AnchorRect = {
     width: number;
     height: number;
 };
+
+type WindowGeometry = { left: number; top: number; width: number; height: number };
+type PendingAction = { selection: ReaderCommentRecord | null; insertRecords: ReaderCommentRecord[] | null; deleteAfter: boolean };
 
 type OpenParams = {
     shadow: ShadowRoot;
@@ -25,7 +29,7 @@ type OpenParams = {
     loadAll: () => Promise<ReaderCommentRecord[]>;
     onSelect: (record: ReaderCommentRecord) => void;
     onDelete: (record: ReaderCommentRecord) => Promise<boolean>;
-    onInsertAll: (records: ReaderCommentRecord[]) => void | Promise<void>;
+    onInsertAll: (records: ReaderCommentRecord[], deleteAfter?: boolean) => void | Promise<void>;
 };
 
 const ANCHOR_GAP_PX = 8;
@@ -35,7 +39,7 @@ const ANCHOR_FALLBACK_HEIGHT_PX = 520;
 
 function positionDialog(dialog: HTMLElement, anchor: AnchorRect): void {
     const gap = ANCHOR_GAP_PX;
-    const width = Math.min(ANCHOR_MAX_WIDTH_PX, Math.max(ANCHOR_MIN_WIDTH_PX, window.innerWidth - gap * 2));
+    const width = Math.min(ANCHOR_MAX_WIDTH_PX, Math.max(1, window.innerWidth - gap * 2));
     const height = dialog.offsetHeight || ANCHOR_FALLBACK_HEIGHT_PX;
     let top = anchor.bottom + gap;
     if (top + height > window.innerHeight - gap) top = anchor.top - height - gap;
@@ -68,6 +72,7 @@ function getCss(): string {
     return `
 ${getFlatWorkflowCss()}
 .mock-modal--page-annotation-manager {
+  position: relative;
   --_modal-content-max-width: 720px;
   --_modal-content-max-height: 640px;
   border-color: var(--aimd-workspace-border);
@@ -76,26 +81,41 @@ ${getFlatWorkflowCss()}
 }
 .mock-modal--page-annotation-manager .mock-modal__head, .mock-modal--page-annotation-manager .mock-modal__footer { background: var(--aimd-workspace-card); border-color: var(--aimd-workspace-border); }
 .mock-modal--page-annotation-manager .mock-modal__title-copy strong { color: var(--aimd-text-primary); }
-.mock-modal--page-annotation-manager .mock-modal__content { overflow: hidden; }
+.mock-modal--page-annotation-manager .mock-modal__content { overflow: hidden; flex: 1 1 auto; }
+.mock-modal--page-annotation-manager[data-compact-viewport="true"] .mock-modal__content { overflow: auto; }
+.mock-modal--page-annotation-manager[data-compact-viewport="true"] .page-annotation-manager { min-height: max-content; }
+.mock-modal--page-annotation-manager[data-compact-viewport="true"] .page-annotation-manager__items { min-height: calc(var(--aimd-space-5) * 5); max-height: calc(var(--aimd-space-5) * 10); }
+.mock-modal--page-annotation-manager .mock-modal__head { cursor: move; touch-action: none; }
+.mock-modal--page-annotation-manager .mock-modal__head:focus-visible { outline: 2px solid var(--aimd-focus-ring); outline-offset: -2px; }
+.page-annotation-manager__resize { position: absolute; bottom: 0; right: 0; width: var(--aimd-size-control-icon-panel); height: var(--aimd-size-control-icon-panel); padding: 0; border: 0; background: transparent; cursor: nwse-resize; touch-action: none; color: var(--aimd-text-secondary); }
+.page-annotation-manager__resize::after { content: ''; position: absolute; inset: var(--aimd-space-2); border-right: 2px solid currentColor; border-bottom: 2px solid currentColor; opacity: 0.7; }
+.page-annotation-manager__resize:focus-visible { outline: 2px solid var(--aimd-focus-ring); outline-offset: -2px; }
+.mock-modal--page-annotation-manager .mock-modal__footer { padding-right: calc(var(--aimd-size-control-icon-panel) + var(--aimd-space-2)); }
+
 .page-annotation-manager, .page-annotation-manager * { box-sizing: border-box; }
 .page-annotation-manager { min-width: 0; min-height: 0; width: 100%; display: grid; grid-template-rows: auto minmax(0, 1fr); gap: var(--aimd-space-4); }
-.page-annotation-manager__toolbar { min-width: 0; display: grid; gap: var(--aimd-space-4); }
+.page-annotation-manager__toolbar { min-width: 0; display: grid; gap: var(--aimd-space-3); }
 .page-annotation-manager__collection { min-width: 0; min-height: 0; display: grid; grid-template-rows: auto minmax(0, 1fr); gap: var(--aimd-space-3); }
 .page-annotation-manager__row { display: flex; flex-wrap: wrap; align-items: center; gap: var(--aimd-space-2); }
 .page-annotation-manager__row--primary { justify-content: space-between; }
-.page-annotation-manager__tabs { width: max-content; max-width: 100%; }
+.page-annotation-manager__tabs { width: 100%; max-width: 100%; }
+.page-annotation-manager__tab { flex: 0 1 auto; }
+.page-annotation-manager__tab[data-active="1"] { color: var(--aimd-text-primary); font-weight: var(--aimd-font-semibold); }
 .page-annotation-manager__search { width: 100%; min-height: var(--aimd-size-control-action-panel); box-sizing: border-box; padding: 0 var(--aimd-space-3); border: 1px solid var(--aimd-workspace-border); border-radius: var(--aimd-radius-lg); background: var(--aimd-bg-primary); box-shadow: none; color: var(--aimd-text-primary); font: inherit; }
+.page-annotation-manager__search::placeholder { color: var(--aimd-text-secondary); opacity: 1; }
 .page-annotation-manager__search:focus-visible { outline: none; border-color: var(--aimd-interactive-primary); box-shadow: var(--aimd-shadow-focus); }
-.page-annotation-manager__items { min-height: 0; overflow: auto; overscroll-behavior: contain; scrollbar-gutter: stable; }
+.page-annotation-manager__items { min-height: 0; overflow: auto; overscroll-behavior: contain; scrollbar-gutter: stable; scrollbar-color: var(--aimd-border-strong) transparent; border-radius: var(--aimd-radius-xl); }
+.page-annotation-manager [data-role="bulk-actions"] { align-items: center; gap: var(--aimd-space-2); }
+.page-annotation-manager [data-role="insert-scope"] { flex-basis: 100%; padding-top: var(--aimd-space-1); }
 .page-annotation-manager__item { min-width: 0; display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: var(--aimd-space-3); padding: var(--aimd-space-4); border-top: 1px solid var(--aimd-border-subtle); }
 .page-annotation-manager__item:hover, .page-annotation-manager__item:focus-within { background: var(--aimd-surface-hover); }
 .page-annotation-manager__item:last-child { border-bottom: 1px solid var(--aimd-border-subtle); }
 .page-annotation-manager__open { all: unset; min-width: 0; cursor: pointer; display: grid; gap: var(--aimd-space-2); border-radius: var(--aimd-radius-md); }
 .page-annotation-manager__open:focus-visible, .page-annotation-manager__delete:focus-visible { outline: 2px solid var(--aimd-focus-ring); outline-offset: 2px; }
 .page-annotation-manager__quote { min-width: 0; overflow: hidden; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; color: var(--aimd-text-secondary); font-size: var(--aimd-text-sm); line-height: var(--aimd-leading-normal); border-left: 2px solid var(--aimd-border-default); padding-left: var(--aimd-space-3); text-wrap: pretty; }
-.page-annotation-manager__comment { min-width: 0; overflow: hidden; display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow-wrap: anywhere; color: var(--aimd-text-primary); font-size: var(--aimd-text-sm); line-height: var(--aimd-leading-normal); }
+.page-annotation-manager__comment { min-width: 0; overflow: hidden; display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow-wrap: anywhere; color: var(--aimd-text-primary); font-size: var(--aimd-text-base); font-weight: var(--aimd-font-medium); line-height: var(--aimd-leading-normal); }
 .page-annotation-manager__meta { display: flex; flex-wrap: wrap; gap: var(--aimd-space-2); color: var(--aimd-text-tertiary); font-size: var(--aimd-text-xs); font-variant-numeric: tabular-nums; }
-.page-annotation-manager__hint { color: var(--aimd-text-secondary); font-size: var(--aimd-text-xs); line-height: var(--aimd-leading-normal); }
+.page-annotation-manager__hint { color: var(--aimd-text-secondary); font-size: var(--aimd-text-xs); line-height: var(--aimd-leading-normal); overflow-wrap: anywhere; }
 .page-annotation-manager__delete { all: unset; box-sizing: border-box; cursor: pointer; align-self: start; display: inline-flex; align-items: center; justify-content: center; width: var(--aimd-size-control-icon-panel); height: var(--aimd-size-control-icon-panel); border-radius: var(--aimd-radius-full); color: var(--aimd-text-secondary); }
 .page-annotation-manager__delete:hover { color: var(--aimd-color-danger); background: var(--aimd-interactive-hover); }
 .page-annotation-manager__delete:disabled { opacity: 0.5; cursor: not-allowed; }
@@ -116,11 +136,12 @@ export class PageAnnotationManagerPopover {
     private loadingAll = false;
     private allLoadGeneration = 0;
     private allLoadFailed = false;
-    private pendingSelection: ReaderCommentRecord | null = null;
-    private pendingInsertRecords: ReaderCommentRecord[] | null = null;
+    private pendingAction: PendingAction = { selection: null, insertRecords: null, deleteAfter: false };
+    private rememberedGeometry: WindowGeometry | null = null;
     private lastVisibleRecordsKey: string | null = null;
     private lastVisibleRecords: ReaderCommentRecord[] = [];
     private lastListRenderKey: string | null = null;
+    private geometryCleanup: (() => void) | null = null;
 
     isOpen(): boolean {
         return Boolean(this.rootEl?.isConnected);
@@ -149,8 +170,9 @@ export class PageAnnotationManagerPopover {
         this.loadingAll = false;
         this.allLoadGeneration += 1;
         this.allLoadFailed = false;
-        this.pendingSelection = null;
-        this.pendingInsertRecords = null;
+        const pendingAction: PendingAction = { selection: null, insertRecords: null, deleteAfter: false };
+        this.pendingAction = pendingAction;
+        let cleanupGeometry: (() => void) | null = null;
         this.lastVisibleRecordsKey = null;
         this.lastVisibleRecords = [];
         this.lastListRenderKey = null;
@@ -216,24 +238,167 @@ export class PageAnnotationManagerPopover {
                 footer.appendChild(closeButton);
             },
             onClosed: () => {
-                this.allLoadGeneration += 1;
-                const selected = this.pendingSelection;
-                const insertRecords = this.pendingInsertRecords;
-                this.pendingSelection = null;
-                this.pendingInsertRecords = null;
-                this.rootEl = null;
-                this.closeModal = null;
-                this.params = null;
+                cleanupGeometry?.();
+                const selected = pendingAction.selection;
+                const insertRecords = pendingAction.insertRecords;
+                const deleteAfter = pendingAction.deleteAfter;
+                if (this.rootEl === body) {
+                    this.allLoadGeneration += 1;
+                    this.geometryCleanup = null;
+                    this.rootEl = null;
+                    this.closeModal = null;
+                    this.params = null;
+                }
                 if (selected) params.onSelect(selected);
-                if (insertRecords && insertRecords.length > 0) void params.onInsertAll(insertRecords);
+                if (insertRecords && insertRecords.length > 0) {
+                    if (deleteAfter) void params.onInsertAll(insertRecords, true);
+                    else void params.onInsertAll(insertRecords);
+                }
             },
         });
         // The modal shell appends the dialog synchronously; anchor it next to
         // the input box instead of the default centered placement.
-        if (params.anchorRect) {
-            const dialog = params.shadow.querySelector<HTMLElement>('.mock-modal--page-annotation-manager');
-            if (dialog) positionDialog(dialog, params.anchorRect);
+        const dialog = body.closest<HTMLElement>('.mock-modal--page-annotation-manager');
+        if (dialog) {
+            if (params.anchorRect) positionDialog(dialog, params.anchorRect);
+            this.installGeometry(dialog);
+            cleanupGeometry = this.geometryCleanup;
         }
+    }
+
+    private installGeometry(dialog: HTMLElement): void {
+        this.geometryCleanup?.();
+        const header = dialog.querySelector<HTMLElement>('.mock-modal__head');
+        if (!header) return;
+        const handle = document.createElement('button');
+        handle.type = 'button';
+        handle.className = 'page-annotation-manager__resize';
+        handle.dataset.action = 'page-annotation-resize';
+        const resizeLabel = this.getLabel('pageAnnotationManagerResize', 'Resize annotation window');
+        handle.setAttribute('aria-label', resizeLabel);
+        handle.title = resizeLabel;
+        dialog.appendChild(handle);
+        header.tabIndex = 0;
+        const moveLabel = this.getLabel('pageAnnotationManagerMove', 'Move annotation window');
+        header.setAttribute('aria-label', moveLabel);
+        header.title = moveLabel;
+
+        const gap = ANCHOR_GAP_PX;
+        const step = 16;
+        type Rect = WindowGeometry;
+        const viewport = () => {
+            const v = window.visualViewport;
+            const left = v?.offsetLeft ?? 0;
+            const top = v?.offsetTop ?? 0;
+            return { left, top, width: v?.width ?? window.innerWidth, height: v?.height ?? window.innerHeight };
+        };
+        const read = (): Rect => {
+            const rect = dialog.getBoundingClientRect();
+            return { left: rect.left, top: rect.top, width: rect.width, height: rect.height };
+        };
+        const measureMinimumHeight = () => {
+            const elementHeight = (selector: string) => dialog.querySelector<HTMLElement>(selector)?.getBoundingClientRect().height ?? 0;
+            const cssLength = (element: HTMLElement | null, property: string) => {
+                if (!element) return 0;
+                return Number.parseFloat(getComputedStyle(element).getPropertyValue(property)) || 0;
+            };
+            const content = dialog.querySelector<HTMLElement>('.mock-modal__content');
+            const manager = dialog.querySelector<HTMLElement>('.page-annotation-manager');
+            const collection = dialog.querySelector<HTMLElement>('.page-annotation-manager__collection');
+            const chromeHeight = elementHeight('.mock-modal__head') + elementHeight('.mock-modal__footer')
+                + elementHeight('.page-annotation-manager__toolbar') + elementHeight('[data-role="bulk-actions"]')
+                + cssLength(content, 'padding-top') + cssLength(content, 'padding-bottom')
+                + cssLength(manager, 'row-gap') + cssLength(collection, 'row-gap');
+            // Leave room for at least a short readable list while controls fit in the viewport.
+            return Math.max(360, chromeHeight + 96);
+
+        };
+        // Set the compact layout before the opening frame, including when no drag occurs.
+        dialog.dataset.compactViewport = String(measureMinimumHeight() > Math.max(1, viewport().height - gap * 2));
+        const apply = (desired: Rect, remember = false) => {
+            const v = viewport();
+            const availableWidth = Math.max(1, v.width - gap * 2);
+            const availableHeight = Math.max(1, v.height - gap * 2);
+            const width = Math.min(availableWidth, Math.max(Math.min(ANCHOR_MIN_WIDTH_PX, availableWidth), desired.width));
+            // Measure the controls at the requested width, where wrapping can change their height.
+            dialog.style.width = `${Math.round(width)}px`;
+            dialog.style.maxWidth = `${Math.round(width)}px`;
+            const minimumHeight = measureMinimumHeight();
+            dialog.dataset.compactViewport = String(minimumHeight > availableHeight);
+            const height = Math.min(availableHeight, Math.max(Math.min(minimumHeight, availableHeight), desired.height));
+            const left = Math.max(v.left + gap, Math.min(desired.left, v.left + v.width - gap - width));
+            const top = Math.max(v.top + gap, Math.min(desired.top, v.top + v.height - gap - height));
+            dialog.style.position = 'fixed';
+            dialog.style.left = `${Math.round(left)}px`;
+            dialog.style.top = `${Math.round(top)}px`;
+            dialog.style.width = `${Math.round(width)}px`;
+            dialog.style.maxWidth = `${Math.round(width)}px`;
+            dialog.style.height = `${Math.round(height)}px`;
+            dialog.style.maxHeight = `${Math.round(height)}px`;
+            if (remember) this.rememberedGeometry = { left: Math.round(left), top: Math.round(top), width: Math.round(width), height: Math.round(height) };
+        };
+        if (this.rememberedGeometry) apply(this.rememberedGeometry);
+        let stopGesture: (() => void) | null = null;
+        const start = (event: PointerEvent, mode: 'move' | 'resize') => {
+            if (event.button !== 0 || (mode === 'move' && event.target instanceof Element && event.target.closest('button, input, select, textarea, a'))) return;
+            event.preventDefault();
+            event.stopPropagation();
+            stopGesture?.();
+            finishSurfaceMotionOpening(dialog);
+            const origin = read();
+            const startX = event.clientX;
+            const startY = event.clientY;
+            const onMove = (next: PointerEvent) => {
+                next.preventDefault();
+                const dx = next.clientX - startX;
+                const dy = next.clientY - startY;
+                apply(mode === 'move' ? { ...origin, left: origin.left + dx, top: origin.top + dy }
+                    : { ...origin, width: origin.width + dx, height: origin.height + dy }, true);
+            };
+            const stop = () => {
+                document.removeEventListener('pointermove', onMove);
+                document.removeEventListener('pointerup', stop);
+                document.removeEventListener('pointercancel', stop);
+                stopGesture = null;
+            };
+            stopGesture = stop;
+            document.addEventListener('pointermove', onMove);
+            document.addEventListener('pointerup', stop);
+            document.addEventListener('pointercancel', stop);
+        };
+        const onHeaderPointer = (event: PointerEvent) => start(event, 'move');
+        const onHandlePointer = (event: PointerEvent) => start(event, 'resize');
+        const directions: Record<string, [number, number]> = { ArrowLeft: [-step, 0], ArrowRight: [step, 0], ArrowUp: [0, -step], ArrowDown: [0, step] };
+        const onKey = (event: KeyboardEvent, mode: 'move' | 'resize') => {
+            if (mode === 'move' && event.target !== header) return;
+            const delta = directions[event.key];
+            if (!delta) return;
+            event.preventDefault(); event.stopPropagation();
+            finishSurfaceMotionOpening(dialog);
+            const origin = read();
+            apply(mode === 'move' ? { ...origin, left: origin.left + delta[0], top: origin.top + delta[1] }
+                : { ...origin, width: origin.width + delta[0], height: origin.height + delta[1] }, true);
+        };
+        const onHeaderKey = (event: KeyboardEvent) => onKey(event, 'move');
+        const onHandleKey = (event: KeyboardEvent) => onKey(event, 'resize');
+        const onViewportChange = () => { apply(read()); };
+        header.addEventListener('pointerdown', onHeaderPointer);
+        header.addEventListener('keydown', onHeaderKey);
+        handle.addEventListener('pointerdown', onHandlePointer);
+        handle.addEventListener('keydown', onHandleKey);
+        window.addEventListener('resize', onViewportChange);
+        window.visualViewport?.addEventListener('resize', onViewportChange);
+        window.visualViewport?.addEventListener('scroll', onViewportChange);
+        this.geometryCleanup = () => {
+            stopGesture?.();
+            header.removeEventListener('pointerdown', onHeaderPointer);
+            header.removeEventListener('keydown', onHeaderKey);
+            handle.removeEventListener('pointerdown', onHandlePointer);
+            handle.removeEventListener('keydown', onHandleKey);
+            window.removeEventListener('resize', onViewportChange);
+            window.visualViewport?.removeEventListener('resize', onViewportChange);
+            window.visualViewport?.removeEventListener('scroll', onViewportChange);
+        };
     }
 
     private getLabel(key: string, fallback: string, substitutions?: string | string[]): string {
@@ -417,10 +582,26 @@ export class PageAnnotationManagerPopover {
         insertAll.textContent = this.getLabel('pageAnnotationInsert', 'Insert to input');
         insertAll.disabled = total < 1;
         insertAll.addEventListener('click', () => {
-            this.pendingInsertRecords = this.getViewRecords();
+            this.pendingAction.insertRecords = [...this.getViewRecords()];
+            this.pendingAction.deleteAfter = false;
             this.closeModal?.();
         });
-        actions.appendChild(insertAll);
+        const insertAndDelete = document.createElement('button');
+        insertAndDelete.type = 'button';
+        insertAndDelete.className = 'mock-modal__button mock-modal__button--secondary';
+        insertAndDelete.dataset.action = 'page-annotation-insert-and-delete';
+        insertAndDelete.textContent = this.getLabel('pageAnnotationInsertAndDelete', 'Insert and delete');
+        insertAndDelete.disabled = total < 1;
+        insertAndDelete.addEventListener('click', () => {
+            this.pendingAction.insertRecords = [...this.getViewRecords()];
+            this.pendingAction.deleteAfter = true;
+            this.closeModal?.();
+        });
+        const hint = document.createElement('span');
+        hint.className = 'page-annotation-manager__hint';
+        hint.dataset.role = 'insert-scope';
+        hint.textContent = this.getLabel('pageAnnotationInsertScope', 'Inserts all annotations in this conversation, including search results not shown.');
+        actions.append(insertAll, insertAndDelete, hint);
     }
 
     private createRow(record: ReaderCommentRecord): HTMLElement {
@@ -447,7 +628,7 @@ export class PageAnnotationManagerPopover {
         meta.textContent = parts.join(' · ');
         open.append(comment, quote, meta);
         open.addEventListener('click', () => {
-            this.pendingSelection = record;
+            this.pendingAction.selection = record;
             this.closeModal?.();
         });
         const deleteButton = document.createElement('button');

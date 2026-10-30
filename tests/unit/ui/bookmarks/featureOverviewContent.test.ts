@@ -53,7 +53,7 @@ describe('feature overview content', () => {
         expect(find('reader-separate').note).toContain('原 ChatGPT 标签页保持打开');
         expect(find('navigation-directory').note).toContain('新安装默认开启');
         expect(find('navigation-directory').note).toContain('现有设置保持不变');
-        expect(find('marks-save-annotations').note).toContain('默认关闭');
+        expect(find('marks-save-annotations').note).toContain('点击保存后会写入本地资料库');
         expect(find('library-save-page').note).toContain('不保存整个对话正文');
         expect(find('library-summaries').note).toContain('开头 250 和结尾 250');
         expect(find('backup-local').note).toContain('未保存的临时注释');

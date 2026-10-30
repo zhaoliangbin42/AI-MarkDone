@@ -64,13 +64,13 @@ describe('settings migrations', () => {
         } as any).chatgptBehavior.showPageSelectionToolbar).toBe(false);
     });
 
-    it('enables every ChatGPT input enhancement for a fresh install', () => {
+    it('enables input assistance without replacing Enter for a fresh install', () => {
         const next = loadAndNormalize(null);
 
         expect(next.chatgptBehavior.inputEnhancement).toEqual({
             available: true,
             enabled: true,
-            enterKeyNewline: true,
+            enterKeyNewline: false,
             boldShortcut: true,
             lists: {
                 enabled: true,
@@ -123,14 +123,14 @@ describe('settings migrations', () => {
         expect(loadAndNormalize(null)).toEqual(DEFAULT_SETTINGS);
         expect(loadAndNormalize(undefined)).toEqual(DEFAULT_SETTINGS);
         expect(loadAndNormalize('bad')).toEqual(DEFAULT_SETTINGS);
-        expect(loadAndNormalize(null).reader.persistAnnotations).toBe(false);
+        expect(loadAndNormalize(null).reader.persistAnnotations).toBe(true);
     });
 
     it('preserves the explicit Reader annotation persistence preference', () => {
         expect(loadAndNormalize({ version: 4, reader: { persistAnnotations: true } } as any).reader.persistAnnotations).toBe(true);
     });
 
-    it('merges v3 stored settings with defaults, migrates missing formula asset actions off, and preserves platform runtime fields', () => {
+    it('merges v3 stored settings with defaults, defaults missing formula PNG actions on, and preserves platform runtime fields', () => {
         const stored: any = {
             version: 3,
             platforms: { chatgpt: false, gemini: true, claude: false, deepseek: true },
@@ -162,10 +162,10 @@ describe('settings migrations', () => {
         expect(next.formula.markdownCopyFormulaFormat).toBe('markdown-dollar');
         expect(next.formula.assetFontSizePx).toBe(36);
         expect(next.formula.assetActions).toEqual({
-            copyPng: false,
+            copyPng: true,
             copySvg: false,
             copyMathml: false,
-            savePng: false,
+            savePng: true,
             saveSvg: false,
         });
         expect(next.reader.renderCodeInReader).toBe(false);
@@ -254,7 +254,7 @@ describe('settings migrations', () => {
             hideOfficialNavigation: false,
             rightInsetPx: 40,
             previewMaxChars: 600,
-            previewAssistant: false,
+            previewAssistant: true,
         });
         expect(next).not.toHaveProperty('chatgpt');
     });
@@ -272,7 +272,7 @@ describe('settings migrations', () => {
             hideOfficialNavigation: true,
             rightInsetPx: 0,
             previewMaxChars: 600,
-            previewAssistant: false,
+            previewAssistant: true,
         });
     });
 
@@ -286,8 +286,8 @@ describe('settings migrations', () => {
         expect(loadAndNormalize({ version: 5, chatgptDirectory: { previewMaxChars: 'bad' } } as any).chatgptDirectory.previewMaxChars).toBe(600);
     });
 
-    it('defaults the ChatGPT directory to off without overriding an explicit preference', () => {
-        expect(loadAndNormalize({}).chatgptDirectory.enabled).toBe(false);
+    it('defaults the ChatGPT directory to on without overriding an explicit preference', () => {
+        expect(loadAndNormalize({}).chatgptDirectory.enabled).toBe(true);
         expect(loadAndNormalize({ version: 4, chatgptDirectory: { enabled: true } } as any).chatgptDirectory.enabled).toBe(true);
     });
 
@@ -451,7 +451,7 @@ describe('settings migrations', () => {
             },
         } as any);
         expect(explicit.formula).toEqual({
-            composerAssetActions: { copyPng: true, copySvg: true, copyMathml: true, savePng: true, saveSvg: true },
+            composerAssetActions: { copyPng: true, copySvg: false, copyMathml: false, savePng: true, saveSvg: false },
             clickCopyMarkdown: false,
             clickCopyFormulaFormat: 'raw',
             markdownCopyFormulaFormat: 'markdown-dollar',
@@ -498,4 +498,18 @@ describe('settings migrations', () => {
             saveSvg: true,
         });
     });
+});
+
+it('uses the agreed defaults while preserving explicit choices and retiring annotation opt-out', () => {
+    const fresh = loadAndNormalize(null);
+    expect(fresh.chatgptDirectory).toMatchObject({ enabled: true, previewAssistant: true });
+    expect(fresh.chatgptBehavior.inputEnhancement.enterKeyNewline).toBe(false);
+    const actions = { copyPng: true, savePng: true, copySvg: false, saveSvg: false, copyMathml: false };
+    expect(fresh.formula.assetActions).toEqual(actions);
+    expect(fresh.formula.composerAssetActions).toEqual(actions);
+    const stored = loadAndNormalize({ ...fresh, reader: { ...fresh.reader, persistAnnotations: false }, chatgptDirectory: { enabled: false, previewAssistant: false }, formula: { assetActions: { copyPng: false }, composerAssetActions: { copySvg: true } } } as any);
+    expect(stored.reader.persistAnnotations).toBe(true);
+    expect(stored.chatgptDirectory).toMatchObject({ enabled: false, previewAssistant: false });
+    expect(stored.formula.assetActions.copyPng).toBe(false);
+    expect(stored.formula.composerAssetActions?.copySvg).toBe(true);
 });

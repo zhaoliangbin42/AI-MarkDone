@@ -1,3 +1,4 @@
+import readerStyleCss from './readerStyle.css?inline';
 import readerBaseCss from './readerPanelBase.css?inline';
 import readerLayoutCss from './readerPanelLayout.css?inline';
 import readerContentCss from './readerPanelContent.css?inline';
@@ -18,7 +19,7 @@ import {
 import { getPanelChromeCss } from '../components/styles/panelChromeCss';
 import { getSurfaceMaterialCss } from '../components/styles/surfaceMaterialCss';
 import { getHighlightSwatchesCss } from '../components/HighlightSwatches';
-import { getMarkdownThemeCss } from '../../../services/renderer/markdownTheme';
+import { getMarkdownThemeCss, getReaderStyleVariantsCss } from '../../../services/renderer/markdownTheme';
 import type { ReaderItem } from '../../../services/reader/types';
 import type { ReaderUserPromptDisplay } from '../../../services/reader/userPromptDisplay';
 import type { ReaderOutlineItem } from '../../../services/renderer/renderMarkdown';
@@ -242,7 +243,7 @@ export function getReaderPanelHtml(params: {
 export function getReaderPanelCss(): string {
     // --aimd-font-family-sans and the scoped layout remain in the CSS sources.
     return getHighlightSwatchesCss() + readerBaseCss + getPanelChromeCss() + readerLayoutCss
-        + getMarkdownThemeCss('.reader-markdown') + getMarkdownThemeCss('.reader-sticky-block__content') + readerContentCss + getSurfaceMaterialCss();
+        + getMarkdownThemeCss('.reader-markdown') + getMarkdownThemeCss('.reader-sticky-block__content') + readerContentCss + getSurfaceMaterialCss() + getReaderStyleVariantsCss('.panel-window--reader') + readerStyleCss;
 }
 
 export function ensureShadowStylesheetLink(shadow: ShadowRoot, href: string, styleId: string): HTMLLinkElement {

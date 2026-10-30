@@ -194,7 +194,6 @@ type Refs = {
         defaultOpenMode: SelectRef;
         renderCode: HTMLInputElement;
         showOutline: HTMLInputElement;
-        persistAnnotations: HTMLInputElement;
         promptPositionBottom: HTMLInputElement;
         promptsButton: HTMLButtonElement;
         promptsSummary: HTMLElement;
@@ -423,7 +422,6 @@ export class SettingsTabView {
         );
         const readerRenderCode = this.createToggle(readerGroup.body, t('renderCodeBlocksLabel'), t('renderCodeBlocksDesc'));
         const readerShowOutline = this.createToggle(readerGroup.body, t('readerOutlineToggleLabel'), t('readerOutlineToggleDesc'));
-        const readerPersistAnnotations = this.createToggle(readerGroup.body, t('readerAnnotationPersistenceLabel'), t('readerAnnotationPersistenceDesc'));
         const readerPromptPositionBottom = this.createToggle(
             readerGroup.body,
             t('readerCommentPromptPositionBottomLabel'),
@@ -646,7 +644,6 @@ export class SettingsTabView {
                 defaultOpenMode: readerDefaultOpenMode,
                 renderCode: readerRenderCode.input,
                 showOutline: readerShowOutline.input,
-                persistAnnotations: readerPersistAnnotations.input,
                 promptPositionBottom: readerPromptPositionBottom.input,
                 promptsButton: readerPrompts.button,
                 promptsSummary: readerPrompts.summary,
@@ -685,11 +682,11 @@ export class SettingsTabView {
         this.refs.chatgptDirectory.mode.trigger.dataset.role = 'settings-chatgpt-directory-mode';
         this.refs.chatgptDirectory.promptLabelMode.dataset.role = 'settings-chatgpt-directory-prompt-label-mode';
         this.refs.chatgptDirectory.rightInset.input.dataset.role = 'settings-chatgpt-directory-right-inset';
+        this.refs.chatgptDirectory.previewAssistant.dataset.role = 'settings-chatgpt-directory-preview-assistant';
         this.refs.chatgptDirectory.previewMaxChars.input.dataset.role = 'settings-chatgpt-directory-preview-max-chars';
         this.refs.reader.defaultOpenMode.trigger.dataset.role = 'settings-reader-default-open-mode';
         this.refs.reader.renderCode.dataset.role = 'settings-render-code-reader';
         this.refs.reader.showOutline.dataset.role = 'settings-reader-outline';
-        this.refs.reader.persistAnnotations.dataset.role = 'settings-reader-annotation-persistence';
         this.refs.reader.promptPositionBottom.dataset.role = 'settings-reader-comment-prompt-position-bottom';
         this.refs.reader.promptsButton.dataset.role = 'settings-reader-prompts';
         this.refs.reader.templateButton.dataset.role = 'settings-reader-comment-template';
@@ -931,7 +928,7 @@ export class SettingsTabView {
                 let key = ({ appearance: 'Interface', reading: 'Reader', input: 'Editing', marks: 'AnnotationOutput', export: 'Markdown', controls: 'Drawer', data: 'Data', advanced: 'Advanced' } as Record<string, string>)[category];
                 if (category === 'appearance' && roles.includes('page-width')) key = 'Page';
                 if (category === 'reading') {
-                    if (/directory|hide-official|show-message-stepper/.test(roles)) key = 'Directory';
+                    if (/directory|hide-official|show-message-stepper/.test(roles) || row.contains(r.chatgptDirectory.previewAssistant)) key = 'Directory';
                     if (roles.includes('restore-position')) key = 'Position';
                 }
                 if (category === 'input') {
@@ -1356,11 +1353,6 @@ export class SettingsTabView {
             this.settings.reader.showOutlineInReader = next;
             void this.actions.setReaderSettings?.({ showOutlineInReader: next });
         });
-        this.refs.reader.persistAnnotations.addEventListener('change', () => {
-            const next = this.refs.reader.persistAnnotations.checked;
-            this.settings.reader.persistAnnotations = next;
-            void this.actions.setReaderSettings?.({ persistAnnotations: next });
-        });
         this.refs.reader.promptPositionBottom.addEventListener('change', () => {
             const commentExport = normalizeReaderCommentExportSettings({
                 ...this.settings.reader.commentExport,
@@ -1456,7 +1448,6 @@ export class SettingsTabView {
         this.refs.reader.defaultOpenMode.setValue(normalizeReaderOpenMode(s.reader.defaultOpenMode));
         this.refs.reader.renderCode.checked = Boolean(s.reader.renderCodeInReader);
         this.refs.reader.showOutline.checked = Boolean(s.reader.showOutlineInReader);
-        this.refs.reader.persistAnnotations.checked = Boolean(s.reader.persistAnnotations);
         this.refs.reader.promptPositionBottom.checked = s.reader.commentExport?.promptPosition === 'bottom';
         this.refs.reader.promptsSummary.textContent = this.formatReaderPromptSummary();
         this.refs.reader.templateSummary.textContent = this.formatReaderTemplateSummary(s.reader.commentExport?.template ?? []);
@@ -1482,7 +1473,6 @@ export class SettingsTabView {
         this.syncToggle(this.refs.chatgptDirectory.promptLabelMode);
         this.syncToggle(this.refs.reader.renderCode);
         this.syncToggle(this.refs.reader.showOutline);
-        this.syncToggle(this.refs.reader.persistAnnotations);
         this.syncToggle(this.refs.reader.promptPositionBottom);
 
         this.extraSync.forEach(sync => sync());

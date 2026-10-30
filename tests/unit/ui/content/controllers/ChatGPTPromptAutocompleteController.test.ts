@@ -1025,54 +1025,72 @@ describe('ChatGPTPromptAutocompleteController', () => {
         controller.dispose();
     });
 
-    it('inserts at the saved caret and deletes only after the composer accepts the text', async () => {
-        const composer = createTextareaComposer('before after');
-        composer.focus(); composer.setSelectionRange(7, 7);
-        const prompt = createPrompt({ content: 'Inserted{{cursor}}' });
-        let resolveDelete!: () => void;
-        const client = { listPrompts: vi.fn(async () => [prompt]), recordUse: vi.fn(async () => undefined), savePrompt: vi.fn(), deletePrompt: vi.fn(() => new Promise<void>(resolve => { resolveDelete = resolve; })), restoreDefaults: vi.fn() };
+    it('opens the manager from the composer shortcut, keeps inserted Prompts and permits explicit deletion', async () => {
+        const composer = createTextareaComposer('draft'); composer.focus();
+        const prompt = createPrompt({ id: 'retained', content: 'Inserted' });
+        let library = [prompt];
+        const client = {
+            listPrompts: vi.fn(async (options?: { includeDisabled?: boolean }) => options?.includeDisabled ? [...library] : []),
+            recordUse: vi.fn(async () => undefined), savePrompt: vi.fn(),
+            deletePrompt: vi.fn(async (id: string) => { library = library.filter(p => p.id !== id); }), restoreDefaults: vi.fn(),
+        };
+        const controller = new ChatGPTPromptAutocompleteController({ getComposerInputElement: () => composer, getComposerKind: () => 'textarea' } as any, client);
+        controller.setEnabled(false); controller.init(); const shortcut = bindManualShortcut(controller);
+        const click = (element: HTMLElement) => { element.dispatchEvent(new MouseEvent('pointerdown', { bubbles: true, composed: true })); element.click(); };
+        try {
+            shortcut.press(composer); await tick();
+            const host = document.getElementById('aimd-chatgpt-prompt-popover-host')!;
+            click(host.shadowRoot!.querySelector<HTMLElement>('[data-action="open-prompt-library"]')!);
+            await vi.waitFor(() => expect(host.shadowRoot!.querySelector('[data-action="insert-prompt"]')).not.toBeNull());
+            expect(host.shadowRoot!.querySelector('[data-action="insert-delete-prompt"]')).toBeNull();
+            click(host.shadowRoot!.querySelector<HTMLElement>('[data-action="insert-prompt"]')!);
+            await vi.waitFor(() => expect(composer.value).toContain('Inserted'));
+            expect(library).toEqual([prompt]); expect(client.deletePrompt).not.toHaveBeenCalled();
+            await controller.openManager();
+            const root = document.getElementById('aimd-chatgpt-prompt-popover-host')!.shadowRoot!;
+            expect(root.querySelector('[data-action="insert-prompt"]')).not.toBeNull();
+            click(root.querySelector<HTMLElement>('[data-role="prompt-actions"]')!);
+            click(root.querySelector<HTMLElement>('[data-action="delete-prompt"]')!);
+            await vi.waitFor(() => expect(client.deletePrompt).toHaveBeenCalledWith(prompt.id));
+            expect(library).toEqual([]);
+        } finally { shortcut.dispose(); controller.dispose(); }
+    });
+
+    it('keeps the Prompt when the composer rejects insertion', async () => {
+        const composer = createTextareaComposer('draft');
+        const prompt = createPrompt({ content: 'Inserted' });
+        const client = { listPrompts: vi.fn(async () => [prompt]), recordUse: vi.fn(), savePrompt: vi.fn(), deletePrompt: vi.fn(), restoreDefaults: vi.fn() };
         const controller = new ChatGPTPromptAutocompleteController({ getComposerInputElement: () => composer, getComposerKind: () => 'textarea' } as any, client);
         controller.init();
         try {
             await controller.openManager();
+            composer.addEventListener('input', () => { composer.value = 'draft'; });
             const shadow = document.getElementById('aimd-chatgpt-prompt-popover-host')!.shadowRoot!;
-            const button = shadow.querySelector<HTMLButtonElement>('[data-action="insert-delete-prompt"]')!;
-            expect(button).not.toBeNull();
-            button.dispatchEvent(new MouseEvent('pointerdown', { bubbles: true, composed: true })); button.click(); button.click();
-            await vi.waitFor(() => expect(client.deletePrompt).toHaveBeenCalledTimes(1));
-            expect(client.deletePrompt).toHaveBeenCalledWith(prompt.id, prompt.updatedAt);
-            expect(composer.value).toBe('before Insertedafter');
-            expect(composer.selectionStart).toBe(15);
-            resolveDelete(); await tick();
-            expect(document.getElementById('aimd-chatgpt-prompt-popover-host')).toBeNull();
-            expect(document.activeElement).toBe(composer);
+            const insert = shadow.querySelector<HTMLButtonElement>('[data-action="insert-prompt"]')!;
+            insert.dispatchEvent(new MouseEvent('pointerdown', { bubbles: true, composed: true })); insert.click();
+            await vi.waitFor(() => expect(shadow.querySelector('[role="status"]')).not.toBeNull());
+            expect(client.deletePrompt).not.toHaveBeenCalled();
+            expect(shadow.querySelector('[data-action="delete-prompt"]')).not.toBeNull();
         } finally { controller.dispose(); }
     });
 
-    it('keeps the Prompt when the host rejects insertion and allows deletion retry without reinserting', async () => {
+    it('inserts a Prompt without offering or performing insert-and-delete', async () => {
         const composer = createTextareaComposer('draft');
+        composer.focus();
         const prompt = createPrompt({ content: 'Inserted' });
-        const client = { listPrompts: vi.fn(async () => [prompt]), recordUse: vi.fn(async () => undefined), savePrompt: vi.fn(), deletePrompt: vi.fn(async () => { throw new Error('offline'); }), restoreDefaults: vi.fn() };
+        const client = { listPrompts: vi.fn(async () => [prompt]), recordUse: vi.fn(async () => undefined), savePrompt: vi.fn(), deletePrompt: vi.fn(), restoreDefaults: vi.fn() };
         const controller = new ChatGPTPromptAutocompleteController({ getComposerInputElement: () => composer, getComposerKind: () => 'textarea' } as any, client);
         controller.init();
         try {
             await controller.openManager();
             const shadow = document.getElementById('aimd-chatgpt-prompt-popover-host')!.shadowRoot!;
-            const reject = () => { composer.value = 'draft'; };
-            composer.addEventListener('input', reject);
-            shadow.querySelector<HTMLButtonElement>('[data-action="insert-delete-prompt"]')!.click();
-            await tick();
+            expect(shadow.querySelector('[data-action="insert-delete-prompt"]')).toBeNull();
+            expect(shadow.querySelector('[data-action="delete-prompt"]')).not.toBeNull();
+            const insert = shadow.querySelector<HTMLButtonElement>('[data-action="insert-prompt"]')!;
+            insert.dispatchEvent(new MouseEvent('pointerdown', { bubbles: true, composed: true }));
+            insert.click();
+            await vi.waitFor(() => expect(composer.value).toContain('Inserted'));
             expect(client.deletePrompt).not.toHaveBeenCalled();
-            expect(shadow.querySelector('[role="status"]')).toBeTruthy();
-            composer.removeEventListener('input', reject);
-            shadow.querySelector<HTMLButtonElement>('[data-action="insert-delete-prompt"]')!.click();
-            await vi.waitFor(() => expect(client.deletePrompt).toHaveBeenCalledTimes(1));
-            await tick();
-            expect(composer.value).toContain('Inserted');
-            expect(shadow.querySelector('[role="status"]')?.textContent).toContain(t('promptInsertedDeleteFailed'));
-            shadow.querySelector<HTMLButtonElement>('[data-action="delete-prompt"]')!.click(); await tick();
-            expect(client.deletePrompt).toHaveBeenCalledTimes(2);
-            expect(composer.value.match(/Inserted/g)).toHaveLength(1);
         } finally { controller.dispose(); }
     });
 

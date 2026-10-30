@@ -64,6 +64,48 @@ export function getSystemTokenCss(theme: Theme, overrides: UserThemeOverrides = 
 
     return `
 :host {
+  --aimd-sys-reader-solarized-canvas: var(--aimd-ref-reader-solarized-canvas);
+  --aimd-sys-reader-solarized-surface: var(--aimd-ref-reader-solarized-surface);
+  --aimd-sys-reader-solarized-text: var(--aimd-ref-reader-solarized-text);
+  --aimd-sys-reader-solarized-muted: var(--aimd-ref-reader-solarized-muted);
+  --aimd-sys-reader-solarized-rule: var(--aimd-ref-reader-solarized-rule);
+  --aimd-sys-reader-solarized-accent: var(--aimd-ref-reader-solarized-accent);
+  --aimd-sys-reader-nord-canvas: var(--aimd-ref-reader-nord-canvas);
+  --aimd-sys-reader-nord-surface: var(--aimd-ref-reader-nord-surface);
+  --aimd-sys-reader-nord-text: var(--aimd-ref-reader-nord-text);
+  --aimd-sys-reader-nord-muted: var(--aimd-ref-reader-nord-muted);
+  --aimd-sys-reader-nord-rule: var(--aimd-ref-reader-nord-rule);
+  --aimd-sys-reader-nord-accent: var(--aimd-ref-reader-nord-accent);
+  --aimd-sys-reader-nord-keyword: var(--aimd-ref-reader-nord-keyword);
+  --aimd-sys-reader-nord-string: var(--aimd-ref-reader-nord-string);
+  --aimd-sys-reader-nord-number: var(--aimd-ref-reader-nord-number);
+  --aimd-sys-reader-dracula-canvas: var(--aimd-ref-reader-dracula-canvas);
+  --aimd-sys-reader-dracula-surface: var(--aimd-ref-reader-dracula-surface);
+  --aimd-sys-reader-dracula-text: var(--aimd-ref-reader-dracula-text);
+  --aimd-sys-reader-dracula-muted: var(--aimd-ref-reader-dracula-muted);
+  --aimd-sys-reader-dracula-rule: var(--aimd-ref-reader-dracula-rule);
+  --aimd-sys-reader-dracula-accent: var(--aimd-ref-reader-dracula-accent);
+  --aimd-sys-reader-dracula-keyword: var(--aimd-ref-reader-dracula-keyword);
+  --aimd-sys-reader-dracula-string: var(--aimd-ref-reader-dracula-string);
+  --aimd-sys-reader-dracula-number: var(--aimd-ref-reader-dracula-number);
+  --aimd-sys-reader-day-canvas: var(--aimd-ref-reader-day-canvas);
+  --aimd-sys-reader-day-surface: var(--aimd-ref-reader-day-surface);
+  --aimd-sys-reader-day-text: var(--aimd-ref-reader-day-text);
+  --aimd-sys-reader-day-muted: var(--aimd-ref-reader-day-muted);
+  --aimd-sys-reader-day-rule: var(--aimd-ref-reader-day-rule);
+  --aimd-sys-reader-day-accent: var(--aimd-ref-reader-day-accent);
+  --aimd-sys-reader-paper-canvas: var(--aimd-ref-reader-paper-canvas);
+  --aimd-sys-reader-paper-surface: var(--aimd-ref-reader-paper-surface);
+  --aimd-sys-reader-paper-text: var(--aimd-ref-reader-paper-text);
+  --aimd-sys-reader-paper-muted: var(--aimd-ref-reader-paper-muted);
+  --aimd-sys-reader-paper-rule: var(--aimd-ref-reader-paper-rule);
+  --aimd-sys-reader-paper-accent: var(--aimd-ref-reader-paper-accent);
+  --aimd-sys-reader-night-canvas: var(--aimd-ref-reader-night-canvas);
+  --aimd-sys-reader-night-surface: var(--aimd-ref-reader-night-surface);
+  --aimd-sys-reader-night-text: var(--aimd-ref-reader-night-text);
+  --aimd-sys-reader-night-muted: var(--aimd-ref-reader-night-muted);
+  --aimd-sys-reader-night-rule: var(--aimd-ref-reader-night-rule);
+  --aimd-sys-reader-night-accent: var(--aimd-ref-reader-night-accent);
   --aimd-sys-color-highlight-blue: var(--aimd-ref-color-highlight-blue);
   --aimd-sys-color-highlight-yellow: var(--aimd-ref-color-highlight-yellow);
   --aimd-sys-color-highlight-red: var(--aimd-ref-color-highlight-red);
@@ -125,6 +167,7 @@ export function getSystemTokenCss(theme: Theme, overrides: UserThemeOverrides = 
   --aimd-sys-type-title-medium-size: var(--aimd-ref-type-size-300);
   --aimd-sys-type-title-large-size: 18px;
   --aimd-sys-type-family-sans: ui-sans-serif, -apple-system, "system-ui", "Segoe UI", Helvetica, "Apple Color Emoji", Arial, "sans-serif", "Segoe UI Emoji", "Segoe UI Symbol";
+  --aimd-sys-type-family-serif: "Iowan Old Style", "Palatino Linotype", Georgia, "Songti SC", "STSong", "Noto Serif CJK SC", "SimSun", serif;
   --aimd-sys-type-family-mono: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
   --aimd-sys-type-label-line-height: var(--aimd-ref-type-line-100);
   --aimd-sys-type-body-line-height: var(--aimd-ref-type-line-200);

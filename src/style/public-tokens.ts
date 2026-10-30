@@ -1,6 +1,48 @@
 export function getPublicTokenCss(): string {
     return `
 :host {
+  --aimd-reader-solarized-canvas: var(--aimd-sys-reader-solarized-canvas);
+  --aimd-reader-solarized-surface: var(--aimd-sys-reader-solarized-surface);
+  --aimd-reader-solarized-text: var(--aimd-sys-reader-solarized-text);
+  --aimd-reader-solarized-muted: var(--aimd-sys-reader-solarized-muted);
+  --aimd-reader-solarized-rule: var(--aimd-sys-reader-solarized-rule);
+  --aimd-reader-solarized-accent: var(--aimd-sys-reader-solarized-accent);
+  --aimd-reader-nord-canvas: var(--aimd-sys-reader-nord-canvas);
+  --aimd-reader-nord-surface: var(--aimd-sys-reader-nord-surface);
+  --aimd-reader-nord-text: var(--aimd-sys-reader-nord-text);
+  --aimd-reader-nord-muted: var(--aimd-sys-reader-nord-muted);
+  --aimd-reader-nord-rule: var(--aimd-sys-reader-nord-rule);
+  --aimd-reader-nord-accent: var(--aimd-sys-reader-nord-accent);
+  --aimd-reader-nord-keyword: var(--aimd-sys-reader-nord-keyword);
+  --aimd-reader-nord-string: var(--aimd-sys-reader-nord-string);
+  --aimd-reader-nord-number: var(--aimd-sys-reader-nord-number);
+  --aimd-reader-dracula-canvas: var(--aimd-sys-reader-dracula-canvas);
+  --aimd-reader-dracula-surface: var(--aimd-sys-reader-dracula-surface);
+  --aimd-reader-dracula-text: var(--aimd-sys-reader-dracula-text);
+  --aimd-reader-dracula-muted: var(--aimd-sys-reader-dracula-muted);
+  --aimd-reader-dracula-rule: var(--aimd-sys-reader-dracula-rule);
+  --aimd-reader-dracula-accent: var(--aimd-sys-reader-dracula-accent);
+  --aimd-reader-dracula-keyword: var(--aimd-sys-reader-dracula-keyword);
+  --aimd-reader-dracula-string: var(--aimd-sys-reader-dracula-string);
+  --aimd-reader-dracula-number: var(--aimd-sys-reader-dracula-number);
+  --aimd-reader-day-canvas: var(--aimd-sys-reader-day-canvas);
+  --aimd-reader-day-surface: var(--aimd-sys-reader-day-surface);
+  --aimd-reader-day-text: var(--aimd-sys-reader-day-text);
+  --aimd-reader-day-muted: var(--aimd-sys-reader-day-muted);
+  --aimd-reader-day-rule: var(--aimd-sys-reader-day-rule);
+  --aimd-reader-day-accent: var(--aimd-sys-reader-day-accent);
+  --aimd-reader-paper-canvas: var(--aimd-sys-reader-paper-canvas);
+  --aimd-reader-paper-surface: var(--aimd-sys-reader-paper-surface);
+  --aimd-reader-paper-text: var(--aimd-sys-reader-paper-text);
+  --aimd-reader-paper-muted: var(--aimd-sys-reader-paper-muted);
+  --aimd-reader-paper-rule: var(--aimd-sys-reader-paper-rule);
+  --aimd-reader-paper-accent: var(--aimd-sys-reader-paper-accent);
+  --aimd-reader-night-canvas: var(--aimd-sys-reader-night-canvas);
+  --aimd-reader-night-surface: var(--aimd-sys-reader-night-surface);
+  --aimd-reader-night-text: var(--aimd-sys-reader-night-text);
+  --aimd-reader-night-muted: var(--aimd-sys-reader-night-muted);
+  --aimd-reader-night-rule: var(--aimd-sys-reader-night-rule);
+  --aimd-reader-night-accent: var(--aimd-sys-reader-night-accent);
   --aimd-highlight-blue: var(--aimd-sys-color-highlight-blue);
   --aimd-highlight-yellow: var(--aimd-sys-color-highlight-yellow);
   --aimd-highlight-red: var(--aimd-sys-color-highlight-red);
@@ -54,6 +96,7 @@ export function getPublicTokenCss(): string {
   --aimd-font-size-xs: var(--aimd-sys-type-label-small-size);
   --aimd-font-size-sm: var(--aimd-sys-type-label-medium-size);
   --aimd-font-family-sans: var(--aimd-sys-type-family-sans);
+  --aimd-font-family-serif: var(--aimd-sys-type-family-serif);
   --aimd-font-family-mono: var(--aimd-sys-type-family-mono);
   --aimd-text-xs: var(--aimd-sys-type-label-small-size);
   --aimd-text-sm: var(--aimd-sys-type-label-medium-size);

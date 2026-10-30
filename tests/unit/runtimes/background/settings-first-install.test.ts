@@ -43,7 +43,7 @@ describe('first-install Directory default through the real background event', ()
     beforeEach(() => { vi.resetModules(); vi.unstubAllGlobals(); });
     afterEach(() => { vi.unstubAllGlobals(); });
 
-    it('enables the directory only after the browser reports a fresh installation', async () => {
+    it('persists the directory defaults after the browser reports a fresh installation', async () => {
         const fixture = await setup();
         fixture.install();
         expect((await fixture.read()).chatgptDirectory.enabled).toBe(true);
@@ -51,16 +51,16 @@ describe('first-install Directory default through the real background event', ()
         expect(Object.keys(fixture.sync.set.mock.calls[0]![0])).toEqual([key]);
     });
 
-    it.each(['update', 'chrome_update', 'shared_module_update'])('keeps an unconfigured existing install unchanged for %s', async reason => {
+    it.each(['update', 'chrome_update', 'shared_module_update'])('uses default-on without writing an unconfigured install for %s', async reason => {
         const fixture = await setup();
         fixture.install(reason);
-        expect((await fixture.read()).chatgptDirectory.enabled).toBe(false);
+        expect((await fixture.read()).chatgptDirectory.enabled).toBe(true);
         expect(fixture.sync.set).not.toHaveBeenCalled();
     });
 
     it('does not initialize an existing profile on ordinary reads', async () => {
         const fixture = await setup();
-        expect((await fixture.read()).chatgptDirectory.enabled).toBe(false);
+        expect((await fixture.read()).chatgptDirectory.enabled).toBe(true);
         expect(fixture.sync.set).not.toHaveBeenCalled();
     });
 
@@ -75,7 +75,7 @@ describe('first-install Directory default through the real background event', ()
         fixture.install();
         const settings = await fixture.read();
         const previous = stored as { chatgptDirectory?: { enabled?: boolean } } | null | undefined;
-        expect(settings.chatgptDirectory.enabled).toBe(Boolean(previous?.chatgptDirectory?.enabled));
+        expect(settings.chatgptDirectory.enabled).toBe(previous?.chatgptDirectory?.enabled ?? true);
         expect(fixture.state).toEqual({ [key]: stored });
         expect(fixture.sync.set).not.toHaveBeenCalled();
     });
@@ -141,7 +141,7 @@ describe('first-install Directory default through the real background event', ()
         const fixture = await setup();
         fixture.sync.set.mockRejectedValueOnce(new Error('QUOTA_EXCEEDED'));
         fixture.install();
-        expect((await fixture.read()).chatgptDirectory.enabled).toBe(false);
+        expect((await fixture.read()).chatgptDirectory.enabled).toBe(true);
         await fixture.setEnabled(true);
         expect((await fixture.read()).chatgptDirectory.enabled).toBe(true);
     });

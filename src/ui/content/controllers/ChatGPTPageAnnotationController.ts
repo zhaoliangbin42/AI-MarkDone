@@ -153,6 +153,7 @@ export class ChatGPTPageAnnotationController {
     private readonly manager = new PageAnnotationManagerPopover();
 
     private managerSession: OverlaySession | null = null;
+    private annotationInsertionPending = false;
     private mode: 'closed' | 'actions' | 'editing' = 'closed';
     private lastSelection: PageMarkdownSelectionSnapshot | null = null;
     private lastFrame: ChatGPTPageSelectionFrame | null = null;
@@ -319,7 +320,7 @@ export class ChatGPTPageAnnotationController {
             const frame = this.selectionCoordinator.getCurrentFrame() ?? this.selectionCoordinator.refreshNow();
             if (frame && this.selectionToolbarEnabled && this.initialized) this.showToolbar(frame, selectionKey(frame));
         }
-        const persist = settings.persistAnnotations ?? false;
+        const persist = true;
         if (persist !== this.persistEnabled) {
             this.persistEnabled = persist;
             this.store.setPersistEnabled(persist);
@@ -1102,7 +1103,7 @@ export class ChatGPTPageAnnotationController {
                 this.syncAnnotationSurface();
                 return true;
             },
-            onInsertAll: (records) => this.insertAnnotations(records),
+            onInsertAll: (records, deleteAfter = false) => this.insertAnnotations(records, deleteAfter),
         });
     }
 
@@ -1285,32 +1286,62 @@ export class ChatGPTPageAnnotationController {
 
     // ---------- composer insert ----------
 
-    private async insertAnnotations(records: ReaderCommentRecord[]): Promise<void> {
+    private async insertAnnotations(records: ReaderCommentRecord[], deleteAfter = false): Promise<void> {
+        if (this.annotationInsertionPending) return;
         if (records.length < 1) {
             showToast({ text: this.getLabel('readerCommentCopyEmpty', 'No annotations to copy yet.'), tone: 'error' });
             return;
         }
+        const input = this.adapter.getComposerInputElement?.() ?? null;
         const current = readComposer(this.adapter);
-        if (!current.ok) {
+        if (!current.ok || !(input instanceof HTMLElement) || !input.isConnected) {
             showToast({ text: this.getLabel('pageAnnotationInsertFailed', 'Could not insert annotations'), tone: 'error' });
             return;
         }
-        // Append at the very end without overwriting the existing draft; keep
-        // a blank-line separator when the composer already has content.
+        const document = this.store.getDocument();
+        const documentKey = document ? readerAnnotationDocumentKey(document) : null;
+        const snapshot = records.map(record => ({ ...record }));
         const separator = current.text.trim() ? '\n\n' : '';
-        const text = `${separator}${this.composeAnnotations(records)}`;
-        const result = await replaceComposerTextRange(this.adapter, {
-            start: current.text.length,
-            end: current.text.length,
-            replacement: text,
-            cursorIndex: current.text.length + text.length,
-        });
-        showToast({
-            text: result.ok
-                ? this.getLabel('pageAnnotationInserted', 'Annotations inserted')
-                : this.getLabel('pageAnnotationInsertFailed', 'Could not insert annotations'),
-            tone: result.ok ? 'success' : 'error',
-        });
+        const text = `${separator}${this.composeAnnotations(snapshot)}`;
+        this.annotationInsertionPending = true;
+        let inserted = false;
+        try {
+            const result = await replaceComposerTextRange(this.adapter, {
+                start: current.text.length,
+                end: current.text.length,
+                replacement: text,
+                cursorIndex: current.text.length + text.length,
+            });
+            const verified = readComposer(this.adapter);
+            if (!result.ok || !verified.ok || verified.text !== result.text
+                || this.adapter.getComposerInputElement?.() !== input || !input.isConnected) {
+                showToast({ text: this.getLabel('pageAnnotationInsertFailed', 'Could not insert annotations'), tone: 'error' });
+                return;
+            }
+            inserted = true;
+            if (deleteAfter) {
+                const currentDocument = this.store.getDocument();
+                const sameDocument = documentKey !== null && currentDocument !== null
+                    && readerAnnotationDocumentKey(currentDocument) === documentKey;
+                const currentRecords = sameDocument ? this.store.listForConversation() : [];
+                const unchanged = snapshot.filter(record => currentRecords.some(currentRecord =>
+                    currentRecord.id === record.id && currentRecord.revision === record.revision
+                    && currentRecord.updatedAt === record.updatedAt
+                    && currentRecord.comment === record.comment && currentRecord.sourceMarkdown === record.sourceMarkdown));
+                const failed = sameDocument ? await this.store.removeMany(unchanged) : [];
+                if (!sameDocument || unchanged.length !== snapshot.length || failed.length > 0) {
+                    showToast({ text: this.getLabel('pageAnnotationInsertedDeleteFailed', 'Annotations were inserted, but some could not be deleted. Delete them separately to avoid inserting twice.'), tone: 'error' });
+                    return;
+                }
+            }
+            showToast({ text: this.getLabel('pageAnnotationInserted', 'Annotations inserted'), tone: 'success' });
+        } catch {
+            showToast({ text: inserted
+                ? this.getLabel('pageAnnotationInsertedDeleteFailed', 'Annotations were inserted, but some could not be deleted. Delete them separately to avoid inserting twice.')
+                : this.getLabel('pageAnnotationInsertFailed', 'Could not insert annotations'), tone: 'error' });
+        } finally {
+            this.annotationInsertionPending = false;
+        }
     }
 
     private composeAnnotations(records: ReaderCommentRecord[], userPrompt = ''): string {

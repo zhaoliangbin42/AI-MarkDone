@@ -1,3 +1,4 @@
+import type { ReaderReadingStyle } from './readerStyle';
 /**
  * Settings schema (legacy-compatible).
  *
@@ -97,7 +98,7 @@ export type ChatGPTBehaviorSettings = {
 export const DEFAULT_CHATGPT_INPUT_ENHANCEMENT_SETTINGS: ChatGPTInputEnhancementSettings = {
     available: true,
     enabled: true,
-    enterKeyNewline: true,
+    enterKeyNewline: false,
     boldShortcut: true,
     lists: {
         enabled: true,
@@ -169,6 +170,8 @@ export type AppSettings = {
         renderCodeInReader: boolean;
         showOutlineInReader: boolean;
         showImagesInReader: boolean;
+        readingStyle: ReaderReadingStyle;
+        /** Retired preference, normalized to true for older stored configurations. */
         persistAnnotations: boolean;
         defaultOpenMode: ReaderOpenMode;
         panelSizeRatio: ReaderPanelSizeRatio;
@@ -216,7 +219,8 @@ export const DEFAULT_SETTINGS: AppSettings = {
         renderCodeInReader: true,
         showOutlineInReader: true,
         showImagesInReader: true,
-        persistAnnotations: false,
+        readingStyle: 'modern',
+        persistAnnotations: true,
         defaultOpenMode: DEFAULT_READER_OPEN_MODE,
         panelSizeRatio: DEFAULT_READER_PANEL_SIZE_RATIO,
         bodyFontSizePx: DEFAULT_READER_BODY_FONT_SIZE_PX,
@@ -228,14 +232,13 @@ export const DEFAULT_SETTINGS: AppSettings = {
     formula: DEFAULT_FORMULA_SETTINGS,
     export: DEFAULT_EXPORT_SETTINGS,
     chatgptDirectory: {
-        // Older installs may have no saved settings; only the install event opts new profiles in.
-        enabled: false,
+        enabled: true,
         mode: 'preview',
         promptLabelMode: 'head',
         hideOfficialNavigation: true,
         rightInsetPx: DEFAULT_CHATGPT_DIRECTORY_RIGHT_INSET_PX,
         previewMaxChars: DEFAULT_CHATGPT_DIRECTORY_PREVIEW_MAX_CHARS,
-        previewAssistant: false,
+        previewAssistant: true,
     },
     chatgptBehavior: {
         restorePositionAfterSend: true,

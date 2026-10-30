@@ -59,7 +59,7 @@ Feature overview inside the extension lists all entry points and shortcuts. The 
 2. **Mark what matters:** select a passage to annotate or highlight it; click a formula to copy LaTeX. Insert notes into the input box, review them, then send the follow-up yourself.
 3. **Organize and adjust:** open Library and Settings from the lower-right AI-MarkDone icon or the browser extension icon. New installations show the directory by default; existing settings are preserved.
 
-Selected Markdown: use `Cmd/Ctrl + Shift + C` on the ChatGPT page, or `Cmd/Ctrl + C` inside Reader. With Input enhancement enabled, Enter inserts a new line and `Cmd/Ctrl + Enter` sends.
+Selected Markdown: use `Cmd/Ctrl + Shift + C` on the ChatGPT page, or `Cmd/Ctrl + C` inside Reader. When Enter-to-newline is enabled in Input enhancement, Enter inserts a new line and `Cmd/Ctrl + Enter` sends.
 
 ## FAQ
 
@@ -67,7 +67,7 @@ Selected Markdown: use `Cmd/Ctrl + Shift + C` on the ChatGPT page, or `Cmd/Ctrl 
 <summary>Are annotations and highlights saved?</summary>
 
 - Bookmarks and highlights save in the current browser; message bookmarks may save excerpts according to your settings.
-- Save new annotations is off by default. While off, new annotations stay on the page; while on, new annotations survive refreshes. Previously saved annotations are unaffected.
+- In ChatGPT conversations with a verified identity, choosing Save stores annotations in the local Library. Persistence is not guaranteed without a verified identity.
 - Annotations submit only when you choose Save. Clicking outside keeps the window open; closing it or refreshing discards unsaved edits.
 - The Excerpt tray is temporary and clears on refresh.
 
@@ -80,7 +80,7 @@ Library backups include saved bookmarks, highlights, annotations and their folde
 
 Only supported blocks can be preserved; unavailable parts keep a text explanation. Offline Markdown ZIP keeps available images with the text. PDF and PNG offer static images or placeholders. Offline files do not retain interactive controls.
 
-PDF uses the browser print dialog. PNG combines selected replies into one long image when possible, splitting oversized content into a ZIP of images.
+PDF uses the browser print dialog. PNG combines selected replies into one long image, reducing image scale automatically for oversized content.
 
 </details>
 
@@ -95,14 +95,14 @@ The directory adds replies as the website loads them; unavailable history may no
 
 ## Changelog
 
-### 6.2.5
+### 6.3.0
 
-Version 6.2.5 release notes and changelog are ready below. See the [source tag](https://github.com/zhaoliangbin42/AI-MarkDone/tree/v6.2.5); release downloads and store availability follow separately.
+Version 6.3.0 release notes are being prepared; release downloads and store availability follow separately.
 
-- Adjust conversation and input width from 50% to 500% in 25% steps.
-- Customize common keyboard shortcuts and control automatic backslash suggestions independently.
-- Fix highlight recoloring, improve mixed selections and open bookmarked messages more reliably.
-- Keep new replies available to the directory, bookmarks, Reader and exports, and simplify everyday windows.
+- Choose from six Reader themes, jump by number and preview all pages.
+- Preview AI replies in the directory and choose link, formula and image export options.
+- Insert and optionally delete annotations from a movable, resizable input-side window.
+- Save new annotations to the local Library in verified conversations, with improvements to timestamps and default settings.
 
 [Release notes](./RELEASE_NOTES.md) · [Full changelog](./CHANGELOG.md)
 

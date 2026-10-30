@@ -11,6 +11,7 @@ const READER_STYLE_SOURCES = new Set([
     'src/ui/content/reader/readerPanelBase.css',
     'src/ui/content/reader/readerPanelLayout.css',
     'src/ui/content/reader/readerPanelContent.css',
+    'src/ui/content/reader/readerStyle.css',
 ]);
 
 describe('Reader style-value closure', () => {

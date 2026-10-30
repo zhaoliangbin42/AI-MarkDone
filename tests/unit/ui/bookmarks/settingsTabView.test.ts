@@ -1166,3 +1166,10 @@ describe('SettingsTabView', () => {
         expect(retry).toBeNull();
     });
 });
+
+ it('groups the assistant preview with page Directory settings', () => {
+    const view = new SettingsTabView({ modal: { confirm: vi.fn() } as any });
+    const input = view.getElement().querySelector('[data-role="settings-chatgpt-directory-preview-assistant"]');
+    expect(input).not.toBeNull();
+    expect(input?.closest('[data-settings-group]')?.getAttribute('data-settings-group')).toBe('settingsGroupDirectory');
+ });

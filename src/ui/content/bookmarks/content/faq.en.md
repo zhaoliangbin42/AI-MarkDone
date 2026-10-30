@@ -36,7 +36,7 @@ Manage reusable prompts under Settings → Writing & prompts. When copying annot
 
 ## Are annotations and highlights saved?
 
-Highlights save automatically in the current browser profile. Save new annotations is off by default in Reader settings. When off, new annotations last for the current page session; when on, they remain after a refresh. Previously saved annotations stay available.
+Highlights save in the current browser profile. For ChatGPT conversations with a verified identity, choosing Save also stores annotations in the local Library so they remain available after a refresh.
 
 Browse annotations and highlights by conversation in Library, or open their source pages.
 
@@ -44,7 +44,7 @@ Browse annotations and highlights by conversation in Library, or open their sour
 
 Typing does not save automatically. Clicking outside lets you keep reading while the annotation window and its text stay open. Choose Save to submit the annotation. Closing, pressing Escape, discarding edits or refreshing the page discards unsaved changes.
 
-If saving fails, the window retains your text for retry. Saved annotations still follow Save new annotations, which is off by default for new records. Previously persisted annotations are unaffected by that setting.
+If saving fails, the window retains your text for retry.
 
 ## Can I copy just part of a reply as Markdown?
 
@@ -66,7 +66,7 @@ The automatic-suggestion switch is under Settings → Buttons & shortcuts → Ke
 
 Click it in the original reply. Inline formulas use `$...$` and display formulas use `$$...$$` by default. Set separate formats for single formulas and whole-message Markdown under Settings → Copy & export.
 
-Enable image actions under Settings → Buttons → Formula to copy PNG, SVG, or MathML, or save PNG or SVG. SVG and MathML require available formula source. The input formula preview also offers these actions.
+Under Settings → Buttons & shortcuts → Buttons → Formula, configure reply formulas and input previews separately. PNG copy and save are on by default; SVG, MathML and other actions can be enabled as needed. SVG and MathML require available formula source.
 
 ## What can bookmarks save?
 
@@ -82,7 +82,7 @@ Choose a folder on the left, or search. Lists show 20 items per page. Use the ro
 
 ## How do I export messages?
 
-Open Export below a reply or in a directory preview, select messages, and choose a format. Markdown remains editable. PDF opens the browser’s print dialog, where you can choose Save as PDF. PNG saves long images, with a ZIP when multiple image files are needed. During image generation, you can view progress or cancel.
+Open Export below a reply or in a directory preview, select messages, and choose a format. Markdown remains editable. PDF opens the browser’s print dialog, where you can choose Save as PDF. PNG saves one long image. During image generation, you can view progress or cancel.
 
 Choose an offline Markdown ZIP to keep supported diagrams or cards with image attachments. PDF and PNG can use static images or text placeholders. Unavailable images retain readable descriptions; offline files do not preserve interactive controls.
 
@@ -104,13 +104,13 @@ Manage cloud files or test the connection under Data & backup. Trashing a Drive 
 
 Use the page’s lower-right previous/next buttons. Left and right arrow keys also navigate when you are not typing, if enabled.
 
-The directory is on by default for new installations; existing settings stay unchanged. Under Settings → Reading & messages, turn it on or off, choose compact previews or an expanded list, and adjust summaries, preview length, and right spacing. Regular messages join the directory as they load; unloaded history may be missing. Official navigation visibility is in the same category; navigation shortcuts are under Buttons & shortcuts, and jump distance is under Advanced.
+The directory and AI replies in its preview are on by default; explicitly saved preferences are preserved. Under Settings → Reading & messages, turn it on or off, choose compact previews or an expanded list, and adjust summaries, preview length, and right spacing. Regular messages join the directory as they load; unloaded history may be missing. Official navigation visibility is in the same category; navigation shortcuts are under Buttons & shortcuts, and jump distance is under Advanced.
 
 ## What does the character count include?
 
 The count is weighted: common Chinese, Japanese, and Korean characters count as two; English letters A–Z and a–z, digits, and underscores count as one. Spaces and other characters do not count. Recognized code and formulas are skipped.
 
-The optional time below the count comes from the website's message metadata: update time first, creation time otherwise. It is omitted when unavailable.
+The optional time below the count prefers the reply update or creation time supplied by the website. If reply time is unavailable and the same turn has a reliable prompt time, it is labeled Prompt; otherwise no time is shown.
 
 ## Is AI-MarkDone paid?
 

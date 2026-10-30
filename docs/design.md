@@ -1,5 +1,57 @@
 # AI-MarkDone Design Reference
 
+## Reader typography and report output (2026-10-28)
+
+Reader uses one edge-to-edge document canvas, with neutral glass tool groups
+inside it at the existing header/footer positions. The canvas continues behind
+the controls; no exterior header/footer whitespace separates them from the page.
+Its 30px outer corner derives from the same workspace radius expression; tool
+groups use the existing 14px control radius and quieter elevation. Glass and document share a semantic palette defined in
+`getReaderStyleVariantsCss` in the Markdown theme owner. `readerStyle.css`
+consumes `--_reader-glass`, ink, muted, rule, hover, selected and accent variables;
+it owns geometry and blur, never a second theme color table or runtime luminance
+guessing. Base color values remain in Reference -> System -> Public tokens.
+Blur has an opaque material fallback. Hit targets, button order, shortcuts,
+scroll ownership, panel sizing and overlay lifecycles remain unchanged. The
+protected body scroll viewport and edge fade keep text and anchors clear of the
+controls. Container queries handle half-width panels. The expanded pager stays
+anchored to the full footer, not to a filtered toolbar containing block.
+
+Reader settings retains the original three IDs and adds three:
+
+| Stored value | Chinese label | English label / reference |
+| --- | --- | --- |
+| modern | 清白 | GitHub Light |
+| book | 纸页 | Solarized Light |
+| document | 墨夜 | GitHub Dark |
+| solarized-dark | 青墨 | Solarized Dark |
+| nord | 极地 | Nord |
+| dracula | 暗紫 | Dracula |
+
+These fixed palettes apply to the canvas, glass controls, page input, full pager,
+Prompt framing, Markdown blocks and outline independently of app appearance.
+Other workspace dialogs retain their app theme. Light/dark color-scheme and
+highlight blending belong to each theme's CSS contract. Paper uses local serif
+fonts; the remaining themes use document typography. Nord and Dracula retain
+distinct code hues, with supporting text adjusted for reading contrast. No web
+fonts, remote stylesheets or content transformations are added. All source
+credits and MIT notices live in THIRD_PARTY_NOTICES.md.
+
+Style changes keep the existing attribute-based update,
+setting values, persistence and annotation geometry contract.
+
+PDF has its own formal report layout, independent of Reader style. It retains
+the shared content/selection and isolated print-frame contracts. A compact
+serif document title and metadata introduce the first message on the same page;
+subsequent messages flow naturally instead of forcing short replies onto a new page. Prompts use a neutral rule, not an
+accent card. Body text is 10.5pt; code, tables, headings and print spacing have
+separate hierarchy. Table headers repeat, long code wraps, and headings stay
+with following content. Print output stays light with or without background
+printing. Paper size remains a native print choice; A4 and Letter are checked.
+The previous legacy raw PDF spacing exceptions are removed in favor of private
+print rhythm tokens. Screen styles do not leak to PNG or Markdown exports.
+
+
 ## Reader navigation and output choices (2026-10-28)
 
 Reader's footer has an editable message number and total. Enter commits an
@@ -59,9 +111,9 @@ Start with the user's task, rather than displaying every available control:
 | Task | Default surface | Available on demand |
 | --- | --- | --- |
 | Write an annotation | Short source excerpt, annotation input, Save and Close | Full source, window tools, discard and delete |
-| Find an annotation | Scope, search and annotation text; all history grouped by conversation | Bulk management; new-annotation persistence is configured only in Reader Settings |
+| Find an annotation | Scope, search and annotation text; all history grouped by conversation | Bulk management; ChatGPT annotations are saved in the local Library |
 | Edit a Prompt | Name and content, Cancel and Save | Trigger text and cursor placeholder |
-| Manage Prompts | Search, New, readable rows and Insert; row body opens editing | Insert and delete, enable and delete through each row's actions; existing order is retained and new Prompts append |
+| Manage Prompts | Search, New, readable rows and Insert; row body opens editing | Enable and delete through each row's actions; existing order is retained and new Prompts append |
 | Save a bookmark | Prefilled title, selected folder and Save | Folder tree and folder creation; expand automatically when selection is unavailable |
 | Send | Editable existing draft, Send and Close | Existing annotation insertion and resize controls |
 | Adjust reading | Font size, content width, outline and code display | Open mode, annotation/output rules, Prompt/template editing and notices |
@@ -80,13 +132,16 @@ confirmation and uses the displayed record versions; changed records stay for
 review. While confirmation/deletion is pending, lock the selection and protect
 the parent window from nested-modal dismissal. Remove successful or already
 absent rows, retain failed selections with refreshed content, and keep the window
-open for the next batch. Page annotation insertion keeps records; deletion is a
-separate action. Prompt manager row bodies still edit; a separate Insert action writes at the
+open for the next batch. The page annotation manager offers Insert and Insert
+and delete for all records in the current conversation, including records hidden
+by search; the latter removes matching revisions only after the draft accepts the
+inserted text. The composer annotation window can be moved by its header and
+resized from its corner within the viewport; reopening during the same page
+session restores its adjusted position and size, clamped to the current viewport.
+A new page session uses the anchored defaults. Prompt manager row bodies still edit; a separate Insert action writes at the
 saved composer selection. If the draft changed while the manager was open,
-append without replacing stale selected text. Insert and delete is a secondary
-explicit action: verify the written draft before deleting the displayed Prompt
-revision. Failed insertion preserves the record; failed/conflicting deletion
-keeps the inserted draft and offers ordinary Delete for a deliberate retry.
+append without replacing stale selected text. Inserting never deletes a Prompt;
+the separate Delete action is the only way to remove it.
 Place the explicit Insert button on the right of each row, with More actions
 below it and a two-line content preview on the left. Keep trigger text visually
 secondary. Disable insertion when no composer is available and suppress duplicate actions

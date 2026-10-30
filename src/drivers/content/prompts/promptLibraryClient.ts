@@ -10,7 +10,7 @@ import { hasFields, isRecord, readArrayField } from '../../shared/clients/payloa
 export type PromptLibraryClient = {
     listPrompts(options?: { context?: PromptListContext; query?: string; includeDisabled?: boolean }): Promise<PromptRecord[]>;
     savePrompt(prompt: Partial<PromptRecord> & { content: string }): Promise<PromptRecord>;
-    deletePrompt(id: string, expectedUpdatedAt?: number): Promise<void>;
+    deletePrompt(id: string): Promise<void>;
     restoreDefaults(): Promise<PromptRecord[]>;
     reorderPrompts?(ids: string[]): Promise<PromptRecord[]>;
     recordUse(id: string): Promise<void>;
@@ -61,12 +61,12 @@ export function createPromptLibraryClient(): PromptLibraryClient {
                 ? data.prompt
                 : invalidPayload('Invalid prompts:save response payload');
         },
-        async deletePrompt(id, expectedUpdatedAt) {
+        async deletePrompt(id) {
             const data = unwrapRuntimeClientResult(await requestRuntimeClient<unknown>({
                 v: PROTOCOL_VERSION,
                 id: createRequestId(),
                 type: 'prompts:delete',
-                payload: { id, ...(expectedUpdatedAt !== undefined ? { expectedUpdatedAt } : {}) },
+                payload: { id },
             }));
             if (!isRecord(data) || data.deleted !== true) {
                 invalidPayload('Invalid prompts:delete response payload');

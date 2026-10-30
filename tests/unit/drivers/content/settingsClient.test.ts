@@ -76,7 +76,7 @@ describe('SettingsClient', () => {
         };
         storageListener?.({ app_settings: { newValue: next } }, 'sync');
 
-        expect(listener).toHaveBeenLastCalledWith({ settings: { ...next, formula: { ...next.formula, composerAssetActions: { copyPng: true, copySvg: true, copyMathml: true, savePng: true, saveSvg: true } } } });
+        expect(listener).toHaveBeenLastCalledWith({ settings: { ...next, formula: { ...next.formula, composerAssetActions: { copyPng: true, copySvg: false, copyMathml: false, savePng: true, saveSvg: false } } } });
         expect(client.getCached()?.formula.assetActions.copyPng).toBe(true);
     });
 
@@ -103,10 +103,10 @@ describe('SettingsClient', () => {
         expect(latest.version).toBe(6);
         expect(latest.formula.clickCopyMarkdown).toBe(true);
         expect(latest.formula.assetActions).toEqual({
-            copyPng: false,
+            copyPng: true,
             copySvg: false,
             copyMathml: false,
-            savePng: false,
+            savePng: true,
             saveSvg: false,
         });
         expect(latest.formula.assetFontSizePx).toBe(36);
@@ -135,7 +135,7 @@ describe('SettingsClient', () => {
 
         expect(settings?.version).toBe(6);
         expect(settings?.formula.clickCopyMarkdown).toBe(false);
-        expect(settings?.formula.assetActions.copyPng).toBe(false);
+        expect(settings?.formula.assetActions.copyPng).toBe(true);
         expect(settings?.formula.assetFontSizePx).toBe(36);
     });
 

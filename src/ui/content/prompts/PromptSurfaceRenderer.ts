@@ -28,7 +28,7 @@ export type PromptSurfaceAction =
     | { type: 'edit'; promptId: string }
     | { type: 'toggle'; promptId: string; enabled: boolean }
     | { type: 'delete'; promptId: string }
-    | { type: 'insert'; promptId: string; deleteAfter: boolean }
+    | { type: 'insert'; promptId: string }
     | { type: 'cancel-edit' }
     | { type: 'save'; draft: PromptEditorDraft }
     | { type: 'retry-load' }
@@ -206,7 +206,6 @@ export class PromptSurfaceRenderer {
               <details class="manager-row__options" data-prompt-id="${escapeHtml(prompt.id)}" ${expandedPromptIds.has(prompt.id) ? 'open' : ''}>
                 <summary class="prompt-options-summary manager-row__summary" data-role="prompt-actions" data-prompt-id="${escapeHtml(prompt.id)}" aria-label="${escapeHtml(`${t('promptActionsLabel')}: ${prompt.title}`)}"><span>${escapeHtml(t('promptActionsLabel'))}</span>${chevronDownIcon}</summary>
                 <div class="manager-row__actions">
-                  <button class="secondary-btn aimd-material-button aimd-material-button--quiet" type="button" data-action="insert-delete-prompt" data-prompt-id="${escapeHtml(prompt.id)}" ${view.canInsert === false ? 'disabled' : ''}>${escapeHtml(t('promptInsertAndDelete'))}</button>
                   <label class="prompt-enabled-toggle">
                     <input class="aimd-material-check" type="checkbox" aria-label="${escapeHtml(`${t('promptEnabledLabel')}: ${prompt.title}`)}" data-action="toggle-prompt-enabled" data-prompt-id="${escapeHtml(prompt.id)}" ${prompt.enabled ? 'checked' : ''} />
                     <span>${escapeHtml(t('promptEnabledLabel'))}</span>
@@ -329,7 +328,7 @@ export class PromptSurfaceRenderer {
         else if (action === 'open-prompt-library') this.options.onAction({ type: 'open-library' });
         else if (action === 'add-prompt') this.options.onAction({ type: 'add' });
         else if (action === 'edit-prompt' && promptId) this.options.onAction({ type: 'edit', promptId });
-        else if ((action === 'insert-prompt' || action === 'insert-delete-prompt') && promptId) this.options.onAction({ type: 'insert', promptId, deleteAfter: action === 'insert-delete-prompt' });
+        else if (action === 'insert-prompt' && promptId) this.options.onAction({ type: 'insert', promptId });
         else if (action === 'delete-prompt' && promptId) this.options.onAction({ type: 'delete', promptId });
         else if (action === 'retry-prompts') this.options.onAction({ type: 'retry-load' });
         else if (action === 'cancel-edit') this.options.onAction({ type: 'cancel-edit' });

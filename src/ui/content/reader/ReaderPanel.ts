@@ -1,3 +1,4 @@
+import { normalizeReaderReadingStyle, type ReaderReadingStyle } from '../../../core/settings/readerStyle';
 import { normalizeSelectionToolbarActions } from '../../../core/settings/selectionToolbar';
 import { SHORTCUT_COMMAND_IDS, chordMatchesEvent, getEffectiveBinding, normalizeShortcutSettings, type ShortcutCommandId, type ShortcutSettings } from '../../../core/shortcuts';
 import type { HighlightColor } from '../../../contracts/highlights';
@@ -192,6 +193,7 @@ export class ReaderPanel {
     private tooltipDelegate: TooltipDelegate | null = null;
     private contentRenderToken = 0;
     private pagerCloseTimer: number | null = null;
+    private readingStyle: ReaderReadingStyle = 'modern';
     private showImagesInReader = true;
     private richContentController: AbortController | null = null;
     private richContentLease: ReaderRichContentLease | null = null;
@@ -229,7 +231,7 @@ export class ReaderPanel {
     private panelResizeCleanup: (() => void) | null = null;
     private stickyDragCleanup: (() => void) | null = null;
     private commentExportSettings: ReaderCommentExportSettings = createDefaultReaderCommentExportSettings();
-    private persistAnnotations = false;
+    private readonly persistAnnotations = true;
     private annotationDocument: ReaderAnnotationDocument | null = null;
     private readonly highlights = new HighlightSession(() => this.syncCommentUi(), () => this.notify(t('highlightLoadFailed')));
     private highlightSaving = false;
@@ -338,18 +340,7 @@ export class ReaderPanel {
         this.syncReaderSettingsSurfaces();
     }
 
-    private setPersistAnnotations(enabled: boolean): void {
-        const next = Boolean(enabled);
-        if (this.persistAnnotations === next) return;
-        this.persistAnnotations = next;
-        this.syncReaderSettingsSurfaces();
-        this.syncTransientCommentUi();
-        if (this.state.visible) {
-            this.syncCommentUi();
-            this.syncCommentControls();
-            this.annotationManagerPopover.update(this.getCurrentAnnotationEntries());
-        }
-    }
+
 
     setContentMaxWidthPx(widthPx: number): void {
         const next = normalizeReaderContentMaxWidthPx(widthPx);
@@ -408,6 +399,8 @@ export class ReaderPanel {
         this.selectionToolbarActions = normalized.selectionToolbar;
         this.renderCodeInReader = normalized.renderCodeInReader;
         this.showImagesInReader = normalized.showImagesInReader;
+        this.readingStyle = normalized.readingStyle;
+        this.applyReadingStyle(true);
         this.state.showOutlineInReader = normalized.showOutlineInReader;
         this.state.defaultOpenMode = normalized.defaultOpenMode;
         this.state.panelSizeRatio = normalized.panelSizeRatio;
@@ -415,7 +408,6 @@ export class ReaderPanel {
         this.state.detachedNoticeConfirmed = normalized.detachedNoticeConfirmed;
         this.state.contentMaxWidthPx = normalized.contentMaxWidthPx;
         this.commentExportSettings = normalized.commentExport;
-        this.setPersistAnnotations(normalized.persistAnnotations);
         this.syncReaderSettingsSurfaces();
         this.syncTransientCommentUi();
         if (this.state.visible) {
@@ -1320,7 +1312,19 @@ export class ReaderPanel {
             : this.getLabel('runtimeRequestFailedTitle', 'AI-MarkDone could not save this setting'));
     }
 
+    private applyReadingStyle(refreshComments = false): void {
+        const panel = this.overlaySession?.surfaceRoot.querySelector<HTMLElement>('.panel-window--reader');
+        const changed = panel && panel.dataset.readingStyle !== this.readingStyle;
+        if (panel) panel.dataset.readingStyle = this.readingStyle;
+        if (changed && refreshComments) this.syncCommentUi();
+    }
+
     private applyReaderSettingsPatch(patch: Partial<AppSettings['reader']>): void {
+        if (patch.readingStyle !== undefined) {
+            this.readingStyle = normalizeReaderReadingStyle(patch.readingStyle);
+            this.applyReadingStyle(true);
+            if (Object.keys(patch).length === 1) return;
+        }
         if (typeof patch.renderCodeInReader !== 'undefined') {
             this.renderCodeInReader = Boolean(patch.renderCodeInReader);
             void this.renderCurrentContent();
@@ -1331,9 +1335,6 @@ export class ReaderPanel {
         }
         if (typeof patch.showOutlineInReader !== 'undefined') {
             this.state.showOutlineInReader = Boolean(patch.showOutlineInReader);
-        }
-        if (typeof patch.persistAnnotations !== 'undefined') {
-            this.setPersistAnnotations(patch.persistAnnotations);
         }
         if (typeof patch.defaultOpenMode !== 'undefined') {
             this.state.defaultOpenMode = normalizeReaderOpenMode(patch.defaultOpenMode);
@@ -1372,6 +1373,7 @@ export class ReaderPanel {
             selectionToolbar: this.selectionToolbarActions,
             renderCodeInReader: this.renderCodeInReader,
             showImagesInReader: this.showImagesInReader,
+            readingStyle: this.readingStyle,
             showOutlineInReader: this.state.showOutlineInReader,
             persistAnnotations: this.persistAnnotations,
             defaultOpenMode: this.state.defaultOpenMode,
@@ -1388,8 +1390,9 @@ export class ReaderPanel {
             selectionToolbar: normalizeSelectionToolbarActions(settings.selectionToolbar),
             renderCodeInReader: Boolean(settings.renderCodeInReader),
             showImagesInReader: settings.showImagesInReader !== false,
+            readingStyle: normalizeReaderReadingStyle(settings.readingStyle),
             showOutlineInReader: Boolean(settings.showOutlineInReader),
-            persistAnnotations: Boolean(settings.persistAnnotations),
+            persistAnnotations: true,
             defaultOpenMode: normalizeReaderOpenMode(settings.defaultOpenMode),
             panelSizeRatio: normalizeReaderPanelSizeRatio(settings.panelSizeRatio),
             bodyFontSizePx: normalizeReaderBodyFontSizePx(settings.bodyFontSizePx),
@@ -1442,6 +1445,7 @@ export class ReaderPanel {
                 (key, fallback, substitutions) => this.getLabel(key, fallback, substitutions),
             ),
         );
+        this.applyReadingStyle();
         this.settingsPopover.reposition();
         this.overlaySession.syncKeyboardScope({
             root: this.overlaySession.host,

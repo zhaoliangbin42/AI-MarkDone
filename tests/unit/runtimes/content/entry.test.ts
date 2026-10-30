@@ -1393,7 +1393,7 @@ describe('content runtime entry', () => {
         expect(contentRuntimeDispose).toHaveBeenCalledTimes(1);
         expect(mathClickDisable).toHaveBeenCalledTimes(1);
         expect(mathClickSetFormulaSettings).toHaveBeenLastCalledWith({
-            composerAssetActions: { copyPng: true, copySvg: true, copyMathml: true, savePng: true, saveSvg: true },
+            composerAssetActions: { copyPng: true, copySvg: false, copyMathml: false, savePng: true, saveSvg: false },
             clickCopyMarkdown: false,
             clickCopyFormulaFormat: 'markdown-dollar',
             markdownCopyFormulaFormat: 'markdown-dollar',
@@ -1602,7 +1602,7 @@ describe('content runtime entry', () => {
             commentExport: cachedCommentExport,
         }));
         expect(mathClickSetFormulaSettings).toHaveBeenCalledWith({
-            composerAssetActions: { copyPng: true, copySvg: true, copyMathml: true, savePng: true, saveSvg: true },
+            composerAssetActions: { copyPng: true, copySvg: false, copyMathml: false, savePng: true, saveSvg: false },
             clickCopyMarkdown: false,
             clickCopyFormulaFormat: 'markdown-dollar',
             markdownCopyFormulaFormat: 'markdown-dollar',

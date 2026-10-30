@@ -350,9 +350,11 @@ describe('ReaderPanel persistent ChatGPT annotations', () => {
         hidePanel(panel);
     });
 
-    it('keeps newly created annotations in memory while new persistence is off', async () => {
+    it('automatically persists new annotations through the selection and Save flow', async () => {
         annotationClientMock.list.mockResolvedValue({ ok: true, data: { entries: [] } });
+        annotationClientMock.create.mockImplementation(async (_document, annotation) => ({ ok: true, data: { annotation: { ...annotation, revision: 1 } } }));
         const panel = new ReaderPanel();
+        panel.setReaderSettings({ ...DEFAULT_SETTINGS.reader, persistAnnotations: false });
         await panel.show([
             {
                 id: 'chatgpt-assistant-new',
@@ -394,10 +396,10 @@ describe('ReaderPanel persistent ChatGPT annotations', () => {
         shadow?.querySelector<HTMLButtonElement>('.reader-comment-popover [data-action="save"]')?.click();
         await Promise.resolve();
 
-        expect(annotationClientMock.create).not.toHaveBeenCalled();
+        await vi.waitFor(() => expect(annotationClientMock.create).toHaveBeenCalledTimes(1));
         const comments = panel.getCommentExportContext()?.comments ?? [];
         expect(comments).toEqual([expect.objectContaining({ comment: 'Runtime-only note' })]);
-        expect(comments[0]?.revision).toBeUndefined();
+        expect(comments[0]?.revision).toBe(1);
         getSelectionSpy.mockRestore();
         hidePanel(panel);
     });

@@ -38,13 +38,13 @@ export const DEFAULT_FORMULA_SETTINGS: FormulaSettings = {
     clickCopyFormulaFormat: DEFAULT_FORMULA_SOURCE_FORMAT,
     markdownCopyFormulaFormat: DEFAULT_FORMULA_SOURCE_FORMAT,
     assetActions: {
-        copyPng: false,
+        copyPng: true,
         copySvg: false,
         copyMathml: false,
-        savePng: false,
+        savePng: true,
         saveSvg: false,
     },
-    composerAssetActions: { copyPng: true, copySvg: true, copyMathml: true, savePng: true, saveSvg: true },
+    composerAssetActions: { copyPng: true, copySvg: false, copyMathml: false, savePng: true, saveSvg: false },
     assetFontSizePx: DEFAULT_FORMULA_ASSET_FONT_SIZE_PX,
 };
 

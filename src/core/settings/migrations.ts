@@ -1,3 +1,4 @@
+import { normalizeReaderReadingStyle } from './readerStyle';
 import { normalizeAccentHex } from './appearance';
 import { normalizeSelectionToolbarActions } from './selectionToolbar';
 import {
@@ -103,7 +104,7 @@ export function normalizeFormulaSettings(formula: unknown, legacyBehavior?: unkn
         clickCopyMarkdown: Boolean((record as any).clickCopyMarkdown ?? fallbackClickCopyMarkdown),
         clickCopyFormulaFormat: normalizeLegacyClickCopyFormulaFormat(record),
         markdownCopyFormulaFormat: normalizeFormulaSourceFormat((record as any).markdownCopyFormulaFormat),
-        composerAssetActions: { copyPng: Boolean(composerAssetActions.copyPng ?? true), copySvg: Boolean(composerAssetActions.copySvg ?? true), copyMathml: Boolean(composerAssetActions.copyMathml ?? true), savePng: Boolean(composerAssetActions.savePng ?? true), saveSvg: Boolean(composerAssetActions.saveSvg ?? true) },
+        composerAssetActions: { copyPng: Boolean(composerAssetActions.copyPng ?? DEFAULT_FORMULA_SETTINGS.composerAssetActions!.copyPng), copySvg: Boolean(composerAssetActions.copySvg ?? DEFAULT_FORMULA_SETTINGS.composerAssetActions!.copySvg), copyMathml: Boolean(composerAssetActions.copyMathml ?? DEFAULT_FORMULA_SETTINGS.composerAssetActions!.copyMathml), savePng: Boolean(composerAssetActions.savePng ?? DEFAULT_FORMULA_SETTINGS.composerAssetActions!.savePng), saveSvg: Boolean(composerAssetActions.saveSvg ?? DEFAULT_FORMULA_SETTINGS.composerAssetActions!.saveSvg) },
         assetActions: {
             copyPng: Boolean((assetActions as any).copyPng ?? DEFAULT_FORMULA_SETTINGS.assetActions.copyPng),
             copySvg: Boolean((assetActions as any).copySvg ?? DEFAULT_FORMULA_SETTINGS.assetActions.copySvg),
@@ -140,7 +141,7 @@ export function normalizeChatGPTDirectorySettings(value: unknown): AppSettings['
         hideOfficialNavigation: Boolean((record as any).hideOfficialNavigation ?? DEFAULT_SETTINGS.chatgptDirectory.hideOfficialNavigation),
         rightInsetPx: normalizeChatGPTDirectoryRightInsetPx((record as any).rightInsetPx),
         previewMaxChars: normalizeChatGPTDirectoryPreviewMaxChars((record as any).previewMaxChars),
-        previewAssistant: typeof record.previewAssistant === 'boolean' ? record.previewAssistant : false,
+        previewAssistant: typeof record.previewAssistant === 'boolean' ? record.previewAssistant : DEFAULT_SETTINGS.chatgptDirectory.previewAssistant,
     };
 }
 
@@ -335,7 +336,8 @@ export function mergeWithDefaults(stored: AppSettings): AppSettings {
             renderCodeInReader: Boolean((stored.reader as any)?.renderCodeInReader ?? DEFAULT_SETTINGS.reader.renderCodeInReader),
             showOutlineInReader: Boolean((stored.reader as any)?.showOutlineInReader ?? DEFAULT_SETTINGS.reader.showOutlineInReader),
             showImagesInReader: Boolean((stored.reader as any)?.showImagesInReader ?? DEFAULT_SETTINGS.reader.showImagesInReader),
-            persistAnnotations: Boolean((stored.reader as any)?.persistAnnotations ?? DEFAULT_SETTINGS.reader.persistAnnotations),
+            readingStyle: normalizeReaderReadingStyle((stored.reader as any)?.readingStyle),
+            persistAnnotations: true,
             defaultOpenMode: normalizeReaderOpenMode((stored.reader as any)?.defaultOpenMode),
             panelSizeRatio: normalizeReaderPanelSizeRatio((stored.reader as any)?.panelSizeRatio),
             bodyFontSizePx: normalizeReaderBodyFontSizePx((stored.reader as any)?.bodyFontSizePx),
@@ -371,7 +373,6 @@ export function migrateFromV1(v1: unknown): AppSettings {
     const platforms = isRecord(rec.platforms) ? rec.platforms : {};
     const behavior = isRecord(rec.behavior) ? rec.behavior : {};
     const storage = isRecord((rec as any).storage) ? (rec as any).storage : {};
-    const reader = isRecord((rec as any).reader) ? (rec as any).reader : {};
 
     return {
         version: DEFAULT_SETTINGS.version,
@@ -387,7 +388,8 @@ export function migrateFromV1(v1: unknown): AppSettings {
             renderCodeInReader: Boolean((behavior as any).renderCodeInReader ?? true),
             showOutlineInReader: Boolean((behavior as any).showOutlineInReader ?? DEFAULT_SETTINGS.reader.showOutlineInReader),
             showImagesInReader: Boolean((behavior as any).showImagesInReader ?? DEFAULT_SETTINGS.reader.showImagesInReader),
-            persistAnnotations: Boolean((reader as any).persistAnnotations ?? DEFAULT_SETTINGS.reader.persistAnnotations),
+            readingStyle: normalizeReaderReadingStyle((behavior as any).readingStyle),
+            persistAnnotations: true,
             defaultOpenMode: normalizeReaderOpenMode((behavior as any).defaultOpenMode),
             panelSizeRatio: normalizeReaderPanelSizeRatio((behavior as any).panelSizeRatio),
             bodyFontSizePx: normalizeReaderBodyFontSizePx((behavior as any).bodyFontSizePx),
@@ -431,7 +433,8 @@ export function migrateFromV2(v2: unknown): AppSettings {
             renderCodeInReader: Boolean((reader as any).renderCodeInReader ?? DEFAULT_SETTINGS.reader.renderCodeInReader),
             showOutlineInReader: Boolean((reader as any).showOutlineInReader ?? DEFAULT_SETTINGS.reader.showOutlineInReader),
             showImagesInReader: Boolean((reader as any).showImagesInReader ?? DEFAULT_SETTINGS.reader.showImagesInReader),
-            persistAnnotations: Boolean((reader as any).persistAnnotations ?? DEFAULT_SETTINGS.reader.persistAnnotations),
+            readingStyle: normalizeReaderReadingStyle((reader as any).readingStyle),
+            persistAnnotations: true,
             defaultOpenMode: normalizeReaderOpenMode((reader as any).defaultOpenMode),
             panelSizeRatio: normalizeReaderPanelSizeRatio((reader as any).panelSizeRatio),
             bodyFontSizePx: normalizeReaderBodyFontSizePx((reader as any).bodyFontSizePx),

@@ -1,3 +1,4 @@
+import { normalizeReaderReadingStyle } from '../../../src/core/settings/readerStyle';
 import '../browserExtensionMock';
 import { installHighlightFixture } from '../highlightFixture';
 
@@ -322,6 +323,7 @@ async function applyVariant(next: VisualHarnessVariant): Promise<void> {
     panel.setReaderSettings({
         ...DEFAULT_SETTINGS.reader,
         defaultOpenMode: 'panel',
+        readingStyle: normalizeReaderReadingStyle(fixtureParams.get('style')),
         showOutlineInReader: true,
     });
     mountToolbar();

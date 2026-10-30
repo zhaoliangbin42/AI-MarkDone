@@ -80,7 +80,7 @@ describe('settingsService', () => {
         expect(next.reader.persistAnnotations).toBe(true);
         expect(planSetCategory(next, 'chatgptBehavior', { pinnedPageControls: ['open-prompts', 'unknown', 'open-prompts'] }).next.chatgptBehavior.pinnedPageControls).toEqual(['open-prompts']);
     });
-    it('uses v4 defaults with formula asset hover actions disabled', () => {
+    it('uses v4 defaults with PNG formula asset actions enabled', () => {
         const next = loadAndNormalize(null);
 
         expect(next.version).toBe(6);
@@ -88,10 +88,10 @@ describe('settingsService', () => {
         expect(next.formula.markdownCopyFormulaFormat).toBe('markdown-dollar');
         expect(next.formula.assetFontSizePx).toBe(36);
         expect(next.formula.assetActions).toEqual({
-            copyPng: false,
+            copyPng: true,
             copySvg: false,
             copyMathml: false,
-            savePng: false,
+            savePng: true,
             saveSvg: false,
         });
     });
@@ -248,7 +248,7 @@ describe('settingsService', () => {
             hideOfficialNavigation: false,
             rightInsetPx: 0,
             previewMaxChars: 600,
-            previewAssistant: false,
+            previewAssistant: true,
         });
         expect(next).not.toHaveProperty('chatgpt');
 
@@ -260,7 +260,7 @@ describe('settingsService', () => {
             hideOfficialNavigation: false,
             rightInsetPx: 40,
             previewMaxChars: 600,
-            previewAssistant: false,
+            previewAssistant: true,
         });
     });
 
@@ -474,7 +474,7 @@ describe('settingsService', () => {
         }).next;
 
         expect(next.formula).toEqual({
-            composerAssetActions: { copyPng: true, copySvg: true, copyMathml: true, savePng: true, saveSvg: true },
+            composerAssetActions: { copyPng: true, copySvg: false, copyMathml: false, savePng: true, saveSvg: false },
             clickCopyMarkdown: false,
             clickCopyFormulaFormat: 'markdown-dollar',
             markdownCopyFormulaFormat: 'markdown-dollar',
@@ -524,7 +524,7 @@ describe('settingsService', () => {
         });
     });
 
-    it('resets to v4 defaults with formula asset hover actions disabled', () => {
+    it('resets to v4 defaults with PNG formula asset actions enabled', () => {
         const next = planReset().next;
 
         expect(next.version).toBe(6);
@@ -532,10 +532,10 @@ describe('settingsService', () => {
         expect(next.formula.markdownCopyFormulaFormat).toBe('markdown-dollar');
         expect(next.formula.assetFontSizePx).toBe(36);
         expect(next.formula.assetActions).toEqual({
-            copyPng: false,
+            copyPng: true,
             copySvg: false,
             copyMathml: false,
-            savePng: false,
+            savePng: true,
             saveSvg: false,
         });
     });

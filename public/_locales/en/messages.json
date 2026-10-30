@@ -1,4 +1,5 @@
 {
+    "messagePromptTimeLabel": { "message": "Prompt" },
     "promptTriggerHelp": {
         "message": "Set a trigger to insert this Prompt by typing \\ followed by the trigger in ChatGPT.",
         "description": "Explain optional Prompt trigger text"
@@ -1566,19 +1567,19 @@
         "description": "Message for chatgptDirectoryEnabledDesc"
     },
     "chatgptDirectoryModeLabel": {
-        "message": "How the message directory opens",
+        "message": "Directory display mode",
         "description": "Message for chatgptDirectoryModeLabel"
     },
     "chatgptDirectoryModeDesc": {
-        "message": "Keep it as a slim strip, or expand message titles when the pointer enters.",
+        "message": "Accordion keeps compact entries and emphasizes nearby items on hover. Expanded reveals message titles when the pointer enters.",
         "description": "Message for chatgptDirectoryModeDesc"
     },
     "chatgptDirectoryModePreview": {
-        "message": "Slim strip",
+        "message": "Accordion",
         "description": "Message for chatgptDirectoryModePreview"
     },
     "chatgptDirectoryModeExpanded": {
-        "message": "Expand titles on hover",
+        "message": "Expanded",
         "description": "Message for chatgptDirectoryModeExpanded"
     },
     "chatgptDirectoryPromptLabelModeLabel": {
@@ -1598,11 +1599,11 @@
         "description": "Message for chatgptDirectoryRightInsetDesc"
     },
     "chatgptDirectoryPreviewMaxCharsLabel": {
-        "message": "Characters in a message preview",
+        "message": "Directory preview length",
         "description": "Message for chatgptDirectoryPreviewMaxCharsLabel"
     },
     "chatgptDirectoryPreviewMaxCharsDesc": {
-        "message": "Limit the text shown when you hover over an item in the message directory.",
+        "message": "Limit text in the ChatGPT page directory hover preview, separately for the prompt and AI reply.",
         "description": "Message for chatgptDirectoryPreviewMaxCharsDesc"
     },
     "reader": {
@@ -3385,6 +3386,8 @@
         "message": "Annotations",
         "description": "Label for the page annotation count chip beside the ChatGPT input box"
     },
+    "pageAnnotationManagerMove": { "message": "Move annotation window" },
+    "pageAnnotationManagerResize": { "message": "Resize annotation window" },
     "pageAnnotationManagerTitle": {
         "message": "Annotations",
         "description": "Title of the page annotation manager modal"
@@ -3505,6 +3508,9 @@
         "message": "Page controls",
         "description": "Label for pageControls"
     },
+    "pageAnnotationInsertedDeleteFailed": { "message": "Annotations inserted, but some could not be deleted. The remaining annotations were kept." },
+    "pageAnnotationInsertAndDelete": { "message": "Insert and delete" },
+    "pageAnnotationInsertScope": { "message": "Applies to all annotations in this conversation, even those hidden by search." },
     "pageAnnotationInsert": {
         "message": "Insert to input",
         "description": "Button to insert annotations into the input box"
@@ -5390,11 +5396,11 @@
         "description": "Feature overview description"
     },
     "featureOverviewMarksSaveAnnotationsEntry": {
-        "message": "Reader settings → Save new annotations",
+        "message": "Annotation editor → Save",
         "description": "Feature overview entry"
     },
     "featureOverviewMarksSaveAnnotationsNote": {
-        "message": "Off by default. New annotations then last only for this page session; previously saved annotations remain.",
+        "message": "In a supported ChatGPT conversation, Save writes annotations to the local Library.",
         "description": "Feature overview usage note"
     },
     "featureOverviewMarksHighlightTitle": {
@@ -5841,8 +5847,8 @@
     "readerPageJump": {"message": "Page number · Enter to go"},
     "readerShowImagesLabel": {"message": "Show images in replies"},
     "readerShowImagesDesc": {"message": "Show captured inline images and charts. Turn off to read their text descriptions without loading images."},
-    "chatgptDirectoryPreviewAssistantLabel": {"message": "Include AI replies in previews"},
-    "chatgptDirectoryPreviewAssistantDesc": {"message": "Show the Prompt and AI reply as plain text. The preview length applies to each part."},
+    "chatgptDirectoryPreviewAssistantLabel": {"message": "Show AI replies in directory previews"},
+    "chatgptDirectoryPreviewAssistantDesc": {"message": "Show the prompt and AI reply as plain text in the ChatGPT page directory hover preview."},
     "exportFormulaLabel": {"message": "Formula format"},
     "exportLinksLabel": {"message": "Links"},
     "exportLinksKeep": {"message": "Keep clickable links"},
@@ -5852,9 +5858,7 @@
     "exportCodeOmit": {"message": "Omit code blocks"},
     "exportMarkdownImagesHint": {"message": "To save images with Markdown, choose the offline ZIP bundle."},
     "promptInsert": {"message": "Insert"},
-    "promptInsertAndDelete": {"message": "Insert and delete"},
     "promptInsertFailed": {"message": "The Prompt was not inserted. The library entry has been kept. Check the message input and try again."},
-    "promptInsertedDeleteFailed": {"message": "The Prompt was inserted, but could not be removed from the library. Use Delete to retry without inserting again."},
     "promptNoMatches": {"message": "No matching Prompts. Try another search."},
     "exportImagesLabel": {"message": "Images"},
     "exportImageLinksKeep": {"message": "Keep available image links"},
@@ -5862,5 +5866,14 @@
     "exportOptionsOptional": {"message": "Optional"},
     "exportOptionsCustomized": {"message": "Customized"},
     "readerAllMessages": {"message": "All messages"},
-    "readerPagerHelp": {"message": "Hover to preview · Click to jump"}
+    "readerPagerHelp": {"message": "Hover to preview · Click to jump"},
+    "readerReadingStyleLabel": {"message": "Reader theme"},
+    "readerReadingStyleDesc": {"message": "Six familiar palettes for the page, glass tools and previews."},
+    "readerStyleModern": {"message": "GitHub Light"},
+    "readerStyleBook": {"message": "Solarized Light"},
+    "readerStyleDocument": {"message": "GitHub Dark"},
+    "pdfDocumentLabel": {"message": "CONVERSATION NOTES"},
+    "readerStyleSolarizedDark": {"message": "Solarized Dark"},
+    "readerStyleNord": {"message": "Nord"},
+    "readerStyleDracula": {"message": "Dracula"}
 }

@@ -1,3 +1,4 @@
+import { normalizeReaderReadingStyle } from '../../core/settings/readerStyle';
 import { DEFAULT_SETTINGS, isSettingsCategory, type AppSettings, type SettingsCategory } from '../../core/settings/types';
 import { normalizeExportSettings } from '../../core/settings/export';
 import { normalizeContentCleanupSettings } from '../../core/settings/content';
@@ -91,17 +92,14 @@ export function planSetCategory(current: AppSettings, category: SettingsCategory
                         ?? cur.reader.renderCodeInReader
                         ?? DEFAULT_SETTINGS.reader.renderCodeInReader
                     ),
+                    readingStyle: normalizeReaderReadingStyle(patch.readingStyle ?? cur.reader.readingStyle),
                     showImagesInReader: Boolean(patch.showImagesInReader ?? cur.reader.showImagesInReader ?? DEFAULT_SETTINGS.reader.showImagesInReader),
                     showOutlineInReader: Boolean(
                         patch.showOutlineInReader
                         ?? cur.reader.showOutlineInReader
                         ?? DEFAULT_SETTINGS.reader.showOutlineInReader
                     ),
-                    persistAnnotations: Boolean(
-                        patch.persistAnnotations
-                        ?? cur.reader.persistAnnotations
-                        ?? DEFAULT_SETTINGS.reader.persistAnnotations
-                    ),
+                    persistAnnotations: true,
                     defaultOpenMode: normalizeReaderOpenMode(
                         patch.defaultOpenMode
                         ?? cur.reader.defaultOpenMode

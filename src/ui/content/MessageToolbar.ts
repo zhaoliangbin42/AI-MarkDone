@@ -72,7 +72,7 @@ export class MessageToolbar {
     private tooltipDelegate: TooltipDelegate;
     private activeTaskAbort: AbortController | null = null;
     private lastStatsKey: string | null = null;
-    private lastTimestamp: number | undefined;
+    private lastTimestamp: string | undefined;
     private readonly collapsible: boolean;
     private expanded = false;
     private toolbarHovered = false;
@@ -199,9 +199,11 @@ export class MessageToolbar {
     setMessageMetadata(metadata: MessageMetadata | null): void {
         const time = this.shadow.querySelector<HTMLTimeElement>('[data-role="message-time"]');
         if (!time) return;
-        const value = metadata?.updatedAt ?? metadata?.createdAt;
-        if (value === this.lastTimestamp) return;
-        this.lastTimestamp = value;
+        const value = metadata?.updatedAt ?? metadata?.createdAt ?? metadata?.promptCreatedAt;
+        const isPrompt = metadata?.updatedAt === undefined && metadata?.createdAt === undefined && metadata?.promptCreatedAt !== undefined;
+        const key = `${value}:${isPrompt}`;
+        if (key === this.lastTimestamp) return;
+        this.lastTimestamp = key;
         const date = typeof value === 'number' ? new Date(value) : null;
         time.hidden = !date || !Number.isFinite(date.getTime());
         if (time.hidden || !date) { time.textContent = ''; time.removeAttribute('datetime'); return; }
@@ -210,7 +212,7 @@ export class MessageToolbar {
         const locale = effectiveLocale === 'zh_CN' ? 'zh-CN' : effectiveLocale === 'en' ? 'en-US' : undefined;
         const day = date.toLocaleDateString(locale, { month: '2-digit', day: '2-digit' });
         const clock = date.toLocaleTimeString(locale, { hour: '2-digit', minute: '2-digit', hour12: false });
-        time.textContent = `${day} ${clock}`;
+        time.textContent = `${isPrompt ? `${t('messagePromptTimeLabel')} ` : ''}${day} ${clock}`;
     }
 
     setExpanded(expanded: boolean): void {

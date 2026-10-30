@@ -1,3 +1,4 @@
+import { READER_READING_STYLES } from './readerStyle';
 import { CHATGPT_PAGE_WIDTH_SCALE_STEP, MIN_CHATGPT_PAGE_WIDTH_SCALE, MAX_CHATGPT_PAGE_WIDTH_SCALE, MESSAGE_CONTROL_ACTIONS, PAGE_CONTROL_ACTIONS, type AppSettings } from './types';
 import { normalizeChatGPTPageWidthScale } from './migrations';
 import { normalizeAccentHex } from './appearance';
@@ -46,7 +47,8 @@ export const PORTABLE_SETTINGS_FIELDS: Readonly<Record<string, FieldRule>> = Obj
     'behavior.pinnedMessageControls': { kind: 'actions', values: MESSAGE_CONTROL_ACTIONS },
     'reader.selectionToolbar.copy': bool, 'reader.selectionToolbar.annotation': bool,
     'reader.selectionToolbar.highlight': bool, 'reader.renderCodeInReader': bool,
-    'reader.showImagesInReader': bool, 'reader.showOutlineInReader': bool, 'reader.persistAnnotations': bool,
+    'reader.showImagesInReader': bool, 'reader.showOutlineInReader': bool,
+    'reader.readingStyle': choice(...READER_READING_STYLES),
     'reader.defaultOpenMode': choice('fullscreen', 'panel'),
     'reader.panelSizeRatio.widthRatio': number(0.42, 0.96),
     'reader.panelSizeRatio.heightRatio': number(0.46, 0.96),

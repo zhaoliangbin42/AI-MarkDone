@@ -662,7 +662,7 @@ export class ChatGPTPromptAutocompleteController {
             void this.workflow.toggleEnabled(action.promptId, action.enabled, t('promptSaveFailed'))
                 .then(() => this.render());
         } else if (action.type === 'insert') {
-            void this.insertFromManager(action.promptId, action.deleteAfter);
+            void this.insertFromManager(action.promptId);
         } else if (action.type === 'delete') {
             void this.workflow.delete(action.promptId, t('promptSaveFailed')).then(() => this.render());
         } else if (action.type === 'cancel-edit') {
@@ -686,7 +686,7 @@ export class ChatGPTPromptAutocompleteController {
         }
     }
 
-    private async insertFromManager(promptId: string, deleteAfter: boolean): Promise<void> {
+    private async insertFromManager(promptId: string): Promise<void> {
         if (this.managerInsertionPending || this.workflow.state.mode !== 'manager') return;
         const prompt = this.workflow.state.prompts?.find(item => item.id === promptId);
         const input = this.getComposerInput();
@@ -716,13 +716,7 @@ export class ChatGPTPromptAutocompleteController {
                 this.workflow.setStatusMessage(t('promptInsertFailed'));
                 return;
             }
-            if (deleteAfter) {
-                const deleted = await this.workflow.delete(prompt.id, t('promptSaveFailed'), prompt.updatedAt);
-                if (!deleted) {
-                    this.workflow.setStatusMessage(t('promptInsertedDeleteFailed'));
-                    return;
-                }
-            } else this.workflow.recordUse(prompt.id);
+            this.workflow.recordUse(prompt.id);
             if (this.host === originHost) {
                 this.close();
                 input.focus();

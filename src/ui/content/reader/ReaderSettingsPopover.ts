@@ -1,3 +1,4 @@
+import { normalizeReaderReadingStyle, READER_READING_STYLES } from '../../../core/settings/readerStyle';
 import {
     DEFAULT_READER_BODY_FONT_SIZE_PX,
     DEFAULT_READER_CONTENT_MAX_WIDTH_PX,
@@ -151,6 +152,7 @@ export class ReaderSettingsPopover {
         footer?.replaceChildren();
         body.append(
             this.createSectionHeading(t('readerSettingsDisplaySection')),
+            this.createReadingStyleRow(settings),
             this.createToggleRow(t('readerShowImagesLabel'), t('readerShowImagesDesc'), settings.showImagesInReader !== false, (checked) => this.applyPatch({ showImagesInReader: checked })),
             this.createFontSizeRow(settings),
             this.createContentWidthRow(settings),
@@ -179,12 +181,6 @@ export class ReaderSettingsPopover {
         advanced.append(
             this.createOpenModeRow(settings),
             this.createSectionHeading(t('readerSettingsAnnotationsSection')),
-            this.createToggleRow(
-                t('readerAnnotationPersistenceLabel'),
-                t('readerAnnotationPersistenceDesc'),
-                settings.persistAnnotations,
-                (checked) => this.applyPatch({ persistAnnotations: checked }),
-            ),
             this.createToggleRow(
                 t('readerCommentPromptPositionBottomLabel'),
                 t('readerCommentPromptPositionBottomDesc'),
@@ -226,6 +222,46 @@ export class ReaderSettingsPopover {
         heading.className = 'reader-settings-section-heading';
         heading.textContent = label;
         return heading;
+    }
+
+    private createReadingStyleRow(settings: AppSettings['reader']): HTMLElement {
+        const row = this.createBaseRow(t('readerReadingStyleLabel'), t('readerReadingStyleDesc'));
+        const select = document.createElement('select');
+        select.className = 'reader-settings-style-select';
+        select.dataset.role = 'reader-reading-style';
+        select.setAttribute('aria-label', t('readerReadingStyleLabel'));
+        const labels: Record<AppSettings['reader']['readingStyle'], string> = {
+            modern: 'readerStyleModern', book: 'readerStyleBook', document: 'readerStyleDocument',
+            'solarized-dark': 'readerStyleSolarizedDark', nord: 'readerStyleNord', dracula: 'readerStyleDracula',
+        };
+        for (const style of READER_READING_STYLES) {
+            const option = document.createElement('option');
+            option.value = style;
+            option.textContent = t(labels[style]);
+            select.appendChild(option);
+        }
+        select.value = normalizeReaderReadingStyle(settings.readingStyle);
+        select.addEventListener('change', async () => {
+            const root = select.getRootNode();
+            const focused = root instanceof ShadowRoot ? root.activeElement === select : document.activeElement === select;
+            const surface = this.rootEl;
+            let userMovedFocus = false;
+            const markInteraction = () => { userMovedFocus = true; };
+            surface?.addEventListener('pointerdown', markInteraction, true);
+            surface?.addEventListener('keydown', markInteraction, true);
+            select.disabled = true;
+            try { await this.applyPatch({ readingStyle: normalizeReaderReadingStyle(select.value) }); }
+            finally {
+                select.disabled = false;
+                surface?.removeEventListener('pointerdown', markInteraction, true);
+                surface?.removeEventListener('keydown', markInteraction, true);
+                if (focused && !userMovedFocus) {
+                    this.rootEl?.querySelector<HTMLSelectElement>('[data-role="reader-reading-style"]')?.focus();
+                }
+            }
+        });
+        row.appendChild(select);
+        return row;
     }
 
     private createOpenModeRow(settings: AppSettings['reader']): HTMLElement {
@@ -390,7 +426,8 @@ export class ReaderSettingsPopover {
             await this.params.onChange(patch);
             this.updateSettings(next);
         } catch (error) {
-            this.params.onPreview(previous);
+            const rollback = Object.fromEntries(Object.keys(patch).map(key => [key, previous[key as keyof ReaderSettingsPatch]])) as ReaderSettingsPatch;
+            this.params.onPreview(rollback);
             this.updateSettings(previous);
             this.params.onError?.(error);
         }
@@ -490,7 +527,8 @@ export class ReaderSettingsPopover {
             renderCodeInReader: Boolean(settings.renderCodeInReader),
             showOutlineInReader: Boolean(settings.showOutlineInReader),
             showImagesInReader: settings.showImagesInReader !== false,
-            persistAnnotations: Boolean(settings.persistAnnotations),
+            readingStyle: normalizeReaderReadingStyle(settings.readingStyle),
+            persistAnnotations: true,
             defaultOpenMode: settings.defaultOpenMode === 'panel' ? 'panel' : DEFAULT_READER_OPEN_MODE,
             panelSizeRatio: {
                 widthRatio: Number.isFinite(settings.panelSizeRatio?.widthRatio) ? settings.panelSizeRatio.widthRatio : 0.72,

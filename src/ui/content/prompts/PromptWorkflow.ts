@@ -262,17 +262,15 @@ export class PromptWorkflow {
         }
     }
 
-    async delete(id: string, fallbackMessage: string, expectedUpdatedAt?: number): Promise<boolean> {
+    async delete(id: string, fallbackMessage: string): Promise<boolean> {
         const prompt = this.findPrompt(id);
         if (!prompt) return false;
         try {
-            if (expectedUpdatedAt === undefined) await this.client.deletePrompt(prompt.id);
-            else await this.client.deletePrompt(prompt.id, expectedUpdatedAt);
+            await this.client.deletePrompt(prompt.id);
             await this.reloadManagerPrompts();
             this.statusMessage = '';
             return true;
         } catch (error) {
-            if (expectedUpdatedAt !== undefined) await this.reloadManagerPrompts().catch(() => undefined);
             this.statusMessage = error instanceof Error ? error.message : fallbackMessage;
             return false;
         }

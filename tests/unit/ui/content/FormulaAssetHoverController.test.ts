@@ -20,7 +20,7 @@ describe('FormulaAssetHoverController', () => {
         vi.useRealTimers();
     });
 
-    it('does not open formula asset actions by default', async () => {
+    it('opens PNG formula asset actions by default', async () => {
         vi.useFakeTimers();
         const container = document.createElement('div');
         container.innerHTML = `
@@ -39,7 +39,7 @@ describe('FormulaAssetHoverController', () => {
         target.dispatchEvent(new MouseEvent('mouseenter', { bubbles: true }));
         await vi.advanceTimersByTimeAsync(100);
 
-        expect(document.querySelector('.aimd-toolbar-hover-action-host')).toBeNull();
+        expect(document.querySelector('.aimd-toolbar-hover-action-host')).not.toBeNull();
 
         controller.disable();
         container.remove();

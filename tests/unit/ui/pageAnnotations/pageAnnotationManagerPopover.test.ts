@@ -70,6 +70,163 @@ describe('PageAnnotationManagerPopover', () => {
         expect(dialog.querySelectorAll('.page-annotation-manager__item')).toHaveLength(1);
     });
 
+    it('moves and resizes by pointer, clamps to the viewport, and ignores close-button drags', async () => {
+        const { shadow, manager } = await openManager({ getCurrentRecords: () => [record('a')] });
+        const dialog = shadow.querySelector<HTMLElement>('.mock-modal--page-annotation-manager')!;
+        const header = dialog.querySelector<HTMLElement>('.mock-modal__head')!;
+        const close = header.querySelector<HTMLButtonElement>('button')!;
+        vi.spyOn(dialog, 'getBoundingClientRect').mockImplementation(() => ({
+            left: Number.parseFloat(dialog.style.left) || 100, top: Number.parseFloat(dialog.style.top) || 80,
+            width: Number.parseFloat(dialog.style.width) || 400, height: Number.parseFloat(dialog.style.height) || 420,
+            right: 500, bottom: 500, x: 100, y: 80, toJSON: () => ({}),
+        }));
+        const pointer = (type: string, x: number, y: number) => new MouseEvent(type, { bubbles: true, composed: true, button: 0, clientX: x, clientY: y });
+        close.dispatchEvent(pointer('pointerdown', 150, 100)); document.dispatchEvent(pointer('pointermove', 200, 130)); document.dispatchEvent(pointer('pointerup', 200, 130));
+        expect(dialog.style.left).toBe('');
+        header.dispatchEvent(pointer('pointerdown', 150, 100)); document.dispatchEvent(pointer('pointermove', 210, 130)); document.dispatchEvent(pointer('pointerup', 210, 130));
+        expect(dialog.style.left).toBe('160px'); expect(dialog.style.top).toBe('110px');
+        const handle = dialog.querySelector<HTMLButtonElement>('[data-action="page-annotation-resize"]');
+        expect(handle).not.toBeNull();
+        handle!.dispatchEvent(pointer('pointerdown', 500, 500)); document.dispatchEvent(pointer('pointermove', 560, 550)); document.dispatchEvent(pointer('pointerup', 560, 550));
+        expect(dialog.style.width).toBe('460px'); expect(dialog.style.height).toBe('470px');
+        header.dispatchEvent(pointer('pointerdown', 160, 110)); document.dispatchEvent(pointer('pointermove', -10000, -10000)); document.dispatchEvent(pointer('pointercancel', -10000, -10000));
+        expect(Number.parseFloat(dialog.style.left)).toBeGreaterThanOrEqual(0);
+        expect(Number.parseFloat(dialog.style.top)).toBeGreaterThanOrEqual(0);
+        const previous = dialog.style.left; document.dispatchEvent(pointer('pointermove', 500, 500)); expect(dialog.style.left).toBe(previous);
+        manager.close();
+    });
+
+    it('restores manually adjusted geometry when reopened and reclamps it to a smaller viewport', async () => {
+        const originalWidth = window.innerWidth, originalHeight = window.innerHeight;
+        Object.defineProperty(window, 'innerWidth', { configurable: true, writable: true, value: 1200 });
+        Object.defineProperty(window, 'innerHeight', { configurable: true, writable: true, value: 900 });
+        try {
+            const { shadow, modalHost, manager } = await openManager({ getCurrentRecords: () => [record('a')] });
+            const dialog = shadow.querySelector<HTMLElement>('.mock-modal--page-annotation-manager')!;
+            vi.spyOn(dialog, 'getBoundingClientRect').mockImplementation(() => ({ left: Number.parseFloat(dialog.style.left) || 100, top: Number.parseFloat(dialog.style.top) || 80, width: Number.parseFloat(dialog.style.width) || 400, height: Number.parseFloat(dialog.style.height) || 420, right: 500, bottom: 500, x: 100, y: 80, toJSON: () => ({}) }));
+            const pointer = (type: string, x: number, y: number) => new MouseEvent(type, { bubbles: true, composed: true, button: 0, clientX: x, clientY: y });
+            dialog.querySelector<HTMLElement>('.mock-modal__head')!.dispatchEvent(pointer('pointerdown', 150, 100));
+            document.dispatchEvent(pointer('pointermove', 450, 300)); document.dispatchEvent(pointer('pointerup', 450, 300));
+            dialog.querySelector<HTMLButtonElement>('[data-action="page-annotation-resize"]')!.dispatchEvent(pointer('pointerdown', 500, 500));
+            document.dispatchEvent(pointer('pointermove', 600, 600)); document.dispatchEvent(pointer('pointerup', 600, 600));
+            const expected = { left: dialog.style.left, top: dialog.style.top, width: dialog.style.width, height: dialog.style.height };
+            manager.close(); await vi.waitFor(() => expect(dialog.isConnected).toBe(false));
+            const reopen = () => manager.open({ shadow, modalHost, getCurrentRecords: () => [record('a')], loadAll: async () => [], onSelect: vi.fn(), onDelete: vi.fn(async () => true), onInsertAll: vi.fn() });
+            reopen();
+            const reopened = shadow.querySelector<HTMLElement>('.mock-modal--page-annotation-manager')!;
+            expect({ left: reopened.style.left, top: reopened.style.top, width: reopened.style.width, height: reopened.style.height }).toEqual(expected);
+            manager.close(); await vi.waitFor(() => expect(reopened.isConnected).toBe(false));
+            Object.defineProperty(window, 'innerWidth', { configurable: true, writable: true, value: 500 });
+            Object.defineProperty(window, 'innerHeight', { configurable: true, writable: true, value: 450 });
+            reopen();
+            const narrowed = shadow.querySelector<HTMLElement>('.mock-modal--page-annotation-manager')!;
+            expect(Number.parseFloat(narrowed.style.left) + Number.parseFloat(narrowed.style.width)).toBeLessThanOrEqual(492);
+            expect(Number.parseFloat(narrowed.style.top) + Number.parseFloat(narrowed.style.height)).toBeLessThanOrEqual(442);
+            manager.close(); await vi.waitFor(() => expect(narrowed.isConnected).toBe(false));
+            Object.defineProperty(window, 'innerWidth', { configurable: true, writable: true, value: 1200 });
+            Object.defineProperty(window, 'innerHeight', { configurable: true, writable: true, value: 900 });
+            reopen();
+            const restored = shadow.querySelector<HTMLElement>('.mock-modal--page-annotation-manager')!;
+            expect({ left: restored.style.left, top: restored.style.top, width: restored.style.width, height: restored.style.height }).toEqual(expected);
+            manager.close();
+        } finally {
+            Object.defineProperty(window, 'innerWidth', { configurable: true, writable: true, value: originalWidth });
+            Object.defineProperty(window, 'innerHeight', { configurable: true, writable: true, value: originalHeight });
+        }
+    });
+
+    it('keeps a rapid reopen active while the previous close animation completes', async () => {
+        const { shadow, modalHost, manager, onInsertAll } = await openManager({ getCurrentRecords: () => [record('a')] });
+        const first = shadow.querySelector<HTMLElement>('.mock-modal--page-annotation-manager')!;
+        first.querySelector<HTMLButtonElement>('[data-action="page-annotation-insert-all"]')!.click();
+        manager.open({ shadow, modalHost, getCurrentRecords: () => [record('b')], loadAll: async () => [], onSelect: vi.fn(), onDelete: vi.fn(async () => true), onInsertAll: vi.fn() });
+        const second = Array.from(shadow.querySelectorAll<HTMLElement>('.mock-modal--page-annotation-manager')).at(-1)!;
+        expect(second).not.toBe(first);
+        await vi.waitFor(() => expect(first.isConnected).toBe(false));
+        expect(manager.isOpen()).toBe(true);
+        expect(onInsertAll).toHaveBeenCalledWith([record('a')]);
+        vi.spyOn(second, 'getBoundingClientRect').mockReturnValue({ left: 100, top: 100, width: 400, height: 420, right: 500, bottom: 520, x: 100, y: 100, toJSON: () => ({}) });
+        second.querySelector<HTMLElement>('.mock-modal__head')!.dispatchEvent(new KeyboardEvent('keydown', { key: 'ArrowRight', bubbles: true, cancelable: true }));
+        expect(Number.parseFloat(second.style.left)).toBeGreaterThan(100);
+        manager.close();
+    });
+
+    it('supports keyboard move and resize without breaking the search input', async () => {
+        const { shadow, manager } = await openManager({ getCurrentRecords: () => [record('a')] });
+        const dialog = shadow.querySelector<HTMLElement>('.mock-modal--page-annotation-manager')!;
+        const header = dialog.querySelector<HTMLElement>('.mock-modal__head')!;
+        vi.spyOn(dialog, 'getBoundingClientRect').mockReturnValue({ left: 100, top: 100, width: 400, height: 420, right: 500, bottom: 520, x: 100, y: 100, toJSON: () => ({}) });
+        header.dispatchEvent(new KeyboardEvent('keydown', { key: 'ArrowRight', bubbles: true, cancelable: true }));
+        expect(Number.parseFloat(dialog.style.left)).toBeGreaterThan(100);
+        const handle = dialog.querySelector<HTMLButtonElement>('[data-action="page-annotation-resize"]')!;
+        handle.dispatchEvent(new KeyboardEvent('keydown', { key: 'ArrowRight', bubbles: true, cancelable: true }));
+        expect(Number.parseFloat(dialog.style.width)).toBeGreaterThan(400);
+        const search = dialog.querySelector<HTMLInputElement>('input[type="search"]')!;
+        search.value = 'Comment a'; search.dispatchEvent(new Event('input', { bubbles: true }));
+        expect(dialog.querySelectorAll('.page-annotation-manager__item')).toHaveLength(1);
+        manager.close();
+    });
+
+    it('keeps enough height for the header, controls, footer and a readable list when narrowed', async () => {
+        const { shadow, manager } = await openManager({ getCurrentRecords: () => [record('a')] });
+        const dialog = shadow.querySelector<HTMLElement>('.mock-modal--page-annotation-manager')!;
+        vi.spyOn(dialog, 'getBoundingClientRect').mockImplementation(() => ({ left: 100, top: 50, width: Number.parseFloat(dialog.style.width) || 600, height: Number.parseFloat(dialog.style.height) || 600, right: 700, bottom: 650, x: 100, y: 50, toJSON: () => ({}) }));
+        for (const [selector, height] of [['.mock-modal__head', 68], ['.mock-modal__footer', 64], ['.page-annotation-manager__toolbar', 150], ['[data-role="bulk-actions"]', 90]] as const) {
+            const element = dialog.querySelector<HTMLElement>(selector)!;
+            vi.spyOn(element, 'getBoundingClientRect').mockReturnValue({ left: 0, top: 0, width: 300, height, right: 300, bottom: height, x: 0, y: 0, toJSON: () => ({}) });
+        }
+        const handle = dialog.querySelector<HTMLButtonElement>('[data-action="page-annotation-resize"]')!;
+        handle.dispatchEvent(new MouseEvent('pointerdown', { bubbles: true, button: 0, clientX: 700, clientY: 650 }));
+        document.dispatchEvent(new MouseEvent('pointermove', { bubbles: true, clientX: 420, clientY: 410 }));
+        document.dispatchEvent(new MouseEvent('pointerup', { bubbles: true }));
+        expect(Number.parseFloat(dialog.style.width)).toBe(320);
+        expect(Number.parseFloat(dialog.style.height)).toBeGreaterThanOrEqual(68 + 64 + 150 + 90 + 96);
+        manager.close();
+    });
+
+    it('enables compact scrolling on initial open in a short viewport', async () => {
+        const height = window.innerHeight;
+        Object.defineProperty(window, 'innerHeight', { configurable: true, writable: true, value: 300 });
+        try {
+            const { shadow, manager } = await openManager({ getCurrentRecords: () => [record('a')] });
+            const dialog = shadow.querySelector<HTMLElement>('.mock-modal--page-annotation-manager')!;
+            expect(dialog.dataset.compactViewport).toBe('true');
+            manager.close();
+        } finally { Object.defineProperty(window, 'innerHeight', { configurable: true, writable: true, value: height }); }
+    });
+
+    it('reclamps a resized panel when the viewport shrinks and ignores movement after close', async () => {
+        const width = window.innerWidth, height = window.innerHeight;
+        Object.defineProperty(window, 'innerWidth', { configurable: true, writable: true, value: 1200 });
+        Object.defineProperty(window, 'innerHeight', { configurable: true, writable: true, value: 900 });
+        try {
+            const { shadow, manager } = await openManager({ getCurrentRecords: () => [record('a')] });
+            const dialog = shadow.querySelector<HTMLElement>('.mock-modal--page-annotation-manager')!;
+            vi.spyOn(dialog, 'getBoundingClientRect').mockImplementation(() => ({ left: Number.parseFloat(dialog.style.left) || 100, top: Number.parseFloat(dialog.style.top) || 80, width: Number.parseFloat(dialog.style.width) || 400, height: Number.parseFloat(dialog.style.height) || 420, right: 500, bottom: 500, x: 100, y: 80, toJSON: () => ({}) }));
+            const pointer = (type: string, x: number, y: number) => new MouseEvent(type, { bubbles: true, composed: true, button: 0, clientX: x, clientY: y });
+            const handle = dialog.querySelector<HTMLButtonElement>('[data-action="page-annotation-resize"]')!;
+            handle.dispatchEvent(pointer('pointerdown', 500, 500));
+            document.dispatchEvent(pointer('pointermove', 1000, 850));
+            document.dispatchEvent(pointer('pointerup', 1000, 850));
+            expect(Number.parseFloat(dialog.style.height)).toBeGreaterThan(640);
+            Object.defineProperty(window, 'innerWidth', { configurable: true, writable: true, value: 500 });
+            Object.defineProperty(window, 'innerHeight', { configurable: true, writable: true, value: 350 });
+            window.dispatchEvent(new Event('resize'));
+            expect(Number.parseFloat(dialog.style.width)).toBeLessThanOrEqual(484);
+            expect(Number.parseFloat(dialog.style.height)).toBeLessThanOrEqual(334);
+            expect(Number.parseFloat(dialog.style.left) + Number.parseFloat(dialog.style.width)).toBeLessThanOrEqual(492);
+            expect(Number.parseFloat(dialog.style.top) + Number.parseFloat(dialog.style.height)).toBeLessThanOrEqual(342);
+            manager.close();
+            await vi.waitFor(() => expect(dialog.isConnected).toBe(false));
+            const previous = dialog.style.left;
+            window.dispatchEvent(new Event('resize'));
+            expect(dialog.style.left).toBe(previous);
+        } finally {
+            Object.defineProperty(window, 'innerWidth', { configurable: true, writable: true, value: width });
+            Object.defineProperty(window, 'innerHeight', { configurable: true, writable: true, value: height });
+        }
+    });
+
     it('shows a retry state for current-conversation load failures instead of an empty list', async () => {
         let loadFailed = true;
         const retryCurrent = vi.fn(async () => { loadFailed = false; });
@@ -103,7 +260,7 @@ describe('PageAnnotationManagerPopover', () => {
         expect(dialog.querySelector('.page-annotation-manager__item')).toBe(row);
     });
 
-    it('keeps only current-view insertion and removes page-level bulk copy/delete actions', async () => {
+    it('exposes insertion and insertion with deletion only for the current conversation', async () => {
         const current = record('a');
         const { shadow } = await openManager({
             getCurrentRecords: () => [current],
@@ -114,7 +271,7 @@ describe('PageAnnotationManagerPopover', () => {
         expect(dialog.querySelector('[data-action="page-annotation-copy-all"]')).toBeNull();
         expect(dialog.querySelector('[data-action="page-annotation-delete-all"]')).toBeNull();
         expect(dialog.querySelector('[data-action="page-annotation-copy-and-delete"]')).toBeNull();
-        expect(dialog.querySelector('[data-action="page-annotation-insert-and-delete"]')).toBeNull();
+        expect(dialog.querySelector('[data-action="page-annotation-insert-and-delete"]')).not.toBeNull();
 
         (dialog.querySelector('[data-view="all"]') as HTMLButtonElement).click();
         await vi.waitFor(() => expect(dialog.querySelector('[data-view="all"]')?.getAttribute('data-active')).toBe('1'));
@@ -122,6 +279,20 @@ describe('PageAnnotationManagerPopover', () => {
         expect(dialog.querySelector('[data-action="page-annotation-copy-all"]')).toBeNull();
         expect(dialog.querySelector('[data-action="page-annotation-delete-all"]')).toBeNull();
         expect(dialog.querySelector('[data-role="all-view-hint"]')?.textContent).toContain('Current conversation');
+    });
+
+    it('sends a fixed current-conversation snapshot for insert and delete', async () => {
+        const first = record('a'); const second = record('b');
+        const records = [first, second];
+        const { shadow, onInsertAll } = await openManager({ getCurrentRecords: () => records });
+        const dialog = shadow.querySelector('.mock-modal--page-annotation-manager') as HTMLElement;
+        const search = dialog.querySelector<HTMLInputElement>('input[type="search"]')!;
+        search.value = 'Comment a'; search.dispatchEvent(new Event('input', { bubbles: true }));
+        const button = dialog.querySelector<HTMLButtonElement>('[data-action="page-annotation-insert-and-delete"]')!;
+        expect(button).not.toBeNull();
+        button.dispatchEvent(new MouseEvent('pointerdown', { bubbles: true, composed: true }));
+        button.click();
+        await vi.waitFor(() => expect(onInsertAll).toHaveBeenCalledWith([first, second], true));
     });
 
     it('inserts the whole current conversation even when search hides other rows', async () => {

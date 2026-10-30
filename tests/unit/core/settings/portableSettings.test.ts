@@ -9,6 +9,14 @@ function file(settings: unknown): string {
     return JSON.stringify({ format: 'ai-markdone-settings', formatVersion: 1, appVersion: '6.0.0', exportedAt: '2026-09-30T00:00:00.000Z', settings });
 }
 describe('portable settings', () => {
+    it.each(['modern', 'book', 'document', 'solarized-dark', 'nord', 'dracula'] as const)('persists and transfers the %s reading style', readingStyle => {
+        const current = planSetCategory(DEFAULT_SETTINGS, 'reader', { readingStyle }).next;
+        const parsed = parseSettingsFile(JSON.stringify(createSettingsFile(current, '6.2.5')));
+        const restored = mergePortableSettings(DEFAULT_SETTINGS, parsed.file.settings, ['reader']);
+        expect(loadAndNormalize(restored).reader.readingStyle).toBe(readingStyle);
+        expect(planSetCategory(current, 'reader', { bodyFontSizePx: 18 }).next.reader.readingStyle).toBe(readingStyle);
+    });
+
     it('roundtrips Reader images and directory reply previews independently', () => {
         const current = structuredClone(DEFAULT_SETTINGS);
         current.reader.showImagesInReader = false;

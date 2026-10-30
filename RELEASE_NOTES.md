@@ -1,5 +1,44 @@
 # Release Notes
 
+## v6.3.0 (2026-10-30)
+
+### 中文发布文案
+
+朋友们好！这次更新了不少地方，重新整理了阅读器界面，增加了更多阅读主题，也改进了翻页、目录预览和导出等功能。
+
+最近收到一位朋友的邮件，说 AI-MarkDone 很好用，让我特别开心。做这个插件的初衷，就是希望它能在大家的日常使用中带来一些便利。大家的反馈和鼓励，也一直是我继续更新的动力。谢谢大家！
+
+1. 重新整理阅读器界面，提供六款阅读主题，可以根据自己的习惯切换。
+2. 阅读器可以输入数字直接跳转到指定消息；分页器折叠时，将鼠标移上去可以展开全部页码，查看预览并跳转（感谢 QQ 用户 @成长！）。
+3. 阅读器可以选择显示 AI 回复中已获取的图片和图表。
+4. 页面目录条的悬停预览支持同时显示提问和 AI 回复，并可调整预览长度；窄页面下也会限制预览宽度，减少对目录条的遮挡（感谢小红书用户 @舟遥遥以轻飏）。
+5. 输入框旁的注释窗口增加“插入并删除”：成功插入输入框后，才删除本次插入的注释。窗口还支持拖动、调整大小，并在当前页面内记住上次的位置和尺寸（感谢小红书用户 @章鱼哥今天也忙着宠爱自己）。
+6. 提示词管理器增加“插入”操作，可以直接将保存的提示词插入输入框。
+7. 消息导出增加更多选项：Markdown 可选择链接、代码块、公式格式和图片链接；PDF、PNG 和离线 Markdown ZIP 可选择图片或文字占位。PDF 排版也做了改进。
+8. 在能够确认会话身份的 ChatGPT 对话中，新建注释点击“保存”后会保存到本地资料库，不再需要单独开启保存开关。
+9. 调整部分默认设置：页面目录条和 AI 回复预览默认开启，Enter 换行默认关闭，公式 PNG 复制和保存默认开启。已有的相关设置会保留。
+10. 改进消息时间显示：无法取得回复时间时，如能确定同一轮提问的时间，会标注“提问”后显示。
+11. 缩小选中文字后的高亮色块，并调整目录预览设置的分类。
+
+### English
+
+Hello, friends! This update brings a refreshed Reader, more reading themes, and improvements to navigation, directory previews and exports.
+
+Recently, someone wrote to tell me they find AI-MarkDone useful, and it made me really happy. I started this project hoping it could make everyday work a little easier. Your feedback and encouragement motivate me to keep improving it. Thank you, everyone!
+
+1. Refresh the Reader interface and choose from six reading themes.
+2. Enter a number to jump directly to a Reader message. Hover over the folded pager to see all page numbers, preview messages and jump to one. Thanks to QQ user @成长！
+3. Choose whether to display captured images and charts within AI replies in Reader.
+4. Preview both the question and AI reply in the page directory, adjust preview length, and keep the preview within the available width on narrow pages. Thanks to Xiaohongshu user @舟遥遥以轻飏.
+5. Use “Insert and delete” in the annotation window beside the input box. Annotations are deleted only after successful insertion. The window can also be moved and resized, and remembers its position and size during the current page session. Thanks to Xiaohongshu user @章鱼哥今天也忙着宠爱自己.
+6. Insert a saved Prompt directly into the input box from its manager.
+7. Choose links, code blocks, formula format and image links for Markdown exports. Choose images or text placeholders for PDF, PNG and offline Markdown ZIP; PDF layout has also been improved.
+8. In ChatGPT conversations with a verified identity, save new annotations to the local Library by choosing Save, without a separate persistence switch.
+9. Enable the page directory and AI reply previews by default; keep Enter-to-newline off and formula PNG copy/save on by default. Existing preferences for these controls are preserved.
+10. If reply time is unavailable, show the associated prompt time with a label when it can be determined.
+11. Make selection highlight swatches smaller and place directory preview settings in the directory group.
+
+
 ## v6.2.5 (2026-10-21)
 
 ### 中文发布文案

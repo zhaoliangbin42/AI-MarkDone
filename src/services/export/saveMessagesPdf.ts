@@ -88,45 +88,93 @@ ${tokens}
 /* Base markdown styles (legacy parity; scoped to print container) */
 ${scopedMarkdownCss}
 
-.pdf-title-page { text-align: center; padding: 90px 20px; }
-.pdf-title-page h1 { font-size: 28px; margin: 0 0 16px 0; color: var(--aimd-text-primary); }
-.pdf-title-page .metadata { color: var(--aimd-text-secondary); font-size: 14px; line-height: 1.6; }
-
-.message-section { break-before: page; page-break-before: always; }
-.message-section:first-of-type { break-before: auto; page-break-before: auto; }
-
-.message-header {
-  font-size: 18px;
-  font-weight: 600;
-  margin: 0 0 16px 0;
-  padding-bottom: 8px;
-  border-bottom: 2px solid var(--aimd-border-default);
+/* A restrained report layout; physical text sizes stay stable across print hosts. */
+#${CONTAINER_ID} {
+  --_pdf-space-xs: 0.3em;
+  --_pdf-space-sm: 0.65em;
+  --_pdf-space-md: 1em;
+  --_pdf-space-lg: 1.5em;
+  --_pdf-space-xl: 2em;
+  font-family: var(--aimd-font-family-sans);
+  font-size: 10.5pt;
+  line-height: 1.65;
 }
-
-.user-prompt {
-  background: var(--aimd-bg-secondary);
-  padding: 16px;
-  border-radius: 8px;
-  margin-bottom: 24px;
-  border-left: 4px solid var(--aimd-interactive-primary);
+#${CONTAINER_ID} .pdf-title-page {
+  padding: 0 0 var(--_pdf-space-xl);
+  margin: 0 0 var(--_pdf-space-xl);
+  border-bottom: 2px solid var(--aimd-text-primary);
+  break-inside: avoid;
 }
-.user-prompt-label { font-weight: 600; color: var(--aimd-interactive-primary); margin-bottom: 8px; }
-.assistant-response { padding: 0 16px; }
-.assistant-response-label {
+#${CONTAINER_ID} .pdf-document-label {
+  font-size: 8pt;
   font-weight: 600;
-  margin-bottom: 12px;
+  letter-spacing: 0.12em;
+  color: var(--aimd-text-secondary);
+  margin-bottom: var(--_pdf-space-md);
+}
+#${CONTAINER_ID} .pdf-title-page h1 {
+  font-family: var(--aimd-font-family-serif);
+  font-size: 26pt;
+  font-weight: 500;
+  line-height: 1.22;
+  letter-spacing: -0.02em;
+  margin: 0 0 var(--_pdf-space-sm);
+  overflow-wrap: anywhere;
+}
+#${CONTAINER_ID} .metadata {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--_pdf-space-sm) var(--_pdf-space-lg);
+  font-size: 8pt;
+  color: var(--aimd-text-secondary);
+  font-variant-numeric: tabular-nums;
+}
+.message-section { break-before: auto; page-break-before: auto; margin-top: var(--_pdf-space-xl); }
+.message-section:first-of-type { margin-top: 0; }
+#${CONTAINER_ID} .message-header {
+  font-size: 9pt;
+  font-weight: 600;
+  margin: 0 0 var(--_pdf-space-lg);
+  padding-bottom: var(--_pdf-space-sm);
+  border-bottom: 1px solid var(--aimd-border-default);
   color: var(--aimd-text-secondary);
 }
-
-/* Typography normalization (legacy parity) */
-#${CONTAINER_ID} p { margin: 0 0 16px 0; line-height: 1.6; }
+#${CONTAINER_ID} .user-prompt {
+  background: transparent;
+  border-left: 2px solid var(--aimd-border-default);
+  padding: 0 0 0 var(--_pdf-space-md);
+  margin-bottom: var(--_pdf-space-xl);
+  font-size: 9.5pt;
+  color: var(--aimd-text-secondary);
+}
+#${CONTAINER_ID} .user-prompt > div:last-child { white-space: pre-wrap; }
+#${CONTAINER_ID} .user-prompt-label,
+#${CONTAINER_ID} .assistant-response-label {
+  font-family: var(--aimd-font-family-sans);
+  font-size: 8pt;
+  font-weight: 600;
+  color: var(--aimd-text-secondary);
+  margin-bottom: var(--_pdf-space-sm);
+}
+#${CONTAINER_ID} .assistant-response { padding: 0; }
+#${CONTAINER_ID} .reader-markdown { font-size: inherit; line-height: 1.7; }
+#${CONTAINER_ID} p { margin: 0 0 var(--_pdf-space-md); line-height: 1.7; }
 #${CONTAINER_ID} p:last-child { margin-bottom: 0; }
-#${CONTAINER_ID} ul, #${CONTAINER_ID} ol { margin: 0 0 16px 0; padding-left: 24px; }
-#${CONTAINER_ID} li { margin-bottom: 4px; }
-#${CONTAINER_ID} h1, #${CONTAINER_ID} h2, #${CONTAINER_ID} h3, #${CONTAINER_ID} h4 { margin: 24px 0 12px 0; line-height: 1.3; }
-#${CONTAINER_ID} h1:first-child, #${CONTAINER_ID} h2:first-child, #${CONTAINER_ID} h3:first-child { margin-top: 0; }
-#${CONTAINER_ID} pre { margin: 16px 0; }
-#${CONTAINER_ID} blockquote { margin: 16px 0; padding-left: 16px; }
+#${CONTAINER_ID} ul, #${CONTAINER_ID} ol { margin: 0 0 var(--_pdf-space-md); padding-left: var(--_pdf-space-lg); }
+#${CONTAINER_ID} li { margin-bottom: var(--_pdf-space-xs); }
+#${CONTAINER_ID} .reader-markdown :where(h1, h2, h3, h4) { margin: var(--_pdf-space-lg) 0 var(--_pdf-space-sm); line-height: 1.3; letter-spacing: 0; }
+#${CONTAINER_ID} .reader-markdown :where(h1) { font-size: 19pt; border: 0; padding: 0; }
+#${CONTAINER_ID} .reader-markdown :where(h2) { font-size: 14pt; padding-bottom: var(--_pdf-space-xs); border-bottom: 1px solid var(--aimd-border-subtle); }
+#${CONTAINER_ID} .reader-markdown :where(h3) { font-size: 11.5pt; }
+#${CONTAINER_ID} .reader-markdown > :first-child { margin-top: 0; }
+#${CONTAINER_ID} pre { margin: var(--_pdf-space-md) 0; }
+#${CONTAINER_ID} .reader-markdown .reader-code-block { border-radius: var(--aimd-radius-sm); box-shadow: none; background: var(--aimd-bg-secondary); }
+#${CONTAINER_ID} .reader-markdown .reader-code-block__header { min-height: 0; padding: var(--_pdf-space-sm) var(--_pdf-space-md); font-size: 7.5pt; }
+#${CONTAINER_ID} .reader-markdown .reader-code-block__header:empty { display: none; }
+#${CONTAINER_ID} .reader-markdown :where(pre code) { font-size: 8.5pt; line-height: 1.55; }
+#${CONTAINER_ID} .reader-markdown :where(th, td) { padding: var(--_pdf-space-sm) var(--_pdf-space-sm); border-inline: 0; font-size: 9pt; }
+#${CONTAINER_ID} .reader-markdown :where(blockquote) { margin: var(--_pdf-space-md) 0; padding: var(--_pdf-space-xs) 0 var(--_pdf-space-xs) var(--_pdf-space-md); border-left: 2px solid var(--aimd-border-default); border-radius: 0; background: transparent; }
+#${CONTAINER_ID} .reader-markdown :where(img) { max-height: 210mm; object-fit: contain; border-radius: var(--aimd-radius-sm); }
 
 #${CONTAINER_ID} .reader-markdown :where(pre),
 #${CONTAINER_ID} .reader-markdown .reader-code-block,
@@ -161,14 +209,15 @@ ${scopedMarkdownCss}
     let html = `
 <style>${baseCss}</style>
 
-<div class="pdf-title-page">
+<header class="pdf-title-page">
+  <div class="pdf-document-label">AI-MarkDone / ${escapeExportHtml(t('pdfDocumentLabel'))}</div>
   <h1>${escapeExportHtml(document.title)}</h1>
   <div class="metadata">
-    ${t('pdfExportedFrom', escapeExportHtml(metadata.platform))}<br>
-    ${new Date(metadata.exportedAt).toLocaleString()}<br>
-    ${t('pdfMessagesCount', `${document.sections.length}`)}
+    <span>${t('pdfExportedFrom', escapeExportHtml(metadata.platform))}</span>
+    <span>${new Date(metadata.exportedAt).toLocaleString()}</span>
+    <span>${t('pdfMessagesCount', `${document.sections.length}`)}</span>
   </div>
-</div>
+</header>
 `;
 
     document.sections.forEach((section, index) => {

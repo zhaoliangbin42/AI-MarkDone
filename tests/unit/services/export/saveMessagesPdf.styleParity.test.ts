@@ -60,7 +60,7 @@ describe('buildPdfPrintPlan (legacy parity structure)', () => {
         expect(plan!.html).toContain('pdfMessagesCount:2');
     });
 
-    it('includes cover page, per-message page breaks, and stable print container', () => {
+    it('includes a compact document heading, flowing messages, and stable print container', () => {
         const turns: ChatTurn[] = [
             { user: '中文用户', assistant: '中文内容', index: 0 },
             { user: 'u2', assistant: 'a2', index: 1 },
@@ -80,7 +80,9 @@ describe('buildPdfPrintPlan (legacy parity structure)', () => {
         const html = plan!.html;
         expect(html).toContain('class="pdf-title-page"');
         expect(html).toContain('class="message-section"');
-        expect(html).toContain('break-before: page');
+        expect(html).toContain('break-before: auto');
+        expect(html).not.toContain('page-break-before: always');
+        expect(html).toContain('<header class="pdf-title-page">');
         expect(html).toContain('@media print');
         expect(html).toMatch(/#aimd-pdf-export-container\s*\{[^}]*--aimd-ref-color-neutral-0: #FFFFFF;/);
         expect(html).toMatch(/#aimd-pdf-export-container\s*\{[^}]*--aimd-sys-color-surface: var\(--aimd-ref-color-neutral-0\);/);

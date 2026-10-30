@@ -49,6 +49,8 @@ mocks/components/*
 !mocks/components/overlay-host/**
 !mocks/components/reader-comments/
 !mocks/components/reader-comments/**
+!mocks/components/page-annotation-manager/
+!mocks/components/page-annotation-manager/**
 !mocks/components/reader-panel/
 !mocks/components/reader-panel/**
 !mocks/components/unsupported-popup/

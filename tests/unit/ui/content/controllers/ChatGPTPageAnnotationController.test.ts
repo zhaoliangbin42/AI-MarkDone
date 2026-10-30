@@ -563,6 +563,36 @@ describe('ChatGPTPageAnnotationController', () => {
         } finally { controller.dispose(); }
     });
 
+    it('restores the adjusted annotation window through the composer chip after closing', async () => {
+        const message = mountMessage('<p>Quoted answer</p>');
+        const root = message.querySelector('.markdown.prose') as HTMLElement;
+        document.body.insertAdjacentHTML('beforeend', '<form><div><button type="button" id="composer-plus-btn">+</button></div><textarea name="prompt-textarea"></textarea></form>');
+        const controller = new ChatGPTPageAnnotationController(new ChatGPTAdapter(), { contentSource: createContentSource(), materialization: createMaterialization(message) });
+        controller.init();
+        try {
+            await vi.waitFor(() => expect(controller['store'].getDocument()).not.toBeNull());
+            const range = document.createRange(); range.selectNodeContents(root);
+            await controller['store'].create(createPageCommentRecord({ id: 'geometry-note', itemId: 'chatgpt-assistant-1', comment: 'Note', range, root, sourceMarkdown: 'Quoted answer' }), { assistantMessageId: 'assistant-1' });
+            const chip = document.querySelector('[data-aimd-role="page-annotation-composer-chip"]')!.shadowRoot!.querySelector<HTMLButtonElement>('button')!;
+            const click = (button: HTMLElement) => { button.dispatchEvent(new MouseEvent('pointerdown', { bubbles: true, composed: true })); button.click(); };
+            click(chip);
+            const shadow = document.querySelector('#aimd-chatgpt-page-annotation-manager-host')!.shadowRoot!;
+            const dialog = shadow.querySelector<HTMLElement>('.mock-modal--page-annotation-manager')!;
+            vi.spyOn(dialog, 'getBoundingClientRect').mockReturnValue({ left: 100, top: 80, width: 400, height: 450, right: 500, bottom: 530, x: 100, y: 80, toJSON: () => ({}) });
+            dialog.querySelector<HTMLElement>('.mock-modal__head')!.dispatchEvent(new MouseEvent('pointerdown', { bubbles: true, button: 0, clientX: 150, clientY: 100 }));
+            document.dispatchEvent(new MouseEvent('pointermove', { bubbles: true, clientX: 210, clientY: 130 }));
+            document.dispatchEvent(new MouseEvent('pointerup', { bubbles: true, clientX: 210, clientY: 130 }));
+            const expectedLeft = dialog.style.left, expectedTop = dialog.style.top;
+            click(dialog.querySelector<HTMLButtonElement>('[data-action="modal-cancel"]')!);
+            await vi.waitFor(() => expect(dialog.isConnected).toBe(false));
+            click(chip);
+            const reopened = shadow.querySelector<HTMLElement>('.mock-modal--page-annotation-manager')!;
+            expect(reopened).not.toBe(dialog);
+            expect(reopened.style.left).toBe(expectedLeft);
+            expect(reopened.style.top).toBe(expectedTop);
+        } finally { controller.dispose(); }
+    });
+
     it.each(['success', 'missing-composer'])('inserts without deleting through the annotation chip and manager (%s)', async (scenario) => {
         const message = mountMessage('<p>Quoted answer</p>');
         const root = message.querySelector('.markdown.prose') as HTMLElement;
@@ -582,7 +612,7 @@ describe('ChatGPTPageAnnotationController', () => {
             const removeMany = vi.spyOn(controller['store'], 'removeMany');
             const shadow = document.querySelector('#aimd-chatgpt-page-annotation-manager-host')!.shadowRoot!;
             const button = shadow.querySelector<HTMLButtonElement>('[data-action="page-annotation-insert-all"]')!;
-            expect(shadow.querySelector('[data-action="page-annotation-insert-and-delete"]')).toBeNull();
+            expect(shadow.querySelector('[data-action="page-annotation-insert-and-delete"]')).not.toBeNull();
             button.dispatchEvent(new MouseEvent('pointerdown', { bubbles: true, composed: true }));
             button.click();
             if (scenario === 'success') {
@@ -593,6 +623,106 @@ describe('ChatGPTPageAnnotationController', () => {
             }
             expect(controller['store'].listForConversation()).toHaveLength(1);
             expect(removeMany).not.toHaveBeenCalled();
+        } finally { controller.dispose(); }
+    });
+
+    it.each(['success', 'missing-composer', 'partial-delete'])('inserts and deletes through the real annotation chip (%s)', async scenario => {
+        const message = mountMessage('<p>Quoted answer</p>');
+        const root = message.querySelector('.markdown.prose') as HTMLElement;
+        document.body.insertAdjacentHTML('beforeend', '<form><div><button type="button" id="composer-plus-btn">+</button></div><textarea name="prompt-textarea">Existing draft</textarea></form>');
+        const controller = new ChatGPTPageAnnotationController(new ChatGPTAdapter(), { contentSource: createContentSource(), materialization: createMaterialization(message) });
+        controller.init();
+        try {
+            await vi.waitFor(() => expect(controller['store'].getDocument()).not.toBeNull());
+            const range = document.createRange(); range.selectNodeContents(root);
+            const record = createPageCommentRecord({ id: 'trigger-note', itemId: 'chatgpt-assistant-1', comment: 'Saved note', range, root, sourceMarkdown: 'Quoted answer' });
+            await controller['store'].create(record, { assistantMessageId: 'assistant-1' });
+            const chip = document.querySelector('[data-aimd-role="page-annotation-composer-chip"]')!.shadowRoot!.querySelector<HTMLButtonElement>('button')!;
+            chip.dispatchEvent(new MouseEvent('pointerdown', { bubbles: true, composed: true })); chip.click();
+            const removeMany = vi.spyOn(controller['store'], 'removeMany');
+            if (scenario === 'partial-delete') removeMany.mockImplementation(async records => records);
+            if (scenario === 'missing-composer') document.querySelector('textarea')!.remove();
+            const shadow = document.querySelector('#aimd-chatgpt-page-annotation-manager-host')!.shadowRoot!;
+            const button = shadow.querySelector<HTMLButtonElement>('[data-action="page-annotation-insert-and-delete"]')!;
+            expect(button).not.toBeNull();
+            button.dispatchEvent(new MouseEvent('pointerdown', { bubbles: true, composed: true })); button.click();
+            if (scenario === 'missing-composer') {
+                await vi.waitFor(() => expect(document.querySelector('.aimd-toast')?.textContent).toContain('Could not insert annotations'));
+                expect(removeMany).not.toHaveBeenCalled();
+            } else {
+                await vi.waitFor(() => expect(removeMany).toHaveBeenCalledOnce());
+                expect(document.querySelector('textarea')!.value).toContain('Existing draft');
+                expect(document.querySelector('textarea')!.value).toContain('Saved note');
+                if (scenario === 'partial-delete') {
+                    await vi.waitFor(() => expect(document.querySelector('.aimd-toast')?.textContent).toContain('inserted'));
+                    expect(controller['store'].listForConversation()).toHaveLength(1);
+                } else expect(controller['store'].listForConversation()).toHaveLength(0);
+            }
+        } finally { controller.dispose(); }
+    });
+
+    it.each(['success', 'missing-composer', 'partial-delete'])('inserts before deleting only the captured annotations (%s)', async scenario => {
+        const message = mountMessage('<p>Quoted answer</p>');
+        const root = message.querySelector('.markdown.prose') as HTMLElement;
+        document.body.insertAdjacentHTML('beforeend', '<form><div><button type="button" id="composer-plus-btn">+</button></div><textarea name="prompt-textarea">Existing draft</textarea></form>');
+        const controller = new ChatGPTPageAnnotationController(new ChatGPTAdapter(), { contentSource: createContentSource(), materialization: createMaterialization(message) });
+        controller.init();
+        try {
+            await vi.waitFor(() => expect(controller['store'].getDocument()).not.toBeNull());
+            const range = document.createRange(); range.selectNodeContents(root);
+            const record = createPageCommentRecord({ id: 'insert-delete', itemId: 'chatgpt-assistant-1', comment: 'Saved note', range, root, sourceMarkdown: 'Quoted answer' });
+            await controller['store'].create(record, { assistantMessageId: 'assistant-1' });
+            const snapshot = controller['store'].listForConversation();
+            const removeMany = vi.spyOn(controller['store'], 'removeMany');
+            if (scenario === 'partial-delete') removeMany.mockResolvedValue(snapshot);
+            if (scenario === 'missing-composer') document.querySelector('textarea')!.remove();
+            await (controller as any).insertAnnotations(snapshot, true);
+            if (scenario === 'missing-composer') {
+                expect(removeMany).not.toHaveBeenCalled();
+                expect(controller['store'].listForConversation()).toHaveLength(1);
+            } else {
+                expect(document.querySelector('textarea')!.value).toContain('Existing draft');
+                expect(document.querySelector('textarea')!.value).toContain('Saved note');
+                expect(removeMany).toHaveBeenCalledWith(snapshot);
+                if (scenario === 'success') expect(controller['store'].listForConversation()).toHaveLength(0);
+                else expect(document.querySelector('.aimd-toast')?.textContent).toContain('inserted');
+            }
+        } finally { controller.dispose(); }
+    });
+
+    it.each(['conversation-switch', 'changed-annotation', 'rejected-write'])('preserves annotations when state changes during insertion (%s)', async scenario => {
+        const message = mountMessage('<p>Quoted answer</p>');
+        const root = message.querySelector('.markdown.prose') as HTMLElement;
+        document.body.insertAdjacentHTML('beforeend', '<form><div><button type="button" id="composer-plus-btn">+</button></div><textarea name="prompt-textarea">Existing draft</textarea></form>');
+        const controller = new ChatGPTPageAnnotationController(new ChatGPTAdapter(), { contentSource: createContentSource(), materialization: createMaterialization(message) });
+        controller.init();
+        try {
+            await vi.waitFor(() => expect(controller['store'].getDocument()).not.toBeNull());
+            if (scenario === 'conversation-switch') {
+                controller['store'].setPersistEnabled(true);
+                annotationClientMock.create.mockImplementation(async (_document, annotation) => ({ ok: true, data: { annotation: { ...annotation, revision: 1 } } }));
+            }
+            const range = document.createRange(); range.selectNodeContents(root);
+            const record = createPageCommentRecord({ id: 'race-note', itemId: 'chatgpt-assistant-1', comment: 'Saved note', range, root, sourceMarkdown: 'Quoted answer' });
+            await controller['store'].create(record, { assistantMessageId: 'assistant-1' });
+            const snapshot = controller['store'].listForConversation();
+            const removeMany = vi.spyOn(controller['store'], 'removeMany');
+            const textarea = document.querySelector('textarea')!;
+            textarea.addEventListener('input', () => {
+                if (scenario === 'conversation-switch') void controller['store'].bindDocument({ platform: 'chatgpt', conversationId: 'other' });
+                if (scenario === 'changed-annotation') void controller['store'].update({ ...snapshot[0]!, comment: 'Changed note', updatedAt: snapshot[0]!.updatedAt + 1 }, null);
+                if (scenario === 'rejected-write') textarea.value = 'Existing draft';
+            }, { once: true });
+            await (controller as any).insertAnnotations(snapshot, true);
+            if (scenario === 'conversation-switch' || scenario === 'rejected-write') expect(removeMany).not.toHaveBeenCalled();
+            else {
+                expect(removeMany).toHaveBeenCalledWith([]);
+                expect(controller['store'].listForConversation()[0]?.comment).toBe('Changed note');
+            }
+            if (scenario === 'rejected-write') {
+                expect(textarea.value).toBe('Existing draft');
+                expect(controller['store'].listForConversation()).toHaveLength(1);
+            }
         } finally { controller.dispose(); }
     });
 

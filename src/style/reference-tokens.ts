@@ -5,6 +5,48 @@ export function getReferenceTokenCss(theme: Theme): string {
 
     return `
 :host {
+  --aimd-ref-reader-solarized-canvas: #002b36;
+  --aimd-ref-reader-solarized-surface: #073642;
+  --aimd-ref-reader-solarized-text: #93a1a1;
+  --aimd-ref-reader-solarized-muted: #93a1a1;
+  --aimd-ref-reader-solarized-rule: #586e75;
+  --aimd-ref-reader-solarized-accent: #2aa198;
+  --aimd-ref-reader-nord-canvas: #2e3440;
+  --aimd-ref-reader-nord-surface: #3b4252;
+  --aimd-ref-reader-nord-text: #eceff4;
+  --aimd-ref-reader-nord-muted: #d8dee9;
+  --aimd-ref-reader-nord-rule: #4c566a;
+  --aimd-ref-reader-nord-accent: #88c0d0;
+  --aimd-ref-reader-nord-keyword: #81a1c1;
+  --aimd-ref-reader-nord-string: #a3be8c;
+  --aimd-ref-reader-nord-number: #b48ead;
+  --aimd-ref-reader-dracula-canvas: #282a36;
+  --aimd-ref-reader-dracula-surface: #44475a;
+  --aimd-ref-reader-dracula-text: #f8f8f2;
+  --aimd-ref-reader-dracula-muted: #c0c1cd;
+  --aimd-ref-reader-dracula-rule: #6272a4;
+  --aimd-ref-reader-dracula-accent: #bd93f9;
+  --aimd-ref-reader-dracula-keyword: #ff79c6;
+  --aimd-ref-reader-dracula-string: #f1fa8c;
+  --aimd-ref-reader-dracula-number: #bd93f9;
+  --aimd-ref-reader-day-canvas: #ffffff;
+  --aimd-ref-reader-day-surface: #f6f8fa;
+  --aimd-ref-reader-day-text: #1f2328;
+  --aimd-ref-reader-day-muted: #59636e;
+  --aimd-ref-reader-day-rule: #d1d9e0;
+  --aimd-ref-reader-day-accent: #0969da;
+  --aimd-ref-reader-paper-canvas: #fdf6e3;
+  --aimd-ref-reader-paper-surface: #eee8d5;
+  --aimd-ref-reader-paper-text: #52666d;
+  --aimd-ref-reader-paper-muted: #52666d;
+  --aimd-ref-reader-paper-rule: #d6cfb8;
+  --aimd-ref-reader-paper-accent: #2176a5;
+  --aimd-ref-reader-night-canvas: #0d1117;
+  --aimd-ref-reader-night-surface: #161b22;
+  --aimd-ref-reader-night-text: #e6edf3;
+  --aimd-ref-reader-night-muted: #9da7b3;
+  --aimd-ref-reader-night-rule: #30363d;
+  --aimd-ref-reader-night-accent: #79c0ff;
   --aimd-ref-color-neutral-black: #000000;
   --aimd-ref-color-highlight-blue: ${isDark ? '#344B63' : '#DCE9F6'};
   --aimd-ref-color-highlight-yellow: ${isDark ? '#554D32' : '#F5EBBF'};

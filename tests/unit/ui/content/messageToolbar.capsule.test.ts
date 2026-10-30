@@ -140,3 +140,14 @@ describe('message action pins', () => {
         window.dispatchEvent(new KeyboardEvent('keydown',{key:'Escape'}));expect(button.closest('.capsule-pinned')).toBeTruthy();expect(button.closest('[inert]')).toBeNull();
     });
 });
+
+it('distinguishes prompt fallback time from reply time even when timestamps match', () => {
+    const { toolbar, shadow } = mount();
+    const time = shadow.querySelector<HTMLTimeElement>('time')!;
+    toolbar.setMessageMetadata({ promptCreatedAt: 1700000000000 });
+    const promptLabel = time.textContent;
+    expect(time.hidden).toBe(false);
+    toolbar.setMessageMetadata({ createdAt: 1700000000000 });
+    expect(time.textContent).not.toBe(promptLabel);
+    expect(time.dateTime).toBe(new Date(1700000000000).toISOString());
+});

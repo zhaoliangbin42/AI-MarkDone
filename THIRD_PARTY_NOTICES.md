@@ -37,3 +37,44 @@ which is distributed under the
 [MIT License](https://github.com/codemirror/lang-markdown/blob/6.5.0/LICENSE).
 AI-MarkDone does not bundle the CodeMirror editor; its second Backspace uses the
 product-specific direct-join behavior documented in this repository.
+
+
+## Reader document theme references
+
+Reader adapts the light/dark palette and familiar Markdown presentation of
+[github-markdown-css](https://github.com/sindresorhus/github-markdown-css), and
+the light/dark palettes of [Solarized](https://ethanschoonover.com/solarized/),
+[Nord](https://www.nordtheme.com/docs/colors-and-palettes/) and
+[Dracula](https://draculatheme.com/spec). Reference date: 2026-10-28.
+The implementation is scoped to the existing Reader and the AI-MarkDone token
+system; no upstream stylesheet, JavaScript, font or image is loaded at runtime.
+The Paper text/link colors and divider, supporting dark-theme text, and Nord
+code colors are adjusted for reading contrast on the local surfaces.
+
+MIT License
+
+Copyright (c) Sindre Sorhus <sindresorhus@gmail.com> (https://sindresorhus.com)
+
+Copyright (c) 2011 Ethan Schoonover
+
+Copyright (c) 2016-present Sven Greb <development@svengreb.de> (https://www.svengreb.de)
+
+Copyright (c) 2023 Dracula Theme
+
+Permission is hereby granted, free of charge, to any person obtaining a copy
+of this software and associated documentation files (the "Software"), to deal
+in the Software without restriction, including without limitation the rights
+to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+copies of the Software, and to permit persons to whom the Software is
+furnished to do so, subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in
+all copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
+THE SOFTWARE.

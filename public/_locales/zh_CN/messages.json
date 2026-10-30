@@ -1,4 +1,5 @@
 {
+    "messagePromptTimeLabel": { "message": "提问" },
     "promptTriggerHelp": {
         "message": "设置后，在 ChatGPT 输入框输入反斜杠 \\ 加触发文本，即可插入这个 Prompt。",
         "description": "Explain optional Prompt trigger text"
@@ -1566,19 +1567,19 @@
         "description": "Message for chatgptDirectoryEnabledDesc"
     },
     "chatgptDirectoryModeLabel": {
-        "message": "消息目录展开方式",
+        "message": "目录条显示方式",
         "description": "Message for chatgptDirectoryModeLabel"
     },
     "chatgptDirectoryModeDesc": {
-        "message": "可始终保持细条，也可在鼠标移入时展开消息标题。",
+        "message": "手风琴：保持紧凑条目，悬停时突出附近条目。展开：鼠标移入时展开消息标题。",
         "description": "Message for chatgptDirectoryModeDesc"
     },
     "chatgptDirectoryModePreview": {
-        "message": "保持细条",
+        "message": "手风琴",
         "description": "Message for chatgptDirectoryModePreview"
     },
     "chatgptDirectoryModeExpanded": {
-        "message": "悬停时展开标题",
+        "message": "展开",
         "description": "Message for chatgptDirectoryModeExpanded"
     },
     "chatgptDirectoryPromptLabelModeLabel": {
@@ -1598,11 +1599,11 @@
         "description": "Message for chatgptDirectoryRightInsetDesc"
     },
     "chatgptDirectoryPreviewMaxCharsLabel": {
-        "message": "消息预览字符数",
+        "message": "目录条预览长度",
         "description": "Message for chatgptDirectoryPreviewMaxCharsLabel"
     },
     "chatgptDirectoryPreviewMaxCharsDesc": {
-        "message": "鼠标移到消息目录中的条目时，限制预览的文字长度。",
+        "message": "限制 ChatGPT 页面目录条悬停预览的文字长度，分别作用于提问和 AI 回复。",
         "description": "Message for chatgptDirectoryPreviewMaxCharsDesc"
     },
     "reader": {
@@ -3385,6 +3386,8 @@
         "message": "注释",
         "description": "Label for the page annotation count chip beside the ChatGPT input box"
     },
+    "pageAnnotationManagerMove": { "message": "移动注释窗口" },
+    "pageAnnotationManagerResize": { "message": "调整注释窗口大小" },
     "pageAnnotationManagerTitle": {
         "message": "注释",
         "description": "Title of the page annotation manager modal"
@@ -3505,6 +3508,9 @@
         "message": "页面工具",
         "description": "Label for pageControls"
     },
+    "pageAnnotationInsertedDeleteFailed": { "message": "注释已插入，但部分注释删除失败；未删除的注释已保留。" },
+    "pageAnnotationInsertAndDelete": { "message": "插入并删除" },
+    "pageAnnotationInsertScope": { "message": "操作当前对话的全部注释，包括搜索后未显示的注释。" },
     "pageAnnotationInsert": {
         "message": "插入到输入框",
         "description": "Button to insert annotations into the input box"
@@ -5390,11 +5396,11 @@
         "description": "Feature overview description"
     },
     "featureOverviewMarksSaveAnnotationsEntry": {
-        "message": "阅读器设置 → 保存新建的注释",
+        "message": "注释编辑器 → 保存",
         "description": "Feature overview entry"
     },
     "featureOverviewMarksSaveAnnotationsNote": {
-        "message": "默认关闭。关闭时新注释仅留在当前页面；已经保存的注释不受影响。",
+        "message": "在 ChatGPT 的有效对话中，点击保存后会写入本地资料库。",
         "description": "Feature overview usage note"
     },
     "featureOverviewMarksHighlightTitle": {
@@ -5841,8 +5847,8 @@
     "readerPageJump": {"message": "页码 · 按回车跳转"},
     "readerShowImagesLabel": {"message": "显示回复中的图片"},
     "readerShowImagesDesc": {"message": "显示已获取的内嵌图片和图表；关闭后只显示文字说明，不加载图片。"},
-    "chatgptDirectoryPreviewAssistantLabel": {"message": "预览中显示 AI 回复"},
-    "chatgptDirectoryPreviewAssistantDesc": {"message": "以纯文本同时显示提问与 AI 回复；预览长度分别作用于两部分。"},
+    "chatgptDirectoryPreviewAssistantLabel": {"message": "目录条预览显示 AI 回复"},
+    "chatgptDirectoryPreviewAssistantDesc": {"message": "在 ChatGPT 页面目录条的悬停预览中，同时显示提问和 AI 回复的纯文本。"},
     "exportFormulaLabel": {"message": "公式格式"},
     "exportLinksLabel": {"message": "链接"},
     "exportLinksKeep": {"message": "保留链接"},
@@ -5852,9 +5858,7 @@
     "exportCodeOmit": {"message": "不包含代码块"},
     "exportMarkdownImagesHint": {"message": "需要同时保存 Markdown 和图片时，请选择 Markdown 离线包（ZIP）。"},
     "promptInsert": {"message": "插入"},
-    "promptInsertAndDelete": {"message": "插入并删除"},
     "promptInsertFailed": {"message": "Prompt 未能插入，库中的条目已保留。请检查消息输入框后重试。"},
-    "promptInsertedDeleteFailed": {"message": "Prompt 已插入，但未能从库中删除。请使用“删除”重试，避免重复插入。"},
     "promptNoMatches": {"message": "没有匹配的 Prompt，请换个关键词。"},
     "exportImagesLabel": {"message": "图片"},
     "exportImageLinksKeep": {"message": "保留可用的图片链接"},
@@ -5862,5 +5866,14 @@
     "exportOptionsOptional": {"message": "可选"},
     "exportOptionsCustomized": {"message": "已调整"},
     "readerAllMessages": {"message": "全部消息"},
-    "readerPagerHelp": {"message": "悬停预览 · 点击跳转"}
+    "readerPagerHelp": {"message": "悬停预览 · 点击跳转"},
+    "readerReadingStyleLabel": {"message": "阅读主题"},
+    "readerReadingStyleDesc": {"message": "六种经典配色，正文、玻璃工具栏与翻页预览同步适配。"},
+    "readerStyleModern": {"message": "清白"},
+    "readerStyleBook": {"message": "纸页"},
+    "readerStyleDocument": {"message": "墨夜"},
+    "pdfDocumentLabel": {"message": "对话文档"},
+    "readerStyleSolarizedDark": {"message": "青墨"},
+    "readerStyleNord": {"message": "极地"},
+    "readerStyleDracula": {"message": "暗紫"}
 }

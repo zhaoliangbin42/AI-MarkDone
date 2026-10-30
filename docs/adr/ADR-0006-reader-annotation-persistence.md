@@ -67,3 +67,13 @@ Reader 注释目前只存在于各自 Reader runtime 的内存 `Map` 中。页�
 - **管理页**：页面入口默认当前会话，提供当前/全部视图、搜索、定位编辑、单条删除，并只在当前会话提供注释插入；Reader surface 继续拥有注释复制、Prompt 选择和批量导出语义。
 - **总开关与入口**：`chatgptBehavior.pageAnnotationsEnabled`（默认开启）控制整套页面注释行为（工具条、锚点、输入框内入口、管理页）；入口嵌入 ChatGPT 输入框、位于 Markdown 增强按钮右侧并显示注释数量。页面普通插入复用 Reader `buildCommentsExport` 但不带隐式 Prompt；Prompt 联想中按右方向键才把当前 Prompt 与当前会话注释组合插入。关闭总开关只隐藏页面 UI，不删除任何已保存数据。
 - **锚点几何**：锚点按钮位于选中内容垂直居中高度、正文列右侧留白（阅读器同款 gutter），正文列占满视口（无留白）时隐藏按钮，用户仍可通过输入框内入口与管理页访问。
+
+## 2026-10-29 amendment: automatic local persistence
+
+The user-facing persistence opt-out above is superseded. New ChatGPT annotations
+with a verified document and target always use the same background-owned local
+bundle. Existing settings normalize the retired flag to true, and portable
+settings no longer expose it. Save still explicitly submits an editor; closing
+without Save does not persist its draft. Identity-less/legacy surfaces retain
+their existing session behavior. No historical session-only notes are recovered
+or silently promoted.

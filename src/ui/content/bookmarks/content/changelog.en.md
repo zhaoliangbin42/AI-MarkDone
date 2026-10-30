@@ -1,5 +1,25 @@
 # Changelog
 
+# 6.3.0
+2026-10-30
+
+Hello, friends! This update brings a refreshed Reader, more reading themes, and improvements to navigation, directory previews and exports.
+
+Recently, someone wrote to tell me they find AI-MarkDone useful, and it made me really happy. I started this project hoping it could make everyday work a little easier. Your feedback and encouragement motivate me to keep improving it. Thank you, everyone!
+
+1. Refresh the Reader interface and choose from six reading themes.
+2. Enter a number to jump directly to a Reader message. Hover over the folded pager to see all page numbers, preview messages and jump to one. Thanks to QQ user @成长！
+3. Choose whether to display captured images and charts within AI replies in Reader.
+4. Preview both the question and AI reply in the page directory, adjust preview length, and keep the preview within the available width on narrow pages. Thanks to Xiaohongshu user @舟遥遥以轻飏.
+5. Use “Insert and delete” in the annotation window beside the input box. Annotations are deleted only after successful insertion. The window can also be moved and resized, and remembers its position and size during the current page session. Thanks to Xiaohongshu user @章鱼哥今天也忙着宠爱自己.
+6. Insert a saved Prompt directly into the input box from its manager.
+7. Choose links, code blocks, formula format and image links for Markdown exports. Choose images or text placeholders for PDF, PNG and offline Markdown ZIP; PDF layout has also been improved.
+8. In ChatGPT conversations with a verified identity, save new annotations to the local Library by choosing Save, without a separate persistence switch.
+9. Enable the page directory and AI reply previews by default; keep Enter-to-newline off and formula PNG copy/save on by default. Existing preferences for these controls are preserved.
+10. If reply time is unavailable, show the associated prompt time with a label when it can be determined.
+11. Make selection highlight swatches smaller and place directory preview settings in the directory group.
+
+
 # 6.2.5
 2026-10-21
 

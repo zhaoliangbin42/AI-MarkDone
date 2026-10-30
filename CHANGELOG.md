@@ -7,17 +7,25 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [6.3.0] - 2026-10-30
+
 ### Added
-- Jump directly to a Reader message by entering its number, or hover the folded pager to browse all message numbers with previews.
-- Choose whether Reader displays captured inline reply images and charts.
-- Customize Markdown exports with link, formula, code-block and image-link options; choose images or text placeholders for PDF, PNG and offline Markdown bundles.
-- Optionally preview AI replies alongside Prompts in the directory, with adjustable text length for each part.
-- Insert a saved Prompt from its manager, or insert and delete it after the message input accepts the text. Changed library entries remain protected.
+- Move and resize the annotation window beside the ChatGPT input; its position and size are remembered during the current page session. Insert current-conversation annotations and optionally delete them after insertion succeeds. Thanks to Xiaohongshu user @章鱼哥今天也忙着宠爱自己.
+- Choose six Reader themes, enter a number to jump to a message, and hover the folded pager to browse all messages with previews. Thanks to QQ user @成长！ for the page-number suggestion.
+- Choose whether to display captured images and charts within AI replies in Reader.
+- Preview AI replies alongside questions in the page directory, with adjustable preview length. Thanks to Xiaohongshu user @舟遥遥以轻飏.
+- Insert a saved Prompt into the input box from its manager.
+- Choose links, code blocks, formula format and image links for Markdown exports; choose images or text placeholders for PDF, PNG and offline Markdown ZIP.
 
 ### Changed
-- Keep export details under collapsed Advanced options, with clearer Prompt actions, message navigation and preview surfaces.
-- Keep directory previews beside the rail and within a proportional viewport limit.
-- Make selection highlight swatches more compact, improve Prompt action visibility, and refine Reader navigation for narrow windows.
+- Refresh the Reader interface and improve PDF layout.
+- In ChatGPT conversations with a verified identity, save new annotations to the local Library by choosing Save, without a separate persistence switch.
+- Default the page directory and AI reply previews on, Enter-to-newline off, and formula PNG copy/save on while preserving existing preferences for these controls.
+- Limit directory preview width on narrow pages and make selection highlight swatches smaller.
+
+### Fixed
+- Group AI reply preview settings with the page directory settings.
+- Show the associated prompt time with a label when reply time is unavailable and the prompt time can be determined.
 
 ## [6.2.5] - 2026-10-21
 

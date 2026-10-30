@@ -163,6 +163,7 @@ describe('ChatGPTComposerEditingController behavior', () => {
             if (event.key === 'Enter' && !event.shiftKey && !event.defaultPrevented) hostSend();
         }, { capture: true });
         const controller = new ChatGPTComposerEditingController(createAdapter({ current: composer }));
+        controller.setInputEnhancementSettings({ ...DEFAULT_CHATGPT_INPUT_ENHANCEMENT_SETTINGS, enterKeyNewline: true });
         controller.init();
 
         const enter = new KeyboardEvent('keydown', { key: 'Enter', bubbles: true, cancelable: true });
@@ -184,6 +185,7 @@ describe('ChatGPTComposerEditingController behavior', () => {
         };
         document.addEventListener('keydown', onHostKeydown);
         const controller = new ChatGPTComposerEditingController(adapter);
+        controller.setInputEnhancementSettings({ ...DEFAULT_CHATGPT_INPUT_ENHANCEMENT_SETTINGS, enterKeyNewline: true });
         controller.init();
         try {
             expect(adapter.getComposerInputElement()).toBe(composer);
@@ -351,6 +353,7 @@ describe('ChatGPTComposerEditingController behavior', () => {
         document.body.appendChild(composer);
         const setRangeText = vi.spyOn(composer, 'setRangeText');
         const controller = new ChatGPTComposerEditingController(createAdapter({ current: composer }));
+        controller.setInputEnhancementSettings({ ...DEFAULT_CHATGPT_INPUT_ENHANCEMENT_SETTINGS, enterKeyNewline: true });
         controller.init();
 
         const event = new KeyboardEvent('keydown', { key: 'Enter', bubbles: true, cancelable: true });
@@ -511,12 +514,13 @@ describe('ChatGPTComposerEditingController behavior', () => {
             getObserverContainer: () => observerRoot,
         } as any;
         const controller = new ChatGPTComposerEditingController(adapter);
+        controller.setInputEnhancementSettings({ ...DEFAULT_CHATGPT_INPUT_ENHANCEMENT_SETTINGS, enterKeyNewline: true });
         controller.init();
 
         const observer = FakeMutationObserver.instances[0]!;
         const selector = '[data-aimd-role="input-enhancement-button"]';
         expect(firstButtonRow.querySelectorAll(selector)).toHaveLength(0);
-        controller.setInputEnhancementSettings(DEFAULT_CHATGPT_INPUT_ENHANCEMENT_SETTINGS);
+        controller.setInputEnhancementSettings({ ...DEFAULT_CHATGPT_INPUT_ENHANCEMENT_SETTINGS, enterKeyNewline: true });
 
         observerRoot = secondRoot;
         composer = secondComposer;
@@ -543,6 +547,7 @@ describe('ChatGPTComposerEditingController behavior', () => {
         composer.setAttribute('contenteditable', 'true');
         document.body.appendChild(composer);
         const controller = new ChatGPTComposerEditingController(createAdapter({ current: composer }));
+        controller.setInputEnhancementSettings({ ...DEFAULT_CHATGPT_INPUT_ENHANCEMENT_SETTINGS, enterKeyNewline: true });
         const shiftedEvents: string[] = [];
         composer.addEventListener('keydown', (event) => {
             if ((event as KeyboardEvent).shiftKey) shiftedEvents.push('keydown');
@@ -639,6 +644,7 @@ describe('ChatGPTComposerEditingController behavior', () => {
         composer.addEventListener('input', inputSpy);
         composer.addEventListener('change', changeSpy);
         const controller = new ChatGPTComposerEditingController(createAdapter({ current: composer }));
+        controller.setInputEnhancementSettings({ ...DEFAULT_CHATGPT_INPUT_ENHANCEMENT_SETTINGS, enterKeyNewline: true });
         controller.init();
 
         const event = new KeyboardEvent('keydown', { key: 'Enter', bubbles: true, cancelable: true });
@@ -673,6 +679,7 @@ describe('ChatGPTComposerEditingController behavior', () => {
         const inputRef = { current: first as HTMLElement | null };
         document.body.appendChild(firstForm);
         const controller = new ChatGPTComposerEditingController(createAdapter(inputRef));
+        controller.setInputEnhancementSettings({ ...DEFAULT_CHATGPT_INPUT_ENHANCEMENT_SETTINGS, enterKeyNewline: true });
         controller.init();
 
         inputRef.current = second;
